@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"marketplace-backend/internal/app/auth"
 	"marketplace-backend/internal/domain/user"
@@ -35,13 +36,11 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Common required fields
 	if errs := validator.ValidateRequired(map[string]string{
-		"email":        req.Email,
-		"password":     req.Password,
-		"first_name":   req.FirstName,
-		"last_name":    req.LastName,
-		"display_name": req.DisplayName,
-		"role":         req.Role,
+		"email":    req.Email,
+		"password": req.Password,
+		"role":     req.Role,
 	}); errs != nil {
 		res.ValidationError(w, errs)
 		return
@@ -50,6 +49,33 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err := validator.ValidateRole(req.Role); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_role", err.Error())
 		return
+	}
+
+	// Role-specific validation
+	switch req.Role {
+	case "provider":
+		if errs := validator.ValidateRequired(map[string]string{
+			"first_name": req.FirstName,
+			"last_name":  req.LastName,
+		}); errs != nil {
+			res.ValidationError(w, errs)
+			return
+		}
+		req.DisplayName = strings.TrimSpace(req.FirstName) + " " + strings.TrimSpace(req.LastName)
+	case "agency", "enterprise":
+		if errs := validator.ValidateRequired(map[string]string{
+			"display_name": req.DisplayName,
+		}); errs != nil {
+			res.ValidationError(w, errs)
+			return
+		}
+		// For companies, first/last name are optional
+		if req.FirstName == "" {
+			req.FirstName = req.DisplayName
+		}
+		if req.LastName == "" {
+			req.LastName = ""
+		}
 	}
 
 	output, err := h.authService.Register(r.Context(), auth.RegisterInput{

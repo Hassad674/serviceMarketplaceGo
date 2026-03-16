@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   MessageSquare,
@@ -16,6 +16,7 @@ import {
   Package,
   Handshake,
   X,
+  LogOut,
 } from "lucide-react"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
@@ -68,9 +69,15 @@ type SidebarProps = {
 
 export function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const router = useRouter()
+  const { user, logout } = useAuth()
   const role = user?.role ?? "enterprise"
   const items = navByRole[role] ?? enterpriseNav
+
+  function handleLogout() {
+    logout()
+    router.push("/login")
+  }
 
   return (
     <>
@@ -91,19 +98,31 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <Link href="/" className="text-lg font-semibold text-sidebar-foreground">
             Marketplace
           </Link>
-          <button onClick={onClose} className="lg:hidden text-sidebar-foreground">
+          <button
+            onClick={onClose}
+            className="lg:hidden text-sidebar-foreground"
+            aria-label="Fermer le menu"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Referrer toggle for providers */}
-        {role === "provider" && user?.referrer_enabled && (
-          <div className="mx-4 mt-4 rounded-lg bg-primary/10 px-3 py-2 text-center">
-            <span className="flex items-center justify-center gap-2 text-sm font-medium text-primary">
-              <Handshake className="h-4 w-4" />
-              Apporteur d&apos;affaires
-            </span>
-          </div>
+        {role === "provider" && (
+          <Link
+            href="/dashboard/provider"
+            className={cn(
+              "mx-4 mt-4 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+              user?.referrer_enabled
+                ? "bg-primary/10 text-primary"
+                : "border border-dashed border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/50",
+            )}
+          >
+            <Handshake className="h-4 w-4" />
+            {user?.referrer_enabled
+              ? "Mode Apporteur d'affaires"
+              : "Devenir apporteur d'affaires"}
+          </Link>
         )}
 
         {/* Navigation */}
@@ -127,6 +146,17 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             )
           })}
         </nav>
+
+        {/* Logout button */}
+        <div className="border-t border-sidebar-border p-3">
+          <button
+            onClick={handleLogout}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-sidebar-accent/50"
+          >
+            <LogOut className="h-4 w-4 shrink-0" />
+            Se deconnecter
+          </button>
+        </div>
       </aside>
     </>
   )

@@ -49,7 +49,7 @@ export function RegisterForm() {
       const response = await registerUser(values)
       setAuth(response.user, response.access_token, response.refresh_token)
 
-      const dashboardPath = `/${response.user.role}`
+      const dashboardPath = `/dashboard/${response.user.role}`
       router.push(dashboardPath)
     } catch (err) {
       setError(
