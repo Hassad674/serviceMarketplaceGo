@@ -49,7 +49,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="rounded-xl border border-border bg-card p-8 shadow-sm space-y-4">
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -57,7 +57,7 @@ export function LoginForm() {
       )}
 
       <div className="space-y-2">
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="email" className="block text-sm font-medium text-foreground">
           Email
         </label>
         <input
@@ -65,7 +65,7 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           placeholder="vous@exemple.com"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+          className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("email")}
         />
         {errors.email && (
@@ -74,7 +74,7 @@ export function LoginForm() {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="password" className="block text-sm font-medium text-foreground">
           Mot de passe
         </label>
         <input
@@ -82,7 +82,7 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           placeholder="Votre mot de passe"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
+          className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("password")}
         />
         {errors.password && (
@@ -93,14 +93,14 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
+        className="h-11 w-full rounded-md bg-primary font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
       >
         {isSubmitting ? "Connexion..." : "Se connecter"}
       </button>
 
-      <p className="text-center text-sm text-gray-500">
+      <p className="text-center text-sm text-muted-foreground">
         Pas encore de compte ?{" "}
-        <Link href="/register" className="font-medium text-gray-900 underline underline-offset-4 hover:text-gray-700">
+        <Link href="/register" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80">
           Creer un compte
         </Link>
       </p>

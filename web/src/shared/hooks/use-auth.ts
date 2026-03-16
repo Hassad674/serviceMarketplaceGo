@@ -28,9 +28,16 @@ export const useAuth = create<AuthState>()(
       user: null,
       accessToken: null,
       refreshToken: null,
-      setAuth: (user, accessToken, refreshToken) =>
-        set({ user, accessToken, refreshToken }),
-      logout: () => set({ user: null, accessToken: null, refreshToken: null }),
+      setAuth: (user, accessToken, refreshToken) => {
+        set({ user, accessToken, refreshToken })
+        // Set cookie for Next.js middleware (route protection)
+        document.cookie = `access_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+      },
+      logout: () => {
+        set({ user: null, accessToken: null, refreshToken: null })
+        // Clear cookie
+        document.cookie = "access_token=; path=/; max-age=0"
+      },
       isAuthenticated: () => !!get().accessToken,
     }),
     { name: "marketplace-auth" },
