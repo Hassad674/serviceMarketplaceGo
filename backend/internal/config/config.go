@@ -15,11 +15,12 @@ type Config struct {
 	JWTAccessExpiry  time.Duration
 	JWTRefreshExpiry time.Duration
 	AllowedOrigins   []string
-	MinioEndpoint    string
-	MinioAccessKey   string
-	MinioSecretKey   string
-	MinioBucket      string
-	MinioUseSSL      bool
+	StorageEndpoint  string
+	StorageAccessKey string
+	StorageSecretKey string
+	StorageBucket    string
+	StorageUseSSL    bool
+	StoragePublicURL string
 }
 
 func Load() *Config {
@@ -32,11 +33,12 @@ func Load() *Config {
 		JWTAccessExpiry:  parseDuration(getEnv("JWT_ACCESS_EXPIRY", "15m")),
 		JWTRefreshExpiry: parseDuration(getEnv("JWT_REFRESH_EXPIRY", "168h")), // 7 days
 		AllowedOrigins:   strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173"), ","),
-		MinioEndpoint:    getEnv("MINIO_ENDPOINT", "localhost:9000"),
-		MinioAccessKey:   getEnv("MINIO_ACCESS_KEY", "minioadmin"),
-		MinioSecretKey:   getEnv("MINIO_SECRET_KEY", "minioadmin"),
-		MinioBucket:      getEnv("MINIO_BUCKET", "marketplace"),
-		MinioUseSSL:      getEnv("MINIO_USE_SSL", "false") == "true",
+		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", "localhost:9000"),
+		StorageAccessKey: getEnv("STORAGE_ACCESS_KEY", "minioadmin"),
+		StorageSecretKey: getEnv("STORAGE_SECRET_KEY", "minioadmin"),
+		StorageBucket:    getEnv("STORAGE_BUCKET", "marketplace"),
+		StorageUseSSL:    getEnv("STORAGE_USE_SSL", "false") == "true",
+		StoragePublicURL: getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/marketplace"),
 	}
 }
 
