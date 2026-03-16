@@ -1,0 +1,26 @@
+package profile
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type Profile struct {
+	UserID               uuid.UUID
+	Title                string
+	PhotoURL             string
+	PresentationVideoURL string
+	ReferrerVideoURL     string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+}
+
+func NewProfile(userID uuid.UUID) *Profile {
+	now := time.Now()
+	return &Profile{
+		UserID:    userID,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+}

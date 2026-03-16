@@ -1,0 +1,26 @@
+import { apiClient } from "@/shared/lib/api-client"
+
+export type Profile = {
+  user_id: string
+  title: string
+  photo_url: string
+  presentation_video_url: string
+  referrer_video_url: string
+  created_at: string
+  updated_at: string
+}
+
+export async function getMyProfile(token: string): Promise<Profile> {
+  return apiClient<Profile>("/api/v1/profile", { token })
+}
+
+export async function updateProfile(
+  token: string,
+  data: Partial<Profile>,
+): Promise<Profile> {
+  return apiClient<Profile>("/api/v1/profile", {
+    method: "PUT",
+    body: data,
+    token,
+  })
+}

@@ -10,6 +10,7 @@ import (
 
 type RouterDeps struct {
 	Auth         *AuthHandler
+	Profile      *ProfileHandler
 	Health       *HealthHandler
 	Config       *config.Config
 	TokenService service.TokenService
@@ -45,6 +46,15 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		})
 
+		// Profile routes (authenticated)
+		r.Route("/profile", func(r chi.Router) {
+			r.Use(middleware.Auth(deps.TokenService))
+			r.Get("/", deps.Profile.GetMyProfile)
+			r.Put("/", deps.Profile.UpdateMyProfile)
+		})
+
+		// Public profiles
+		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
 	})
 
 	return r

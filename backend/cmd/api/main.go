@@ -11,6 +11,7 @@ import (
 
 	"marketplace-backend/internal/adapter/postgres"
 	"marketplace-backend/internal/app/auth"
+	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/pkg/crypto"
@@ -39,19 +40,23 @@ func main() {
 
 	// Initialize adapters (output ports)
 	userRepo := postgres.NewUserRepository(db)
+	profileRepo := postgres.NewProfileRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
 
 	// Initialize application services
 	authSvc := auth.NewService(userRepo, hasher, tokenSvc)
+	profileSvc := profileapp.NewService(profileRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc)
+	profileHandler := handler.NewProfileHandler(profileSvc)
 	healthHandler := handler.NewHealthHandler(db)
 
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
 		Auth:         authHandler,
+		Profile:      profileHandler,
 		Health:       healthHandler,
 		Config:       cfg,
 		TokenService: tokenSvc,
