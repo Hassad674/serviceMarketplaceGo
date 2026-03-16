@@ -410,3 +410,284 @@ npm run generate-api    # Generate TypeScript types from backend OpenAPI schema
 3. Use CSS variable tokens from `globals.css` (e.g., `bg-primary`, `text-muted-foreground`).
 4. Export named: `export function Button() { ... }`.
 5. Props should extend native HTML element props where applicable.
+
+---
+
+## Performance & Caching
+
+### Performance Optimization Patterns
+
+1. **Server Components vs Client Components decision**
+   ```
+   Can this component render without JavaScript? → Server Component
+   Does it need useState/useEffect/onClick?     → Client Component
+   Does it only read data?                      → Server Component
+   Does it need browser APIs?                   → Client Component
+   ```
+
+2. **Code splitting with dynamic imports**
+   ```typescript
+   // Heavy components loaded only when needed
+   const MissionEditor = dynamic(() => import("@/features/mission/components/mission-editor"), {
+     loading: () => <MissionEditorSkeleton />,
+   })
+   ```
+
+3. **Image optimization rules**
+   - ALWAYS use `next/image` — never `<img>`
+   - Set explicit `width` and `height` (prevents CLS)
+   - Use `priority` prop for above-the-fold images (LCP)
+   - Format: AVIF > WebP > JPEG (Next.js auto-negotiates)
+   - Lazy load below-fold images (default behavior)
+   ```typescript
+   <Image
+     src={agency.logoUrl}
+     alt={`Logo de ${agency.name}`}
+     width={120}
+     height={120}
+     className="rounded-lg"
+     priority={isAboveFold}
+   />
+   ```
+
+4. **Data fetching optimization**
+   - Server Components: fetch in the component, Next.js deduplicates automatically
+   - Parallel fetches with `Promise.all` for independent data:
+   ```typescript
+   // GOOD: parallel
+   const [profile, missions, reviews] = await Promise.all([
+     getProfile(id),
+     getMissions(id),
+     getReviews(id),
+   ])
+
+   // BAD: sequential (waterfall)
+   const profile = await getProfile(id)
+   const missions = await getMissions(id)
+   const reviews = await getReviews(id)
+   ```
+
+5. **Skeleton loading patterns**
+   - Every page with async data MUST have a `loading.tsx` file
+   - Use skeleton components that match the layout (not generic spinners)
+   - Streaming: use `<Suspense>` boundaries for progressive loading
+
+---
+
+## SEO Strategy (Comprehensive)
+
+This is a B2B marketplace — SEO is the primary acquisition channel. Every public page must be optimized.
+
+### 1. Metadata per page type
+
+```typescript
+// app/(public)/agencies/[id]/page.tsx
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const agency = await getAgency(params.id)
+  return {
+    title: `${agency.name} — Agence ${agency.expertises[0]} | Marketplace Service`,
+    description: `${agency.name} est une agence ${agency.expertises.join(", ")} basée à ${agency.city}. ${agency.about?.slice(0, 120)}...`,
+    openGraph: {
+      title: agency.name,
+      description: agency.about?.slice(0, 200),
+      images: [{ url: agency.logoUrl, width: 400, height: 400, alt: agency.name }],
+      type: "profile",
+    },
+    twitter: {
+      card: "summary",
+      title: agency.name,
+      description: agency.about?.slice(0, 200),
+    },
+    alternates: {
+      canonical: `https://marketplace-service.com/agencies/${agency.id}`,
+    },
+  }
+}
+```
+
+| Page type | Title pattern | Description pattern |
+|-----------|--------------|---------------------|
+| Home | "Marketplace Service — Trouvez le prestataire idéal" | "Plateforme B2B connectant agences, freelances et entreprises. Trouvez le prestataire parfait pour votre projet." |
+| Agency profile | "{name} — Agence {expertise} \| Marketplace Service" | "{name} est une agence {expertises} basée à {city}. {about first 120 chars}" |
+| Freelance profile | "{name} — {title} Freelance \| Marketplace Service" | "{name}, {title} freelance à {city}. {about first 120 chars}" |
+| Project listing | "Projets disponibles — {count} projets \| Marketplace Service" | "Parcourez {count} projets B2B. Budget de {minBudget}€ à {maxBudget}€." |
+| Project detail | "{title} — Projet {domain} \| Marketplace Service" | "{description first 150 chars}" |
+| Agencies directory | "Annuaire des agences — {count} agences \| Marketplace Service" | "Trouvez la meilleure agence pour votre projet parmi {count} agences vérifiées." |
+| Freelances directory | "Annuaire des freelances — {count} freelances \| Marketplace Service" | "Trouvez le freelance idéal parmi {count} professionnels vérifiés." |
+
+### 2. Structured Data (JSON-LD) per entity
+
+```typescript
+// Agency profile → Organization schema
+const agencyJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: agency.name,
+  description: agency.about,
+  url: `https://marketplace-service.com/agencies/${agency.id}`,
+  logo: agency.logoUrl,
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: agency.city,
+    addressCountry: "FR",
+  },
+  aggregateRating: agency.averageRating ? {
+    "@type": "AggregateRating",
+    ratingValue: agency.averageRating,
+    reviewCount: agency.reviewCount,
+    bestRating: 5,
+    worstRating: 1,
+  } : undefined,
+}
+
+// Freelance profile → Person schema
+const freelanceJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: `${freelance.firstName} ${freelance.lastName}`,
+  jobTitle: freelance.title,
+  description: freelance.about,
+  address: {
+    "@type": "PostalAddress",
+    addressLocality: freelance.city,
+    addressCountry: "FR",
+  },
+  knowsAbout: freelance.skills,
+}
+
+// Project → JobPosting schema
+const projectJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "JobPosting",
+  title: project.title,
+  description: project.description,
+  datePosted: project.createdAt,
+  employmentType: project.budgetType === "long_term" ? "CONTRACT" : "TEMPORARY",
+  baseSalary: {
+    "@type": "MonetaryAmount",
+    currency: "EUR",
+    value: {
+      "@type": "QuantitativeValue",
+      minValue: project.minBudget,
+      maxValue: project.maxBudget,
+    },
+  },
+  hiringOrganization: {
+    "@type": "Organization",
+    name: project.enterprise.name,
+  },
+  jobLocation: {
+    "@type": "Place",
+    address: { "@type": "PostalAddress", addressCountry: "FR" },
+  },
+}
+```
+
+### 3. Breadcrumbs schema
+
+```typescript
+// Every public page has breadcrumbs for Google
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Accueil", item: "https://marketplace-service.com" },
+    { "@type": "ListItem", position: 2, name: "Agences", item: "https://marketplace-service.com/agencies" },
+    { "@type": "ListItem", position: 3, name: agency.name },
+  ],
+}
+```
+
+Render in layout:
+```typescript
+<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+```
+
+### 4. Dynamic Sitemap
+
+```typescript
+// app/sitemap.ts
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [agencies, freelances, projects] = await Promise.all([
+    getPublicAgencies(),
+    getPublicFreelances(),
+    getPublicProjects(),
+  ])
+
+  const staticPages = [
+    { url: "https://marketplace-service.com", lastModified: new Date(), changeFrequency: "daily" as const, priority: 1 },
+    { url: "https://marketplace-service.com/agencies", lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.9 },
+    { url: "https://marketplace-service.com/freelances", lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.9 },
+    { url: "https://marketplace-service.com/projects", lastModified: new Date(), changeFrequency: "daily" as const, priority: 0.9 },
+  ]
+
+  const agencyPages = agencies.map((a) => ({
+    url: `https://marketplace-service.com/agencies/${a.id}`,
+    lastModified: a.updatedAt,
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }))
+
+  const freelancePages = freelances.map((f) => ({
+    url: `https://marketplace-service.com/freelances/${f.id}`,
+    lastModified: f.updatedAt,
+    changeFrequency: "weekly" as const,
+    priority: 0.8,
+  }))
+
+  const projectPages = projects.map((p) => ({
+    url: `https://marketplace-service.com/projects/${p.id}`,
+    lastModified: p.updatedAt,
+    changeFrequency: "daily" as const,
+    priority: 0.7,
+  }))
+
+  return [...staticPages, ...agencyPages, ...freelancePages, ...projectPages]
+}
+```
+
+### 5. robots.txt
+
+```typescript
+// app/robots.ts
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: [
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: ["/dashboard/", "/api/", "/login", "/register"],
+      },
+    ],
+    sitemap: "https://marketplace-service.com/sitemap.xml",
+  }
+}
+```
+
+### 6. Canonical URL strategy
+
+- Every page has a canonical URL to prevent duplicate content
+- Pagination: `?cursor=abc` pages have canonical pointing to the first page (no cursor)
+- Profile pages: canonical is always the clean URL without query params
+- Use `alternates.canonical` in metadata
+
+### 7. Internal linking strategy
+
+- Agency profiles link to their projects, reviews, and team members
+- Project pages link back to the enterprise and to similar projects
+- Directory pages have filters that generate crawlable URLs: `/agencies?city=paris&expertise=web`
+- Footer contains links to all major directory pages
+
+### 8. Performance for SEO
+
+Google uses Core Web Vitals as a ranking factor:
+- **LCP < 2.5s**: Use Server Components, preload critical images with `priority`
+- **FID < 100ms**: Minimize client-side JS on public pages
+- **CLS < 0.1**: Always set width/height on images, use font-display: swap
+
+### 9. Social sharing meta
+
+Every public page must have:
+- og:title, og:description, og:image, og:url, og:type
+- twitter:card, twitter:title, twitter:description
+- Images: 1200x630px for og:image (Facebook/LinkedIn), 400x400 for twitter summary

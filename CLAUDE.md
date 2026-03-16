@@ -278,6 +278,122 @@ Do not abstract on the first or second occurrence. Copy-paste is acceptable twic
 - **EU data residency**: Production databases hosted in EU region.
 - **Retention**: Define and enforce data retention policies per data type.
 
+### Authentication security (enhanced)
+
+- **Brute force protection**: Maximum 5 failed login attempts per email per 15-minute window, then 30-minute lockout. Tracked in Redis with key `login_attempts:{email}` (TTL 15min) and `login_locked:{email}` (TTL 30min). Return `429 Too Many Requests` when locked.
+- **Refresh token rotation**: Every call to `/api/v1/auth/refresh` generates a new access+refresh token pair. The old refresh token is immediately added to a Redis blacklist (TTL = old token's remaining expiry). If a blacklisted refresh token is reused, respond with `401 Unauthorized` — this signals token theft.
+- **Token revocation**: Logout invalidates the refresh token by adding it to the Redis blacklist. The access token remains valid until its short TTL (15min) expires — this is acceptable because the window is small and avoids the cost of checking a blacklist on every request.
+- **Password requirements**: Enforced at domain level (already done). Minimum 8 characters, at least one uppercase, one lowercase, one digit, one special character.
+
+### Authorization model (who can do what)
+
+Three layers, evaluated in order — every request must pass all three:
+
+1. **Authentication** (JWT middleware): Is this a valid, non-expired token? Extract `user_id` and `role` into context.
+2. **Role check** (RequireRole middleware): Does the user's role permit access to this endpoint group?
+3. **Ownership check** (handler level): Does the user OWN the specific resource they are trying to read/modify?
+
+Every mutation endpoint must verify the user OWNS the resource or has the `admin` role. Never trust client-side role checks alone — always verify server-side. A user with role `agency` who sends a request to modify another agency's profile must receive `403 Forbidden`, even though the role check passes.
+
+### HTTP security headers (middleware)
+
+Applied globally via `SecurityHeaders` middleware on every response:
+
+```
+Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 0 (rely on CSP instead)
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+```
+
+`X-XSS-Protection` is set to `0` intentionally — the legacy XSS auditor in older browsers can introduce vulnerabilities. Modern protection comes from the `Content-Security-Policy` header.
+
+### Input sanitization
+
+- **All user text input**: Strip HTML tags before storage to prevent stored XSS. Use a allowlist-based sanitizer, not a denylist.
+- **File uploads**: Validate MIME type by reading file magic bytes (not just the extension). Enforce max file size (10MB default). Reject executable extensions (`.exe`, `.sh`, `.bat`, `.cmd`, `.ps1`, `.php`, `.jsp`). Store in MinIO with randomized keys — never use the original filename in the storage path.
+- **URL inputs**: Validate scheme (`https` only in production, `http` allowed in dev). Reject `javascript:`, `data:`, `vbscript:`, and `file:` URIs. Validate that the host resolves to a public IP (prevent SSRF against internal services).
+
+### Audit logging
+
+- Log all authentication events: `login_success`, `login_failure`, `logout`, `password_reset_request`, `password_reset_complete`, `token_refresh`.
+- Log all data mutations: `create`, `update`, `delete` with `user_id`, `resource_type`, `resource_id`, `timestamp`, and `ip_address`.
+- Log all permission denials: `authorization_denied` with `user_id`, `attempted_action`, `resource_type`, `resource_id`.
+- Store in a dedicated `audit_logs` table. This table is **append-only** — no `UPDATE` or `DELETE` operations, ever. No soft deletes. Application-level DB user should only have `INSERT` and `SELECT` on this table.
+- Retention: audit logs are kept indefinitely (legal/compliance requirement). Archive to cold storage after 12 months if volume becomes a concern.
+
+### Rate limiting strategy
+
+All rate limits are enforced via Redis sliding window counters. When a limit is exceeded, return `429 Too Many Requests` with a `Retry-After` header.
+
+```
+Global:      100 req/min per IP (covers all endpoints)
+Auth:        5 req/min per email (login, register, password reset)
+Mutations:   30 req/min per authenticated user (POST, PUT, PATCH, DELETE)
+File upload: 10 req/min per authenticated user
+```
+
+Rate limit headers included on every response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`.
+
+---
+
+## Data isolation and authorization
+
+### Three-layer security model
+
+```
+Request → JWT Auth (who are you?) → Authorization (what role?) → Ownership (is this yours?) → Repository (WHERE user_id = ?) → PostgreSQL (RLS backup)
+```
+
+Every layer is a defense-in-depth checkpoint. If the application layer has a bug that skips the ownership check, PostgreSQL RLS prevents cross-tenant data leaks. If RLS is misconfigured, the application-level `WHERE user_id = $1` still filters correctly. No single point of failure.
+
+### Authorization middleware pattern
+
+- `middleware.Auth(tokenService)` — validates JWT, extracts `user_id` + `role`, stores in request context.
+- `middleware.RequireRole("agency", "provider")` — checks the role from context against the allowed list. Returns `403 Forbidden` if not matched.
+- Handler-level ownership check: after fetching the resource from the database, verify `resource.UserID == requestingUserID`. This cannot be middleware because the resource ID comes from the URL and must be fetched first.
+
+### Repository-level filtering (primary defense)
+
+- ALL repository methods that return user-specific data MUST accept a `userID` parameter.
+- `GetMissions(ctx, userID)` not `GetMissions(ctx)` — the SQL query always includes `WHERE user_id = $1`.
+- List endpoints: users only see their own resources unless the resource is explicitly marked as public.
+- Admin list endpoints use separate repository methods without the `userID` filter, accessed only through admin-gated routes.
+- Never construct a query that returns all rows and then filter in Go. The database does the filtering.
+
+### PostgreSQL RLS (defense-in-depth backup)
+
+- Enable RLS on ALL tables except `users` (the `users` table is accessed by auth flows that run before user context is established).
+- Policy pattern: `USING (user_id = current_setting('app.current_user_id', true)::uuid)` — the `true` parameter makes `current_setting` return `NULL` instead of erroring when the setting is not set, which causes the policy to deny access (safe default).
+- Set `app.current_user_id` via `SET LOCAL` at the beginning of each request's database transaction. `SET LOCAL` scopes the setting to the current transaction only — it cannot leak to other requests sharing the same connection.
+- RLS is a BACKUP — application-level checks (repository `WHERE` clauses + handler ownership checks) are the primary defense. RLS catches bugs in application code.
+- Superuser and table owner bypass RLS by default. The application database user must NOT be a superuser and must NOT own the tables. Use a separate migration user for DDL.
+- Test RLS in integration tests: attempt to read another user's data and verify it returns zero rows.
+
+### What each role can access
+
+| Resource | Owner | Same role | Other roles | Admin |
+|----------|-------|-----------|-------------|-------|
+| Own profile | Read/Write | — | Read (public fields only) | Read/Write |
+| Own missions | Read/Write | — | — | Read/Write |
+| Own messages | Read/Write | — | — | Read |
+| Own invoices | Read/Write | — | — | Read |
+| Other's public profile | Read | Read | Read | Read/Write |
+| Other's missions | — | — | — | Read/Write |
+
+"—" means no access. Any attempt returns `403 Forbidden`. Public fields on profiles are: name, company name, description, avatar URL, role, and average rating. Private fields (email, phone, billing info) are never exposed to other users.
+
+### Critical invariants (never violate these)
+
+1. A user must NEVER see another user's messages, invoices, or private profile data (unless admin).
+2. A user must NEVER modify another user's resources (unless admin).
+3. Every database query for user-specific data MUST include the `user_id` filter — no exceptions.
+4. Admin endpoints are gated by `RequireRole("admin")` AND logged in the audit trail.
+5. RLS policies must be tested in integration tests to verify they block cross-tenant access.
+
 ---
 
 ## Accessibility standards (web)
