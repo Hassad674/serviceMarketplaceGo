@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
+import '../../features/auth/presentation/screens/test_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -14,6 +15,7 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 class RoutePaths {
   RoutePaths._();
 
+  static const String test = '/test';
   static const String login = '/login';
   static const String register = '/register';
   static const String dashboard = '/dashboard';
@@ -40,7 +42,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState.status == AuthStatus.authenticated;
       final isLoading = authState.status == AuthStatus.loading;
       final isAuthRoute = state.matchedLocation == RoutePaths.login ||
-          state.matchedLocation == RoutePaths.register;
+          state.matchedLocation == RoutePaths.register ||
+          state.matchedLocation == RoutePaths.test;
 
       // Still loading — stay on current route.
       if (isLoading) return null;
@@ -54,6 +57,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // --- Test route (temporary, public) ---
+      GoRoute(
+        path: RoutePaths.test,
+        builder: (context, state) => const TestScreen(),
+      ),
+
       // --- Auth routes (public) ---
       GoRoute(
         path: RoutePaths.login,

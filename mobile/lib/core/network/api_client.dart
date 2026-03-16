@@ -15,7 +15,12 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 /// Base URL points to the Go backend. On Android emulator, `10.0.2.2`
 /// maps to the host machine's localhost.
 class ApiClient {
-  static const String baseUrl = 'http://10.0.2.2:8080';
+  // Android emulator: 10.0.2.2, Physical device: use your machine's local IP
+  // Override at runtime with --dart-define=API_URL=http://192.168.1.X:8083
+  static const String baseUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'http://10.0.2.2:8083',
+  );
 
   late final Dio _dio;
   final SecureStorageService _storage;
