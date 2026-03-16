@@ -4,14 +4,14 @@
 
 /*
  * Marketplace Service Design Tokens
- * Deep blue primary, slate neutrals — professional B2B aesthetic.
+ * Rose primary, slate neutrals — warm B2B aesthetic.
  * Compatible with shadcn/ui CSS variable convention.
  */
 
 :root {
-  /* Primary — Deep blue */
-  --primary: oklch(0.546 0.245 262.881);
-  --primary-foreground: oklch(0.985 0.004 262.881);
+  /* Primary — Rose */
+  --primary: oklch(0.645 0.246 16.439);
+  --primary-foreground: oklch(0.985 0.002 12.0);
 
   /* Secondary — Cool light gray */
   --secondary: oklch(0.967 0.003 264.542);
@@ -33,8 +33,8 @@
   --muted: oklch(0.967 0.003 264.542);
   --muted-foreground: oklch(0.556 0.005 285.979);
 
-  /* Accent — Light blue tint */
-  --accent: oklch(0.955 0.03 262.881);
+  /* Accent — Light rose tint */
+  --accent: oklch(0.955 0.03 16.439);
   --accent-foreground: oklch(0.21 0.006 285.885);
 
   /* Destructive — Red */
@@ -52,7 +52,7 @@
   /* Border, input, ring */
   --border: oklch(0.922 0.004 286.032);
   --input: oklch(0.922 0.004 286.032);
-  --ring: oklch(0.546 0.245 262.881);
+  --ring: oklch(0.645 0.246 16.439);
 
   /* Radius */
   --radius: 0.5rem;
@@ -61,14 +61,14 @@
   --sidebar: oklch(0.985 0.003 247.858);
   --sidebar-foreground: oklch(0.145 0.004 285.823);
   --sidebar-border: oklch(0.922 0.004 286.032);
-  --sidebar-accent: oklch(0.955 0.03 262.881);
+  --sidebar-accent: oklch(0.955 0.03 16.439);
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-ring: oklch(0.546 0.245 262.881);
+  --sidebar-ring: oklch(0.645 0.246 16.439);
 }
 
 .dark {
-  --primary: oklch(0.623 0.214 262.881);
-  --primary-foreground: oklch(0.985 0.004 262.881);
+  --primary: oklch(0.704 0.191 22.216);
+  --primary-foreground: oklch(0.985 0.002 12.0);
 
   --secondary: oklch(0.269 0.006 285.885);
   --secondary-foreground: oklch(0.985 0.002 247.839);
@@ -85,11 +85,11 @@
   --muted: oklch(0.269 0.006 285.885);
   --muted-foreground: oklch(0.665 0.007 285.885);
 
-  --accent: oklch(0.2 0.04 262.881);
-  --accent-foreground: oklch(0.985 0.004 262.881);
+  --accent: oklch(0.2 0.04 16.439);
+  --accent-foreground: oklch(0.985 0.002 12.0);
 
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.004 262.881);
+  --destructive-foreground: oklch(0.985 0.002 12.0);
 
   --success: oklch(0.627 0.194 149.214);
   --success-foreground: oklch(0.982 0.018 155.826);
@@ -99,14 +99,14 @@
 
   --border: oklch(0.269 0.006 285.885);
   --input: oklch(0.269 0.006 285.885);
-  --ring: oklch(0.623 0.214 262.881);
+  --ring: oklch(0.704 0.191 22.216);
 
   --sidebar: oklch(0.145 0.005 285.823);
   --sidebar-foreground: oklch(0.985 0.002 247.839);
   --sidebar-border: oklch(0.269 0.006 285.885);
-  --sidebar-accent: oklch(0.2 0.04 262.881);
-  --sidebar-accent-foreground: oklch(0.985 0.004 262.881);
-  --sidebar-ring: oklch(0.623 0.214 262.881);
+  --sidebar-accent: oklch(0.2 0.04 16.439);
+  --sidebar-accent-foreground: oklch(0.985 0.002 12.0);
+  --sidebar-ring: oklch(0.704 0.191 22.216);
 }
 
 @theme inline {

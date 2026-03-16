@@ -634,6 +634,41 @@ ALL steps must pass. If any fails -> enter fix loop above -> only commit when AL
 
 ---
 
+## Design system
+
+Primary color: **Rose** (#F43F5E) — warm, distinctive, Malt/Airbnb-inspired.
+
+Full design system documentation: `design/DESIGN_SYSTEM.md`. Read it when working on any UI component.
+
+### Token quick reference (always in context)
+
+| Token | Light | Dark |
+|-------|-------|------|
+| primary | #F43F5E | #FB7185 |
+| background | #FFFFFF | #0F172A |
+| foreground | #0F172A | #F8FAFC |
+| muted | #F1F5F9 | #1E293B |
+| border | #E2E8F0 | #334155 |
+| success | #22C55E | #4ADE80 |
+| warning | #F59E0B | #FBBF24 |
+| destructive | #EF4444 | #F87171 |
+
+### Component rules (compact)
+
+- **Buttons**: 5 variants (primary/secondary/outline/ghost/destructive), 3 sizes (sm/md/lg), rounded-md
+- **Cards**: white bg, 1px border, rounded-lg, shadow-sm, p-6. Interactive: shadow-md on hover
+- **Inputs**: h-10, rounded-md, focus ring-2 ring-primary. Error: border-destructive
+- **Avatars**: rounded-full, 5 sizes (24-64px), initials fallback on primary-100
+- **Spacing**: 4px base unit. Only: 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96, 128
+- **Radius**: sm(6px), md(8px), lg(12px), xl(16px), full(9999px)
+- **Shadows**: sm (rest), md (hover), lg (modal)
+- **Transitions**: 150ms ease-out everywhere
+- **Loading**: skeleton matching content shape, NEVER full-page spinner
+- **Role badges**: agency (blue), enterprise (purple), provider (rose), admin (slate)
+- **Icons**: Lucide (web/admin), 18px inline / 20px buttons / 24px standalone
+
+---
+
 ## Compact instructions
 
 When compacting context, prioritize preserving:

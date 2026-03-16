@@ -10,8 +10,8 @@ class AppTheme {
   // Color palette — matches web design tokens (Tailwind / shadcn)
   // ---------------------------------------------------------------------------
 
-  // Primary — Blue (matches web --primary)
-  static const Color _primaryColor = Color(0xFF2563EB); // blue-600
+  // Primary — Rose (matches web --primary)
+  static const Color _primaryColor = Color(0xFFF43F5E); // rose-500
   static const Color _onPrimary = Color(0xFFFFFFFF);
 
   // Backgrounds
@@ -42,8 +42,8 @@ class AppTheme {
   static const Color _warning = Color(0xFFF59E0B); // amber-500
 
   // Accent
-  static const Color _accentLight = Color(0xFFEFF6FF); // blue-50
-  static const Color _accentDark = Color(0xFF172554); // blue-950
+  static const Color _accentLight = Color(0xFFFFF1F2); // rose-50
+  static const Color _accentDark = Color(0xFF4C0519); // rose-950
 
   // ---------------------------------------------------------------------------
   // Radii
