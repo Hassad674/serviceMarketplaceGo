@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { TestDB } from "./test-db"
 
 export default function HomePage() {
   return (
@@ -87,8 +86,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Temporary: Backend & DB test section */}
-      <TestDB />
     </main>
   )
 }

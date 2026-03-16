@@ -200,14 +200,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ],
                   ),
 
-                  // Temporary test link
-                  TextButton(
-                    onPressed: () => context.push('/test'),
-                    child: const Text(
-                      'Tester Backend & DB',
-                      style: TextStyle(color: Color(0xFF64748B)),
-                    ),
-                  ),
                 ],
               ),
             ),

@@ -35,6 +35,24 @@ services:
     command: server /data --console-address ":9001"
     restart: unless-stopped
 
+  dbgate:
+    image: dbgate/dbgate
+    container_name: marketplace-dbgate
+    ports:
+      - "8085:3000"
+    environment:
+      CONNECTIONS: con1
+      LABEL_con1: Marketplace Local
+      SERVER_con1: postgres
+      USER_con1: postgres
+      PASSWORD_con1: postgres
+      PORT_con1: 5432
+      DATABASE_con1: marketplace
+      ENGINE_con1: postgres@dbgate-plugin-postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
