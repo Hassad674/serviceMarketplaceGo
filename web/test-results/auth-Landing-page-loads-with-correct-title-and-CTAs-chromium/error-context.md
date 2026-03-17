@@ -1,0 +1,60 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]: Marketplace Service
+      - generic [ref=e6]:
+        - link "Connexion" [ref=e7] [cursor=pointer]:
+          - /url: /login
+        - link "Inscription" [ref=e8] [cursor=pointer]:
+          - /url: /register
+    - generic [ref=e9]:
+      - heading "La plateforme B2B qui connecte agences, freelances et entreprises" [level=1] [ref=e10]
+      - paragraph [ref=e11]: Trouvez les meilleurs prestataires, publiez vos projets et collaborez en toute confiance sur une plateforme pensee pour les professionnels.
+      - generic [ref=e12]:
+        - link "Commencer gratuitement" [ref=e13] [cursor=pointer]:
+          - /url: /register
+        - link "Voir les projets" [ref=e14] [cursor=pointer]:
+          - /url: /projects
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - heading "Agences" [level=3] [ref=e17]
+        - paragraph [ref=e18]: Gerez votre equipe, decrochez des missions et developpez votre activite.
+        - link "Parcourir les agences" [ref=e19] [cursor=pointer]:
+          - /url: /agencies
+      - generic [ref=e20]:
+        - heading "Freelances" [level=3] [ref=e21]
+        - paragraph [ref=e22]: Trouvez des missions adaptees a vos competences et gerez vos factures.
+        - link "Parcourir les freelances" [ref=e23] [cursor=pointer]:
+          - /url: /freelances
+      - generic [ref=e24]:
+        - heading "Entreprises" [level=3] [ref=e25]
+        - paragraph [ref=e26]: Publiez vos projets et trouvez les prestataires ideaux en quelques clics.
+        - link "Voir les projets" [ref=e27] [cursor=pointer]:
+          - /url: /projects
+    - generic [ref=e28]:
+      - heading "Test Backend & Database" [level=2] [ref=e29]
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: "Backend:"
+          - generic [ref=e33]: OK
+        - generic [ref=e34]:
+          - generic [ref=e35]: "Database:"
+          - generic [ref=e36]: OK
+      - generic [ref=e38]:
+        - textbox "Tapez un mot et appuyez sur Entree..." [ref=e39]
+        - button "Ajouter" [disabled] [ref=e40]
+      - generic [ref=e41]:
+        - heading "Mots enregistres (4)" [level=3] [ref=e42]
+        - generic [ref=e43]:
+          - generic [ref=e44]: vfsvf
+          - generic [ref=e45]: fvsfvrfgb
+          - generic [ref=e46]: dfvsfgvbrt
+          - generic [ref=e47]: hello
+      - paragraph [ref=e48]: "API: http://localhost:8083 — Debug tool for backend & DB connectivity."
+  - button "Open Next.js Dev Tools" [ref=e54] [cursor=pointer]:
+    - img [ref=e55]
+  - alert [ref=e58]
+```

@@ -1,0 +1,52 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "Marketplace Service" [ref=e4] [cursor=pointer]:
+        - /url: /
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - heading "Inscription Agence" [level=1] [ref=e8]
+          - paragraph [ref=e9]: Créez votre compte agence
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - alert [ref=e12]: email already exists
+            - generic [ref=e13]:
+              - generic [ref=e14]: Nom de l'agence
+              - textbox "Nom de l'agence" [ref=e15]:
+                - /placeholder: Mon Agence
+                - text: Another Agency
+              - paragraph [ref=e16]: Nom commercial de votre agence
+            - generic [ref=e17]:
+              - generic [ref=e18]: Email
+              - textbox "Email" [ref=e19]:
+                - /placeholder: contact@monagence.com
+                - text: test-agency-1773744188297@playwright.com
+            - generic [ref=e20]:
+              - generic [ref=e21]: Mot de passe
+              - textbox "Mot de passe" [ref=e22]:
+                - /placeholder: Votre mot de passe
+                - text: TestPass1234!
+              - paragraph [ref=e23]: Minimum 8 caractères avec majuscule, minuscule et chiffre
+            - generic [ref=e24]:
+              - generic [ref=e25]: Confirmer le mot de passe
+              - textbox "Confirmer le mot de passe" [ref=e26]:
+                - /placeholder: Confirmez votre mot de passe
+                - text: TestPass1234!
+            - button "Créer mon compte agence" [ref=e27]
+          - generic [ref=e28]:
+            - link "Changer de profil" [ref=e29] [cursor=pointer]:
+              - /url: /register
+              - img [ref=e30]
+              - text: Changer de profil
+            - paragraph [ref=e32]:
+              - text: Déjà inscrit ?
+              - link "Se connecter" [ref=e33] [cursor=pointer]:
+                - /url: /login
+  - button "Open Next.js Dev Tools" [ref=e39] [cursor=pointer]:
+    - img [ref=e40]
+  - alert [ref=e43]
+```
