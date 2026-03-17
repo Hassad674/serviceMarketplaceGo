@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -182,6 +183,7 @@ func handleAuthError(w http.ResponseWriter, err error) {
 	case errors.Is(err, user.ErrInvalidRole):
 		res.Error(w, http.StatusBadRequest, "invalid_role", err.Error())
 	default:
+		slog.Error("unhandled auth error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 	}
 }

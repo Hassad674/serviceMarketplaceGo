@@ -55,6 +55,13 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Public profiles
 		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
+
+		// Test routes (debug — backend & DB connectivity)
+		r.Route("/test", func(r chi.Router) {
+			r.Get("/health-check", deps.Health.HealthCheck)
+			r.Get("/words", deps.Health.GetWords)
+			r.Post("/words", deps.Health.AddWord)
+		})
 	})
 
 	return r
