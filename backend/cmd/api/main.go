@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"marketplace-backend/internal/adapter/postgres"
+	resendadapter "marketplace-backend/internal/adapter/resend"
 	"marketplace-backend/internal/app/auth"
 	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/config"
@@ -41,11 +42,13 @@ func main() {
 	// Initialize adapters (output ports)
 	userRepo := postgres.NewUserRepository(db)
 	profileRepo := postgres.NewProfileRepository(db)
+	resetRepo := postgres.NewPasswordResetRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
+	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey)
 
 	// Initialize application services
-	authSvc := auth.NewService(userRepo, hasher, tokenSvc)
+	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)
 	profileSvc := profileapp.NewService(profileRepo)
 
 	// Initialize handlers

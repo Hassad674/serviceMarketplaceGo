@@ -6,13 +6,13 @@ import { useAuth } from "@/shared/hooks/use-auth"
 
 export function useSession() {
   const router = useRouter()
-  const { user, accessToken, isAuthenticated } = useAuth()
+  const { user, accessToken } = useAuth()
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    if (!accessToken) {
       router.push("/login")
     }
-  }, [isAuthenticated, router])
+  }, [accessToken, router])
 
   return { user, accessToken }
 }

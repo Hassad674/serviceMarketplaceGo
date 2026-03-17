@@ -38,6 +38,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Post("/register", deps.Auth.Register)
 			r.Post("/login", deps.Auth.Login)
 			r.Post("/refresh", deps.Auth.Refresh)
+			r.Post("/forgot-password", deps.Auth.ForgotPassword)
+			r.Post("/reset-password", deps.Auth.ResetPassword)
 
 			// Protected
 			r.Group(func(r chi.Router) {

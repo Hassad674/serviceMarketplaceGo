@@ -21,6 +21,8 @@ type Config struct {
 	StorageBucket    string
 	StorageUseSSL    bool
 	StoragePublicURL string
+	ResendAPIKey     string
+	FrontendURL      string
 }
 
 func Load() *Config {
@@ -39,6 +41,8 @@ func Load() *Config {
 		StorageBucket:    getEnv("STORAGE_BUCKET", "marketplace"),
 		StorageUseSSL:    getEnv("STORAGE_USE_SSL", "false") == "true",
 		StoragePublicURL: getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/marketplace"),
+		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
+		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3001"),
 	}
 }
 

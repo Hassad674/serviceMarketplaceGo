@@ -166,6 +166,55 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewUserResponse(u))
 }
 
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	// Always return 200 OK regardless of whether email exists (security)
+	_ = h.authService.ForgotPassword(r.Context(), auth.ForgotPasswordInput{Email: req.Email})
+
+	res.JSON(w, http.StatusOK, map[string]string{
+		"message": "Si cette adresse existe, un email de réinitialisation a été envoyé.",
+	})
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	if errs := validator.ValidateRequired(map[string]string{
+		"token":        req.Token,
+		"new_password": req.NewPassword,
+	}); errs != nil {
+		res.ValidationError(w, errs)
+		return
+	}
+
+	err := h.authService.ResetPassword(r.Context(), auth.ResetPasswordInput{
+		Token:       req.Token,
+		NewPassword: req.NewPassword,
+	})
+	if err != nil {
+		handleAuthError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{
+		"message": "Mot de passe réinitialisé avec succès.",
+	})
+}
+
 func handleAuthError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, user.ErrInvalidEmail):

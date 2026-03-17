@@ -11,6 +11,8 @@ require (
 	golang.org/x/crypto v0.48.0
 )
 
+require github.com/resend/resend-go/v2 v2.28.0
+
 // Run `go mod tidy` after adding application code to resolve indirect dependencies.
 // golang-migrate requires github.com/hashicorp/errwrap and github.com/hashicorp/go-multierror
 // as indirect deps when using the postgres driver.

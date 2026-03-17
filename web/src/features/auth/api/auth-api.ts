@@ -54,3 +54,17 @@ export async function refreshToken(
 export async function getMe(token: string): Promise<AuthUser> {
   return apiClient<AuthUser>("/api/v1/auth/me", { token })
 }
+
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  return apiClient<{ message: string }>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  })
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  return apiClient<{ message: string }>("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: { token, new_password: newPassword },
+  })
+}
