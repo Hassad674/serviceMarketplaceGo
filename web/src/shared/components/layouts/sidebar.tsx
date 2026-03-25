@@ -77,7 +77,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
 
-  const role = user?.role ?? "enterprise"
+  // Read role from cookie first (instant, no hydration delay), fallback to Zustand
+  const role = user?.role ?? (() => {
+    if (typeof document === "undefined") return ""
+    const match = document.cookie.match(/user_role=(\w+)/)
+    return match?.[1] ?? ""
+  })()
   const isReferrerMode = pathname === "/referral" || searchParams.get("mode") === "referrer"
   const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role

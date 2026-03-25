@@ -34,10 +34,12 @@ export const useAuth = create<AuthState>()(
       setAuth: (user, accessToken, refreshToken) => {
         set({ user, accessToken, refreshToken })
         document.cookie = `access_token=${accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+        document.cookie = `user_role=${user.role}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
       },
       logout: () => {
         set({ user: null, accessToken: null, refreshToken: null })
         document.cookie = "access_token=; path=/; max-age=0"
+        document.cookie = "user_role=; path=/; max-age=0"
       },
       isAuthenticated: () => !!get().accessToken,
     }),
