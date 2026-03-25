@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/network/upload_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/theme_provider.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
@@ -106,6 +107,10 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                       ),
               ),
+              const SizedBox(height: 16),
+
+              // Dark mode toggle
+              _DarkModeToggle(),
               const SizedBox(height: 24),
 
               // Logout button
@@ -532,6 +537,42 @@ class _VideoSectionCard extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Dark mode toggle
+// ----------------------------------------------------------------------------
+
+class _DarkModeToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final themeMode = ref.watch(themeModeProvider);
+    final isDark = themeMode == ThemeMode.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: ListTile(
+        leading: Icon(
+          isDark ? Icons.dark_mode : Icons.light_mode,
+          color: theme.colorScheme.primary,
+        ),
+        title: const Text('Dark Mode'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        ),
+        trailing: Switch(
+          value: isDark,
+          activeColor: theme.colorScheme.primary,
+          onChanged: (_) => ref.read(themeModeProvider.notifier).toggle(),
+        ),
       ),
     );
   }

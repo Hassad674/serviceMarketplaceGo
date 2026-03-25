@@ -54,11 +54,11 @@ export function ProfileVideo({
         </div>
 
         {videoUrl ? (
-          <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+          <div className="aspect-video max-h-[300px] overflow-hidden rounded-lg bg-black">
             <video
               src={videoUrl}
               controls
-              className="w-full h-full object-cover"
+              className="h-full w-full object-contain"
               aria-label={displayTitle}
             >
               <track kind="captions" />

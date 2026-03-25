@@ -11,7 +11,8 @@ class AppTheme {
   // ---------------------------------------------------------------------------
 
   // Primary — Rose (matches web --primary)
-  static const Color _primaryColor = Color(0xFFF43F5E); // rose-500
+  static const Color _primaryLight = Color(0xFFF43F5E); // rose-500
+  static const Color _primaryDark = Color(0xFFFB7185); // rose-400 (lighter for dark)
   static const Color _onPrimary = Color(0xFFFFFFFF);
 
   // Backgrounds
@@ -252,7 +253,7 @@ class AppTheme {
 
     return base.copyWith(
       colorScheme: ColorScheme.light(
-        primary: _primaryColor,
+        primary: _primaryLight,
         onPrimary: _onPrimary,
         secondary: _accentLight,
         surface: _cardLight,
@@ -266,21 +267,21 @@ class AppTheme {
         borderColor: _borderLight,
       ),
       cardTheme: _card(_cardLight, _borderLight),
-      elevatedButtonTheme: _elevatedButton(_primaryColor),
+      elevatedButtonTheme: _elevatedButton(_primaryLight),
       outlinedButtonTheme: _outlinedButton(_borderLight),
-      textButtonTheme: _textButton(_primaryColor),
+      textButtonTheme: _textButton(_primaryLight),
       inputDecorationTheme: _inputDecoration(
         fillColor: _cardLight,
         borderColor: _borderLight,
-        focusBorderColor: _primaryColor,
+        focusBorderColor: _primaryLight,
         hintColor: _mutedForegroundLight,
       ),
       dividerColor: _borderLight,
       dividerTheme: const DividerThemeData(color: _borderLight, thickness: 1),
       navigationBarTheme: _navigationBar(
         background: _cardLight,
-        indicator: _primaryColor.withValues(alpha: 0.1),
-        selected: _primaryColor,
+        indicator: _primaryLight.withValues(alpha: 0.1),
+        selected: _primaryLight,
         unselected: _mutedForegroundLight,
       ),
       textTheme: const TextTheme(
@@ -312,7 +313,7 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: _cardLight,
-        selectedItemColor: _primaryColor,
+        selectedItemColor: _primaryLight,
         unselectedItemColor: _mutedForegroundLight,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
@@ -348,7 +349,7 @@ class AppTheme {
 
     return base.copyWith(
       colorScheme: ColorScheme.dark(
-        primary: _primaryColor,
+        primary: _primaryDark,
         onPrimary: _onPrimary,
         secondary: _accentDark,
         surface: _cardDark,
@@ -362,21 +363,21 @@ class AppTheme {
         borderColor: _borderDark,
       ),
       cardTheme: _card(_cardDark, _borderDark),
-      elevatedButtonTheme: _elevatedButton(_primaryColor),
+      elevatedButtonTheme: _elevatedButton(_primaryDark),
       outlinedButtonTheme: _outlinedButton(_borderDark),
-      textButtonTheme: _textButton(_primaryColor),
+      textButtonTheme: _textButton(_primaryDark),
       inputDecorationTheme: _inputDecoration(
         fillColor: _cardDark,
         borderColor: _borderDark,
-        focusBorderColor: _primaryColor,
+        focusBorderColor: _primaryDark,
         hintColor: _mutedForegroundDark,
       ),
       dividerColor: _borderDark,
       dividerTheme: const DividerThemeData(color: _borderDark, thickness: 1),
       navigationBarTheme: _navigationBar(
         background: _cardDark,
-        indicator: _primaryColor.withValues(alpha: 0.15),
-        selected: _primaryColor,
+        indicator: _primaryDark.withValues(alpha: 0.15),
+        selected: _primaryDark,
         unselected: _mutedForegroundDark,
       ),
       textTheme: const TextTheme(
@@ -408,7 +409,7 @@ class AppTheme {
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: _cardDark,
-        selectedItemColor: _primaryColor,
+        selectedItemColor: _primaryDark,
         unselectedItemColor: _mutedForegroundDark,
         type: BottomNavigationBarType.fixed,
         elevation: 0,

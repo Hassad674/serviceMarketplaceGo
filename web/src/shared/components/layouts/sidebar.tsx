@@ -20,25 +20,26 @@ type NavItem = {
   labelKey: string
   href: string
   icon: React.ElementType
+  exact?: boolean
 }
 
 const agencyNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/agency", icon: LayoutDashboard },
+  { labelKey: "dashboard", href: "/dashboard/agency", icon: LayoutDashboard, exact: true },
   { labelKey: "myProfile", href: "/dashboard/agency/profile", icon: UserCircle },
 ]
 
 const providerNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/provider", icon: LayoutDashboard },
+  { labelKey: "dashboard", href: "/dashboard/provider", icon: LayoutDashboard, exact: true },
   { labelKey: "myProfile", href: "/dashboard/provider/profile", icon: UserCircle },
 ]
 
 const referrerNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/referrer", icon: LayoutDashboard },
+  { labelKey: "dashboard", href: "/dashboard/referrer", icon: LayoutDashboard, exact: true },
   { labelKey: "referrerProfile", href: "/dashboard/provider/referral", icon: UserCircle },
 ]
 
 const enterpriseNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard },
+  { labelKey: "dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard, exact: true },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -301,7 +302,9 @@ function NavLink({
 }) {
   const isActive =
     item.href !== "#" &&
-    (pathname === item.href || pathname.startsWith(item.href + "/"))
+    (item.exact
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(item.href + "/"))
 
   return (
     <Link

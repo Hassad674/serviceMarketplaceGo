@@ -32,12 +32,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       />
       <div
         className={cn(
-          "flex flex-1 flex-col overflow-hidden transition-[margin,padding] duration-300",
+          "flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300",
         )}
       >
         <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
         <main className="flex-1 overflow-y-auto p-5">
-          {children}
+          <div className="mx-auto w-full max-w-4xl">
+            {children}
+          </div>
         </main>
       </div>
     </div>
