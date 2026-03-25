@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
-import { useUploadPhoto, useUploadReferrerVideo } from "@/features/provider/hooks/use-upload"
+import { useUploadPhoto, useUploadReferrerVideo, useDeleteReferrerVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileAbout } from "@/features/provider/components/profile-about"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
@@ -15,6 +15,7 @@ export default function ProviderReferralPage() {
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const referrerVideoUpload = useUploadReferrerVideo()
+  const referrerVideoDelete = useDeleteReferrerVideo()
   const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
@@ -40,6 +41,8 @@ export default function ProviderReferralPage() {
         emptyDescription={t("addVideoDescReferrer")}
         onUploadVideo={async (file) => { await referrerVideoUpload.mutateAsync(file) }}
         uploadingVideo={referrerVideoUpload.isPending}
+        onDeleteVideo={() => referrerVideoDelete.mutate()}
+        deletingVideo={referrerVideoDelete.isPending}
       />
       <ProfileAbout
         content={profile?.referrer_about || ""}

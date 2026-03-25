@@ -61,7 +61,9 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Use(middleware.Auth(deps.TokenService))
 			r.Post("/photo", deps.Upload.UploadPhoto)
 			r.Post("/video", deps.Upload.UploadVideo)
+			r.Delete("/video", deps.Upload.DeleteVideo)
 			r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
+			r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
 		})
 
 		// Public profiles

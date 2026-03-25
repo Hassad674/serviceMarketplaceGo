@@ -46,3 +46,19 @@ export async function uploadReferrerVideo(
 ): Promise<UploadResponse> {
   return uploadFile("/api/v1/upload/referrer-video", token, file)
 }
+
+export async function deleteVideo(token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/upload/video`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error("Failed to delete video")
+}
+
+export async function deleteReferrerVideo(token: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/upload/referrer-video`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error("Failed to delete referrer video")
+}

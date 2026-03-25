@@ -188,3 +188,51 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
+
+func (h *UploadHandler) DeleteVideo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
+		return
+	}
+
+	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	if err != nil {
+		slog.Error("get profile failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")
+		return
+	}
+
+	profile.PresentationVideoURL = ""
+	if err := h.profiles.Update(r.Context(), profile); err != nil {
+		slog.Error("delete profile video failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "update_failed", "failed to update profile")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"message": "video removed"})
+}
+
+func (h *UploadHandler) DeleteReferrerVideo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
+		return
+	}
+
+	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	if err != nil {
+		slog.Error("get profile failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")
+		return
+	}
+
+	profile.ReferrerVideoURL = ""
+	if err := h.profiles.Update(r.Context(), profile); err != nil {
+		slog.Error("delete profile referrer video failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "update_failed", "failed to update profile")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"message": "referrer video removed"})
+}

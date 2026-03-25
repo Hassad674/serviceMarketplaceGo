@@ -23,5 +23,5 @@ final profileProvider =
     FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final apiClient = ref.watch(apiClientProvider);
   final response = await apiClient.get('/api/v1/profile');
-  return response.data['data'] as Map<String, dynamic>;
+  return response.data as Map<String, dynamic>;
 });

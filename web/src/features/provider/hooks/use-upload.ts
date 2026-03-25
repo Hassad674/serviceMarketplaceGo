@@ -6,6 +6,8 @@ import {
   uploadPhoto,
   uploadVideo,
   uploadReferrerVideo,
+  deleteVideo,
+  deleteReferrerVideo,
 } from "../api/upload-api"
 
 const PROFILE_QUERY_KEY = ["profile"]
@@ -38,6 +40,28 @@ export function useUploadReferrerVideo() {
 
   return useMutation({
     mutationFn: (file: File) => uploadReferrerVideo(accessToken!, file),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
+  })
+}
+
+export function useDeleteVideo() {
+  const { accessToken } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => deleteVideo(accessToken!),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
+  })
+}
+
+export function useDeleteReferrerVideo() {
+  const { accessToken } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => deleteReferrerVideo(accessToken!),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
   })

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Video } from "lucide-react"
+import { Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
 
@@ -12,6 +12,8 @@ interface ProfileVideoProps {
   emptyDescription?: string
   onUploadVideo: (file: File) => Promise<void>
   uploadingVideo?: boolean
+  onDeleteVideo?: () => void
+  deletingVideo?: boolean
 }
 
 const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
@@ -23,6 +25,8 @@ export function ProfileVideo({
   emptyDescription,
   onUploadVideo,
   uploadingVideo = false,
+  onDeleteVideo,
+  deletingVideo = false,
 }: ProfileVideoProps) {
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const t = useTranslations("profile")
@@ -43,13 +47,26 @@ export function ProfileVideo({
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">{displayTitle}</h2>
           {videoUrl && (
-            <button
-              type="button"
-              onClick={() => setVideoModalOpen(true)}
-              className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-            >
-              {t("changeVideo")}
-            </button>
+            <div className="flex items-center gap-3">
+              {onDeleteVideo && (
+                <button
+                  type="button"
+                  onClick={onDeleteVideo}
+                  disabled={deletingVideo}
+                  className="flex items-center gap-1 text-sm font-medium text-destructive hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                  {t("removeVideo")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setVideoModalOpen(true)}
+                className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+              >
+                {t("changeVideo")}
+              </button>
+            </div>
           )}
         </div>
 

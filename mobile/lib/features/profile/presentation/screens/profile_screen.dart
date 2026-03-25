@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/network/upload_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -85,27 +86,31 @@ class ProfileScreen extends ConsumerWidget {
                   data: (p) => p['presentation_video_url'] as String?,
                 ),
                 onUploadTap: () => _openVideoUpload(context, ref),
+                onDeleteTap: () => _confirmDeleteVideo(context, ref),
               ),
               const SizedBox(height: 16),
 
               // About section
-              _ProfileSectionCard(
-                title: 'About',
-                icon: Icons.info_outline,
-                child: profileAbout != null && profileAbout.isNotEmpty
-                    ? Text(
-                        profileAbout,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          height: 1.5,
+              GestureDetector(
+                onTap: () => _openEditAbout(context, ref, profileAbout),
+                child: _ProfileSectionCard(
+                  title: 'About',
+                  icon: Icons.info_outline,
+                  child: profileAbout != null && profileAbout.isNotEmpty
+                      ? Text(
+                          profileAbout,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            height: 1.5,
+                          ),
+                        )
+                      : Text(
+                          'Tell others about yourself and your expertise',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: appColors?.mutedForeground,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
-                      )
-                    : Text(
-                        'Tell others about yourself and your expertise',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: appColors?.mutedForeground,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -164,6 +169,98 @@ class ProfileScreen extends ConsumerWidget {
           );
         }
       },
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // About editing
+  // --------------------------------------------------------------------------
+
+  void _openEditAbout(BuildContext context, WidgetRef ref, String? currentAbout) {
+    final controller = TextEditingController(text: currentAbout ?? '');
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('About', style: Theme.of(ctx).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                maxLines: 5,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  hintText: 'Tell others about yourself...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final api = ref.read(apiClientProvider);
+                    await api.put('/api/v1/profile', data: {'about': controller.text});
+                    ref.invalidate(profileProvider);
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('About updated')),
+                      );
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // Video delete
+  // --------------------------------------------------------------------------
+
+  void _confirmDeleteVideo(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove video'),
+        content: const Text('Are you sure you want to remove your presentation video?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final api = ref.read(apiClientProvider);
+              await api.delete('/api/v1/upload/video');
+              ref.invalidate(profileProvider);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Video removed')),
+                );
+              }
+            },
+            child: Text(
+              'Remove',
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -430,10 +527,12 @@ class _VideoSectionCard extends StatelessWidget {
   const _VideoSectionCard({
     required this.onUploadTap,
     this.videoUrl,
+    this.onDeleteTap,
   });
 
   final String? videoUrl;
   final VoidCallback onUploadTap;
+  final VoidCallback? onDeleteTap;
 
   @override
   Widget build(BuildContext context) {
@@ -462,32 +561,57 @@ class _VideoSectionCard extends StatelessWidget {
           const SizedBox(height: 16),
 
           if (videoUrl != null && videoUrl!.isNotEmpty)
-            // Video exists: show card
-            GestureDetector(
-              onTap: onUploadTap,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: primary.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                  border: Border.all(color: primary.withValues(alpha: 0.2)),
+            // Video exists: show card + delete button
+            Column(
+              children: [
+                GestureDetector(
+                  onTap: onUploadTap,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                      border: Border.all(color: primary.withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.play_circle_outline, color: primary, size: 48),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Presentation Video',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: primary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text('Tap to replace', style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    Icon(Icons.play_circle_outline, color: primary, size: 48),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Presentation Video',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: primary,
+                if (onDeleteTap != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onDeleteTap,
+                        icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
+                        label: Text(
+                          'Remove video',
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text('Tap to replace', style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ),
+                  ),
+              ],
             )
           else
             // No video: empty state

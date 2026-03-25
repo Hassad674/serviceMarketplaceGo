@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
-import { useUploadPhoto, useUploadVideo } from "@/features/provider/hooks/use-upload"
+import { useUploadPhoto, useUploadVideo, useDeleteVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
 import { ProfileAbout } from "@/features/provider/components/profile-about"
@@ -16,6 +16,7 @@ export default function AgencyProfilePage() {
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
+  const videoDelete = useDeleteVideo()
   const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
@@ -37,6 +38,8 @@ export default function AgencyProfilePage() {
         emptyDescription={t("addVideoDescAgency")}
         onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
         uploadingVideo={videoUpload.isPending}
+        onDeleteVideo={() => videoDelete.mutate()}
+        deletingVideo={videoDelete.isPending}
       />
       <ProfileAbout
         content={profile?.about || ""}
