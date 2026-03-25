@@ -86,39 +86,6 @@ export default function AgencyDashboardPage() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-border bg-card shadow-sm">
-        <div className="border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-foreground">Activit&eacute; r&eacute;cente</h2>
-        </div>
-        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <Building2 className="h-16 w-16 text-muted-foreground/30" />
-          <p className="mt-4 text-lg font-medium text-muted-foreground">
-            Aucune activit&eacute; r&eacute;cente
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Vos missions et messages appara&icirc;tront ici
-          </p>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Acc&egrave;s rapides</h2>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {QUICK_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="group flex items-center justify-between rounded-xl border border-border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md"
-            >
-              <div className="flex items-center gap-3">
-                <link.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
-                <span className="font-medium text-foreground">{link.label}</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
