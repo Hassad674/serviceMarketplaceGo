@@ -306,7 +306,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get noProfilesFound => 'Aucun profil trouvé';
 
   @override
-  String get searchTryAgain => 'Réessayez plus tard ou modifiez votre recherche.';
+  String get searchTryAgain =>
+      'Réessayez plus tard ou modifiez votre recherche.';
 
   @override
   String get couldNotLoadProfiles =>

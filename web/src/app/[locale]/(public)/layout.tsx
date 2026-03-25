@@ -1,61 +1,51 @@
-import { useTranslations } from "next-intl"
-import { Link } from "@i18n/navigation"
-import { ThemeToggle } from "@/shared/components/theme-toggle"
+"use client"
+
+import { useAuthReady } from "@/shared/hooks/use-auth"
+import { DashboardShell } from "@/shared/components/layouts/dashboard-shell"
+import { PublicNavbar } from "@/shared/components/layouts/public-navbar"
 
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const t = useTranslations("landing")
-  const tCommon = useTranslations("common")
+  const { accessToken, ready } = useAuthReady()
+
+  if (!ready) {
+    return <PublicLayoutSkeleton />
+  }
+
+  if (accessToken) {
+    return <DashboardShell>{children}</DashboardShell>
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link
-            href="/"
-            className="text-lg font-bold tracking-tight text-gray-900 dark:text-white"
-          >
-            Marketplace Service
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link
-              href="/agencies"
-              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              {t("agenciesTitle")}
-            </Link>
-            <Link
-              href="/freelances"
-              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              {t("freelancesTitle")}
-            </Link>
-            <Link
-              href="/projects"
-              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              {t("browseProjects")}
-            </Link>
-            <ThemeToggle />
-            <Link
-              href="/login"
-              className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            >
-              {tCommon("signIn")}
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-lg bg-gray-900 dark:bg-white px-4 py-2 text-sm font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100"
-            >
-              {tCommon("createAccount")}
-            </Link>
-          </div>
-        </nav>
-      </header>
+      <PublicNavbar />
       <main className="mx-auto max-w-7xl px-6 py-10">{children}</main>
+    </div>
+  )
+}
+
+function PublicLayoutSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+          <div className="h-5 w-40 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="flex items-center gap-4">
+            <div className="h-4 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="h-4 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="h-4 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto max-w-7xl px-6 py-10">
+        <div className="space-y-4">
+          <div className="h-8 w-64 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+          <div className="h-4 w-96 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+        </div>
+      </main>
     </div>
   )
 }
