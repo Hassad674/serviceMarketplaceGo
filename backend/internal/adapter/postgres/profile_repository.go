@@ -24,13 +24,13 @@ func (r *ProfileRepository) Create(ctx context.Context, p *profile.Profile) erro
 	defer cancel()
 
 	query := `
-		INSERT INTO profiles (user_id, title, photo_url, presentation_video_url, referrer_video_url, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO profiles (user_id, title, about, photo_url, presentation_video_url, referrer_about, referrer_video_url, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (user_id) DO NOTHING`
 
 	_, err := r.db.ExecContext(ctx, query,
-		p.UserID, p.Title, p.PhotoURL,
-		p.PresentationVideoURL, p.ReferrerVideoURL,
+		p.UserID, p.Title, p.About, p.PhotoURL,
+		p.PresentationVideoURL, p.ReferrerAbout, p.ReferrerVideoURL,
 		p.CreatedAt, p.UpdatedAt,
 	)
 	if err != nil {
@@ -62,12 +62,12 @@ func (r *ProfileRepository) Update(ctx context.Context, p *profile.Profile) erro
 
 	query := `
 		UPDATE profiles
-		SET title = $2, photo_url = $3, presentation_video_url = $4, referrer_video_url = $5
+		SET title = $2, about = $3, photo_url = $4, presentation_video_url = $5, referrer_about = $6, referrer_video_url = $7
 		WHERE user_id = $1`
 
 	result, err := r.db.ExecContext(ctx, query,
-		p.UserID, p.Title, p.PhotoURL,
-		p.PresentationVideoURL, p.ReferrerVideoURL,
+		p.UserID, p.Title, p.About, p.PhotoURL,
+		p.PresentationVideoURL, p.ReferrerAbout, p.ReferrerVideoURL,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update profile: %w", err)
@@ -86,13 +86,13 @@ func (r *ProfileRepository) Update(ctx context.Context, p *profile.Profile) erro
 
 func (r *ProfileRepository) queryByUserID(ctx context.Context, userID uuid.UUID) (*profile.Profile, error) {
 	query := `
-		SELECT user_id, title, photo_url, presentation_video_url, referrer_video_url, created_at, updated_at
+		SELECT user_id, title, about, photo_url, presentation_video_url, referrer_about, referrer_video_url, created_at, updated_at
 		FROM profiles WHERE user_id = $1`
 
 	p := &profile.Profile{}
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
-		&p.UserID, &p.Title, &p.PhotoURL,
-		&p.PresentationVideoURL, &p.ReferrerVideoURL,
+		&p.UserID, &p.Title, &p.About, &p.PhotoURL,
+		&p.PresentationVideoURL, &p.ReferrerAbout, &p.ReferrerVideoURL,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {

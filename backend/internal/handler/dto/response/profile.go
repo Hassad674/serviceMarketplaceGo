@@ -7,8 +7,10 @@ import (
 type ProfileResponse struct {
 	UserID               string `json:"user_id"`
 	Title                string `json:"title"`
+	About                string `json:"about"`
 	PhotoURL             string `json:"photo_url"`
 	PresentationVideoURL string `json:"presentation_video_url"`
+	ReferrerAbout        string `json:"referrer_about"`
 	ReferrerVideoURL     string `json:"referrer_video_url"`
 	CreatedAt            string `json:"created_at"`
 	UpdatedAt            string `json:"updated_at"`
@@ -18,8 +20,10 @@ func NewProfileResponse(p *profile.Profile) ProfileResponse {
 	return ProfileResponse{
 		UserID:               p.UserID.String(),
 		Title:                p.Title,
+		About:                p.About,
 		PhotoURL:             p.PhotoURL,
 		PresentationVideoURL: p.PresentationVideoURL,
+		ReferrerAbout:        p.ReferrerAbout,
 		ReferrerVideoURL:     p.ReferrerVideoURL,
 		CreatedAt:            p.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:            p.UpdatedAt.Format("2006-01-02T15:04:05Z"),

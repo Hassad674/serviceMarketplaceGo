@@ -28,8 +28,10 @@ func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*profile.Pr
 
 type UpdateProfileInput struct {
 	Title                string
+	About                string
 	PhotoURL             string
 	PresentationVideoURL string
+	ReferrerAbout        string
 	ReferrerVideoURL     string
 }
 
@@ -52,11 +54,17 @@ func applyUpdates(p *profile.Profile, input UpdateProfileInput) {
 	if input.Title != "" {
 		p.Title = input.Title
 	}
+	if input.About != "" {
+		p.About = input.About
+	}
 	if input.PhotoURL != "" {
 		p.PhotoURL = input.PhotoURL
 	}
 	if input.PresentationVideoURL != "" {
 		p.PresentationVideoURL = input.PresentationVideoURL
+	}
+	if input.ReferrerAbout != "" {
+		p.ReferrerAbout = input.ReferrerAbout
 	}
 	if input.ReferrerVideoURL != "" {
 		p.ReferrerVideoURL = input.ReferrerVideoURL

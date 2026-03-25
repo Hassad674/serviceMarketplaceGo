@@ -1,0 +1,2 @@
+ALTER TABLE profiles DROP COLUMN IF EXISTS referrer_about;
+ALTER TABLE profiles DROP COLUMN IF EXISTS about;

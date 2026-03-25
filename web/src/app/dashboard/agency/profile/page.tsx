@@ -5,6 +5,7 @@ import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-prof
 import { useUploadPhoto, useUploadVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
+import { ProfileAbout } from "@/features/provider/components/profile-about"
 import { ProfileHistory } from "@/features/provider/components/profile-history"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 
@@ -34,6 +35,15 @@ export default function AgencyProfilePage() {
         emptyDescription="Ajoutez une video pour presenter votre agence"
         onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
         uploadingVideo={videoUpload.isPending}
+      />
+      <ProfileAbout
+        content={profile?.about || ""}
+        onSave={async (text) => {
+          await updateProfile.mutateAsync({ about: text })
+        }}
+        saving={updateProfile.isPending}
+        label="À propos de l'agence"
+        placeholder="Décrivez votre agence, vos services et votre expertise..."
       />
       <ProfileHistory />
     </div>

@@ -49,8 +49,10 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 
 	var req struct {
 		Title                string `json:"title"`
+		About                string `json:"about"`
 		PhotoURL             string `json:"photo_url"`
 		PresentationVideoURL string `json:"presentation_video_url"`
+		ReferrerAbout        string `json:"referrer_about"`
 		ReferrerVideoURL     string `json:"referrer_video_url"`
 	}
 
@@ -61,8 +63,10 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 
 	input := profileapp.UpdateProfileInput{
 		Title:                req.Title,
+		About:                req.About,
 		PhotoURL:             req.PhotoURL,
 		PresentationVideoURL: req.PresentationVideoURL,
+		ReferrerAbout:        req.ReferrerAbout,
 		ReferrerVideoURL:     req.ReferrerVideoURL,
 	}
 

@@ -6,6 +6,8 @@ export type Profile = {
   photo_url: string
   presentation_video_url: string
   referrer_video_url: string
+  about: string
+  referrer_about: string
   created_at: string
   updated_at: string
 }

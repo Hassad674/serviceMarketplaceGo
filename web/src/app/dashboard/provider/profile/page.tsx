@@ -5,6 +5,7 @@ import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-prof
 import { useUploadPhoto, useUploadVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
+import { ProfileAbout } from "@/features/provider/components/profile-about"
 import { ProfileHistory } from "@/features/provider/components/profile-history"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 
@@ -35,6 +36,15 @@ export default function ProviderProfilePage() {
         videoUrl={profile?.presentation_video_url}
         onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
         uploadingVideo={videoUpload.isPending}
+      />
+      <ProfileAbout
+        content={profile?.about || ""}
+        onSave={async (text) => {
+          await updateProfile.mutateAsync({ about: text })
+        }}
+        saving={updateProfile.isPending}
+        label="À propos"
+        placeholder="Décrivez votre activité, vos compétences et votre expérience..."
       />
       <ProfileHistory />
     </div>

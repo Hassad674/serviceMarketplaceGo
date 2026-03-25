@@ -9,8 +9,10 @@ import (
 type Profile struct {
 	UserID               uuid.UUID
 	Title                string
+	About                string
 	PhotoURL             string
 	PresentationVideoURL string
+	ReferrerAbout        string
 	ReferrerVideoURL     string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
