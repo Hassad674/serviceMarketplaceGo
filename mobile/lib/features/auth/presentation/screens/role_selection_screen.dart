@@ -5,7 +5,7 @@ import '../../../../core/router/app_router.dart';
 
 /// Role selection screen for registration.
 ///
-/// Presents three cards: Agence, Freelance/Apporteur, Entreprise.
+/// Presents three cards: Agency, Freelance/Business Referrer, Enterprise.
 /// Tapping a card navigates to the role-specific register form.
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
@@ -29,13 +29,13 @@ class RoleSelectionScreen extends StatelessWidget {
             children: [
               const SizedBox(height: 16),
               Text(
-                'Rejoignez la marketplace',
+                'Join the marketplace',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                'Choisissez votre profil pour commencer',
+                'Choose your profile to get started',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -46,9 +46,9 @@ class RoleSelectionScreen extends StatelessWidget {
               // Agency card
               _RoleCard(
                 icon: Icons.business,
-                title: 'Agence / ESN',
+                title: 'Agency / IT Services',
                 description:
-                    'Gerez votre agence, vos prestataires et vos missions',
+                    'Manage your agency, providers, and missions',
                 accentColor: const Color(0xFF2563EB), // blue-600
                 onTap: () => context.go(RoutePaths.registerAgency),
               ),
@@ -57,9 +57,9 @@ class RoleSelectionScreen extends StatelessWidget {
               // Provider / Freelance card
               _RoleCard(
                 icon: Icons.person,
-                title: 'Freelance / Apporteur',
+                title: 'Freelance / Business Referrer',
                 description:
-                    'Proposez vos services ou mettez en relation des professionnels',
+                    'Offer your services or connect professionals together',
                 accentColor: const Color(0xFFF43F5E), // rose-500
                 onTap: () => context.go(RoutePaths.registerProvider),
               ),
@@ -68,9 +68,9 @@ class RoleSelectionScreen extends StatelessWidget {
               // Enterprise card
               _RoleCard(
                 icon: Icons.corporate_fare,
-                title: 'Entreprise',
+                title: 'Enterprise',
                 description:
-                    'Publiez vos projets et trouvez les meilleurs prestataires',
+                    'Post your projects and find the best providers',
                 accentColor: const Color(0xFF10B981), // emerald-500
                 onTap: () => context.go(RoutePaths.registerEnterprise),
               ),
@@ -81,7 +81,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Deja inscrit ?',
+                    'Already registered?',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color:
                           theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -89,7 +89,7 @@ class RoleSelectionScreen extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () => context.go(RoutePaths.login),
-                    child: const Text('Se connecter'),
+                    child: const Text('Sign In'),
                   ),
                 ],
               ),

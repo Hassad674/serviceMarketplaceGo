@@ -23,13 +23,13 @@ class ApiException implements Exception {
       return ApiException(
         statusCode: statusCode,
         code: error['code'] as String? ?? 'UNKNOWN_ERROR',
-        message: error['message'] as String? ?? 'Une erreur est survenue',
+        message: error['message'] as String? ?? 'An error occurred',
       );
     }
     return ApiException(
       statusCode: statusCode,
       code: 'UNKNOWN_ERROR',
-      message: 'Une erreur est survenue',
+      message: 'An error occurred',
     );
   }
 
@@ -50,19 +50,19 @@ class ApiException implements Exception {
         return const ApiException(
           statusCode: 0,
           code: 'TIMEOUT',
-          message: 'La connexion a expiré. Vérifiez votre réseau.',
+          message: 'Connection timed out. Check your network.',
         );
       case DioExceptionType.connectionError:
         return const ApiException(
           statusCode: 0,
           code: 'CONNECTION_ERROR',
-          message: 'Impossible de se connecter au serveur.',
+          message: 'Unable to connect to server.',
         );
       default:
         return const ApiException(
           statusCode: 0,
           code: 'NETWORK_ERROR',
-          message: 'Erreur réseau. Veuillez réessayer.',
+          message: 'Network error. Please try again.',
         );
     }
   }

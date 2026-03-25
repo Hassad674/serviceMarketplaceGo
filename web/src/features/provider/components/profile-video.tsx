@@ -17,9 +17,9 @@ const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 
 export function ProfileVideo({
   videoUrl,
-  title = "Video de presentation",
-  emptyLabel = "Aucune video de presentation",
-  emptyDescription = "Ajoutez une video pour presenter votre activite",
+  title = "Presentation Video",
+  emptyLabel = "No presentation video",
+  emptyDescription = "Add a video to present your activity",
   onUploadVideo,
   uploadingVideo = false,
 }: ProfileVideoProps) {
@@ -41,7 +41,7 @@ export function ProfileVideo({
               onClick={() => setVideoModalOpen(true)}
               className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
-              Changer la video
+              Change video
             </button>
           )}
         </div>
@@ -55,7 +55,7 @@ export function ProfileVideo({
               aria-label={title}
             >
               <track kind="captions" />
-              Votre navigateur ne supporte pas la lecture video.
+              Your browser does not support video playback.
             </video>
           </div>
         ) : (
@@ -74,7 +74,7 @@ export function ProfileVideo({
               onClick={() => setVideoModalOpen(true)}
               className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
-              Ajouter une video
+              Add a video
             </button>
           </div>
         )}
@@ -86,8 +86,8 @@ export function ProfileVideo({
         onUpload={handleVideoUpload}
         accept="video/*"
         maxSize={VIDEO_MAX_SIZE}
-        title="Ajouter une video"
-        description="Formats acceptes : MP4, WebM. 50 Mo maximum."
+        title="Add a video"
+        description="Accepted formats: MP4, WebM. 50 MB maximum."
         uploading={uploadingVideo}
       />
     </>

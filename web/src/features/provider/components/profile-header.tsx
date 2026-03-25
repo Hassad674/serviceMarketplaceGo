@@ -20,7 +20,7 @@ interface ProfileHeaderProps {
 const ROLE_LABELS: Record<RoleContext, { imageLabel: string; badge: string | null }> = {
   agency: { imageLabel: "Logo", badge: null },
   provider: { imageLabel: "Photo", badge: null },
-  referrer: { imageLabel: "Photo", badge: "Apporteur d'affaire" },
+  referrer: { imageLabel: "Photo", badge: "Business Referrer" },
 }
 
 const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -80,12 +80,12 @@ export function ProfileHeader({
                 "focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
                 isRounded ? "rounded-lg" : "rounded-full",
               )}
-              aria-label={`Modifier votre ${imageLabel.toLowerCase()}`}
+              aria-label={`Edit your ${imageLabel.toLowerCase()}`}
             >
               {profile?.photo_url ? (
                 <img
                   src={profile.photo_url}
-                  alt={`${imageLabel} de ${displayName}`}
+                  alt={`${imageLabel} of ${displayName}`}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -119,31 +119,31 @@ export function ProfileHeader({
                 onChange={(event) => setTitleDraft(event.target.value)}
                 onBlur={handleTitleSubmit}
                 onKeyDown={handleTitleKeyDown}
-                placeholder="Votre titre professionnel"
+                placeholder="Your professional title"
                 className="w-full max-w-md bg-muted border border-input rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Titre professionnel"
+                aria-label="Professional title"
               />
             ) : (
               <button
                 type="button"
                 onClick={handleTitleClick}
                 className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Modifier le titre professionnel"
+                aria-label="Edit professional title"
               >
                 <span className={cn(!profile?.title && "italic")}>
-                  {profile?.title || "Ajouter un titre professionnel"}
+                  {profile?.title || "Add a professional title"}
                 </span>
                 <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
               </button>
             )}
 
-            <p className="text-sm text-muted-foreground">0 projets termines</p>
+            <p className="text-sm text-muted-foreground">0 completed projects</p>
           </div>
 
           {/* Rating placeholder */}
           <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
             <Star className="w-4 h-4" aria-hidden="true" />
-            <span>Aucun avis</span>
+            <span>No reviews</span>
           </div>
         </div>
       </section>
@@ -154,8 +154,8 @@ export function ProfileHeader({
         onUpload={handlePhotoUpload}
         accept="image/*"
         maxSize={PHOTO_MAX_SIZE}
-        title={`Ajouter une ${imageLabel.toLowerCase()}`}
-        description={`Choisissez une ${imageLabel.toLowerCase()} de profil. Formats acceptes : JPG, PNG, WebP.`}
+        title={`Add a ${imageLabel.toLowerCase()}`}
+        description={`Choose a profile ${imageLabel.toLowerCase()}. Accepted formats: JPG, PNG, WebP.`}
         uploading={uploadingPhoto}
       />
     </>

@@ -65,13 +65,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Bienvenue',
+                    'Welcome',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Connectez-vous pour continuer',
+                    'Sign in to continue',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -90,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     controller: _emailController,
                     decoration: const InputDecoration(
                       labelText: 'Email',
-                      hintText: 'vous@exemple.com',
+                      hintText: 'you@example.com',
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
                     keyboardType: TextInputType.emailAddress,
@@ -98,10 +98,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     autofillHints: const [AutofillHints.email],
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'L\'email est requis';
+                        return 'Email is required';
                       }
                       if (!value.contains('@')) {
-                        return 'Entrez un email valide';
+                        return 'Enter a valid email';
                       }
                       return null;
                     },
@@ -112,8 +112,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   TextFormField(
                     controller: _passwordController,
                     decoration: InputDecoration(
-                      labelText: 'Mot de passe',
-                      hintText: 'Entrez votre mot de passe',
+                      labelText: 'Password',
+                      hintText: 'Enter your password',
                       prefixIcon: const Icon(Icons.lock_outlined),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -134,7 +134,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     onFieldSubmitted: (_) => _handleLogin(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Le mot de passe est requis';
+                        return 'Password is required';
                       }
                       return null;
                     },
@@ -147,7 +147,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onPressed: () {
                         // TODO: navigate to forgot password screen
                       },
-                      child: const Text('Mot de passe oublie ?'),
+                      child: const Text('Forgot password?'),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -164,7 +164,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Se connecter'),
+                        : const Text('Sign In'),
                   ),
                   const SizedBox(height: 24),
 
@@ -173,14 +173,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Pas encore de compte ?',
+                        'No account yet?',
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       TextButton(
                         onPressed: () => context.go(RoutePaths.register),
-                        child: const Text('Creer un compte'),
+                        child: const Text('Create Account'),
                       ),
                     ],
                   ),

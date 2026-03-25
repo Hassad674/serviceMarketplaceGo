@@ -17,8 +17,8 @@ export function ProfileAbout({
   content,
   onSave,
   saving = false,
-  label = "À propos",
-  placeholder = "Décrivez votre activité...",
+  label = "About",
+  placeholder = "Describe your activity...",
 }: ProfileAboutProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(content)
@@ -58,7 +58,7 @@ export function ProfileAbout({
           <button
             type="button"
             onClick={startEditing}
-            aria-label={`Modifier ${label.toLowerCase()}`}
+            aria-label={`Edit ${label.toLowerCase()}`}
             className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
@@ -79,7 +79,7 @@ export function ProfileAbout({
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              {draft.length} / {MAX_CHARS} caractères
+              {draft.length} / {MAX_CHARS} characters
             </span>
             <div className="flex gap-2">
               <button
@@ -88,7 +88,7 @@ export function ProfileAbout({
                 disabled={saving}
                 className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
               >
-                Annuler
+                Cancel
               </button>
               <button
                 type="button"
@@ -97,7 +97,7 @@ export function ProfileAbout({
                 className="bg-primary text-primary-foreground rounded-md h-9 px-4 text-sm font-medium hover:opacity-90 transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-                Enregistrer
+                Save
               </button>
             </div>
           </div>
@@ -106,7 +106,7 @@ export function ProfileAbout({
         <p className="text-sm text-foreground whitespace-pre-line">{content}</p>
       ) : (
         <p className="text-sm text-muted-foreground italic">
-          Cliquez sur le bouton d&apos;édition pour ajouter une description
+          Click the edit button to add a description
         </p>
       )}
     </section>

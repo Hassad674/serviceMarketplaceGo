@@ -1,29 +1,29 @@
 import 'package:intl/intl.dart';
 
-/// Date formatting and relative time display (French locale).
+/// Date formatting and relative time display (English locale).
 extension DateTimeExtension on DateTime {
-  /// Formats as "15 mars 2026".
-  String toFrenchDate() => DateFormat('d MMMM yyyy', 'fr_FR').format(this);
+  /// Formats as "March 15, 2026".
+  String toFormattedDate() => DateFormat('MMMM d, yyyy', 'en_US').format(this);
 
-  /// Formats as "15/03/2026".
-  String toFrenchShortDate() => DateFormat('dd/MM/yyyy', 'fr_FR').format(this);
+  /// Formats as "03/15/2026".
+  String toShortDate() => DateFormat('MM/dd/yyyy', 'en_US').format(this);
 
-  /// Returns a human-readable relative time string in French.
+  /// Returns a human-readable relative time string in English.
   String toRelative() {
     final now = DateTime.now();
     final diff = now.difference(this);
 
-    if (diff.isNegative) return toFrenchDate();
-    if (diff.inSeconds < 60) return "A l'instant";
-    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Il y a ${diff.inHours} h';
-    if (diff.inDays == 1) return 'Hier';
-    if (diff.inDays < 7) return 'Il y a ${diff.inDays} j';
+    if (diff.isNegative) return toFormattedDate();
+    if (diff.inSeconds < 60) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) return '${diff.inHours} hours ago';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
     if (diff.inDays < 30) {
       final weeks = (diff.inDays / 7).floor();
-      return 'Il y a $weeks sem.';
+      return '$weeks weeks ago';
     }
-    return toFrenchDate();
+    return toFormattedDate();
   }
 }
 
@@ -39,7 +39,7 @@ extension StringExtension on String {
     return '${substring(0, maxLength)}...';
   }
 
-  /// Returns initials from a name: "Jean Dupont" -> "JD".
+  /// Returns initials from a name: "John Doe" -> "JD".
   String get initials {
     final parts = trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return '';
@@ -50,11 +50,11 @@ extension StringExtension on String {
 
 /// Currency formatting for the Euro zone.
 extension CurrencyExtension on num {
-  /// Formats as "1 234,56 EUR" (French locale).
+  /// Formats as "EUR 1,234.56" (English locale).
   String toEuro() =>
-      NumberFormat.currency(locale: 'fr_FR', symbol: 'EUR').format(this);
+      NumberFormat.currency(locale: 'en_US', symbol: 'EUR').format(this);
 
-  /// Formats as "1 234,56" with optional decimal places.
+  /// Formats as "1,234.56" with optional decimal places.
   String toCompact() =>
-      NumberFormat.decimalPattern('fr_FR').format(this);
+      NumberFormat.decimalPattern('en_US').format(this);
 }

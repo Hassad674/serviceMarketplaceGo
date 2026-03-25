@@ -4,8 +4,8 @@ import { Building2, User, Briefcase, ArrowRight } from "lucide-react"
 const roles = [
   {
     id: "agency",
-    title: "Agence",
-    description: "Gérez vos missions, votre équipe et votre visibilité.",
+    title: "Agency",
+    description: "Manage your missions, your team and your visibility.",
     icon: Building2,
     href: "/register/agency",
     accent: "border-blue-200 hover:border-blue-400 hover:bg-blue-50/50",
@@ -14,8 +14,8 @@ const roles = [
   },
   {
     id: "provider",
-    title: "Freelance / Apporteur d'affaire",
-    description: "Gérez vos missions et développez votre activité.",
+    title: "Freelance / Business Referrer",
+    description: "Manage your missions and grow your business.",
     icon: User,
     href: "/register/provider",
     accent: "border-rose-200 hover:border-rose-400 hover:bg-rose-50/50",
@@ -24,8 +24,8 @@ const roles = [
   },
   {
     id: "enterprise",
-    title: "Entreprise",
-    description: "Trouvez les meilleurs prestataires pour vos projets.",
+    title: "Enterprise",
+    description: "Find the best service providers for your projects.",
     icon: Briefcase,
     href: "/register/enterprise",
     accent: "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/50",
@@ -38,9 +38,9 @@ export default function RegisterPage() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Créer un compte</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Create an account</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Choisissez votre profil professionnel
+          Choose your professional profile
         </p>
       </div>
 
@@ -69,12 +69,12 @@ export default function RegisterPage() {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Déjà inscrit ?{" "}
+        Already registered?{" "}
         <Link
           href="/login"
           className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
         >
-          Se connecter
+          Sign In
         </Link>
       </p>
     </div>

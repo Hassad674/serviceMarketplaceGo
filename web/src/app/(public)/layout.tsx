@@ -20,31 +20,31 @@ export default function PublicLayout({
               href="/agencies"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Agences
+              Agencies
             </Link>
             <Link
               href="/freelances"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Freelances
+              Freelancers
             </Link>
             <Link
               href="/projects"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Projets
+              Projects
             </Link>
             <Link
               href="/login"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Connexion
+              Sign In
             </Link>
             <Link
               href="/register"
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
-              Inscription
+              Sign Up
             </Link>
           </div>
         </nav>

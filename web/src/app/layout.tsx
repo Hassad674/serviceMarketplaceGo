@@ -9,7 +9,7 @@ const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono"
 export const metadata: Metadata = {
   title: "Marketplace Service",
   description:
-    "Plateforme B2B de mise en relation entre agences, freelances et entreprises",
+    "B2B platform connecting agencies, freelancers and enterprises",
 }
 
 export default function RootLayout({
@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" className={`${geist.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="font-sans antialiased">
         <Providers>{children}</Providers>
       </body>

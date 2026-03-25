@@ -85,7 +85,7 @@ export function TestDB() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addWord()}
-            placeholder="Tapez un mot et appuyez sur Entree..."
+            placeholder="Type a word and press Enter..."
             className="flex-1 h-10 px-4 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
           />
           <button
@@ -93,14 +93,14 @@ export function TestDB() {
             disabled={adding || !input.trim()}
             className="h-10 px-4 rounded-md bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-all"
           >
-            {adding ? "..." : "Ajouter"}
+            {adding ? "..." : "Add"}
           </button>
         </div>
       </div>
 
       {words.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-gray-500 mb-3">Mots enregistres ({words.length})</h3>
+          <h3 className="text-sm font-medium text-gray-500 mb-3">Saved words ({words.length})</h3>
           <div className="flex flex-wrap gap-2">
             {words.map((w) => (
               <span key={w.id} className="px-3 py-1 bg-gray-100 text-gray-900 rounded-full text-sm">

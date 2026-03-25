@@ -10,24 +10,24 @@ import { register as registerUser } from "@/features/auth/api/auth-api"
 import { useAuth } from "@/shared/hooks/use-auth"
 
 const registerSchema = z.object({
-  email: z.string().email("Adresse email invalide"),
+  email: z.string().email("Invalid email address"),
   password: z
     .string()
-    .min(8, "Le mot de passe doit contenir au moins 8 caracteres"),
-  first_name: z.string().min(1, "Le prenom est requis"),
-  last_name: z.string().min(1, "Le nom est requis"),
-  display_name: z.string().min(1, "Le nom d'affichage est requis"),
+    .min(8, "Password must contain at least 8 characters"),
+  first_name: z.string().min(1, "First name is required"),
+  last_name: z.string().min(1, "Last name is required"),
+  display_name: z.string().min(1, "Display name is required"),
   role: z.enum(["agency", "enterprise", "provider"], {
-    required_error: "Veuillez selectionner un role",
+    required_error: "Please select a role",
   }),
 })
 
 type RegisterValues = z.infer<typeof registerSchema>
 
 const roleLabels: Record<RegisterValues["role"], string> = {
-  agency: "Agence",
-  enterprise: "Entreprise",
-  provider: "Prestataire / Freelance",
+  agency: "Agency",
+  enterprise: "Enterprise",
+  provider: "Provider / Freelance",
 }
 
 export function RegisterForm() {
@@ -53,7 +53,7 @@ export function RegisterForm() {
       router.push(dashboardPath)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Une erreur est survenue",
+        err instanceof Error ? err.message : "An error occurred",
       )
     }
   }
@@ -69,13 +69,13 @@ export function RegisterForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-            Prenom
+            First name
           </label>
           <input
             id="first_name"
             type="text"
             autoComplete="given-name"
-            placeholder="Jean"
+            placeholder="John"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             {...registerField("first_name")}
           />
@@ -86,13 +86,13 @@ export function RegisterForm() {
 
         <div className="space-y-2">
           <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-            Nom
+            Last name
           </label>
           <input
             id="last_name"
             type="text"
             autoComplete="family-name"
-            placeholder="Dupont"
+            placeholder="Doe"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             {...registerField("last_name")}
           />
@@ -104,12 +104,12 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="display_name" className="block text-sm font-medium text-gray-700">
-          Nom d&apos;affichage
+          Display name
         </label>
         <input
           id="display_name"
           type="text"
-          placeholder="Jean Dupont ou Mon Agence"
+          placeholder="John Doe or My Agency"
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("display_name")}
         />
@@ -126,7 +126,7 @@ export function RegisterForm() {
           id="email"
           type="email"
           autoComplete="email"
-          placeholder="vous@exemple.com"
+          placeholder="you@example.com"
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("email")}
         />
@@ -137,13 +137,13 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          Mot de passe
+          Password
         </label>
         <input
           id="password"
           type="password"
           autoComplete="new-password"
-          placeholder="Minimum 8 caracteres"
+          placeholder="Minimum 8 characters"
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("password")}
         />
@@ -154,14 +154,14 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-          Vous etes
+          You are
         </label>
         <select
           id="role"
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("role")}
         >
-          <option value="">Selectionnez votre role</option>
+          <option value="">Select your role</option>
           {(Object.entries(roleLabels) as [RegisterValues["role"], string][]).map(
             ([value, label]) => (
               <option key={value} value={value}>
@@ -180,16 +180,16 @@ export function RegisterForm() {
         disabled={isSubmitting}
         className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
       >
-        {isSubmitting ? "Inscription..." : "Creer mon compte"}
+        {isSubmitting ? "Signing up..." : "Create my account"}
       </button>
 
       <p className="text-center text-sm text-gray-500">
-        Deja inscrit ?{" "}
+        Already registered?{" "}
         <Link
           href="/login"
           className="font-medium text-gray-900 underline underline-offset-4 hover:text-gray-700"
         >
-          Se connecter
+          Sign In
         </Link>
       </p>
     </form>

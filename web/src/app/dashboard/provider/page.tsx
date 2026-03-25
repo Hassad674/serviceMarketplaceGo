@@ -10,23 +10,23 @@ import { useAuth } from "@/shared/hooks/use-auth"
 const STATS = [
   {
     icon: Briefcase,
-    title: "Missions en cours",
+    title: "Active Missions",
     value: "0",
-    subtitle: "Contrats actifs",
+    subtitle: "Active contracts",
     color: "blue",
   },
   {
     icon: MessageSquare,
-    title: "Messages non lus",
+    title: "Unread Messages",
     value: "0",
     subtitle: "Conversations",
     color: "violet",
   },
   {
     icon: TrendingUp,
-    title: "Revenus du mois",
+    title: "Monthly Revenue",
     value: "0 \u20AC",
-    subtitle: "Ce mois-ci",
+    subtitle: "This month",
     color: "emerald",
   },
 ] as const
@@ -46,10 +46,10 @@ export default function ProviderDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Bonjour, {displayName}
+          Hello, {displayName}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          G&eacute;rez vos missions et d&eacute;veloppez votre activit&eacute;
+          Manage your missions and grow your business
         </p>
       </div>
 

@@ -11,30 +11,30 @@ import { useAuth } from "@/shared/hooks/use-auth"
 const STATS = [
   {
     icon: Handshake,
-    title: "Mises en relation",
+    title: "Referrals",
     value: "0",
-    subtitle: "En attente de r\u00E9ponse",
+    subtitle: "Pending response",
     color: "teal",
   },
   {
     icon: Clock,
-    title: "Missions en cours",
+    title: "Active Missions",
     value: "0",
-    subtitle: "Contrats actifs",
+    subtitle: "Active contracts",
     color: "amber",
   },
   {
     icon: CheckCircle,
-    title: "Missions termin\u00E9es",
+    title: "Completed Missions",
     value: "0",
-    subtitle: "Total historique",
+    subtitle: "Total history",
     color: "emerald",
   },
   {
     icon: TrendingUp,
     title: "Commissions",
     value: "0 \u20AC",
-    subtitle: "Total gagn\u00E9",
+    subtitle: "Total earned",
     color: "rose",
   },
 ] as const
@@ -49,16 +49,16 @@ const COLOR_MAP: Record<string, string> = {
 export default function ReferrerDashboardPage() {
   const { user } = useAuth()
 
-  const displayName = user?.first_name || user?.display_name || "Apporteur"
+  const displayName = user?.first_name || user?.display_name || "Referrer"
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Bonjour, {displayName}
+          Hello, {displayName}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          G&eacute;rez vos apports d&apos;affaires et vos commissions
+          Manage your referrals and commissions
         </p>
       </div>
 

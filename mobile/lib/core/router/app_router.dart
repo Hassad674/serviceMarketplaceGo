@@ -114,12 +114,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.messaging,
             builder: (context, state) =>
-                const _PlaceholderScreen(title: 'Messagerie'),
+                const _PlaceholderScreen(title: 'Messages'),
           ),
           GoRoute(
             path: RoutePaths.missions,
             builder: (context, state) =>
-                const _PlaceholderScreen(title: 'Mes Missions'),
+                const _PlaceholderScreen(title: 'My Missions'),
           ),
           GoRoute(
             path: RoutePaths.profile,
@@ -158,7 +158,7 @@ class DashboardShell extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
-            label: 'Accueil',
+            label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.chat_outlined),
@@ -173,7 +173,7 @@ class DashboardShell extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
-            label: 'Profil',
+            label: 'Profile',
           ),
         ],
         onDestinationSelected: (index) {
@@ -229,7 +229,7 @@ class _AgencyDashboard extends ConsumerWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final displayName =
-        authState.user?['display_name'] as String? ?? 'Agence';
+        authState.user?['display_name'] as String? ?? 'Agency';
 
     return Scaffold(
       appBar: AppBar(
@@ -248,12 +248,12 @@ class _AgencyDashboard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bonjour, $displayName',
+                'Hello, $displayName',
                 style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 4),
               Text(
-                'Gerez votre agence et vos missions',
+                'Manage your agency and missions',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: appColors?.mutedForeground,
                 ),
@@ -261,15 +261,15 @@ class _AgencyDashboard extends ConsumerWidget {
               const SizedBox(height: 24),
               const _StatCard(
                 icon: Icons.work_outline,
-                title: 'Missions en cours',
+                title: 'Active Missions',
                 value: '0',
-                subtitle: 'Contrats actifs',
+                subtitle: 'Active contracts',
                 color: Color(0xFF2563EB),
               ),
               const SizedBox(height: 12),
               const _StatCard(
                 icon: Icons.chat_outlined,
-                title: 'Messages non lus',
+                title: 'Unread Messages',
                 value: '0',
                 subtitle: 'Conversations',
                 color: Color(0xFF8B5CF6),
@@ -277,9 +277,9 @@ class _AgencyDashboard extends ConsumerWidget {
               const SizedBox(height: 12),
               const _StatCard(
                 icon: Icons.trending_up,
-                title: 'Revenus du mois',
+                title: 'Monthly Revenue',
                 value: '0 EUR',
-                subtitle: 'Ce mois-ci',
+                subtitle: 'This month',
                 color: Color(0xFF22C55E),
               ),
             ],
@@ -303,7 +303,7 @@ class _EnterpriseDashboard extends ConsumerWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final displayName =
-        authState.user?['display_name'] as String? ?? 'Entreprise';
+        authState.user?['display_name'] as String? ?? 'Enterprise';
 
     return Scaffold(
       appBar: AppBar(
@@ -322,12 +322,12 @@ class _EnterpriseDashboard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bonjour, $displayName',
+                'Hello, $displayName',
                 style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 4),
               Text(
-                'Trouvez les meilleurs prestataires pour vos projets',
+                'Find the best providers for your projects',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: appColors?.mutedForeground,
                 ),
@@ -335,15 +335,15 @@ class _EnterpriseDashboard extends ConsumerWidget {
               const SizedBox(height: 24),
               const _StatCard(
                 icon: Icons.folder_open_outlined,
-                title: 'Projets en cours',
+                title: 'Active Projects',
                 value: '0',
-                subtitle: 'Projets actifs',
+                subtitle: 'Active projects',
                 color: Color(0xFF2563EB),
               ),
               const SizedBox(height: 12),
               const _StatCard(
                 icon: Icons.chat_outlined,
-                title: 'Messages non lus',
+                title: 'Unread Messages',
                 value: '0',
                 subtitle: 'Conversations',
                 color: Color(0xFF8B5CF6),
@@ -351,9 +351,9 @@ class _EnterpriseDashboard extends ConsumerWidget {
               const SizedBox(height: 12),
               const _StatCard(
                 icon: Icons.account_balance_wallet_outlined,
-                title: 'Budget total',
+                title: 'Total Budget',
                 value: '0 EUR',
-                subtitle: 'Depense ce mois',
+                subtitle: 'Spent this month',
                 color: Color(0xFF22C55E),
               ),
             ],
@@ -379,7 +379,7 @@ class _ProviderDashboard extends ConsumerWidget {
     final displayName =
         authState.user?['first_name'] as String? ??
         authState.user?['display_name'] as String? ??
-        'Freelance';
+        'Provider';
 
     return Scaffold(
       appBar: AppBar(
@@ -398,12 +398,12 @@ class _ProviderDashboard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bonjour, $displayName',
+                'Hello, $displayName',
                 style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 4),
               Text(
-                'Gerez vos missions et developpez votre activite',
+                'Manage your missions and grow your business',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: appColors?.mutedForeground,
                 ),
@@ -416,22 +416,22 @@ class _ProviderDashboard extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => context.go(RoutePaths.dashboardReferrer),
                   icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Mode Apporteur d\'affaires'),
+                  label: const Text('Business Referrer Mode'),
                 ),
               ),
               const SizedBox(height: 24),
 
               const _StatCard(
                 icon: Icons.work_outline,
-                title: 'Missions en cours',
+                title: 'Active Missions',
                 value: '0',
-                subtitle: 'Contrats actifs',
+                subtitle: 'Active contracts',
                 color: Color(0xFF2563EB),
               ),
               const SizedBox(height: 12),
               const _StatCard(
                 icon: Icons.chat_outlined,
-                title: 'Messages non lus',
+                title: 'Unread Messages',
                 value: '0',
                 subtitle: 'Conversations',
                 color: Color(0xFF8B5CF6),
@@ -439,9 +439,9 @@ class _ProviderDashboard extends ConsumerWidget {
               const SizedBox(height: 12),
               const _StatCard(
                 icon: Icons.trending_up,
-                title: 'Revenus du mois',
+                title: 'Monthly Revenue',
                 value: '0 EUR',
-                subtitle: 'Ce mois-ci',
+                subtitle: 'This month',
                 color: Color(0xFF22C55E),
               ),
             ],
@@ -555,7 +555,7 @@ class _PlaceholderScreen extends StatelessWidget {
             Text(title, style: theme.textTheme.headlineMedium),
             const SizedBox(height: 8),
             Text(
-              'Bientot disponible',
+              'Coming soon',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),

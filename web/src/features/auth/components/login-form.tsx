@@ -10,8 +10,8 @@ import { login } from "@/features/auth/api/auth-api"
 import { useAuth } from "@/shared/hooks/use-auth"
 
 const loginSchema = z.object({
-  email: z.string().email("Adresse email invalide"),
-  password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caracteres"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must contain at least 8 characters"),
 })
 
 type LoginValues = z.infer<typeof loginSchema>
@@ -43,7 +43,7 @@ export function LoginForm() {
       router.push(dashboardRoutes[response.user.role] || "/dashboard/provider")
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Une erreur est survenue",
+        err instanceof Error ? err.message : "An error occurred",
       )
     }
   }
@@ -64,7 +64,7 @@ export function LoginForm() {
           id="email"
           type="email"
           autoComplete="email"
-          placeholder="vous@exemple.com"
+          placeholder="you@example.com"
           className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("email")}
         />
@@ -75,13 +75,13 @@ export function LoginForm() {
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-foreground">
-          Mot de passe
+          Password
         </label>
         <input
           id="password"
           type="password"
           autoComplete="current-password"
-          placeholder="Votre mot de passe"
+          placeholder="Your password"
           className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("password")}
         />
@@ -90,7 +90,7 @@ export function LoginForm() {
         )}
         <div className="flex justify-end">
           <Link href="/forgot-password" className="text-xs text-primary hover:text-primary/80">
-            Mot de passe oublie ?
+            Forgot password?
           </Link>
         </div>
       </div>
@@ -100,13 +100,13 @@ export function LoginForm() {
         disabled={isSubmitting}
         className="h-11 w-full rounded-md bg-primary font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
       >
-        {isSubmitting ? "Connexion..." : "Se connecter"}
+        {isSubmitting ? "Signing in..." : "Sign In"}
       </button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Pas encore de compte ?{" "}
+        No account yet?{" "}
         <Link href="/register" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80">
-          Creer un compte
+          Create an account
         </Link>
       </p>
     </form>

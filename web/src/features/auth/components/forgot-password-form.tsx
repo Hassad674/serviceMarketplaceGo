@@ -8,7 +8,7 @@ import Link from "next/link"
 import { forgotPassword } from "@/features/auth/api/auth-api"
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Adresse email invalide"),
+  email: z.string().email("Invalid email address"),
 })
 
 type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>
@@ -32,7 +32,7 @@ export function ForgotPasswordForm() {
       setSuccess(true)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Une erreur est survenue",
+        err instanceof Error ? err.message : "An error occurred",
       )
     }
   }
@@ -45,15 +45,15 @@ export function ForgotPasswordForm() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-foreground">Email envoye</h2>
+        <h2 className="text-lg font-semibold text-foreground">Email sent</h2>
         <p className="text-sm text-muted-foreground">
-          Un email de reinitialisation a ete envoye a votre adresse. Verifiez votre boite de reception.
+          A password reset email has been sent to your address. Check your inbox.
         </p>
         <Link
           href="/login"
           className="inline-block text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
         >
-          Retour a la connexion
+          Back to sign in
         </Link>
       </div>
     )
@@ -75,7 +75,7 @@ export function ForgotPasswordForm() {
           id="email"
           type="email"
           autoComplete="email"
-          placeholder="vous@exemple.com"
+          placeholder="you@example.com"
           className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("email")}
         />
@@ -89,7 +89,7 @@ export function ForgotPasswordForm() {
         disabled={isSubmitting}
         className="h-11 w-full rounded-md bg-primary font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
       >
-        {isSubmitting ? "Envoi en cours..." : "Envoyer le lien de reinitialisation"}
+        {isSubmitting ? "Sending..." : "Send reset link"}
       </button>
 
       <p className="text-center text-sm text-muted-foreground">
@@ -97,7 +97,7 @@ export function ForgotPasswordForm() {
           href="/login"
           className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
         >
-          Retour a la connexion
+          Back to sign in
         </Link>
       </p>
     </form>

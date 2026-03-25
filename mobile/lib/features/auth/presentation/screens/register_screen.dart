@@ -63,7 +63,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(RoutePaths.register),
         ),
-        title: const Text('Inscription Freelance'),
+        title: const Text('Freelance Sign Up'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -76,7 +76,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 // Role badge
                 const _RoleBadge(
                   icon: Icons.person,
-                  label: 'Freelance / Apporteur',
+                  label: 'Freelance / Business Referrer',
                   color: Color(0xFFF43F5E),
                 ),
                 const SizedBox(height: 24),
@@ -91,18 +91,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextFormField(
                   controller: _firstNameController,
                   decoration: const InputDecoration(
-                    labelText: 'Prenom',
-                    hintText: 'Jean',
+                    labelText: 'First name',
+                    hintText: 'John',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.givenName],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Le prenom est requis';
+                      return 'First name is required';
                     }
                     if (value.trim().length < 2) {
-                      return 'Minimum 2 caracteres';
+                      return 'Minimum 2 characters';
                     }
                     return null;
                   },
@@ -113,18 +113,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextFormField(
                   controller: _lastNameController,
                   decoration: const InputDecoration(
-                    labelText: 'Nom',
-                    hintText: 'Dupont',
+                    labelText: 'Last name',
+                    hintText: 'Doe',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.familyName],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Le nom est requis';
+                      return 'Last name is required';
                     }
                     if (value.trim().length < 2) {
-                      return 'Minimum 2 caracteres';
+                      return 'Minimum 2 characters';
                     }
                     return null;
                   },
@@ -136,7 +136,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _emailController,
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    hintText: 'vous@exemple.com',
+                    hintText: 'you@example.com',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
@@ -144,10 +144,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   autofillHints: const [AutofillHints.email],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'L\'email est requis';
+                      return 'Email is required';
                     }
                     if (!value.contains('@')) {
-                      return 'Entrez un email valide';
+                      return 'Enter a valid email';
                     }
                     return null;
                   },
@@ -158,8 +158,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextFormField(
                   controller: _passwordController,
                   decoration: InputDecoration(
-                    labelText: 'Mot de passe',
-                    hintText: 'Minimum 8 caracteres',
+                    labelText: 'Password',
+                    hintText: 'Minimum 8 characters',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -177,10 +177,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   autofillHints: const [AutofillHints.newPassword],
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Le mot de passe est requis';
+                      return 'Password is required';
                     }
                     if (value.length < 8) {
-                      return 'Minimum 8 caracteres';
+                      return 'Minimum 8 characters';
                     }
                     return null;
                   },
@@ -191,8 +191,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextFormField(
                   controller: _confirmPasswordController,
                   decoration: InputDecoration(
-                    labelText: 'Confirmer le mot de passe',
-                    hintText: 'Retapez le mot de passe',
+                    labelText: 'Confirm password',
+                    hintText: 'Re-enter your password',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -210,7 +210,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onFieldSubmitted: (_) => _handleRegister(),
                   validator: (value) {
                     if (value != _passwordController.text) {
-                      return 'Les mots de passe ne correspondent pas';
+                      return 'Passwords do not match';
                     }
                     return null;
                   },
@@ -230,7 +230,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Creer mon compte'),
+                      : const Text('Create Account'),
                 ),
                 const SizedBox(height: 24),
 
@@ -239,14 +239,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Deja un compte ?',
+                      'Already have an account?',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     TextButton(
                       onPressed: () => context.go(RoutePaths.login),
-                      child: const Text('Se connecter'),
+                      child: const Text('Sign In'),
                     ),
                   ],
                 ),

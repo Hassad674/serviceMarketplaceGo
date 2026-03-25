@@ -61,7 +61,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(RoutePaths.register),
         ),
-        title: const Text('Inscription Agence'),
+        title: const Text('Agency Sign Up'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -74,7 +74,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                 // Role badge
                 const _RoleBadge(
                   icon: Icons.business,
-                  label: 'Agence / ESN',
+                  label: 'Agency / IT Services',
                   color: Color(0xFF2563EB),
                 ),
                 const SizedBox(height: 24),
@@ -89,18 +89,18 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                 TextFormField(
                   controller: _companyNameController,
                   decoration: const InputDecoration(
-                    labelText: 'Nom de l\'agence',
-                    hintText: 'Votre entreprise',
+                    labelText: 'Agency name',
+                    hintText: 'Your company',
                     prefixIcon: Icon(Icons.business_outlined),
                   ),
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.organizationName],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Le nom de l\'agence est requis';
+                      return 'Agency name is required';
                     }
                     if (value.trim().length < 2) {
-                      return 'Minimum 2 caracteres';
+                      return 'Minimum 2 characters';
                     }
                     return null;
                   },
@@ -112,7 +112,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                   controller: _emailController,
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    hintText: 'contact@agence.com',
+                    hintText: 'contact@agency.com',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
@@ -126,8 +126,8 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                 TextFormField(
                   controller: _passwordController,
                   decoration: InputDecoration(
-                    labelText: 'Mot de passe',
-                    hintText: 'Minimum 8 caracteres',
+                    labelText: 'Password',
+                    hintText: 'Minimum 8 characters',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -151,8 +151,8 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                 TextFormField(
                   controller: _confirmPasswordController,
                   decoration: InputDecoration(
-                    labelText: 'Confirmer le mot de passe',
-                    hintText: 'Retapez le mot de passe',
+                    labelText: 'Confirm password',
+                    hintText: 'Re-enter your password',
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -170,7 +170,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                   onFieldSubmitted: (_) => _handleRegister(),
                   validator: (value) {
                     if (value != _passwordController.text) {
-                      return 'Les mots de passe ne correspondent pas';
+                      return 'Passwords do not match';
                     }
                     return null;
                   },
@@ -190,7 +190,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Creer mon compte'),
+                      : const Text('Create Account'),
                 ),
                 const SizedBox(height: 24),
 
@@ -199,14 +199,14 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Deja un compte ?',
+                      'Already have an account?',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
                     TextButton(
                       onPressed: () => context.go(RoutePaths.login),
-                      child: const Text('Se connecter'),
+                      child: const Text('Sign In'),
                     ),
                   ],
                 ),
@@ -225,20 +225,20 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
 
 String? _validateEmail(String? value) {
   if (value == null || value.trim().isEmpty) {
-    return 'L\'email est requis';
+    return 'Email is required';
   }
   if (!value.contains('@')) {
-    return 'Entrez un email valide';
+    return 'Enter a valid email';
   }
   return null;
 }
 
 String? _validatePassword(String? value) {
   if (value == null || value.isEmpty) {
-    return 'Le mot de passe est requis';
+    return 'Password is required';
   }
   if (value.length < 8) {
-    return 'Minimum 8 caracteres';
+    return 'Minimum 8 characters';
   }
   return null;
 }

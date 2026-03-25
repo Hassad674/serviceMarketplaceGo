@@ -7,9 +7,9 @@ class RoleSelector extends StatelessWidget {
   const RoleSelector({super.key, required this.selectedRole, required this.onRoleChanged});
 
   static const _roles = [
-    ('agency', 'Agence', Icons.business, 'Gérez votre agence et vos prestataires'),
-    ('enterprise', 'Entreprise', Icons.corporate_fare, 'Publiez des projets et recrutez'),
-    ('provider', 'Freelance', Icons.person, 'Proposez vos services et compétences'),
+    ('agency', 'Agency', Icons.business, 'Manage your agency and providers'),
+    ('enterprise', 'Enterprise', Icons.corporate_fare, 'Post projects and recruit talent'),
+    ('provider', 'Freelance', Icons.person, 'Offer your services and skills'),
   ];
 
   @override

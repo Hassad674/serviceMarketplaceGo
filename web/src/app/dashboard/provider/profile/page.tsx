@@ -43,8 +43,8 @@ export default function ProviderProfilePage() {
           await updateProfile.mutateAsync({ about: text })
         }}
         saving={updateProfile.isPending}
-        label="À propos"
-        placeholder="Décrivez votre activité, vos compétences et votre expérience..."
+        label="About"
+        placeholder="Describe your activity, your skills and your experience..."
       />
       <ProfileHistory />
     </div>

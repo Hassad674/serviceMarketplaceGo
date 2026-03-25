@@ -11,15 +11,15 @@ const resetPasswordSchema = z
   .object({
     password: z
       .string()
-      .min(8, "Le mot de passe doit contenir au moins 8 caracteres")
-      .regex(/[A-Z]/, "Le mot de passe doit contenir au moins une majuscule")
-      .regex(/[a-z]/, "Le mot de passe doit contenir au moins une minuscule")
-      .regex(/[0-9]/, "Le mot de passe doit contenir au moins un chiffre")
-      .regex(/[^A-Za-z0-9]/, "Le mot de passe doit contenir au moins un caractere special"),
+      .min(8, "Password must contain at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[0-9]/, "Password must contain at least one digit")
+      .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Les mots de passe ne correspondent pas",
+    message: "Passwords do not match",
     path: ["confirmPassword"],
   })
 
@@ -49,15 +49,15 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-foreground">Lien invalide</h2>
+        <h2 className="text-lg font-semibold text-foreground">Invalid link</h2>
         <p className="text-sm text-muted-foreground">
-          Ce lien de reinitialisation est invalide ou a expire.
+          This reset link is invalid or has expired.
         </p>
         <Link
           href="/forgot-password"
           className="inline-block text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
         >
-          Demander un nouveau lien
+          Request a new link
         </Link>
       </div>
     )
@@ -70,7 +70,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       setSuccess(true)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Une erreur est survenue",
+        err instanceof Error ? err.message : "An error occurred",
       )
     }
   }
@@ -83,15 +83,15 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-foreground">Mot de passe reinitialise avec succes !</h2>
+        <h2 className="text-lg font-semibold text-foreground">Password reset successfully!</h2>
         <p className="text-sm text-muted-foreground">
-          Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.
+          You can now sign in with your new password.
         </p>
         <Link
           href="/login"
           className="inline-block rounded-md bg-primary px-6 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
         >
-          Se connecter
+          Sign In
         </Link>
       </div>
     )
@@ -107,13 +107,13 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-foreground">
-          Nouveau mot de passe
+          New password
         </label>
         <input
           id="password"
           type="password"
           autoComplete="new-password"
-          placeholder="Minimum 8 caracteres"
+          placeholder="Minimum 8 characters"
           className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("password")}
         />
@@ -121,19 +121,19 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           <p className="text-xs text-red-600">{errors.password.message}</p>
         )}
         <p className="text-xs text-muted-foreground">
-          8 caracteres minimum, une majuscule, une minuscule, un chiffre et un caractere special
+          8 characters minimum, one uppercase, one lowercase, one digit and one special character
         </p>
       </div>
 
       <div className="space-y-2">
         <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
-          Confirmer le mot de passe
+          Confirm password
         </label>
         <input
           id="confirmPassword"
           type="password"
           autoComplete="new-password"
-          placeholder="Confirmez votre mot de passe"
+          placeholder="Confirm your password"
           className="h-11 w-full rounded-md border border-border bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           {...registerField("confirmPassword")}
         />
@@ -147,7 +147,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         disabled={isSubmitting}
         className="h-11 w-full rounded-md bg-primary font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
       >
-        {isSubmitting ? "Reinitialisation..." : "Reinitialiser mon mot de passe"}
+        {isSubmitting ? "Resetting..." : "Reset my password"}
       </button>
     </form>
   )

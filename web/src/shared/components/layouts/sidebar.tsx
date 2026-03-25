@@ -36,29 +36,29 @@ type NavItem = {
 // ---------------------------------------------------------------------------
 
 const agencyNav: NavItem[] = [
-  { label: "Tableau de bord", href: "/dashboard/agency", icon: LayoutDashboard },
-  { label: "Mon profil", href: "/dashboard/agency/profile", icon: UserCircle },
+  { label: "Dashboard", href: "/dashboard/agency", icon: LayoutDashboard },
+  { label: "My Profile", href: "/dashboard/agency/profile", icon: UserCircle },
 ]
 
 const providerNav: NavItem[] = [
-  { label: "Tableau de bord", href: "/dashboard/provider", icon: LayoutDashboard },
-  { label: "Mon profil", href: "/dashboard/provider/profile", icon: UserCircle },
+  { label: "Dashboard", href: "/dashboard/provider", icon: LayoutDashboard },
+  { label: "My Profile", href: "/dashboard/provider/profile", icon: UserCircle },
 ]
 
 const referrerNav: NavItem[] = [
-  { label: "Tableau de bord", href: "/dashboard/referrer", icon: LayoutDashboard },
-  { label: "Profil Apporteur", href: "/dashboard/provider/referral", icon: UserCircle },
+  { label: "Dashboard", href: "/dashboard/referrer", icon: LayoutDashboard },
+  { label: "Referrer Profile", href: "/dashboard/provider/referral", icon: UserCircle },
 ]
 
 const enterpriseNav: NavItem[] = [
-  { label: "Tableau de bord", href: "/dashboard/enterprise", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard },
 ]
 
 const ROLE_TITLES: Record<string, string> = {
-  agency: "AgenceB2B",
+  agency: "AgencyB2B",
   enterprise: "EnterpriseB2B",
   provider: "ProviderB2B",
-  referrer: "ApporteurB2B",
+  referrer: "ReferrerB2B",
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +125,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           <button
             onClick={onClose}
             className="rounded-md p-1 text-sidebar-foreground hover:bg-sidebar-accent/50 lg:hidden"
-            aria-label="Fermer le menu"
+            aria-label="Close menu"
           >
             <X className="h-5 w-5" />
           </button>
@@ -160,7 +160,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             )}
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            Se déconnecter
+            Sign Out
           </button>
         </div>
       </aside>
@@ -184,7 +184,7 @@ function SwitchButton({ isReferrerMode }: { isReferrerMode: boolean }) {
         )}
       >
         <ArrowRightLeft className="h-4 w-4" />
-        Dashboard Freelance
+        Freelance Dashboard
       </Link>
     )
   }
@@ -199,7 +199,7 @@ function SwitchButton({ isReferrerMode }: { isReferrerMode: boolean }) {
       )}
     >
       <ArrowRightLeft className="h-4 w-4" />
-      Apporteur d&apos;affaire
+      Business Referrer
     </Link>
   )
 }

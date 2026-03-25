@@ -33,7 +33,7 @@ class ProfileScreen extends ConsumerWidget {
     final initials = _buildInitials(displayName);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mon Profil')),
+      appBar: AppBar(title: const Text('My Profile')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -53,7 +53,7 @@ class ProfileScreen extends ConsumerWidget {
 
               // Name
               Text(
-                displayName.isNotEmpty ? displayName : 'Utilisateur',
+                displayName.isNotEmpty ? displayName : 'User',
                 style: theme.textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
@@ -110,7 +110,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.invalidate(profileProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Photo mise a jour')),
+            const SnackBar(content: Text('Photo updated')),
           );
         }
       },
@@ -128,7 +128,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.invalidate(profileProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video mise a jour')),
+            const SnackBar(content: Text('Video updated')),
           );
         }
       },
@@ -239,7 +239,7 @@ class _RoleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
-        _roleLabelFrench(role),
+        _roleLabel(role),
         style: TextStyle(
           color: _roleColor(role),
           fontWeight: FontWeight.w600,
@@ -249,16 +249,16 @@ class _RoleBadge extends StatelessWidget {
     );
   }
 
-  String _roleLabelFrench(String? role) {
+  String _roleLabel(String? role) {
     switch (role) {
       case 'agency':
-        return 'Agence';
+        return 'Agency';
       case 'enterprise':
-        return 'Entreprise';
+        return 'Enterprise';
       case 'provider':
         return 'Freelance';
       default:
-        return role ?? 'Inconnu';
+        return role ?? 'Unknown';
     }
   }
 
@@ -298,7 +298,7 @@ class _VideoSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Video de presentation', style: theme.textTheme.titleLarge),
+        Text('Presentation Video', style: theme.textTheme.titleLarge),
         const SizedBox(height: 12),
 
         if (videoUrl != null && videoUrl!.isNotEmpty)
@@ -318,14 +318,14 @@ class _VideoSection extends StatelessWidget {
                   Icon(Icons.play_circle_outline, color: primary, size: 48),
                   const SizedBox(height: 8),
                   Text(
-                    'Video de presentation',
+                    'Presentation Video',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: primary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Appuyez pour modifier',
+                    'Tap to edit',
                     style: theme.textTheme.bodySmall,
                   ),
                 ],
@@ -355,7 +355,7 @@ class _VideoSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Aucune video de presentation',
+                    'No presentation video',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: appColors?.mutedForeground,
                     ),
@@ -366,7 +366,7 @@ class _VideoSection extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: onUploadTap,
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Ajouter une video'),
+                      label: const Text('Add a video'),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size.zero,
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -401,7 +401,7 @@ class _LogoutButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(Icons.logout, color: theme.colorScheme.error),
         label: Text(
-          'Se deconnecter',
+          'Sign Out',
           style: TextStyle(color: theme.colorScheme.error),
         ),
         style: OutlinedButton.styleFrom(

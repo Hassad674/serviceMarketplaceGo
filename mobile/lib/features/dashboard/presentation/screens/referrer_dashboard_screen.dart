@@ -6,7 +6,7 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
-/// Referrer (apporteur d'affaires) dashboard for providers with referrer mode.
+/// Referrer (business referrer) dashboard for providers with referrer mode.
 ///
 /// Shows referrer-specific stats and a button to switch back to freelance mode.
 class ReferrerDashboardScreen extends ConsumerWidget {
@@ -22,11 +22,11 @@ class ReferrerDashboardScreen extends ConsumerWidget {
     final displayName =
         user?['first_name'] as String? ??
         user?['display_name'] as String? ??
-        'Apporteur';
+        'Referrer';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mode Apporteur'),
+        title: const Text('Referrer Mode'),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
@@ -42,12 +42,12 @@ class ReferrerDashboardScreen extends ConsumerWidget {
             children: [
               // Greeting
               Text(
-                'Bonjour, $displayName',
+                'Hello, $displayName',
                 style: theme.textTheme.headlineMedium,
               ),
               const SizedBox(height: 4),
               Text(
-                'Gerez vos apports d\'affaires et vos commissions',
+                'Manage your referrals and commissions',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: appColors?.mutedForeground,
                 ),
@@ -60,7 +60,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => context.go(RoutePaths.dashboard),
                   icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Dashboard Freelance'),
+                  label: const Text('Freelance Dashboard'),
                 ),
               ),
               const SizedBox(height: 24),
@@ -68,27 +68,27 @@ class ReferrerDashboardScreen extends ConsumerWidget {
               // Stats grid
               const _StatCard(
                 icon: Icons.handshake_outlined,
-                title: 'Mises en relation',
+                title: 'Referrals',
                 value: '0',
-                subtitle: 'En attente de reponse',
+                subtitle: 'Pending response',
                 color: Color(0xFF14B8A6), // teal-500
               ),
               const SizedBox(height: 12),
 
               const _StatCard(
                 icon: Icons.schedule,
-                title: 'Missions en cours',
+                title: 'Active Missions',
                 value: '0',
-                subtitle: 'Contrats actifs',
+                subtitle: 'Active contracts',
                 color: Color(0xFFF59E0B), // amber-500
               ),
               const SizedBox(height: 12),
 
               const _StatCard(
                 icon: Icons.check_circle_outline,
-                title: 'Missions terminees',
+                title: 'Completed Missions',
                 value: '0',
-                subtitle: 'Total historique',
+                subtitle: 'Total history',
                 color: Color(0xFF22C55E), // emerald-500
               ),
               const SizedBox(height: 12),
@@ -97,7 +97,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 icon: Icons.trending_up,
                 title: 'Commissions',
                 value: '0 EUR',
-                subtitle: 'Total gagne',
+                subtitle: 'Total earned',
                 color: Color(0xFFF43F5E), // rose-500
               ),
             ],

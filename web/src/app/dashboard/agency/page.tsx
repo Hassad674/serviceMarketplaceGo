@@ -16,32 +16,32 @@ import { useAuth } from "@/shared/hooks/use-auth"
 const STATS = [
   {
     icon: Briefcase,
-    title: "Missions en cours",
+    title: "Active Missions",
     value: "0",
-    subtitle: "Contrats actifs",
+    subtitle: "Active contracts",
     color: "blue",
   },
   {
     icon: MessageSquare,
-    title: "Messages non lus",
+    title: "Unread Messages",
     value: "0",
     subtitle: "Conversations",
     color: "violet",
   },
   {
     icon: TrendingUp,
-    title: "Revenus du mois",
+    title: "Monthly Revenue",
     value: "0 \u20AC",
-    subtitle: "Ce mois-ci",
+    subtitle: "This month",
     color: "emerald",
   },
 ] as const
 
 const QUICK_LINKS = [
-  { href: "/dashboard/agency/profile", icon: UserCircle, label: "Mon profil" },
-  { href: "/dashboard/agency/missions", icon: Briefcase, label: "Mes missions" },
-  { href: "/dashboard/agency/team", icon: Users, label: "Mon \u00E9quipe" },
-  { href: "/dashboard/agency/billing", icon: Receipt, label: "Facturation" },
+  { href: "/dashboard/agency/profile", icon: UserCircle, label: "My Profile" },
+  { href: "/dashboard/agency/missions", icon: Briefcase, label: "My Missions" },
+  { href: "/dashboard/agency/team", icon: Users, label: "My Team" },
+  { href: "/dashboard/agency/billing", icon: Receipt, label: "Billing" },
 ] as const
 
 const COLOR_MAP: Record<string, string> = {
@@ -57,10 +57,10 @@ export default function AgencyDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Bonjour, {user?.display_name ?? "Agence"}
+          Hello, {user?.display_name ?? "Agency"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          G&eacute;rez votre agence et vos missions
+          Manage your agency and your missions
         </p>
       </div>
 

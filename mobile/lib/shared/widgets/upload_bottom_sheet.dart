@@ -10,7 +10,7 @@ enum UploadMediaType { photo, video }
 /// A bottom sheet that lets the user pick a photo (camera or gallery) or a
 /// video (gallery via file_picker), preview the selection, and trigger upload.
 ///
-/// All strings are in French per project convention.
+/// All strings are in English.
 class UploadBottomSheet extends StatefulWidget {
   const UploadBottomSheet({
     super.key,
@@ -35,7 +35,7 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
   bool get _isPhoto => widget.type == UploadMediaType.photo;
 
   String get _title =>
-      _isPhoto ? 'Ajouter une photo' : 'Ajouter une video';
+      _isPhoto ? 'Add a photo' : 'Add a video';
 
   // --------------------------------------------------------------------------
   // Pickers
@@ -77,7 +77,7 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
     if (sizeBytes > widget.maxSizeBytes) {
       final maxMB = (widget.maxSizeBytes / (1024 * 1024)).toStringAsFixed(0);
       setState(() {
-        _errorMessage = 'Le fichier depasse la taille maximale de $maxMB Mo';
+        _errorMessage = 'File too large. Maximum size is $maxMB MB';
         _selectedFile = null;
       });
       return;
@@ -102,7 +102,7 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
       if (mounted) {
         setState(() {
           _isUploading = false;
-          _errorMessage = 'Echec de l\'envoi. Veuillez reessayer.';
+          _errorMessage = 'Upload failed. Please try again.';
         });
       }
     }
@@ -113,9 +113,9 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
   // --------------------------------------------------------------------------
 
   String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes o';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} Ko';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} Mo';
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   // --------------------------------------------------------------------------
@@ -159,8 +159,8 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
           if (_isPhoto)
             _OptionTile(
               icon: Icons.camera_alt_outlined,
-              title: 'Prendre une photo',
-              subtitle: 'Utiliser l\'appareil photo',
+              title: 'Take a photo',
+              subtitle: 'Use the camera',
               onTap: _isUploading ? null : _pickFromCamera,
             ),
 
@@ -169,10 +169,10 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
             icon: _isPhoto
                 ? Icons.photo_library_outlined
                 : Icons.video_library_outlined,
-            title: 'Choisir depuis la galerie',
+            title: 'Choose from gallery',
             subtitle: _isPhoto
-                ? 'Selectionner une image'
-                : 'Selectionner une video',
+                ? 'Select an image'
+                : 'Select a video',
             onTap: _isUploading ? null : _pickFromGallery,
           ),
           const SizedBox(height: 12),
@@ -254,7 +254,7 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
                           color: theme.colorScheme.onPrimary,
                         ),
                       )
-                    : const Text('Envoyer'),
+                    : const Text('Upload'),
               ),
             ),
 
@@ -265,7 +265,7 @@ class _UploadBottomSheetState extends State<UploadBottomSheet> {
             height: 48,
             child: TextButton(
               onPressed: _isUploading ? null : () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
+              child: const Text('Cancel'),
             ),
           ),
         ],

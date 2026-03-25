@@ -10,23 +10,23 @@ import { useAuth } from "@/shared/hooks/use-auth"
 const STATS = [
   {
     icon: FolderOpen,
-    title: "Projets en cours",
+    title: "Active Projects",
     value: "0",
-    subtitle: "Projets actifs",
+    subtitle: "Active projects",
     color: "blue",
   },
   {
     icon: MessageSquare,
-    title: "Messages non lus",
+    title: "Unread Messages",
     value: "0",
     subtitle: "Conversations",
     color: "violet",
   },
   {
     icon: Wallet,
-    title: "Budget total",
+    title: "Total Budget",
     value: "0 \u20AC",
-    subtitle: "D\u00E9pens\u00E9 ce mois",
+    subtitle: "Spent this month",
     color: "emerald",
   },
 ] as const
@@ -44,10 +44,10 @@ export default function EnterpriseDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">
-          Bonjour, {user?.display_name ?? "Entreprise"}
+          Hello, {user?.display_name ?? "Enterprise"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Trouvez les meilleurs prestataires pour vos projets
+          Find the best service providers for your projects
         </p>
       </div>
 

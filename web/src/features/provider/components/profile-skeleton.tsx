@@ -1,6 +1,6 @@
 export function ProfileSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse" aria-label="Chargement du profil">
+    <div className="space-y-6 animate-pulse" aria-label="Loading profile">
       {/* Header skeleton */}
       <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row items-start gap-6">

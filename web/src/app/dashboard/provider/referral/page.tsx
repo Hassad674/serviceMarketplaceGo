@@ -33,9 +33,9 @@ export default function ProviderReferralPage() {
       />
       <ProfileVideo
         videoUrl={profile?.referrer_video_url}
-        title="Video de presentation — Apporteur d'affaire"
-        emptyLabel="Aucune video d'apporteur"
-        emptyDescription="Ajoutez une video pour presenter votre activite d'apporteur d'affaire"
+        title="Presentation Video — Business Referrer"
+        emptyLabel="No referrer video"
+        emptyDescription="Add a video to present your business referrer activity"
         onUploadVideo={async (file) => { await referrerVideoUpload.mutateAsync(file) }}
         uploadingVideo={referrerVideoUpload.isPending}
       />
@@ -45,8 +45,8 @@ export default function ProviderReferralPage() {
           await updateProfile.mutateAsync({ referrer_about: text })
         }}
         saving={updateProfile.isPending}
-        label="À propos de l'apporteur d'affaire"
-        placeholder="Décrivez votre activité d'apporteur d'affaire..."
+        label="About the business referrer"
+        placeholder="Describe your business referrer activity..."
       />
     </div>
   )

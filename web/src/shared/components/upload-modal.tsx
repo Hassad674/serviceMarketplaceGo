@@ -18,9 +18,9 @@ interface UploadModalProps {
 const BYTES_PER_MB = 1024 * 1024
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`
-  if (bytes < BYTES_PER_MB) return `${(bytes / 1024).toFixed(1)} Ko`
-  return `${(bytes / BYTES_PER_MB).toFixed(1)} Mo`
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < BYTES_PER_MB) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / BYTES_PER_MB).toFixed(1)} MB`
 }
 
 export function UploadModal({
@@ -78,7 +78,7 @@ export function UploadModal({
   const validateFile = useCallback(
     (file: File): string | null => {
       if (file.size > maxSize) {
-        return `Le fichier depasse la taille maximale de ${maxSizeLabel}`
+        return `File exceeds the maximum size of ${maxSizeLabel}`
       }
       const acceptTypes = accept.split(",").map((t) => t.trim())
       const matchesType = acceptTypes.some((type) => {
@@ -89,8 +89,8 @@ export function UploadModal({
       })
       if (!matchesType) {
         return isImage
-          ? "Veuillez selectionner un fichier image valide"
-          : "Veuillez selectionner un fichier video valide"
+          ? "Please select a valid image file"
+          : "Please select a valid video file"
       }
       return null
     },
@@ -188,7 +188,7 @@ export function UploadModal({
               "focus-visible:outline-2 focus-visible:outline-ring",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
-            aria-label="Fermer"
+            aria-label="Close"
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -215,7 +215,7 @@ export function UploadModal({
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary hover:bg-primary/5",
             )}
-            aria-label={`Zone de depot pour ${isImage ? "image" : "video"}`}
+            aria-label={`Drop zone for ${isImage ? "image" : "video"}`}
           >
             <div
               className={cn(
@@ -233,10 +233,10 @@ export function UploadModal({
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">
-                Glissez votre fichier ici
+                Drag your file here
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                ou cliquez pour parcourir
+                or click to browse
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -252,7 +252,7 @@ export function UploadModal({
               <div className="relative mb-3">
                 <img
                   src={previewUrl}
-                  alt="Apercu du fichier selectionne"
+                  alt="Preview of selected file"
                   className="w-full h-40 object-cover rounded-md"
                 />
               </div>
@@ -282,7 +282,7 @@ export function UploadModal({
                   "focus-visible:outline-2 focus-visible:outline-ring",
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
-                aria-label="Supprimer le fichier selectionne"
+                aria-label="Remove selected file"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -304,7 +304,7 @@ export function UploadModal({
           accept={accept}
           onChange={handleInputChange}
           className="hidden"
-          aria-label={`Selectionner un fichier ${isImage ? "image" : "video"}`}
+          aria-label={`Select a ${isImage ? "image" : "video"} file`}
         />
 
         {/* Actions */}
@@ -320,7 +320,7 @@ export function UploadModal({
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            Annuler
+            Cancel
           </button>
           <button
             type="button"
@@ -341,7 +341,7 @@ export function UploadModal({
                 aria-hidden="true"
               />
             )}
-            {uploading ? "Envoi en cours..." : "Envoyer"}
+            {uploading ? "Uploading..." : "Upload"}
           </button>
         </div>
       </div>

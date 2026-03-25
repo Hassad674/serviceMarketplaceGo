@@ -7,9 +7,9 @@ import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
 
 const roleLabels: Record<string, string> = {
-  agency: "Agence",
-  enterprise: "Entreprise",
-  provider: "Prestataire",
+  agency: "Agency",
+  enterprise: "Enterprise",
+  provider: "Provider",
 }
 
 type HeaderProps = {
@@ -44,7 +44,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       <button
         onClick={onMenuToggle}
         className="rounded-lg p-2 text-muted-foreground hover:bg-accent lg:hidden"
-        aria-label="Ouvrir le menu"
+        aria-label="Open menu"
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -54,7 +54,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Rechercher..."
+          placeholder="Search..."
           className={cn(
             "h-9 w-full rounded-lg border border-input bg-background pl-9 pr-4 text-sm",
             "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring",
@@ -105,7 +105,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
                 >
                   <LogOut className="h-4 w-4" />
-                  Se deconnecter
+                  Sign Out
                 </button>
               </div>
             )}

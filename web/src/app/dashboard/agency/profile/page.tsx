@@ -32,7 +32,7 @@ export default function AgencyProfilePage() {
       />
       <ProfileVideo
         videoUrl={profile?.presentation_video_url}
-        emptyDescription="Ajoutez une video pour presenter votre agence"
+        emptyDescription="Add a video to present your agency"
         onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
         uploadingVideo={videoUpload.isPending}
       />
@@ -42,8 +42,8 @@ export default function AgencyProfilePage() {
           await updateProfile.mutateAsync({ about: text })
         }}
         saving={updateProfile.isPending}
-        label="À propos de l'agence"
-        placeholder="Décrivez votre agence, vos services et votre expertise..."
+        label="About the agency"
+        placeholder="Describe your agency, your services and your expertise..."
       />
       <ProfileHistory />
     </div>

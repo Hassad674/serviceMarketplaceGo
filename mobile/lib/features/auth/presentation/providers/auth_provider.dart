@@ -145,7 +145,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {
       state = state.copyWith(
         isSubmitting: false,
-        errorMessage: 'Une erreur inattendue est survenue',
+        errorMessage: 'An unexpected error occurred',
       );
       return false;
     }
@@ -207,7 +207,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (_) {
       state = state.copyWith(
         isSubmitting: false,
-        errorMessage: 'Une erreur inattendue est survenue',
+        errorMessage: 'An unexpected error occurred',
       );
       return false;
     }

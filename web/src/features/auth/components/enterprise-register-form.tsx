@@ -12,18 +12,18 @@ import { useAuth } from "@/shared/hooks/use-auth"
 
 const enterpriseSchema = z
   .object({
-    display_name: z.string().min(2, "Le nom de l'entreprise est requis"),
-    email: z.string().email("Adresse email invalide"),
+    display_name: z.string().min(2, "Company name is required"),
+    email: z.string().email("Invalid email address"),
     password: z
       .string()
-      .min(8, "Minimum 8 caractères")
-      .regex(/[A-Z]/, "Au moins une majuscule")
-      .regex(/[a-z]/, "Au moins une minuscule")
-      .regex(/[0-9]/, "Au moins un chiffre"),
+      .min(8, "Minimum 8 characters")
+      .regex(/[A-Z]/, "At least one uppercase letter")
+      .regex(/[a-z]/, "At least one lowercase letter")
+      .regex(/[0-9]/, "At least one digit"),
     confirm_password: z.string(),
   })
   .refine((data) => data.password === data.confirm_password, {
-    message: "Les mots de passe ne correspondent pas",
+    message: "Passwords do not match",
     path: ["confirm_password"],
   })
 
@@ -56,7 +56,7 @@ export function EnterpriseRegisterForm() {
       setAuth(response.user, response.access_token, response.refresh_token)
       router.push("/dashboard/enterprise")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Une erreur est survenue")
+      setError(err instanceof Error ? err.message : "An error occurred")
     }
   }
 
@@ -71,17 +71,17 @@ export function EnterpriseRegisterForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="display_name" className="block text-sm font-medium text-foreground">
-            Nom de l&apos;entreprise
+            Company name
           </label>
           <input
             id="display_name"
             type="text"
             autoComplete="organization"
-            placeholder="Mon Entreprise SAS"
+            placeholder="My Company Inc."
             className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             {...registerField("display_name")}
           />
-          <p className="text-xs text-muted-foreground">Nom de votre entreprise</p>
+          <p className="text-xs text-muted-foreground">Your company name</p>
           {errors.display_name && (
             <p className="text-sm text-destructive">{errors.display_name.message}</p>
           )}
@@ -95,7 +95,7 @@ export function EnterpriseRegisterForm() {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="contact@monentreprise.com"
+            placeholder="contact@mycompany.com"
             className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             {...registerField("email")}
           />
@@ -106,18 +106,18 @@ export function EnterpriseRegisterForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium text-foreground">
-            Mot de passe
+            Password
           </label>
           <input
             id="password"
             type="password"
             autoComplete="new-password"
-            placeholder="Votre mot de passe"
+            placeholder="Your password"
             className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             {...registerField("password")}
           />
           <p className="text-xs text-muted-foreground">
-            Minimum 8 caractères avec majuscule, minuscule et chiffre
+            Minimum 8 characters with uppercase, lowercase and digit
           </p>
           {errors.password && (
             <p className="text-sm text-destructive">{errors.password.message}</p>
@@ -126,13 +126,13 @@ export function EnterpriseRegisterForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="confirm_password" className="block text-sm font-medium text-foreground">
-            Confirmer le mot de passe
+            Confirm password
           </label>
           <input
             id="confirm_password"
             type="password"
             autoComplete="new-password"
-            placeholder="Confirmez votre mot de passe"
+            placeholder="Confirm your password"
             className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             {...registerField("confirm_password")}
           />
@@ -146,7 +146,7 @@ export function EnterpriseRegisterForm() {
           disabled={isSubmitting}
           className="h-11 w-full rounded-md bg-primary font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
         >
-          {isSubmitting ? "Inscription..." : "Créer mon compte entreprise"}
+          {isSubmitting ? "Signing up..." : "Create my enterprise account"}
         </button>
       </form>
 
@@ -156,15 +156,15 @@ export function EnterpriseRegisterForm() {
           className="inline-flex items-center gap-1 font-medium text-foreground hover:text-foreground/80"
         >
           <ArrowLeft className="h-4 w-4" />
-          Changer de profil
+          Change profile
         </Link>
         <p>
-          Déjà inscrit ?{" "}
+          Already registered?{" "}
           <Link
             href="/login"
             className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
           >
-            Se connecter
+            Sign In
           </Link>
         </p>
       </div>
