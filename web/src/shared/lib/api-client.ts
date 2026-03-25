@@ -1,20 +1,19 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
 
 type RequestOptions = {
   method?: string
   body?: unknown
   headers?: Record<string, string>
-  token?: string
 }
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, headers = {}, token } = options
+  const { method = "GET", body, headers = {} } = options
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     ...(body ? { body: JSON.stringify(body) } : {}),

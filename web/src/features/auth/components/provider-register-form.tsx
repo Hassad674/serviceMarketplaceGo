@@ -8,7 +8,6 @@ import { Link, useRouter } from "@i18n/navigation"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
-import { useAuth } from "@/shared/hooks/use-auth"
 
 const providerSchema = z
   .object({
@@ -32,7 +31,6 @@ type ProviderValues = z.infer<typeof providerSchema>
 
 export function ProviderRegisterForm() {
   const router = useRouter()
-  const { setAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -50,7 +48,7 @@ export function ProviderRegisterForm() {
   async function onSubmit(values: ProviderValues) {
     setError(null)
     try {
-      const response = await registerUser({
+      await registerUser({
         email: values.email,
         password: values.password,
         first_name: values.first_name,
@@ -58,7 +56,6 @@ export function ProviderRegisterForm() {
         display_name: "",
         role: "provider",
       })
-      setAuth(response.user, response.access_token, response.refresh_token)
       router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : tCommon("errorOccurred"))

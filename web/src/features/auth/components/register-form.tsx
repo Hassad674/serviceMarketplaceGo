@@ -7,7 +7,6 @@ import { useState } from "react"
 import { Link, useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
-import { useAuth } from "@/shared/hooks/use-auth"
 
 const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -26,7 +25,6 @@ type RegisterValues = z.infer<typeof registerSchema>
 
 export function RegisterForm() {
   const router = useRouter()
-  const { setAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const t = useTranslations("auth")
   const tCommon = useTranslations("common")
@@ -48,9 +46,7 @@ export function RegisterForm() {
   async function onSubmit(values: RegisterValues) {
     setError(null)
     try {
-      const response = await registerUser(values)
-      setAuth(response.user, response.access_token, response.refresh_token)
-
+      await registerUser(values)
       router.push("/dashboard")
     } catch (err) {
       setError(

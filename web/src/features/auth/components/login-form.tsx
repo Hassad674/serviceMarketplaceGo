@@ -8,7 +8,6 @@ import { Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { login } from "@/features/auth/api/auth-api"
-import { useAuth } from "@/shared/hooks/use-auth"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -19,7 +18,6 @@ type LoginValues = z.infer<typeof loginSchema>
 
 export function LoginForm() {
   const router = useRouter()
-  const { setAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const t = useTranslations("auth")
@@ -36,9 +34,7 @@ export function LoginForm() {
   async function onSubmit(values: LoginValues) {
     setError(null)
     try {
-      const response = await login(values.email, values.password)
-      setAuth(response.user, response.access_token, response.refresh_token)
-
+      await login(values.email, values.password)
       router.push("/dashboard")
     } catch (err) {
       setError(

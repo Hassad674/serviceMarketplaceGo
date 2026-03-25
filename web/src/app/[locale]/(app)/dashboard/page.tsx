@@ -15,7 +15,7 @@ import {
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { Link } from "@i18n/navigation"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { useUser } from "@/shared/hooks/use-user"
 import { cn } from "@/shared/lib/utils"
 
 type StatCard = {
@@ -159,15 +159,16 @@ function getDisplayName(
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { data: user } = useUser()
   const searchParams = useSearchParams()
   const t = useTranslations("dashboard")
 
   const role = user?.role ?? "enterprise"
+  const userOrNull = user ?? null
   const isReferrerMode = searchParams.get("mode") === "referrer" && role === "provider"
   const stats = getStatsForRole(role, isReferrerMode)
   const subtitleKey = getSubtitleKey(role, isReferrerMode)
-  const displayName = getDisplayName(user, isReferrerMode)
+  const displayName = getDisplayName(userOrNull, isReferrerMode)
 
   const gridCols = stats.length === 4
     ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"

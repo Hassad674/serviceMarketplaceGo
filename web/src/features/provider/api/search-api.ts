@@ -15,11 +15,9 @@ export type SearchType = "freelancer" | "agency" | "referrer"
 
 export async function searchProfiles(
   type: SearchType,
-  token?: string,
 ): Promise<PublicProfileSummary[]> {
   return apiClient<PublicProfileSummary[]>(
     `/api/v1/profiles/search?type=${type}`,
-    token ? { token } : {},
   )
 }
 

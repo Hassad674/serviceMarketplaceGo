@@ -9,12 +9,13 @@ import (
 )
 
 type RouterDeps struct {
-	Auth         *AuthHandler
-	Profile      *ProfileHandler
-	Upload       *UploadHandler
-	Health       *HealthHandler
-	Config       *config.Config
-	TokenService service.TokenService
+	Auth           *AuthHandler
+	Profile        *ProfileHandler
+	Upload         *UploadHandler
+	Health         *HealthHandler
+	Config         *config.Config
+	TokenService   service.TokenService
+	SessionService service.SessionService
 }
 
 func NewRouter(deps RouterDeps) chi.Router {
@@ -44,21 +45,22 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Protected
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Get("/me", deps.Auth.Me)
+				r.Post("/logout", deps.Auth.Logout)
 			})
 		})
 
 		// Profile routes (authenticated)
 		r.Route("/profile", func(r chi.Router) {
-			r.Use(middleware.Auth(deps.TokenService))
+			r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 			r.Get("/", deps.Profile.GetMyProfile)
 			r.Put("/", deps.Profile.UpdateMyProfile)
 		})
 
 		// Upload routes (authenticated)
 		r.Route("/upload", func(r chi.Router) {
-			r.Use(middleware.Auth(deps.TokenService))
+			r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 			r.Post("/photo", deps.Upload.UploadPhoto)
 			r.Post("/video", deps.Upload.UploadVideo)
 			r.Delete("/video", deps.Upload.DeleteVideo)

@@ -6,7 +6,6 @@ type UploadResponse = {
 
 async function uploadFile(
   endpoint: string,
-  token: string,
   file: File,
 ): Promise<UploadResponse> {
   const formData = new FormData()
@@ -14,7 +13,7 @@ async function uploadFile(
 
   const res = await fetch(`${API_URL}${endpoint}`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
     body: formData,
   })
 
@@ -27,38 +26,35 @@ async function uploadFile(
 }
 
 export async function uploadPhoto(
-  token: string,
   file: File,
 ): Promise<UploadResponse> {
-  return uploadFile("/api/v1/upload/photo", token, file)
+  return uploadFile("/api/v1/upload/photo", file)
 }
 
 export async function uploadVideo(
-  token: string,
   file: File,
 ): Promise<UploadResponse> {
-  return uploadFile("/api/v1/upload/video", token, file)
+  return uploadFile("/api/v1/upload/video", file)
 }
 
 export async function uploadReferrerVideo(
-  token: string,
   file: File,
 ): Promise<UploadResponse> {
-  return uploadFile("/api/v1/upload/referrer-video", token, file)
+  return uploadFile("/api/v1/upload/referrer-video", file)
 }
 
-export async function deleteVideo(token: string): Promise<void> {
+export async function deleteVideo(): Promise<void> {
   const res = await fetch(`${API_URL}/api/v1/upload/video`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   })
   if (!res.ok) throw new Error("Failed to delete video")
 }
 
-export async function deleteReferrerVideo(token: string): Promise<void> {
+export async function deleteReferrerVideo(): Promise<void> {
   const res = await fetch(`${API_URL}/api/v1/upload/referrer-video`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   })
   if (!res.ok) throw new Error("Failed to delete referrer video")
 }

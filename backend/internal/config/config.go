@@ -14,6 +14,8 @@ type Config struct {
 	JWTSecret        string
 	JWTAccessExpiry  time.Duration
 	JWTRefreshExpiry time.Duration
+	SessionTTL       time.Duration
+	CookieSecure     bool
 	AllowedOrigins   []string
 	StorageEndpoint  string
 	StorageAccessKey string
@@ -34,6 +36,8 @@ func Load() *Config {
 		JWTSecret:        getEnv("JWT_SECRET", "dev-secret-change-me"),
 		JWTAccessExpiry:  parseDuration(getEnv("JWT_ACCESS_EXPIRY", "15m")),
 		JWTRefreshExpiry: parseDuration(getEnv("JWT_REFRESH_EXPIRY", "168h")), // 7 days
+		SessionTTL:       parseDuration(getEnv("SESSION_TTL", "336h")),        // 14 days
+		CookieSecure:     getEnv("ENV", "development") == "production",
 		AllowedOrigins:   strings.Split(getEnv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173"), ","),
 		StorageEndpoint:  getEnv("STORAGE_ENDPOINT", "localhost:9000"),
 		StorageAccessKey: getEnv("STORAGE_ACCESS_KEY", "minioadmin"),

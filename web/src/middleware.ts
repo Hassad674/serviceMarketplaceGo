@@ -58,7 +58,7 @@ export function middleware(request: NextRequest) {
 
   if (!isProtected) {
     // If authenticated and on landing page, redirect to dashboard
-    const token = request.cookies.get("access_token")?.value
+    const token = request.cookies.get("session_id")?.value
     if (token && strippedPathname === "/") {
       const dashboardUrl = new URL("/dashboard", request.url)
       return NextResponse.redirect(dashboardUrl)
@@ -67,7 +67,7 @@ export function middleware(request: NextRequest) {
   }
 
   // Auth check: cookie must exist
-  const token = request.cookies.get("access_token")?.value
+  const token = request.cookies.get("session_id")?.value
   if (!token) {
     const loginUrl = new URL("/login", request.url)
     return NextResponse.redirect(loginUrl)

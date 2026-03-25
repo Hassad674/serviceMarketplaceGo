@@ -3,8 +3,8 @@
 import { useState, useRef, useEffect } from "react"
 import { Menu, Bell, Search, LogOut, User, ChevronDown } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { Link, useRouter } from "@i18n/navigation"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { Link } from "@i18n/navigation"
+import { useUser, useLogout } from "@/shared/hooks/use-user"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { cn } from "@/shared/lib/utils"
 
@@ -25,8 +25,8 @@ type HeaderProps = {
 }
 
 export function Header({ onMenuToggle }: HeaderProps) {
-  const { user, logout } = useAuth()
-  const router = useRouter()
+  const { data: user } = useUser()
+  const logout = useLogout()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const tCommon = useTranslations("common")
@@ -42,10 +42,9 @@ export function Header({ onMenuToggle }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  function handleLogout() {
+  async function handleLogout() {
     setDropdownOpen(false)
-    logout()
-    router.push("/login")
+    await logout()
   }
 
   const initials = user

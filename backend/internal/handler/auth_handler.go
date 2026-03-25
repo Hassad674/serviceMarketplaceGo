@@ -10,16 +10,23 @@ import (
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/port/service"
 	"marketplace-backend/pkg/validator"
 	res "marketplace-backend/pkg/response"
 )
 
 type AuthHandler struct {
 	authService *auth.Service
+	sessionSvc  service.SessionService
+	cookie      *CookieConfig
 }
 
-func NewAuthHandler(authService *auth.Service) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService *auth.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
+	return &AuthHandler{
+		authService: authService,
+		sessionSvc:  sessionSvc,
+		cookie:      cookie,
+	}
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +99,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res.JSON(w, http.StatusCreated, response.NewAuthResponse(output.User, output.AccessToken, output.RefreshToken))
+	h.sendAuthResponse(w, r, http.StatusCreated, output)
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +130,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewAuthResponse(output.User, output.AccessToken, output.RefreshToken))
+	h.sendAuthResponse(w, r, http.StatusOK, output)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie("session_id"); err == nil {
+		_ = h.sessionSvc.Delete(r.Context(), cookie.Value)
+	}
+	h.cookie.ClearSession(w)
+	res.JSON(w, http.StatusOK, map[string]string{"message": "logged out"})
 }
 
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
@@ -213,6 +228,27 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, map[string]string{
 		"message": "Mot de passe réinitialisé avec succès.",
 	})
+}
+
+// sendAuthResponse checks X-Auth-Mode header to decide between
+// session cookies (web) and token body (mobile).
+func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, status int, output *auth.AuthOutput) {
+	// Mobile mode: return tokens in response body
+	if r.Header.Get("X-Auth-Mode") == "token" {
+		res.JSON(w, status, response.NewAuthResponse(output.User, output.AccessToken, output.RefreshToken))
+		return
+	}
+
+	// Web mode: create session, set cookies, return user only
+	session, err := h.sessionSvc.Create(r.Context(), output.User.ID, output.User.Role.String())
+	if err != nil {
+		slog.Error("failed to create session", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to create session")
+		return
+	}
+
+	h.cookie.SetSession(w, session.ID, output.User.Role.String())
+	res.JSON(w, status, response.NewUserResponse(output.User))
 }
 
 func handleAuthError(w http.ResponseWriter, err error) {

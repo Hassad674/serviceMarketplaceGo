@@ -13,9 +13,9 @@ import {
   Search,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { Link, usePathname, useRouter } from "@i18n/navigation"
+import { Link, usePathname } from "@i18n/navigation"
 import { useSearchParams } from "next/navigation"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { useUser, useLogout } from "@/shared/hooks/use-user"
 import { cn } from "@/shared/lib/utils"
 
 type NavItem = {
@@ -72,24 +72,18 @@ type SidebarProps = {
 export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const { user, logout } = useAuth()
+  const { data: user } = useUser()
+  const logout = useLogout()
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
 
-  // Read role from cookie first (instant, no hydration delay), fallback to Zustand
-  const role = user?.role ?? (() => {
-    if (typeof document === "undefined") return ""
-    const match = document.cookie.match(/user_role=(\w+)/)
-    return match?.[1] ?? ""
-  })()
+  const role = user?.role ?? ""
   const isReferrerMode = pathname === "/referral" || searchParams.get("mode") === "referrer"
   const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
 
-  function handleLogout() {
-    logout()
-    router.push("/login")
+  async function handleLogout() {
+    await logout()
   }
 
   const initials = user

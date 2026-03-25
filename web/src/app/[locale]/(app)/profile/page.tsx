@@ -1,7 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { useUser } from "@/shared/hooks/use-user"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadVideo, useDeleteVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
@@ -25,7 +25,7 @@ function getRoleContext(role: string): "agency" | "provider" | "referrer" {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth()
+  const { data: user } = useUser()
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
@@ -36,7 +36,7 @@ export default function ProfilePage() {
   if (isLoading) return <ProfileSkeleton />
 
   const role = user?.role ?? "provider"
-  const displayName = getDisplayName(user)
+  const displayName = getDisplayName(user ?? null)
   const roleContext = getRoleContext(role)
   const aboutLabel = role === "agency" ? t("aboutAgency") : t("about")
   const aboutPlaceholder = role === "agency" ? t("aboutAgencyPlaceholder") : t("aboutPlaceholder")

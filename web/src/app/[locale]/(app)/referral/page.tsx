@@ -1,7 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { useAuth } from "@/shared/hooks/use-auth"
+import { useUser } from "@/shared/hooks/use-user"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadReferrerVideo, useDeleteReferrerVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileAbout } from "@/features/provider/components/profile-about"
@@ -10,7 +10,7 @@ import { ProfileVideo } from "@/features/provider/components/profile-video"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 
 export default function ReferralPage() {
-  const { user } = useAuth()
+  const { data: user } = useUser()
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()

@@ -1,7 +1,6 @@
 "use client"
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useAuth } from "@/shared/hooks/use-auth"
 import {
   uploadPhoto,
   uploadVideo,
@@ -13,55 +12,50 @@ import {
 const PROFILE_QUERY_KEY = ["profile"]
 
 export function useUploadPhoto() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (file: File) => uploadPhoto(accessToken!, file),
+    mutationFn: (file: File) => uploadPhoto(file),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
   })
 }
 
 export function useUploadVideo() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (file: File) => uploadVideo(accessToken!, file),
+    mutationFn: (file: File) => uploadVideo(file),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
   })
 }
 
 export function useUploadReferrerVideo() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (file: File) => uploadReferrerVideo(accessToken!, file),
+    mutationFn: (file: File) => uploadReferrerVideo(file),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
   })
 }
 
 export function useDeleteVideo() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => deleteVideo(accessToken!),
+    mutationFn: () => deleteVideo(),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
   })
 }
 
 export function useDeleteReferrerVideo() {
-  const { accessToken } = useAuth()
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => deleteReferrerVideo(accessToken!),
+    mutationFn: () => deleteReferrerVideo(),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
   })

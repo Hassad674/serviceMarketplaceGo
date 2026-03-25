@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuthReady } from "@/shared/hooks/use-auth"
+import { useUser } from "@/shared/hooks/use-user"
 import { DashboardShell } from "@/shared/components/layouts/dashboard-shell"
 import { PublicNavbar } from "@/shared/components/layouts/public-navbar"
 
@@ -9,13 +9,13 @@ export default function PublicLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { accessToken, ready } = useAuthReady()
+  const { data: user, isLoading } = useUser()
 
-  if (!ready) {
+  if (isLoading) {
     return <PublicLayoutSkeleton />
   }
 
-  if (accessToken) {
+  if (user) {
     return <DashboardShell>{children}</DashboardShell>
   }
 

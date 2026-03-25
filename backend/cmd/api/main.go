@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"marketplace-backend/internal/adapter/postgres"
+	redisadapter "marketplace-backend/internal/adapter/redis"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
 	"marketplace-backend/internal/app/auth"
@@ -40,6 +41,15 @@ func main() {
 	defer db.Close()
 	slog.Info("database connected")
 
+	// Connect to Redis
+	redisClient, err := redisadapter.NewClient(cfg.RedisURL)
+	if err != nil {
+		slog.Error("failed to connect to redis", "error", err)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+	slog.Info("redis connected")
+
 	// Initialize adapters (output ports)
 	userRepo := postgres.NewUserRepository(db)
 	profileRepo := postgres.NewProfileRepository(db)
@@ -55,25 +65,34 @@ func main() {
 		cfg.StoragePublicURL,
 		cfg.StorageUseSSL,
 	)
+	sessionSvc := redisadapter.NewSessionService(redisClient, cfg.SessionTTL)
+
+	// Cookie configuration
+	cookieCfg := &handler.CookieConfig{
+		Secure: cfg.CookieSecure,
+		Domain: "",
+		MaxAge: int(cfg.SessionTTL.Seconds()),
+	}
 
 	// Initialize application services
 	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)
 	profileSvc := profileapp.NewService(profileRepo)
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc)
+	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
 	healthHandler := handler.NewHealthHandler(db)
 
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
-		Auth:         authHandler,
-		Profile:      profileHandler,
-		Upload:       uploadHandler,
-		Health:       healthHandler,
-		Config:       cfg,
-		TokenService: tokenSvc,
+		Auth:           authHandler,
+		Profile:        profileHandler,
+		Upload:         uploadHandler,
+		Health:         healthHandler,
+		Config:         cfg,
+		TokenService:   tokenSvc,
+		SessionService: sessionSvc,
 	})
 
 	// Create HTTP server
