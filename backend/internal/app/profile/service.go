@@ -18,6 +18,14 @@ func NewService(profiles repository.ProfileRepository) *Service {
 	return &Service{profiles: profiles}
 }
 
+func (s *Service) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
+	results, err := s.profiles.SearchPublic(ctx, roleFilter, referrerOnly, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search public profiles: %w", err)
+	}
+	return results, nil
+}
+
 func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*profile.Profile, error) {
 	p, err := s.profiles.GetByUserID(ctx, userID)
 	if err != nil {

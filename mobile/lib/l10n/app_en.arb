@@ -109,5 +109,17 @@
   "passwordNoUppercase": "At least one uppercase letter",
   "passwordNoLowercase": "At least one lowercase letter",
   "passwordNoDigit": "At least one digit",
-  "passwordsDoNotMatch": "Passwords do not match"
+  "passwordsDoNotMatch": "Passwords do not match",
+
+  "search": "Search",
+  "findFreelancers": "Find Freelancers",
+  "findAgencies": "Find Agencies",
+  "findReferrers": "Find Referrers",
+  "noProfilesFound": "No profiles found",
+  "searchTryAgain": "Try again later or adjust your search.",
+  "couldNotLoadProfiles": "Could not load profiles. Check your connection.",
+  "couldNotLoadProfile": "Could not load profile",
+  "checkConnectionRetry": "Check your connection and try again.",
+  "somethingWentWrong": "Something went wrong",
+  "retry": "Retry"
 }

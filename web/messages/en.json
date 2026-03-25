@@ -139,6 +139,9 @@
     "businessReferrer": "Business Referrer",
     "freelanceDashboard": "Freelance Dashboard",
     "collapse": "Collapse",
+    "findFreelancers": "Find Freelancers",
+    "findAgencies": "Find Agencies",
+    "findReferrers": "Find Referrers",
     "roleAgency": "Agency",
     "roleEnterprise": "Enterprise",
     "roleProvider": "Provider",
@@ -224,6 +227,53 @@
     "freelancerDirectoryPlaceholder": "The list of freelancers will appear here",
     "availableProjects": "Available Projects",
     "availableProjectsDesc": "Browse projects open to service providers",
-    "availableProjectsPlaceholder": "The list of projects will appear here"
+    "availableProjectsPlaceholder": "The list of projects will appear here",
+    "referrerDirectory": "Referrer Directory",
+    "referrerDirectoryDesc": "Find business referrers who can connect you with providers",
+    "referrerDirectoryPlaceholder": "The list of referrers will appear here"
+  },
+  "search": {
+    "findFreelancers": "Find Freelancers",
+    "findAgencies": "Find Agencies",
+    "findReferrers": "Find Referrers",
+    "noResults": "No profiles found",
+    "noResultsDesc": "Try adjusting your search criteria",
+    "noTitle": "No title",
+    "errorLoading": "Failed to load profiles. Please try again."
+  },
+  "accessDenied": {
+    "title": "Access Denied",
+    "description": "You are trying to access the {attempted} interface but your account is of type {role}.",
+    "warning": "Each account type has its own dedicated interface for a better experience.",
+    "countdown": "Automatic redirect to your dashboard in {seconds} seconds...",
+    "goToDashboard": "Go to my {role} dashboard",
+    "goBack": "Go back",
+    "contactSupport": "If you think this is an error, contact support.",
+    "roles": {
+      "agency": "Agency",
+      "provider": "Freelance",
+      "enterprise": "Enterprise",
+      "referrer": "Business Referrer",
+      "unknown": "Unknown"
+    }
+  },
+  "publicProfile": {
+    "agencyProfile": "Agency Profile",
+    "agencyProfileDesc": "View agency details and portfolio",
+    "freelancerProfile": "Freelancer Profile",
+    "freelancerProfileDesc": "View freelancer details and portfolio",
+    "referrerProfile": "Referrer Profile",
+    "referrerProfileDesc": "View business referrer details",
+    "profileNotFound": "Profile not found",
+    "backToAgencies": "Back to agencies",
+    "backToFreelancers": "Back to freelancers",
+    "photoAlt": "Profile photo",
+    "untitledProfile": "Untitled Profile",
+    "noReviews": "No reviews yet",
+    "about": "About",
+    "presentationVideo": "Presentation Video",
+    "videoNotSupported": "Your browser does not support the video element.",
+    "projectHistory": "Project History",
+    "noProjectsYet": "No completed projects yet"
   }
 }

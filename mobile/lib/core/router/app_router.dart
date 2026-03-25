@@ -10,6 +10,8 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/role_selection_screen.dart';
 import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/search/presentation/screens/public_profile_screen.dart';
+import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
@@ -31,6 +33,8 @@ class RoutePaths {
   static const String messaging = '/messaging';
   static const String missions = '/missions';
   static const String profile = '/profile';
+  static const String search = '/search';
+  static const String publicProfile = '/profiles';
 }
 
 // ---------------------------------------------------------------------------
@@ -44,6 +48,13 @@ const _authRoutes = [
   RoutePaths.registerProvider,
   RoutePaths.registerEnterprise,
 ];
+
+/// Returns true if the given [location] is a publicly accessible route
+/// that does not require authentication (search results, public profiles).
+bool _isPublicRoute(String location) {
+  return location.startsWith('/profiles/') ||
+      location.startsWith('/search/');
+}
 
 // ---------------------------------------------------------------------------
 // Router provider
@@ -62,12 +73,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState.status == AuthStatus.authenticated;
       final isLoading = authState.status == AuthStatus.loading;
       final isAuthRoute = _authRoutes.contains(state.matchedLocation);
+      final isPublicRoute = _isPublicRoute(state.matchedLocation);
 
       // Still loading — stay on current route.
       if (isLoading) return null;
 
-      // Not authenticated — force to login (unless already on an auth route).
-      if (!isAuthenticated && !isAuthRoute) return RoutePaths.login;
+      // Not authenticated — force to login (unless on auth or public route).
+      if (!isAuthenticated && !isAuthRoute && !isPublicRoute) {
+        return RoutePaths.login;
+      }
 
       // Authenticated — redirect away from auth routes to dashboard.
       if (isAuthenticated && isAuthRoute) return RoutePaths.dashboard;
@@ -95,6 +109,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.registerEnterprise,
         builder: (context, state) => const EnterpriseRegisterScreen(),
+      ),
+
+      // --- Public profile route (accessible without bottom nav) ---
+      GoRoute(
+        path: '/profiles/:id',
+        builder: (context, state) => PublicProfileScreen(
+          userId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+
+      // --- Search route (accessible without bottom nav) ---
+      GoRoute(
+        path: '/search/:type',
+        builder: (context, state) => SearchScreen(
+          type: state.pathParameters['type'] ?? 'freelancer',
+        ),
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---
@@ -343,6 +373,21 @@ class _AgencyDashboard extends ConsumerWidget {
                 subtitle: l10n.roleAgencyDesc,
               ),
               const SizedBox(height: 24),
+              const _SearchActions(actions: [
+                _SearchAction(
+                  label: 'Find Freelancers',
+                  icon: Icons.person_search,
+                  type: 'freelancer',
+                  color: Color(0xFFF43F5E),
+                ),
+                _SearchAction(
+                  label: 'Find Referrers',
+                  icon: Icons.handshake_outlined,
+                  type: 'referrer',
+                  color: Color(0xFFF59E0B),
+                ),
+              ]),
+              const SizedBox(height: 24),
               _buildStatCards(context, l10n),
             ],
           ),
@@ -416,6 +461,27 @@ class _EnterpriseDashboard extends ConsumerWidget {
                 displayName: displayName,
                 subtitle: l10n.roleEnterpriseDesc,
               ),
+              const SizedBox(height: 24),
+              const _SearchActions(actions: [
+                _SearchAction(
+                  label: 'Find Freelancers',
+                  icon: Icons.person_search,
+                  type: 'freelancer',
+                  color: Color(0xFFF43F5E),
+                ),
+                _SearchAction(
+                  label: 'Find Agencies',
+                  icon: Icons.business,
+                  type: 'agency',
+                  color: Color(0xFF2563EB),
+                ),
+                _SearchAction(
+                  label: 'Find Referrers',
+                  icon: Icons.handshake_outlined,
+                  type: 'referrer',
+                  color: Color(0xFFF59E0B),
+                ),
+              ]),
               const SizedBox(height: 24),
               _buildStatCards(context, l10n),
             ],
@@ -504,6 +570,15 @@ class _ProviderDashboard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              const _SearchActions(actions: [
+                _SearchAction(
+                  label: 'Find Freelancers',
+                  icon: Icons.person_search,
+                  type: 'freelancer',
+                  color: Color(0xFFF43F5E),
+                ),
+              ]),
+              const SizedBox(height: 24),
               _buildStatCards(context, l10n),
             ],
           ),
@@ -539,6 +614,75 @@ class _ProviderDashboard extends ConsumerWidget {
           color: const Color(0xFF22C55E),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Search action data class
+// ---------------------------------------------------------------------------
+
+/// Describes a single search action button on the dashboard.
+class _SearchAction {
+  const _SearchAction({
+    required this.label,
+    required this.icon,
+    required this.type,
+    required this.color,
+  });
+
+  final String label;
+  final IconData icon;
+  final String type;
+  final Color color;
+}
+
+// ---------------------------------------------------------------------------
+// Search actions row — quick-access search buttons on dashboards
+// ---------------------------------------------------------------------------
+
+class _SearchActions extends StatelessWidget {
+  const _SearchActions({required this.actions});
+
+  final List<_SearchAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: actions
+          .map((action) => _SearchActionChip(action: action))
+          .toList(),
+    );
+  }
+}
+
+class _SearchActionChip extends StatelessWidget {
+  const _SearchActionChip({required this.action});
+
+  final _SearchAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ActionChip(
+      avatar: Icon(action.icon, size: 18, color: action.color),
+      label: Text(
+        action.label,
+        style: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
+      ),
+      backgroundColor: action.color.withValues(alpha: 0.08),
+      side: BorderSide(color: action.color.withValues(alpha: 0.2)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      onPressed: () => GoRouter.of(context).push('/search/${action.type}'),
     );
   }
 }

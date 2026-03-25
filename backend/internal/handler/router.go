@@ -67,6 +67,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		})
 
 		// Public profiles
+		r.Get("/profiles/search", deps.Profile.SearchProfiles)
 		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
 
 		// Test routes (debug — backend & DB connectivity)

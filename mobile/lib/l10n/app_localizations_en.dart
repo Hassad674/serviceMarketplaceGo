@@ -288,4 +288,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passwordsDoNotMatch => 'Passwords do not match';
+
+  @override
+  String get search => 'Search';
+
+  @override
+  String get findFreelancers => 'Find Freelancers';
+
+  @override
+  String get findAgencies => 'Find Agencies';
+
+  @override
+  String get findReferrers => 'Find Referrers';
+
+  @override
+  String get noProfilesFound => 'No profiles found';
+
+  @override
+  String get searchTryAgain => 'Try again later or adjust your search.';
+
+  @override
+  String get couldNotLoadProfiles =>
+      'Could not load profiles. Check your connection.';
+
+  @override
+  String get couldNotLoadProfile => 'Could not load profile';
+
+  @override
+  String get checkConnectionRetry => 'Check your connection and try again.';
+
+  @override
+  String get somethingWentWrong => 'Something went wrong';
+
+  @override
+  String get retry => 'Retry';
 }

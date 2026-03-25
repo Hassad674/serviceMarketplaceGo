@@ -7,6 +7,9 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
+// Rose color constant for the search chip.
+const Color _rose500 = Color(0xFFF43F5E);
+
 /// Referrer (business referrer) dashboard for providers with referrer mode.
 ///
 /// Shows referrer-specific stats and a button to switch back to freelance mode.
@@ -55,6 +58,26 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                   icon: const Icon(Icons.swap_horiz),
                   label: Text(l10n.freelanceDashboard),
                 ),
+              ),
+              const SizedBox(height: 24),
+
+              // Search action
+              ActionChip(
+                avatar: Icon(Icons.person_search, size: 18, color: _rose500),
+                label: Text(
+                  'Find Freelancers',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
+                backgroundColor: _rose500.withValues(alpha: 0.08),
+                side: BorderSide(color: _rose500.withValues(alpha: 0.2)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                ),
+                onPressed: () => context.push('/search/freelancer'),
               ),
               const SizedBox(height: 24),
 

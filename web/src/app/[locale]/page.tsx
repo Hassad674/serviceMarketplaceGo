@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { Building2, User, Briefcase, ArrowRight } from "lucide-react"
+import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { TestDB } from "./test-db"
 
 export default function HomePage() {
@@ -14,8 +15,8 @@ export default function HomePage() {
       descKey: "agenciesDesc" as const,
       href: "/agencies" as const,
       linkKey: "browseAgencies" as const,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
+      iconBg: "bg-blue-100 dark:bg-blue-500/20",
+      iconColor: "text-blue-600 dark:text-blue-400",
     },
     {
       icon: User,
@@ -23,8 +24,8 @@ export default function HomePage() {
       descKey: "freelancesDesc" as const,
       href: "/freelances" as const,
       linkKey: "browseFreelances" as const,
-      iconBg: "bg-rose-100",
-      iconColor: "text-rose-600",
+      iconBg: "bg-rose-100 dark:bg-rose-500/20",
+      iconColor: "text-rose-600 dark:text-rose-400",
     },
     {
       icon: Briefcase,
@@ -32,13 +33,13 @@ export default function HomePage() {
       descKey: "enterprisesDesc" as const,
       href: "/projects" as const,
       linkKey: "viewProjects" as const,
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
     },
   ]
 
   return (
-    <main className="flex min-h-screen flex-col">
+    <main className="flex min-h-screen flex-col bg-white dark:bg-gray-950">
       {/* Navbar */}
       <header className="absolute top-0 z-10 w-full">
         <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
@@ -46,6 +47,7 @@ export default function HomePage() {
             Marketplace
           </span>
           <div className="flex items-center gap-3">
+            <ThemeToggle className="border-white/20 bg-white/10 dark:bg-gray-800/50 shadow-none hover:shadow-none hover:bg-white/20" />
             <Link
               href="/login"
               className="rounded-xl px-4 py-2 text-sm font-medium text-white/90 transition-colors hover:text-white"
@@ -92,24 +94,24 @@ export default function HomePage() {
       </section>
 
       {/* Feature cards */}
-      <section className="mx-auto grid w-full max-w-7xl gap-8 px-6 py-24 sm:grid-cols-3">
+      <section className="mx-auto grid w-full max-w-7xl gap-8 px-6 py-24 sm:grid-cols-3 dark:bg-gray-950">
         {features.map((feature) => {
           const Icon = feature.icon
           return (
             <div
               key={feature.titleKey}
-              className="group rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition-all duration-200 hover:shadow-md"
+              className="group rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-sm transition-all duration-200 hover:shadow-md"
             >
               <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl ${feature.iconBg}`}>
                 <Icon className={`h-6 w-6 ${feature.iconColor}`} />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">{t(feature.titleKey)}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-gray-500">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{t(feature.titleKey)}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
                 {t(feature.descKey)}
               </p>
               <Link
                 href={feature.href}
-                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-rose-500 transition-colors hover:text-rose-600"
+                className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-rose-500 transition-colors hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300"
               >
                 {t(feature.linkKey)}
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

@@ -649,6 +649,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Passwords do not match'**
   String get passwordsDoNotMatch;
+
+  /// No description provided for @search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get search;
+
+  /// No description provided for @findFreelancers.
+  ///
+  /// In en, this message translates to:
+  /// **'Find Freelancers'**
+  String get findFreelancers;
+
+  /// No description provided for @findAgencies.
+  ///
+  /// In en, this message translates to:
+  /// **'Find Agencies'**
+  String get findAgencies;
+
+  /// No description provided for @findReferrers.
+  ///
+  /// In en, this message translates to:
+  /// **'Find Referrers'**
+  String get findReferrers;
+
+  /// No description provided for @noProfilesFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No profiles found'**
+  String get noProfilesFound;
+
+  /// No description provided for @searchTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again later or adjust your search.'**
+  String get searchTryAgain;
+
+  /// No description provided for @couldNotLoadProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load profiles. Check your connection.'**
+  String get couldNotLoadProfiles;
+
+  /// No description provided for @couldNotLoadProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load profile'**
+  String get couldNotLoadProfile;
+
+  /// No description provided for @checkConnectionRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Check your connection and try again.'**
+  String get checkConnectionRetry;
+
+  /// No description provided for @somethingWentWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get somethingWentWrong;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
 }
 
 class _AppLocalizationsDelegate

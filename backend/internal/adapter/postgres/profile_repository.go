@@ -105,6 +105,53 @@ func (r *ProfileRepository) queryByUserID(ctx context.Context, userID uuid.UUID)
 	return p, nil
 }
 
+func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	query := `
+		SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
+		       COALESCE(p.title, ''), COALESCE(p.photo_url, '')
+		FROM users u
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE ($1 = '' OR u.role = $1)
+		AND ($2 = false OR (u.role = 'provider' AND u.referrer_enabled = true))
+		ORDER BY u.created_at DESC
+		LIMIT $3`
+
+	rows, err := r.db.QueryContext(ctx, query, roleFilter, referrerOnly, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search profiles: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*profile.PublicProfile
+	for rows.Next() {
+		pp := &profile.PublicProfile{}
+		if err := rows.Scan(
+			&pp.UserID, &pp.DisplayName, &pp.FirstName, &pp.LastName,
+			&pp.Role, &pp.ReferrerEnabled, &pp.Title, &pp.PhotoURL,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan public profile: %w", err)
+		}
+		results = append(results, pp)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	if results == nil {
+		results = []*profile.PublicProfile{}
+	}
+
+	return results, nil
+}
+
 func (r *ProfileRepository) ensureProfile(ctx context.Context, userID uuid.UUID) (*profile.Profile, error) {
 	newProfile := profile.NewProfile(userID)
 	if err := r.Create(ctx, newProfile); err != nil {

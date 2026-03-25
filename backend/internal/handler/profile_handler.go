@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -77,6 +78,40 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	}
 
 	res.JSON(w, http.StatusOK, response.NewProfileResponse(p))
+}
+
+func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) {
+	typeFilter := r.URL.Query().Get("type")
+
+	var roleFilter string
+	var referrerOnly bool
+
+	switch typeFilter {
+	case "freelancer":
+		roleFilter = "provider"
+	case "agency":
+		roleFilter = "agency"
+	case "referrer":
+		roleFilter = "provider"
+		referrerOnly = true
+	default:
+		roleFilter = ""
+	}
+
+	limit := 20
+	if limitParam := r.URL.Query().Get("limit"); limitParam != "" {
+		if parsed, err := strconv.Atoi(limitParam); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	profiles, err := h.profileService.SearchPublic(r.Context(), roleFilter, referrerOnly, limit)
+	if err != nil {
+		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, response.NewPublicProfileSummaryList(profiles))
 }
 
 func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {

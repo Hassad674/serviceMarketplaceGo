@@ -289,4 +289,38 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get passwordsDoNotMatch => 'Les mots de passe ne correspondent pas';
+
+  @override
+  String get search => 'Rechercher';
+
+  @override
+  String get findFreelancers => 'Trouver des Freelances';
+
+  @override
+  String get findAgencies => 'Trouver des Agences';
+
+  @override
+  String get findReferrers => 'Trouver des Apporteurs';
+
+  @override
+  String get noProfilesFound => 'Aucun profil trouvé';
+
+  @override
+  String get searchTryAgain => 'Réessayez plus tard ou modifiez votre recherche.';
+
+  @override
+  String get couldNotLoadProfiles =>
+      'Impossible de charger les profils. Vérifiez votre connexion.';
+
+  @override
+  String get couldNotLoadProfile => 'Impossible de charger le profil';
+
+  @override
+  String get checkConnectionRetry => 'Vérifiez votre connexion et réessayez.';
+
+  @override
+  String get somethingWentWrong => 'Une erreur est survenue';
+
+  @override
+  String get retry => 'Réessayer';
 }

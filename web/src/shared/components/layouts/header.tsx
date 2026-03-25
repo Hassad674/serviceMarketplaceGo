@@ -1,11 +1,11 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Menu, Bell, Search, LogOut, User, ChevronDown, Sun, Moon } from "lucide-react"
+import { Menu, Bell, Search, LogOut, User, ChevronDown } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { Link, usePathname, useRouter } from "@i18n/navigation"
+import { Link, useRouter } from "@i18n/navigation"
 import { useAuth } from "@/shared/hooks/use-auth"
-import { useTheme } from "@/shared/hooks/use-theme"
+import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { cn } from "@/shared/lib/utils"
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -15,9 +15,9 @@ const ROLE_LABEL_KEYS: Record<string, string> = {
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  agency: "bg-blue-50 text-blue-700",
-  enterprise: "bg-purple-50 text-purple-700",
-  provider: "bg-rose-50 text-rose-700",
+  agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
+  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
+  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
 }
 
 type HeaderProps = {
@@ -26,9 +26,7 @@ type HeaderProps = {
 
 export function Header({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth()
-  const { theme, toggle: toggleTheme } = useTheme()
   const router = useRouter()
-  const pathname = usePathname()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const tCommon = useTranslations("common")
@@ -89,17 +87,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
       <div className="ml-auto flex items-center gap-1.5">
         {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-          aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
-        >
-          {theme === "light" ? (
-            <Moon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          ) : (
-            <Sun className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          )}
-        </button>
+        <ThemeToggle className="rounded-lg border-0 bg-transparent shadow-none hover:shadow-none hover:bg-gray-100 dark:hover:bg-slate-700" />
 
         {/* Notifications */}
         <button

@@ -104,5 +104,17 @@
   "passwordNoUppercase": "Au moins une majuscule",
   "passwordNoLowercase": "Au moins une minuscule",
   "passwordNoDigit": "Au moins un chiffre",
-  "passwordsDoNotMatch": "Les mots de passe ne correspondent pas"
+  "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+
+  "search": "Rechercher",
+  "findFreelancers": "Trouver des Freelances",
+  "findAgencies": "Trouver des Agences",
+  "findReferrers": "Trouver des Apporteurs",
+  "noProfilesFound": "Aucun profil trouv\u00e9",
+  "searchTryAgain": "R\u00e9essayez plus tard ou modifiez votre recherche.",
+  "couldNotLoadProfiles": "Impossible de charger les profils. V\u00e9rifiez votre connexion.",
+  "couldNotLoadProfile": "Impossible de charger le profil",
+  "checkConnectionRetry": "V\u00e9rifiez votre connexion et r\u00e9essayez.",
+  "somethingWentWrong": "Une erreur est survenue",
+  "retry": "R\u00e9essayer"
 }

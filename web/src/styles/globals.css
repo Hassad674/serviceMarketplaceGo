@@ -245,6 +245,11 @@ body {
   animation: shimmer 1.5s linear infinite;
 }
 
+.dark .animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.06) 50%, transparent 100%);
+  background-size: 200% 100%;
+}
+
 /* Scale in — modals, dropdowns, auth cards */
 .animate-scale-in {
   animation: scaleIn 0.3s ease-out forwards;
@@ -363,9 +368,17 @@ body {
   background: linear-gradient(180deg, #FFF1F2 0%, #FFFFFF 100%);
 }
 
+.dark .gradient-subtle {
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.08) 0%, rgba(15, 23, 42, 1) 100%);
+}
+
 /* Warm — feature section backgrounds (rose-50 -> blue-50) */
 .gradient-warm {
   background: linear-gradient(135deg, #FFF1F2 0%, #EFF6FF 100%);
+}
+
+.dark .gradient-warm {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%);
 }
 
 /* Dark — dark mode hero, footer (slate-900 -> slate-800) */

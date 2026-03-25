@@ -26,3 +26,15 @@ func NewProfile(userID uuid.UUID) *Profile {
 		UpdatedAt: now,
 	}
 }
+
+// PublicProfile combines user and profile data for search/discovery.
+type PublicProfile struct {
+	UserID          uuid.UUID
+	DisplayName     string
+	FirstName       string
+	LastName        string
+	Role            string
+	Title           string
+	PhotoURL        string
+	ReferrerEnabled bool
+}

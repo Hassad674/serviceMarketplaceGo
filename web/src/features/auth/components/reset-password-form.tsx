@@ -49,12 +49,12 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
   if (!token) {
     return (
-      <div className="animate-scale-in rounded-2xl border border-gray-100 bg-white p-8 shadow-lg text-center space-y-4">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
-          <XCircle className="h-7 w-7 text-red-600" />
+      <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg text-center space-y-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/20">
+          <XCircle className="h-7 w-7 text-red-600 dark:text-red-400" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900">{t("invalidLink")}</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("invalidLink")}</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           {t("invalidLinkDesc")}
         </p>
         <Link
@@ -81,12 +81,12 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
   if (success) {
     return (
-      <div className="animate-scale-in rounded-2xl border border-gray-100 bg-white p-8 shadow-lg space-y-4 text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-          <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+      <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg space-y-4 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
+          <CheckCircle2 className="h-7 w-7 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900">{t("resetSuccess")}</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t("resetSuccess")}</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           {tCommon("canSignIn")}
         </p>
         <Link
@@ -100,16 +100,16 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   }
 
   return (
-    <div className="animate-scale-in rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
+    <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600" role="alert">
+          <div className="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400" role="alert">
             {error}
           </div>
         )}
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("newPassword")}
           </label>
           <div className="relative">
@@ -118,28 +118,28 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               placeholder={t("newPasswordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("password")}
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
           {errors.password && (
-            <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
+            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.password.message}</p>
           )}
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 dark:text-gray-500">
             {tCommon("passwordHintFull")}
           </p>
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("confirmPassword")}
           </label>
           <div className="relative">
@@ -148,20 +148,20 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
               placeholder={t("confirmPasswordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("confirmPassword")}
             />
             <button
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
           {errors.confirmPassword && (
-            <p className="text-sm text-red-500 mt-1">{errors.confirmPassword.message}</p>
+            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.confirmPassword.message}</p>
           )}
         </div>
 

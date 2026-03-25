@@ -23,7 +23,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50/50">
+    <div className="flex h-screen bg-gray-50/50 dark:bg-gray-950">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

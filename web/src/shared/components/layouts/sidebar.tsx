@@ -10,6 +10,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Search,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
@@ -26,6 +27,8 @@ type NavItem = {
 const agencyNav: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard/agency", icon: LayoutDashboard, exact: true },
   { labelKey: "myProfile", href: "/dashboard/agency/profile", icon: UserCircle },
+  { labelKey: "findFreelancers", href: "/dashboard/agency/freelancers", icon: Search },
+  { labelKey: "findReferrers", href: "/dashboard/agency/referrers", icon: Search },
 ]
 
 const providerNav: NavItem[] = [
@@ -36,10 +39,14 @@ const providerNav: NavItem[] = [
 const referrerNav: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard/referrer", icon: LayoutDashboard, exact: true },
   { labelKey: "referrerProfile", href: "/dashboard/provider/referral", icon: UserCircle },
+  { labelKey: "findFreelancers", href: "/dashboard/referrer/freelancers", icon: Search },
 ]
 
 const enterpriseNav: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard, exact: true },
+  { labelKey: "findFreelancers", href: "/dashboard/enterprise/freelancers", icon: Search },
+  { labelKey: "findAgencies", href: "/dashboard/enterprise/agencies", icon: Search },
+  { labelKey: "findReferrers", href: "/dashboard/enterprise/referrers", icon: Search },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -50,10 +57,10 @@ const ROLE_LABEL_KEYS: Record<string, string> = {
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  agency: "bg-blue-50 text-blue-700",
-  enterprise: "bg-purple-50 text-purple-700",
-  provider: "bg-rose-50 text-rose-700",
-  referrer: "bg-amber-50 text-amber-700",
+  agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
+  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
+  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
+  referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
 }
 
 const ROLE_DOT_COLORS: Record<string, string> = {
@@ -114,7 +121,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col",
-          "bg-white/80 backdrop-blur-xl border-r border-gray-100/50",
+          "bg-white/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-gray-100/50 dark:border-gray-800/50",
           "lg:static lg:z-auto",
           "transition-all duration-300 ease-out lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
@@ -137,7 +144,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
           </Link>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden"
+            className="rounded-lg p-1.5 text-gray-400 dark:text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 lg:hidden"
             aria-label="Close menu"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
@@ -145,14 +152,14 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         </div>
 
         {/* User info */}
-        <div className={cn("mx-3 mb-2 rounded-xl bg-gray-50/80", collapsed ? "p-2" : "p-3")}>
+        <div className={cn("mx-3 mb-2 rounded-xl bg-gray-50/80 dark:bg-gray-800/50", collapsed ? "p-2" : "p-3")}>
           <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-xs font-semibold text-white">
               {initials}
             </div>
             {!collapsed && (
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-gray-900">
+                <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
                   {user?.display_name ?? "User"}
                 </p>
                 <span
@@ -190,12 +197,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         </nav>
 
         {/* Collapse toggle (desktop only) */}
-        <div className="hidden border-t border-gray-100/80 p-2 lg:block">
+        <div className="hidden border-t border-gray-100/80 dark:border-gray-800 p-2 lg:block">
           <button
             onClick={onToggleCollapse}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
-              "text-gray-400 transition-all duration-200 hover:bg-gray-50 hover:text-gray-600",
+              "text-gray-400 dark:text-gray-500 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300",
               collapsed ? "justify-center" : "gap-3",
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -212,12 +219,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         </div>
 
         {/* Logout */}
-        <div className="border-t border-gray-100/80 p-2">
+        <div className="border-t border-gray-100/80 dark:border-gray-800 p-2">
           <button
             onClick={handleLogout}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
-              "text-gray-500 transition-all duration-200 hover:bg-gray-50 hover:text-gray-700",
+              "text-gray-500 dark:text-gray-400 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200",
               collapsed ? "justify-center" : "gap-3",
             )}
             aria-label={tCommon("signOut")}
@@ -248,7 +255,7 @@ function ReferrerSwitch({
     return (
       <Link
         href={href}
-        className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100"
+        className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
         aria-label={isReferrerMode ? t("freelanceDashboard") : t("businessReferrer")}
       >
         <span className={cn("h-3 w-3 rounded-full", dotColor)} />
@@ -263,7 +270,7 @@ function ReferrerSwitch({
         className={cn(
           "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
           "text-sm font-medium transition-all duration-200",
-          "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+          "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/25",
         )}
       >
         <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
@@ -315,8 +322,8 @@ function NavLink({
         "relative flex items-center rounded-lg py-2 text-sm transition-all duration-200",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
         isActive
-          ? "bg-rose-50 font-medium text-rose-600"
-          : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
+          ? "bg-rose-50 dark:bg-rose-500/10 font-medium text-rose-600 dark:text-rose-400"
+          : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white",
       )}
     >
       {/* Active indicator pill */}

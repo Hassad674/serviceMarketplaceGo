@@ -17,22 +17,22 @@ export default function EnterpriseDashboardPage() {
       icon: FolderOpen,
       labelKey: "activeProjects" as const,
       value: "0",
-      iconBg: "bg-blue-50",
-      iconColor: "text-blue-600",
+      iconBg: "bg-blue-50 dark:bg-blue-500/15",
+      iconColor: "text-blue-600 dark:text-blue-400",
     },
     {
       icon: MessageSquare,
       labelKey: "unreadMessages" as const,
       value: "0",
-      iconBg: "bg-violet-50",
-      iconColor: "text-violet-600",
+      iconBg: "bg-violet-50 dark:bg-violet-500/15",
+      iconColor: "text-violet-600 dark:text-violet-400",
     },
     {
       icon: Wallet,
       labelKey: "totalBudget" as const,
       value: "0 \u20AC",
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-600",
+      iconBg: "bg-emerald-50 dark:bg-emerald-500/15",
+      iconColor: "text-emerald-600 dark:text-emerald-400",
     },
   ]
 
@@ -58,7 +58,7 @@ export default function EnterpriseDashboardPage() {
         {stats.map((stat, index) => (
           <div
             key={stat.labelKey}
-            className={`animate-slide-up-delay-${index + 1} group rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
+            className={`animate-slide-up-delay-${index + 1} group rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
           >
             <div className="flex items-center justify-between">
               <div className={`flex h-11 w-11 items-center justify-center rounded-lg ${stat.iconBg}`}>
@@ -67,8 +67,8 @@ export default function EnterpriseDashboardPage() {
               <span className="text-xs font-medium text-gray-400">&mdash;</span>
             </div>
             <div className="mt-3">
-              <p className="text-sm font-medium text-gray-500">{t(stat.labelKey)}</p>
-              <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">{stat.value}</p>
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t(stat.labelKey)}</p>
+              <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{stat.value}</p>
             </div>
           </div>
         ))}
