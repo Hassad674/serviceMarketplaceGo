@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadVideo } from "@/features/provider/hooks/use-upload"
@@ -15,6 +16,7 @@ export default function ProviderProfilePage() {
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
+  const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -43,8 +45,8 @@ export default function ProviderProfilePage() {
           await updateProfile.mutateAsync({ about: text })
         }}
         saving={updateProfile.isPending}
-        label="About"
-        placeholder="Describe your activity, your skills and your experience..."
+        label={t("about")}
+        placeholder={t("aboutPlaceholder")}
       />
       <ProfileHistory />
     </div>

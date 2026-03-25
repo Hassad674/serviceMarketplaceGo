@@ -6,6 +6,7 @@ import { z } from "zod"
 import { useState } from "react"
 import { Link } from "@i18n/navigation"
 import { Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { resetPassword } from "@/features/auth/api/auth-api"
 
 const resetPasswordSchema = z
@@ -35,6 +36,8 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const t = useTranslations("auth")
+  const tCommon = useTranslations("common")
 
   const {
     register: registerField,
@@ -50,15 +53,15 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
           <XCircle className="h-7 w-7 text-red-600" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900">Invalid link</h2>
+        <h2 className="text-lg font-bold text-gray-900">{t("invalidLink")}</h2>
         <p className="text-sm text-gray-500">
-          This reset link is invalid or has expired.
+          {t("invalidLinkDesc")}
         </p>
         <Link
           href="/forgot-password"
           className="inline-block text-sm font-medium text-rose-500 hover:text-rose-600"
         >
-          Request a new link
+          {tCommon("requestNewLink")}
         </Link>
       </div>
     )
@@ -71,7 +74,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       setSuccess(true)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "An error occurred",
+        err instanceof Error ? err.message : tCommon("errorOccurred"),
       )
     }
   }
@@ -82,15 +85,15 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
           <CheckCircle2 className="h-7 w-7 text-emerald-600" />
         </div>
-        <h2 className="text-lg font-bold text-gray-900">Password reset successfully!</h2>
+        <h2 className="text-lg font-bold text-gray-900">{t("resetSuccess")}</h2>
         <p className="text-sm text-gray-500">
-          You can now sign in with your new password.
+          {tCommon("canSignIn")}
         </p>
         <Link
           href="/login"
           className="gradient-primary inline-block rounded-xl px-8 py-3 text-sm font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98]"
         >
-          Sign In
+          {tCommon("signIn")}
         </Link>
       </div>
     )
@@ -107,14 +110,14 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
 
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            New password
+            {t("newPassword")}
           </label>
           <div className="relative">
             <input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              placeholder="Minimum 8 characters"
+              placeholder={t("newPasswordPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("password")}
             />
@@ -122,7 +125,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -131,20 +134,20 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
             <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
           )}
           <p className="text-xs text-gray-400">
-            8 characters minimum, one uppercase, one lowercase, one digit and one special character
+            {tCommon("passwordHintFull")}
           </p>
         </div>
 
         <div className="space-y-1.5">
           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-            Confirm password
+            {t("confirmPassword")}
           </label>
           <div className="relative">
             <input
               id="confirmPassword"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
-              placeholder="Confirm your password"
+              placeholder={t("confirmPasswordPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("confirmPassword")}
             />
@@ -152,7 +155,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
-              aria-label={showConfirm ? "Hide password" : "Show password"}
+              aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -167,7 +170,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
           disabled={isSubmitting}
           className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
         >
-          {isSubmitting ? "Resetting..." : "Reset my password"}
+          {isSubmitting ? t("resetting") : t("resetPassword")}
         </button>
       </form>
     </div>

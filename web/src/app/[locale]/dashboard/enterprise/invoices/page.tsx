@@ -1,9 +1,13 @@
-export default function EnterpriseInvoicesPage() {
+import { getTranslations } from "next-intl/server"
+
+export default async function EnterpriseInvoicesPage() {
+  const t = await getTranslations("pages")
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
+      <h1 className="text-2xl font-bold text-gray-900">{t("billing")}</h1>
       <p className="text-sm text-gray-500">
-        View and manage your invoices
+        {t("billingDesc")}
       </p>
     </div>
   )

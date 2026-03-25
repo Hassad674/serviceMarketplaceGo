@@ -1,16 +1,20 @@
-export default function ProjectsListingPage() {
+import { getTranslations } from "next-intl/server"
+
+export default async function ProjectsListingPage() {
+  const t = await getTranslations("pages")
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Available Projects
+          {t("availableProjects")}
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Browse projects open to service providers
+          {t("availableProjectsDesc")}
         </p>
       </div>
       <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
-        The list of projects will appear here
+        {t("availableProjectsPlaceholder")}
       </div>
     </div>
   )

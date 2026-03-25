@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadReferrerVideo } from "@/features/provider/hooks/use-upload"
@@ -14,6 +15,7 @@ export default function ProviderReferralPage() {
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const referrerVideoUpload = useUploadReferrerVideo()
+  const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -33,9 +35,9 @@ export default function ProviderReferralPage() {
       />
       <ProfileVideo
         videoUrl={profile?.referrer_video_url}
-        title="Presentation Video — Business Referrer"
-        emptyLabel="No referrer video"
-        emptyDescription="Add a video to present your business referrer activity"
+        title={t("videoTitleReferrer")}
+        emptyLabel={t("noVideoReferrer")}
+        emptyDescription={t("addVideoDescReferrer")}
         onUploadVideo={async (file) => { await referrerVideoUpload.mutateAsync(file) }}
         uploadingVideo={referrerVideoUpload.isPending}
       />
@@ -45,8 +47,8 @@ export default function ProviderReferralPage() {
           await updateProfile.mutateAsync({ referrer_about: text })
         }}
         saving={updateProfile.isPending}
-        label="About the business referrer"
-        placeholder="Describe your business referrer activity..."
+        label={t("aboutReferrer")}
+        placeholder={t("aboutReferrerPlaceholder")}
       />
     </div>
   )

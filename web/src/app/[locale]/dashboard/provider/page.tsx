@@ -5,36 +5,38 @@ import {
   MessageSquare,
   TrendingUp,
 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { useAuth } from "@/shared/hooks/use-auth"
-
-const STATS = [
-  {
-    icon: Briefcase,
-    label: "Active Missions",
-    value: "0",
-    iconBg: "bg-blue-50",
-    iconColor: "text-blue-600",
-  },
-  {
-    icon: MessageSquare,
-    label: "Unread Messages",
-    value: "0",
-    iconBg: "bg-violet-50",
-    iconColor: "text-violet-600",
-  },
-  {
-    icon: TrendingUp,
-    label: "Monthly Revenue",
-    value: "0 \u20AC",
-    iconBg: "bg-emerald-50",
-    iconColor: "text-emerald-600",
-  },
-] as const
 
 export default function ProviderDashboardPage() {
   const { user } = useAuth()
+  const t = useTranslations("dashboard")
 
   const displayName = user?.first_name || user?.display_name || "Freelance"
+
+  const stats = [
+    {
+      icon: Briefcase,
+      labelKey: "activeMissions" as const,
+      value: "0",
+      iconBg: "bg-blue-50",
+      iconColor: "text-blue-600",
+    },
+    {
+      icon: MessageSquare,
+      labelKey: "unreadMessages" as const,
+      value: "0",
+      iconBg: "bg-violet-50",
+      iconColor: "text-violet-600",
+    },
+    {
+      icon: TrendingUp,
+      labelKey: "monthlyRevenue" as const,
+      value: "0 \u20AC",
+      iconBg: "bg-emerald-50",
+      iconColor: "text-emerald-600",
+    },
+  ]
 
   return (
     <div className="space-y-5">
@@ -42,10 +44,10 @@ export default function ProviderDashboardPage() {
       <div className="animate-slide-up relative overflow-hidden rounded-xl gradient-hero p-6 text-white">
         <div className="relative z-10">
           <h1 className="text-xl font-bold">
-            Welcome back, {displayName}
+            {t("welcomeBack", { name: displayName })}
           </h1>
           <p className="mt-1 text-sm text-white/70">
-            Manage your missions and grow your activity
+            {t("providerSubtitle")}
           </p>
         </div>
         <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10" />
@@ -55,9 +57,9 @@ export default function ProviderDashboardPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {STATS.map((stat, index) => (
+        {stats.map((stat, index) => (
           <div
-            key={stat.label}
+            key={stat.labelKey}
             className={`animate-slide-up-delay-${index + 1} group rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md`}
           >
             <div className="flex items-center justify-between">
@@ -67,7 +69,7 @@ export default function ProviderDashboardPage() {
               <span className="text-xs font-medium text-gray-400">&mdash;</span>
             </div>
             <div className="mt-3">
-              <p className="text-sm font-medium text-gray-500">{stat.label}</p>
+              <p className="text-sm font-medium text-gray-500">{t(stat.labelKey)}</p>
               <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900">{stat.value}</p>
             </div>
           </div>

@@ -6,6 +6,7 @@ import { z } from "zod"
 import { useState } from "react"
 import { Link, useRouter } from "@i18n/navigation"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { useAuth } from "@/shared/hooks/use-auth"
 
@@ -35,6 +36,8 @@ export function ProviderRegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const t = useTranslations("auth")
+  const tCommon = useTranslations("common")
 
   const {
     register: registerField,
@@ -58,7 +61,7 @@ export function ProviderRegisterForm() {
       setAuth(response.user, response.access_token, response.refresh_token)
       router.push("/dashboard/provider")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setError(err instanceof Error ? err.message : tCommon("errorOccurred"))
     }
   }
 
@@ -74,13 +77,13 @@ export function ProviderRegisterForm() {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-              First name
+              {t("firstName")}
             </label>
             <input
               id="first_name"
               type="text"
               autoComplete="given-name"
-              placeholder="John"
+              placeholder={t("firstNamePlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("first_name")}
             />
@@ -91,13 +94,13 @@ export function ProviderRegisterForm() {
 
           <div className="space-y-1.5">
             <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-              Last name
+              {t("lastName")}
             </label>
             <input
               id="last_name"
               type="text"
               autoComplete="family-name"
-              placeholder="Doe"
+              placeholder={t("lastNamePlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("last_name")}
             />
@@ -109,13 +112,13 @@ export function ProviderRegisterForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
+            {t("email")}
           </label>
           <input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="john.doe@email.com"
+            placeholder={t("providerEmailPlaceholder")}
             className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
             {...registerField("email")}
           />
@@ -126,14 +129,14 @@ export function ProviderRegisterForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
+            {t("password")}
           </label>
           <div className="relative">
             <input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
-              placeholder="Your password"
+              placeholder={t("passwordPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("password")}
             />
@@ -141,13 +144,13 @@ export function ProviderRegisterForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
           </div>
           <p className="text-xs text-gray-400">
-            Minimum 8 characters with uppercase, lowercase and digit
+            {t("passwordHint")}
           </p>
           {errors.password && (
             <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
@@ -156,14 +159,14 @@ export function ProviderRegisterForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700">
-            Confirm password
+            {t("confirmPassword")}
           </label>
           <div className="relative">
             <input
               id="confirm_password"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
-              placeholder="Confirm your password"
+              placeholder={t("confirmPasswordPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("confirm_password")}
             />
@@ -171,7 +174,7 @@ export function ProviderRegisterForm() {
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
-              aria-label={showConfirm ? "Hide password" : "Show password"}
+              aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>
@@ -186,7 +189,7 @@ export function ProviderRegisterForm() {
           disabled={isSubmitting}
           className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
         >
-          {isSubmitting ? "Signing up..." : "Create my freelance account"}
+          {isSubmitting ? t("signingUp") : t("createFreelanceAccount")}
         </button>
       </form>
 
@@ -196,12 +199,12 @@ export function ProviderRegisterForm() {
           className="inline-flex items-center gap-1.5 font-medium text-gray-600 transition-colors hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4" />
-          Change profile
+          {t("changeProfile")}
         </Link>
         <p className="text-gray-500">
-          Already registered?{" "}
+          {t("alreadyRegistered")}{" "}
           <Link href="/login" className="font-medium text-rose-500 hover:text-rose-600">
-            Sign In
+            {tCommon("signIn")}
           </Link>
         </p>
       </div>

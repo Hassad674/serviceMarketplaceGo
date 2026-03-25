@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react"
 import { Edit2, Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 const MAX_CHARS = 1000
 
@@ -17,12 +18,17 @@ export function ProfileAbout({
   content,
   onSave,
   saving = false,
-  label = "About",
-  placeholder = "Describe your activity...",
+  label,
+  placeholder,
 }: ProfileAboutProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const t = useTranslations("profile")
+  const tCommon = useTranslations("common")
+
+  const displayLabel = label ?? t("about")
+  const displayPlaceholder = placeholder ?? t("aboutPlaceholder")
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current
@@ -53,12 +59,12 @@ export function ProfileAbout({
   return (
     <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-foreground">{label}</h2>
+        <h2 className="text-lg font-semibold text-foreground">{displayLabel}</h2>
         {!editing && (
           <button
             type="button"
             onClick={startEditing}
-            aria-label={`Edit ${label.toLowerCase()}`}
+            aria-label={`${tCommon("edit")} ${displayLabel.toLowerCase()}`}
             className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
@@ -72,14 +78,14 @@ export function ProfileAbout({
             ref={textareaRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value.slice(0, MAX_CHARS))}
-            placeholder={placeholder}
+            placeholder={displayPlaceholder}
             rows={4}
             className="w-full min-h-[100px] max-h-[200px] border border-border rounded-md p-3 text-sm text-foreground bg-background placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-            aria-label={label}
+            aria-label={displayLabel}
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-muted-foreground">
-              {draft.length} / {MAX_CHARS} characters
+              {draft.length} / {MAX_CHARS} {t("characters")}
             </span>
             <div className="flex gap-2">
               <button
@@ -88,7 +94,7 @@ export function ProfileAbout({
                 disabled={saving}
                 className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
               >
-                Cancel
+                {tCommon("cancel")}
               </button>
               <button
                 type="button"
@@ -97,7 +103,7 @@ export function ProfileAbout({
                 className="bg-primary text-primary-foreground rounded-md h-9 px-4 text-sm font-medium hover:opacity-90 transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
-                Save
+                {tCommon("save")}
               </button>
             </div>
           </div>
@@ -106,7 +112,7 @@ export function ProfileAbout({
         <p className="text-sm text-foreground whitespace-pre-line">{content}</p>
       ) : (
         <p className="text-sm text-muted-foreground italic">
-          Click the edit button to add a description
+          {t("clickToEdit")}
         </p>
       )}
     </section>

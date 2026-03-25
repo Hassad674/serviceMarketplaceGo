@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Video } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
 
 interface ProfileVideoProps {
@@ -17,13 +18,19 @@ const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 
 export function ProfileVideo({
   videoUrl,
-  title = "Presentation Video",
-  emptyLabel = "No presentation video",
-  emptyDescription = "Add a video to present your activity",
+  title,
+  emptyLabel,
+  emptyDescription,
   onUploadVideo,
   uploadingVideo = false,
 }: ProfileVideoProps) {
   const [videoModalOpen, setVideoModalOpen] = useState(false)
+  const t = useTranslations("profile")
+  const tUpload = useTranslations("upload")
+
+  const displayTitle = title ?? t("videoTitle")
+  const displayEmptyLabel = emptyLabel ?? t("noVideo")
+  const displayEmptyDescription = emptyDescription ?? t("addVideoDesc")
 
   async function handleVideoUpload(file: File) {
     await onUploadVideo(file)
@@ -34,14 +41,14 @@ export function ProfileVideo({
     <>
       <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <h2 className="text-lg font-semibold text-foreground">{displayTitle}</h2>
           {videoUrl && (
             <button
               type="button"
               onClick={() => setVideoModalOpen(true)}
               className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
-              Change video
+              {t("changeVideo")}
             </button>
           )}
         </div>
@@ -52,7 +59,7 @@ export function ProfileVideo({
               src={videoUrl}
               controls
               className="w-full h-full object-cover"
-              aria-label={title}
+              aria-label={displayTitle}
             >
               <track kind="captions" />
               Your browser does not support video playback.
@@ -64,17 +71,17 @@ export function ProfileVideo({
               <Video className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
             </div>
             <p className="text-base font-medium text-foreground mb-1">
-              {emptyLabel}
+              {displayEmptyLabel}
             </p>
             <p className="text-sm text-muted-foreground italic mb-3">
-              {emptyDescription}
+              {displayEmptyDescription}
             </p>
             <button
               type="button"
               onClick={() => setVideoModalOpen(true)}
               className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
-              Add a video
+              {t("addVideo")}
             </button>
           </div>
         )}
@@ -86,8 +93,8 @@ export function ProfileVideo({
         onUpload={handleVideoUpload}
         accept="video/*"
         maxSize={VIDEO_MAX_SIZE}
-        title="Add a video"
-        description="Accepted formats: MP4, WebM. 50 MB maximum."
+        title={tUpload("addVideo")}
+        description={tUpload("videoFormats")}
         uploading={uploadingVideo}
       />
     </>

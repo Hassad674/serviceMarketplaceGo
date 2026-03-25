@@ -41,11 +41,11 @@ const enterpriseNav: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard },
 ]
 
-const ROLE_LABELS: Record<string, string> = {
-  agency: "Agency",
-  enterprise: "Enterprise",
-  provider: "Provider",
-  referrer: "Referrer",
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  agency: "roleAgency",
+  enterprise: "roleEnterprise",
+  provider: "roleProvider",
+  referrer: "roleReferrer",
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -160,7 +160,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
                     ROLE_COLORS[displayRole] ?? "bg-gray-100 text-gray-600",
                   )}
                 >
-                  {ROLE_LABELS[displayRole] ?? displayRole}
+                  {ROLE_LABEL_KEYS[displayRole] ? t(ROLE_LABEL_KEYS[displayRole]) : displayRole}
                 </span>
               </div>
             )}

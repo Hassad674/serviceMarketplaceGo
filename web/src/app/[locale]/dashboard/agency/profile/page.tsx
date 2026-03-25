@@ -1,5 +1,6 @@
 "use client"
 
+import { useTranslations } from "next-intl"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadVideo } from "@/features/provider/hooks/use-upload"
@@ -15,6 +16,7 @@ export default function AgencyProfilePage() {
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
+  const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -32,7 +34,7 @@ export default function AgencyProfilePage() {
       />
       <ProfileVideo
         videoUrl={profile?.presentation_video_url}
-        emptyDescription="Add a video to present your agency"
+        emptyDescription={t("addVideoDescAgency")}
         onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
         uploadingVideo={videoUpload.isPending}
       />
@@ -42,8 +44,8 @@ export default function AgencyProfilePage() {
           await updateProfile.mutateAsync({ about: text })
         }}
         saving={updateProfile.isPending}
-        label="About the agency"
-        placeholder="Describe your agency, your services and your expertise..."
+        label={t("aboutAgency")}
+        placeholder={t("aboutAgencyPlaceholder")}
       />
       <ProfileHistory />
     </div>

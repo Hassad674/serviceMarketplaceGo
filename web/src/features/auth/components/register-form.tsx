@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useState } from "react"
 import { Link, useRouter } from "@i18n/navigation"
+import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
 import { useAuth } from "@/shared/hooks/use-auth"
 
@@ -23,16 +24,18 @@ const registerSchema = z.object({
 
 type RegisterValues = z.infer<typeof registerSchema>
 
-const roleLabels: Record<RegisterValues["role"], string> = {
-  agency: "Agency",
-  enterprise: "Enterprise",
-  provider: "Provider / Freelance",
-}
-
 export function RegisterForm() {
   const router = useRouter()
   const { setAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const t = useTranslations("auth")
+  const tCommon = useTranslations("common")
+
+  const roleLabels: Record<RegisterValues["role"], string> = {
+    agency: t("roleAgency"),
+    enterprise: t("roleEnterprise"),
+    provider: t("roleProvider"),
+  }
 
   const {
     register: registerField,
@@ -52,7 +55,7 @@ export function RegisterForm() {
       router.push(dashboardPath)
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "An error occurred",
+        err instanceof Error ? err.message : tCommon("errorOccurred"),
       )
     }
   }
@@ -68,13 +71,13 @@ export function RegisterForm() {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
-            First name
+            {t("firstName")}
           </label>
           <input
             id="first_name"
             type="text"
             autoComplete="given-name"
-            placeholder="John"
+            placeholder={t("firstNamePlaceholder")}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             {...registerField("first_name")}
           />
@@ -85,13 +88,13 @@ export function RegisterForm() {
 
         <div className="space-y-2">
           <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
-            Last name
+            {t("lastName")}
           </label>
           <input
             id="last_name"
             type="text"
             autoComplete="family-name"
-            placeholder="Doe"
+            placeholder={t("lastNamePlaceholder")}
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
             {...registerField("last_name")}
           />
@@ -103,12 +106,12 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="display_name" className="block text-sm font-medium text-gray-700">
-          Display name
+          {t("displayName")}
         </label>
         <input
           id="display_name"
           type="text"
-          placeholder="John Doe or My Agency"
+          placeholder={t("displayNamePlaceholder")}
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("display_name")}
         />
@@ -119,13 +122,13 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-          Email
+          {t("email")}
         </label>
         <input
           id="email"
           type="email"
           autoComplete="email"
-          placeholder="you@example.com"
+          placeholder={t("emailPlaceholder")}
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("email")}
         />
@@ -136,13 +139,13 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          Password
+          {t("password")}
         </label>
         <input
           id="password"
           type="password"
           autoComplete="new-password"
-          placeholder="Minimum 8 characters"
+          placeholder={t("newPasswordPlaceholder")}
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("password")}
         />
@@ -153,14 +156,14 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-          You are
+          {t("youAre")}
         </label>
         <select
           id="role"
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-500"
           {...registerField("role")}
         >
-          <option value="">Select your role</option>
+          <option value="">{t("selectRole")}</option>
           {(Object.entries(roleLabels) as [RegisterValues["role"], string][]).map(
             ([value, label]) => (
               <option key={value} value={value}>
@@ -179,16 +182,16 @@ export function RegisterForm() {
         disabled={isSubmitting}
         className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 disabled:opacity-50"
       >
-        {isSubmitting ? "Signing up..." : "Create my account"}
+        {isSubmitting ? t("signingUp") : t("createMyAccount")}
       </button>
 
       <p className="text-center text-sm text-gray-500">
-        Already registered?{" "}
+        {t("alreadyRegistered")}{" "}
         <Link
           href="/login"
           className="font-medium text-gray-900 underline underline-offset-4 hover:text-gray-700"
         >
-          Sign In
+          {tCommon("signIn")}
         </Link>
       </p>
     </form>

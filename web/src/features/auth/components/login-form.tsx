@@ -47,7 +47,7 @@ export function LoginForm() {
       router.push(dashboardRoutes[response.user.role] || "/dashboard/provider")
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "An error occurred",
+        err instanceof Error ? err.message : tCommon("errorOccurred"),
       )
     }
   }
@@ -95,7 +95,7 @@ export function LoginForm() {
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600"
-              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
             </button>

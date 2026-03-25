@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { UploadCloud, X, File as FileIcon, Loader2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
 interface UploadModalProps {
@@ -39,6 +41,8 @@ export function UploadModal({
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const modalRef = useRef<HTMLDivElement>(null)
+  const t = useTranslations("upload")
+  const tCommon = useTranslations("common")
 
   const isImage = accept.startsWith("image")
   const maxSizeLabel = formatFileSize(maxSize)
@@ -78,9 +82,9 @@ export function UploadModal({
   const validateFile = useCallback(
     (file: File): string | null => {
       if (file.size > maxSize) {
-        return `File exceeds the maximum size of ${maxSizeLabel}`
+        return t("fileTooLarge", { maxSize: maxSizeLabel })
       }
-      const acceptTypes = accept.split(",").map((t) => t.trim())
+      const acceptTypes = accept.split(",").map((s) => s.trim())
       const matchesType = acceptTypes.some((type) => {
         if (type.endsWith("/*")) {
           return file.type.startsWith(type.replace("/*", "/"))
@@ -89,12 +93,12 @@ export function UploadModal({
       })
       if (!matchesType) {
         return isImage
-          ? "Please select a valid image file"
-          : "Please select a valid video file"
+          ? t("invalidImageType")
+          : t("invalidVideoType")
       }
       return null
     },
-    [accept, maxSize, maxSizeLabel, isImage],
+    [accept, maxSize, maxSizeLabel, isImage, t],
   )
 
   function handleFileSelect(file: File) {
@@ -157,7 +161,7 @@ export function UploadModal({
 
   if (!open) return null
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       onClick={handleOverlayClick}
@@ -188,7 +192,7 @@ export function UploadModal({
               "focus-visible:outline-2 focus-visible:outline-ring",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
-            aria-label="Close"
+            aria-label={tCommon("close")}
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -215,7 +219,7 @@ export function UploadModal({
                 ? "border-primary bg-primary/5"
                 : "border-border hover:border-primary hover:bg-primary/5",
             )}
-            aria-label={`Drop zone for ${isImage ? "image" : "video"}`}
+            aria-label={isImage ? t("dropZoneImage") : t("dropZoneVideo")}
           >
             <div
               className={cn(
@@ -233,14 +237,16 @@ export function UploadModal({
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-foreground">
-                Drag your file here
+                {t("dragFile")}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                or click to browse
+                {t("orClickBrowse")}
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              {isImage ? "Images" : "Videos"} — {maxSizeLabel} maximum
+              {isImage
+                ? t("imagesMaxSize", { maxSize: maxSizeLabel })
+                : t("videosMaxSize", { maxSize: maxSizeLabel })}
             </p>
           </button>
         )}
@@ -252,7 +258,7 @@ export function UploadModal({
               <div className="relative mb-3">
                 <img
                   src={previewUrl}
-                  alt="Preview of selected file"
+                  alt={tCommon("previewFile")}
                   className="w-full h-40 object-cover rounded-md"
                 />
               </div>
@@ -282,7 +288,7 @@ export function UploadModal({
                   "focus-visible:outline-2 focus-visible:outline-ring",
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
-                aria-label="Remove selected file"
+                aria-label={tCommon("removeFile")}
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -304,7 +310,7 @@ export function UploadModal({
           accept={accept}
           onChange={handleInputChange}
           className="hidden"
-          aria-label={`Select a ${isImage ? "image" : "video"} file`}
+          aria-label={isImage ? t("selectImage") : t("selectVideo")}
         />
 
         {/* Actions */}
@@ -320,7 +326,7 @@ export function UploadModal({
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button
             type="button"
@@ -341,10 +347,18 @@ export function UploadModal({
                 aria-hidden="true"
               />
             )}
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading ? t("uploading") : t("send")}
           </button>
         </div>
       </div>
     </div>
   )
+
+  // Portal to document.body to escape stacking contexts created by
+  // backdrop-filter / overflow-hidden in the dashboard shell layout
+  if (typeof document !== "undefined") {
+    return createPortal(modalContent, document.body)
+  }
+
+  return modalContent
 }

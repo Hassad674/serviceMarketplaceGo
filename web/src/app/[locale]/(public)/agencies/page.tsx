@@ -1,16 +1,20 @@
-export default function AgenciesDirectoryPage() {
+import { getTranslations } from "next-intl/server"
+
+export default async function AgenciesDirectoryPage() {
+  const t = await getTranslations("pages")
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Agency Directory
+          {t("agencyDirectory")}
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          Discover the agencies available on the platform
+          {t("agencyDirectoryDesc")}
         </p>
       </div>
       <div className="rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-sm text-gray-400">
-        The list of agencies will appear here
+        {t("agencyDirectoryPlaceholder")}
       </div>
     </div>
   )

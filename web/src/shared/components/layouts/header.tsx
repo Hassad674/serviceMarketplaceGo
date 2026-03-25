@@ -7,10 +7,10 @@ import { Link, usePathname, useRouter } from "@i18n/navigation"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
 
-const ROLE_LABELS: Record<string, string> = {
-  agency: "Agency",
-  enterprise: "Enterprise",
-  provider: "Provider",
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  agency: "roleAgency",
+  enterprise: "roleEnterprise",
+  provider: "roleProvider",
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -123,7 +123,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                       ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-600",
                     )}
                   >
-                    {ROLE_LABELS[user.role] ?? user.role}
+                    {ROLE_LABEL_KEYS[user.role] ? tSidebar(ROLE_LABEL_KEYS[user.role]) : user.role}
                   </span>
                 </div>
                 <div className="p-1">

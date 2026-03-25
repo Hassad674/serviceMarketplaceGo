@@ -1,14 +1,19 @@
+"use client"
+
 import { FileText } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 export function ProfileHistory() {
+  const t = useTranslations("profile")
+
   return (
     <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-foreground">
-          Project History
+          {t("projectHistory")}
         </h2>
         <span className="rounded-full bg-muted text-muted-foreground px-2.5 py-0.5 text-xs font-medium">
-          0 completed
+          {t("completedCount", { count: 0 })}
         </span>
       </div>
 
@@ -17,10 +22,10 @@ export function ProfileHistory() {
           <FileText className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
         </div>
         <p className="text-sm font-medium text-foreground mb-1">
-          No completed projects
+          {t("noProjects")}
         </p>
         <p className="text-sm text-muted-foreground italic">
-          Completed projects will appear here once finished.
+          {t("projectsAppearHere")}
         </p>
       </div>
     </section>

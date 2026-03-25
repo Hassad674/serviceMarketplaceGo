@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import { Camera, Star, Edit2 } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { UploadModal } from "@/shared/components/upload-modal"
 import type { Profile } from "../api/profile-api"
@@ -15,12 +16,6 @@ interface ProfileHeaderProps {
   onUpdateTitle: (title: string) => void
   onUploadPhoto: (file: File) => Promise<void>
   uploadingPhoto?: boolean
-}
-
-const ROLE_LABELS: Record<RoleContext, { imageLabel: string; badge: string | null }> = {
-  agency: { imageLabel: "Logo", badge: null },
-  provider: { imageLabel: "Photo", badge: null },
-  referrer: { imageLabel: "Photo", badge: "Business Referrer" },
 }
 
 const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -37,8 +32,13 @@ export function ProfileHeader({
   const [titleDraft, setTitleDraft] = useState(profile?.title ?? "")
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const t = useTranslations("profile")
+  const tUpload = useTranslations("upload")
 
-  const { imageLabel, badge } = ROLE_LABELS[roleContext]
+  const tSidebar = useTranslations("sidebar")
+
+  const imageLabel = roleContext === "agency" ? t("logo") : t("photo")
+  const badgeText = roleContext === "referrer" ? tSidebar("businessReferrer") : null
   const isRounded = roleContext === "agency"
 
   function handleTitleClick() {
@@ -80,12 +80,12 @@ export function ProfileHeader({
                 "focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
                 isRounded ? "rounded-lg" : "rounded-full",
               )}
-              aria-label={`Edit your ${imageLabel.toLowerCase()}`}
+              aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
             >
               {profile?.photo_url ? (
                 <img
                   src={profile.photo_url}
-                  alt={`${imageLabel} of ${displayName}`}
+                  alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -103,9 +103,9 @@ export function ProfileHeader({
               <h1 className="text-2xl font-bold text-foreground truncate">
                 {displayName}
               </h1>
-              {badge && (
+              {badgeText && (
                 <span className="rounded-full bg-accent text-accent-foreground px-2.5 py-0.5 text-xs font-medium">
-                  {badge}
+                  {badgeText}
                 </span>
               )}
             </div>
@@ -119,31 +119,31 @@ export function ProfileHeader({
                 onChange={(event) => setTitleDraft(event.target.value)}
                 onBlur={handleTitleSubmit}
                 onKeyDown={handleTitleKeyDown}
-                placeholder="Your professional title"
+                placeholder={t("yourProfessionalTitle")}
                 className="w-full max-w-md bg-muted border border-input rounded-md px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Professional title"
+                aria-label={t("professionalTitle")}
               />
             ) : (
               <button
                 type="button"
                 onClick={handleTitleClick}
                 className="group flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Edit professional title"
+                aria-label={t("editProfessionalTitle")}
               >
                 <span className={cn(!profile?.title && "italic")}>
-                  {profile?.title || "Add a professional title"}
+                  {profile?.title || t("addTitle")}
                 </span>
                 <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
               </button>
             )}
 
-            <p className="text-sm text-muted-foreground">0 completed projects</p>
+            <p className="text-sm text-muted-foreground">0 {t("completedProjects")}</p>
           </div>
 
           {/* Rating placeholder */}
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
             <Star className="w-4 h-4" aria-hidden="true" />
-            <span>No reviews</span>
+            <span>{t("noReviews")}</span>
           </div>
         </div>
       </section>
@@ -154,8 +154,8 @@ export function ProfileHeader({
         onUpload={handlePhotoUpload}
         accept="image/*"
         maxSize={PHOTO_MAX_SIZE}
-        title={`Add a ${imageLabel.toLowerCase()}`}
-        description={`Choose a profile ${imageLabel.toLowerCase()}. Accepted formats: JPG, PNG, WebP.`}
+        title={tUpload("addPhoto")}
+        description={tUpload("imageFormats", { imageType: imageLabel.toLowerCase() })}
         uploading={uploadingPhoto}
       />
     </>
