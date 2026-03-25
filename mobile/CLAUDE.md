@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Standalone Flutter mobile app for the B2B marketplace. Providers, agencies, and enterprises manage missions, messaging, contracts, and profiles on the go. Communicates with the Go backend exclusively via REST API. French-language UI targeting the French B2B market.
+Standalone Flutter mobile app for the B2B marketplace. Providers, agencies, and enterprises manage missions, messaging, contracts, and profiles on the go. Communicates with the Go backend exclusively via REST API. English-language UI.
 
 ## Tech Stack
 
@@ -197,7 +197,7 @@ if (error != null) return Text(error.toString()); // Raw error shown to user
 ```
 
 ### Rules
-- **User-friendly error messages in French** — never show raw exceptions, stack traces, or English error strings to users.
+- **User-friendly error messages** — never show raw exceptions, stack traces, or technical error strings to users.
 - **Retry mechanisms for network failures** — every error state must offer a retry action.
 - **Offline mode awareness** — use `connectivity_plus` to detect offline state and show appropriate UI. Cache critical data locally for read-only offline access.
 - **Loading states are mandatory** — use `shimmer` package for skeleton screens. Skeletons always preferred over spinners.
@@ -249,8 +249,8 @@ Professional B2B theme aligned with the web app's design tokens:
 
 | Token | Light | Dark |
 |-------|-------|------|
-| Primary | Blue #2563EB | Blue #2563EB |
-| Background | White | Slate-900 |
+| Primary | Rose #F43F5E | Rose #F43F5E |
+| Background | Slate-50 #F8FAFC | Slate-900 |
 | Foreground | Slate-900 | Slate-50 |
 | Muted | Slate-100 | Slate-700 |
 | Border | Slate-200 | Slate-700 |
@@ -328,7 +328,7 @@ Dart convention: **snake_case** for all files and directories.
 - **Standalone app** — no shared packages with web/ or admin/.
 - **All API communication via `ApiClient`** — never raw Dio or http calls.
 - **Tokens stored exclusively in `SecureStorageService`** — no SharedPreferences for auth data.
-- **French-language UI strings** — marketplace targets the French B2B market.
+- **English-language UI strings** — all user-facing text in English.
 - **Each feature is self-contained** — never import from one feature into another. Share via `core/` or domain events.
 - **Generated files are gitignored** — always regenerate with `build_runner` after cloning or pulling.
 

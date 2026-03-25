@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
@@ -9,6 +10,8 @@ import {
   ArrowRightLeft,
   X,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
@@ -52,6 +55,13 @@ const ROLE_COLORS: Record<string, string> = {
   referrer: "bg-amber-50 text-amber-700",
 }
 
+const ROLE_DOT_COLORS: Record<string, string> = {
+  agency: "bg-blue-500",
+  enterprise: "bg-purple-500",
+  provider: "bg-rose-500",
+  referrer: "bg-amber-500",
+}
+
 function getNavConfig(role: string, isReferrerMode: boolean): NavItem[] {
   if (role === "provider" && isReferrerMode) return referrerNav
   if (role === "provider") return providerNav
@@ -60,12 +70,16 @@ function getNavConfig(role: string, isReferrerMode: boolean): NavItem[] {
   return enterpriseNav
 }
 
+const STORAGE_KEY = "sidebar-collapsed"
+
 type SidebarProps = {
   open?: boolean
   onClose?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
-export function Sidebar({ open, onClose }: SidebarProps) {
+export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
@@ -96,19 +110,27 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col",
+          "fixed inset-y-0 left-0 z-50 flex flex-col",
           "bg-white/80 backdrop-blur-xl border-r border-gray-100/50",
           "lg:static lg:z-auto",
-          "transition-transform duration-300 ease-out lg:translate-x-0",
+          "transition-all duration-300 ease-out lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
+          collapsed ? "w-[72px]" : "w-[280px]",
+          "lg:flex",
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="bg-gradient-to-r from-rose-500 to-purple-600 bg-clip-text text-xl font-bold tracking-tight text-transparent">
-              Atelier
-            </span>
+        <div className="flex h-14 items-center justify-between px-4">
+          <Link href="/" className="flex items-center gap-2 overflow-hidden">
+            {collapsed ? (
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-rose-500 to-purple-600 text-sm font-bold text-white">
+                M
+              </span>
+            ) : (
+              <span className="bg-gradient-to-r from-rose-500 to-purple-600 bg-clip-text text-lg font-bold tracking-tight text-transparent">
+                Atelier
+              </span>
+            )}
           </Link>
           <button
             onClick={onClose}
@@ -120,31 +142,33 @@ export function Sidebar({ open, onClose }: SidebarProps) {
         </div>
 
         {/* User info */}
-        <div className="mx-4 mb-2 rounded-xl bg-gray-50/80 p-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
+        <div className={cn("mx-3 mb-2 rounded-xl bg-gray-50/80", collapsed ? "p-2" : "p-3")}>
+          <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3")}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-xs font-semibold text-white">
               {initials}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-gray-900">
-                {user?.display_name ?? "User"}
-              </p>
-              <span
-                className={cn(
-                  "mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                  ROLE_COLORS[displayRole] ?? "bg-gray-100 text-gray-600",
-                )}
-              >
-                {ROLE_LABELS[displayRole] ?? displayRole}
-              </span>
-            </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-gray-900">
+                  {user?.display_name ?? "User"}
+                </p>
+                <span
+                  className={cn(
+                    "mt-0.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                    ROLE_COLORS[displayRole] ?? "bg-gray-100 text-gray-600",
+                  )}
+                >
+                  {ROLE_LABELS[displayRole] ?? displayRole}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Role switch (provider only) */}
         {role === "provider" && (
-          <div className="px-4 pb-2">
-            <ReferrerSwitch isReferrerMode={isReferrerMode} />
+          <div className={cn("pb-2", collapsed ? "px-3" : "px-4")}>
+            <ReferrerSwitch isReferrerMode={isReferrerMode} collapsed={collapsed} displayRole={displayRole} />
           </div>
         )}
 
@@ -156,21 +180,46 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               item={item}
               pathname={pathname}
               onClick={onClose}
+              collapsed={collapsed}
             />
           ))}
         </nav>
 
+        {/* Collapse toggle (desktop only) */}
+        <div className="hidden border-t border-gray-100/80 p-2 lg:block">
+          <button
+            onClick={onToggleCollapse}
+            className={cn(
+              "flex w-full items-center rounded-lg px-3 py-2 text-sm",
+              "text-gray-400 transition-all duration-200 hover:bg-gray-50 hover:text-gray-600",
+              collapsed ? "justify-center" : "gap-3",
+            )}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+            ) : (
+              <>
+                <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+                <span>Collapse</span>
+              </>
+            )}
+          </button>
+        </div>
+
         {/* Logout */}
-        <div className="border-t border-gray-100/80 p-3">
+        <div className="border-t border-gray-100/80 p-2">
           <button
             onClick={handleLogout}
             className={cn(
-              "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm",
+              "flex w-full items-center rounded-lg px-3 py-2 text-sm",
               "text-gray-500 transition-all duration-200 hover:bg-gray-50 hover:text-gray-700",
+              collapsed ? "justify-center" : "gap-3",
             )}
+            aria-label="Sign Out"
           >
-            <LogOut className="h-5 w-5" strokeWidth={1.5} />
-            Sign Out
+            <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+            {!collapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
@@ -178,13 +227,35 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   )
 }
 
-function ReferrerSwitch({ isReferrerMode }: { isReferrerMode: boolean }) {
+function ReferrerSwitch({
+  isReferrerMode,
+  collapsed,
+  displayRole,
+}: {
+  isReferrerMode: boolean
+  collapsed: boolean
+  displayRole: string
+}) {
+  if (collapsed) {
+    const href = isReferrerMode ? "/dashboard/provider" : "/dashboard/referrer"
+    const dotColor = isReferrerMode ? "bg-emerald-500" : "bg-amber-500"
+    return (
+      <Link
+        href={href}
+        className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100"
+        aria-label={isReferrerMode ? "Switch to Freelance Mode" : "Switch to Business Referrer"}
+      >
+        <span className={cn("h-3 w-3 rounded-full", dotColor)} />
+      </Link>
+    )
+  }
+
   if (isReferrerMode) {
     return (
       <Link
         href="/dashboard/provider"
         className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5",
+          "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
           "text-sm font-medium transition-all duration-200",
           "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
         )}
@@ -199,7 +270,7 @@ function ReferrerSwitch({ isReferrerMode }: { isReferrerMode: boolean }) {
     <Link
       href="/dashboard/referrer"
       className={cn(
-        "flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5",
+        "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
         "text-sm font-medium text-white transition-all duration-200",
         "gradient-referrer hover:opacity-90 hover:shadow-md",
       )}
@@ -214,10 +285,12 @@ function NavLink({
   item,
   pathname,
   onClick,
+  collapsed,
 }: {
   item: NavItem
   pathname: string
   onClick?: () => void
+  collapsed: boolean
 }) {
   const isActive =
     item.href !== "#" &&
@@ -227,19 +300,26 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
+      title={collapsed ? item.label : undefined}
       className={cn(
-        "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200",
+        "relative flex items-center rounded-lg py-2 text-sm transition-all duration-200",
+        collapsed ? "justify-center px-2" : "gap-3 px-3",
         isActive
           ? "bg-rose-50 font-medium text-rose-600"
           : "text-gray-500 hover:bg-gray-50 hover:text-gray-900",
       )}
     >
       {/* Active indicator pill */}
-      {isActive && (
-        <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
+      {isActive && !collapsed && (
+        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
       )}
-      <item.icon className="h-5 w-5 shrink-0" strokeWidth={1.5} />
-      {item.label}
+      {isActive && collapsed && (
+        <span className="absolute left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
+      )}
+      <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
+      {!collapsed && <span>{item.label}</span>}
     </Link>
   )
 }
+
+export { STORAGE_KEY as SIDEBAR_STORAGE_KEY }

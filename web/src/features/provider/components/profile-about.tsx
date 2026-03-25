@@ -28,7 +28,7 @@ export function ProfileAbout({
     const el = textareaRef.current
     if (!el) return
     el.style.height = "auto"
-    el.style.height = `${el.scrollHeight}px`
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }, [])
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function ProfileAbout({
             onChange={(e) => setDraft(e.target.value.slice(0, MAX_CHARS))}
             placeholder={placeholder}
             rows={4}
-            className="w-full min-h-[120px] border border-border rounded-md p-3 text-sm text-foreground bg-background placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full min-h-[100px] max-h-[200px] border border-border rounded-md p-3 text-sm text-foreground bg-background placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             aria-label={label}
           />
           <div className="flex items-center justify-between">

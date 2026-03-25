@@ -59,14 +59,14 @@ export function ProfileVideo({
             </video>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Video className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
+          <div className="flex flex-col items-center justify-center py-8 text-center max-h-[200px]">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+              <Video className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
             </div>
-            <p className="text-sm font-medium text-foreground mb-1">
+            <p className="text-base font-medium text-foreground mb-1">
               {emptyLabel}
             </p>
-            <p className="text-sm text-muted-foreground italic mb-4">
+            <p className="text-sm text-muted-foreground italic mb-3">
               {emptyDescription}
             </p>
             <button

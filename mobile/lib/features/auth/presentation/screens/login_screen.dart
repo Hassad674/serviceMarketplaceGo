@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
-/// Login screen with email + password fields.
+/// Premium login screen with email + password fields.
 ///
 /// Links to register (role selection) and forgot password.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -47,6 +48,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -57,21 +59,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header
-                  Icon(
-                    Icons.storefront_rounded,
-                    size: 48,
-                    color: theme.colorScheme.primary,
+                  // Logo icon with rose accent
+                  Container(
+                    width: 64,
+                    height: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                    ),
+                    child: Icon(
+                      Icons.storefront_rounded,
+                      size: 32,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
+
+                  // Header
                   Text(
-                    'Welcome',
+                    'Welcome back',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
-                    'Sign in to continue',
+                    'Sign in to your account',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -79,92 +92,119 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  // Error message
-                  if (authState.errorMessage != null) ...[
-                    _ErrorBanner(message: authState.errorMessage!),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Email field
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'you@example.com',
-                      prefixIcon: Icon(Icons.email_outlined),
+                  // Card container for form
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                      boxShadow: AppTheme.cardShadow,
                     ),
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.email],
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Email is required';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Enter a valid email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Error message
+                        if (authState.errorMessage != null) ...[
+                          _ErrorBanner(message: authState.errorMessage!),
+                          const SizedBox(height: 16),
+                        ],
 
-                  // Password field
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      hintText: 'Enter your password',
-                      prefixIcon: const Icon(Icons.lock_outlined),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                        // Email field
+                        Text(
+                          'Email',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        onPressed: () {
-                          setState(() {
-                            _obscurePassword = !_obscurePassword;
-                          });
-                        },
-                      ),
-                    ),
-                    obscureText: _obscurePassword,
-                    textInputAction: TextInputAction.done,
-                    autofillHints: const [AutofillHints.password],
-                    onFieldSubmitted: (_) => _handleLogin(),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Password is required';
-                      }
-                      return null;
-                    },
-                  ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _emailController,
+                          decoration: const InputDecoration(
+                            hintText: 'you@example.com',
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.email],
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Email is required';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
 
-                  // Forgot password link
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        // TODO: navigate to forgot password screen
-                      },
-                      child: const Text('Forgot password?'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Login button
-                  ElevatedButton(
-                    onPressed: authState.isSubmitting ? null : _handleLogin,
-                    child: authState.isSubmitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                        // Password field
+                        Text(
+                          'Password',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _passwordController,
+                          decoration: InputDecoration(
+                            hintText: 'Enter your password',
+                            prefixIcon: const Icon(Icons.lock_outlined),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
                             ),
-                          )
-                        : const Text('Sign In'),
+                          ),
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          onFieldSubmitted: (_) => _handleLogin(),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Password is required';
+                            }
+                            return null;
+                          },
+                        ),
+
+                        // Forgot password link
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () {
+                              // TODO: navigate to forgot password screen
+                            },
+                            child: const Text('Forgot password?'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Login button
+                        ElevatedButton(
+                          onPressed:
+                              authState.isSubmitting ? null : _handleLogin,
+                          child: authState.isSubmitting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Sign In'),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -175,7 +215,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Text(
                         'No account yet?',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                       TextButton(
@@ -208,7 +249,7 @@ class _ErrorBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         border: Border.all(
           color: theme.colorScheme.error.withValues(alpha: 0.3),
         ),

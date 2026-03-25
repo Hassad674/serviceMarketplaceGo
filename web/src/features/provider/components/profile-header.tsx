@@ -68,8 +68,8 @@ export function ProfileHeader({
   return (
     <>
       <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row items-start gap-6">
-          {/* Photo / Logo */}
+        <div className="flex flex-col sm:flex-row items-start gap-5">
+          {/* Photo / Logo — 96px */}
           <div className="relative shrink-0">
             <button
               type="button"
@@ -89,7 +89,7 @@ export function ProfileHeader({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <Camera className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
+                <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
               )}
             </button>
             <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-card px-2">
@@ -98,13 +98,13 @@ export function ProfileHeader({
           </div>
 
           {/* Name, title, stats */}
-          <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-semibold text-foreground truncate">
+              <h1 className="text-2xl font-bold text-foreground truncate">
                 {displayName}
               </h1>
               {badge && (
-                <span className="rounded-full bg-accent text-accent-foreground px-3 py-1 text-xs font-medium">
+                <span className="rounded-full bg-accent text-accent-foreground px-2.5 py-0.5 text-xs font-medium">
                   {badge}
                 </span>
               )}
@@ -127,7 +127,7 @@ export function ProfileHeader({
               <button
                 type="button"
                 onClick={handleTitleClick}
-                className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="group flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Edit professional title"
               >
                 <span className={cn(!profile?.title && "italic")}>
@@ -141,7 +141,7 @@ export function ProfileHeader({
           </div>
 
           {/* Rating placeholder */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
+          <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
             <Star className="w-4 h-4" aria-hidden="true" />
             <span>No reviews</span>
           </div>

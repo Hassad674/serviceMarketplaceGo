@@ -12,7 +12,7 @@ import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 
-/// Profile screen showing user info, photo upload, video upload, and logout.
+/// Premium profile screen showing user info, photo, video, about, and logout.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -32,54 +32,81 @@ class ProfileScreen extends ConsumerWidget {
     final role = user?['role'] as String?;
     final initials = _buildInitials(displayName);
 
+    final profileTitle = profileAsync.whenOrNull(
+      data: (p) => p['title'] as String?,
+    );
+    final profileAbout = profileAsync.whenOrNull(
+      data: (p) => p['about'] as String?,
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('My Profile')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              const SizedBox(height: 16),
-
-              // Avatar with upload tap
-              _ProfileAvatar(
+              // Profile header card
+              _ProfileHeaderCard(
                 initials: initials,
+                displayName: displayName,
+                email: email,
+                role: role,
                 photoUrl: profileAsync.whenOrNull(
                   data: (p) => p['photo_url'] as String?,
                 ),
-                onTap: () => _openPhotoUpload(context, ref),
+                onPhotoTap: () => _openPhotoUpload(context, ref),
               ),
               const SizedBox(height: 16),
 
-              // Name
-              Text(
-                displayName.isNotEmpty ? displayName : 'User',
-                style: theme.textTheme.headlineMedium,
-                textAlign: TextAlign.center,
+              // Title section
+              _ProfileSectionCard(
+                title: 'Professional Title',
+                icon: Icons.badge_outlined,
+                child: profileTitle != null && profileTitle.isNotEmpty
+                    ? Text(
+                        profileTitle,
+                        style: theme.textTheme.bodyMedium,
+                      )
+                    : Text(
+                        'Add your professional title',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: appColors?.mutedForeground,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
               ),
-              const SizedBox(height: 4),
-
-              // Email
-              Text(
-                email,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: appColors?.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Role badge
-              _RoleBadge(role: role),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
               // Presentation video section
-              _VideoSection(
+              _VideoSectionCard(
                 videoUrl: profileAsync.whenOrNull(
                   data: (p) => p['presentation_video_url'] as String?,
                 ),
                 onUploadTap: () => _openVideoUpload(context, ref),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // About section
+              _ProfileSectionCard(
+                title: 'About',
+                icon: Icons.info_outline,
+                child: profileAbout != null && profileAbout.isNotEmpty
+                    ? Text(
+                        profileAbout,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                        ),
+                      )
+                    : Text(
+                        'Tell others about yourself and your expertise',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: appColors?.mutedForeground,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: 24),
 
               // Logout button
               _LogoutButton(
@@ -148,6 +175,120 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 // ----------------------------------------------------------------------------
+// Profile header card — avatar + name + role badge
+// ----------------------------------------------------------------------------
+
+class _ProfileHeaderCard extends StatelessWidget {
+  const _ProfileHeaderCard({
+    required this.initials,
+    required this.displayName,
+    required this.email,
+    required this.role,
+    required this.onPhotoTap,
+    this.photoUrl,
+  });
+
+  final String initials;
+  final String displayName;
+  final String email;
+  final String? role;
+  final String? photoUrl;
+  final VoidCallback onPhotoTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        children: [
+          // Avatar with upload tap
+          _ProfileAvatar(
+            initials: initials,
+            photoUrl: photoUrl,
+            onTap: onPhotoTap,
+          ),
+          const SizedBox(height: 16),
+
+          // Name
+          Text(
+            displayName.isNotEmpty ? displayName : 'User',
+            style: theme.textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 4),
+
+          // Email
+          Text(
+            email,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: appColors?.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Role badge
+          _RoleBadge(role: role),
+        ],
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Profile section card — reusable card wrapper
+// ----------------------------------------------------------------------------
+
+class _ProfileSectionCard extends StatelessWidget {
+  const _ProfileSectionCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(title, style: theme.textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------------
 // Profile avatar with camera overlay
 // ----------------------------------------------------------------------------
 
@@ -199,7 +340,7 @@ class _ProfileAvatar extends StatelessWidget {
                 color: primary,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: theme.scaffoldBackgroundColor,
+                  color: theme.colorScheme.surface,
                   width: 2,
                 ),
               ),
@@ -277,11 +418,11 @@ class _RoleBadge extends StatelessWidget {
 }
 
 // ----------------------------------------------------------------------------
-// Video section
+// Video section card
 // ----------------------------------------------------------------------------
 
-class _VideoSection extends StatelessWidget {
-  const _VideoSection({
+class _VideoSectionCard extends StatelessWidget {
+  const _VideoSectionCard({
     required this.onUploadTap,
     this.videoUrl,
   });
@@ -295,89 +436,103 @@ class _VideoSection extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
     final primary = theme.colorScheme.primary;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Presentation Video', style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.videocam_outlined, size: 20, color: primary),
+              const SizedBox(width: 8),
+              Text('Presentation Video', style: theme.textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 16),
 
-        if (videoUrl != null && videoUrl!.isNotEmpty)
-          // Video exists: show thumbnail-like card
-          GestureDetector(
-            onTap: onUploadTap,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: primary.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                children: [
-                  Icon(Icons.play_circle_outline, color: primary, size: 48),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Presentation Video',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: primary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap to edit',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          // No video: empty state
-          GestureDetector(
-            onTap: onUploadTap,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
-              decoration: BoxDecoration(
-                color: appColors?.muted,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: appColors?.border ?? theme.dividerColor,
+          if (videoUrl != null && videoUrl!.isNotEmpty)
+            // Video exists: show card
+            GestureDetector(
+              onTap: onUploadTap,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(color: primary.withValues(alpha: 0.2)),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.videocam_outlined,
-                    size: 40,
-                    color: appColors?.mutedForeground,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'No presentation video',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: appColors?.mutedForeground,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 40,
-                    child: ElevatedButton.icon(
-                      onPressed: onUploadTap,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add a video'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size.zero,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    Icon(Icons.play_circle_outline, color: primary, size: 48),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Presentation Video',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: primary,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text('Tap to replace', style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            )
+          else
+            // No video: empty state
+            GestureDetector(
+              onTap: onUploadTap,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                    vertical: 24, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: appColors?.muted,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  border: Border.all(
+                    color: appColors?.border ?? theme.dividerColor,
                   ),
-                ],
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.videocam_outlined,
+                      size: 40,
+                      color: appColors?.mutedForeground,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No presentation video',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: appColors?.mutedForeground,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 40,
+                      child: ElevatedButton.icon(
+                        onPressed: onUploadTap,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add a video'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 20),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -410,7 +565,7 @@ class _LogoutButton extends StatelessWidget {
           ),
           minimumSize: const Size(double.infinity, 48),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
           ),
         ),
       ),

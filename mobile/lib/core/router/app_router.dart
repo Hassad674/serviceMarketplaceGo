@@ -150,41 +150,55 @@ class DashboardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex(context),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          border: Border(
+            top: BorderSide(
+              color: appColors?.border ?? theme.dividerColor,
+              width: 1,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_outlined),
-            selectedIcon: Icon(Icons.chat),
-            label: 'Messages',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.work_outline),
-            selectedIcon: Icon(Icons.work),
-            label: 'Missions',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
-        onDestinationSelected: (index) {
-          final routes = [
-            RoutePaths.dashboard,
-            RoutePaths.messaging,
-            RoutePaths.missions,
-            RoutePaths.profile,
-          ];
-          GoRouter.of(context).go(routes[index]);
-        },
+        ),
+        child: NavigationBar(
+          selectedIndex: _currentIndex(context),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.chat_outlined),
+              selectedIcon: Icon(Icons.chat),
+              label: 'Messages',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.work_outline),
+              selectedIcon: Icon(Icons.work),
+              label: 'Missions',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+          onDestinationSelected: (index) {
+            final routes = [
+              RoutePaths.dashboard,
+              RoutePaths.messaging,
+              RoutePaths.missions,
+              RoutePaths.profile,
+            ];
+            GoRouter.of(context).go(routes[index]);
+          },
+        ),
       ),
     );
   }
@@ -217,6 +231,77 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Welcome banner — gradient rose to purple
+// ---------------------------------------------------------------------------
+
+class _WelcomeBanner extends StatelessWidget {
+  const _WelcomeBanner({
+    required this.displayName,
+    required this.subtitle,
+  });
+
+  final String displayName;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFF43F5E), // rose-500
+            Color(0xFF8B5CF6), // violet-500
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF43F5E).withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Welcome back,',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            displayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Agency dashboard
 // ---------------------------------------------------------------------------
 
@@ -226,8 +311,6 @@ class _AgencyDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     final displayName =
         authState.user?['display_name'] as String? ?? 'Agency';
 
@@ -247,45 +330,46 @@ class _AgencyDashboard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Hello, $displayName',
-                style: theme.textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Manage your agency and missions',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: appColors?.mutedForeground,
-                ),
+              _WelcomeBanner(
+                displayName: displayName,
+                subtitle: 'Manage your agency and missions',
               ),
               const SizedBox(height: 24),
-              const _StatCard(
-                icon: Icons.work_outline,
-                title: 'Active Missions',
-                value: '0',
-                subtitle: 'Active contracts',
-                color: Color(0xFF2563EB),
-              ),
-              const SizedBox(height: 12),
-              const _StatCard(
-                icon: Icons.chat_outlined,
-                title: 'Unread Messages',
-                value: '0',
-                subtitle: 'Conversations',
-                color: Color(0xFF8B5CF6),
-              ),
-              const SizedBox(height: 12),
-              const _StatCard(
-                icon: Icons.trending_up,
-                title: 'Monthly Revenue',
-                value: '0 EUR',
-                subtitle: 'This month',
-                color: Color(0xFF22C55E),
-              ),
+              _buildStatCards(context),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatCards(BuildContext context) {
+    return const Column(
+      children: [
+        _StatCard(
+          icon: Icons.work_outline,
+          title: 'Active Missions',
+          value: '0',
+          subtitle: 'Active contracts',
+          color: Color(0xFF2563EB),
+        ),
+        SizedBox(height: 12),
+        _StatCard(
+          icon: Icons.chat_outlined,
+          title: 'Unread Messages',
+          value: '0',
+          subtitle: 'Conversations',
+          color: Color(0xFF8B5CF6),
+        ),
+        SizedBox(height: 12),
+        _StatCard(
+          icon: Icons.trending_up,
+          title: 'Monthly Revenue',
+          value: '0 EUR',
+          subtitle: 'This month',
+          color: Color(0xFF22C55E),
+        ),
+      ],
     );
   }
 }
@@ -300,8 +384,6 @@ class _EnterpriseDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     final displayName =
         authState.user?['display_name'] as String? ?? 'Enterprise';
 
@@ -321,45 +403,46 @@ class _EnterpriseDashboard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Hello, $displayName',
-                style: theme.textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Find the best providers for your projects',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: appColors?.mutedForeground,
-                ),
+              _WelcomeBanner(
+                displayName: displayName,
+                subtitle: 'Find the best providers for your projects',
               ),
               const SizedBox(height: 24),
-              const _StatCard(
-                icon: Icons.folder_open_outlined,
-                title: 'Active Projects',
-                value: '0',
-                subtitle: 'Active projects',
-                color: Color(0xFF2563EB),
-              ),
-              const SizedBox(height: 12),
-              const _StatCard(
-                icon: Icons.chat_outlined,
-                title: 'Unread Messages',
-                value: '0',
-                subtitle: 'Conversations',
-                color: Color(0xFF8B5CF6),
-              ),
-              const SizedBox(height: 12),
-              const _StatCard(
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Total Budget',
-                value: '0 EUR',
-                subtitle: 'Spent this month',
-                color: Color(0xFF22C55E),
-              ),
+              _buildStatCards(context),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStatCards(BuildContext context) {
+    return const Column(
+      children: [
+        _StatCard(
+          icon: Icons.folder_open_outlined,
+          title: 'Active Projects',
+          value: '0',
+          subtitle: 'Active projects',
+          color: Color(0xFF2563EB),
+        ),
+        SizedBox(height: 12),
+        _StatCard(
+          icon: Icons.chat_outlined,
+          title: 'Unread Messages',
+          value: '0',
+          subtitle: 'Conversations',
+          color: Color(0xFF8B5CF6),
+        ),
+        SizedBox(height: 12),
+        _StatCard(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Total Budget',
+          value: '0 EUR',
+          subtitle: 'Spent this month',
+          color: Color(0xFF22C55E),
+        ),
+      ],
     );
   }
 }
@@ -374,8 +457,6 @@ class _ProviderDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     final displayName =
         authState.user?['first_name'] as String? ??
         authState.user?['display_name'] as String? ??
@@ -397,16 +478,9 @@ class _ProviderDashboard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Hello, $displayName',
-                style: theme.textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Manage your missions and grow your business',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: appColors?.mutedForeground,
-                ),
+              _WelcomeBanner(
+                displayName: displayName,
+                subtitle: 'Manage your missions and grow your business',
               ),
               const SizedBox(height: 16),
 
@@ -420,43 +494,50 @@ class _ProviderDashboard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-
-              const _StatCard(
-                icon: Icons.work_outline,
-                title: 'Active Missions',
-                value: '0',
-                subtitle: 'Active contracts',
-                color: Color(0xFF2563EB),
-              ),
-              const SizedBox(height: 12),
-              const _StatCard(
-                icon: Icons.chat_outlined,
-                title: 'Unread Messages',
-                value: '0',
-                subtitle: 'Conversations',
-                color: Color(0xFF8B5CF6),
-              ),
-              const SizedBox(height: 12),
-              const _StatCard(
-                icon: Icons.trending_up,
-                title: 'Monthly Revenue',
-                value: '0 EUR',
-                subtitle: 'This month',
-                color: Color(0xFF22C55E),
-              ),
+              _buildStatCards(context),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _buildStatCards(BuildContext context) {
+    return const Column(
+      children: [
+        _StatCard(
+          icon: Icons.work_outline,
+          title: 'Active Missions',
+          value: '0',
+          subtitle: 'Active contracts',
+          color: Color(0xFF2563EB),
+        ),
+        SizedBox(height: 12),
+        _StatCard(
+          icon: Icons.chat_outlined,
+          title: 'Unread Messages',
+          value: '0',
+          subtitle: 'Conversations',
+          color: Color(0xFF8B5CF6),
+        ),
+        SizedBox(height: 12),
+        _StatCard(
+          icon: Icons.trending_up,
+          title: 'Monthly Revenue',
+          value: '0 EUR',
+          subtitle: 'This month',
+          color: Color(0xFF22C55E),
+        ),
+      ],
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Shared stat card widget
+// Shared stat card widget — premium design
 // ---------------------------------------------------------------------------
 
-/// A stat card matching the web dashboard design.
+/// A stat card matching the web premium dashboard design.
 class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.icon,
@@ -479,8 +560,12 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.5),
+        ),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -489,7 +574,7 @@ class _StatCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: Icon(icon, color: color, size: 22),
           ),
@@ -546,13 +631,21 @@ class _PlaceholderScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.construction,
-              size: 48,
-              color: theme.colorScheme.primary,
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              ),
+              child: Icon(
+                Icons.construction,
+                size: 32,
+                color: theme.colorScheme.primary,
+              ),
             ),
             const SizedBox(height: 16),
-            Text(title, style: theme.textTheme.headlineMedium),
+            Text(title, style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               'Coming soon',

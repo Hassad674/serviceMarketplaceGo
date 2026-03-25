@@ -7,14 +7,14 @@ export function ProfileHistory() {
         <h2 className="text-lg font-semibold text-foreground">
           Project History
         </h2>
-        <span className="rounded-full bg-muted text-muted-foreground px-3 py-1 text-xs font-medium">
-          0 completed projects
+        <span className="rounded-full bg-muted text-muted-foreground px-2.5 py-0.5 text-xs font-medium">
+          0 completed
         </span>
       </div>
 
-      <div className="flex flex-col items-center justify-center py-10 text-center">
-        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-3">
-          <FileText className="w-6 h-6 text-muted-foreground" aria-hidden="true" />
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+          <FileText className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
         </div>
         <p className="text-sm font-medium text-foreground mb-1">
           No completed projects

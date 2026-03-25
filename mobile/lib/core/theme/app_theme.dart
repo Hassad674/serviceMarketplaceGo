@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Professional B2B theme aligned with the web app design tokens.
+/// Premium B2B theme aligned with the web app's redesigned design tokens.
 ///
 /// Access custom semantic colors via `Theme.of(context).extension<AppColors>()!`.
 class AppTheme {
@@ -15,7 +15,7 @@ class AppTheme {
   static const Color _onPrimary = Color(0xFFFFFFFF);
 
   // Backgrounds
-  static const Color _backgroundLight = Color(0xFFFFFFFF);
+  static const Color _backgroundLight = Color(0xFFF8FAFC); // slate-50 (gray-50)
   static const Color _backgroundDark = Color(0xFF0F172A); // slate-900
 
   // Foregrounds (body text)
@@ -46,15 +46,46 @@ class AppTheme {
   static const Color _accentDark = Color(0xFF4C0519); // rose-950
 
   // ---------------------------------------------------------------------------
-  // Radii
+  // Radii — premium feel with larger corners
   // ---------------------------------------------------------------------------
 
   static const double radiusSm = 8.0;
   static const double radiusMd = 12.0;
   static const double radiusLg = 16.0;
+  static const double radiusXl = 20.0;
 
   // ---------------------------------------------------------------------------
-  // Input decoration
+  // Shadows — subtle, premium box shadows
+  // ---------------------------------------------------------------------------
+
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(
+      color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+    BoxShadow(
+      color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+      blurRadius: 4,
+      offset: const Offset(0, 1),
+    ),
+  ];
+
+  static List<BoxShadow> get cardShadowHover => [
+    BoxShadow(
+      color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+      blurRadius: 16,
+      offset: const Offset(0, 4),
+    ),
+    BoxShadow(
+      color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Input decoration — rounded 12px, rose focus
   // ---------------------------------------------------------------------------
 
   static InputDecorationTheme _inputDecoration({
@@ -64,15 +95,16 @@ class AppTheme {
     required Color hintColor,
   }) {
     final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(radiusSm),
+      borderRadius: BorderRadius.circular(radiusMd),
       borderSide: BorderSide(color: borderColor),
     );
 
     return InputDecorationTheme(
       filled: true,
       fillColor: fillColor,
-      hintStyle: TextStyle(color: hintColor),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      hintStyle: TextStyle(color: hintColor, fontSize: 15),
+      labelStyle: TextStyle(color: hintColor, fontSize: 15),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: border,
       enabledBorder: border,
       focusedBorder: border.copyWith(
@@ -88,7 +120,7 @@ class AppTheme {
   }
 
   // ---------------------------------------------------------------------------
-  // Button themes
+  // Button themes — rounded 12px, full width, 48px height
   // ---------------------------------------------------------------------------
 
   static ElevatedButtonThemeData _elevatedButton(Color primary) {
@@ -98,11 +130,12 @@ class AppTheme {
         foregroundColor: _onPrimary,
         minimumSize: const Size(double.infinity, 48),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusSm),
+          borderRadius: BorderRadius.circular(radiusMd),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
+          letterSpacing: 0.2,
         ),
         elevation: 0,
       ),
@@ -115,7 +148,7 @@ class AppTheme {
         minimumSize: const Size(double.infinity, 48),
         side: BorderSide(color: borderColor),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusSm),
+          borderRadius: BorderRadius.circular(radiusMd),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -131,14 +164,14 @@ class AppTheme {
         foregroundColor: primary,
         textStyle: const TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Card theme
+  // Card theme — rounded 16px, no elevation, subtle shadow via BoxDecoration
   // ---------------------------------------------------------------------------
 
   static CardThemeData _card(Color color, Color borderColor) {
@@ -146,7 +179,7 @@ class AppTheme {
       color: color,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(radiusMd),
+        borderRadius: BorderRadius.circular(radiusLg),
         side: BorderSide(color: borderColor),
       ),
       margin: EdgeInsets.zero,
@@ -154,7 +187,7 @@ class AppTheme {
   }
 
   // ---------------------------------------------------------------------------
-  // App bar
+  // App bar — clean, no elevation, white bg
   // ---------------------------------------------------------------------------
 
   static AppBarTheme _appBar({
@@ -166,13 +199,47 @@ class AppTheme {
       backgroundColor: background,
       foregroundColor: foreground,
       elevation: 0,
-      scrolledUnderElevation: 1,
+      scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
+      centerTitle: false,
       titleTextStyle: TextStyle(
         color: foreground,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
       ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Navigation bar — premium bottom nav
+  // ---------------------------------------------------------------------------
+
+  static NavigationBarThemeData _navigationBar({
+    required Color background,
+    required Color indicator,
+    required Color selected,
+    required Color unselected,
+  }) {
+    return NavigationBarThemeData(
+      backgroundColor: background,
+      elevation: 0,
+      indicatorColor: indicator,
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return TextStyle(
+            color: selected,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          );
+        }
+        return TextStyle(color: unselected, fontSize: 12);
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(color: selected, size: 24);
+        }
+        return IconThemeData(color: unselected, size: 24);
+      }),
     );
   }
 
@@ -194,7 +261,7 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: _backgroundLight,
       appBarTheme: _appBar(
-        background: _backgroundLight,
+        background: _cardLight,
         foreground: _foregroundLight,
         borderColor: _borderLight,
       ),
@@ -203,40 +270,48 @@ class AppTheme {
       outlinedButtonTheme: _outlinedButton(_borderLight),
       textButtonTheme: _textButton(_primaryColor),
       inputDecorationTheme: _inputDecoration(
-        fillColor: _mutedLight,
+        fillColor: _cardLight,
         borderColor: _borderLight,
         focusBorderColor: _primaryColor,
         hintColor: _mutedForegroundLight,
       ),
       dividerColor: _borderLight,
       dividerTheme: const DividerThemeData(color: _borderLight, thickness: 1),
+      navigationBarTheme: _navigationBar(
+        background: _cardLight,
+        indicator: _primaryColor.withValues(alpha: 0.1),
+        selected: _primaryColor,
+        unselected: _mutedForegroundLight,
+      ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.bold,
           color: _foregroundLight,
+          letterSpacing: -0.5,
         ),
         headlineMedium: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.bold,
           color: _foregroundLight,
+          letterSpacing: -0.3,
         ),
         titleLarge: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
           color: _foregroundLight,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: _foregroundLight,
         ),
         bodyLarge: TextStyle(fontSize: 16, color: _foregroundLight),
-        bodyMedium: TextStyle(fontSize: 14, color: _foregroundLight),
-        bodySmall: TextStyle(fontSize: 12, color: _mutedForegroundLight),
+        bodyMedium: TextStyle(fontSize: 15, color: _foregroundLight),
+        bodySmall: TextStyle(fontSize: 13, color: _mutedForegroundLight),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: _backgroundLight,
+        backgroundColor: _cardLight,
         selectedItemColor: _primaryColor,
         unselectedItemColor: _mutedForegroundLight,
         type: BottomNavigationBarType.fixed,
@@ -282,7 +357,7 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: _backgroundDark,
       appBarTheme: _appBar(
-        background: _backgroundDark,
+        background: _cardDark,
         foreground: _foregroundDark,
         borderColor: _borderDark,
       ),
@@ -298,33 +373,41 @@ class AppTheme {
       ),
       dividerColor: _borderDark,
       dividerTheme: const DividerThemeData(color: _borderDark, thickness: 1),
+      navigationBarTheme: _navigationBar(
+        background: _cardDark,
+        indicator: _primaryColor.withValues(alpha: 0.15),
+        selected: _primaryColor,
+        unselected: _mutedForegroundDark,
+      ),
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
           fontSize: 28,
           fontWeight: FontWeight.bold,
           color: _foregroundDark,
+          letterSpacing: -0.5,
         ),
         headlineMedium: TextStyle(
           fontSize: 22,
           fontWeight: FontWeight.bold,
           color: _foregroundDark,
+          letterSpacing: -0.3,
         ),
         titleLarge: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
           color: _foregroundDark,
         ),
         titleMedium: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: _foregroundDark,
         ),
         bodyLarge: TextStyle(fontSize: 16, color: _foregroundDark),
-        bodyMedium: TextStyle(fontSize: 14, color: _foregroundDark),
-        bodySmall: TextStyle(fontSize: 12, color: _mutedForegroundDark),
+        bodyMedium: TextStyle(fontSize: 15, color: _foregroundDark),
+        bodySmall: TextStyle(fontSize: 13, color: _mutedForegroundDark),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: _backgroundDark,
+        backgroundColor: _cardDark,
         selectedItemColor: _primaryColor,
         unselectedItemColor: _mutedForegroundDark,
         type: BottomNavigationBarType.fixed,

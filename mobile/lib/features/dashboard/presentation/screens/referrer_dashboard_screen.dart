@@ -15,8 +15,6 @@ class ReferrerDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
 
     final user = authState.user;
     final displayName =
@@ -40,19 +38,12 @@ class ReferrerDashboardScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting
-              Text(
-                'Hello, $displayName',
-                style: theme.textTheme.headlineMedium,
+              // Welcome banner with gradient
+              _WelcomeBanner(
+                displayName: displayName,
+                subtitle: 'Manage your referrals and commissions',
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Manage your referrals and commissions',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: appColors?.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Switch to freelance mode
               SizedBox(
@@ -65,7 +56,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              // Stats grid
+              // Stats grid — 4 cards for referrer
               const _StatCard(
                 icon: Icons.handshake_outlined,
                 title: 'Referrals',
@@ -108,7 +99,81 @@ class ReferrerDashboardScreen extends ConsumerWidget {
   }
 }
 
-/// A stat card matching the web dashboard design.
+// ---------------------------------------------------------------------------
+// Welcome banner — gradient rose to teal (referrer variant)
+// ---------------------------------------------------------------------------
+
+class _WelcomeBanner extends StatelessWidget {
+  const _WelcomeBanner({
+    required this.displayName,
+    required this.subtitle,
+  });
+
+  final String displayName;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF14B8A6), // teal-500
+            Color(0xFF8B5CF6), // violet-500
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Welcome back,',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            displayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stat card — premium design
+// ---------------------------------------------------------------------------
+
 class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.icon,
@@ -131,8 +196,12 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor),
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.5),
+        ),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
@@ -141,7 +210,7 @@ class _StatCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
             ),
             child: Icon(icon, color: color, size: 22),
           ),

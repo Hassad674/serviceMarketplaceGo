@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
 /// Enterprise registration form.
@@ -76,138 +77,158 @@ class _EnterpriseRegisterScreenState
                 const _RoleBadge(
                   icon: Icons.corporate_fare,
                   label: 'Enterprise',
-                  color: Color(0xFF10B981),
+                  color: Color(0xFF8B5CF6), // purple to match web
                 ),
                 const SizedBox(height: 24),
 
-                // Error message
-                if (authState.errorMessage != null) ...[
-                  _ErrorBanner(message: authState.errorMessage!),
-                  const SizedBox(height: 16),
-                ],
-
-                // Company name
-                TextFormField(
-                  controller: _companyNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Company name',
-                    hintText: 'Your company',
-                    prefixIcon: Icon(Icons.corporate_fare_outlined),
+                // Form card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                    boxShadow: AppTheme.cardShadow,
                   ),
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.organizationName],
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Company name is required';
-                    }
-                    if (value.trim().length < 2) {
-                      return 'Minimum 2 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Error message
+                      if (authState.errorMessage != null) ...[
+                        _ErrorBanner(message: authState.errorMessage!),
+                        const SizedBox(height: 16),
+                      ],
 
-                // Email
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    hintText: 'contact@company.com',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.email],
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Email is required';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Enter a valid email';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Password
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Minimum 8 characters',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                      // Company name
+                      _FieldLabel(text: 'Company name'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _companyNameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Your company',
+                          prefixIcon: Icon(Icons.corporate_fare_outlined),
+                        ),
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.organizationName],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Company name is required';
+                          }
+                          if (value.trim().length < 2) {
+                            return 'Minimum 2 characters';
+                          }
+                          return null;
+                        },
                       ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
-                    ),
-                  ),
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.newPassword],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Password is required';
-                    }
-                    if (value.length < 8) {
-                      return 'Minimum 8 characters';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
+                      const SizedBox(height: 16),
 
-                // Confirm password
-                TextFormField(
-                  controller: _confirmPasswordController,
-                  decoration: InputDecoration(
-                    labelText: 'Confirm password',
-                    hintText: 'Re-enter your password',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscureConfirm
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                      // Email
+                      _FieldLabel(text: 'Email'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          hintText: 'contact@company.com',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Email is required';
+                          }
+                          if (!value.contains('@')) {
+                            return 'Enter a valid email';
+                          }
+                          return null;
+                        },
                       ),
-                      onPressed: () {
-                        setState(() => _obscureConfirm = !_obscureConfirm);
-                      },
-                    ),
-                  ),
-                  obscureText: _obscureConfirm,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _handleRegister(),
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return 'Passwords do not match';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
-                // Register button
-                ElevatedButton(
-                  onPressed:
-                      authState.isSubmitting ? null : _handleRegister,
-                  child: authState.isSubmitting
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                      // Password
+                      _FieldLabel(text: 'Password'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          hintText: 'Minimum 8 characters',
+                          prefixIcon: const Icon(Icons.lock_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              setState(
+                                  () => _obscurePassword = !_obscurePassword);
+                            },
                           ),
-                        )
-                      : const Text('Create Account'),
+                        ),
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.newPassword],
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Password is required';
+                          }
+                          if (value.length < 8) {
+                            return 'Minimum 8 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Confirm password
+                      _FieldLabel(text: 'Confirm password'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        decoration: InputDecoration(
+                          hintText: 'Re-enter your password',
+                          prefixIcon: const Icon(Icons.lock_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirm
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              setState(
+                                  () => _obscureConfirm = !_obscureConfirm);
+                            },
+                          ),
+                        ),
+                        obscureText: _obscureConfirm,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _handleRegister(),
+                        validator: (value) {
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Register button
+                      ElevatedButton(
+                        onPressed:
+                            authState.isSubmitting ? null : _handleRegister,
+                        child: authState.isSubmitting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Create Account'),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 24),
 
@@ -218,7 +239,8 @@ class _EnterpriseRegisterScreenState
                     Text(
                       'Already have an account?',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
                       ),
                     ),
                     TextButton(
@@ -232,6 +254,23 @@ class _EnterpriseRegisterScreenState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Field label widget for consistent form styling.
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
     );
   }
 }
@@ -291,7 +330,7 @@ class _ErrorBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         border: Border.all(
           color: theme.colorScheme.error.withValues(alpha: 0.3),
         ),

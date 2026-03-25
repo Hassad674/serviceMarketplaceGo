@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
 
 /// Role selection screen for registration.
 ///
@@ -28,6 +29,24 @@ class RoleSelectionScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 16),
+
+              // Header icon
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                ),
+                child: Icon(
+                  Icons.group_add_outlined,
+                  size: 32,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 24),
+
               Text(
                 'Join the marketplace',
                 textAlign: TextAlign.center,
@@ -71,7 +90,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 title: 'Enterprise',
                 description:
                     'Post your projects and find the best providers',
-                accentColor: const Color(0xFF10B981), // emerald-500
+                accentColor: const Color(0xFF8B5CF6), // purple-500
                 onTap: () => context.go(RoutePaths.registerEnterprise),
               ),
               const SizedBox(height: 32),
@@ -102,7 +121,7 @@ class RoleSelectionScreen extends StatelessWidget {
   }
 }
 
-/// A tappable card representing a role option.
+/// A tappable card representing a role option with premium styling.
 class _RoleCard extends StatelessWidget {
   const _RoleCard({
     required this.icon,
@@ -122,16 +141,17 @@ class _RoleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           border: Border.all(
-            color: theme.dividerColor,
+            color: theme.dividerColor.withValues(alpha: 0.5),
           ),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Row(
           children: [
@@ -140,7 +160,7 @@ class _RoleCard extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: accentColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
               ),
               child: Icon(icon, color: accentColor, size: 24),
             ),
@@ -159,7 +179,8 @@ class _RoleCard extends StatelessWidget {
                   Text(
                     description,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.6),
                     ),
                   ),
                 ],
