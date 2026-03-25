@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: marketplace
+      POSTGRES_DB: marketplace_go
     ports:
       - "5435:5432"
     volumes:
@@ -47,7 +47,7 @@ services:
       USER_con1: postgres
       PASSWORD_con1: postgres
       PORT_con1: 5432
-      DATABASE_con1: marketplace
+      DATABASE_con1: marketplace_go
       ENGINE_con1: postgres@dbgate-plugin-postgres
     depends_on:
       - postgres

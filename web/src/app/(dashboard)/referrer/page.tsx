@@ -2,58 +2,67 @@
 
 import Link from "next/link"
 import {
-  Briefcase,
-  MessageSquare,
-  TrendingUp,
+  Handshake,
   Clock,
+  CheckCircle,
+  TrendingUp,
   ArrowRight,
+  PlusCircle,
+  FolderOpen,
   UserCircle,
   Search,
-  Receipt,
 } from "lucide-react"
 import { useAuth } from "@/shared/hooks/use-auth"
 
 const STATS = [
   {
-    icon: Briefcase,
+    icon: Handshake,
+    title: "Mises en relation",
+    value: "0",
+    subtitle: "En attente de r\u00E9ponse",
+    color: "teal",
+  },
+  {
+    icon: Clock,
     title: "Missions en cours",
     value: "0",
     subtitle: "Contrats actifs",
-    color: "blue",
+    color: "amber",
   },
   {
-    icon: MessageSquare,
-    title: "Messages non lus",
+    icon: CheckCircle,
+    title: "Missions termin\u00E9es",
     value: "0",
-    subtitle: "Conversations",
-    color: "violet",
+    subtitle: "Total historique",
+    color: "emerald",
   },
   {
     icon: TrendingUp,
-    title: "Revenus du mois",
+    title: "Commissions",
     value: "0 \u20AC",
-    subtitle: "Ce mois-ci",
-    color: "emerald",
+    subtitle: "Total gagn\u00E9",
+    color: "rose",
   },
 ] as const
 
 const QUICK_LINKS = [
-  { href: "/dashboard/provider/profile", icon: UserCircle, label: "Mon profil" },
-  { href: "/dashboard/provider/missions", icon: Briefcase, label: "Mes missions" },
-  { href: "/dashboard/provider/search", icon: Search, label: "Trouver des clients" },
-  { href: "/dashboard/provider/billing", icon: Receipt, label: "Facturation" },
+  { href: "/dashboard/referrer/create", icon: PlusCircle, label: "Cr\u00E9er un apport d\u2019affaire" },
+  { href: "/dashboard/referrer/referrals", icon: FolderOpen, label: "Mes apports" },
+  { href: "/dashboard/referrer/profile", icon: UserCircle, label: "Profil Apporteur" },
+  { href: "/dashboard/referrer/search", icon: Search, label: "Chercher un freelance" },
 ] as const
 
 const COLOR_MAP: Record<string, string> = {
-  blue: "bg-blue-50 text-blue-600",
-  violet: "bg-violet-50 text-violet-600",
+  teal: "bg-teal-50 text-teal-600",
+  amber: "bg-amber-50 text-amber-600",
   emerald: "bg-emerald-50 text-emerald-600",
+  rose: "bg-rose-50 text-rose-600",
 }
 
-export default function ProviderDashboardPage() {
+export default function ReferrerDashboardPage() {
   const { user } = useAuth()
 
-  const displayName = user?.first_name || user?.display_name || "Freelance"
+  const displayName = user?.first_name || user?.display_name || "Apporteur"
 
   return (
     <div className="space-y-6">
@@ -62,11 +71,11 @@ export default function ProviderDashboardPage() {
           Bonjour, {displayName}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          G&eacute;rez vos missions et d&eacute;veloppez votre activit&eacute;
+          G&eacute;rez vos apports d&apos;affaires et vos commissions
         </p>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {STATS.map((stat) => (
           <div
             key={stat.title}
@@ -93,12 +102,12 @@ export default function ProviderDashboardPage() {
           <h2 className="text-lg font-semibold text-foreground">Activit&eacute; r&eacute;cente</h2>
         </div>
         <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-          <Clock className="h-16 w-16 text-muted-foreground/30" />
+          <Handshake className="h-16 w-16 text-muted-foreground/30" />
           <p className="mt-4 text-lg font-medium text-muted-foreground">
             Aucune activit&eacute; r&eacute;cente
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Vos missions et messages appara&icirc;tront ici
+            Vos mises en relation et missions appara&icirc;tront ici
           </p>
         </div>
       </div>
