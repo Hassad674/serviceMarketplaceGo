@@ -53,13 +53,24 @@ export const useAuth = create<AuthState>()(
 /** Hook that waits for Zustand persist hydration before returning auth state */
 export function useAuthReady() {
   const store = useAuth()
-  const [ready, setReady] = useState(store._hydrated)
+  // Subscribe to hydration changes — check both current state and future updates
+  const [ready, setReady] = useState(() => useAuth.getState()._hydrated)
 
   useEffect(() => {
-    if (store._hydrated) {
+    // If already hydrated, set immediately
+    if (useAuth.getState()._hydrated) {
       setReady(true)
+      return
     }
-  }, [store._hydrated])
+    // Otherwise subscribe to changes
+    const unsub = useAuth.subscribe((state) => {
+      if (state._hydrated) {
+        setReady(true)
+        unsub()
+      }
+    })
+    return unsub
+  }, [])
 
   return { ...store, ready }
 }
