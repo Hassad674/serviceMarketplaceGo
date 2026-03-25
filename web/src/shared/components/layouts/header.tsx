@@ -52,11 +52,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
     ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`
     : "?"
 
-  const profileHref = user?.role === "agency"
-    ? "/dashboard/agency/profile"
-    : user?.role === "provider"
-      ? "/dashboard/provider/profile"
-      : "/dashboard/enterprise"
+  const profileHref = "/profile"
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-gray-100/50 bg-white/80 px-4 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80 sm:px-5">

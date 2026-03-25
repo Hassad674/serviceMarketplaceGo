@@ -58,7 +58,7 @@ export function AgencyRegisterForm() {
         role: "agency",
       })
       setAuth(response.user, response.access_token, response.refresh_token)
-      router.push("/dashboard/agency")
+      router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : tCommon("errorOccurred"))
     }

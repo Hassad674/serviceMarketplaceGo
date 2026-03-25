@@ -59,7 +59,7 @@ export function ProviderRegisterForm() {
         role: "provider",
       })
       setAuth(response.user, response.access_token, response.refresh_token)
-      router.push("/dashboard/provider")
+      router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : tCommon("errorOccurred"))
     }

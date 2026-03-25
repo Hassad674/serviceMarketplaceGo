@@ -39,12 +39,7 @@ export function LoginForm() {
       const response = await login(values.email, values.password)
       setAuth(response.user, response.access_token, response.refresh_token)
 
-      const dashboardRoutes: Record<string, string> = {
-        agency: "/dashboard/agency",
-        enterprise: "/dashboard/enterprise",
-        provider: "/dashboard/provider",
-      }
-      router.push(dashboardRoutes[response.user.role] || "/dashboard/provider")
+      router.push("/dashboard")
     } catch (err) {
       setError(
         err instanceof Error ? err.message : tCommon("errorOccurred"),

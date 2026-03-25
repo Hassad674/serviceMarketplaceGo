@@ -45,7 +45,7 @@ async function registerAgency(page: Page) {
   await page.getByLabel("Mot de passe", { exact: true }).fill(STRONG_PASSWORD)
   await page.getByLabel("Confirmer le mot de passe").fill(STRONG_PASSWORD)
   await page.getByRole("button", { name: "Créer mon compte agence" }).click()
-  await page.waitForURL("**/dashboard/agency", { timeout: 15000 })
+  await page.waitForURL("**/dashboard", { timeout: 15000 })
 
   return { email, password: STRONG_PASSWORD, displayName: agencyName }
 }
@@ -66,7 +66,7 @@ async function registerProvider(page: Page) {
   await page.getByLabel("Mot de passe", { exact: true }).fill(STRONG_PASSWORD)
   await page.getByLabel("Confirmer le mot de passe").fill(STRONG_PASSWORD)
   await page.getByRole("button", { name: "Créer mon compte freelance" }).click()
-  await page.waitForURL("**/dashboard/provider", { timeout: 15000 })
+  await page.waitForURL("**/dashboard", { timeout: 15000 })
 
   return { email, password: STRONG_PASSWORD, firstName, lastName }
 }
@@ -85,7 +85,7 @@ async function registerEnterprise(page: Page) {
   await page.getByLabel("Mot de passe", { exact: true }).fill(STRONG_PASSWORD)
   await page.getByLabel("Confirmer le mot de passe").fill(STRONG_PASSWORD)
   await page.getByRole("button", { name: "Créer mon compte entreprise" }).click()
-  await page.waitForURL("**/dashboard/enterprise", { timeout: 15000 })
+  await page.waitForURL("**/dashboard", { timeout: 15000 })
 
   return { email, password: STRONG_PASSWORD, displayName: enterpriseName }
 }
@@ -233,10 +233,10 @@ test.describe("Agency registration (/register/agency)", () => {
     ).toBeVisible()
   })
 
-  test("successful registration redirects to /dashboard/agency", async ({ page }) => {
+  test("successful registration redirects to /dashboard", async ({ page }) => {
     const { displayName } = await registerAgency(page)
 
-    await expect(page).toHaveURL(/\/dashboard\/agency/)
+    await expect(page).toHaveURL(/\/dashboard/)
     // Dashboard shows the agency name in the greeting
     await expect(page.getByText(`Bonjour, ${displayName}`)).toBeVisible({ timeout: 10000 })
   })
@@ -285,11 +285,11 @@ test.describe("Provider registration (/register/provider)", () => {
     await expect(page.getByText("Adresse email invalide")).toBeVisible()
   })
 
-  test("successful registration redirects to /dashboard/provider", async ({
+  test("successful registration redirects to /dashboard", async ({
     page,
   }) => {
     await registerProvider(page)
-    await expect(page).toHaveURL(/\/dashboard\/provider/)
+    await expect(page).toHaveURL(/\/dashboard/)
   })
 
   test("after registration, dashboard shows greeting", async ({ page }) => {
@@ -327,12 +327,12 @@ test.describe("Enterprise registration (/register/enterprise)", () => {
     ).toBeVisible()
   })
 
-  test("successful registration redirects to /dashboard/enterprise", async ({
+  test("successful registration redirects to /dashboard", async ({
     page,
   }) => {
     const { displayName } = await registerEnterprise(page)
 
-    await expect(page).toHaveURL(/\/dashboard\/enterprise/)
+    await expect(page).toHaveURL(/\/dashboard/)
     await expect(page.getByText(`Bonjour, ${displayName}`)).toBeVisible({ timeout: 10000 })
   })
 })
@@ -407,7 +407,7 @@ test.describe("Login (/login)", () => {
     ).toBeVisible()
   })
 
-  test("successful login as agency redirects to /dashboard/agency", async ({
+  test("successful login as agency redirects to /dashboard", async ({
     page,
   }) => {
     // First register an agency, then logout, then log back in
@@ -425,11 +425,11 @@ test.describe("Login (/login)", () => {
     await page.getByLabel("Mot de passe").fill(password)
     await page.getByRole("button", { name: "Se connecter" }).click()
 
-    await page.waitForURL("**/dashboard/agency", { timeout: 15000 })
+    await page.waitForURL("**/dashboard", { timeout: 15000 })
     await expect(page.getByText(`Bonjour, ${displayName}`)).toBeVisible({ timeout: 10000 })
   })
 
-  test("successful login as provider redirects to /dashboard/provider", async ({
+  test("successful login as provider redirects to /dashboard", async ({
     page,
   }) => {
     const { email, password } = await registerProvider(page)
@@ -446,10 +446,10 @@ test.describe("Login (/login)", () => {
     await page.getByLabel("Mot de passe").fill(password)
     await page.getByRole("button", { name: "Se connecter" }).click()
 
-    await page.waitForURL("**/dashboard/provider", { timeout: 15000 })
+    await page.waitForURL("**/dashboard", { timeout: 15000 })
   })
 
-  test("successful login as enterprise redirects to /dashboard/enterprise", async ({
+  test("successful login as enterprise redirects to /dashboard", async ({
     page,
   }) => {
     const { email, password, displayName } = await registerEnterprise(page)
@@ -466,7 +466,7 @@ test.describe("Login (/login)", () => {
     await page.getByLabel("Mot de passe").fill(password)
     await page.getByRole("button", { name: "Se connecter" }).click()
 
-    await page.waitForURL("**/dashboard/enterprise", { timeout: 15000 })
+    await page.waitForURL("**/dashboard", { timeout: 15000 })
     await expect(page.getByText(`Bonjour, ${displayName}`)).toBeVisible({ timeout: 10000 })
   })
 
@@ -509,7 +509,7 @@ test.describe("Logout", () => {
     await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
 
     // Try to navigate to dashboard directly
-    await page.goto("/dashboard/provider")
+    await page.goto("/dashboard")
 
     // Should be redirected to /login by middleware or client-side guard
     await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
@@ -610,7 +610,7 @@ test.describe("Forgot password (/forgot-password)", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Protected routes", () => {
-  test("accessing /dashboard/agency without auth redirects to /login", async ({
+  test("accessing /dashboard without auth redirects to /login", async ({
     page,
   }) => {
     // Ensure no auth
@@ -620,33 +620,7 @@ test.describe("Protected routes", () => {
       document.cookie = "access_token=; path=/; max-age=0"
     })
 
-    await page.goto("/dashboard/agency")
-    await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
-  })
-
-  test("accessing /dashboard/provider without auth redirects to /login", async ({
-    page,
-  }) => {
-    await page.goto("/")
-    await page.evaluate(() => {
-      localStorage.removeItem("marketplace-auth")
-      document.cookie = "access_token=; path=/; max-age=0"
-    })
-
-    await page.goto("/dashboard/provider")
-    await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
-  })
-
-  test("accessing /dashboard/enterprise without auth redirects to /login", async ({
-    page,
-  }) => {
-    await page.goto("/")
-    await page.evaluate(() => {
-      localStorage.removeItem("marketplace-auth")
-      document.cookie = "access_token=; path=/; max-age=0"
-    })
-
-    await page.goto("/dashboard/enterprise")
+    await page.goto("/dashboard")
     await expect(page).toHaveURL(/\/login/, { timeout: 10000 })
   })
 

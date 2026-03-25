@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
+import { useSearchParams } from "next/navigation"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
 
@@ -22,31 +23,18 @@ type NavItem = {
   href: string
   icon: React.ElementType
   exact?: boolean
+  roles: string[]
+  referrerOnly?: boolean
+  hideInReferrerMode?: boolean
 }
 
-const agencyNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/agency", icon: LayoutDashboard, exact: true },
-  { labelKey: "myProfile", href: "/dashboard/agency/profile", icon: UserCircle },
-  { labelKey: "findFreelancers", href: "/dashboard/agency/freelancers", icon: Search },
-  { labelKey: "findReferrers", href: "/dashboard/agency/referrers", icon: Search },
-]
-
-const providerNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/provider", icon: LayoutDashboard, exact: true },
-  { labelKey: "myProfile", href: "/dashboard/provider/profile", icon: UserCircle },
-]
-
-const referrerNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/referrer", icon: LayoutDashboard, exact: true },
-  { labelKey: "referrerProfile", href: "/dashboard/provider/referral", icon: UserCircle },
-  { labelKey: "findFreelancers", href: "/dashboard/referrer/freelancers", icon: Search },
-]
-
-const enterpriseNav: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard, exact: true },
-  { labelKey: "findFreelancers", href: "/dashboard/enterprise/freelancers", icon: Search },
-  { labelKey: "findAgencies", href: "/dashboard/enterprise/agencies", icon: Search },
-  { labelKey: "findReferrers", href: "/dashboard/enterprise/referrers", icon: Search },
+const NAV_ITEMS: NavItem[] = [
+  { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["agency", "provider", "enterprise"] },
+  { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"], hideInReferrerMode: true },
+  { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"], referrerOnly: true },
+  { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise", "provider"] },
+  { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },
+  { labelKey: "findReferrers", href: "/search?type=referrer", icon: Search, roles: ["agency", "enterprise"] },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -63,19 +51,13 @@ const ROLE_COLORS: Record<string, string> = {
   referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
 }
 
-const ROLE_DOT_COLORS: Record<string, string> = {
-  agency: "bg-blue-500",
-  enterprise: "bg-purple-500",
-  provider: "bg-rose-500",
-  referrer: "bg-amber-500",
-}
-
-function getNavConfig(role: string, isReferrerMode: boolean): NavItem[] {
-  if (role === "provider" && isReferrerMode) return referrerNav
-  if (role === "provider") return providerNav
-  if (role === "agency") return agencyNav
-  if (role === "enterprise") return enterpriseNav
-  return enterpriseNav
+function getFilteredNav(role: string, isReferrerMode: boolean): NavItem[] {
+  return NAV_ITEMS.filter((item) => {
+    if (!item.roles.includes(role)) return false
+    if (item.referrerOnly && !isReferrerMode) return false
+    if (item.hideInReferrerMode && isReferrerMode) return false
+    return true
+  })
 }
 
 const STORAGE_KEY = "sidebar-collapsed"
@@ -89,14 +71,15 @@ type SidebarProps = {
 
 export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { user, logout } = useAuth()
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
 
   const role = user?.role ?? "enterprise"
-  const isReferrerMode = pathname.startsWith("/dashboard/referrer")
-  const items = getNavConfig(role, isReferrerMode)
+  const isReferrerMode = pathname === "/referral" || searchParams.get("mode") === "referrer"
+  const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
 
   function handleLogout() {
@@ -178,7 +161,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         {/* Role switch (provider only) */}
         {role === "provider" && (
           <div className={cn("pb-2", collapsed ? "px-3" : "px-4")}>
-            <ReferrerSwitch isReferrerMode={isReferrerMode} collapsed={collapsed} displayRole={displayRole} />
+            <ReferrerSwitch isReferrerMode={isReferrerMode} collapsed={collapsed} />
           </div>
         )}
 
@@ -190,6 +173,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               item={item}
               label={t(item.labelKey)}
               pathname={pathname}
+              searchParams={searchParams}
               onClick={onClose}
               collapsed={collapsed}
             />
@@ -241,16 +225,14 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
 function ReferrerSwitch({
   isReferrerMode,
   collapsed,
-  displayRole,
 }: {
   isReferrerMode: boolean
   collapsed: boolean
-  displayRole: string
 }) {
   const t = useTranslations("sidebar")
 
   if (collapsed) {
-    const href = isReferrerMode ? "/dashboard/provider" : "/dashboard/referrer"
+    const href = isReferrerMode ? "/dashboard" : "/dashboard?mode=referrer"
     const dotColor = isReferrerMode ? "bg-emerald-500" : "bg-amber-500"
     return (
       <Link
@@ -266,7 +248,7 @@ function ReferrerSwitch({
   if (isReferrerMode) {
     return (
       <Link
-        href="/dashboard/provider"
+        href="/dashboard"
         className={cn(
           "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
           "text-sm font-medium transition-all duration-200",
@@ -281,7 +263,7 @@ function ReferrerSwitch({
 
   return (
     <Link
-      href="/dashboard/referrer"
+      href="/dashboard?mode=referrer"
       className={cn(
         "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
         "text-sm font-medium text-white transition-all duration-200",
@@ -298,20 +280,29 @@ function NavLink({
   item,
   label,
   pathname,
+  searchParams,
   onClick,
   collapsed,
 }: {
   item: NavItem
   label: string
   pathname: string
+  searchParams: URLSearchParams
   onClick?: () => void
   collapsed: boolean
 }) {
-  const isActive =
-    item.href !== "#" &&
-    (item.exact
-      ? pathname === item.href
-      : pathname === item.href || pathname.startsWith(item.href + "/"))
+  // For hrefs with query params (e.g. /search?type=freelancer), compare path + query
+  const [hrefPath, hrefQuery] = item.href.split("?")
+  const currentQuery = searchParams.toString()
+
+  let isActive = false
+  if (item.exact) {
+    isActive = pathname === hrefPath && (!hrefQuery || currentQuery.includes(hrefQuery))
+  } else {
+    const pathMatches = pathname === hrefPath || pathname.startsWith(hrefPath + "/")
+    const queryMatches = !hrefQuery || currentQuery.includes(hrefQuery)
+    isActive = pathMatches && queryMatches
+  }
 
   return (
     <Link

@@ -130,7 +130,9 @@
     "completedMissions": "Missions termin\u00e9es",
     "totalHistory": "Total historique",
     "commissions": "Commissions",
-    "totalEarned": "Total gagn\u00e9"
+    "totalEarned": "Total gagn\u00e9",
+    "freelanceDashboard": "Dashboard Freelance",
+    "businessReferrer": "Apporteur d'affaire"
   },
   "sidebar": {
     "dashboard": "Tableau de bord",
@@ -142,6 +144,12 @@
     "findFreelancers": "Trouver des freelances",
     "findAgencies": "Trouver des agences",
     "findReferrers": "Trouver des apporteurs",
+    "messages": "Messages",
+    "missions": "Missions",
+    "invoices": "Factures",
+    "team": "\u00c9quipe",
+    "projects": "Projets",
+    "settings": "Param\u00e8tres",
     "roleAgency": "Agence",
     "roleEnterprise": "Entreprise",
     "roleProvider": "Prestataire",
@@ -179,7 +187,8 @@
     "imageAlt": "{imageType} de {name}",
     "professionalTitle": "Titre professionnel",
     "editProfessionalTitle": "Modifier le titre professionnel",
-    "yourProfessionalTitle": "Votre titre professionnel"
+    "yourProfessionalTitle": "Votre titre professionnel",
+    "referralProviderOnly": "Cette page est r\u00e9serv\u00e9e aux comptes prestataires."
   },
   "upload": {
     "addPhoto": "Ajouter une photo",
@@ -240,22 +249,6 @@
     "noResultsDesc": "Essayez de modifier vos crit\u00e8res de recherche",
     "noTitle": "Sans titre",
     "errorLoading": "\u00c9chec du chargement des profils. Veuillez r\u00e9essayer."
-  },
-  "accessDenied": {
-    "title": "Acc\u00e8s non autoris\u00e9",
-    "description": "Vous essayez d'acc\u00e9der \u00e0 l'interface {attempted} alors que votre compte est de type {role}.",
-    "warning": "Chaque type de compte a son interface d\u00e9di\u00e9e pour une meilleure exp\u00e9rience utilisateur.",
-    "countdown": "Redirection automatique vers votre tableau de bord dans {seconds} secondes...",
-    "goToDashboard": "Aller \u00e0 mon tableau de bord {role}",
-    "goBack": "Retour \u00e0 la page pr\u00e9c\u00e9dente",
-    "contactSupport": "Si vous pensez qu'il s'agit d'une erreur, contactez le support technique.",
-    "roles": {
-      "agency": "Agence",
-      "provider": "Freelance",
-      "enterprise": "Entreprise",
-      "referrer": "Apporteur d'affaires",
-      "unknown": "Inconnu"
-    }
   },
   "publicProfile": {
     "agencyProfile": "Profil de l'agence",
