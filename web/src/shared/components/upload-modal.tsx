@@ -1,0 +1,350 @@
+"use client"
+
+import { useState, useRef, useCallback, useEffect } from "react"
+import { UploadCloud, X, File as FileIcon, Loader2 } from "lucide-react"
+import { cn } from "@/shared/lib/utils"
+
+interface UploadModalProps {
+  open: boolean
+  onClose: () => void
+  onUpload: (file: File) => Promise<void>
+  accept: string
+  maxSize: number
+  title: string
+  description?: string
+  uploading?: boolean
+}
+
+const BYTES_PER_MB = 1024 * 1024
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < BYTES_PER_MB) return `${(bytes / 1024).toFixed(1)} Ko`
+  return `${(bytes / BYTES_PER_MB).toFixed(1)} Mo`
+}
+
+export function UploadModal({
+  open,
+  onClose,
+  onUpload,
+  accept,
+  maxSize,
+  title,
+  description,
+  uploading = false,
+}: UploadModalProps) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const modalRef = useRef<HTMLDivElement>(null)
+
+  const isImage = accept.startsWith("image")
+  const maxSizeLabel = formatFileSize(maxSize)
+
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedFile(null)
+      setPreviewUrl(null)
+      setError(null)
+      setIsDragOver(false)
+    }
+  }, [open])
+
+  // Clean up preview URL on unmount or change
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+    }
+  }, [previewUrl])
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !uploading) onClose()
+    }
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [open, uploading, onClose])
+
+  // Focus trap: focus modal on open
+  useEffect(() => {
+    if (open) modalRef.current?.focus()
+  }, [open])
+
+  const validateFile = useCallback(
+    (file: File): string | null => {
+      if (file.size > maxSize) {
+        return `Le fichier depasse la taille maximale de ${maxSizeLabel}`
+      }
+      const acceptTypes = accept.split(",").map((t) => t.trim())
+      const matchesType = acceptTypes.some((type) => {
+        if (type.endsWith("/*")) {
+          return file.type.startsWith(type.replace("/*", "/"))
+        }
+        return file.type === type
+      })
+      if (!matchesType) {
+        return isImage
+          ? "Veuillez selectionner un fichier image valide"
+          : "Veuillez selectionner un fichier video valide"
+      }
+      return null
+    },
+    [accept, maxSize, maxSizeLabel, isImage],
+  )
+
+  function handleFileSelect(file: File) {
+    const validationError = validateFile(file)
+    if (validationError) {
+      setError(validationError)
+      setSelectedFile(null)
+      setPreviewUrl(null)
+      return
+    }
+    setError(null)
+    setSelectedFile(file)
+    if (isImage) {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(URL.createObjectURL(file))
+    }
+  }
+
+  function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (file) handleFileSelect(file)
+    // Reset input so re-selecting the same file triggers change
+    event.target.value = ""
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault()
+    setIsDragOver(true)
+  }
+
+  function handleDragLeave(event: React.DragEvent) {
+    event.preventDefault()
+    setIsDragOver(false)
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault()
+    setIsDragOver(false)
+    const file = event.dataTransfer.files[0]
+    if (file) handleFileSelect(file)
+  }
+
+  function handleRemoveFile() {
+    setSelectedFile(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    setError(null)
+  }
+
+  async function handleUpload() {
+    if (!selectedFile) return
+    await onUpload(selectedFile)
+  }
+
+  function handleOverlayClick(event: React.MouseEvent) {
+    if (event.target === event.currentTarget && !uploading) {
+      onClose()
+    }
+  }
+
+  if (!open) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={handleOverlayClick}
+      role="presentation"
+    >
+      <div
+        ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        className={cn(
+          "relative bg-card rounded-xl shadow-lg w-full max-w-md mx-4 p-6",
+          "animate-[fadeSlideUp_150ms_ease-out]",
+          "focus:outline-none",
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={uploading}
+            className={cn(
+              "rounded-md p-1.5 text-muted-foreground hover:text-foreground",
+              "hover:bg-muted transition-colors",
+              "focus-visible:outline-2 focus-visible:outline-ring",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+            aria-label="Fermer"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        {description && (
+          <p className="text-sm text-muted-foreground mb-4">{description}</p>
+        )}
+
+        {/* Drop zone */}
+        {!selectedFile && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={cn(
+              "w-full border-2 border-dashed rounded-lg p-8",
+              "flex flex-col items-center justify-center gap-3",
+              "transition-colors cursor-pointer",
+              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+              isDragOver
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary hover:bg-primary/5",
+            )}
+            aria-label={`Zone de depot pour ${isImage ? "image" : "video"}`}
+          >
+            <div
+              className={cn(
+                "w-12 h-12 rounded-full flex items-center justify-center",
+                isDragOver ? "bg-primary/10" : "bg-muted",
+              )}
+            >
+              <UploadCloud
+                className={cn(
+                  "w-6 h-6",
+                  isDragOver ? "text-primary" : "text-muted-foreground",
+                )}
+                aria-hidden="true"
+              />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">
+                Glissez votre fichier ici
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                ou cliquez pour parcourir
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {isImage ? "Images" : "Videos"} — {maxSizeLabel} maximum
+            </p>
+          </button>
+        )}
+
+        {/* File preview */}
+        {selectedFile && (
+          <div className="border border-border rounded-lg p-4">
+            {isImage && previewUrl ? (
+              <div className="relative mb-3">
+                <img
+                  src={previewUrl}
+                  alt="Apercu du fichier selectionne"
+                  className="w-full h-40 object-cover rounded-md"
+                />
+              </div>
+            ) : null}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0">
+                <FileIcon
+                  className="w-5 h-5 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {selectedFile.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(selectedFile.size)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleRemoveFile}
+                disabled={uploading}
+                className={cn(
+                  "rounded-md p-1.5 text-muted-foreground hover:text-foreground",
+                  "hover:bg-muted transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-ring",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
+                )}
+                aria-label="Supprimer le fichier selectionne"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error message */}
+        {error && (
+          <p className="text-sm text-destructive mt-3" role="alert">
+            {error}
+          </p>
+        )}
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={accept}
+          onChange={handleInputChange}
+          className="hidden"
+          aria-label={`Selectionner un fichier ${isImage ? "image" : "video"}`}
+        />
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-3 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={uploading}
+            className={cn(
+              "h-10 px-4 text-sm font-medium rounded-md",
+              "text-foreground hover:bg-muted transition-colors",
+              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={handleUpload}
+            disabled={!selectedFile || uploading}
+            className={cn(
+              "h-10 px-4 text-sm font-medium rounded-md",
+              "bg-primary text-primary-foreground",
+              "hover:opacity-90 transition-opacity",
+              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "inline-flex items-center gap-2",
+            )}
+          >
+            {uploading && (
+              <Loader2
+                className="w-4 h-4 animate-spin"
+                aria-hidden="true"
+              />
+            )}
+            {uploading ? "Envoi en cours..." : "Envoyer"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
+import { useUploadPhoto, useUploadVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
 import { ProfileHistory } from "@/features/provider/components/profile-history"
@@ -11,6 +12,8 @@ export default function ProviderProfilePage() {
   const { user } = useAuth()
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
+  const photoUpload = useUploadPhoto()
+  const videoUpload = useUploadVideo()
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -25,8 +28,14 @@ export default function ProviderProfilePage() {
         displayName={displayName}
         roleContext="provider"
         onUpdateTitle={(title) => updateProfile.mutate({ title })}
+        onUploadPhoto={async (file) => { await photoUpload.mutateAsync(file) }}
+        uploadingPhoto={photoUpload.isPending}
       />
-      <ProfileVideo videoUrl={profile?.presentation_video_url} />
+      <ProfileVideo
+        videoUrl={profile?.presentation_video_url}
+        onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
+        uploadingVideo={videoUpload.isPending}
+      />
       <ProfileHistory />
     </div>
   )

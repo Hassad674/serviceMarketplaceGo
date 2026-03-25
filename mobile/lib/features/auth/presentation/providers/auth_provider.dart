@@ -80,7 +80,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // Verify the token is still valid by hitting /auth/me.
       final response = await _api.get('/api/v1/auth/me');
-      final user = response.data['data'] as Map<String, dynamic>;
+      final user = response.data as Map<String, dynamic>;
       await _storage.saveUser(user);
 
       state = AuthState(
@@ -122,7 +122,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         data: {'email': email, 'password': password},
       );
 
-      final data = response.data['data'] as Map<String, dynamic>;
+      final data = response.data as Map<String, dynamic>;
       final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
       final user = data['user'] as Map<String, dynamic>;
@@ -184,7 +184,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         data: body,
       );
 
-      final data = response.data['data'] as Map<String, dynamic>;
+      final data = response.data as Map<String, dynamic>;
       final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
       final user = data['user'] as Map<String, dynamic>;

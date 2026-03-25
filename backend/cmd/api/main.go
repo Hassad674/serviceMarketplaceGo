@@ -11,6 +11,7 @@ import (
 
 	"marketplace-backend/internal/adapter/postgres"
 	resendadapter "marketplace-backend/internal/adapter/resend"
+	s3adapter "marketplace-backend/internal/adapter/s3"
 	"marketplace-backend/internal/app/auth"
 	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/config"
@@ -46,6 +47,14 @@ func main() {
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
 	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey)
+	storageSvc := s3adapter.NewStorageService(
+		cfg.StorageEndpoint,
+		cfg.StorageAccessKey,
+		cfg.StorageSecretKey,
+		cfg.StorageBucket,
+		cfg.StoragePublicURL,
+		cfg.StorageUseSSL,
+	)
 
 	// Initialize application services
 	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)
@@ -54,12 +63,14 @@ func main() {
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc)
 	profileHandler := handler.NewProfileHandler(profileSvc)
+	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
 	healthHandler := handler.NewHealthHandler(db)
 
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
 		Auth:         authHandler,
 		Profile:      profileHandler,
+		Upload:       uploadHandler,
 		Health:       healthHandler,
 		Config:       cfg,
 		TokenService: tokenSvc,

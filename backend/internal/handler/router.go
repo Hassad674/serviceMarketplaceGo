@@ -11,6 +11,7 @@ import (
 type RouterDeps struct {
 	Auth         *AuthHandler
 	Profile      *ProfileHandler
+	Upload       *UploadHandler
 	Health       *HealthHandler
 	Config       *config.Config
 	TokenService service.TokenService
@@ -53,6 +54,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Use(middleware.Auth(deps.TokenService))
 			r.Get("/", deps.Profile.GetMyProfile)
 			r.Put("/", deps.Profile.UpdateMyProfile)
+		})
+
+		// Upload routes (authenticated)
+		r.Route("/upload", func(r chi.Router) {
+			r.Use(middleware.Auth(deps.TokenService))
+			r.Post("/photo", deps.Upload.UploadPhoto)
+			r.Post("/video", deps.Upload.UploadVideo)
+			r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
 		})
 
 		// Public profiles

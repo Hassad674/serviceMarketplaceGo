@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
+import { useUploadPhoto, useUploadReferrerVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
@@ -10,6 +11,8 @@ export default function ProviderReferralPage() {
   const { user } = useAuth()
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
+  const photoUpload = useUploadPhoto()
+  const referrerVideoUpload = useUploadReferrerVideo()
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -24,12 +27,16 @@ export default function ProviderReferralPage() {
         displayName={displayName}
         roleContext="referrer"
         onUpdateTitle={(title) => updateProfile.mutate({ title })}
+        onUploadPhoto={async (file) => { await photoUpload.mutateAsync(file) }}
+        uploadingPhoto={photoUpload.isPending}
       />
       <ProfileVideo
         videoUrl={profile?.referrer_video_url}
         title="Video de presentation — Apporteur d'affaire"
         emptyLabel="Aucune video d'apporteur"
         emptyDescription="Ajoutez une video pour presenter votre activite d'apporteur d'affaire"
+        onUploadVideo={async (file) => { await referrerVideoUpload.mutateAsync(file) }}
+        uploadingVideo={referrerVideoUpload.isPending}
       />
     </div>
   )

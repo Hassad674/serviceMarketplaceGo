@@ -1,55 +1,95 @@
 "use client"
 
+import { useState } from "react"
 import { Video } from "lucide-react"
+import { UploadModal } from "@/shared/components/upload-modal"
 
 interface ProfileVideoProps {
   videoUrl: string | undefined
   title?: string
   emptyLabel?: string
   emptyDescription?: string
+  onUploadVideo: (file: File) => Promise<void>
+  uploadingVideo?: boolean
 }
+
+const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 
 export function ProfileVideo({
   videoUrl,
   title = "Video de presentation",
   emptyLabel = "Aucune video de presentation",
   emptyDescription = "Ajoutez une video pour presenter votre activite",
+  onUploadVideo,
+  uploadingVideo = false,
 }: ProfileVideoProps) {
-  return (
-    <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-foreground mb-4">{title}</h2>
+  const [videoModalOpen, setVideoModalOpen] = useState(false)
 
-      {videoUrl ? (
-        <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-          <video
-            src={videoUrl}
-            controls
-            className="w-full h-full object-cover"
-            aria-label={title}
-          >
-            <track kind="captions" />
-            Votre navigateur ne supporte pas la lecture video.
-          </video>
+  async function handleVideoUpload(file: File) {
+    await onUploadVideo(file)
+    setVideoModalOpen(false)
+  }
+
+  return (
+    <>
+      <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+          {videoUrl && (
+            <button
+              type="button"
+              onClick={() => setVideoModalOpen(true)}
+              className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+            >
+              Changer la video
+            </button>
+          )}
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-            <Video className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
+
+        {videoUrl ? (
+          <div className="aspect-video rounded-lg overflow-hidden bg-muted">
+            <video
+              src={videoUrl}
+              controls
+              className="w-full h-full object-cover"
+              aria-label={title}
+            >
+              <track kind="captions" />
+              Votre navigateur ne supporte pas la lecture video.
+            </video>
           </div>
-          <p className="text-sm font-medium text-foreground mb-1">
-            {emptyLabel}
-          </p>
-          <p className="text-sm text-muted-foreground italic mb-4">
-            {emptyDescription}
-          </p>
-          <button
-            type="button"
-            className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-          >
-            Ajouter une video
-          </button>
-        </div>
-      )}
-    </section>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Video className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">
+              {emptyLabel}
+            </p>
+            <p className="text-sm text-muted-foreground italic mb-4">
+              {emptyDescription}
+            </p>
+            <button
+              type="button"
+              onClick={() => setVideoModalOpen(true)}
+              className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+            >
+              Ajouter une video
+            </button>
+          </div>
+        )}
+      </section>
+
+      <UploadModal
+        open={videoModalOpen}
+        onClose={() => setVideoModalOpen(false)}
+        onUpload={handleVideoUpload}
+        accept="video/*"
+        maxSize={VIDEO_MAX_SIZE}
+        title="Ajouter une video"
+        description="Formats acceptes : MP4, WebM. 50 Mo maximum."
+        uploading={uploadingVideo}
+      />
+    </>
   )
 }
