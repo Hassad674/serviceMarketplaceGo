@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/auth/presentation/screens/agency_register_screen.dart';
+import '../../features/auth/presentation/screens/enterprise_register_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
-import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/auth/presentation/screens/role_selection_screen.dart';
+import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../theme/app_theme.dart';
 
 // ---------------------------------------------------------------------------
 // Route path constants
@@ -16,12 +22,27 @@ class RoutePaths {
 
   static const String login = '/login';
   static const String register = '/register';
+  static const String registerAgency = '/register/agency';
+  static const String registerProvider = '/register/provider';
+  static const String registerEnterprise = '/register/enterprise';
   static const String dashboard = '/dashboard';
+  static const String dashboardReferrer = '/dashboard/referrer';
   static const String messaging = '/messaging';
   static const String missions = '/missions';
   static const String profile = '/profile';
-  static const String settings = '/settings';
 }
+
+// ---------------------------------------------------------------------------
+// Auth route list (used by redirect logic)
+// ---------------------------------------------------------------------------
+
+const _authRoutes = [
+  RoutePaths.login,
+  RoutePaths.register,
+  RoutePaths.registerAgency,
+  RoutePaths.registerProvider,
+  RoutePaths.registerEnterprise,
+];
 
 // ---------------------------------------------------------------------------
 // Router provider
@@ -29,7 +50,7 @@ class RoutePaths {
 
 /// GoRouter with authentication-based redirects.
 ///
-/// Watches [authStateProvider] to determine whether the user is authenticated
+/// Watches [authProvider] to determine whether the user is authenticated
 /// and redirects to /login or /dashboard accordingly.
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -39,8 +60,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isAuthenticated = authState.status == AuthStatus.authenticated;
       final isLoading = authState.status == AuthStatus.loading;
-      final isAuthRoute = state.matchedLocation == RoutePaths.login ||
-          state.matchedLocation == RoutePaths.register;
+      final isAuthRoute = _authRoutes.contains(state.matchedLocation);
 
       // Still loading — stay on current route.
       if (isLoading) return null;
@@ -48,7 +68,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Not authenticated — force to login (unless already on an auth route).
       if (!isAuthenticated && !isAuthRoute) return RoutePaths.login;
 
-      // Authenticated — redirect away from auth routes.
+      // Authenticated — redirect away from auth routes to dashboard.
       if (isAuthenticated && isAuthRoute) return RoutePaths.dashboard;
 
       return null;
@@ -61,7 +81,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: RoutePaths.register,
+        builder: (context, state) => const RoleSelectionScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.registerAgency,
+        builder: (context, state) => const AgencyRegisterScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.registerProvider,
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.registerEnterprise,
+        builder: (context, state) => const EnterpriseRegisterScreen(),
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---
@@ -75,6 +107,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const DashboardScreen(),
           ),
           GoRoute(
+            path: RoutePaths.dashboardReferrer,
+            builder: (context, state) =>
+                const ReferrerDashboardScreen(),
+          ),
+          GoRoute(
             path: RoutePaths.messaging,
             builder: (context, state) =>
                 const _PlaceholderScreen(title: 'Messagerie'),
@@ -86,13 +123,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RoutePaths.profile,
-            builder: (context, state) =>
-                const _PlaceholderScreen(title: 'Mon Profil'),
-          ),
-          GoRoute(
-            path: RoutePaths.settings,
-            builder: (context, state) =>
-                const _PlaceholderScreen(title: 'Parametres'),
+            builder: (context, state) => const ProfileScreen(),
           ),
         ],
       ),
@@ -160,18 +191,45 @@ class DashboardShell extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Dashboard screen
+// Dashboard screen — role-based content
 // ---------------------------------------------------------------------------
 
-/// Main dashboard / home screen (stub — to be implemented per feature).
+/// Main dashboard / home screen with role-based stats cards.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final role = authState.user?['role'] as String?;
+
+    switch (role) {
+      case 'agency':
+        return const _AgencyDashboard();
+      case 'enterprise':
+        return const _EnterpriseDashboard();
+      case 'provider':
+        return const _ProviderDashboard();
+      default:
+        return const _ProviderDashboard();
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Agency dashboard
+// ---------------------------------------------------------------------------
+
+class _AgencyDashboard extends ConsumerWidget {
+  const _AgencyDashboard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
-    final userName = authState.user?['name'] as String? ?? '';
+    final appColors = theme.extension<AppColors>();
+    final displayName =
+        authState.user?['display_name'] as String? ?? 'Agence';
 
     return Scaffold(
       appBar: AppBar(
@@ -179,42 +237,290 @@ class DashboardScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: navigate to notifications
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.go(RoutePaths.settings),
+            onPressed: () {},
           ),
         ],
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bonjour${userName.isNotEmpty ? ', $userName' : ''} !',
+                'Bonjour, $displayName',
                 style: theme.textTheme.headlineMedium,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
-                'Bienvenue sur votre tableau de bord',
+                'Gerez votre agence et vos missions',
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  color: appColors?.mutedForeground,
                 ),
               ),
-              const SizedBox(height: 32),
-              const Expanded(
-                child: Center(
-                  child: Text('Tableau de bord en construction'),
-                ),
+              const SizedBox(height: 24),
+              const _StatCard(
+                icon: Icons.work_outline,
+                title: 'Missions en cours',
+                value: '0',
+                subtitle: 'Contrats actifs',
+                color: Color(0xFF2563EB),
+              ),
+              const SizedBox(height: 12),
+              const _StatCard(
+                icon: Icons.chat_outlined,
+                title: 'Messages non lus',
+                value: '0',
+                subtitle: 'Conversations',
+                color: Color(0xFF8B5CF6),
+              ),
+              const SizedBox(height: 12),
+              const _StatCard(
+                icon: Icons.trending_up,
+                title: 'Revenus du mois',
+                value: '0 EUR',
+                subtitle: 'Ce mois-ci',
+                color: Color(0xFF22C55E),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Enterprise dashboard
+// ---------------------------------------------------------------------------
+
+class _EnterpriseDashboard extends ConsumerWidget {
+  const _EnterpriseDashboard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final displayName =
+        authState.user?['display_name'] as String? ?? 'Entreprise';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Marketplace'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bonjour, $displayName',
+                style: theme.textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Trouvez les meilleurs prestataires pour vos projets',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: appColors?.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 24),
+              const _StatCard(
+                icon: Icons.folder_open_outlined,
+                title: 'Projets en cours',
+                value: '0',
+                subtitle: 'Projets actifs',
+                color: Color(0xFF2563EB),
+              ),
+              const SizedBox(height: 12),
+              const _StatCard(
+                icon: Icons.chat_outlined,
+                title: 'Messages non lus',
+                value: '0',
+                subtitle: 'Conversations',
+                color: Color(0xFF8B5CF6),
+              ),
+              const SizedBox(height: 12),
+              const _StatCard(
+                icon: Icons.account_balance_wallet_outlined,
+                title: 'Budget total',
+                value: '0 EUR',
+                subtitle: 'Depense ce mois',
+                color: Color(0xFF22C55E),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Provider (freelance) dashboard
+// ---------------------------------------------------------------------------
+
+class _ProviderDashboard extends ConsumerWidget {
+  const _ProviderDashboard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final displayName =
+        authState.user?['first_name'] as String? ??
+        authState.user?['display_name'] as String? ??
+        'Freelance';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Marketplace'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bonjour, $displayName',
+                style: theme.textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Gerez vos missions et developpez votre activite',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: appColors?.mutedForeground,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Switch to referrer mode
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go(RoutePaths.dashboardReferrer),
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Mode Apporteur d\'affaires'),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              const _StatCard(
+                icon: Icons.work_outline,
+                title: 'Missions en cours',
+                value: '0',
+                subtitle: 'Contrats actifs',
+                color: Color(0xFF2563EB),
+              ),
+              const SizedBox(height: 12),
+              const _StatCard(
+                icon: Icons.chat_outlined,
+                title: 'Messages non lus',
+                value: '0',
+                subtitle: 'Conversations',
+                color: Color(0xFF8B5CF6),
+              ),
+              const SizedBox(height: 12),
+              const _StatCard(
+                icon: Icons.trending_up,
+                title: 'Revenus du mois',
+                value: '0 EUR',
+                subtitle: 'Ce mois-ci',
+                color: Color(0xFF22C55E),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared stat card widget
+// ---------------------------------------------------------------------------
+
+/// A stat card matching the web dashboard design.
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final String subtitle;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -251,7 +557,7 @@ class _PlaceholderScreen extends StatelessWidget {
             Text(
               'Bientot disponible',
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
           ],

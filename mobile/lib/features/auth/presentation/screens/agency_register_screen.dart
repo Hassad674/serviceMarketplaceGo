@@ -5,21 +5,21 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../providers/auth_provider.dart';
 
-/// Provider (freelance) registration form.
+/// Agency registration form.
 ///
-/// Fields: first name, last name, email, password, confirm password.
-/// Sends role="provider" to the backend.
-class RegisterScreen extends ConsumerStatefulWidget {
-  const RegisterScreen({super.key});
+/// Fields: company name (display_name), email, password, confirm password.
+/// Sends role="agency" to the backend.
+class AgencyRegisterScreen extends ConsumerStatefulWidget {
+  const AgencyRegisterScreen({super.key});
 
   @override
-  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<AgencyRegisterScreen> createState() =>
+      _AgencyRegisterScreenState();
 }
 
-class _RegisterScreenState extends ConsumerState<RegisterScreen> {
+class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _firstNameController = TextEditingController();
-  final _lastNameController = TextEditingController();
+  final _companyNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -28,8 +28,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
+    _companyNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -42,9 +41,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final success = await ref.read(authProvider.notifier).register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          role: 'provider',
-          firstName: _firstNameController.text.trim(),
-          lastName: _lastNameController.text.trim(),
+          role: 'agency',
+          displayName: _companyNameController.text.trim(),
         );
 
     if (success && mounted) {
@@ -63,7 +61,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go(RoutePaths.register),
         ),
-        title: const Text('Inscription Freelance'),
+        title: const Text('Inscription Agence'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -75,9 +73,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               children: [
                 // Role badge
                 const _RoleBadge(
-                  icon: Icons.person,
-                  label: 'Freelance / Apporteur',
-                  color: Color(0xFFF43F5E),
+                  icon: Icons.business,
+                  label: 'Agence / ESN',
+                  color: Color(0xFF2563EB),
                 ),
                 const SizedBox(height: 24),
 
@@ -87,41 +85,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 16),
                 ],
 
-                // First name
+                // Company name
                 TextFormField(
-                  controller: _firstNameController,
+                  controller: _companyNameController,
                   decoration: const InputDecoration(
-                    labelText: 'Prenom',
-                    hintText: 'Jean',
-                    prefixIcon: Icon(Icons.person_outline),
+                    labelText: 'Nom de l\'agence',
+                    hintText: 'Votre entreprise',
+                    prefixIcon: Icon(Icons.business_outlined),
                   ),
                   textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.givenName],
+                  autofillHints: const [AutofillHints.organizationName],
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Le prenom est requis';
-                    }
-                    if (value.trim().length < 2) {
-                      return 'Minimum 2 caracteres';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // Last name
-                TextFormField(
-                  controller: _lastNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom',
-                    hintText: 'Dupont',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.familyName],
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Le nom est requis';
+                      return 'Le nom de l\'agence est requis';
                     }
                     if (value.trim().length < 2) {
                       return 'Minimum 2 caracteres';
@@ -136,21 +112,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _emailController,
                   decoration: const InputDecoration(
                     labelText: 'Email',
-                    hintText: 'vous@exemple.com',
+                    hintText: 'contact@agence.com',
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.email],
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'L\'email est requis';
-                    }
-                    if (!value.contains('@')) {
-                      return 'Entrez un email valide';
-                    }
-                    return null;
-                  },
+                  validator: _validateEmail,
                 ),
                 const SizedBox(height: 16),
 
@@ -175,15 +143,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.next,
                   autofillHints: const [AutofillHints.newPassword],
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Le mot de passe est requis';
-                    }
-                    if (value.length < 8) {
-                      return 'Minimum 8 caracteres';
-                    }
-                    return null;
-                  },
+                  validator: _validatePassword,
                 ),
                 const SizedBox(height: 16),
 
@@ -257,6 +217,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers for register screens
+// ---------------------------------------------------------------------------
+
+String? _validateEmail(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'L\'email est requis';
+  }
+  if (!value.contains('@')) {
+    return 'Entrez un email valide';
+  }
+  return null;
+}
+
+String? _validatePassword(String? value) {
+  if (value == null || value.isEmpty) {
+    return 'Le mot de passe est requis';
+  }
+  if (value.length < 8) {
+    return 'Minimum 8 caracteres';
+  }
+  return null;
 }
 
 /// Small colored badge showing the selected role.

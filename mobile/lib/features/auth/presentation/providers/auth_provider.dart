@@ -151,24 +151,37 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Registers a new account.
+  /// Registers a new account with role-specific fields.
+  ///
+  /// For provider: [firstName] and [lastName] are required.
+  /// For agency/enterprise: [displayName] is required.
   Future<bool> register({
     required String email,
-    required String name,
     required String password,
     required String role,
+    String? firstName,
+    String? lastName,
+    String? displayName,
   }) async {
     state = state.copyWith(isSubmitting: true, errorMessage: null);
 
     try {
+      final body = <String, dynamic>{
+        'email': email,
+        'password': password,
+        'role': role,
+      };
+
+      if (role == 'provider') {
+        body['first_name'] = firstName ?? '';
+        body['last_name'] = lastName ?? '';
+      } else {
+        body['display_name'] = displayName ?? '';
+      }
+
       final response = await _api.post(
         '/api/v1/auth/register',
-        data: {
-          'email': email,
-          'name': name,
-          'password': password,
-          'role': role,
-        },
+        data: body,
       );
 
       final data = response.data['data'] as Map<String, dynamic>;
