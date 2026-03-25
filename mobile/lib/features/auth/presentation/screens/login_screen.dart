@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 
 /// Premium login screen with email + password fields.
@@ -46,6 +47,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -78,13 +80,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                   // Header
                   Text(
-                    'Welcome back',
+                    l10n.welcomeBack,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sign in to your account',
+                    l10n.signIn,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
@@ -111,7 +113,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         // Email field
                         Text(
-                          'Email',
+                          l10n.email,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -119,19 +121,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _emailController,
-                          decoration: const InputDecoration(
-                            hintText: 'you@example.com',
-                            prefixIcon: Icon(Icons.email_outlined),
+                          decoration: InputDecoration(
+                            hintText: l10n.emailHint,
+                            prefixIcon: const Icon(Icons.email_outlined),
                           ),
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: TextInputAction.next,
                           autofillHints: const [AutofillHints.email],
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Email is required';
+                              return l10n.fieldRequired;
                             }
                             if (!value.contains('@')) {
-                              return 'Enter a valid email';
+                              return l10n.invalidEmail;
                             }
                             return null;
                           },
@@ -140,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         // Password field
                         Text(
-                          'Password',
+                          l10n.password,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -149,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           decoration: InputDecoration(
-                            hintText: 'Enter your password',
+                            hintText: l10n.passwordHint,
                             prefixIcon: const Icon(Icons.lock_outlined),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -170,7 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onFieldSubmitted: (_) => _handleLogin(),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Password is required';
+                              return l10n.fieldRequired;
                             }
                             return null;
                           },
@@ -183,7 +185,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: () {
                               // TODO: navigate to forgot password screen
                             },
-                            child: const Text('Forgot password?'),
+                            child: Text(l10n.forgotPassword),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -201,7 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Sign In'),
+                              : Text(l10n.signIn),
                         ),
                       ],
                     ),
@@ -213,7 +215,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'No account yet?',
+                        l10n.noAccount,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurface
                               .withValues(alpha: 0.6),
@@ -221,7 +223,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       TextButton(
                         onPressed: () => context.go(RoutePaths.register),
-                        child: const Text('Create Account'),
+                        child: Text(l10n.signUp),
                       ),
                     ],
                   ),

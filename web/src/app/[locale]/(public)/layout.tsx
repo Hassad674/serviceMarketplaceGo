@@ -1,10 +1,14 @@
-import Link from "next/link"
+import { useTranslations } from "next-intl"
+import { Link } from "@i18n/navigation"
 
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const t = useTranslations("landing")
+  const tCommon = useTranslations("common")
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white">
@@ -20,31 +24,31 @@ export default function PublicLayout({
               href="/agencies"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Agencies
+              {t("agenciesTitle")}
             </Link>
             <Link
               href="/freelances"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Freelancers
+              {t("freelancesTitle")}
             </Link>
             <Link
               href="/projects"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Projects
+              {t("browseProjects")}
             </Link>
             <Link
               href="/login"
               className="text-sm font-medium text-gray-600 hover:text-gray-900"
             >
-              Sign In
+              {tCommon("signIn")}
             </Link>
             <Link
               href="/register"
               className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
             >
-              Sign Up
+              {tCommon("createAccount")}
             </Link>
           </div>
         </nav>

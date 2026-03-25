@@ -1,8 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   UserCircle,
@@ -13,32 +11,34 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { Link, usePathname, useRouter } from "@i18n/navigation"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
 
 type NavItem = {
-  label: string
+  labelKey: string
   href: string
   icon: React.ElementType
 }
 
 const agencyNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard/agency", icon: LayoutDashboard },
-  { label: "My Profile", href: "/dashboard/agency/profile", icon: UserCircle },
+  { labelKey: "dashboard", href: "/dashboard/agency", icon: LayoutDashboard },
+  { labelKey: "myProfile", href: "/dashboard/agency/profile", icon: UserCircle },
 ]
 
 const providerNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard/provider", icon: LayoutDashboard },
-  { label: "My Profile", href: "/dashboard/provider/profile", icon: UserCircle },
+  { labelKey: "dashboard", href: "/dashboard/provider", icon: LayoutDashboard },
+  { labelKey: "myProfile", href: "/dashboard/provider/profile", icon: UserCircle },
 ]
 
 const referrerNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard/referrer", icon: LayoutDashboard },
-  { label: "Referrer Profile", href: "/dashboard/provider/referral", icon: UserCircle },
+  { labelKey: "dashboard", href: "/dashboard/referrer", icon: LayoutDashboard },
+  { labelKey: "referrerProfile", href: "/dashboard/provider/referral", icon: UserCircle },
 ]
 
 const enterpriseNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard },
+  { labelKey: "dashboard", href: "/dashboard/enterprise", icon: LayoutDashboard },
 ]
 
 const ROLE_LABELS: Record<string, string> = {
@@ -83,6 +83,8 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const t = useTranslations("sidebar")
+  const tCommon = useTranslations("common")
 
   const role = user?.role ?? "enterprise"
   const isReferrerMode = pathname.startsWith("/dashboard/referrer")
@@ -176,8 +178,9 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
           {items.map((item) => (
             <NavLink
-              key={item.label}
+              key={item.labelKey}
               item={item}
+              label={t(item.labelKey)}
               pathname={pathname}
               onClick={onClose}
               collapsed={collapsed}
@@ -201,7 +204,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
             ) : (
               <>
                 <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
-                <span>Collapse</span>
+                <span>{t("collapse")}</span>
               </>
             )}
           </button>
@@ -216,10 +219,10 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               "text-gray-500 transition-all duration-200 hover:bg-gray-50 hover:text-gray-700",
               collapsed ? "justify-center" : "gap-3",
             )}
-            aria-label="Sign Out"
+            aria-label={tCommon("signOut")}
           >
             <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-            {!collapsed && <span>Sign Out</span>}
+            {!collapsed && <span>{tCommon("signOut")}</span>}
           </button>
         </div>
       </aside>
@@ -236,6 +239,8 @@ function ReferrerSwitch({
   collapsed: boolean
   displayRole: string
 }) {
+  const t = useTranslations("sidebar")
+
   if (collapsed) {
     const href = isReferrerMode ? "/dashboard/provider" : "/dashboard/referrer"
     const dotColor = isReferrerMode ? "bg-emerald-500" : "bg-amber-500"
@@ -243,7 +248,7 @@ function ReferrerSwitch({
       <Link
         href={href}
         className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100"
-        aria-label={isReferrerMode ? "Switch to Freelance Mode" : "Switch to Business Referrer"}
+        aria-label={isReferrerMode ? t("freelanceDashboard") : t("businessReferrer")}
       >
         <span className={cn("h-3 w-3 rounded-full", dotColor)} />
       </Link>
@@ -261,7 +266,7 @@ function ReferrerSwitch({
         )}
       >
         <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
-        Freelance Mode
+        {t("freelanceDashboard")}
       </Link>
     )
   }
@@ -276,18 +281,20 @@ function ReferrerSwitch({
       )}
     >
       <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-      Business Referrer
+      {t("businessReferrer")}
     </Link>
   )
 }
 
 function NavLink({
   item,
+  label,
   pathname,
   onClick,
   collapsed,
 }: {
   item: NavItem
+  label: string
   pathname: string
   onClick?: () => void
   collapsed: boolean
@@ -300,7 +307,7 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
-      title={collapsed ? item.label : undefined}
+      title={collapsed ? label : undefined}
       className={cn(
         "relative flex items-center rounded-lg py-2 text-sm transition-all duration-200",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
@@ -317,7 +324,7 @@ function NavLink({
         <span className="absolute left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
       )}
       <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-      {!collapsed && <span>{item.label}</span>}
+      {!collapsed && <span>{label}</span>}
     </Link>
   )
 }

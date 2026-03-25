@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Menu, Bell, Search, LogOut, User, ChevronDown } from "lucide-react"
-import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
+import { Link, usePathname, useRouter } from "@i18n/navigation"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { cn } from "@/shared/lib/utils"
 
@@ -29,6 +29,8 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const pathname = usePathname()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const tCommon = useTranslations("common")
+  const tSidebar = useTranslations("sidebar")
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -72,7 +74,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" strokeWidth={1.5} />
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={tCommon("search")}
           className={cn(
             "h-9 w-full rounded-full bg-gray-100/80 pl-9 pr-4 text-sm text-gray-900",
             "placeholder:text-gray-400 transition-all duration-200",
@@ -131,7 +133,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
                   >
                     <User className="h-4 w-4" strokeWidth={1.5} />
-                    My Profile
+                    {tSidebar("myProfile")}
                   </Link>
                   <div className="my-0.5 border-t border-gray-100" />
                   <button
@@ -139,7 +141,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                     className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-600"
                   >
                     <LogOut className="h-4 w-4" strokeWidth={1.5} />
-                    Sign Out
+                    {tCommon("signOut")}
                   </button>
                 </div>
               </div>

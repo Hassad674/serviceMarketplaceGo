@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useState } from "react"
-import Link from "next/link"
+import { Link } from "@i18n/navigation"
 import { Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react"
 import { resetPassword } from "@/features/auth/api/auth-api"
 

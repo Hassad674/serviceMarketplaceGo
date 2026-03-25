@@ -10,6 +10,7 @@ import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/role_selection_screen.dart';
 import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 // ---------------------------------------------------------------------------
@@ -152,6 +153,7 @@ class DashboardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: child,
@@ -167,26 +169,26 @@ class DashboardShell extends StatelessWidget {
         ),
         child: NavigationBar(
           selectedIndex: _currentIndex(context),
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'Home',
+              icon: const Icon(Icons.dashboard_outlined),
+              selectedIcon: const Icon(Icons.dashboard),
+              label: l10n.home,
             ),
             NavigationDestination(
-              icon: Icon(Icons.chat_outlined),
-              selectedIcon: Icon(Icons.chat),
-              label: 'Messages',
+              icon: const Icon(Icons.chat_outlined),
+              selectedIcon: const Icon(Icons.chat),
+              label: l10n.messages,
             ),
             NavigationDestination(
-              icon: Icon(Icons.work_outline),
-              selectedIcon: Icon(Icons.work),
-              label: 'Missions',
+              icon: const Icon(Icons.work_outline),
+              selectedIcon: const Icon(Icons.work),
+              label: l10n.missions,
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: 'Profile',
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person),
+              label: l10n.profile,
             ),
           ],
           onDestinationSelected: (index) {
@@ -266,36 +268,41 @@ class _WelcomeBanner extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Welcome back,',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            displayName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 14,
-            ),
-          ),
-        ],
+      child: Builder(
+        builder: (context) {
+          final l10n = AppLocalizations.of(context)!;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.welcomeBack,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                displayName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -311,6 +318,7 @@ class _AgencyDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
     final displayName =
         authState.user?['display_name'] as String? ?? 'Agency';
 
@@ -332,10 +340,10 @@ class _AgencyDashboard extends ConsumerWidget {
             children: [
               _WelcomeBanner(
                 displayName: displayName,
-                subtitle: 'Manage your agency and missions',
+                subtitle: l10n.roleAgencyDesc,
               ),
               const SizedBox(height: 24),
-              _buildStatCards(context),
+              _buildStatCards(context, l10n),
             ],
           ),
         ),
@@ -343,31 +351,31 @@ class _AgencyDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCards(BuildContext context) {
-    return const Column(
+  Widget _buildStatCards(BuildContext context, AppLocalizations l10n) {
+    return Column(
       children: [
         _StatCard(
           icon: Icons.work_outline,
-          title: 'Active Missions',
+          title: l10n.activeMissions,
           value: '0',
-          subtitle: 'Active contracts',
-          color: Color(0xFF2563EB),
+          subtitle: l10n.activeContracts,
+          color: const Color(0xFF2563EB),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _StatCard(
           icon: Icons.chat_outlined,
-          title: 'Unread Messages',
+          title: l10n.unreadMessages,
           value: '0',
-          subtitle: 'Conversations',
-          color: Color(0xFF8B5CF6),
+          subtitle: l10n.conversations,
+          color: const Color(0xFF8B5CF6),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _StatCard(
           icon: Icons.trending_up,
-          title: 'Monthly Revenue',
+          title: l10n.monthlyRevenue,
           value: '0 EUR',
-          subtitle: 'This month',
-          color: Color(0xFF22C55E),
+          subtitle: l10n.thisMonth,
+          color: const Color(0xFF22C55E),
         ),
       ],
     );
@@ -384,6 +392,7 @@ class _EnterpriseDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
     final displayName =
         authState.user?['display_name'] as String? ?? 'Enterprise';
 
@@ -405,10 +414,10 @@ class _EnterpriseDashboard extends ConsumerWidget {
             children: [
               _WelcomeBanner(
                 displayName: displayName,
-                subtitle: 'Find the best providers for your projects',
+                subtitle: l10n.roleEnterpriseDesc,
               ),
               const SizedBox(height: 24),
-              _buildStatCards(context),
+              _buildStatCards(context, l10n),
             ],
           ),
         ),
@@ -416,31 +425,31 @@ class _EnterpriseDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCards(BuildContext context) {
-    return const Column(
+  Widget _buildStatCards(BuildContext context, AppLocalizations l10n) {
+    return Column(
       children: [
         _StatCard(
           icon: Icons.folder_open_outlined,
-          title: 'Active Projects',
+          title: l10n.activeProjects,
           value: '0',
-          subtitle: 'Active projects',
-          color: Color(0xFF2563EB),
+          subtitle: l10n.activeProjects,
+          color: const Color(0xFF2563EB),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _StatCard(
           icon: Icons.chat_outlined,
-          title: 'Unread Messages',
+          title: l10n.unreadMessages,
           value: '0',
-          subtitle: 'Conversations',
-          color: Color(0xFF8B5CF6),
+          subtitle: l10n.conversations,
+          color: const Color(0xFF8B5CF6),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _StatCard(
           icon: Icons.account_balance_wallet_outlined,
-          title: 'Total Budget',
+          title: l10n.totalBudget,
           value: '0 EUR',
-          subtitle: 'Spent this month',
-          color: Color(0xFF22C55E),
+          subtitle: l10n.spentThisMonth,
+          color: const Color(0xFF22C55E),
         ),
       ],
     );
@@ -457,6 +466,7 @@ class _ProviderDashboard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
     final displayName =
         authState.user?['first_name'] as String? ??
         authState.user?['display_name'] as String? ??
@@ -480,7 +490,7 @@ class _ProviderDashboard extends ConsumerWidget {
             children: [
               _WelcomeBanner(
                 displayName: displayName,
-                subtitle: 'Manage your missions and grow your business',
+                subtitle: l10n.roleFreelanceDesc,
               ),
               const SizedBox(height: 16),
 
@@ -490,11 +500,11 @@ class _ProviderDashboard extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => context.go(RoutePaths.dashboardReferrer),
                   icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Business Referrer Mode'),
+                  label: Text(l10n.businessReferrerMode),
                 ),
               ),
               const SizedBox(height: 24),
-              _buildStatCards(context),
+              _buildStatCards(context, l10n),
             ],
           ),
         ),
@@ -502,31 +512,31 @@ class _ProviderDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCards(BuildContext context) {
-    return const Column(
+  Widget _buildStatCards(BuildContext context, AppLocalizations l10n) {
+    return Column(
       children: [
         _StatCard(
           icon: Icons.work_outline,
-          title: 'Active Missions',
+          title: l10n.activeMissions,
           value: '0',
-          subtitle: 'Active contracts',
-          color: Color(0xFF2563EB),
+          subtitle: l10n.activeContracts,
+          color: const Color(0xFF2563EB),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _StatCard(
           icon: Icons.chat_outlined,
-          title: 'Unread Messages',
+          title: l10n.unreadMessages,
           value: '0',
-          subtitle: 'Conversations',
-          color: Color(0xFF8B5CF6),
+          subtitle: l10n.conversations,
+          color: const Color(0xFF8B5CF6),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         _StatCard(
           icon: Icons.trending_up,
-          title: 'Monthly Revenue',
+          title: l10n.monthlyRevenue,
           value: '0 EUR',
-          subtitle: 'This month',
-          color: Color(0xFF22C55E),
+          subtitle: l10n.thisMonth,
+          color: const Color(0xFF22C55E),
         ),
       ],
     );
@@ -624,6 +634,7 @@ class _PlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -648,7 +659,7 @@ class _PlaceholderScreen extends StatelessWidget {
             Text(title, style: theme.textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
-              'Coming soon',
+              l10n.comingSoon,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),

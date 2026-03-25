@@ -3,10 +3,10 @@
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
-import Link from "next/link"
 import { Eye, EyeOff } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { Link, useRouter } from "@i18n/navigation"
 import { login } from "@/features/auth/api/auth-api"
 import { useAuth } from "@/shared/hooks/use-auth"
 
@@ -22,6 +22,8 @@ export function LoginForm() {
   const { setAuth } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  const t = useTranslations("auth")
+  const tCommon = useTranslations("common")
 
   const {
     register: registerField,
@@ -61,13 +63,13 @@ export function LoginForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
+            {t("email")}
           </label>
           <input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
             {...registerField("email")}
           />
@@ -78,14 +80,14 @@ export function LoginForm() {
 
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
+            {t("password")}
           </label>
           <div className="relative">
             <input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
-              placeholder="Your password"
+              placeholder={t("passwordPlaceholder")}
               className="h-12 w-full rounded-xl border border-gray-200 bg-white px-4 pr-11 text-sm transition-all placeholder:text-gray-400 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("password")}
             />
@@ -106,7 +108,7 @@ export function LoginForm() {
               href="/forgot-password"
               className="text-sm font-medium text-rose-500 hover:text-rose-600"
             >
-              Forgot password?
+              {t("forgotPassword")}
             </Link>
           </div>
         </div>
@@ -116,17 +118,17 @@ export function LoginForm() {
           disabled={isSubmitting}
           className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
         >
-          {isSubmitting ? "Signing in..." : "Sign In"}
+          {isSubmitting ? t("signingIn") : t("loginTitle")}
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-gray-500">
-        No account yet?{" "}
+        {t("noAccount")}{" "}
         <Link
           href="/register"
           className="font-medium text-rose-500 hover:text-rose-600"
         >
-          Create an account
+          {tCommon("createAccount")}
         </Link>
       </p>
     </div>

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Referrer (business referrer) dashboard for providers with referrer mode.
@@ -15,6 +16,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     final user = authState.user;
     final displayName =
@@ -24,7 +26,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Referrer Mode'),
+        title: Text(l10n.referrerMode),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
@@ -41,7 +43,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
               // Welcome banner with gradient
               _WelcomeBanner(
                 displayName: displayName,
-                subtitle: 'Manage your referrals and commissions',
+                subtitle: l10n.roleFreelanceDesc,
               ),
               const SizedBox(height: 16),
 
@@ -51,45 +53,45 @@ class ReferrerDashboardScreen extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: () => context.go(RoutePaths.dashboard),
                   icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Freelance Dashboard'),
+                  label: Text(l10n.freelanceDashboard),
                 ),
               ),
               const SizedBox(height: 24),
 
               // Stats grid — 4 cards for referrer
-              const _StatCard(
+              _StatCard(
                 icon: Icons.handshake_outlined,
-                title: 'Referrals',
+                title: l10n.referrals,
                 value: '0',
-                subtitle: 'Pending response',
-                color: Color(0xFF14B8A6), // teal-500
+                subtitle: l10n.pendingResponse,
+                color: const Color(0xFF14B8A6), // teal-500
               ),
               const SizedBox(height: 12),
 
-              const _StatCard(
+              _StatCard(
                 icon: Icons.schedule,
-                title: 'Active Missions',
+                title: l10n.activeMissions,
                 value: '0',
-                subtitle: 'Active contracts',
-                color: Color(0xFFF59E0B), // amber-500
+                subtitle: l10n.activeContracts,
+                color: const Color(0xFFF59E0B), // amber-500
               ),
               const SizedBox(height: 12),
 
-              const _StatCard(
+              _StatCard(
                 icon: Icons.check_circle_outline,
-                title: 'Completed Missions',
+                title: l10n.completedMissions,
                 value: '0',
-                subtitle: 'Total history',
-                color: Color(0xFF22C55E), // emerald-500
+                subtitle: l10n.totalHistory,
+                color: const Color(0xFF22C55E), // emerald-500
               ),
               const SizedBox(height: 12),
 
-              const _StatCard(
+              _StatCard(
                 icon: Icons.trending_up,
-                title: 'Commissions',
+                title: l10n.commissions,
                 value: '0 EUR',
-                subtitle: 'Total earned',
-                color: Color(0xFFF43F5E), // rose-500
+                subtitle: l10n.totalEarned,
+                color: const Color(0xFFF43F5E), // rose-500
               ),
             ],
           ),
@@ -135,36 +137,41 @@ class _WelcomeBanner extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Welcome back,',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            displayName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 14,
-            ),
-          ),
-        ],
+      child: Builder(
+        builder: (context) {
+          final l10n = AppLocalizations.of(context)!;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.welcomeBack,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                displayName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
