@@ -37,52 +37,21 @@ type NavItem = {
 
 const agencyNav: NavItem[] = [
   { label: "Tableau de bord", href: "/dashboard/agency", icon: LayoutDashboard },
-  { label: "Messagerie", href: "/dashboard/agency/messaging", icon: MessageSquare },
   { label: "Mon profil", href: "/dashboard/agency/profile", icon: UserCircle },
-  { label: "Trouver des clients", href: "#", icon: Search },
-  { label: "Gérer mes missions", href: "/dashboard/agency/missions", icon: Briefcase },
-  { label: "Offres clés en main", href: "#", icon: Package },
-  { label: "Gestion financière", href: "/dashboard/agency/invoices", icon: Receipt },
-  { label: "Mon équipe", href: "/dashboard/agency/team", icon: Users },
-  { label: "Mon entreprise", href: "#", icon: Building2 },
-  { label: "Mon compte", href: "#", icon: Settings },
 ]
 
 const providerNav: NavItem[] = [
   { label: "Tableau de bord", href: "/dashboard/provider", icon: LayoutDashboard },
-  { label: "Messagerie", href: "/dashboard/provider/messaging", icon: MessageSquare },
   { label: "Mon profil", href: "/dashboard/provider/profile", icon: UserCircle },
-  { label: "Trouver des clients", href: "#", icon: Search },
-  { label: "Gérer mes missions", href: "/dashboard/provider/missions", icon: Briefcase },
-  { label: "Offres clés en main", href: "#", icon: Package },
-  { label: "Gestion financière", href: "/dashboard/provider/invoices", icon: Receipt },
-  { label: "Mon entreprise", href: "#", icon: Building2 },
-  { label: "Mon compte", href: "#", icon: Settings },
 ]
 
 const referrerNav: NavItem[] = [
   { label: "Tableau de bord", href: "/dashboard/referrer", icon: LayoutDashboard },
-  { label: "Mes apports d'affaires", href: "#", icon: Handshake },
-  { label: "Créer un apport d'affaire", href: "#", icon: PlusCircle },
-  { label: "Messagerie", href: "#", icon: MessageSquare },
-  { label: "Entreprises", href: "#", icon: Building },
-  { label: "Profil Apporteur", href: "#", icon: UserCircle },
-  { label: "Gestion financière", href: "#", icon: Receipt },
-  { label: "Chercher un freelance", href: "#", icon: Search },
-  { label: "Mon compte", href: "#", icon: Settings },
+  { label: "Profil Apporteur", href: "/dashboard/provider/referral", icon: UserCircle },
 ]
 
 const enterpriseNav: NavItem[] = [
   { label: "Tableau de bord", href: "/dashboard/enterprise", icon: LayoutDashboard },
-  { label: "Messagerie", href: "/dashboard/enterprise/messaging", icon: MessageSquare },
-  { label: "Chercher un prestataire", href: "#", icon: Search },
-  { label: "Chercher un apporteur", href: "#", icon: Handshake },
-  { label: "Offres clés en main", href: "#", icon: Package },
-  { label: "Gérer mes projets", href: "/dashboard/enterprise/projects", icon: FolderOpen },
-  { label: "Mes projets déposés", href: "#", icon: FileText },
-  { label: "Mes factures", href: "/dashboard/enterprise/invoices", icon: Receipt },
-  { label: "Mon équipe", href: "#", icon: Users },
-  { label: "Mon compte", href: "#", icon: Settings },
 ]
 
 const ROLE_TITLES: Record<string, string> = {
