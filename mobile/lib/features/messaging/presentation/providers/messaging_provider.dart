@@ -138,7 +138,7 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   }
 
   void _handleNewMessage(Map<String, dynamic> event) {
-    final msg = event['message'] as Map<String, dynamic>?;
+    final msg = event['payload'] as Map<String, dynamic>?;
     if (msg == null) return;
     final conversationId = msg['conversation_id'] as String?;
     if (conversationId == null) return;
@@ -175,7 +175,7 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   }
 
   void _handleMessageEdited(Map<String, dynamic> event) {
-    final msg = event['message'] as Map<String, dynamic>?;
+    final msg = event['payload'] as Map<String, dynamic>?;
     if (msg == null) return;
     final conversationId = msg['conversation_id'] as String?;
     final content = msg['content'] as String? ?? '';
@@ -195,17 +195,13 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   }
 
   void _handleStatusUpdate(Map<String, dynamic> event) {
-    final userId = event['user_id'] as String?;
-    final online = event['online'] as bool?;
-    if (userId == null || online == null) return;
+    final payload = event['payload'] as Map<String, dynamic>?;
+    if (payload == null) return;
 
-    final updated = state.conversations.map((c) {
-      if (c.otherUserId == userId) {
-        return c.copyWith(online: online);
-      }
-      return c;
-    }).toList();
-    state = state.copyWith(conversations: updated);
+    // The backend sends read receipts as status_update events with:
+    // { conversation_id, reader_id, up_to_seq, status }
+    // We do not update online/offline from this event — that comes
+    // from a separate presence mechanism.
   }
 
   /// Marks a conversation's unread count as zero (called when opening chat).
@@ -485,7 +481,7 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   }
 
   void _handleNewMessage(Map<String, dynamic> event) {
-    final msgJson = event['message'] as Map<String, dynamic>?;
+    final msgJson = event['payload'] as Map<String, dynamic>?;
     if (msgJson == null) return;
     final msg = MessageEntity.fromJson(msgJson);
     if (msg.conversationId != conversationId) return;
@@ -504,11 +500,18 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   }
 
   void _handleTyping(Map<String, dynamic> event) {
-    final convId = event['conversation_id'] as String?;
+    final payload = event['payload'] as Map<String, dynamic>?;
+    if (payload == null) return;
+
+    final convId = payload['conversation_id'] as String?;
     if (convId != conversationId) return;
 
-    final userName = event['user_name'] as String? ?? '';
-    state = state.copyWith(typingUserName: userName);
+    final userId = payload['user_id'] as String?;
+    if (userId == null || userId == _currentUserId) return;
+
+    // Store user_id as a non-null marker; the UI resolves the display
+    // name from the conversation entity (same pattern as the web app).
+    state = state.copyWith(typingUserName: userId);
 
     // Clear typing indicator after 3 seconds
     _typingTimer?.cancel();
@@ -523,7 +526,7 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   }
 
   void _handleMessageEdited(Map<String, dynamic> event) {
-    final msgJson = event['message'] as Map<String, dynamic>?;
+    final msgJson = event['payload'] as Map<String, dynamic>?;
     if (msgJson == null) return;
     final edited = MessageEntity.fromJson(msgJson);
     if (edited.conversationId != conversationId) return;
@@ -535,7 +538,9 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   }
 
   void _handleMessageDeleted(Map<String, dynamic> event) {
-    final messageId = event['message_id'] as String?;
+    final payload = event['payload'] as Map<String, dynamic>?;
+    if (payload == null) return;
+    final messageId = payload['message_id'] as String?;
     if (messageId == null) return;
 
     final updated = state.messages.map((m) {

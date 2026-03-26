@@ -34,7 +34,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  Timer? _typingDebounce;
+  DateTime _lastTypingSent = DateTime.fromMillisecondsSinceEpoch(0);
 
   @override
   void initState() {
@@ -46,7 +46,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
-    _typingDebounce?.cancel();
     super.dispose();
   }
 
@@ -61,13 +60,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   void _onTextChanged(String text) {
-    _typingDebounce?.cancel();
-    if (text.trim().isNotEmpty) {
-      _typingDebounce = Timer(const Duration(milliseconds: 500), () {
-        ref
-            .read(messagesProvider(widget.conversationId).notifier)
-            .sendTyping();
-      });
+    if (text.trim().isEmpty) return;
+
+    // Throttle: send typing immediately if 2s have passed since last send
+    final now = DateTime.now();
+    if (now.difference(_lastTypingSent).inMilliseconds > 2000) {
+      _lastTypingSent = now;
+      ref
+          .read(messagesProvider(widget.conversationId).notifier)
+          .sendTyping();
     }
   }
 
@@ -266,10 +267,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
     }
 
+    // Resolve typing display name: the provider stores the user_id,
+    // so we show the conversation's other_user_name instead.
+    final isTyping = msgState.typingUserName != null;
+    final typingDisplayName = isTyping
+        ? (conversation?.otherUserName ?? '')
+        : null;
+
     return Scaffold(
       appBar: _ChatAppBar(
         conversation: conversation,
-        typingUserName: msgState.typingUserName,
+        typingUserName: typingDisplayName,
       ),
       body: Column(
         children: [
@@ -313,8 +321,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
 
           // Typing indicator
-          if (msgState.typingUserName != null)
-            _TypingIndicator(userName: msgState.typingUserName!),
+          if (typingDisplayName != null)
+            _TypingIndicator(userName: typingDisplayName),
 
           // Input bar
           _MessageInputBar(
