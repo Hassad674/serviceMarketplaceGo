@@ -177,7 +177,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               onToggle={() => {
                 const nextMode = !isReferrerMode
                 setReferrerMode(nextMode)
-                router.push(nextMode ? "/referral" : "/dashboard")
+                if (!nextMode) router.push("/dashboard")
               }}
             />
           </div>
