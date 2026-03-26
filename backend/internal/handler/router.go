@@ -48,6 +48,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Get("/me", deps.Auth.Me)
 				r.Post("/logout", deps.Auth.Logout)
+				r.Put("/referrer-enable", deps.Auth.EnableReferrer)
 			})
 		})
 

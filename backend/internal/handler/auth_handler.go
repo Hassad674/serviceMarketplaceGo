@@ -181,6 +181,22 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewUserResponse(u))
 }
 
+func (h *AuthHandler) EnableReferrer(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	u, err := h.authService.EnableReferrer(r.Context(), userID)
+	if err != nil {
+		handleAuthError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, response.NewUserResponse(u))
+}
+
 func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email string `json:"email"`

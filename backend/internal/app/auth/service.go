@@ -182,6 +182,26 @@ func (s *Service) GetMe(ctx context.Context, userID uuid.UUID) (*user.User, erro
 	return s.users.GetByID(ctx, userID)
 }
 
+func (s *Service) EnableReferrer(ctx context.Context, userID uuid.UUID) (*user.User, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("enable referrer: get user: %w", err)
+	}
+
+	if u.Role != user.RoleProvider {
+		return nil, user.ErrInvalidRole
+	}
+
+	u.EnableReferrer()
+	u.UpdatedAt = time.Now()
+
+	if err := s.users.Update(ctx, u); err != nil {
+		return nil, fmt.Errorf("enable referrer: update user: %w", err)
+	}
+
+	return u, nil
+}
+
 func (s *Service) ForgotPassword(ctx context.Context, input ForgotPasswordInput) error {
 	email, err := user.NewEmail(input.Email)
 	if err != nil {
