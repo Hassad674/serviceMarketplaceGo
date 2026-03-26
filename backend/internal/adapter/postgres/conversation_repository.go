@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/port/repository"
@@ -26,23 +28,26 @@ func (r *ConversationRepository) FindOrCreateConversation(ctx context.Context, u
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	// Check for existing conversation
+	// Use SERIALIZABLE transaction to prevent race conditions where two concurrent
+	// requests both see "no conversation" and create duplicates.
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return uuid.UUID{}, false, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Check for existing conversation inside the transaction
 	var convID uuid.UUID
-	err := r.db.QueryRowContext(ctx, queryFindExistingConversation, userA, userB).Scan(&convID)
+	err = tx.QueryRowContext(ctx, queryFindExistingConversation, userA, userB).Scan(&convID)
 	if err == nil {
+		_ = tx.Commit()
 		return convID, false, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return uuid.UUID{}, false, fmt.Errorf("find conversation: %w", err)
 	}
 
-	// Create new conversation in a transaction
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return uuid.UUID{}, false, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback()
-
+	// Create new conversation
 	conv := message.NewConversation()
 	if _, err := tx.ExecContext(ctx, queryInsertConversation, conv.ID, conv.CreatedAt, conv.UpdatedAt); err != nil {
 		return uuid.UUID{}, false, fmt.Errorf("insert conversation: %w", err)
@@ -57,10 +62,34 @@ func (r *ConversationRepository) FindOrCreateConversation(ctx context.Context, u
 	}
 
 	if err := tx.Commit(); err != nil {
+		// On serialization failure, retry once: the other transaction likely created it
+		if isSerializationError(err) {
+			return r.retryFindConversation(ctx, userA, userB)
+		}
 		return uuid.UUID{}, false, fmt.Errorf("commit: %w", err)
 	}
 
 	return conv.ID, true, nil
+}
+
+// retryFindConversation is called after a serialization error to retrieve the
+// conversation that was created by the concurrent transaction.
+func (r *ConversationRepository) retryFindConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error) {
+	var convID uuid.UUID
+	err := r.db.QueryRowContext(ctx, queryFindExistingConversation, userA, userB).Scan(&convID)
+	if err == nil {
+		return convID, false, nil
+	}
+	return uuid.UUID{}, false, fmt.Errorf("retry find conversation after serialization error: %w", err)
+}
+
+// isSerializationError checks if the error is a PostgreSQL serialization failure (40001).
+func isSerializationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "pq: could not serialize") ||
+		strings.Contains(err.Error(), "40001")
 }
 
 func (r *ConversationRepository) GetConversation(ctx context.Context, id uuid.UUID) (*message.Conversation, error) {
@@ -386,6 +415,40 @@ func (r *ConversationRepository) GetTotalUnread(ctx context.Context, userID uuid
 	}
 
 	return total, nil
+}
+
+func (r *ConversationRepository) GetTotalUnreadBatch(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryGetTotalUnreadBatch, pq.Array(userIDs))
+	if err != nil {
+		return nil, fmt.Errorf("get total unread batch: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID]int, len(userIDs))
+	for rows.Next() {
+		var uid uuid.UUID
+		var count int
+		if err := rows.Scan(&uid, &count); err != nil {
+			return nil, fmt.Errorf("scan unread batch: %w", err)
+		}
+		result[uid] = count
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	// Ensure all requested userIDs are in the map (default 0)
+	for _, uid := range userIDs {
+		if _, ok := result[uid]; !ok {
+			result[uid] = 0
+		}
+	}
+
+	return result, nil
 }
 
 func (r *ConversationRepository) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {

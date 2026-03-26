@@ -39,9 +39,10 @@ type Envelope struct {
 
 // InboundMessage represents a parsed message from the client.
 type InboundMessage struct {
-	Type           string    `json:"type"`
-	ConversationID string    `json:"conversation_id,omitempty"`
-	MessageID      string    `json:"message_id,omitempty"`
-	SinceSeq       int       `json:"since_seq,omitempty"`
-	UserID         uuid.UUID `json:"-"`
+	Type           string         `json:"type"`
+	ConversationID string         `json:"conversation_id,omitempty"`
+	MessageID      string         `json:"message_id,omitempty"`
+	SinceSeq       int            `json:"since_seq,omitempty"`
+	Conversations  map[string]int `json:"conversations,omitempty"` // Multi-conversation sync: map[conversationID]sinceSeq
+	UserID         uuid.UUID      `json:"-"`
 }

@@ -47,6 +47,7 @@ type MessageRepository interface {
 	IncrementUnread(ctx context.Context, conversationID, senderID uuid.UUID) error
 	MarkAsRead(ctx context.Context, conversationID, userID uuid.UUID, seq int) error
 	GetTotalUnread(ctx context.Context, userID uuid.UUID) (int, error)
+	GetTotalUnreadBatch(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]int, error)
 	GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	UpdateMessageStatus(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
 	MarkMessagesAsRead(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error

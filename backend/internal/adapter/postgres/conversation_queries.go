@@ -147,6 +147,12 @@ const queryGetTotalUnread = `
 	FROM conversation_participants
 	WHERE user_id = $1`
 
+const queryGetTotalUnreadBatch = `
+	SELECT user_id, COALESCE(SUM(unread_count), 0)
+	FROM conversation_participants
+	WHERE user_id = ANY($1)
+	GROUP BY user_id`
+
 const queryGetParticipantIDs = `
 	SELECT user_id
 	FROM conversation_participants

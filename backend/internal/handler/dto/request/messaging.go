@@ -26,4 +26,13 @@ type EditMessageRequest struct {
 type PresignedURLRequest struct {
 	Filename    string `json:"filename"`
 	ContentType string `json:"content_type"`
+	MimeType    string `json:"mime_type"`
+}
+
+// ResolvedContentType returns content_type if set, falling back to mime_type.
+func (r PresignedURLRequest) ResolvedContentType() string {
+	if r.ContentType != "" {
+		return r.ContentType
+	}
+	return r.MimeType
 }

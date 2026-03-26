@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 
 	"marketplace-backend/internal/app/messaging"
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/pkg/validator"
@@ -34,13 +34,7 @@ func (h *MessagingHandler) StartConversation(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var req struct {
-		RecipientID string          `json:"recipient_id"`
-		Content     string          `json:"content"`
-		Type        string          `json:"type"`
-		Metadata    json.RawMessage `json:"metadata,omitempty"`
-	}
-
+	var req request.StartConversationRequest
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -140,12 +134,7 @@ func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Content  string          `json:"content"`
-		Type     string          `json:"type"`
-		Metadata json.RawMessage `json:"metadata,omitempty"`
-	}
-
+	var req request.SendMessageRequest
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -184,10 +173,7 @@ func (h *MessagingHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Seq int `json:"seq"`
-	}
-
+	var req request.MarkAsReadRequest
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -219,10 +205,7 @@ func (h *MessagingHandler) EditMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req struct {
-		Content string `json:"content"`
-	}
-
+	var req request.EditMessageRequest
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -273,22 +256,13 @@ func (h *MessagingHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var req struct {
-		Filename    string `json:"filename"`
-		ContentType string `json:"content_type"`
-		MimeType    string `json:"mime_type"`
-	}
-
+	var req request.PresignedURLRequest
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
 
-	// Accept either content_type or mime_type from frontend
-	contentType := req.ContentType
-	if contentType == "" {
-		contentType = req.MimeType
-	}
+	contentType := req.ResolvedContentType()
 
 	if req.Filename == "" || contentType == "" {
 		res.Error(w, http.StatusBadRequest, "validation_error", "filename and content_type (or mime_type) are required")
@@ -301,8 +275,7 @@ func (h *MessagingHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 		ContentType: contentType,
 	})
 	if err != nil {
-		slog.Error("presigned url generation failed", "error", err)
-		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to generate upload URL")
+		handleMessagingError(w, err)
 		return
 	}
 
@@ -365,6 +338,8 @@ func handleMessagingError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "self_conversation", err.Error())
 	case errors.Is(err, message.ErrRateLimitExceeded):
 		res.Error(w, http.StatusTooManyRequests, "rate_limit", err.Error())
+	case errors.Is(err, message.ErrInvalidFileType):
+		res.Error(w, http.StatusBadRequest, "invalid_file_type", err.Error())
 	default:
 		slog.Error("unhandled messaging error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")

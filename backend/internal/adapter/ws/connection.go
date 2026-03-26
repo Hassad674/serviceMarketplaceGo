@@ -25,12 +25,13 @@ const (
 )
 
 type ConnDeps struct {
-	Hub          *Hub
-	MessagingSvc service.MessagingQuerier
-	TokenSvc     service.TokenService
-	SessionSvc   service.SessionService
-	PresenceSvc  service.PresenceService
-	Broadcaster  service.MessageBroadcaster
+	Hub              *Hub
+	MessagingSvc     service.MessagingQuerier
+	TokenSvc         service.TokenService
+	SessionSvc       service.SessionService
+	PresenceSvc      service.PresenceService
+	Broadcaster      service.MessageBroadcaster
+	AllowedWSOrigins []string
 }
 
 // ServeWS returns an HTTP handler that upgrades connections to WebSocket.
@@ -43,7 +44,7 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 		}
 
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			InsecureSkipVerify: true, // CORS handled by middleware
+			OriginPatterns: deps.AllowedWSOrigins,
 		})
 		if err != nil {
 			slog.Error("websocket accept failed", "error", err)
@@ -61,7 +62,7 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 		_ = deps.PresenceSvc.SetOnline(r.Context(), userID)
 		go broadcastPresenceChange(userID, true, deps)
 
-		go writePump(conn, client, deps.PresenceSvc)
+		go writePump(conn, client)
 		readPump(conn, client, deps)
 	}
 }
@@ -107,7 +108,10 @@ func readPump(conn *websocket.Conn, client *Client, deps ConnDeps) {
 	conn.SetReadLimit(maxMessageSize)
 
 	for {
-		_, data, err := conn.Read(context.Background())
+		readCtx, readCancel := context.WithTimeout(context.Background(), pongWait)
+		_, data, err := conn.Read(readCtx)
+		readCancel()
+
 		if err != nil {
 			if websocket.CloseStatus(err) != -1 {
 				slog.Debug("websocket closed", "user_id", client.UserID)
@@ -148,8 +152,17 @@ func handleHeartbeat(client *Client, presenceSvc service.PresenceService) {
 
 	_ = presenceSvc.SetOnline(ctx, client.UserID)
 
-	pong, _ := json.Marshal(Envelope{Type: TypePong})
-	client.Send <- pong
+	pong, err := json.Marshal(Envelope{Type: TypePong})
+	if err != nil {
+		slog.Error("failed to marshal pong", "error", err)
+		return
+	}
+
+	select {
+	case client.Send <- pong:
+	default:
+		slog.Warn("send buffer full on heartbeat pong", "user_id", client.UserID)
+	}
 }
 
 func handleTyping(client *Client, msg InboundMessage, deps ConnDeps) {
@@ -166,10 +179,14 @@ func handleTyping(client *Client, msg InboundMessage, deps ConnDeps) {
 		return
 	}
 
-	payload, _ := json.Marshal(map[string]string{
+	payload, err := json.Marshal(map[string]string{
 		"conversation_id": convID.String(),
 		"user_id":         client.UserID.String(),
 	})
+	if err != nil {
+		slog.Error("failed to marshal typing event", "error", err)
+		return
+	}
 
 	_ = deps.Hub.broadcastToOthers(client.UserID, participantIDs, TypeTypingEvent, payload)
 }
@@ -187,7 +204,22 @@ func handleAck(client *Client, msg InboundMessage, deps ConnDeps) {
 }
 
 func handleSync(client *Client, msg InboundMessage, deps ConnDeps) {
-	convID, err := uuid.Parse(msg.ConversationID)
+	// Multi-conversation sync: iterate over Conversations map
+	if len(msg.Conversations) > 0 {
+		for convIDStr, sinceSeq := range msg.Conversations {
+			syncSingleConversation(client, convIDStr, sinceSeq, deps)
+		}
+		return
+	}
+
+	// Backward compat: single conversation sync
+	if msg.ConversationID != "" {
+		syncSingleConversation(client, msg.ConversationID, msg.SinceSeq, deps)
+	}
+}
+
+func syncSingleConversation(client *Client, convIDStr string, sinceSeq int, deps ConnDeps) {
+	convID, err := uuid.Parse(convIDStr)
 	if err != nil {
 		return
 	}
@@ -195,44 +227,52 @@ func handleSync(client *Client, msg InboundMessage, deps ConnDeps) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	messages, err := deps.MessagingSvc.GetMessagesSinceSeq(ctx, client.UserID, convID, msg.SinceSeq)
+	messages, err := deps.MessagingSvc.GetMessagesSinceSeq(ctx, client.UserID, convID, sinceSeq)
 	if err != nil {
 		return
 	}
 
-	envelope, _ := json.Marshal(Envelope{
+	envelope, err := json.Marshal(Envelope{
 		Type: TypeSyncResult,
 		Payload: map[string]any{
 			"conversation_id": convID.String(),
 			"messages":        messages,
 		},
 	})
+	if err != nil {
+		slog.Error("failed to marshal sync result", "error", err)
+		return
+	}
 
 	client.Send <- envelope
 }
 
 func sendError(client *Client, errMsg string) {
-	data, _ := json.Marshal(Envelope{
+	data, err := json.Marshal(Envelope{
 		Type:    TypeError,
 		Payload: map[string]string{"message": errMsg},
 	})
+	if err != nil {
+		slog.Error("failed to marshal error envelope", "error", err)
+		return
+	}
 	client.Send <- data
 }
 
-func writePump(conn *websocket.Conn, client *Client, presenceSvc service.PresenceService) {
+func writePump(conn *websocket.Conn, client *Client) {
 	ticker := time.NewTicker(heartbeatTick)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case message, ok := <-client.Send:
+		case msg, ok := <-client.Send:
 			if !ok {
 				conn.Close(websocket.StatusNormalClosure, "")
 				return
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), writeWait)
-			err := conn.Write(ctx, websocket.MessageText, message)
+			err := conn.Write(ctx, websocket.MessageText, msg)
 			cancel()
 
 			if err != nil {
@@ -240,9 +280,8 @@ func writePump(conn *websocket.Conn, client *Client, presenceSvc service.Presenc
 			}
 
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			_ = presenceSvc.SetOnline(ctx, client.UserID)
-			cancel()
+			// Ticker is kept for potential future server-initiated pings.
+			// Presence refresh is handled by client heartbeats via handleHeartbeat.
 		}
 	}
 }
@@ -257,19 +296,29 @@ func broadcastPresenceChange(userID uuid.UUID, online bool, deps ConnDeps) {
 		return
 	}
 
-	payload, _ := json.Marshal(map[string]any{
+	payload, err := json.Marshal(map[string]any{
 		"user_id": userID.String(),
 		"online":  online,
 	})
+	if err != nil {
+		slog.Error("failed to marshal presence change", "error", err)
+		return
+	}
 
-	_ = deps.Broadcaster.BroadcastPresence(ctx, contactIDs, payload)
+	if err := deps.Broadcaster.BroadcastPresence(ctx, contactIDs, payload); err != nil {
+		slog.Error("broadcast presence change failed", "error", err, "user_id", userID)
+	}
 }
 
 func (h *Hub) broadcastToOthers(senderID uuid.UUID, participantIDs []uuid.UUID, eventType string, payload []byte) error {
-	envelope, _ := json.Marshal(Envelope{
+	envelope, err := json.Marshal(Envelope{
 		Type:    eventType,
 		Payload: json.RawMessage(payload),
 	})
+	if err != nil {
+		slog.Error("failed to marshal broadcast envelope", "error", err, "event_type", eventType)
+		return err
+	}
 
 	for _, id := range participantIDs {
 		if id == senderID {

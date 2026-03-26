@@ -86,7 +86,9 @@ func main() {
 
 	// WebSocket hub
 	wsHub := ws.NewHub()
-	go wsHub.Run()
+	hubCtx, hubCancel := context.WithCancel(context.Background())
+	defer hubCancel()
+	go wsHub.Run(hubCtx)
 
 	// Start stream subscriber (distributes Redis stream events to local WS clients)
 	streamCtx, streamCancel := context.WithCancel(context.Background())
@@ -120,12 +122,13 @@ func main() {
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
-		Hub:          wsHub,
-		MessagingSvc: messagingSvc,
-		TokenSvc:     tokenSvc,
-		SessionSvc:   sessionSvc,
-		PresenceSvc:  presenceSvc,
-		Broadcaster:  streamBroadcaster,
+		Hub:              wsHub,
+		MessagingSvc:     messagingSvc,
+		TokenSvc:         tokenSvc,
+		SessionSvc:       sessionSvc,
+		PresenceSvc:      presenceSvc,
+		Broadcaster:      streamBroadcaster,
+		AllowedWSOrigins: cfg.AllowedOrigins,
 	})
 
 	// Setup router

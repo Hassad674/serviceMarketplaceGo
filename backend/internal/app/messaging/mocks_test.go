@@ -27,6 +27,7 @@ type mockMessageRepo struct {
 	incrementUnreadFn          func(ctx context.Context, conversationID, senderID uuid.UUID) error
 	markAsReadFn               func(ctx context.Context, conversationID, userID uuid.UUID, seq int) error
 	getTotalUnreadFn           func(ctx context.Context, userID uuid.UUID) (int, error)
+	getTotalUnreadBatchFn      func(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]int, error)
 	getParticipantIDsFn        func(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	updateMessageStatusFn      func(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
 	markMessagesAsReadFn       func(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
@@ -115,6 +116,22 @@ func (m *mockMessageRepo) GetTotalUnread(ctx context.Context, userID uuid.UUID) 
 		return m.getTotalUnreadFn(ctx, userID)
 	}
 	return 0, nil
+}
+
+func (m *mockMessageRepo) GetTotalUnreadBatch(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	if m.getTotalUnreadBatchFn != nil {
+		return m.getTotalUnreadBatchFn(ctx, userIDs)
+	}
+	// Fall back to individual calls for backward compat with existing tests
+	result := make(map[uuid.UUID]int, len(userIDs))
+	for _, uid := range userIDs {
+		count, err := m.GetTotalUnread(ctx, uid)
+		if err != nil {
+			return nil, err
+		}
+		result[uid] = count
+	}
+	return result, nil
 }
 
 func (m *mockMessageRepo) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {

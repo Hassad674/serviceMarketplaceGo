@@ -1035,9 +1035,39 @@ func TestGetPresignedUploadURL_KeyFormat(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Contains(t, capturedKey, "messaging/"+userID.String())
-	assert.Contains(t, capturedKey, "document.pdf")
+	// Filename is now randomized (UUID) but preserves the original extension
+	assert.Contains(t, capturedKey, ".pdf")
+	assert.NotContains(t, capturedKey, "document.pdf", "original filename should be replaced by UUID")
 	assert.Contains(t, result.FileKey, "messaging/"+userID.String())
 	assert.Contains(t, result.PublicURL, "messaging/"+userID.String())
+}
+
+func TestGetPresignedUploadURL_InvalidFileType(t *testing.T) {
+	svc := newTestService(nil, nil, nil, nil, nil, nil)
+
+	result, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
+		UserID:      uuid.New(),
+		Filename:    "malware.exe",
+		ContentType: "application/octet-stream",
+	})
+
+	assert.ErrorIs(t, err, message.ErrInvalidFileType)
+	assert.Empty(t, result.UploadURL)
+}
+
+func TestGetPresignedUploadURL_AllowedTypes(t *testing.T) {
+	svc := newTestService(nil, nil, nil, nil, nil, nil)
+
+	allowedFiles := []string{"photo.jpg", "doc.pdf", "sheet.xlsx", "archive.zip", "notes.txt"}
+	for _, filename := range allowedFiles {
+		result, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
+			UserID:      uuid.New(),
+			Filename:    filename,
+			ContentType: "application/octet-stream",
+		})
+		assert.NoError(t, err, "should allow %s", filename)
+		assert.NotEmpty(t, result.UploadURL)
+	}
 }
 
 // --- GetPresignedUploadURL: storage error ---

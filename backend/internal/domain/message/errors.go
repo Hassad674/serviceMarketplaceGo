@@ -14,4 +14,5 @@ var (
 	ErrMessageDeleted       = errors.New("message has been deleted")
 	ErrSelfConversation     = errors.New("cannot create conversation with yourself")
 	ErrRateLimitExceeded    = errors.New("message rate limit exceeded")
+	ErrInvalidFileType      = errors.New("file type not allowed")
 )
