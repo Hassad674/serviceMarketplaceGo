@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -75,8 +74,7 @@ class MessagingWsService {
         onError: _onError,
         onDone: _onDone,
       );
-    } catch (e) {
-      debugPrint('WebSocket connect failed: $e');
+    } catch (_) {
       _scheduleReconnect();
     }
   }
@@ -143,13 +141,12 @@ class MessagingWsService {
     try {
       final data = jsonDecode(raw as String) as Map<String, dynamic>;
       _eventController.add(data);
-    } catch (e) {
-      debugPrint('WebSocket parse error: $e');
+    } catch (_) {
+      // Silently ignore malformed frames
     }
   }
 
-  void _onError(Object error) {
-    debugPrint('WebSocket error: $error');
+  void _onError(Object _) {
     _isConnected = false;
     _scheduleReconnect();
   }
@@ -171,9 +168,6 @@ class MessagingWsService {
       _maxReconnectDelay,
     );
     _reconnectAttempts++;
-
-    debugPrint('WebSocket reconnecting in ${delay}s '
-        '(attempt $_reconnectAttempts)');
 
     _reconnectTimer = Timer(
       Duration(seconds: delay),
