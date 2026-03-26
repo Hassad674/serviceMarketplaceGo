@@ -16,7 +16,9 @@ function getWSUrl(): string {
   return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
 }
 
-type TypingState = Record<string, { userId: string; timeout: ReturnType<typeof setTimeout> }>
+type TypingEntry = { userId: string }
+
+type TypingState = Record<string, TypingEntry>
 
 export function useMessagingWS(userId: string | undefined) {
   const queryClient = useQueryClient()
@@ -25,10 +27,17 @@ export function useMessagingWS(userId: string | undefined) {
   const reconnectAttemptRef = useRef(0)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSeqMapRef = useRef<Record<string, number>>({})
+  const userIdRef = useRef(userId)
+  const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const [isConnected, setIsConnected] = useState(false)
   const [typingUsers, setTypingUsers] = useState<TypingState>({})
   const [totalUnread, setTotalUnread] = useState(0)
+
+  // Keep userIdRef in sync
+  useEffect(() => {
+    userIdRef.current = userId
+  }, [userId])
 
   const sendFrame = useCallback((frame: WSClientFrame) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -45,13 +54,16 @@ export function useMessagingWS(userId: string | undefined) {
 
   const clearTyping = useCallback((conversationId: string) => {
     setTypingUsers((prev) => {
+      if (!prev[conversationId]) return prev
       const next = { ...prev }
-      if (next[conversationId]) {
-        clearTimeout(next[conversationId].timeout)
-        delete next[conversationId]
-      }
+      delete next[conversationId]
       return next
     })
+    // Clean up the timer ref
+    if (typingTimersRef.current[conversationId]) {
+      clearTimeout(typingTimersRef.current[conversationId])
+      delete typingTimersRef.current[conversationId]
+    }
   }, [])
 
   const addMessageToCache = useCallback(
@@ -78,8 +90,12 @@ export function useMessagingWS(userId: string | undefined) {
     [queryClient],
   )
 
-  const handleFrame = useCallback(
-    (frame: WSServerFrame) => {
+  // Use a ref for the frame handler so the WS onmessage callback
+  // always calls the latest version without reconnecting.
+  const handleFrameRef = useRef<(frame: WSServerFrame) => void>(() => {})
+
+  useEffect(() => {
+    handleFrameRef.current = (frame: WSServerFrame) => {
       switch (frame.type) {
         case "new_message": {
           addMessageToCache(frame.payload)
@@ -89,24 +105,29 @@ export function useMessagingWS(userId: string | undefined) {
         }
         case "typing": {
           const { conversation_id, user_id } = frame.payload
-          if (user_id === userId) return
-          setTypingUsers((prev) => {
-            const existing = prev[conversation_id]
-            if (existing) clearTimeout(existing.timeout)
-            const timeout = setTimeout(
-              () => clearTyping(conversation_id),
-              TYPING_CLEAR_DELAY,
-            )
-            return {
-              ...prev,
-              [conversation_id]: { userId: user_id, timeout },
-            }
-          })
+          // Skip own typing events
+          if (user_id === userIdRef.current) return
+
+          // Clear any existing timer for this conversation
+          if (typingTimersRef.current[conversation_id]) {
+            clearTimeout(typingTimersRef.current[conversation_id])
+          }
+
+          // Set a new timer to clear the typing indicator
+          typingTimersRef.current[conversation_id] = setTimeout(
+            () => clearTyping(conversation_id),
+            TYPING_CLEAR_DELAY,
+          )
+
+          // Update the typing state
+          setTypingUsers((prev) => ({
+            ...prev,
+            [conversation_id]: { userId: user_id },
+          }))
           break
         }
         case "status_update": {
           const { conversation_id, up_to_seq, status } = frame.payload
-          // Update all messages up to the given seq in the conversation
           const statusQueryKey = [MESSAGES_QUERY_KEY, conversation_id]
           queryClient.setQueryData(
             statusQueryKey,
@@ -194,9 +215,8 @@ export function useMessagingWS(userId: string | undefined) {
           break
         }
       }
-    },
-    [queryClient, userId, addMessageToCache, clearTyping],
-  )
+    }
+  }, [queryClient, addMessageToCache, clearTyping])
 
   const connect = useCallback(() => {
     if (!userId) return
@@ -223,7 +243,7 @@ export function useMessagingWS(userId: string | undefined) {
     ws.onmessage = (event) => {
       try {
         const frame = JSON.parse(event.data) as WSServerFrame
-        handleFrame(frame)
+        handleFrameRef.current(frame)
       } catch {
         // Ignore malformed frames
       }
@@ -247,7 +267,7 @@ export function useMessagingWS(userId: string | undefined) {
     ws.onerror = () => {
       ws.close()
     }
-  }, [userId, sendFrame, handleFrame])
+  }, [userId, sendFrame])
 
   useEffect(() => {
     connect()
@@ -263,6 +283,11 @@ export function useMessagingWS(userId: string | undefined) {
         wsRef.current.onclose = null
         wsRef.current.close()
       }
+      // Clean up all typing timers
+      for (const timer of Object.values(typingTimersRef.current)) {
+        clearTimeout(timer)
+      }
+      typingTimersRef.current = {}
     }
   }, [connect])
 

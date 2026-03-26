@@ -7,7 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import { getPresignedURL } from "../api/messaging-api"
 import { FileUploadModal } from "./file-upload-modal"
 
-const TYPING_THROTTLE_MS = 2_000
+const TYPING_THROTTLE_MS = 1_500
 
 interface MessageInputProps {
   onSend: (content: string) => void

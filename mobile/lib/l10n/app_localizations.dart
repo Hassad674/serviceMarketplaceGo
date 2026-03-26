@@ -1195,6 +1195,210 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Project published successfully'**
   String get projectPublished;
+
+  /// No description provided for @jobCreateJob.
+  ///
+  /// In en, this message translates to:
+  /// **'Create job'**
+  String get jobCreateJob;
+
+  /// No description provided for @jobDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Job details'**
+  String get jobDetails;
+
+  /// No description provided for @jobBudgetAndDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget and duration'**
+  String get jobBudgetAndDuration;
+
+  /// No description provided for @jobTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Job title'**
+  String get jobTitle;
+
+  /// No description provided for @jobTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a descriptive title'**
+  String get jobTitleHint;
+
+  /// No description provided for @jobDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Job description'**
+  String get jobDescription;
+
+  /// No description provided for @jobSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get jobSkills;
+
+  /// No description provided for @jobSkillsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'ex. UX Design, Web Development'**
+  String get jobSkillsHint;
+
+  /// No description provided for @jobTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Tools'**
+  String get jobTools;
+
+  /// No description provided for @jobToolsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'ex. Figma, Canva, Webflow'**
+  String get jobToolsHint;
+
+  /// No description provided for @jobContractorCount.
+  ///
+  /// In en, this message translates to:
+  /// **'How many contractors?'**
+  String get jobContractorCount;
+
+  /// No description provided for @jobApplicantType.
+  ///
+  /// In en, this message translates to:
+  /// **'Who can apply?'**
+  String get jobApplicantType;
+
+  /// No description provided for @jobApplicantAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get jobApplicantAll;
+
+  /// No description provided for @jobApplicantFreelancers.
+  ///
+  /// In en, this message translates to:
+  /// **'Freelancers'**
+  String get jobApplicantFreelancers;
+
+  /// No description provided for @jobApplicantAgencies.
+  ///
+  /// In en, this message translates to:
+  /// **'Agencies'**
+  String get jobApplicantAgencies;
+
+  /// No description provided for @jobBudgetType.
+  ///
+  /// In en, this message translates to:
+  /// **'Project type'**
+  String get jobBudgetType;
+
+  /// No description provided for @jobOngoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Ongoing'**
+  String get jobOngoing;
+
+  /// No description provided for @jobOneTime.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time'**
+  String get jobOneTime;
+
+  /// No description provided for @jobPaymentFrequency.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment frequency'**
+  String get jobPaymentFrequency;
+
+  /// No description provided for @jobHourly.
+  ///
+  /// In en, this message translates to:
+  /// **'Hourly'**
+  String get jobHourly;
+
+  /// No description provided for @jobWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get jobWeekly;
+
+  /// No description provided for @jobMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get jobMonthly;
+
+  /// No description provided for @jobMinRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Min. rate'**
+  String get jobMinRate;
+
+  /// No description provided for @jobMaxRate.
+  ///
+  /// In en, this message translates to:
+  /// **'Max. rate'**
+  String get jobMaxRate;
+
+  /// No description provided for @jobMinBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Min. budget'**
+  String get jobMinBudget;
+
+  /// No description provided for @jobMaxBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Max. budget'**
+  String get jobMaxBudget;
+
+  /// No description provided for @jobMaxHours.
+  ///
+  /// In en, this message translates to:
+  /// **'Max. hours/week'**
+  String get jobMaxHours;
+
+  /// No description provided for @jobEstimatedDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated duration'**
+  String get jobEstimatedDuration;
+
+  /// No description provided for @jobIndefinite.
+  ///
+  /// In en, this message translates to:
+  /// **'Indefinite duration'**
+  String get jobIndefinite;
+
+  /// No description provided for @jobWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'weeks'**
+  String get jobWeeks;
+
+  /// No description provided for @jobMonths.
+  ///
+  /// In en, this message translates to:
+  /// **'months'**
+  String get jobMonths;
+
+  /// No description provided for @jobCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get jobCancel;
+
+  /// No description provided for @jobContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get jobContinue;
+
+  /// No description provided for @jobSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get jobSave;
 }
 
 class _AppLocalizationsDelegate

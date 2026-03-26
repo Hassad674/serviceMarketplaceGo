@@ -571,4 +571,106 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get projectPublished => 'Projet publié avec succès';
+
+  @override
+  String get jobCreateJob => 'Créer une offre';
+
+  @override
+  String get jobDetails => 'Détails de l\'offre';
+
+  @override
+  String get jobBudgetAndDuration => 'Budget et durée';
+
+  @override
+  String get jobTitle => 'Titre de l\'offre';
+
+  @override
+  String get jobTitleHint => 'Ajoutez un titre descriptif';
+
+  @override
+  String get jobDescription => 'Description de l\'offre';
+
+  @override
+  String get jobSkills => 'Compétences';
+
+  @override
+  String get jobSkillsHint => 'ex. Design UX, Développement Web';
+
+  @override
+  String get jobTools => 'Outils';
+
+  @override
+  String get jobToolsHint => 'ex. Figma, Canva, Webflow';
+
+  @override
+  String get jobContractorCount => 'Combien de prestataires ?';
+
+  @override
+  String get jobApplicantType => 'Qui peut postuler ?';
+
+  @override
+  String get jobApplicantAll => 'Tous';
+
+  @override
+  String get jobApplicantFreelancers => 'Freelances';
+
+  @override
+  String get jobApplicantAgencies => 'Agences';
+
+  @override
+  String get jobBudgetType => 'Type de projet';
+
+  @override
+  String get jobOngoing => 'Long terme';
+
+  @override
+  String get jobOneTime => 'Ponctuel';
+
+  @override
+  String get jobPaymentFrequency => 'Fréquence de paiement';
+
+  @override
+  String get jobHourly => 'Horaire';
+
+  @override
+  String get jobWeekly => 'Hebdomadaire';
+
+  @override
+  String get jobMonthly => 'Mensuel';
+
+  @override
+  String get jobMinRate => 'Tarif min.';
+
+  @override
+  String get jobMaxRate => 'Tarif max.';
+
+  @override
+  String get jobMinBudget => 'Budget min.';
+
+  @override
+  String get jobMaxBudget => 'Budget max.';
+
+  @override
+  String get jobMaxHours => 'Heures max./semaine';
+
+  @override
+  String get jobEstimatedDuration => 'Durée estimée';
+
+  @override
+  String get jobIndefinite => 'Durée indéterminée';
+
+  @override
+  String get jobWeeks => 'semaines';
+
+  @override
+  String get jobMonths => 'mois';
+
+  @override
+  String get jobCancel => 'Annuler';
+
+  @override
+  String get jobContinue => 'Continuer';
+
+  @override
+  String get jobSave => 'Enregistrer';
 }

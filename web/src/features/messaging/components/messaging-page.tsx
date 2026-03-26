@@ -143,9 +143,6 @@ export function MessagingPage() {
   }, [activeId, sendTyping])
 
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
-  if (typingUserForConversation) {
-    console.log("[Messaging] typingUserForConversation", typingUserForConversation, "activeId=", activeId)
-  }
 
   return (
     <div className="-mx-5 -mt-5 flex h-[calc(100vh-3.5rem)] overflow-hidden bg-white dark:bg-gray-900">

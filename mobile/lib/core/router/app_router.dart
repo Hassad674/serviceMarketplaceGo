@@ -13,6 +13,8 @@ import '../../features/messaging/presentation/providers/messaging_provider.dart'
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/job/presentation/screens/create_job_screen.dart';
+import '../../features/job/presentation/screens/jobs_screen.dart';
 import '../../features/project/presentation/screens/create_project_screen.dart';
 import '../../features/project/presentation/screens/projects_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
@@ -39,6 +41,8 @@ class RoutePaths {
   static const String missions = '/missions';
   static const String projects = '/projects';
   static const String projectsNew = '/projects/new';
+  static const String jobs = '/jobs';
+  static const String jobsCreate = '/jobs/create';
   static const String profile = '/profile';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
@@ -174,6 +178,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.projectsNew,
             builder: (context, state) => const CreateProjectScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.jobs,
+            builder: (context, state) => const JobsScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.jobsCreate,
+            builder: (context, state) => const CreateJobScreen(),
           ),
           GoRoute(
             path: RoutePaths.profile,

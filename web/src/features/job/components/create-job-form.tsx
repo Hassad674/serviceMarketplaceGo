@@ -1,0 +1,201 @@
+"use client"
+
+import { useState } from "react"
+import { ChevronDown, Check } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { useRouter } from "@i18n/navigation"
+import { cn } from "@/shared/lib/utils"
+import type { JobFormData } from "../types"
+import { createDefaultJobFormData } from "../types"
+import { JobDetailsSection } from "./job-details-section"
+import { BudgetSection } from "./budget-section"
+
+type SectionId = "details" | "budget"
+
+export function CreateJobForm() {
+  const t = useTranslations("job")
+  const router = useRouter()
+  const [formData, setFormData] = useState<JobFormData>(createDefaultJobFormData)
+  const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["details"]))
+
+  function updateField<K extends keyof JobFormData>(
+    field: K,
+    value: JobFormData[K],
+  ) {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function toggleSection(id: SectionId) {
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function handleCancel() {
+    router.push("/dashboard")
+  }
+
+  function handleContinue() {
+    console.log("Job form data:", formData)
+  }
+
+  const isDetailsComplete = formData.title.trim() !== "" && formData.description.trim() !== ""
+  const isBudgetComplete = formData.budgetType === "ongoing"
+    ? formData.minRate !== "" && formData.maxRate !== ""
+    : formData.minBudget !== "" && formData.maxBudget !== ""
+
+  return (
+    <div className="mx-auto max-w-[680px]">
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          {t("createJob")}
+        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className={cn(
+              "rounded-xl px-5 py-2.5 text-sm font-medium",
+              "text-gray-600 dark:text-gray-400 transition-all duration-200",
+              "hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white",
+            )}
+          >
+            {t("cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={handleContinue}
+            className={cn(
+              "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
+              "gradient-primary transition-all duration-200",
+              "hover:shadow-glow active:scale-[0.98]",
+            )}
+          >
+            {t("continue")}
+          </button>
+        </div>
+      </div>
+
+      {/* Sections */}
+      <div className="space-y-4">
+        <AccordionSection
+          number={1}
+          title={t("jobDetails")}
+          isOpen={openSections.has("details")}
+          isComplete={isDetailsComplete}
+          onToggle={() => toggleSection("details")}
+        >
+          <JobDetailsSection formData={formData} updateField={updateField} />
+        </AccordionSection>
+
+        <AccordionSection
+          number={2}
+          title={t("budgetAndDuration")}
+          isOpen={openSections.has("budget")}
+          isComplete={isBudgetComplete}
+          onToggle={() => toggleSection("budget")}
+        >
+          <BudgetSection formData={formData} updateField={updateField} />
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={handleContinue}
+              className={cn(
+                "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
+                "gradient-primary transition-all duration-200",
+                "hover:shadow-glow active:scale-[0.98]",
+              )}
+            >
+              {t("save")}
+            </button>
+          </div>
+        </AccordionSection>
+      </div>
+    </div>
+  )
+}
+
+/* -------------------------------------------------- */
+/* Accordion section with number + validation circle  */
+/* -------------------------------------------------- */
+
+type AccordionSectionProps = {
+  number: number
+  title: string
+  isOpen: boolean
+  isComplete: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}
+
+function AccordionSection({
+  number,
+  title,
+  isOpen,
+  isComplete,
+  onToggle,
+  children,
+}: AccordionSectionProps) {
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border transition-all duration-200",
+        isOpen
+          ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+          : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-200 dark:hover:border-gray-700",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center gap-4 px-6 py-5 text-left"
+        aria-expanded={isOpen}
+      >
+        {/* Validation indicator */}
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200",
+            isComplete
+              ? "bg-rose-500 text-white"
+              : "border-2 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500",
+          )}
+        >
+          {isComplete ? (
+            <Check className="h-4 w-4" strokeWidth={2.5} />
+          ) : (
+            number
+          )}
+        </div>
+        <span className="flex-1 text-base font-semibold text-gray-900 dark:text-white">
+          {title}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-5 w-5 text-gray-400 dark:text-gray-500 transition-transform duration-200",
+            isOpen && "rotate-180",
+          )}
+          strokeWidth={1.5}
+        />
+      </button>
+
+      {/* Collapsible content */}
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-300 ease-out",
+          isOpen ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
+        )}
+      >
+        <div className="px-6 pb-6">
+          {children}
+        </div>
+      </div>
+    </section>
+  )
+}
