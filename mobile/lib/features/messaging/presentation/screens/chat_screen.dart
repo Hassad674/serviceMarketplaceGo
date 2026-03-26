@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
@@ -116,41 +117,60 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final contentType = _guessContentType(file.name);
 
     try {
+      // Step 1: Get presigned upload URL from backend
       final repo = ref.read(messagingRepositoryProvider);
       final uploadInfo = await repo.getUploadUrl(
         filename: file.name,
         contentType: contentType,
       );
 
-      // Upload file to presigned URL via raw bytes
-      final fileBytes = file.bytes ?? (file.path != null
-          ? await File(file.path!).readAsBytes()
-          : null);
+      debugPrint('[FileUpload] presigned URL: ${uploadInfo.uploadUrl}');
+      debugPrint('[FileUpload] public URL: ${uploadInfo.publicUrl}');
 
-      if (fileBytes == null) {
-        throw Exception('Cannot read file bytes');
+      // Step 2: Read file bytes — prefer path over in-memory bytes
+      // because withData: true can return null on some Android devices.
+      Uint8List fileBytes;
+      if (file.bytes != null && file.bytes!.isNotEmpty) {
+        fileBytes = file.bytes!;
+      } else if (file.path != null) {
+        fileBytes = await File(file.path!).readAsBytes();
+      } else {
+        throw Exception('Cannot read file: no bytes and no path');
       }
 
-      // Use a Stream to send raw binary data — prevents Dio from
-      // attempting JSON serialisation of the byte array.
-      await Dio().put(
+      debugPrint('[FileUpload] file size: ${fileBytes.length} bytes');
+
+      // Step 3: PUT file to presigned URL using a FRESH Dio instance.
+      // The app's ApiClient adds Authorization + X-Auth-Mode headers
+      // which would cause an S3 signature mismatch on presigned URLs.
+      final uploadDio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 120),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      final uploadResponse = await uploadDio.put<void>(
         uploadInfo.uploadUrl,
         data: Stream.fromIterable([fileBytes]),
         options: Options(
+          contentType: contentType,
           headers: {
-            'Content-Type': contentType,
-            'Content-Length': fileBytes.length,
+            Headers.contentLengthHeader: fileBytes.length,
           },
         ),
       );
 
-      // Use the public URL returned by the backend (CDN-friendly),
-      // falling back to stripping the presigned query string.
+      debugPrint('[FileUpload] upload status: ${uploadResponse.statusCode}');
+
+      // Step 4: Use the public URL returned by the backend
+      // (CDN-friendly), falling back to stripping the query string.
       final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
           ? uploadInfo.publicUrl
           : uploadInfo.uploadUrl.split('?').first;
 
-      // Send file message
+      // Step 5: Send file message via the conversation
       await ref
           .read(messagesProvider(widget.conversationId).notifier)
           .sendFileMessage(
@@ -162,10 +182,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           );
 
       _scrollToBottom();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[FileUpload] ERROR: $e');
+      if (e is DioException) {
+        debugPrint('[FileUpload] DioError type: ${e.type}');
+        debugPrint('[FileUpload] DioError response: ${e.response}');
+        debugPrint('[FileUpload] DioError message: ${e.message}');
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.uploadError)),
+          SnackBar(content: Text('${l10n.uploadError}: $e')),
         );
       }
     }
