@@ -1,6 +1,7 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
+import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { Star, ArrowLeft } from "lucide-react"
 import { Link } from "@i18n/navigation"
@@ -33,6 +34,7 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ["public-profile", userId],
     queryFn: () => apiClient<Profile>(`/api/v1/profiles/${userId}`),
+    staleTime: 5 * 60 * 1000, // 5 minutes — public profiles are semi-static
   })
 
   if (isLoading) {
@@ -75,9 +77,11 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
           {/* Photo */}
           <div className="shrink-0">
             {profile.photo_url ? (
-              <img
+              <Image
                 src={profile.photo_url}
                 alt={t("photoAlt")}
+                width={96}
+                height={96}
                 className={cn(
                   "h-24 w-24 object-cover",
                   type === "agency" ? "rounded-lg" : "rounded-full",

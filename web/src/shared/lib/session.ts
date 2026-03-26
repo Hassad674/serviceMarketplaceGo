@@ -19,3 +19,8 @@ export async function isAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies()
   return !!cookieStore.get("session_id")?.value
 }
+
+export async function isReferrerWorkspace(): Promise<boolean> {
+  const cookieStore = await cookies()
+  return cookieStore.get("workspace")?.value === "referrer"
+}

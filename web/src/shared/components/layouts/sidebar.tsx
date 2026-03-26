@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useEffect } from "react"
 import {
   LayoutDashboard,
   UserCircle,
@@ -14,8 +14,8 @@ import {
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname } from "@i18n/navigation"
-import { useSearchParams } from "next/navigation"
 import { useUser, useLogout } from "@/shared/hooks/use-user"
+import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { cn } from "@/shared/lib/utils"
 
 type NavItem = {
@@ -35,11 +35,11 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "findReferrers", href: "/search?type=referrer", icon: Search, roles: ["agency", "enterprise"] },
 ]
 
-// Referrer mode nav (separate so links stay in referrer context)
+// Referrer mode nav — no ?mode=referrer needed; cookie tracks the workspace
 const REFERRER_NAV: NavItem[] = [
-  { labelKey: "dashboard", href: "/dashboard?mode=referrer", icon: LayoutDashboard, exact: true, roles: ["provider"] },
+  { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["provider"] },
   { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
-  { labelKey: "findFreelancers", href: "/search?type=freelancer&mode=referrer", icon: Search, roles: ["provider"] },
+  { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -74,14 +74,20 @@ type SidebarProps = {
 
 export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const { data: user } = useUser()
   const logout = useLogout()
+  const { isReferrerMode, setReferrerMode } = useWorkspace()
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
 
   const role = user?.role ?? ""
-  const isReferrerMode = searchParams.get("mode") === "referrer" || pathname === "/referral"
+  // Sync workspace to referrer when visiting the /referral page
+  useEffect(() => {
+    if (pathname === "/referral" && !isReferrerMode) {
+      setReferrerMode(true)
+    }
+  }, [pathname, isReferrerMode, setReferrerMode])
+
   const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
 
@@ -163,7 +169,11 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
         {/* Role switch (provider only) */}
         {role === "provider" && (
           <div className={cn("pb-2", collapsed ? "px-3" : "px-4")}>
-            <ReferrerSwitch isReferrerMode={isReferrerMode} collapsed={collapsed} />
+            <ReferrerSwitch
+              isReferrerMode={isReferrerMode}
+              collapsed={collapsed}
+              onToggle={() => setReferrerMode(!isReferrerMode)}
+            />
           </div>
         )}
 
@@ -175,7 +185,6 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               item={item}
               label={t(item.labelKey)}
               pathname={pathname}
-              searchParams={searchParams}
               onClick={onClose}
               collapsed={collapsed}
             />
@@ -227,30 +236,31 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
 function ReferrerSwitch({
   isReferrerMode,
   collapsed,
+  onToggle,
 }: {
   isReferrerMode: boolean
   collapsed: boolean
+  onToggle: () => void
 }) {
   const t = useTranslations("sidebar")
 
   if (collapsed) {
-    const href = isReferrerMode ? "/dashboard" : "/dashboard?mode=referrer"
     const dotColor = isReferrerMode ? "bg-emerald-500" : "bg-amber-500"
     return (
-      <Link
-        href={href}
-        className="flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
         aria-label={isReferrerMode ? t("freelanceDashboard") : t("businessReferrer")}
       >
         <span className={cn("h-3 w-3 rounded-full", dotColor)} />
-      </Link>
+      </button>
     )
   }
 
   if (isReferrerMode) {
     return (
-      <Link
-        href="/dashboard"
+      <button
+        onClick={onToggle}
         className={cn(
           "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
           "text-sm font-medium transition-all duration-200",
@@ -259,13 +269,13 @@ function ReferrerSwitch({
       >
         <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
         {t("freelanceDashboard")}
-      </Link>
+      </button>
     )
   }
 
   return (
-    <Link
-      href="/dashboard?mode=referrer"
+    <button
+      onClick={onToggle}
       className={cn(
         "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
         "text-sm font-medium text-white transition-all duration-200",
@@ -274,7 +284,7 @@ function ReferrerSwitch({
     >
       <Sparkles className="h-4 w-4" strokeWidth={1.5} />
       {t("businessReferrer")}
-    </Link>
+    </button>
   )
 }
 
@@ -282,34 +292,25 @@ function NavLink({
   item,
   label,
   pathname,
-  searchParams,
   onClick,
   collapsed,
 }: {
   item: NavItem
   label: string
   pathname: string
-  searchParams: URLSearchParams
   onClick?: () => void
   collapsed: boolean
 }) {
-  // Compare only the pathname portion of item.href so query-param-heavy links
-  // (e.g. /search?type=freelancer&mode=referrer) still highlight correctly.
-  // Each query key=value pair in the href must be present in the current URL.
-  const [hrefPath, hrefQuery] = item.href.split("?")
-  const hrefParams = new URLSearchParams(hrefQuery ?? "")
-  const currentParams = searchParams
-
-  const queryMatches = !hrefQuery || Array.from(hrefParams.entries()).every(
-    ([key, value]) => currentParams.get(key) === value,
-  )
+  // Match the pathname portion of the nav href against the current pathname.
+  // Query params (e.g. ?type=freelancer) are intentionally ignored for active
+  // detection — the workspace mode is tracked via cookie, not URL.
+  const [hrefPath] = item.href.split("?")
 
   let isActive = false
   if (item.exact) {
-    isActive = pathname === hrefPath && queryMatches
+    isActive = pathname === hrefPath
   } else {
-    const pathMatches = pathname === hrefPath || pathname.startsWith(hrefPath + "/")
-    isActive = pathMatches && queryMatches
+    isActive = pathname === hrefPath || pathname.startsWith(hrefPath + "/")
   }
 
   return (

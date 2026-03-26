@@ -13,9 +13,8 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useSearchParams } from "next/navigation"
-import { Link } from "@i18n/navigation"
 import { useUser } from "@/shared/hooks/use-user"
+import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { cn } from "@/shared/lib/utils"
 
 type StatCard = {
@@ -158,17 +157,17 @@ function getDisplayName(
   return user.display_name ?? ""
 }
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { data: user } = useUser()
-  const searchParams = useSearchParams()
+  const { isReferrerMode, setReferrerMode } = useWorkspace()
   const t = useTranslations("dashboard")
 
   const role = user?.role ?? "enterprise"
   const userOrNull = user ?? null
-  const isReferrerMode = searchParams.get("mode") === "referrer" && role === "provider"
-  const stats = getStatsForRole(role, isReferrerMode)
-  const subtitleKey = getSubtitleKey(role, isReferrerMode)
-  const displayName = getDisplayName(userOrNull, isReferrerMode)
+  const effectiveReferrerMode = isReferrerMode && role === "provider"
+  const stats = getStatsForRole(role, effectiveReferrerMode)
+  const subtitleKey = getSubtitleKey(role, effectiveReferrerMode)
+  const displayName = getDisplayName(userOrNull, effectiveReferrerMode)
 
   const gridCols = stats.length === 4
     ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
@@ -194,9 +193,9 @@ export default function DashboardPage() {
       {/* Referrer switch for provider users */}
       {role === "provider" && (
         <div className="flex justify-end">
-          {isReferrerMode ? (
-            <Link
-              href="/dashboard"
+          {effectiveReferrerMode ? (
+            <button
+              onClick={() => setReferrerMode(false)}
               className={cn(
                 "flex items-center gap-2 rounded-lg px-4 py-2",
                 "text-sm font-medium transition-all duration-200",
@@ -206,10 +205,10 @@ export default function DashboardPage() {
             >
               <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
               {t("freelanceDashboard")}
-            </Link>
+            </button>
           ) : (
-            <Link
-              href="/dashboard?mode=referrer"
+            <button
+              onClick={() => setReferrerMode(true)}
               className={cn(
                 "flex items-center gap-2 rounded-lg px-4 py-2",
                 "text-sm font-medium text-white transition-all duration-200",
@@ -218,7 +217,7 @@ export default function DashboardPage() {
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               {t("businessReferrer")}
-            </Link>
+            </button>
           )}
         </div>
       )}
@@ -245,4 +244,8 @@ export default function DashboardPage() {
       </div>
     </div>
   )
+}
+
+export default function DashboardPage() {
+  return <DashboardContent />
 }

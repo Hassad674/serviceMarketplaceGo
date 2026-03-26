@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
+import Image from "next/image"
 import { Camera, Star, Edit2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -83,9 +84,11 @@ export function ProfileHeader({
               aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
             >
               {profile?.photo_url ? (
-                <img
+                <Image
                   src={profile.photo_url}
                   alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
+                  width={96}
+                  height={96}
                   className="w-full h-full object-cover"
                 />
               ) : (

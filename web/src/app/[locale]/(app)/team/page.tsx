@@ -1,10 +1,8 @@
-"use client"
-
 import { Users } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { getTranslations } from "next-intl/server"
 
-export default function TeamPage() {
-  const t = useTranslations("sidebar")
+export default async function TeamPage() {
+  const t = await getTranslations("sidebar")
 
   return (
     <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-12 text-center">

@@ -5,6 +5,7 @@ import { Menu, Bell, Search, LogOut, User, ChevronDown } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { useUser, useLogout } from "@/shared/hooks/use-user"
+import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { cn } from "@/shared/lib/utils"
 
@@ -12,12 +13,14 @@ const ROLE_LABEL_KEYS: Record<string, string> = {
   agency: "roleAgency",
   enterprise: "roleEnterprise",
   provider: "roleProvider",
+  referrer: "roleReferrer",
 }
 
 const ROLE_COLORS: Record<string, string> = {
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
   enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
   provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
+  referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
 }
 
 type HeaderProps = {
@@ -27,10 +30,12 @@ type HeaderProps = {
 export function Header({ onMenuToggle }: HeaderProps) {
   const { data: user } = useUser()
   const logout = useLogout()
+  const { isReferrerMode } = useWorkspace()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const tCommon = useTranslations("common")
   const tSidebar = useTranslations("sidebar")
+  const displayRole = (user?.role === "provider" && isReferrerMode) ? "referrer" : (user?.role ?? "")
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -51,7 +56,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
     ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`
     : "?"
 
-  const profileHref = "/profile"
+  const profileHref = (user?.role === "provider" && isReferrerMode) ? "/referral" : "/profile"
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-gray-100/50 bg-white/80 px-4 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80 sm:px-5">
@@ -120,10 +125,10 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   <span
                     className={cn(
                       "mt-1.5 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-                      ROLE_COLORS[user.role] ?? "bg-gray-100 text-gray-600",
+                      ROLE_COLORS[displayRole] ?? "bg-gray-100 text-gray-600",
                     )}
                   >
-                    {ROLE_LABEL_KEYS[user.role] ? tSidebar(ROLE_LABEL_KEYS[user.role]) : user.role}
+                    {ROLE_LABEL_KEYS[displayRole] ? tSidebar(ROLE_LABEL_KEYS[displayRole]) : displayRole}
                   </span>
                 </div>
                 <div className="p-1">

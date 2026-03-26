@@ -9,5 +9,6 @@ export function useSearchProfiles(type: SearchType) {
   return useQuery({
     queryKey: [SEARCH_QUERY_KEY, type],
     queryFn: () => searchProfiles(type),
+    staleTime: 2 * 60 * 1000, // 2 minutes — search results change infrequently
   })
 }

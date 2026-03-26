@@ -9,6 +9,7 @@ export function useProfile() {
   return useQuery({
     queryKey: PROFILE_QUERY_KEY,
     queryFn: () => getMyProfile(),
+    staleTime: 5 * 60 * 1000, // 5 minutes — own profile data rarely changes externally
   })
 }
 

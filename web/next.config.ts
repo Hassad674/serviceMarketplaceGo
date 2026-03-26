@@ -10,9 +10,22 @@ const nextConfig: NextConfig = {
   // Enable React strict mode for catching potential issues
   reactStrictMode: true,
 
-  // Optimize images: allow remote patterns for user-uploaded content
+  // Optimize images: allow remote patterns for user-uploaded content (MinIO / R2)
   images: {
     formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "9000",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "**.r2.cloudflarestorage.com",
+        pathname: "/**",
+      },
+    ],
   },
 
   // Enable gzip compression (useful for self-hosting)
