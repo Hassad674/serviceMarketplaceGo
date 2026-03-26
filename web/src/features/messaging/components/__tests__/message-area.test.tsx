@@ -1,7 +1,16 @@
-import { describe, it, expect, vi, beforeAll } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest"
+import { render, screen, fireEvent } from "@testing-library/react"
 import { MessageArea } from "../message-area"
 import type { Message } from "../../types"
+
+// Stub IntersectionObserver before any rendering (JSDOM does not have it)
+class MockIntersectionObserver {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+  constructor(_callback: IntersectionObserverCallback, _options?: IntersectionObserverInit) {}
+}
+vi.stubGlobal("IntersectionObserver", MockIntersectionObserver)
 
 // Mock next-intl
 vi.mock("next-intl", () => ({
@@ -71,7 +80,7 @@ function defaultProps(overrides: Partial<Parameters<typeof MessageArea>[0]> = {}
   }
 }
 
-// Mock scrollTo for JSDOM (not available by default)
+// Mock scrollTo for JSDOM
 beforeAll(() => {
   Element.prototype.scrollTo = vi.fn()
 })
@@ -140,5 +149,159 @@ describe("MessageArea", () => {
     expect(groupDivs.length).toBeGreaterThan(0)
     expect(groupDivs[0].className).toContain("flex-row")
     expect(groupDivs[0].className).not.toContain("flex-row-reverse")
+  })
+
+  it("renders deleted message placeholder", () => {
+    const messages = [
+      createMessage({
+        id: "msg-1",
+        content: "",
+        deleted_at: "2026-03-26T10:00:00Z",
+      }),
+    ]
+    render(<MessageArea {...defaultProps({ messages })} />)
+
+    expect(screen.getByText("messageDeleted")).toBeDefined()
+  })
+
+  it("shows edited label for edited messages", () => {
+    const messages = [
+      createMessage({
+        id: "msg-1",
+        content: "Edited content",
+        edited_at: "2026-03-26T10:05:00Z",
+      }),
+    ]
+    render(<MessageArea {...defaultProps({ messages })} />)
+
+    expect(screen.getByText("Edited content")).toBeDefined()
+    // The edited label is rendered as "(messageEdited)"
+    expect(screen.getByText(/messageEdited/)).toBeDefined()
+  })
+
+  it("renders file message component for file type", () => {
+    const messages = [
+      createMessage({
+        id: "msg-1",
+        type: "file",
+        content: "document.pdf",
+        metadata: {
+          url: "https://example.com/file.pdf",
+          filename: "document.pdf",
+          size: 1024,
+          mime_type: "application/pdf",
+        },
+      }),
+    ]
+    render(<MessageArea {...defaultProps({ messages })} />)
+
+    expect(screen.getByTestId("file-message")).toBeDefined()
+  })
+
+  it("shows status icons on own messages", () => {
+    const messages = [
+      createMessage({ id: "msg-1", sender_id: "user-1", status: "sent" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    expect(screen.getByTestId("status-sent")).toBeDefined()
+  })
+
+  it("does not show status icons on other user messages", () => {
+    const messages = [
+      createMessage({ id: "msg-1", sender_id: "user-2", status: "sent" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    expect(screen.queryByTestId("status-sent")).toBeNull()
+  })
+
+  it("renders load more button when hasMore is true", () => {
+    const messages = [
+      createMessage({ id: "msg-1", content: "Hello" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, hasMore: true })} />,
+    )
+
+    expect(screen.getByText("loadMore")).toBeDefined()
+  })
+
+  it("does not render load more button when hasMore is false", () => {
+    const messages = [
+      createMessage({ id: "msg-1", content: "Hello" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, hasMore: false })} />,
+    )
+
+    expect(screen.queryByText("loadMore")).toBeNull()
+  })
+
+  it("calls onLoadMore when load more button clicked", () => {
+    const onLoadMore = vi.fn()
+    const messages = [
+      createMessage({ id: "msg-1", content: "Hello" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, hasMore: true, onLoadMore })} />,
+    )
+
+    fireEvent.click(screen.getByText("loadMore"))
+
+    expect(onLoadMore).toHaveBeenCalledOnce()
+  })
+
+  it("shows context menu for own non-temp messages", () => {
+    const messages = [
+      createMessage({ id: "msg-1", sender_id: "user-1", content: "My message" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    expect(screen.getByTestId("context-menu")).toBeDefined()
+  })
+
+  it("does not show context menu for temp messages", () => {
+    const messages = [
+      createMessage({ id: "temp-123", sender_id: "user-1", content: "Sending..." }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    expect(screen.queryByTestId("context-menu")).toBeNull()
+  })
+
+  it("does not show context menu for other user messages", () => {
+    const messages = [
+      createMessage({ id: "msg-1", sender_id: "user-2", content: "Their message" }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    expect(screen.queryByTestId("context-menu")).toBeNull()
+  })
+
+  it("treats optimistic sender as own message", () => {
+    const messages = [
+      createMessage({ id: "temp-123", sender_id: "optimistic", content: "Sending..." }),
+    ]
+    const { container } = render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    // Optimistic messages appear as own (flex-row-reverse)
+    const allDivs = container.querySelectorAll("div")
+    const hasOwnLayout = Array.from(allDivs).some((el) =>
+      el.className.includes("flex-row-reverse"),
+    )
+    expect(hasOwnLayout).toBe(true)
   })
 })
