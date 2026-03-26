@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import {
   LayoutDashboard,
   UserCircle,
@@ -311,10 +311,16 @@ function NavLink({
   onClick?: () => void
   collapsed: boolean
 }) {
-  // Match pathname + query params for active detection.
-  // For /search links, query params distinguish between types.
+  // Track browser search params in state so it updates on client-side navigation.
+  // Re-read window.location.search whenever pathname changes (navigation occurred).
+  // Using useEffect avoids SSR issues (window is undefined on the server).
+  const [currentSearch, setCurrentSearch] = useState("")
+
+  useEffect(() => {
+    setCurrentSearch(window.location.search)
+  }, [pathname])
+
   const [hrefPath, hrefQuery] = item.href.split("?")
-  const currentSearch = typeof window !== "undefined" ? window.location.search : ""
   const hrefParams = new URLSearchParams(hrefQuery ?? "")
   const currentParams = new URLSearchParams(currentSearch)
 

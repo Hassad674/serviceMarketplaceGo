@@ -694,7 +694,7 @@ class _VideoSectionCard extends StatelessWidget {
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                    vertical: 24, horizontal: 16),
+                    vertical: 24, horizontal: 16,),
                 decoration: BoxDecoration(
                   color: appColors?.muted,
                   borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -769,7 +769,7 @@ class _DarkModeToggle extends ConsumerWidget {
         ),
         trailing: Switch(
           value: isDark,
-          activeColor: theme.colorScheme.primary,
+          activeTrackColor: theme.colorScheme.primary,
           onChanged: (_) => ref.read(themeModeProvider.notifier).toggle(),
         ),
       ),

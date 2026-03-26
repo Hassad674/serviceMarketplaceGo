@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/search_provider.dart';
 import '../widgets/provider_card.dart';
 import '../widgets/shimmer_provider_card.dart';
@@ -19,9 +20,10 @@ class SearchScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final searchAsync = ref.watch(searchProvider(type));
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: Text(_screenTitle)),
+      appBar: AppBar(title: Text(_screenTitle(l10n))),
       body: searchAsync.when(
         loading: () => const ShimmerProviderList(),
         error: (error, stack) => _ErrorState(
@@ -34,16 +36,16 @@ class SearchScreen extends ConsumerWidget {
     );
   }
 
-  String get _screenTitle {
+  String _screenTitle(AppLocalizations l10n) {
     switch (type) {
       case 'freelancer':
-        return 'Find Freelancers';
+        return l10n.findFreelancers;
       case 'agency':
-        return 'Find Agencies';
+        return l10n.findAgencies;
       case 'referrer':
-        return 'Find Referrers';
+        return l10n.findReferrers;
       default:
-        return 'Search';
+        return l10n.search;
     }
   }
 }
@@ -102,6 +104,7 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
 
     return Center(
       child: Padding(
@@ -124,12 +127,12 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No profiles found',
+              l10n.noProfilesFound,
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Try again later or adjust your search.',
+              l10n.searchTryAgain,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: appColors?.mutedForeground,
               ),
@@ -155,6 +158,7 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
 
     return Center(
       child: Padding(
@@ -177,12 +181,12 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Something went wrong',
+              l10n.somethingWentWrong,
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Could not load profiles. Check your connection.',
+              l10n.couldNotLoadProfiles,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: appColors?.mutedForeground,
               ),
@@ -192,7 +196,7 @@ class _ErrorState extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+              label: Text(l10n.retry),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(140, 44),
               ),

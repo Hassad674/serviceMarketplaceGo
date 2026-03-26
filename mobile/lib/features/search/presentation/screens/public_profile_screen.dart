@@ -2,74 +2,99 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/search_provider.dart';
 
 /// Read-only public profile screen for any user.
 ///
 /// Fetches the profile from GET /api/v1/profiles/{userId} and displays
 /// the public fields: photo, name, title, about, and presentation video.
-/// No edit functionality — this is a viewer-only screen.
+/// No edit functionality -- this is a viewer-only screen.
+///
+/// Accepts optional [displayName] and [role] from navigation extras
+/// (passed from search results) to supplement the profile data which
+/// does not include user identity fields.
 class PublicProfileScreen extends ConsumerWidget {
-  const PublicProfileScreen({super.key, required this.userId});
+  const PublicProfileScreen({
+    super.key,
+    required this.userId,
+    this.displayName,
+    this.role,
+  });
 
   final String userId;
+  final String? displayName;
+  final String? role;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(publicProfileProvider(userId));
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: Text(l10n.profile)),
       body: profileAsync.when(
         loading: () => const _ProfileShimmer(),
         error: (error, stack) => _ErrorState(
           onRetry: () => ref.invalidate(publicProfileProvider(userId)),
         ),
-        data: (profile) => _ProfileContent(profile: profile),
+        data: (profile) => _ProfileContent(
+          profile: profile,
+          navDisplayName: displayName,
+          navRole: role,
+        ),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Profile content — main scrollable body
+// Profile content -- main scrollable body
 // ---------------------------------------------------------------------------
 
 class _ProfileContent extends StatelessWidget {
-  const _ProfileContent({required this.profile});
+  const _ProfileContent({
+    required this.profile,
+    this.navDisplayName,
+    this.navRole,
+  });
 
   final Map<String, dynamic> profile;
+  final String? navDisplayName;
+  final String? navRole;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
 
-    final displayName = _resolveDisplayName();
+    final resolvedName = _resolveDisplayName();
     final title = profile['title'] as String?;
     final about = profile['about'] as String?;
     final photoUrl = profile['photo_url'] as String?;
     final videoUrl = profile['presentation_video_url'] as String?;
-    final role = profile['role'] as String?;
-    final initials = _buildInitials(displayName);
+    final resolvedRole = _resolveRole();
+    final initials = _buildInitials(resolvedName);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Photo
+          // Photo/avatar
           _LargeAvatar(
             photoUrl: photoUrl,
             initials: initials,
-            roleColor: _roleColor(role),
+            roleColor: _roleColor(resolvedRole),
           ),
           const SizedBox(height: 16),
 
           // Name
           Text(
-            displayName,
+            resolvedName,
             style: theme.textTheme.headlineMedium,
             textAlign: TextAlign.center,
           ),
@@ -77,51 +102,75 @@ class _ProfileContent extends StatelessWidget {
 
           // Title
           if (title != null && title.isNotEmpty)
-            Text(
-              title,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: appColors?.mutedForeground,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: appColors?.mutedForeground,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
-          const SizedBox(height: 12),
+          if (title == null || title.isEmpty) const SizedBox(height: 12),
 
           // Role badge
-          _RoleBadge(role: role),
+          if (resolvedRole != null) _RoleBadge(role: resolvedRole),
           const SizedBox(height: 24),
+
+          // Video section (playable)
+          if (videoUrl != null && videoUrl.isNotEmpty)
+            _VideoCard(videoUrl: videoUrl),
+          if (videoUrl != null && videoUrl.isNotEmpty)
+            const SizedBox(height: 16),
 
           // About section
           if (about != null && about.isNotEmpty)
             _SectionCard(
-              title: 'About',
+              title: l10n.about,
               icon: Icons.info_outline,
               child: Text(
                 about,
                 style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
               ),
             ),
-          if (about != null && about.isNotEmpty) const SizedBox(height: 16),
-
-          // Video section
-          if (videoUrl != null && videoUrl.isNotEmpty)
-            _VideoCard(videoUrl: videoUrl),
         ],
       ),
     );
   }
 
   String _resolveDisplayName() {
+    // Prefer data from navigation extras (search results have name data)
+    if (navDisplayName != null && navDisplayName!.isNotEmpty) {
+      return navDisplayName!;
+    }
+
+    // Try profile data fields
     final displayName = profile['display_name'] as String?;
     if (displayName != null && displayName.isNotEmpty) return displayName;
 
     final firstName = profile['first_name'] as String? ?? '';
     final lastName = profile['last_name'] as String? ?? '';
     final fullName = '$firstName $lastName'.trim();
-    return fullName.isNotEmpty ? fullName : 'Unknown';
+    if (fullName.isNotEmpty) return fullName;
+
+    // Last resort: use user_id prefix
+    final userId = profile['user_id'] as String?;
+    if (userId != null && userId.length >= 8) {
+      return 'User ${userId.substring(0, 8)}';
+    }
+    return 'User';
+  }
+
+  String? _resolveRole() {
+    // Prefer navigation extras
+    if (navRole != null && navRole!.isNotEmpty) return navRole;
+    // Try profile data
+    return profile['role'] as String?;
   }
 
   String _buildInitials(String name) {
-    if (name.isEmpty || name == 'Unknown') return '?';
+    if (name.isEmpty || name.startsWith('User')) return '?';
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
@@ -142,7 +191,7 @@ class _ProfileContent extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Large avatar — 64px radius for profile header
+// Large avatar -- 56px radius for profile header
 // ---------------------------------------------------------------------------
 
 class _LargeAvatar extends StatelessWidget {
@@ -248,7 +297,7 @@ class _RoleBadge extends StatelessWidget {
       case 'provider':
         return 'Freelance';
       default:
-        return role ?? 'Unknown';
+        return role ?? '';
     }
   }
 
@@ -267,7 +316,7 @@ class _RoleBadge extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Section card — reusable wrapper
+// Section card -- reusable wrapper
 // ---------------------------------------------------------------------------
 
 class _SectionCard extends StatelessWidget {
@@ -312,7 +361,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Video card — shows play icon and video indicator
+// Video card -- shows play icon and launches video in external player
 // ---------------------------------------------------------------------------
 
 class _VideoCard extends StatelessWidget {
@@ -324,6 +373,7 @@ class _VideoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       width: double.infinity,
@@ -340,38 +390,64 @@ class _VideoCard extends StatelessWidget {
             children: [
               Icon(Icons.videocam_outlined, size: 20, color: primary),
               const SizedBox(width: 8),
-              Text('Presentation Video',
-                  style: theme.textTheme.titleMedium),
+              Text(
+                l10n.presentationVideo,
+                style: theme.textTheme.titleMedium,
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: primary.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              border: Border.all(color: primary.withValues(alpha: 0.2)),
-            ),
-            child: Column(
-              children: [
-                Icon(Icons.play_circle_outline, color: primary, size: 48),
-                const SizedBox(height: 8),
-                Text(
-                  'Presentation Video',
-                  style: theme.textTheme.titleMedium?.copyWith(color: primary),
-                ),
-              ],
+          GestureDetector(
+            onTap: () => _openVideo(context),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                border: Border.all(color: primary.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.play_circle_outline,
+                    color: primary,
+                    size: 48,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.tapToPlay,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: primary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  void _openVideo(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    launchUrl(
+      Uri.parse(videoUrl),
+      mode: LaunchMode.externalApplication,
+    ).catchError((_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.couldNotOpenVideo)),
+        );
+      }
+      return false;
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Profile shimmer — loading skeleton
+// Profile shimmer -- loading skeleton
 // ---------------------------------------------------------------------------
 
 class _ProfileShimmer extends StatelessWidget {
@@ -455,6 +531,7 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
 
     return Center(
       child: Padding(
@@ -477,12 +554,12 @@ class _ErrorState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Could not load profile',
+              l10n.couldNotLoadProfile,
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'Check your connection and try again.',
+              l10n.checkConnectionRetry,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: appColors?.mutedForeground,
               ),
@@ -492,7 +569,7 @@ class _ErrorState extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+              label: Text(l10n.retry),
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(140, 44),
               ),

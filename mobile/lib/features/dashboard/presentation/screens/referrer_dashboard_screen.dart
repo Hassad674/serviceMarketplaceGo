@@ -63,7 +63,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
 
               // Search action
               ActionChip(
-                avatar: Icon(Icons.person_search, size: 18, color: _rose500),
+                avatar: const Icon(Icons.person_search, size: 18, color: _rose500),
                 label: Text(
                   l10n.findFreelancers,
                   style: TextStyle(
