@@ -311,13 +311,27 @@ function NavLink({
   onClick?: () => void
   collapsed: boolean
 }) {
-  // Track browser search params in state so it updates on client-side navigation.
-  // Re-read window.location.search whenever pathname changes (navigation occurred).
-  // Using useEffect avoids SSR issues (window is undefined on the server).
+  // Track browser search params reactively.
+  // pathname alone is not enough — /search?type=freelancer → /search?type=agency
+  // has the same pathname but different search params.
+  // Use href from the Link component's click to detect the full URL change.
   const [currentSearch, setCurrentSearch] = useState("")
 
   useEffect(() => {
-    setCurrentSearch(window.location.search)
+    const updateSearch = () => setCurrentSearch(window.location.search)
+    updateSearch()
+
+    // Listen for popstate (back/forward) and custom event for client-side nav
+    window.addEventListener("popstate", updateSearch)
+
+    // MutationObserver on the URL is not possible, so use a short interval
+    // that only runs while the component is mounted (cleans up on unmount)
+    const interval = setInterval(updateSearch, 300)
+
+    return () => {
+      window.removeEventListener("popstate", updateSearch)
+      clearInterval(interval)
+    }
   }, [pathname])
 
   const [hrefPath, hrefQuery] = item.href.split("?")
