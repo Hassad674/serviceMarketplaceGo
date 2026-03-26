@@ -396,4 +396,129 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get messagingConversationNotFound => 'Conversation not found';
+
+  @override
+  String get projects => 'Projects';
+
+  @override
+  String get createProject => 'Create Project';
+
+  @override
+  String get noProjects => 'No projects yet';
+
+  @override
+  String get noProjectsDesc => 'Create your first project to get started.';
+
+  @override
+  String get paymentType => 'Payment type';
+
+  @override
+  String get invoiceBilling => 'Invoice billing';
+
+  @override
+  String get invoiceBillingDesc =>
+      'Classic invoicing with flexible billing cycles.';
+
+  @override
+  String get escrowPayments => 'Escrow payments';
+
+  @override
+  String get escrowPaymentsDesc =>
+      'Funds held securely until milestones are approved.';
+
+  @override
+  String get projectStructure => 'Structure';
+
+  @override
+  String get milestone => 'Milestone';
+
+  @override
+  String get oneTime => 'One-time';
+
+  @override
+  String get billingDetails => 'Billing details';
+
+  @override
+  String get fixed => 'Fixed';
+
+  @override
+  String get hourly => 'Hourly';
+
+  @override
+  String get rate => 'Rate';
+
+  @override
+  String get frequency => 'Frequency';
+
+  @override
+  String get weekly => 'Weekly';
+
+  @override
+  String get biWeekly => 'Bi-weekly';
+
+  @override
+  String get monthly => 'Monthly';
+
+  @override
+  String get projectDetails => 'Details';
+
+  @override
+  String get projectTitle => 'Project title';
+
+  @override
+  String get projectDescription => 'Description';
+
+  @override
+  String get requiredSkills => 'Required skills';
+
+  @override
+  String get addSkillHint => 'Type a skill and press add';
+
+  @override
+  String get timeline => 'Timeline';
+
+  @override
+  String get startDate => 'Start date';
+
+  @override
+  String get deadline => 'Deadline';
+
+  @override
+  String get ongoing => 'Ongoing';
+
+  @override
+  String get whoCanApply => 'Who can apply';
+
+  @override
+  String get freelancersAndAgencies => 'Freelancers & Agencies';
+
+  @override
+  String get freelancersOnly => 'Freelancers only';
+
+  @override
+  String get agenciesOnly => 'Agencies only';
+
+  @override
+  String get negotiable => 'Budget is negotiable';
+
+  @override
+  String get milestoneTitle => 'Title';
+
+  @override
+  String get milestoneDescription => 'Deliverables';
+
+  @override
+  String get milestoneAmount => 'Amount';
+
+  @override
+  String get totalAmount => 'Total amount';
+
+  @override
+  String get addMilestone => 'Add milestone';
+
+  @override
+  String get publishProject => 'Publish project';
+
+  @override
+  String get projectPublished => 'Project published successfully';
 }

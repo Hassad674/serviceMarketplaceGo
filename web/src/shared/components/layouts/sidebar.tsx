@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Search,
   MessageSquare,
+  FolderOpen,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
@@ -31,6 +32,7 @@ type NavItem = {
 const FREELANCE_NAV: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["agency", "provider", "enterprise"] },
   { labelKey: "messages", href: "/messages", icon: MessageSquare, roles: ["agency", "provider", "enterprise"] },
+  { labelKey: "projects", href: "/projects", icon: FolderOpen, roles: ["agency", "provider", "enterprise"] },
   { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
   { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },

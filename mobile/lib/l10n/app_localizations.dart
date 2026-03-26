@@ -859,6 +859,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conversation not found'**
   String get messagingConversationNotFound;
+
+  /// No description provided for @projects.
+  ///
+  /// In en, this message translates to:
+  /// **'Projects'**
+  String get projects;
+
+  /// No description provided for @createProject.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Project'**
+  String get createProject;
+
+  /// No description provided for @noProjects.
+  ///
+  /// In en, this message translates to:
+  /// **'No projects yet'**
+  String get noProjects;
+
+  /// No description provided for @noProjectsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your first project to get started.'**
+  String get noProjectsDesc;
+
+  /// No description provided for @paymentType.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment type'**
+  String get paymentType;
+
+  /// No description provided for @invoiceBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice billing'**
+  String get invoiceBilling;
+
+  /// No description provided for @invoiceBillingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Classic invoicing with flexible billing cycles.'**
+  String get invoiceBillingDesc;
+
+  /// No description provided for @escrowPayments.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow payments'**
+  String get escrowPayments;
+
+  /// No description provided for @escrowPaymentsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Funds held securely until milestones are approved.'**
+  String get escrowPaymentsDesc;
+
+  /// No description provided for @projectStructure.
+  ///
+  /// In en, this message translates to:
+  /// **'Structure'**
+  String get projectStructure;
+
+  /// No description provided for @milestone.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone'**
+  String get milestone;
+
+  /// No description provided for @oneTime.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time'**
+  String get oneTime;
+
+  /// No description provided for @billingDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing details'**
+  String get billingDetails;
+
+  /// No description provided for @fixed.
+  ///
+  /// In en, this message translates to:
+  /// **'Fixed'**
+  String get fixed;
+
+  /// No description provided for @hourly.
+  ///
+  /// In en, this message translates to:
+  /// **'Hourly'**
+  String get hourly;
+
+  /// No description provided for @rate.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate'**
+  String get rate;
+
+  /// No description provided for @frequency.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequency'**
+  String get frequency;
+
+  /// No description provided for @weekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get weekly;
+
+  /// No description provided for @biWeekly.
+  ///
+  /// In en, this message translates to:
+  /// **'Bi-weekly'**
+  String get biWeekly;
+
+  /// No description provided for @monthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get monthly;
+
+  /// No description provided for @projectDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get projectDetails;
+
+  /// No description provided for @projectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Project title'**
+  String get projectTitle;
+
+  /// No description provided for @projectDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get projectDescription;
+
+  /// No description provided for @requiredSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Required skills'**
+  String get requiredSkills;
+
+  /// No description provided for @addSkillHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a skill and press add'**
+  String get addSkillHint;
+
+  /// No description provided for @timeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get timeline;
+
+  /// No description provided for @startDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start date'**
+  String get startDate;
+
+  /// No description provided for @deadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Deadline'**
+  String get deadline;
+
+  /// No description provided for @ongoing.
+  ///
+  /// In en, this message translates to:
+  /// **'Ongoing'**
+  String get ongoing;
+
+  /// No description provided for @whoCanApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Who can apply'**
+  String get whoCanApply;
+
+  /// No description provided for @freelancersAndAgencies.
+  ///
+  /// In en, this message translates to:
+  /// **'Freelancers & Agencies'**
+  String get freelancersAndAgencies;
+
+  /// No description provided for @freelancersOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Freelancers only'**
+  String get freelancersOnly;
+
+  /// No description provided for @agenciesOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Agencies only'**
+  String get agenciesOnly;
+
+  /// No description provided for @negotiable.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget is negotiable'**
+  String get negotiable;
+
+  /// No description provided for @milestoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get milestoneTitle;
+
+  /// No description provided for @milestoneDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Deliverables'**
+  String get milestoneDescription;
+
+  /// No description provided for @milestoneAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get milestoneAmount;
+
+  /// No description provided for @totalAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total amount'**
+  String get totalAmount;
+
+  /// No description provided for @addMilestone.
+  ///
+  /// In en, this message translates to:
+  /// **'Add milestone'**
+  String get addMilestone;
+
+  /// No description provided for @publishProject.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish project'**
+  String get publishProject;
+
+  /// No description provided for @projectPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Project published successfully'**
+  String get projectPublished;
 }
 
 class _AppLocalizationsDelegate

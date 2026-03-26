@@ -12,6 +12,8 @@ import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/project/presentation/screens/create_project_screen.dart';
+import '../../features/project/presentation/screens/projects_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -34,6 +36,8 @@ class RoutePaths {
   static const String dashboardReferrer = '/dashboard/referrer';
   static const String messaging = '/messaging';
   static const String missions = '/missions';
+  static const String projects = '/projects';
+  static const String projectsNew = '/projects/new';
   static const String profile = '/profile';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
@@ -164,8 +168,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RoutePaths.missions,
-            builder: (context, state) =>
-                const _PlaceholderScreen(title: 'My Missions'),
+            builder: (context, state) => const ProjectsScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.projectsNew,
+            builder: (context, state) => const CreateProjectScreen(),
           ),
           GoRoute(
             path: RoutePaths.profile,
