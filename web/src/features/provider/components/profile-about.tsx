@@ -8,10 +8,11 @@ const MAX_CHARS = 1000
 
 interface ProfileAboutProps {
   content: string
-  onSave: (text: string) => Promise<void>
+  onSave?: (text: string) => Promise<void>
   saving?: boolean
   label?: string
   placeholder?: string
+  readOnly?: boolean
 }
 
 export function ProfileAbout({
@@ -20,6 +21,7 @@ export function ProfileAbout({
   saving = false,
   label,
   placeholder,
+  readOnly = false,
 }: ProfileAboutProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(content)
@@ -29,6 +31,9 @@ export function ProfileAbout({
 
   const displayLabel = label ?? t("about")
   const displayPlaceholder = placeholder ?? t("aboutPlaceholder")
+
+  // Hide entire section when readOnly and no content
+  if (readOnly && !content) return null
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current
@@ -52,6 +57,7 @@ export function ProfileAbout({
   }
 
   async function handleSave() {
+    if (!onSave) return
     await onSave(draft.trim())
     setEditing(false)
   }
@@ -60,7 +66,7 @@ export function ProfileAbout({
     <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">{displayLabel}</h2>
-        {!editing && (
+        {!editing && !readOnly && (
           <button
             type="button"
             onClick={startEditing}

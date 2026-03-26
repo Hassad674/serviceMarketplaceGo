@@ -77,7 +77,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const router = useRouter()
   const { data: user } = useUser()
   const logout = useLogout()
-  const { isReferrerMode, setReferrerMode } = useWorkspace()
+  const { isReferrerMode, setReferrerMode, switchToReferrer, switchToFreelance } = useWorkspace()
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
 
@@ -175,9 +175,13 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               isReferrerMode={isReferrerMode}
               collapsed={collapsed}
               onToggle={() => {
-                const nextMode = !isReferrerMode
-                setReferrerMode(nextMode)
-                if (!nextMode) router.push("/dashboard")
+                if (!isReferrerMode) {
+                  const targetPath = switchToReferrer()
+                  router.push(targetPath)
+                } else {
+                  const targetPath = switchToFreelance()
+                  router.push(targetPath)
+                }
               }}
             />
           </div>

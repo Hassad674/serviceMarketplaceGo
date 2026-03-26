@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -71,12 +70,11 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
         {/* Avatar */}
         <div className="shrink-0">
           {profile.photo_url ? (
-            <Image
+            <img
               src={profile.photo_url}
               alt={getDisplayName(profile, type)}
               width={48}
               height={48}
-              unoptimized
               className="h-12 w-12 rounded-full object-cover"
             />
           ) : (

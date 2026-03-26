@@ -3,8 +3,15 @@
 import { FileText } from "lucide-react"
 import { useTranslations } from "next-intl"
 
-export function ProfileHistory() {
+interface ProfileHistoryProps {
+  readOnly?: boolean
+}
+
+export function ProfileHistory({ readOnly = false }: ProfileHistoryProps) {
   const t = useTranslations("profile")
+
+  // Hide empty history section on public profiles
+  if (readOnly) return null
 
   return (
     <section className="bg-card border border-border rounded-xl p-6 shadow-sm">

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 
 const COOKIE_NAME = "workspace"
 const REFERRER_VALUE = "referrer"
+const DEFAULT_PATH = "/dashboard"
 
 /**
  * Read the workspace cookie synchronously.
@@ -30,11 +31,29 @@ function setWorkspaceCookie(isReferrer: boolean): void {
 }
 
 /**
+ * Save the last visited path for a given workspace (freelance or referrer).
+ */
+function saveLastPath(workspace: string, path: string): void {
+  document.cookie = `workspace_path_${workspace}=${encodeURIComponent(path)}; path=/; SameSite=Lax`
+}
+
+/**
+ * Read the last visited path for a given workspace.
+ * Returns "/dashboard" when no path has been saved yet.
+ */
+function getLastPath(workspace: string): string {
+  if (typeof document === "undefined") return DEFAULT_PATH
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`workspace_path_${workspace}=`))
+  return match ? decodeURIComponent(match.split("=")[1]) : DEFAULT_PATH
+}
+
+/**
  * Hook to manage the referrer workspace mode via a cookie.
  *
- * Returns the current mode and a toggle function.
- * The cookie persists across navigations and page reloads without
- * polluting URLs with query parameters.
+ * Returns the current mode, a toggle function, and switch helpers
+ * that save/restore the last visited path per workspace.
  */
 export function useWorkspace() {
   // Initialize as false to match server render (no document on server)
@@ -54,5 +73,27 @@ export function useWorkspace() {
     setReferrerMode(!isReferrerMode)
   }, [isReferrerMode, setReferrerMode])
 
-  return { isReferrerMode, setReferrerMode, toggleMode } as const
+  const switchToReferrer = useCallback(() => {
+    const currentPath = window.location.pathname
+    saveLastPath("freelance", currentPath)
+    setWorkspaceCookie(true)
+    setIsReferrerMode(true)
+    return getLastPath("referrer")
+  }, [])
+
+  const switchToFreelance = useCallback(() => {
+    const currentPath = window.location.pathname
+    saveLastPath("referrer", currentPath)
+    setWorkspaceCookie(false)
+    setIsReferrerMode(false)
+    return getLastPath("freelance")
+  }, [])
+
+  return {
+    isReferrerMode,
+    setReferrerMode,
+    toggleMode,
+    switchToReferrer,
+    switchToFreelance,
+  } as const
 }

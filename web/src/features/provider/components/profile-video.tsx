@@ -10,10 +10,11 @@ interface ProfileVideoProps {
   title?: string
   emptyLabel?: string
   emptyDescription?: string
-  onUploadVideo: (file: File) => Promise<void>
+  onUploadVideo?: (file: File) => Promise<void>
   uploadingVideo?: boolean
   onDeleteVideo?: () => void
   deletingVideo?: boolean
+  readOnly?: boolean
 }
 
 const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
@@ -27,6 +28,7 @@ export function ProfileVideo({
   uploadingVideo = false,
   onDeleteVideo,
   deletingVideo = false,
+  readOnly = false,
 }: ProfileVideoProps) {
   const [videoModalOpen, setVideoModalOpen] = useState(false)
   const t = useTranslations("profile")
@@ -36,7 +38,11 @@ export function ProfileVideo({
   const displayEmptyLabel = emptyLabel ?? t("noVideo")
   const displayEmptyDescription = emptyDescription ?? t("addVideoDesc")
 
+  // Hide entire section when readOnly and no video
+  if (readOnly && !videoUrl) return null
+
   async function handleVideoUpload(file: File) {
+    if (!onUploadVideo) return
     await onUploadVideo(file)
     setVideoModalOpen(false)
   }
@@ -46,7 +52,7 @@ export function ProfileVideo({
       <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">{displayTitle}</h2>
-          {videoUrl && (
+          {videoUrl && !readOnly && (
             <div className="flex items-center gap-3">
               {onDeleteVideo && (
                 <button
@@ -104,16 +110,18 @@ export function ProfileVideo({
         )}
       </section>
 
-      <UploadModal
-        open={videoModalOpen}
-        onClose={() => setVideoModalOpen(false)}
-        onUpload={handleVideoUpload}
-        accept="video/*"
-        maxSize={VIDEO_MAX_SIZE}
-        title={tUpload("addVideo")}
-        description={tUpload("videoFormats")}
-        uploading={uploadingVideo}
-      />
+      {!readOnly && (
+        <UploadModal
+          open={videoModalOpen}
+          onClose={() => setVideoModalOpen(false)}
+          onUpload={handleVideoUpload}
+          accept="video/*"
+          maxSize={VIDEO_MAX_SIZE}
+          title={tUpload("addVideo")}
+          description={tUpload("videoFormats")}
+          uploading={uploadingVideo}
+        />
+      )}
     </>
   )
 }

@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
-import Image from "next/image"
+import { useState, useRef, useEffect } from "react"
 import { Camera, Star, Edit2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -14,9 +13,10 @@ interface ProfileHeaderProps {
   profile: Profile | undefined
   displayName: string
   roleContext: RoleContext
-  onUpdateTitle: (title: string) => void
-  onUploadPhoto: (file: File) => Promise<void>
+  onUpdateTitle?: (title: string) => void
+  onUploadPhoto?: (file: File) => Promise<void>
   uploadingPhoto?: boolean
+  readOnly?: boolean
 }
 
 const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -28,15 +28,19 @@ export function ProfileHeader({
   onUpdateTitle,
   onUploadPhoto,
   uploadingPhoto = false,
+  readOnly = false,
 }: ProfileHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(profile?.title ?? "")
   const [photoModalOpen, setPhotoModalOpen] = useState(false)
+  const [photoError, setPhotoError] = useState(false)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const t = useTranslations("profile")
   const tUpload = useTranslations("upload")
-
   const tSidebar = useTranslations("sidebar")
+
+  // Reset error state when photo URL changes (e.g. after upload)
+  useEffect(() => { setPhotoError(false) }, [profile?.photo_url])
 
   const imageLabel = roleContext === "agency" ? t("logo") : t("photo")
   const badgeText = roleContext === "referrer" ? tSidebar("businessReferrer") : null
@@ -51,7 +55,7 @@ export function ProfileHeader({
   function handleTitleSubmit() {
     setIsEditingTitle(false)
     const trimmed = titleDraft.trim()
-    if (trimmed && trimmed !== profile?.title) {
+    if (trimmed && trimmed !== profile?.title && onUpdateTitle) {
       onUpdateTitle(trimmed)
     }
   }
@@ -62,6 +66,7 @@ export function ProfileHeader({
   }
 
   async function handlePhotoUpload(file: File) {
+    if (!onUploadPhoto) return
     await onUploadPhoto(file)
     setPhotoModalOpen(false)
   }
@@ -72,33 +77,58 @@ export function ProfileHeader({
         <div className="flex flex-col sm:flex-row items-start gap-5">
           {/* Photo / Logo — 96px */}
           <div className="relative shrink-0">
-            <button
-              type="button"
-              onClick={() => setPhotoModalOpen(true)}
-              className={cn(
-                "w-24 h-24 bg-muted flex items-center justify-center overflow-hidden",
-                "border-2 border-dashed border-border hover:border-primary transition-colors",
-                "focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
-                isRounded ? "rounded-lg" : "rounded-full",
-              )}
-              aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
-            >
-              {profile?.photo_url ? (
-                <Image
-                  src={profile.photo_url}
-                  alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
-                  width={96}
-                  height={96}
-                  unoptimized
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
-              )}
-            </button>
-            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-card px-2">
-              {imageLabel}
-            </span>
+            {readOnly ? (
+              <div
+                className={cn(
+                  "w-24 h-24 bg-muted flex items-center justify-center overflow-hidden",
+                  "border border-border",
+                  isRounded ? "rounded-lg" : "rounded-full",
+                )}
+              >
+                {profile?.photo_url && !photoError ? (
+                  <img
+                    src={profile.photo_url}
+                    alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
+                    width={96}
+                    height={96}
+                    onError={() => setPhotoError(true)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPhotoModalOpen(true)}
+                className={cn(
+                  "w-24 h-24 bg-muted flex items-center justify-center overflow-hidden",
+                  "border-2 border-dashed border-border hover:border-primary transition-colors",
+                  "focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
+                  isRounded ? "rounded-lg" : "rounded-full",
+                )}
+                aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
+              >
+                {profile?.photo_url && !photoError ? (
+                  <img
+                    src={profile.photo_url}
+                    alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
+                    width={96}
+                    height={96}
+                    onError={() => setPhotoError(true)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
+                )}
+              </button>
+            )}
+            {!readOnly && (
+              <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-card px-2">
+                {imageLabel}
+              </span>
+            )}
           </div>
 
           {/* Name, title, stats */}
@@ -114,8 +144,12 @@ export function ProfileHeader({
               )}
             </div>
 
-            {/* Editable title */}
-            {isEditingTitle ? (
+            {/* Title */}
+            {readOnly ? (
+              profile?.title && profile.title !== displayName ? (
+                <p className="text-base text-muted-foreground">{profile.title}</p>
+              ) : null
+            ) : isEditingTitle ? (
               <input
                 ref={titleInputRef}
                 type="text"
@@ -152,16 +186,18 @@ export function ProfileHeader({
         </div>
       </section>
 
-      <UploadModal
-        open={photoModalOpen}
-        onClose={() => setPhotoModalOpen(false)}
-        onUpload={handlePhotoUpload}
-        accept="image/*"
-        maxSize={PHOTO_MAX_SIZE}
-        title={tUpload("addPhoto")}
-        description={tUpload("imageFormats", { imageType: imageLabel.toLowerCase() })}
-        uploading={uploadingPhoto}
-      />
+      {!readOnly && (
+        <UploadModal
+          open={photoModalOpen}
+          onClose={() => setPhotoModalOpen(false)}
+          onUpload={handlePhotoUpload}
+          accept="image/*"
+          maxSize={PHOTO_MAX_SIZE}
+          title={tUpload("addPhoto")}
+          description={tUpload("imageFormats", { imageType: imageLabel.toLowerCase() })}
+          uploading={uploadingPhoto}
+        />
+      )}
     </>
   )
 }

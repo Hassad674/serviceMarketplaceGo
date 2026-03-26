@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useRouter } from "@i18n/navigation"
 import { useUser } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { cn } from "@/shared/lib/utils"
@@ -158,8 +159,9 @@ function getDisplayName(
 }
 
 function DashboardContent() {
+  const router = useRouter()
   const { data: user } = useUser()
-  const { isReferrerMode, setReferrerMode } = useWorkspace()
+  const { isReferrerMode, switchToReferrer, switchToFreelance } = useWorkspace()
   const t = useTranslations("dashboard")
 
   const role = user?.role ?? "enterprise"
@@ -195,7 +197,10 @@ function DashboardContent() {
         <div className="flex justify-end">
           {effectiveReferrerMode ? (
             <button
-              onClick={() => setReferrerMode(false)}
+              onClick={() => {
+                const targetPath = switchToFreelance()
+                router.push(targetPath)
+              }}
               className={cn(
                 "flex items-center gap-2 rounded-lg px-4 py-2",
                 "text-sm font-medium transition-all duration-200",
@@ -208,7 +213,10 @@ function DashboardContent() {
             </button>
           ) : (
             <button
-              onClick={() => setReferrerMode(true)}
+              onClick={() => {
+                const targetPath = switchToReferrer()
+                router.push(targetPath)
+              }}
               className={cn(
                 "flex items-center gap-2 rounded-lg px-4 py-2",
                 "text-sm font-medium text-white transition-all duration-200",

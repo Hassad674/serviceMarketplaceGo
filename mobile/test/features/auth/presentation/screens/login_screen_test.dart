@@ -1,30 +1,88 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:marketplace_mobile/core/network/api_client.dart';
+import 'package:marketplace_mobile/core/storage/secure_storage.dart';
 import 'package:marketplace_mobile/core/theme/app_theme.dart';
 import 'package:marketplace_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:marketplace_mobile/features/auth/presentation/screens/login_screen.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
 
 // =============================================================================
-// Mock AuthNotifier — overrides the real provider for widget tests
+// Fake SecureStorageService — in-memory, no platform plugins
 // =============================================================================
 
-class MockAuthNotifier extends StateNotifier<AuthState> {
-  MockAuthNotifier([AuthState? initial])
-      : super(initial ?? const AuthState(status: AuthStatus.unauthenticated));
+class FakeSecureStorage extends SecureStorageService {
+  @override
+  Future<void> saveTokens(String accessToken, String refreshToken) async {}
 
-  Future<bool> login({
-    required String email,
-    required String password,
+  @override
+  Future<String?> getAccessToken() async => null;
+
+  @override
+  Future<String?> getRefreshToken() async => null;
+
+  @override
+  Future<void> clearTokens() async {}
+
+  @override
+  Future<bool> hasTokens() async => false;
+
+  @override
+  Future<void> saveUser(Map<String, dynamic> userJson) async {}
+
+  @override
+  Future<Map<String, dynamic>?> getUser() async => null;
+
+  @override
+  Future<void> clearAll() async {}
+}
+
+// =============================================================================
+// Fake ApiClient — all calls return connection errors by default
+// =============================================================================
+
+class FakeApiClient extends ApiClient {
+  FakeApiClient() : super(storage: FakeSecureStorage());
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    Map<String, dynamic>? queryParameters,
   }) async {
-    return true;
+    throw DioException(
+      requestOptions: RequestOptions(path: path),
+      type: DioExceptionType.connectionError,
+    );
   }
 
-  void clearError() {
-    state = state.copyWith(errorMessage: null);
+  @override
+  Future<Response<T>> post<T>(String path, {dynamic data}) async {
+    throw DioException(
+      requestOptions: RequestOptions(path: path),
+      type: DioExceptionType.connectionError,
+    );
   }
+}
+
+// =============================================================================
+// Test AuthNotifier — extends the real AuthNotifier but with controlled state
+// =============================================================================
+
+/// Creates a real AuthNotifier with fake deps, then overrides its state.
+AuthNotifier _createTestNotifier(AuthState desiredState) {
+  final storage = FakeSecureStorage();
+  final api = FakeApiClient();
+  final notifier = AuthNotifier(apiClient: api, storage: storage);
+  // The constructor kicks off _tryRestoreSession which is async.
+  // We force the desired state immediately — since no tokens exist
+  // in the fake storage, the async call will also settle to unauthenticated,
+  // but our forced state takes precedence for the initial render.
+  // ignore: invalid_use_of_protected_member
+  notifier.state = desiredState;
+  return notifier;
 }
 
 // =============================================================================
@@ -32,13 +90,12 @@ class MockAuthNotifier extends StateNotifier<AuthState> {
 // =============================================================================
 
 Widget _buildTestableLoginScreen({AuthState? authState}) {
-  final notifier = MockAuthNotifier(
-    authState ?? const AuthState(status: AuthStatus.unauthenticated),
-  );
+  final desiredState = authState ??
+      const AuthState(status: AuthStatus.unauthenticated);
 
   return ProviderScope(
     overrides: [
-      authProvider.overrideWith((_) => notifier),
+      authProvider.overrideWith((_) => _createTestNotifier(desiredState)),
     ],
     child: MaterialApp(
       theme: AppTheme.light,
@@ -226,8 +283,8 @@ void main() {
           find.widgetWithText(TextFormField, 'Your password');
       await tester.enterText(passwordField, 'secret123');
 
-      // Password is obscured, so we check the controller has the value
-      // by looking for the TextFormField that contains the text
+      // Password is obscured, but the form field still has the value.
+      // We verify the TextFormField exists and accepted input.
       final formFields =
           tester.widgetList<TextFormField>(find.byType(TextFormField));
       expect(formFields.length, greaterThanOrEqualTo(2));
