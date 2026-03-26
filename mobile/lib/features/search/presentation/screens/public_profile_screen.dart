@@ -2,10 +2,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/widgets/video_player_widget.dart';
 import '../providers/search_provider.dart';
 
 /// Read-only public profile screen for any user.
@@ -361,7 +361,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Video card -- shows play icon and launches video in external player
+// Video card -- in-app video player
 // ---------------------------------------------------------------------------
 
 class _VideoCard extends StatelessWidget {
@@ -397,52 +397,10 @@ class _VideoCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          GestureDetector(
-            onTap: () => _openVideo(context),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: primary.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                border: Border.all(color: primary.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.play_circle_outline,
-                    color: primary,
-                    size: 48,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    l10n.tapToPlay,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          VideoPlayerWidget(videoUrl: videoUrl),
         ],
       ),
     );
-  }
-
-  void _openVideo(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    launchUrl(
-      Uri.parse(videoUrl),
-      mode: LaunchMode.externalApplication,
-    ).catchError((_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.couldNotOpenVideo)),
-        );
-      }
-      return false;
-    });
   }
 }
 

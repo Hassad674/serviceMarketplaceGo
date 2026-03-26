@@ -26,6 +26,8 @@ dependencies:
   shimmer: ^3.0.0
   flutter_svg: ^2.0.9
   url_launcher: ^6.2.3
+  video_player: ^2.8.6
+  chewie: ^1.8.1
   share_plus: ^7.2.1
   connectivity_plus: ^6.0.1
   lottie: ^3.0.0

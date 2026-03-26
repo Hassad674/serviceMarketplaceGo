@@ -4,8 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/upload_service.dart';
 import '../../../../core/router/app_router.dart';
@@ -13,6 +11,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
+import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
 
@@ -88,12 +87,6 @@ class ProfileScreen extends ConsumerWidget {
                 videoUrl: profileAsync.whenOrNull(
                   data: (p) => p['presentation_video_url'] as String?,
                 ),
-                onPlayTap: () => _playVideo(
-                  context,
-                  profileAsync.whenOrNull(
-                    data: (p) => p['presentation_video_url'] as String?,
-                  ),
-                ),
                 onUploadTap: () => _openVideoUpload(context, ref),
                 onDeleteTap: () => _confirmDeleteVideo(context, ref),
               ),
@@ -140,26 +133,6 @@ class ProfileScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  // --------------------------------------------------------------------------
-  // Video playback
-  // --------------------------------------------------------------------------
-
-  void _playVideo(BuildContext context, String? videoUrl) {
-    if (videoUrl == null || videoUrl.isEmpty) return;
-    final l10n = AppLocalizations.of(context)!;
-    launchUrl(
-      Uri.parse(videoUrl),
-      mode: LaunchMode.externalApplication,
-    ).catchError((_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.couldNotOpenVideo)),
-        );
-      }
-      return false;
-    });
   }
 
   // --------------------------------------------------------------------------
@@ -559,13 +532,11 @@ class _RoleBadge extends StatelessWidget {
 class _VideoSectionCard extends StatelessWidget {
   const _VideoSectionCard({
     required this.onUploadTap,
-    required this.onPlayTap,
     this.videoUrl,
     this.onDeleteTap,
   });
 
   final String? videoUrl;
-  final VoidCallback onPlayTap;
   final VoidCallback onUploadTap;
   final VoidCallback? onDeleteTap;
 
@@ -597,45 +568,11 @@ class _VideoSectionCard extends StatelessWidget {
           const SizedBox(height: 16),
 
           if (videoUrl != null && videoUrl!.isNotEmpty)
-            // Video exists: play button, replace button, delete button
+            // Video exists: in-app player, replace button, delete button
             Column(
               children: [
-                // Play video card
-                GestureDetector(
-                  onTap: onPlayTap,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      border: Border.all(
-                        color: primary.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.play_circle_outline,
-                          color: primary,
-                          size: 48,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          l10n.presentationVideo,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          l10n.tapToPlay,
-                          style: theme.textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                // In-app video player
+                VideoPlayerWidget(videoUrl: videoUrl!),
                 const SizedBox(height: 12),
 
                 // Replace video button
