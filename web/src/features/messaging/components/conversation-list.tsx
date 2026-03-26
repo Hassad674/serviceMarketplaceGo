@@ -1,5 +1,7 @@
 "use client"
 
+import { memo, useMemo } from "react"
+import Image from "next/image"
 import { Search } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -63,7 +65,7 @@ interface ConversationListProps {
   onSearchChange: (query: string) => void
 }
 
-export function ConversationList({
+export const ConversationList = memo(function ConversationList({
   conversations,
   activeId,
   roleFilter,
@@ -75,13 +77,13 @@ export function ConversationList({
 }: ConversationListProps) {
   const t = useTranslations("messaging")
 
-  const filtered = conversations.filter((c) => {
+  const filtered = useMemo(() => conversations.filter((c) => {
     const matchesRole = roleFilter === "all" || c.other_user_role === roleFilter
     const matchesSearch =
       !searchQuery ||
       c.other_user_name.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesRole && matchesSearch
-  })
+  }), [conversations, roleFilter, searchQuery])
 
   return (
     <div className="flex h-full flex-col">
@@ -122,6 +124,7 @@ export function ConversationList({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
             className={cn(
               "h-9 w-full rounded-lg bg-gray-100/80 pl-9 pr-4 text-sm text-gray-900",
               "placeholder:text-gray-400 transition-all duration-200",
@@ -134,7 +137,7 @@ export function ConversationList({
       </div>
 
       {/* Conversation items */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" role="listbox" aria-label={t("title")}>
         {filtered.length === 0 ? (
           <div className="px-5 py-8 text-center">
             <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -155,7 +158,7 @@ export function ConversationList({
       </div>
     </div>
   )
-}
+})
 
 interface ConversationItemProps {
   conversation: Conversation
@@ -184,6 +187,8 @@ function ConversationItem({
   return (
     <button
       onClick={() => onSelect(conversation.id)}
+      role="option"
+      aria-selected={isActive}
       className={cn(
         "flex w-full items-center gap-3 border-l-[3px] px-5 py-3 text-left transition-all duration-200",
         isActive
@@ -194,11 +199,13 @@ function ConversationItem({
       {/* Avatar */}
       <div className="relative shrink-0">
         {conversation.other_photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={conversation.other_photo_url}
             alt={conversation.other_user_name}
+            width={40}
+            height={40}
             className="h-10 w-10 rounded-full object-cover"
+            unoptimized
           />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
@@ -206,7 +213,12 @@ function ConversationItem({
           </div>
         )}
         {conversation.online && (
-          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900" />
+          <span
+            className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900"
+            aria-label={t("online")}
+          >
+            <span className="sr-only">{t("online")}</span>
+          </span>
         )}
       </div>
 

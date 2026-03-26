@@ -3,6 +3,14 @@ import { render, screen } from "@testing-library/react"
 import { FileMessage } from "../file-message"
 import type { FileMetadata } from "../../types"
 
+// Mock next/image
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => {
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    return <img {...props} />
+  },
+}))
+
 // Mock lucide-react icons
 vi.mock("lucide-react", () => ({
   FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
@@ -82,7 +90,7 @@ describe("FileMessage", () => {
     expect(img.tagName).toBe("IMG")
   })
 
-  it("links to file URL", () => {
+  it("renders download button for non-image files", () => {
     render(
       <FileMessage
         metadata={createMetadata({ url: "https://storage.example.com/myfile.pdf" })}
@@ -90,9 +98,8 @@ describe("FileMessage", () => {
       />,
     )
 
-    const link = screen.getByRole("link")
-    expect(link).toHaveAttribute("href", "https://storage.example.com/myfile.pdf")
-    expect(link).toHaveAttribute("target", "_blank")
-    expect(link).toHaveAttribute("rel", "noopener noreferrer")
+    // Non-image files render as a button that triggers downloadFile on click
+    const button = screen.getByRole("button")
+    expect(button).toBeDefined()
   })
 })

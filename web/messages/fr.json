@@ -298,7 +298,12 @@
     "save": "Enregistrer",
     "cancel": "Annuler",
     "close": "Fermer",
-    "back": "Retour"
+    "back": "Retour",
+    "statusSending": "Envoi en cours",
+    "statusSent": "Envoy\u00e9",
+    "statusDelivered": "Distribu\u00e9",
+    "statusRead": "Lu",
+    "uploadFailed": "L'envoi du fichier a \u00e9chou\u00e9. Veuillez r\u00e9essayer."
   },
   "projects": {
     "title": "Projets",

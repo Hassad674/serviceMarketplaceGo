@@ -1,6 +1,7 @@
 "use client"
 
 import { Clock, Check, CheckCheck } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { MessageStatus } from "../types"
 
@@ -9,13 +10,15 @@ interface MessageStatusIconProps {
 }
 
 export function MessageStatusIcon({ status }: MessageStatusIconProps) {
+  const t = useTranslations("messaging")
+
   switch (status) {
     case "sending":
       return (
         <Clock
           className="h-3 w-3 text-rose-200"
           strokeWidth={1.5}
-          aria-label="Sending"
+          aria-label={t("statusSending")}
         />
       )
     case "sent":
@@ -23,7 +26,7 @@ export function MessageStatusIcon({ status }: MessageStatusIconProps) {
         <Check
           className="h-3 w-3 text-rose-200"
           strokeWidth={1.5}
-          aria-label="Sent"
+          aria-label={t("statusSent")}
         />
       )
     case "delivered":
@@ -31,7 +34,7 @@ export function MessageStatusIcon({ status }: MessageStatusIconProps) {
         <CheckCheck
           className="h-3 w-3 text-rose-200"
           strokeWidth={1.5}
-          aria-label="Delivered"
+          aria-label={t("statusDelivered")}
         />
       )
     case "read":
@@ -39,7 +42,7 @@ export function MessageStatusIcon({ status }: MessageStatusIconProps) {
         <CheckCheck
           className={cn("h-3 w-3 text-blue-300")}
           strokeWidth={1.5}
-          aria-label="Read"
+          aria-label={t("statusRead")}
         />
       )
     default:

@@ -49,10 +49,8 @@ describe("MessageInput", () => {
   it("renders file attachment button", () => {
     render(<MessageInput {...defaultProps()} />)
 
-    // Both the hidden file input and the button have aria-label="fileUpload"
-    const elements = screen.getAllByLabelText("fileUpload")
-    expect(elements.length).toBe(2) // hidden input + button
-    const button = elements.find((el) => el.tagName === "BUTTON")
+    // The button has aria-label="fileUpload"
+    const button = screen.getByRole("button", { name: "fileUpload" })
     expect(button).toBeDefined()
   })
 

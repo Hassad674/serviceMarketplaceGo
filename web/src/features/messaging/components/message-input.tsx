@@ -21,6 +21,7 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
   const [value, setValue] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const onTypingRef = useRef(onTyping)
   const hasContent = value.trim().length > 0
 
@@ -65,6 +66,7 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       setIsUploading(true)
+      setUploadError(null)
       try {
         for (const file of files) {
           // Get presigned URL
@@ -89,19 +91,24 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
           })
         }
       } catch {
-        // Upload failed — silent for now
+        setUploadError(t("uploadFailed"))
       } finally {
         setIsUploading(false)
         setModalOpen(false)
       }
     },
-    [onSendFile],
+    [onSendFile, t],
   )
 
   const isDisabled = isSending || isUploading
 
   return (
     <>
+      {uploadError && (
+        <div className="border-t border-gray-100 bg-red-50 px-4 py-2 dark:border-gray-800 dark:bg-red-900/20" role="alert">
+          <p className="text-xs text-red-600 dark:text-red-400">{uploadError}</p>
+        </div>
+      )}
       <form
         onSubmit={handleSubmit}
         className="flex items-center gap-2 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
@@ -133,6 +140,7 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           placeholder={t("writeMessage")}
+          aria-label={t("writeMessage")}
           disabled={isDisabled}
           className={cn(
             "h-10 flex-1 rounded-full bg-gray-100/80 px-4 text-sm text-gray-900",

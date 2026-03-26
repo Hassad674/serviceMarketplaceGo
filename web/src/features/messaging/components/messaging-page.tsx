@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { MessageSquare } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
@@ -67,36 +67,25 @@ export function MessagingPage() {
   }, [])
 
   // Track the latest message seq in the active conversation for read receipts
-  const latestSeq = allMessages.length > 0
-    ? allMessages[allMessages.length - 1]?.seq ?? 0
-    : 0
+  const latestSeq = useMemo(() => {
+    if (allMessages.length === 0) return 0
+    return allMessages[allMessages.length - 1]?.seq ?? 0
+  }, [allMessages])
 
   // Mark as read when opening a conversation or when new messages arrive
-  // while the conversation is already active
+  // while the conversation is already active.
+  // Uses prevMarkedSeqRef to avoid re-calling markAsRead on every render
+  // (BUG-04 fix: removed allMessages from deps, gate on seq change).
+  const prevMarkedSeqRef = useRef(0)
   useEffect(() => {
     if (!activeId || !user?.id) return
-
-    // Determine the highest seq to mark as read
-    const seqToMark = Math.max(
-      activeConversation?.last_message_seq ?? 0,
-      latestSeq,
-    )
-    if (seqToMark <= 0) return
-
-    // Check if the latest message is from the other user (incoming)
-    const lastMessage = allMessages.length > 0
-      ? allMessages[allMessages.length - 1]
-      : null
-    const hasUnread = activeConversation && activeConversation.unread_count > 0
-    const hasNewIncoming = lastMessage && lastMessage.sender_id !== user.id
-      && lastMessage.sender_id !== "optimistic"
-
-    if (hasUnread || hasNewIncoming) {
-      markAsRead(activeId, seqToMark).catch(() => {
-        // Silent fail — unread count will refresh via WS
-      })
-    }
-  }, [activeId, activeConversation, latestSeq, user?.id, allMessages])
+    const seqToMark = Math.max(activeConversation?.last_message_seq ?? 0, latestSeq)
+    if (seqToMark <= 0 || seqToMark <= prevMarkedSeqRef.current) return
+    prevMarkedSeqRef.current = seqToMark
+    markAsRead(activeId, seqToMark).catch(() => {
+      // Silent fail — unread count will refresh via WS
+    })
+  }, [activeId, latestSeq, user?.id, activeConversation?.last_message_seq])
 
   const handleSelect = useCallback((id: string) => {
     setActiveId(id)

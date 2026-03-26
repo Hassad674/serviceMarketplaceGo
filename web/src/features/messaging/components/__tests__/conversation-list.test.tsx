@@ -8,6 +8,14 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+// Mock next/image
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => {
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    return <img {...props} />
+  },
+}))
+
 // Mock lucide-react icons
 vi.mock("lucide-react", () => ({
   Search: (props: Record<string, unknown>) => <span data-testid="search-icon" {...props} />,

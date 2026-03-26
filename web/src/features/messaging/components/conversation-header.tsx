@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { ArrowLeft, Wifi, WifiOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -44,11 +45,13 @@ export function ConversationHeader({
       {/* Avatar */}
       <div className="relative shrink-0">
         {conversation.other_photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={conversation.other_photo_url}
             alt={conversation.other_user_name}
+            width={40}
+            height={40}
             className="h-10 w-10 rounded-full object-cover"
+            unoptimized
           />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
@@ -56,7 +59,12 @@ export function ConversationHeader({
           </div>
         )}
         {conversation.online && (
-          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900" />
+          <span
+            className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900"
+            aria-label={t("online")}
+          >
+            <span className="sr-only">{t("online")}</span>
+          </span>
         )}
       </div>
 

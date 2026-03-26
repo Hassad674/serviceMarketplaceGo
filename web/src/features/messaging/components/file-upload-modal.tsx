@@ -129,12 +129,40 @@ export function FileUploadModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  // Close on Escape
+  // Close on Escape + focus trap (Tab cycles within the modal)
   useEffect(() => {
     if (!open) return
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !uploading) onClose()
+      if (event.key === "Escape" && !uploading) {
+        onClose()
+        return
+      }
+
+      // Focus trap: cycle Tab within the modal
+      if (event.key === "Tab" && modalRef.current) {
+        const focusable = modalRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        )
+        if (focusable.length === 0) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (event.shiftKey) {
+          if (document.activeElement === first) {
+            event.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            event.preventDefault()
+            first.focus()
+          }
+        }
+      }
     }
+
     document.addEventListener("keydown", handleKeyDown)
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [open, uploading, onClose])

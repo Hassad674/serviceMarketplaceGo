@@ -13,6 +13,14 @@ vi.mock("next-intl", () => ({
   },
 }))
 
+// Mock next/image
+vi.mock("next/image", () => ({
+  default: (props: Record<string, unknown>) => {
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    return <img {...props} />
+  },
+}))
+
 // Mock lucide-react icons
 vi.mock("lucide-react", () => ({
   ArrowLeft: (props: Record<string, unknown>) => <span data-testid="arrow-left-icon" {...props} />,
@@ -63,7 +71,9 @@ describe("ConversationHeader", () => {
       />,
     )
 
-    expect(screen.getByText("online")).toBeDefined()
+    // Both the status text and the sr-only text render "online"
+    const elements = screen.getAllByText("online")
+    expect(elements.length).toBeGreaterThanOrEqual(1)
   })
 
   it("shows offline status when user is offline", () => {
