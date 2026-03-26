@@ -134,11 +134,13 @@ func main() {
 	})
 
 	// Create HTTP server
+	// WriteTimeout is 0 to allow long-lived WebSocket connections.
+	// Handler-level timeouts protect regular HTTP endpoints instead.
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 0,
 		IdleTimeout:  60 * time.Second,
 	}
 

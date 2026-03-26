@@ -37,10 +37,10 @@ export function startConversation(otherUserId: string, content: string): Promise
   })
 }
 
-export function markAsRead(conversationId: string): Promise<void> {
+export function markAsRead(conversationId: string, seq?: number): Promise<void> {
   return apiClient<void>(
     `/api/v1/messaging/conversations/${conversationId}/read`,
-    { method: "POST" },
+    { method: "POST", body: { seq: seq ?? 0 } },
   )
 }
 

@@ -32,7 +32,7 @@ export type Conversation = {
   last_message: string | null
   last_message_at: string | null
   unread_count: number
-  last_seq: number
+  last_message_seq: number
   online: boolean
 }
 
@@ -69,10 +69,11 @@ export type WSClientFrame =
   | { type: "ack"; message_id: string }
   | { type: "sync"; conversations: Record<string, number> }
 
+// Server sends Envelope: { type: string, payload: any }
 export type WSServerFrame =
   | { type: "new_message"; payload: Message }
-  | { type: "typing"; conversation_id: string; user_id: string }
-  | { type: "status_update"; message_id: string; status: "delivered" | "read" }
-  | { type: "unread_count"; count: number }
+  | { type: "typing"; payload: { conversation_id: string; user_id: string } }
+  | { type: "status_update"; payload: { conversation_id: string; reader_id: string; up_to_seq: number; status: "delivered" | "read" } }
+  | { type: "unread_count"; payload: { count: number } }
   | { type: "message_edited"; payload: Message }
-  | { type: "message_deleted"; message_id: string; conversation_id: string }
+  | { type: "message_deleted"; payload: { message_id: string; conversation_id: string } }

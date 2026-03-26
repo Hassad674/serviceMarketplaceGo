@@ -86,36 +86,37 @@ export function useMessagingWS(userId: string | undefined) {
           break
         }
         case "typing": {
-          if (frame.user_id === userId) return
+          const { conversation_id, user_id } = frame.payload
+          if (user_id === userId) return
           setTypingUsers((prev) => {
-            const existing = prev[frame.conversation_id]
+            const existing = prev[conversation_id]
             if (existing) clearTimeout(existing.timeout)
             const timeout = setTimeout(
-              () => clearTyping(frame.conversation_id),
+              () => clearTyping(conversation_id),
               TYPING_CLEAR_DELAY,
             )
             return {
               ...prev,
-              [frame.conversation_id]: { userId: frame.user_id, timeout },
+              [conversation_id]: { userId: user_id, timeout },
             }
           })
           break
         }
         case "status_update": {
-          queryClient.setQueriesData<{
-            pages: MessageListResponse[]
-            pageParams: (string | undefined)[]
-          }>(
-            { queryKey: [MESSAGES_QUERY_KEY] },
-            (old) => {
+          const { conversation_id, up_to_seq, status } = frame.payload
+          // Update all messages up to the given seq in the conversation
+          const statusQueryKey = [MESSAGES_QUERY_KEY, conversation_id]
+          queryClient.setQueryData(
+            statusQueryKey,
+            (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
               if (!old) return old
               return {
                 ...old,
                 pages: old.pages.map((page) => ({
                   ...page,
                   data: page.data.map((msg) =>
-                    msg.id === frame.message_id
-                      ? { ...msg, status: frame.status }
+                    msg.seq <= up_to_seq && msg.status !== "read"
+                      ? { ...msg, status }
                       : msg,
                   ),
                 })),
@@ -125,14 +126,14 @@ export function useMessagingWS(userId: string | undefined) {
           break
         }
         case "unread_count": {
-          setTotalUnread(frame.count)
+          setTotalUnread(frame.payload.count)
           queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY })
           break
         }
         case "message_edited": {
-          const queryKey = [MESSAGES_QUERY_KEY, frame.payload.conversation_id]
+          const editedQueryKey = [MESSAGES_QUERY_KEY, frame.payload.conversation_id]
           queryClient.setQueryData(
-            queryKey,
+            editedQueryKey,
             (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
               if (!old) return old
               return {
@@ -150,9 +151,10 @@ export function useMessagingWS(userId: string | undefined) {
           break
         }
         case "message_deleted": {
-          const msgQueryKey = [MESSAGES_QUERY_KEY, frame.conversation_id]
+          const { message_id, conversation_id: delConvId } = frame.payload
+          const delQueryKey = [MESSAGES_QUERY_KEY, delConvId]
           queryClient.setQueryData(
-            msgQueryKey,
+            delQueryKey,
             (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
               if (!old) return old
               return {
@@ -160,7 +162,7 @@ export function useMessagingWS(userId: string | undefined) {
                 pages: old.pages.map((page) => ({
                   ...page,
                   data: page.data.map((msg) =>
-                    msg.id === frame.message_id
+                    msg.id === message_id
                       ? { ...msg, deleted_at: new Date().toISOString(), content: "" }
                       : msg,
                   ),

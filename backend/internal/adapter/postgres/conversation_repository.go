@@ -426,6 +426,18 @@ func (r *ConversationRepository) UpdateMessageStatus(ctx context.Context, messag
 	return nil
 }
 
+func (r *ConversationRepository) MarkMessagesAsRead(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, queryMarkMessagesAsRead, conversationID, readerID, upToSeq)
+	if err != nil {
+		return fmt.Errorf("mark messages as read: %w", err)
+	}
+
+	return nil
+}
+
 // scanMessage scans a single message from a QueryRow result.
 func scanMessage(row *sql.Row) (*message.Message, error) {
 	msg := &message.Message{}

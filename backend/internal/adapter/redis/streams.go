@@ -49,6 +49,10 @@ func (b *StreamBroadcaster) BroadcastUnreadCount(ctx context.Context, userID uui
 	return b.publish(ctx, "unread_count", []uuid.UUID{userID}, payload)
 }
 
+func (b *StreamBroadcaster) BroadcastMessageRead(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
+	return b.publish(ctx, "status_update", recipientIDs, payload)
+}
+
 func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recipientIDs []uuid.UUID, payload []byte) error {
 	ids, _ := json.Marshal(recipientIDs)
 
@@ -119,12 +123,6 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 					RecipientIDs: msg.Values["recipient_ids"].(string),
 					Payload:      msg.Values["payload"].(string),
 					SourceID:     msg.Values["source_id"].(string),
-				}
-
-				// Skip events from this instance
-				if event.SourceID == b.sourceID {
-					b.ackMessage(ctx, msg.ID)
-					continue
 				}
 
 				handler(event)

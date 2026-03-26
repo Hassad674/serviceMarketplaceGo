@@ -32,6 +32,7 @@ type ConversationResponse struct {
 	LastMessageAt  *string `json:"last_message_at,omitempty"`
 	LastMessageSeq int     `json:"last_message_seq"`
 	UnreadCount    int     `json:"unread_count"`
+	Online         bool    `json:"online"`
 }
 
 type StartConversationResponse struct {
@@ -96,6 +97,7 @@ func NewConversationResponse(s repository.ConversationSummary) ConversationRespo
 		LastMessage:    s.LastMessage,
 		LastMessageSeq: s.LastMessageSeq,
 		UnreadCount:    s.UnreadCount,
+		Online:         s.Online,
 	}
 
 	if s.LastMessageAt != nil {

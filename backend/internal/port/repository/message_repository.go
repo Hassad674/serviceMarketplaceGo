@@ -31,6 +31,7 @@ type ConversationSummary struct {
 	LastMessageAt  *time.Time
 	LastMessageSeq int
 	UnreadCount    int
+	Online         bool
 }
 
 type MessageRepository interface {
@@ -48,4 +49,5 @@ type MessageRepository interface {
 	GetTotalUnread(ctx context.Context, userID uuid.UUID) (int, error)
 	GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	UpdateMessageStatus(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
+	MarkMessagesAsRead(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
 }

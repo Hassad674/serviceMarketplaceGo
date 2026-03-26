@@ -52,7 +52,7 @@ export function MessagingPage() {
   // Mark as read when opening a conversation
   useEffect(() => {
     if (activeId && activeConversation && activeConversation.unread_count > 0) {
-      markAsRead(activeId).catch(() => {
+      markAsRead(activeId, activeConversation.last_message_seq).catch(() => {
         // Silent fail — unread count will refresh via WS
       })
     }

@@ -154,3 +154,11 @@ const queryGetParticipantIDs = `
 
 const queryUpdateMessageStatus = `
 	UPDATE messages SET status = $2, updated_at = now() WHERE id = $1`
+
+const queryMarkMessagesAsRead = `
+	UPDATE messages
+	SET status = 'read', updated_at = now()
+	WHERE conversation_id = $1
+		AND sender_id != $2
+		AND seq <= $3
+		AND status != 'read'`

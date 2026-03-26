@@ -29,6 +29,7 @@ type mockMessageRepo struct {
 	getTotalUnreadFn           func(ctx context.Context, userID uuid.UUID) (int, error)
 	getParticipantIDsFn        func(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	updateMessageStatusFn      func(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
+	markMessagesAsReadFn       func(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
 }
 
 func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error) {
@@ -125,6 +126,13 @@ func (m *mockMessageRepo) GetParticipantIDs(ctx context.Context, conversationID 
 func (m *mockMessageRepo) UpdateMessageStatus(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error {
 	if m.updateMessageStatusFn != nil {
 		return m.updateMessageStatusFn(ctx, messageID, status)
+	}
+	return nil
+}
+
+func (m *mockMessageRepo) MarkMessagesAsRead(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error {
+	if m.markMessagesAsReadFn != nil {
+		return m.markMessagesAsReadFn(ctx, conversationID, readerID, upToSeq)
 	}
 	return nil
 }

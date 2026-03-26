@@ -13,7 +13,7 @@ const (
 // Outbound message types (server -> client)
 const (
 	TypeNewMessage   = "new_message"
-	TypeTypingEvent  = "typing_event"
+	TypeTypingEvent  = "typing"
 	TypeStatusUpdate = "status_update"
 	TypeUnreadCount  = "unread_count"
 	TypePong         = "pong"

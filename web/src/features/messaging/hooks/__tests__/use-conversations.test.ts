@@ -56,7 +56,7 @@ describe("useConversations", () => {
           last_message: "Hello",
           last_message_at: "2026-03-26T10:00:00Z",
           unread_count: 2,
-          last_seq: 5,
+          last_message_seq: 5,
           online: true,
         },
       ],
