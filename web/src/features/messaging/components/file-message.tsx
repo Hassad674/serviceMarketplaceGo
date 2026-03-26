@@ -20,35 +20,32 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
 
   if (isImage) {
     return (
-      <a
-        href={metadata.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="block overflow-hidden rounded-lg"
-      >
+      <div className="block overflow-hidden rounded-lg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={metadata.url}
           alt={metadata.filename}
-          className="max-h-64 max-w-full rounded-lg object-cover transition-opacity hover:opacity-90"
+          className="max-h-64 max-w-full rounded-lg object-cover"
         />
-        <p
+        <a
+          href={metadata.url}
+          download={metadata.filename}
           className={cn(
-            "mt-1 text-[10px]",
+            "mt-1 flex items-center gap-1 text-[10px] hover:underline",
             isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
           )}
         >
+          <Download className="h-3 w-3 shrink-0" strokeWidth={1.5} />
           {metadata.filename} ({formatFileSize(metadata.size)})
-        </p>
-      </a>
+        </a>
+      </div>
     )
   }
 
   return (
     <a
       href={metadata.url}
-      target="_blank"
-      rel="noopener noreferrer"
+      download={metadata.filename}
       className={cn(
         "flex items-center gap-3 rounded-lg p-3 transition-colors",
         isOwn

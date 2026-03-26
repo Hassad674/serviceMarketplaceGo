@@ -19,22 +19,47 @@ const MAX_FILES = 5
 const BYTES_PER_MB = 1024 * 1024
 
 const ALLOWED_TYPES = [
+  // Images
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp",
   "image/svg+xml",
+  // PDF
   "application/pdf",
+  // Microsoft Office
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  // LibreOffice / OpenDocument
+  "application/vnd.oasis.opendocument.text",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "application/vnd.oasis.opendocument.presentation",
+  // Text formats
   "text/plain",
   "text/csv",
+  "text/markdown",
+  "text/html",
+  "text/xml",
+  "application/rtf",
+  // Data formats
+  "application/json",
+  "application/xml",
+  // Archives
   "application/zip",
   "application/x-rar-compressed",
+]
+
+const ALLOWED_EXTENSIONS = [
+  ".txt", ".csv", ".md", ".html", ".htm", ".xml", ".json", ".rtf",
+  ".odt", ".ods", ".odp",
+  ".pdf",
+  ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+  ".zip", ".rar",
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
 ]
 
 const BLOCKED_EXTENSIONS = [
@@ -71,6 +96,9 @@ function isAllowedFile(file: File): boolean {
   if (BLOCKED_EXTENSIONS.includes(ext)) return false
   if (ALLOWED_TYPES.includes(file.type)) return true
   if (file.type.startsWith("image/")) return true
+  // Fallback: some browsers report empty or generic MIME types for certain
+  // file formats (e.g. .odt, .md, .json). Check the extension as well.
+  if (ALLOWED_EXTENSIONS.includes(ext)) return true
   return false
 }
 

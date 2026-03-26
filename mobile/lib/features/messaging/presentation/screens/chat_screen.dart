@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/extensions.dart';
@@ -89,7 +91,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _pickAndSendFile() async {
     final l10n = AppLocalizations.of(context)!;
 
-    final result = await FilePicker.platform.pickFiles();
+    final result = await FilePicker.platform.pickFiles(
+      withData: true,
+    );
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
@@ -105,19 +109,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       );
 
       // Upload file to presigned URL via raw bytes
-      if (file.path != null) {
-        final fileBytes = await File(file.path!).readAsBytes();
-        await Dio().put(
-          uploadInfo.uploadUrl,
-          data: Stream.fromIterable(fileBytes.map((b) => [b])),
-          options: Options(
-            headers: {
-              'Content-Type': contentType,
-              'Content-Length': fileBytes.length,
-            },
-          ),
-        );
+      final fileBytes = file.bytes ?? (file.path != null
+          ? await File(file.path!).readAsBytes()
+          : null);
+
+      if (fileBytes == null) {
+        throw Exception('Cannot read file bytes');
       }
+
+      await Dio().put(
+        uploadInfo.uploadUrl,
+        data: fileBytes,
+        options: Options(
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': fileBytes.length,
+          },
+        ),
+      );
 
       // Send file message
       await ref
@@ -152,9 +161,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return 'image/jpeg';
       case 'gif':
         return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'svg':
+        return 'image/svg+xml';
       case 'doc':
-      case 'docx':
         return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'ppt':
+        return 'application/vnd.ms-powerpoint';
+      case 'pptx':
+        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case 'odt':
+        return 'application/vnd.oasis.opendocument.text';
+      case 'ods':
+        return 'application/vnd.oasis.opendocument.spreadsheet';
+      case 'odp':
+        return 'application/vnd.oasis.opendocument.presentation';
+      case 'txt':
+        return 'text/plain';
+      case 'csv':
+        return 'text/csv';
+      case 'md':
+        return 'text/markdown';
+      case 'html':
+      case 'htm':
+        return 'text/html';
+      case 'xml':
+        return 'application/xml';
+      case 'json':
+        return 'application/json';
+      case 'rtf':
+        return 'application/rtf';
+      case 'zip':
+        return 'application/zip';
+      case 'rar':
+        return 'application/x-rar-compressed';
       default:
         return 'application/octet-stream';
     }
@@ -691,14 +738,23 @@ class _MessageBubble extends StatelessWidget {
   ) {
     final filename =
         message.metadata?['filename'] as String? ?? message.content;
+    final fileUrl = message.metadata?['url'] as String?;
+    final mimeType = message.metadata?['mime_type'] as String? ?? '';
     final fileSize = message.metadata?['size'] as int? ?? 0;
     final sizeLabel = fileSize > 0
         ? '${(fileSize / 1024).toStringAsFixed(1)} KB'
         : '';
+    final isImage = mimeType.startsWith('image/');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
+        onTap: fileUrl != null
+            ? () => launchUrl(
+                  Uri.parse(fileUrl),
+                  mode: LaunchMode.externalApplication,
+                )
+            : null,
         onLongPress: isOwn ? () => _showContextMenu(context, l10n) : null,
         child: Align(
           alignment:
@@ -708,51 +764,105 @@ class _MessageBubble extends StatelessWidget {
               maxWidth: MediaQuery.sizeOf(context).width * 0.75,
             ),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: isOwn
                     ? const Color(0xFFF43F5E)
                     : (appColors?.muted ?? const Color(0xFFF1F5F9)),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.insert_drive_file_outlined,
-                    size: 24,
-                    color: isOwn
-                        ? Colors.white
-                        : theme.colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          filename,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: isOwn
-                                ? Colors.white
-                                : theme.colorScheme.onSurface,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (sizeLabel.isNotEmpty)
-                          Text(
-                            sizeLabel,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isOwn
-                                  ? Colors.white
-                                      .withValues(alpha: 0.7)
-                                  : appColors?.mutedForeground,
+                  // Image preview for image files
+                  if (isImage && fileUrl != null)
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(16),
+                      ),
+                      child: CachedNetworkImage(
+                        imageUrl: fileUrl,
+                        maxHeightDiskCache: 512,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          height: 150,
+                          color: Colors.black12,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
                             ),
                           ),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          height: 80,
+                          color: Colors.black12,
+                          child: const Center(
+                            child: Icon(Icons.broken_image, size: 32),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // File info row
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isImage
+                              ? Icons.image_outlined
+                              : Icons.insert_drive_file_outlined,
+                          size: 24,
+                          color: isOwn
+                              ? Colors.white
+                              : theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                filename,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isOwn
+                                      ? Colors.white
+                                      : theme.colorScheme.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (sizeLabel.isNotEmpty)
+                                Text(
+                                  sizeLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isOwn
+                                        ? Colors.white
+                                            .withValues(alpha: 0.7)
+                                        : appColors?.mutedForeground,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.download_outlined,
+                          size: 20,
+                          color: isOwn
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : appColors?.mutedForeground,
+                        ),
                       ],
                     ),
                   ),
