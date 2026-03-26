@@ -449,16 +449,20 @@ func scanMessage(row *sql.Row) (*message.Message, error) {
 func scanMessageFromRows(rows *sql.Rows) (*message.Message, error) {
 	msg := &message.Message{}
 	var msgType, status string
+	var metadata []byte
 
 	err := rows.Scan(
 		&msg.ID, &msg.ConversationID, &msg.SenderID, &msg.Content,
-		&msgType, &msg.Metadata, &msg.Seq, &status,
+		&msgType, &metadata, &msg.Seq, &status,
 		&msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt, &msg.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
+	if len(metadata) > 0 {
+		msg.Metadata = metadata
+	}
 	msg.Type = message.MessageType(msgType)
 	msg.Status = message.MessageStatus(status)
 	return msg, nil

@@ -1,6 +1,7 @@
 package response
 
 import (
+	"encoding/json"
 	"time"
 
 	"marketplace-backend/internal/domain/message"
@@ -8,20 +9,21 @@ import (
 )
 
 type MessageResponse struct {
-	ID             string  `json:"id"`
-	ConversationID string  `json:"conversation_id"`
-	SenderID       string  `json:"sender_id"`
-	Content        string  `json:"content"`
-	Type           string  `json:"type"`
-	Seq            int     `json:"seq"`
-	Status         string  `json:"status"`
-	EditedAt       *string `json:"edited_at,omitempty"`
-	DeletedAt      *string `json:"deleted_at,omitempty"`
-	CreatedAt      string  `json:"created_at"`
+	ID             string          `json:"id"`
+	ConversationID string          `json:"conversation_id"`
+	SenderID       string          `json:"sender_id"`
+	Content        string          `json:"content"`
+	Type           string          `json:"type"`
+	Metadata       json.RawMessage `json:"metadata"`
+	Seq            int             `json:"seq"`
+	Status         string          `json:"status"`
+	EditedAt       *string         `json:"edited_at,omitempty"`
+	DeletedAt      *string         `json:"deleted_at,omitempty"`
+	CreatedAt      string          `json:"created_at"`
 }
 
 type ConversationResponse struct {
-	ConversationID string  `json:"conversation_id"`
+	ConversationID string  `json:"id"`
 	OtherUserID    string  `json:"other_user_id"`
 	OtherUserName  string  `json:"other_user_name"`
 	OtherUserRole  string  `json:"other_user_role"`
@@ -47,12 +49,18 @@ type UnreadCountResponse struct {
 }
 
 func NewMessageResponse(m *message.Message) MessageResponse {
+	metadata := json.RawMessage("null")
+	if len(m.Metadata) > 0 {
+		metadata = m.Metadata
+	}
+
 	resp := MessageResponse{
 		ID:             m.ID.String(),
 		ConversationID: m.ConversationID.String(),
 		SenderID:       m.SenderID.String(),
 		Content:        m.Content,
 		Type:           string(m.Type),
+		Metadata:       metadata,
 		Seq:            m.Seq,
 		Status:         string(m.Status),
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),

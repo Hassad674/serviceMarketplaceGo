@@ -88,14 +88,11 @@ func (h *MessagingHandler) ListConversations(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	result := map[string]any{
-		"data": response.NewConversationListResponse(summaries),
-	}
-	if nextCursor != "" {
-		result["next_cursor"] = nextCursor
-	}
-
-	res.JSON(w, http.StatusOK, result)
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        response.NewConversationListResponse(summaries),
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+	})
 }
 
 func (h *MessagingHandler) ListMessages(w http.ResponseWriter, r *http.Request) {
@@ -120,14 +117,11 @@ func (h *MessagingHandler) ListMessages(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result := map[string]any{
-		"data": response.NewMessageListResponse(messages),
-	}
-	if nextCursor != "" {
-		result["next_cursor"] = nextCursor
-	}
-
-	res.JSON(w, http.StatusOK, result)
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        response.NewMessageListResponse(messages),
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+	})
 }
 
 func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
