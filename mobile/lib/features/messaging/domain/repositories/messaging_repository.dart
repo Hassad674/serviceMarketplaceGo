@@ -18,10 +18,12 @@ class PaginatedResponse<T> {
 class UploadUrlResponse {
   final String uploadUrl;
   final String fileKey;
+  final String publicUrl;
 
   const UploadUrlResponse({
     required this.uploadUrl,
     required this.fileKey,
+    required this.publicUrl,
   });
 }
 

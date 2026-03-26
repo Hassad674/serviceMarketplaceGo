@@ -120,7 +120,7 @@ class MessagingRepositoryImpl implements MessagingRepository {
   }) async {
     await _apiClient.post(
       '/api/v1/messaging/conversations/$conversationId/read',
-      data: {'up_to_seq': upToSeq},
+      data: {'seq': upToSeq},
     );
   }
 
@@ -154,6 +154,7 @@ class MessagingRepositoryImpl implements MessagingRepository {
     return UploadUrlResponse(
       uploadUrl: data['upload_url'] as String,
       fileKey: data['file_key'] as String,
+      publicUrl: data['public_url'] as String? ?? '',
     );
   }
 

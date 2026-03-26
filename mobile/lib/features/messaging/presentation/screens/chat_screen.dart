@@ -131,9 +131,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         throw Exception('Cannot read file bytes');
       }
 
+      // Use a Stream to send raw binary data — prevents Dio from
+      // attempting JSON serialisation of the byte array.
       await Dio().put(
         uploadInfo.uploadUrl,
-        data: fileBytes,
+        data: Stream.fromIterable([fileBytes]),
         options: Options(
           headers: {
             'Content-Type': contentType,
@@ -142,6 +144,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       );
 
+      // Use the public URL returned by the backend (CDN-friendly),
+      // falling back to stripping the presigned query string.
+      final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
+          ? uploadInfo.publicUrl
+          : uploadInfo.uploadUrl.split('?').first;
+
       // Send file message
       await ref
           .read(messagesProvider(widget.conversationId).notifier)
@@ -149,7 +157,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             filename: file.name,
             contentType: contentType,
             fileKey: uploadInfo.fileKey,
-            fileUrl: uploadInfo.uploadUrl.split('?').first,
+            fileUrl: resolvedUrl,
             fileSize: file.size,
           );
 
