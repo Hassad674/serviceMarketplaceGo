@@ -22,6 +22,15 @@ const (
 	TypeError        = "error"
 )
 
+// StreamEvent represents a broadcast event received from the pub/sub layer.
+// This is a local copy to avoid importing the redis adapter package directly.
+type StreamEvent struct {
+	Type         string
+	RecipientIDs string
+	Payload      string
+	SourceID     string
+}
+
 // Envelope is the standard message format for WebSocket communication.
 type Envelope struct {
 	Type    string `json:"type"`

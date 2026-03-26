@@ -11,7 +11,6 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"marketplace-backend/internal/app/messaging"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -27,7 +26,7 @@ const (
 
 type ConnDeps struct {
 	Hub          *Hub
-	MessagingSvc *messaging.Service
+	MessagingSvc service.MessagingQuerier
 	TokenSvc     service.TokenService
 	SessionSvc   service.SessionService
 	PresenceSvc  service.PresenceService

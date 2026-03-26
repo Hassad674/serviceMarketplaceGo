@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+
+	"marketplace-backend/internal/domain/message"
 )
 
 type PresenceService interface {
@@ -23,4 +25,13 @@ type MessageBroadcaster interface {
 
 type MessagingRateLimiter interface {
 	Allow(ctx context.Context, userID uuid.UUID) (bool, error)
+}
+
+// MessagingQuerier defines the messaging operations needed by the WebSocket adapter.
+// This allows the WS adapter to depend on an interface instead of importing app/messaging directly.
+type MessagingQuerier interface {
+	GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
+	GetMessagesSinceSeq(ctx context.Context, userID, conversationID uuid.UUID, sinceSeq int) ([]*message.Message, error)
+	DeliverMessage(ctx context.Context, messageID, userID uuid.UUID) error
+	GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }

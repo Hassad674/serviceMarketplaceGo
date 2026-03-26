@@ -91,7 +91,14 @@ func main() {
 	// Start stream subscriber (distributes Redis stream events to local WS clients)
 	streamCtx, streamCancel := context.WithCancel(context.Background())
 	defer streamCancel()
-	go streamBroadcaster.Subscribe(streamCtx, wsHub.HandleStreamEvent)
+	go streamBroadcaster.Subscribe(streamCtx, func(event redisadapter.StreamEvent) {
+		wsHub.HandleStreamEvent(ws.StreamEvent{
+			Type:         event.Type,
+			RecipientIDs: event.RecipientIDs,
+			Payload:      event.Payload,
+			SourceID:     event.SourceID,
+		})
+	})
 
 	// Initialize application services
 	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)

@@ -6,8 +6,6 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-
-	redisadapter "marketplace-backend/internal/adapter/redis"
 )
 
 type Client struct {
@@ -105,7 +103,7 @@ func (h *Hub) SendToUsers(userIDs []uuid.UUID, payload []byte, excludeUserID uui
 }
 
 // HandleStreamEvent dispatches Redis stream events to local WebSocket clients.
-func (h *Hub) HandleStreamEvent(event redisadapter.StreamEvent) {
+func (h *Hub) HandleStreamEvent(event StreamEvent) {
 	var recipientIDs []uuid.UUID
 	if err := json.Unmarshal([]byte(event.RecipientIDs), &recipientIDs); err != nil {
 		slog.Error("failed to unmarshal recipient ids", "error", err)
