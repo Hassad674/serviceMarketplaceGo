@@ -40,6 +40,14 @@ export function MessagingPage() {
     (c: Conversation) => c.id === activeId,
   )
 
+  // Gather all messages from infinite query pages.
+  // Backend returns messages in DESC order (newest first) for cursor pagination.
+  // We reverse pages and each page's data to get chronological order
+  // (oldest at top, newest at bottom) for display.
+  const allMessages = messagesQuery.data
+    ? [...messagesQuery.data.pages].reverse().flatMap((page) => [...page.data].reverse())
+    : []
+
   // Deep-link from query param
   useEffect(() => {
     const paramId = searchParams.get("id")
@@ -49,14 +57,37 @@ export function MessagingPage() {
     }
   }, [searchParams, activeId])
 
-  // Mark as read when opening a conversation
+  // Track the latest message seq in the active conversation for read receipts
+  const latestSeq = allMessages.length > 0
+    ? allMessages[allMessages.length - 1]?.seq ?? 0
+    : 0
+
+  // Mark as read when opening a conversation or when new messages arrive
+  // while the conversation is already active
   useEffect(() => {
-    if (activeId && activeConversation && activeConversation.unread_count > 0) {
-      markAsRead(activeId, activeConversation.last_message_seq).catch(() => {
+    if (!activeId || !user?.id) return
+
+    // Determine the highest seq to mark as read
+    const seqToMark = Math.max(
+      activeConversation?.last_message_seq ?? 0,
+      latestSeq,
+    )
+    if (seqToMark <= 0) return
+
+    // Check if the latest message is from the other user (incoming)
+    const lastMessage = allMessages.length > 0
+      ? allMessages[allMessages.length - 1]
+      : null
+    const hasUnread = activeConversation && activeConversation.unread_count > 0
+    const hasNewIncoming = lastMessage && lastMessage.sender_id !== user.id
+      && lastMessage.sender_id !== "optimistic"
+
+    if (hasUnread || hasNewIncoming) {
+      markAsRead(activeId, seqToMark).catch(() => {
         // Silent fail — unread count will refresh via WS
       })
     }
-  }, [activeId, activeConversation])
+  }, [activeId, activeConversation, latestSeq, user?.id, allMessages])
 
   const handleSelect = useCallback((id: string) => {
     setActiveId(id)
@@ -102,9 +133,6 @@ export function MessagingPage() {
   }, [activeId, sendTyping])
 
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
-
-  // Gather all messages from infinite query pages
-  const allMessages = messagesQuery.data?.pages.flatMap((page) => page.data) ?? []
 
   return (
     <div className="-mx-5 -mt-5 flex h-[calc(100vh-3.5rem)] overflow-hidden bg-white dark:bg-gray-900">

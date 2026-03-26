@@ -66,11 +66,12 @@ export function useSendMessage(conversationId: string | null) {
             pageParams: [undefined],
           }
         }
+        // Prepend to page 0 (newest page, DESC order) so that after
+        // chronological reversal the optimistic message appears at the bottom.
         const newPages = [...old.pages]
-        const lastPageIndex = 0
-        newPages[lastPageIndex] = {
-          ...newPages[lastPageIndex],
-          data: [...newPages[lastPageIndex].data, optimisticMessage],
+        newPages[0] = {
+          ...newPages[0],
+          data: [optimisticMessage, ...newPages[0].data],
         }
         return { ...old, pages: newPages }
       })

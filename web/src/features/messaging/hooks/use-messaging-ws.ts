@@ -64,9 +64,11 @@ export function useMessagingWS(userId: string | undefined) {
           const allMessages = old.pages.flatMap((p) => p.data)
           if (allMessages.some((m) => m.id === message.id)) return old
           const newPages = [...old.pages]
+          // Prepend to page 0 (newest page, DESC order) so that after
+          // chronological reversal the new message appears at the bottom.
           newPages[0] = {
             ...newPages[0],
-            data: [...newPages[0].data, message],
+            data: [message, ...newPages[0].data],
           }
           return { ...old, pages: newPages }
         },
