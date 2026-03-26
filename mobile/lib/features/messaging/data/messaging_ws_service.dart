@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -21,6 +22,9 @@ final messagingWsServiceProvider = Provider<MessagingWsService>((ref) {
 ///
 /// Handles heartbeat (every 30s) and automatic reconnection with
 /// exponential backoff on disconnect.
+///
+/// On successful (re)connection, emits a synthetic `{"type":"reconnected"}`
+/// event so that listeners can refresh stale state (e.g. presence).
 class MessagingWsService {
   final SecureStorageService _storage;
 
@@ -34,16 +38,38 @@ class MessagingWsService {
   bool _isConnected = false;
   bool _disposed = false;
   int _reconnectAttempts = 0;
+  bool _hasConnectedBefore = false;
   static const int _maxReconnectDelay = 30; // seconds
 
+  AppLifecycleListener? _lifecycleListener;
+
   MessagingWsService({required SecureStorageService storage})
-      : _storage = storage;
+      : _storage = storage {
+    _lifecycleListener = AppLifecycleListener(
+      onResume: _onAppResumed,
+    );
+  }
+
+  /// Called when the app returns to the foreground. If the WS is
+  /// disconnected (common after background), reconnect immediately
+  /// instead of waiting for exponential backoff.
+  void _onAppResumed() {
+    if (_disposed) return;
+    if (!_isConnected) {
+      _reconnectTimer?.cancel();
+      _reconnectAttempts = 0;
+      connect();
+    }
+  }
 
   /// Stream of incoming WebSocket events (JSON maps).
   ///
   /// Each event has a `type` field:
   /// `new_message`, `typing`, `status_update`, `unread_count`,
-  /// `message_edited`, `message_deleted`.
+  /// `message_edited`, `message_deleted`, `presence`, `reconnected`.
+  ///
+  /// The `reconnected` type is a synthetic client-side event emitted
+  /// after a successful reconnection so consumers can refresh state.
   Stream<Map<String, dynamic>> get events => _eventController.stream;
 
   /// Whether the WebSocket is currently connected.
@@ -52,7 +78,8 @@ class MessagingWsService {
   /// Establishes the WebSocket connection.
   ///
   /// Retrieves the JWT from secure storage and connects with it
-  /// as a query parameter.
+  /// as a query parameter. On successful reconnection, emits a
+  /// synthetic `reconnected` event for stale-state refresh.
   Future<void> connect() async {
     if (_disposed) return;
 
@@ -64,7 +91,10 @@ class MessagingWsService {
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       await _channel!.ready;
+
+      final isReconnect = _hasConnectedBefore;
       _isConnected = true;
+      _hasConnectedBefore = true;
       _reconnectAttempts = 0;
 
       _startHeartbeat();
@@ -74,6 +104,11 @@ class MessagingWsService {
         onError: _onError,
         onDone: _onDone,
       );
+
+      // Notify listeners so they can refresh stale presence/state
+      if (isReconnect) {
+        _eventController.add(const {'type': 'reconnected'});
+      }
     } catch (_) {
       _scheduleReconnect();
     }
@@ -91,6 +126,8 @@ class MessagingWsService {
   /// Permanently disposes the service. Cannot reconnect after this.
   void dispose() {
     _disposed = true;
+    _lifecycleListener?.dispose();
+    _lifecycleListener = null;
     disconnect();
     _eventController.close();
   }

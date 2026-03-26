@@ -145,6 +145,10 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
         _handleStatusUpdate(event);
       case 'presence':
         _handlePresence(event);
+      case 'reconnected':
+        // WS reconnected after a disconnect — refresh conversations to
+        // pick up any presence changes or messages missed while offline.
+        loadConversations();
     }
   }
 
