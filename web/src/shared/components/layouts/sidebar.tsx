@@ -39,7 +39,7 @@ const FREELANCE_NAV: NavItem[] = [
 const REFERRER_NAV: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard?mode=referrer", icon: LayoutDashboard, exact: true, roles: ["provider"] },
   { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
-  { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
+  { labelKey: "findFreelancers", href: "/search?type=freelancer&mode=referrer", icon: Search, roles: ["provider"] },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -81,7 +81,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const tCommon = useTranslations("common")
 
   const role = user?.role ?? ""
-  const isReferrerMode = pathname === "/referral" || searchParams.get("mode") === "referrer" || pathname === "/dashboard" && searchParams.get("mode") === "referrer"
+  const isReferrerMode = searchParams.get("mode") === "referrer" || pathname === "/referral"
   const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
 
@@ -293,16 +293,22 @@ function NavLink({
   onClick?: () => void
   collapsed: boolean
 }) {
-  // For hrefs with query params (e.g. /search?type=freelancer), compare path + query
+  // Compare only the pathname portion of item.href so query-param-heavy links
+  // (e.g. /search?type=freelancer&mode=referrer) still highlight correctly.
+  // Each query key=value pair in the href must be present in the current URL.
   const [hrefPath, hrefQuery] = item.href.split("?")
-  const currentQuery = searchParams.toString()
+  const hrefParams = new URLSearchParams(hrefQuery ?? "")
+  const currentParams = searchParams
+
+  const queryMatches = !hrefQuery || Array.from(hrefParams.entries()).every(
+    ([key, value]) => currentParams.get(key) === value,
+  )
 
   let isActive = false
   if (item.exact) {
-    isActive = pathname === hrefPath && (!hrefQuery || currentQuery.includes(hrefQuery))
+    isActive = pathname === hrefPath && queryMatches
   } else {
     const pathMatches = pathname === hrefPath || pathname.startsWith(hrefPath + "/")
-    const queryMatches = !hrefQuery || currentQuery.includes(hrefQuery)
     isActive = pathMatches && queryMatches
   }
 
