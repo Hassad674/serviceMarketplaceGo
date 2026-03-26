@@ -33,8 +33,14 @@ function setWorkspaceCookie(isReferrer: boolean): void {
 /**
  * Save the last visited path for a given workspace (freelance or referrer).
  */
+function stripLocale(path: string): string {
+  // Remove locale prefix (/fr/, /en/) since next-intl router adds it automatically
+  return path.replace(/^\/(fr|en)(\/|$)/, "/")
+}
+
 function saveLastPath(workspace: string, path: string): void {
-  document.cookie = `workspace_path_${workspace}=${encodeURIComponent(path)}; path=/; SameSite=Lax`
+  const cleanPath = stripLocale(path)
+  document.cookie = `workspace_path_${workspace}=${encodeURIComponent(cleanPath)}; path=/; SameSite=Lax`
 }
 
 /**
