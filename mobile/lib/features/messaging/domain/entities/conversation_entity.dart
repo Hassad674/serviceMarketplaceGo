@@ -37,7 +37,7 @@ class ConversationEntity {
       lastMessage: json['last_message'] as String?,
       lastMessageAt: json['last_message_at'] as String?,
       unreadCount: json['unread_count'] as int? ?? 0,
-      lastSeq: json['last_seq'] as int? ?? 0,
+      lastSeq: json['last_message_seq'] as int? ?? 0,
       online: json['online'] as bool? ?? false,
     );
   }

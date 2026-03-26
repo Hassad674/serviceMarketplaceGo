@@ -1,23 +1,25 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
-import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/extensions.dart';
+import '../../../../core/utils/mime_type_helper.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/messaging_repository_impl.dart';
-import '../../domain/entities/conversation_entity.dart';
 import '../../domain/entities/message_entity.dart';
-import '../providers/messaging_provider.dart';
+import '../providers/conversations_provider.dart';
+import '../providers/messages_provider.dart';
+import '../widgets/chat/chat_app_bar.dart';
+import '../widgets/chat/chat_shimmer.dart';
+import '../widgets/chat/empty_chat_state.dart';
+import '../widgets/chat/message_bubble.dart';
+import '../widgets/chat/message_input_bar.dart';
+import '../widgets/chat/typing_indicator_widget.dart';
 
 // ---------------------------------------------------------------------------
 // Chat screen -- messages view for a single conversation
@@ -68,7 +70,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _onInputChanged() {
     final hasText = _controller.text.trim().isNotEmpty;
     if (hasText && _typingInterval == null) {
-      // Input went from empty to non-empty: send immediately + start interval
       ref
           .read(messagesProvider(widget.conversationId).notifier)
           .sendTyping();
@@ -79,7 +80,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             .sendTyping(),
       );
     } else if (!hasText && _typingInterval != null) {
-      // Input went from non-empty to empty: stop interval
       _typingInterval?.cancel();
       _typingInterval = null;
     }
@@ -89,7 +89,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    // Stop typing interval before clearing (clear triggers _onInputChanged)
     _typingInterval?.cancel();
     _typingInterval = null;
     _controller.clear();
@@ -106,18 +105,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _pickAndSendFile() async {
     final l10n = AppLocalizations.of(context)!;
 
-    final result = await FilePicker.platform.pickFiles(
-      withData: true,
-    );
+    final result = await FilePicker.platform.pickFiles(withData: true);
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
     if (file.name.isEmpty) return;
 
-    final contentType = _guessContentType(file.name);
+    final contentType = guessContentType(file.name);
 
     try {
-      // Step 1: Get presigned upload URL from backend
       final repo = ref.read(messagingRepositoryProvider);
       final uploadInfo = await repo.getUploadUrl(
         filename: file.name,
@@ -127,8 +123,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       debugPrint('[FileUpload] presigned URL: ${uploadInfo.uploadUrl}');
       debugPrint('[FileUpload] public URL: ${uploadInfo.publicUrl}');
 
-      // Step 2: Read file bytes — prefer path over in-memory bytes
-      // because withData: true can return null on some Android devices.
       Uint8List fileBytes;
       if (file.bytes != null && file.bytes!.isNotEmpty) {
         fileBytes = file.bytes!;
@@ -140,9 +134,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       debugPrint('[FileUpload] file size: ${fileBytes.length} bytes');
 
-      // Step 3: PUT file to presigned URL using a FRESH Dio instance.
-      // The app's ApiClient adds Authorization + X-Auth-Mode headers
-      // which would cause an S3 signature mismatch on presigned URLs.
       final uploadDio = Dio(
         BaseOptions(
           connectTimeout: const Duration(seconds: 30),
@@ -164,13 +155,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       debugPrint('[FileUpload] upload status: ${uploadResponse.statusCode}');
 
-      // Step 4: Use the public URL returned by the backend
-      // (CDN-friendly), falling back to stripping the query string.
       final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
           ? uploadInfo.publicUrl
           : uploadInfo.uploadUrl.split('?').first;
 
-      // Step 5: Send file message via the conversation
       await ref
           .read(messagesProvider(widget.conversationId).notifier)
           .sendFileMessage(
@@ -194,64 +182,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           SnackBar(content: Text('${l10n.uploadError}: $e')),
         );
       }
-    }
-  }
-
-  String _guessContentType(String filename) {
-    final ext = filename.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'pdf':
-        return 'application/pdf';
-      case 'png':
-        return 'image/png';
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'svg':
-        return 'image/svg+xml';
-      case 'doc':
-        return 'application/msword';
-      case 'docx':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'xls':
-        return 'application/vnd.ms-excel';
-      case 'xlsx':
-        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case 'ppt':
-        return 'application/vnd.ms-powerpoint';
-      case 'pptx':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      case 'odt':
-        return 'application/vnd.oasis.opendocument.text';
-      case 'ods':
-        return 'application/vnd.oasis.opendocument.spreadsheet';
-      case 'odp':
-        return 'application/vnd.oasis.opendocument.presentation';
-      case 'txt':
-        return 'text/plain';
-      case 'csv':
-        return 'text/csv';
-      case 'md':
-        return 'text/markdown';
-      case 'html':
-      case 'htm':
-        return 'text/html';
-      case 'xml':
-        return 'application/xml';
-      case 'json':
-        return 'application/json';
-      case 'rtf':
-        return 'application/rtf';
-      case 'zip':
-        return 'application/zip';
-      case 'rar':
-        return 'application/x-rar-compressed';
-      default:
-        return 'application/octet-stream';
     }
   }
 
@@ -339,7 +269,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final authState = ref.watch(authProvider);
     final currentUserId = authState.user?['id'] as String? ?? '';
 
-    // Find conversation details from conversations state
     final conversation = convState.conversations
         .where((c) => c.id == widget.conversationId)
         .firstOrNull;
@@ -358,25 +287,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (msgState.isLoading && msgState.messages.isEmpty) {
       return Scaffold(
         appBar: AppBar(),
-        body: const _ChatShimmer(),
+        body: const ChatShimmer(),
       );
     }
 
-    // Resolve typing display name: the provider stores the user_id,
-    // so we show the conversation's other_user_name instead.
     final isTyping = msgState.typingUserName != null;
     final typingDisplayName = isTyping
         ? (conversation?.otherUserName ?? '')
         : null;
 
     return Scaffold(
-      appBar: _ChatAppBar(
+      appBar: ChatAppBar(
         conversation: conversation,
         typingUserName: typingDisplayName,
       ),
       body: Column(
         children: [
-          // Loading more indicator
           if (msgState.isLoadingMore)
             const Padding(
               padding: EdgeInsets.all(8),
@@ -387,10 +313,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
 
-          // Messages
           Expanded(
             child: msgState.messages.isEmpty
-                ? _EmptyChatState()
+                ? const EmptyChatState()
                 : ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.symmetric(
@@ -401,7 +326,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     itemBuilder: (context, index) {
                       final message = msgState.messages[index];
                       final isOwn = message.senderId == currentUserId;
-                      return _MessageBubble(
+                      return MessageBubble(
                         message: message,
                         isOwn: isOwn,
                         onEdit: isOwn && !message.isDeleted
@@ -415,777 +340,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
           ),
 
-          // Typing indicator
           if (typingDisplayName != null)
-            _TypingIndicator(userName: typingDisplayName),
+            TypingIndicatorWidget(userName: typingDisplayName),
 
-          // Input bar
-          _MessageInputBar(
+          MessageInputBar(
             controller: _controller,
             onSend: _sendMessage,
             onAttach: _pickAndSendFile,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Chat app bar -- avatar, name, online status
-// ---------------------------------------------------------------------------
-
-class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _ChatAppBar({
-    required this.conversation,
-    this.typingUserName,
-  });
-
-  final ConversationEntity? conversation;
-  final String? typingUserName;
-
-  String get _initials =>
-      conversation?.otherUserName.initials ?? '?';
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-    final online = conversation?.online ?? false;
-
-    String subtitle;
-    if (typingUserName != null) {
-      subtitle = l10n.messagingTyping(typingUserName!);
-    } else if (online) {
-      subtitle = l10n.messagingOnline;
-    } else {
-      subtitle = l10n.messagingOffline;
-    }
-
-    return AppBar(
-      titleSpacing: 0,
-      title: Row(
-        children: [
-          // Avatar
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFFF43F5E),
-                      Color(0xFF8B5CF6),
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    _initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              if (online)
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: theme.colorScheme.surface,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 12),
-
-          // Name + status
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  conversation?.otherUserName ?? '',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontSize: 15),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: typingUserName != null
-                        ? theme.colorScheme.primary
-                        : online
-                            ? const Color(0xFF22C55E)
-                            : theme
-                                .extension<AppColors>()
-                                ?.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.phone_outlined, size: 20),
-          onPressed: () {},
-        ),
-        IconButton(
-          icon: const Icon(Icons.more_vert, size: 20),
-          onPressed: () {},
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Message bubble
-// ---------------------------------------------------------------------------
-
-class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({
-    required this.message,
-    required this.isOwn,
-    this.onEdit,
-    this.onDelete,
-  });
-
-  final MessageEntity message;
-  final bool isOwn;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
-
-  String _formatTime() {
-    try {
-      final dt = DateTime.parse(message.createdAt);
-      final h = dt.hour.toString().padLeft(2, '0');
-      final m = dt.minute.toString().padLeft(2, '0');
-      return '$h:$m';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  Widget _buildStatusIcon(BuildContext context) {
-    switch (message.status) {
-      case 'sending':
-        return Icon(
-          Icons.access_time,
-          size: 12,
-          color: isOwn
-              ? Colors.white.withValues(alpha: 0.6)
-              : Theme.of(context)
-                  .extension<AppColors>()
-                  ?.mutedForeground,
-        );
-      case 'sent':
-        return Icon(
-          Icons.check,
-          size: 12,
-          color: isOwn
-              ? Colors.white.withValues(alpha: 0.7)
-              : Theme.of(context)
-                  .extension<AppColors>()
-                  ?.mutedForeground,
-        );
-      case 'delivered':
-        return Icon(
-          Icons.done_all,
-          size: 12,
-          color: isOwn
-              ? Colors.white.withValues(alpha: 0.7)
-              : Theme.of(context)
-                  .extension<AppColors>()
-                  ?.mutedForeground,
-        );
-      case 'read':
-        return const Icon(
-          Icons.done_all,
-          size: 12,
-          color: Color(0xFF3B82F6), // blue check marks
-        );
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-    final l10n = AppLocalizations.of(context)!;
-
-    // Deleted message
-    if (message.isDeleted) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Align(
-          alignment:
-              isOwn ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 10,
-            ),
-            decoration: BoxDecoration(
-              color: appColors?.muted ?? const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: appColors?.border ?? theme.dividerColor,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.block,
-                  size: 14,
-                  color: appColors?.mutedForeground,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  l10n.messagingDeleted,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontStyle: FontStyle.italic,
-                    color: appColors?.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // File message
-    if (message.isFile) {
-      return _buildFileBubble(context, theme, appColors, l10n);
-    }
-
-    // Text message
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onLongPress: isOwn && (onEdit != null || onDelete != null)
-            ? () => _showContextMenu(context, l10n)
-            : null,
-        child: Align(
-          alignment:
-              isOwn ? Alignment.centerRight : Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.75,
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 10,
-              ),
-              decoration: BoxDecoration(
-                color: isOwn
-                    ? const Color(0xFFF43F5E) // rose-500
-                    : (appColors?.muted ?? const Color(0xFFF1F5F9)),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isOwn ? 16 : 4),
-                  bottomRight: Radius.circular(isOwn ? 4 : 16),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    message.content,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.4,
-                      color: isOwn
-                          ? Colors.white
-                          : theme.colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (message.isEdited)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 4),
-                          child: Text(
-                            '(${l10n.messagingEdited})',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontStyle: FontStyle.italic,
-                              color: isOwn
-                                  ? Colors.white
-                                      .withValues(alpha: 0.6)
-                                  : appColors?.mutedForeground,
-                            ),
-                          ),
-                        ),
-                      Text(
-                        _formatTime(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isOwn
-                              ? Colors.white
-                                  .withValues(alpha: 0.7)
-                              : (appColors?.mutedForeground ??
-                                  const Color(0xFF94A3B8)),
-                        ),
-                      ),
-                      if (isOwn) ...[
-                        const SizedBox(width: 4),
-                        _buildStatusIcon(context),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFileBubble(
-    BuildContext context,
-    ThemeData theme,
-    AppColors? appColors,
-    AppLocalizations l10n,
-  ) {
-    final filename =
-        message.metadata?['filename'] as String? ?? message.content;
-    final fileUrl = message.metadata?['url'] as String?;
-    final mimeType = message.metadata?['mime_type'] as String? ?? '';
-    final fileSize = message.metadata?['size'] as int? ?? 0;
-    final sizeLabel = fileSize > 0
-        ? '${(fileSize / 1024).toStringAsFixed(1)} KB'
-        : '';
-    final isImage = mimeType.startsWith('image/');
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: GestureDetector(
-        onTap: fileUrl != null
-            ? () => launchUrl(
-                  Uri.parse(fileUrl),
-                  mode: LaunchMode.externalApplication,
-                )
-            : null,
-        onLongPress: isOwn ? () => _showContextMenu(context, l10n) : null,
-        child: Align(
-          alignment:
-              isOwn ? Alignment.centerRight : Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.75,
-            ),
-            child: Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: isOwn
-                    ? const Color(0xFFF43F5E)
-                    : (appColors?.muted ?? const Color(0xFFF1F5F9)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Image preview for image files
-                  if (isImage && fileUrl != null)
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                      child: CachedNetworkImage(
-                        imageUrl: fileUrl,
-                        maxHeightDiskCache: 512,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          height: 150,
-                          color: Colors.black12,
-                          child: const Center(
-                            child: SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          height: 80,
-                          color: Colors.black12,
-                          child: const Center(
-                            child: Icon(Icons.broken_image, size: 32),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // File info row
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isImage
-                              ? Icons.image_outlined
-                              : Icons.insert_drive_file_outlined,
-                          size: 24,
-                          color: isOwn
-                              ? Colors.white
-                              : theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                filename,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: isOwn
-                                      ? Colors.white
-                                      : theme.colorScheme.onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              if (sizeLabel.isNotEmpty)
-                                Text(
-                                  sizeLabel,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isOwn
-                                        ? Colors.white
-                                            .withValues(alpha: 0.7)
-                                        : appColors?.mutedForeground,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(
-                          Icons.download_outlined,
-                          size: 20,
-                          color: isOwn
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : appColors?.mutedForeground,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showContextMenu(BuildContext context, AppLocalizations l10n) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (onEdit != null)
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: Text(l10n.messagingEditMessage),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onEdit!();
-                },
-              ),
-            if (onDelete != null)
-              ListTile(
-                leading: Icon(
-                  Icons.delete_outline,
-                  color: Theme.of(context).colorScheme.error,
-                ),
-                title: Text(
-                  l10n.messagingDeleteMessage,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onDelete!();
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Typing indicator
-// ---------------------------------------------------------------------------
-
-class _TypingIndicator extends StatelessWidget {
-  const _TypingIndicator({required this.userName});
-
-  final String userName;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Text(
-        AppLocalizations.of(context)!.messagingTyping(userName),
-        style: TextStyle(
-          fontSize: 12,
-          fontStyle: FontStyle.italic,
-          color: appColors?.mutedForeground,
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Message input bar
-// ---------------------------------------------------------------------------
-
-class _MessageInputBar extends StatelessWidget {
-  const _MessageInputBar({
-    required this.controller,
-    required this.onSend,
-    required this.onAttach,
-  });
-
-  final TextEditingController controller;
-  final VoidCallback onSend;
-  final VoidCallback onAttach;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-
-    return Container(
-      padding: EdgeInsets.only(
-        left: 12,
-        right: 12,
-        top: 8,
-        bottom: MediaQuery.paddingOf(context).bottom + 8,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: appColors?.border ?? theme.dividerColor,
-            width: 1,
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          // Attachment
-          IconButton(
-            icon: Icon(
-              Icons.attach_file,
-              size: 20,
-              color: appColors?.mutedForeground,
-            ),
-            onPressed: onAttach,
-          ),
-
-          // Text field
-          Expanded(
-            child: TextField(
-              controller: controller,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => onSend(),
-              decoration: InputDecoration(
-                hintText:
-                    AppLocalizations.of(context)!.messagingWriteMessage,
-                filled: true,
-                fillColor:
-                    appColors?.muted ?? const Color(0xFFF1F5F9),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(
-                    color: theme.colorScheme.primary
-                        .withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // Send button
-          ListenableBuilder(
-            listenable: controller,
-            builder: (context, _) {
-              final hasText = controller.text.trim().isNotEmpty;
-
-              return GestureDetector(
-                onTap: hasText ? onSend : null,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: hasText
-                        ? const Color(0xFFF43F5E)
-                        : (appColors?.muted ??
-                            const Color(0xFFF1F5F9)),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.send,
-                    size: 18,
-                    color: hasText
-                        ? Colors.white
-                        : (appColors?.mutedForeground ??
-                            const Color(0xFF94A3B8)),
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Chat shimmer loading
-// ---------------------------------------------------------------------------
-
-class _ChatShimmer extends StatelessWidget {
-  const _ChatShimmer();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final baseColor =
-        isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-    final highlightColor =
-        isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
-
-    return Shimmer.fromColors(
-      baseColor: baseColor,
-      highlightColor: highlightColor,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: List.generate(5, (index) {
-            final isOwn = index % 2 == 1;
-            return Align(
-              alignment: isOwn
-                  ? Alignment.centerRight
-                  : Alignment.centerLeft,
-              child: Container(
-                width: MediaQuery.sizeOf(context).width * 0.6,
-                height: 48,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Empty chat state
-// ---------------------------------------------------------------------------
-
-class _EmptyChatState extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.chat_bubble_outline,
-            size: 48,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            AppLocalizations.of(context)!.messagingStartConversation,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color:
-                  theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
           ),
         ],
       ),

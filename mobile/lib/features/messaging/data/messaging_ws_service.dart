@@ -145,13 +145,29 @@ class MessagingWsService {
   /// Sends a sync request with the last known sequence numbers
   /// per conversation.
   void sendSync(Map<String, int> lastSeqs) {
-    _send({'type': 'sync', 'last_seqs': lastSeqs});
+    _send({'type': 'sync', 'conversations': lastSeqs});
   }
 
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
 
+  /// Builds the WebSocket URL with the JWT as a query parameter.
+  ///
+  /// **Security tradeoff**: the token appears in the URL because the
+  /// WebSocket API (RFC 6455) does not support custom headers during
+  /// the initial HTTP upgrade handshake. This means the token may be
+  /// logged by intermediary proxies or show up in server access logs.
+  ///
+  /// Mitigations in place:
+  /// - Access tokens are short-lived (15 min TTL).
+  /// - The connection uses WSS (TLS) in production, so the URL is
+  ///   encrypted in transit.
+  ///
+  /// **TODO (planned)**: replace with single-use, short-lived WS
+  /// tickets (POST /api/v1/auth/ws-ticket -> one-time token with
+  /// ~30s TTL) so that the long-lived JWT never appears in the URL.
+  /// Tracked for the next auth iteration.
   String _buildWsUrl(String token) {
     const httpUrl = ApiClient.baseUrl;
     final wsScheme = httpUrl.startsWith('https') ? 'wss' : 'ws';
