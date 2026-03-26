@@ -130,5 +130,17 @@
   "aboutUpdated": "\u00c0 propos mis \u00e0 jour",
   "titlePlaceholder": "Ajoutez votre titre professionnel",
   "videoRemoved": "Vid\u00e9o supprim\u00e9e",
-  "couldNotOpenVideo": "Impossible d'ouvrir la vid\u00e9o"
+  "couldNotOpenVideo": "Impossible d'ouvrir la vid\u00e9o",
+
+  "messagingSearchHint": "Rechercher une conversation...",
+  "messagingNoMessages": "Aucun message dans cette conversation",
+  "messagingNoConversations": "Aucune conversation",
+  "messagingWriteMessage": "\u00c9crivez votre message...",
+  "messagingOnline": "En ligne",
+  "messagingOffline": "Hors ligne",
+  "messagingAllRoles": "Tous",
+  "messagingAgency": "Agence",
+  "messagingFreelancer": "Freelance/Apporteur",
+  "messagingEnterprise": "Entreprise",
+  "messagingConversationNotFound": "Conversation introuvable"
 }

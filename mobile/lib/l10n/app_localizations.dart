@@ -793,6 +793,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not open video'**
   String get couldNotOpenVideo;
+
+  /// No description provided for @messagingSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search conversations...'**
+  String get messagingSearchHint;
+
+  /// No description provided for @messagingNoMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages in this conversation'**
+  String get messagingNoMessages;
+
+  /// No description provided for @messagingNoConversations.
+  ///
+  /// In en, this message translates to:
+  /// **'No conversations yet'**
+  String get messagingNoConversations;
+
+  /// No description provided for @messagingWriteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Write your message...'**
+  String get messagingWriteMessage;
+
+  /// No description provided for @messagingOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get messagingOnline;
+
+  /// No description provided for @messagingOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get messagingOffline;
+
+  /// No description provided for @messagingAllRoles.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get messagingAllRoles;
+
+  /// No description provided for @messagingAgency.
+  ///
+  /// In en, this message translates to:
+  /// **'Agency'**
+  String get messagingAgency;
+
+  /// No description provided for @messagingFreelancer.
+  ///
+  /// In en, this message translates to:
+  /// **'Freelance/Referrer'**
+  String get messagingFreelancer;
+
+  /// No description provided for @messagingEnterprise.
+  ///
+  /// In en, this message translates to:
+  /// **'Enterprise'**
+  String get messagingEnterprise;
+
+  /// No description provided for @messagingConversationNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation not found'**
+  String get messagingConversationNotFound;
 }
 
 class _AppLocalizationsDelegate

@@ -135,5 +135,17 @@
   "aboutUpdated": "About updated",
   "titlePlaceholder": "Add your professional title",
   "videoRemoved": "Video removed",
-  "couldNotOpenVideo": "Could not open video"
+  "couldNotOpenVideo": "Could not open video",
+
+  "messagingSearchHint": "Search conversations...",
+  "messagingNoMessages": "No messages in this conversation",
+  "messagingNoConversations": "No conversations yet",
+  "messagingWriteMessage": "Write your message...",
+  "messagingOnline": "Online",
+  "messagingOffline": "Offline",
+  "messagingAllRoles": "All",
+  "messagingAgency": "Agency",
+  "messagingFreelancer": "Freelance/Referrer",
+  "messagingEnterprise": "Enterprise",
+  "messagingConversationNotFound": "Conversation not found"
 }

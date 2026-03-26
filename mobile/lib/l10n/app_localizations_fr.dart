@@ -364,4 +364,37 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get couldNotOpenVideo => 'Impossible d\'ouvrir la vidéo';
+
+  @override
+  String get messagingSearchHint => 'Rechercher une conversation...';
+
+  @override
+  String get messagingNoMessages => 'Aucun message dans cette conversation';
+
+  @override
+  String get messagingNoConversations => 'Aucune conversation';
+
+  @override
+  String get messagingWriteMessage => 'Écrivez votre message...';
+
+  @override
+  String get messagingOnline => 'En ligne';
+
+  @override
+  String get messagingOffline => 'Hors ligne';
+
+  @override
+  String get messagingAllRoles => 'Tous';
+
+  @override
+  String get messagingAgency => 'Agence';
+
+  @override
+  String get messagingFreelancer => 'Freelance/Apporteur';
+
+  @override
+  String get messagingEnterprise => 'Entreprise';
+
+  @override
+  String get messagingConversationNotFound => 'Conversation introuvable';
 }

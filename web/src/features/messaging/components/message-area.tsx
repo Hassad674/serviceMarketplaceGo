@@ -38,7 +38,7 @@ export function MessageArea({ messages }: MessageAreaProps) {
 
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
-      <div className="mx-auto flex max-w-2xl flex-col gap-3">
+      <div className="mx-auto flex max-w-4xl flex-col gap-3">
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}

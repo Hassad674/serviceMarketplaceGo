@@ -58,7 +58,7 @@ export function MessagingPage() {
       <div
         className={cn(
           "w-full shrink-0 border-r border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-900",
-          "lg:w-[350px] lg:block",
+          "lg:w-[400px] lg:block",
           mobileView === "list" ? "block" : "hidden lg:block",
         )}
       >

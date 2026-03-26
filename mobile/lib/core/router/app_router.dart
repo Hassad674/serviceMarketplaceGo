@@ -9,6 +9,8 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/role_selection_screen.dart';
 import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.dart';
+import '../../features/messaging/presentation/screens/chat_screen.dart';
+import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
@@ -35,6 +37,7 @@ class RoutePaths {
   static const String profile = '/profile';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
+  static const String chat = '/chat';
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +135,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // --- Chat route (full-screen, no bottom nav) ---
+      GoRoute(
+        path: '/chat/:id',
+        builder: (context, state) => ChatScreen(
+          conversationId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+
       // --- Authenticated routes (with bottom navigation shell) ---
       ShellRoute(
         builder: (context, state, child) {
@@ -149,8 +160,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RoutePaths.messaging,
-            builder: (context, state) =>
-                const _PlaceholderScreen(title: 'Messages'),
+            builder: (context, state) => const MessagingScreen(),
           ),
           GoRoute(
             path: RoutePaths.missions,
