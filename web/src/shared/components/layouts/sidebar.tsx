@@ -13,7 +13,7 @@ import {
   Search,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { Link, usePathname } from "@i18n/navigation"
+import { Link, usePathname, useRouter } from "@i18n/navigation"
 import { useUser, useLogout } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { cn } from "@/shared/lib/utils"
@@ -74,6 +74,7 @@ type SidebarProps = {
 
 export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: user } = useUser()
   const logout = useLogout()
   const { isReferrerMode, setReferrerMode } = useWorkspace()
@@ -81,12 +82,13 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const tCommon = useTranslations("common")
 
   const role = user?.role ?? ""
-  // Sync workspace to referrer when visiting the /referral page
+  // Sync workspace to referrer when visiting the /referral page (mount-only)
   useEffect(() => {
-    if (pathname === "/referral" && !isReferrerMode) {
+    if (pathname === "/referral") {
       setReferrerMode(true)
     }
-  }, [pathname, isReferrerMode, setReferrerMode])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
@@ -172,7 +174,11 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
             <ReferrerSwitch
               isReferrerMode={isReferrerMode}
               collapsed={collapsed}
-              onToggle={() => setReferrerMode(!isReferrerMode)}
+              onToggle={() => {
+                const nextMode = !isReferrerMode
+                setReferrerMode(nextMode)
+                router.push(nextMode ? "/referral" : "/dashboard")
+              }}
             />
           </div>
         )}

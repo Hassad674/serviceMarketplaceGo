@@ -840,4 +840,117 @@ test.describe("Auth persistence", () => {
     expect(authCookieAfter).toBeDefined()
     expect(authCookieAfter!.value).toBeTruthy()
   })
+
+  test("session_id cookie is set after registration (server-side sessions)", async ({ page }) => {
+    await registerAgency(page)
+
+    const cookies = await page.context().cookies()
+    const sessionCookie = cookies.find((c) => c.name === "session_id")
+    expect(sessionCookie).toBeDefined()
+    expect(sessionCookie!.value).toBeTruthy()
+    // httpOnly cookies cannot be read from JS, but Playwright can read them
+    expect(sessionCookie!.httpOnly).toBe(true)
+  })
+
+  test("accessing /login when authenticated redirects to /dashboard", async ({
+    page,
+  }) => {
+    await registerAgency(page)
+
+    // Navigate to /login while already authenticated
+    await page.goto("/login")
+
+    // Middleware should detect session_id and redirect to /dashboard
+    // or the landing page "/" will redirect to /dashboard
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Login — password visibility toggle
+// ---------------------------------------------------------------------------
+
+test.describe("Login password visibility", () => {
+  test("password input toggles between hidden and visible", async ({ page }) => {
+    await page.goto("/login")
+
+    const passwordInput = page.locator("input#password")
+    const toggleButton = page.getByRole("button", { name: /show password|hide password/i })
+
+    // Initially password is hidden
+    await expect(passwordInput).toHaveAttribute("type", "password")
+
+    // Click eye icon to show password
+    await toggleButton.click()
+    await expect(passwordInput).toHaveAttribute("type", "text")
+
+    // Click again to hide password
+    await toggleButton.click()
+    await expect(passwordInput).toHaveAttribute("type", "password")
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Reset password (/reset-password)
+// ---------------------------------------------------------------------------
+
+test.describe("Reset password (/reset-password)", () => {
+  test("shows error when no token is provided", async ({ page }) => {
+    await page.goto("/reset-password")
+
+    // The component shows an "Invalid link" state when token is empty
+    await expect(page.getByText(/invalid link|lien invalide/i)).toBeVisible({ timeout: 10000 })
+    // Should show a link to request a new reset
+    await expect(
+      page.getByRole("link", { name: /request a new link|demander un nouveau lien/i }),
+    ).toBeVisible()
+  })
+
+  test("shows reset form when a token is present in URL", async ({ page }) => {
+    // Provide a fake token — the form should render (validation happens on submit)
+    await page.goto("/reset-password?token=fake-test-token-12345")
+
+    // Should show password fields and a submit button
+    await expect(page.getByLabel(/new password|nouveau mot de passe/i)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByLabel(/confirm password|confirmer/i)).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: /reset|reinitialiser/i }),
+    ).toBeVisible()
+  })
+
+  test("shows validation error for weak password on reset form", async ({ page }) => {
+    await page.goto("/reset-password?token=fake-test-token-12345")
+
+    await page.getByLabel(/new password|nouveau mot de passe/i).fill(WEAK_PASSWORD)
+    await page.getByLabel(/confirm password|confirmer/i).fill(WEAK_PASSWORD)
+    await page.getByRole("button", { name: /reset|reinitialiser/i }).click()
+
+    // Should show password strength validation error
+    await expect(
+      page.getByText(/minimum 8|8 caracteres/i),
+    ).toBeVisible()
+  })
+
+  test("shows mismatch error when passwords do not match", async ({ page }) => {
+    await page.goto("/reset-password?token=fake-test-token-12345")
+
+    await page.getByLabel(/new password|nouveau mot de passe/i).fill(STRONG_PASSWORD)
+    await page.getByLabel(/confirm password|confirmer/i).fill("DifferentPass123!")
+    await page.getByRole("button", { name: /reset|reinitialiser/i }).click()
+
+    await expect(
+      page.getByText(/do not match|ne correspondent pas/i),
+    ).toBeVisible()
+  })
+
+  test("request new link navigates to forgot-password", async ({ page }) => {
+    await page.goto("/reset-password")
+
+    // Wait for the invalid link state
+    await expect(page.getByText(/invalid link|lien invalide/i)).toBeVisible({ timeout: 10000 })
+
+    // Click the link to request a new reset
+    await page.getByRole("link", { name: /request a new link|demander un nouveau lien/i }).click()
+    await expect(page).toHaveURL(/\/forgot-password/)
+  })
 })

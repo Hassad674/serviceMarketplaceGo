@@ -82,6 +82,7 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
                 alt={t("photoAlt")}
                 width={96}
                 height={96}
+                unoptimized
                 className={cn(
                   "h-24 w-24 object-cover",
                   type === "agency" ? "rounded-lg" : "rounded-full",

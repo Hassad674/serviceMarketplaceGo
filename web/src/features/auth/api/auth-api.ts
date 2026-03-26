@@ -14,11 +14,11 @@ type AuthUser = {
   created_at: string
 }
 
-type AuthResponse = {
-  user: AuthUser
-}
-
-export async function login(email: string, password: string): Promise<AuthResponse> {
+/**
+ * Web auth responses return the flat user object (session cookie is set via Set-Cookie header).
+ * Mobile clients using X-Auth-Mode: token receive { user, access_token, refresh_token }.
+ */
+export async function login(email: string, password: string): Promise<AuthUser> {
   const res = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: "POST",
     credentials: "include",
@@ -39,7 +39,7 @@ export async function register(data: {
   last_name?: string
   display_name?: string
   role: string
-}): Promise<AuthResponse> {
+}): Promise<AuthUser> {
   const res = await fetch(`${API_URL}/api/v1/auth/register`, {
     method: "POST",
     credentials: "include",

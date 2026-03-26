@@ -89,6 +89,7 @@ export function ProfileHeader({
                   alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
                   width={96}
                   height={96}
+                  unoptimized
                   className="w-full h-full object-cover"
                 />
               ) : (

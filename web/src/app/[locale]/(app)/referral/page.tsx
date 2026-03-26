@@ -11,7 +11,7 @@ import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton
 
 export default function ReferralPage() {
   const { data: user } = useUser()
-  const { data: profile, isLoading } = useProfile()
+  const { data: profile, isLoading, error } = useProfile()
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const referrerVideoUpload = useUploadReferrerVideo()
@@ -30,6 +30,16 @@ export default function ReferralPage() {
   }
 
   if (isLoading) return <ProfileSkeleton />
+
+  if (error || !profile) {
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
+        <p className="text-sm text-destructive">
+          {t("loadError")}
+        </p>
+      </div>
+    )
+  }
 
   const displayName = user
     ? `${user.first_name} ${user.last_name}`

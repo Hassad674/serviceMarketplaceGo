@@ -76,6 +76,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
               alt={getDisplayName(profile, type)}
               width={48}
               height={48}
+              unoptimized
               className="h-12 w-12 rounded-full object-cover"
             />
           ) : (

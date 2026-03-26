@@ -26,7 +26,7 @@ function getRoleContext(role: string): "agency" | "provider" | "referrer" {
 
 export default function ProfilePage() {
   const { data: user } = useUser()
-  const { data: profile, isLoading } = useProfile()
+  const { data: profile, isLoading, error } = useProfile()
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
@@ -34,6 +34,16 @@ export default function ProfilePage() {
   const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
+
+  if (error || !profile) {
+    return (
+      <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
+        <p className="text-sm text-destructive">
+          {t("loadError")}
+        </p>
+      </div>
+    )
+  }
 
   const role = user?.role ?? "provider"
   const displayName = getDisplayName(user ?? null)

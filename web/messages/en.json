@@ -188,7 +188,8 @@
     "professionalTitle": "Professional title",
     "editProfessionalTitle": "Edit professional title",
     "yourProfessionalTitle": "Your professional title",
-    "referralProviderOnly": "This page is only available for provider accounts."
+    "referralProviderOnly": "This page is only available for provider accounts.",
+    "loadError": "Unable to load your profile. Please refresh the page or try again later."
   },
   "upload": {
     "addPhoto": "Add a photo",

@@ -188,7 +188,8 @@
     "professionalTitle": "Titre professionnel",
     "editProfessionalTitle": "Modifier le titre professionnel",
     "yourProfessionalTitle": "Votre titre professionnel",
-    "referralProviderOnly": "Cette page est r\u00e9serv\u00e9e aux comptes prestataires."
+    "referralProviderOnly": "Cette page est r\u00e9serv\u00e9e aux comptes prestataires.",
+    "loadError": "Impossible de charger votre profil. Veuillez rafra\u00eechir la page ou r\u00e9essayer plus tard."
   },
   "upload": {
     "addPhoto": "Ajouter une photo",
