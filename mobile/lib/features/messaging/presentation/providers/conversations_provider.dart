@@ -283,9 +283,14 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   /// Call with the conversation ID when entering the chat screen,
   /// and with null when leaving.
   void setActiveConversation(String? conversationId) {
+    // When leaving a conversation, clear its unread count to prevent
+    // stale server values from showing before markAsRead completes.
+    final previousId = _activeConversationId;
     _activeConversationId = conversationId;
     if (conversationId != null) {
       clearUnread(conversationId);
+    } else if (previousId != null) {
+      clearUnread(previousId);
     }
   }
 

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../proposal/types/proposal.dart';
 import '../../../domain/entities/message_entity.dart';
 import 'file_message_bubble.dart';
 import 'message_context_menu.dart';
+import 'proposal_card.dart';
 
 /// Renders a single chat message bubble (text, file, or deleted).
 class MessageBubble extends StatelessWidget {
@@ -80,6 +82,18 @@ class MessageBubble extends StatelessWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+
+    // Proposal message
+    if (message.type == 'proposal_sent' && message.metadata != null) {
+      final metadata =
+          ProposalMessageMetadata.fromJson(message.metadata!);
+      return ProposalCard(
+        metadata: metadata,
+        isOwn: isOwn,
+        onAccept: isOwn ? null : () {},
+        onDecline: isOwn ? null : () {},
+      );
+    }
 
     // Deleted message
     if (message.isDeleted) {

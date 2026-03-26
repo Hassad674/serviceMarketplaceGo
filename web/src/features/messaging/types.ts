@@ -1,4 +1,4 @@
-export type MessageType = "text" | "file"
+export type MessageType = "text" | "file" | "proposal_sent"
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read"
 
@@ -9,13 +9,23 @@ export type FileMetadata = {
   mime_type: string
 }
 
+export type ProposalMessageMetadata = {
+  proposal_id: string
+  proposal_title: string
+  proposal_total_amount: number
+  proposal_payment_type: "escrow" | "invoice"
+  proposal_milestones_count: number
+  proposal_status: "pending" | "accepted" | "declined" | "withdrawn"
+  proposal_sender_name: string
+}
+
 export type Message = {
   id: string
   conversation_id: string
   sender_id: string
   content: string
   type: MessageType
-  metadata: FileMetadata | null
+  metadata: FileMetadata | ProposalMessageMetadata | null
   seq: number
   status: MessageStatus
   edited_at: string | null

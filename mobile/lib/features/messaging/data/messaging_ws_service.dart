@@ -36,6 +36,7 @@ class MessagingWsService {
       StreamController<Map<String, dynamic>>.broadcast();
 
   bool _isConnected = false;
+  bool _isConnecting = false;
   bool _disposed = false;
   int _reconnectAttempts = 0;
   bool _hasConnectedBefore = false;
@@ -81,19 +82,24 @@ class MessagingWsService {
   /// as a query parameter. On successful reconnection, emits a
   /// synthetic `reconnected` event for stale-state refresh.
   Future<void> connect() async {
-    if (_disposed) return;
-
-    final token = await _storage.getAccessToken();
-    if (token == null) return;
-
-    final wsUrl = _buildWsUrl(token);
+    if (_disposed || _isConnecting || _isConnected) return;
+    _isConnecting = true;
 
     try {
+      final token = await _storage.getAccessToken();
+      if (token == null) {
+        _isConnecting = false;
+        return;
+      }
+
+      final wsUrl = _buildWsUrl(token);
+
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       await _channel!.ready;
 
       final isReconnect = _hasConnectedBefore;
       _isConnected = true;
+      _isConnecting = false;
       _hasConnectedBefore = true;
       _reconnectAttempts = 0;
 
@@ -110,6 +116,7 @@ class MessagingWsService {
         _eventController.add(const {'type': 'reconnected'});
       }
     } catch (_) {
+      _isConnecting = false;
       _scheduleReconnect();
     }
   }
@@ -121,6 +128,7 @@ class MessagingWsService {
     _channel?.sink.close();
     _channel = null;
     _isConnected = false;
+    _isConnecting = false;
   }
 
   /// Permanently disposes the service. Cannot reconnect after this.

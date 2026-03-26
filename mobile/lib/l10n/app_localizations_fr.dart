@@ -676,4 +676,49 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get jobSave => 'Enregistrer';
+
+  @override
+  String get proposalPropose => 'Envoyer une proposition';
+
+  @override
+  String get proposalCreate => 'Créer une proposition';
+
+  @override
+  String get proposalTitle => 'Titre de la proposition';
+
+  @override
+  String get proposalFrom => 'Proposition de';
+
+  @override
+  String get proposalTotalAmount => 'Montant total';
+
+  @override
+  String get proposalEscrow => 'Paiement séquestre';
+
+  @override
+  String get proposalInvoice => 'Facturation';
+
+  @override
+  String get proposalMilestones => 'jalons';
+
+  @override
+  String get proposalPending => 'En attente';
+
+  @override
+  String get proposalAccepted => 'Acceptée';
+
+  @override
+  String get proposalDeclined => 'Refusée';
+
+  @override
+  String get proposalAccept => 'Accepter';
+
+  @override
+  String get proposalDecline => 'Refuser';
+
+  @override
+  String get proposalSend => 'Envoyer la proposition';
+
+  @override
+  String get proposalNegotiable => 'Négociable';
 }

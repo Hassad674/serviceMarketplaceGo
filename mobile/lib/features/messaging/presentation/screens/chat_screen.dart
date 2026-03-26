@@ -14,6 +14,8 @@ import '../../data/messaging_repository_impl.dart';
 import '../../domain/entities/message_entity.dart';
 import '../providers/conversations_provider.dart';
 import '../providers/messages_provider.dart';
+import '../../../proposal/presentation/widgets/proposal_create_sheet.dart';
+import '../../../proposal/types/proposal.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
 import '../widgets/chat/empty_chat_state.dart';
@@ -66,7 +68,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void deactivate() {
-    // Clear active conversation when leaving the chat screen
+    // Send a final markAsRead for any messages received while viewing,
+    // then clear active conversation when leaving the chat screen.
+    final msgState = ref.read(messagesProvider(widget.conversationId));
+    if (msgState.messages.isNotEmpty) {
+      final lastSeq = msgState.messages
+          .map((m) => m.seq)
+          .reduce((a, b) => a > b ? a : b);
+      if (lastSeq > 0) {
+        ref
+            .read(messagingRepositoryProvider)
+            .markAsRead(widget.conversationId, upToSeq: lastSeq);
+      }
+    }
     ref
         .read(conversationsProvider.notifier)
         .setActiveConversation(null);
@@ -211,6 +225,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       }
     });
+  }
+
+  Future<void> _openProposalSheet() async {
+    final formData = await ProposalCreateSheet.show(context);
+    if (formData == null || !mounted) return;
+
+    final authState = ref.read(authProvider);
+    final userName = authState.user?['first_name'] as String? ?? 'You';
+
+    // Build a mock proposal message and inject it into the message list.
+    final totalAmount = formData.paymentType == ProposalPaymentType.escrow
+        ? formData.totalMilestoneAmount
+        : formData.amount;
+
+    final metadata = ProposalMessageMetadata(
+      proposalId: 'mock-${DateTime.now().millisecondsSinceEpoch}',
+      senderName: userName,
+      title: formData.title,
+      totalAmount: totalAmount,
+      paymentType: formData.paymentType,
+      milestoneCount: formData.milestones.length,
+      status: ProposalStatus.pending,
+      negotiable: formData.negotiable,
+    );
+
+    final mockMessage = MessageEntity(
+      id: 'proposal-${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: widget.conversationId,
+      senderId: authState.user?['id'] as String? ?? '',
+      content: formData.title,
+      type: 'proposal_sent',
+      metadata: metadata.toJson(),
+      status: 'sent',
+      createdAt: DateTime.now().toIso8601String(),
+    );
+
+    ref
+        .read(messagesProvider(widget.conversationId).notifier)
+        .addLocalMessage(mockMessage);
+
+    _scrollToBottom();
   }
 
   void _showEditDialog(MessageEntity message) {
@@ -363,6 +418,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             controller: _controller,
             onSend: _sendMessage,
             onAttach: _pickAndSendFile,
+            onProposal: _openProposalSheet,
           ),
         ],
       ),

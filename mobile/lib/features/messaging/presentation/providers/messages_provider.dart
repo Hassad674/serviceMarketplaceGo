@@ -231,6 +231,16 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
     }
   }
 
+  /// Adds a message to the local list without sending it to the server.
+  ///
+  /// Used by the proposal flow to optimistically display a proposal card
+  /// in the chat before the backend integration is wired.
+  void addLocalMessage(MessageEntity message) {
+    state = state.copyWith(
+      messages: [...state.messages, message],
+    );
+  }
+
   /// Notifies the server that the user is typing.
   void sendTyping() {
     _wsService.sendTyping(conversationId);

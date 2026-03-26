@@ -240,5 +240,21 @@
   "jobMonths": "mois",
   "jobCancel": "Annuler",
   "jobContinue": "Continuer",
-  "jobSave": "Enregistrer"
+  "jobSave": "Enregistrer",
+
+  "proposalPropose": "Envoyer une proposition",
+  "proposalCreate": "Cr\u00e9er une proposition",
+  "proposalTitle": "Titre de la proposition",
+  "proposalFrom": "Proposition de",
+  "proposalTotalAmount": "Montant total",
+  "proposalEscrow": "Paiement s\u00e9questre",
+  "proposalInvoice": "Facturation",
+  "proposalMilestones": "jalons",
+  "proposalPending": "En attente",
+  "proposalAccepted": "Accept\u00e9e",
+  "proposalDeclined": "Refus\u00e9e",
+  "proposalAccept": "Accepter",
+  "proposalDecline": "Refuser",
+  "proposalSend": "Envoyer la proposition",
+  "proposalNegotiable": "N\u00e9gociable"
 }

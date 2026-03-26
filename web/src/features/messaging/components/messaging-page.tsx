@@ -102,6 +102,10 @@ export function MessagingPage() {
     setMobileView("chat")
     router.replace(`/messages?id=${id}`)
 
+    // Find the conversation's current unread count before clearing
+    const conv = conversations.find((c: Conversation) => c.id === id)
+    const clearedUnread = conv?.unread_count ?? 0
+
     // Optimistically clear unread_count for the selected conversation
     queryClient.setQueryData(
       CONVERSATIONS_QUERY_KEY,
@@ -115,9 +119,18 @@ export function MessagingPage() {
         }
       },
     )
-    // Invalidate sidebar unread badge to recalculate total
-    queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY })
-  }, [router, queryClient])
+    // Optimistically subtract this conversation's unread from sidebar total
+    // instead of invalidating (which would refetch before markAsRead completes)
+    if (clearedUnread > 0) {
+      queryClient.setQueryData(
+        UNREAD_COUNT_QUERY_KEY,
+        (old: { count: number } | undefined) => {
+          if (!old) return old
+          return { count: Math.max(0, old.count - clearedUnread) }
+        },
+      )
+    }
+  }, [router, queryClient, conversations])
 
   const handleBack = useCallback(() => {
     setMobileView("list")

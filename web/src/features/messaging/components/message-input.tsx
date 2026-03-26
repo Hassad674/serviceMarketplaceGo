@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Paperclip, Send, Loader2 } from "lucide-react"
+import { Paperclip, Send, Loader2, FileText } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { getPresignedURL } from "../api/messaging-api"
 import { FileUploadModal } from "./file-upload-modal"
+import { ProposalCreateModal } from "@/features/proposal/components/proposal-create-modal"
 
 const TYPING_INTERVAL_MS = 2_000
 
@@ -21,6 +22,7 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
   const [value, setValue] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
+  const [proposalModalOpen, setProposalModalOpen] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const onTypingRef = useRef(onTyping)
   const hasContent = value.trim().length > 0
@@ -133,6 +135,22 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
           )}
         </button>
 
+        {/* Proposal button */}
+        <button
+          type="button"
+          onClick={() => setProposalModalOpen(true)}
+          disabled={isDisabled}
+          className={cn(
+            "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
+            "hover:bg-rose-50 hover:text-rose-600",
+            "dark:hover:bg-rose-500/10 dark:hover:text-rose-400",
+            isDisabled && "pointer-events-none opacity-50",
+          )}
+          aria-label={t("propose")}
+        >
+          <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
+        </button>
+
         {/* Input */}
         <input
           type="text"
@@ -177,6 +195,11 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
         onClose={() => setModalOpen(false)}
         onUploadFiles={handleUploadFiles}
         uploading={isUploading}
+      />
+
+      <ProposalCreateModal
+        open={proposalModalOpen}
+        onClose={() => setProposalModalOpen(false)}
       />
     </>
   )

@@ -1405,6 +1405,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Save'**
   String get jobSave;
+
+  /// No description provided for @proposalPropose.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a proposal'**
+  String get proposalPropose;
+
+  /// No description provided for @proposalCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create proposal'**
+  String get proposalCreate;
+
+  /// No description provided for @proposalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal title'**
+  String get proposalTitle;
+
+  /// No description provided for @proposalFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal from'**
+  String get proposalFrom;
+
+  /// No description provided for @proposalTotalAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Total amount'**
+  String get proposalTotalAmount;
+
+  /// No description provided for @proposalEscrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow'**
+  String get proposalEscrow;
+
+  /// No description provided for @proposalInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice billing'**
+  String get proposalInvoice;
+
+  /// No description provided for @proposalMilestones.
+  ///
+  /// In en, this message translates to:
+  /// **'milestones'**
+  String get proposalMilestones;
+
+  /// No description provided for @proposalPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get proposalPending;
+
+  /// No description provided for @proposalAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get proposalAccepted;
+
+  /// No description provided for @proposalDeclined.
+  ///
+  /// In en, this message translates to:
+  /// **'Declined'**
+  String get proposalDeclined;
+
+  /// No description provided for @proposalAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get proposalAccept;
+
+  /// No description provided for @proposalDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get proposalDecline;
+
+  /// No description provided for @proposalSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send proposal'**
+  String get proposalSend;
+
+  /// No description provided for @proposalNegotiable.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiable'**
+  String get proposalNegotiable;
 }
 
 class _AppLocalizationsDelegate

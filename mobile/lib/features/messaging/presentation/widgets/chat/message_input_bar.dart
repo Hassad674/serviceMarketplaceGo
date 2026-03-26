@@ -10,11 +10,16 @@ class MessageInputBar extends StatelessWidget {
     required this.controller,
     required this.onSend,
     required this.onAttach,
+    this.onProposal,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final VoidCallback onAttach;
+
+  /// Called when the user taps the proposal button. If null, the button
+  /// is hidden.
+  final VoidCallback? onProposal;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +53,19 @@ class MessageInputBar extends StatelessWidget {
             ),
             onPressed: onAttach,
           ),
+
+          // Proposal
+          if (onProposal != null)
+            IconButton(
+              icon: Icon(
+                Icons.description_outlined,
+                size: 20,
+                color: appColors?.mutedForeground,
+              ),
+              tooltip:
+                  AppLocalizations.of(context)!.proposalPropose,
+              onPressed: onProposal,
+            ),
 
           // Text field
           Expanded(

@@ -4,10 +4,11 @@ import { useRef, useEffect, useState, useCallback } from "react"
 import { MessageSquare } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
-import type { Message } from "../types"
+import type { Message, ProposalMessageMetadata } from "../types"
 import { MessageStatusIcon } from "./message-status-icon"
 import { FileMessage } from "./file-message"
 import { MessageContextMenu } from "./message-context-menu"
+import { ProposalCard } from "./proposal-card"
 
 interface MessageAreaProps {
   messages: Message[]
@@ -126,6 +127,10 @@ interface MessageBubbleProps {
   onDelete: (messageId: string) => void
 }
 
+function isProposalMetadata(metadata: unknown): metadata is ProposalMessageMetadata {
+  return metadata !== null && typeof metadata === "object" && "proposal_id" in (metadata as Record<string, unknown>)
+}
+
 function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps) {
   const t = useTranslations("messaging")
   const [isEditing, setIsEditing] = useState(false)
@@ -138,6 +143,20 @@ function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps)
     }
     setIsEditing(false)
   }, [editContent, message.content, message.id, onEdit])
+
+  // Proposal message — render ProposalCard instead of a text bubble
+  if (message.type === "proposal_sent" && isProposalMetadata(message.metadata)) {
+    return (
+      <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
+        <ProposalCard
+          metadata={message.metadata}
+          isOwn={isOwn}
+          onAccept={() => console.log("Accept proposal:", message.metadata)}
+          onDecline={() => console.log("Decline proposal:", message.metadata)}
+        />
+      </div>
+    )
+  }
 
   // Deleted message
   if (message.deleted_at) {

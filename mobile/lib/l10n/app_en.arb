@@ -245,5 +245,21 @@
   "jobMonths": "months",
   "jobCancel": "Cancel",
   "jobContinue": "Continue",
-  "jobSave": "Save"
+  "jobSave": "Save",
+
+  "proposalPropose": "Send a proposal",
+  "proposalCreate": "Create proposal",
+  "proposalTitle": "Proposal title",
+  "proposalFrom": "Proposal from",
+  "proposalTotalAmount": "Total amount",
+  "proposalEscrow": "Escrow",
+  "proposalInvoice": "Invoice billing",
+  "proposalMilestones": "milestones",
+  "proposalPending": "Pending",
+  "proposalAccepted": "Accepted",
+  "proposalDeclined": "Declined",
+  "proposalAccept": "Accept",
+  "proposalDecline": "Decline",
+  "proposalSend": "Send proposal",
+  "proposalNegotiable": "Negotiable"
 }
