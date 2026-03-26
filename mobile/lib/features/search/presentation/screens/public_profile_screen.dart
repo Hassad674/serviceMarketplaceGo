@@ -1,11 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../messaging/data/messaging_repository_impl.dart';
 import '../providers/search_provider.dart';
 
 /// Read-only public profile screen for any user.
@@ -43,6 +46,7 @@ class PublicProfileScreen extends ConsumerWidget {
         ),
         data: (profile) => _ProfileContent(
           profile: profile,
+          profileUserId: userId,
           navDisplayName: displayName,
           navRole: role,
         ),
@@ -55,30 +59,49 @@ class PublicProfileScreen extends ConsumerWidget {
 // Profile content -- main scrollable body
 // ---------------------------------------------------------------------------
 
-class _ProfileContent extends StatelessWidget {
+class _ProfileContent extends ConsumerStatefulWidget {
   const _ProfileContent({
     required this.profile,
+    required this.profileUserId,
     this.navDisplayName,
     this.navRole,
   });
 
   final Map<String, dynamic> profile;
+  final String profileUserId;
   final String? navDisplayName;
   final String? navRole;
+
+  @override
+  ConsumerState<_ProfileContent> createState() =>
+      _ProfileContentState();
+}
+
+class _ProfileContentState extends ConsumerState<_ProfileContent> {
+  bool _isSendingMessage = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final authState = ref.watch(authProvider);
 
     final resolvedName = _resolveDisplayName();
-    final title = profile['title'] as String?;
-    final about = profile['about'] as String?;
-    final photoUrl = profile['photo_url'] as String?;
-    final videoUrl = profile['presentation_video_url'] as String?;
+    final title = widget.profile['title'] as String?;
+    final about = widget.profile['about'] as String?;
+    final photoUrl = widget.profile['photo_url'] as String?;
+    final videoUrl =
+        widget.profile['presentation_video_url'] as String?;
     final resolvedRole = _resolveRole();
     final initials = _buildInitials(resolvedName);
+
+    // Determine if Send Message button should show
+    final isAuthenticated =
+        authState.status == AuthStatus.authenticated;
+    final currentUserId = authState.user?['id'] as String?;
+    final isOwnProfile = currentUserId == widget.profileUserId;
+    final showSendMessage = isAuthenticated && !isOwnProfile;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -112,11 +135,45 @@ class _ProfileContent extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
             ),
-          if (title == null || title.isEmpty) const SizedBox(height: 12),
+          if (title == null || title.isEmpty)
+            const SizedBox(height: 12),
 
           // Role badge
           if (resolvedRole != null) _RoleBadge(role: resolvedRole),
           const SizedBox(height: 24),
+
+          // Send Message button
+          if (showSendMessage)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed:
+                      _isSendingMessage ? null : _onSendMessage,
+                  icon: _isSendingMessage
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.chat_outlined, size: 20),
+                  label: Text(l10n.messagingSendMessage),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF43F5E),
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusMd),
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           // Video section (playable)
           if (videoUrl != null && videoUrl.isNotEmpty)
@@ -131,7 +188,8 @@ class _ProfileContent extends StatelessWidget {
               icon: Icons.info_outline,
               child: Text(
                 about,
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(height: 1.5),
               ),
             ),
         ],
@@ -139,23 +197,54 @@ class _ProfileContent extends StatelessWidget {
     );
   }
 
+  Future<void> _onSendMessage() async {
+    setState(() => _isSendingMessage = true);
+
+    try {
+      final repo = ref.read(messagingRepositoryProvider);
+      final result = await repo.startConversation(
+        recipientId: widget.profileUserId,
+        content: '',
+      );
+      if (mounted) {
+        context.push('/chat/${result.conversationId}');
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context)!.somethingWentWrong,
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingMessage = false);
+      }
+    }
+  }
+
   String _resolveDisplayName() {
-    // Prefer data from navigation extras (search results have name data)
-    if (navDisplayName != null && navDisplayName!.isNotEmpty) {
-      return navDisplayName!;
+    if (widget.navDisplayName != null &&
+        widget.navDisplayName!.isNotEmpty) {
+      return widget.navDisplayName!;
     }
 
-    // Try profile data fields
-    final displayName = profile['display_name'] as String?;
-    if (displayName != null && displayName.isNotEmpty) return displayName;
+    final displayName =
+        widget.profile['display_name'] as String?;
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
 
-    final firstName = profile['first_name'] as String? ?? '';
-    final lastName = profile['last_name'] as String? ?? '';
+    final firstName =
+        widget.profile['first_name'] as String? ?? '';
+    final lastName = widget.profile['last_name'] as String? ?? '';
     final fullName = '$firstName $lastName'.trim();
     if (fullName.isNotEmpty) return fullName;
 
-    // Last resort: use user_id prefix
-    final userId = profile['user_id'] as String?;
+    final userId = widget.profile['user_id'] as String?;
     if (userId != null && userId.length >= 8) {
       return 'User ${userId.substring(0, 8)}';
     }
@@ -163,10 +252,10 @@ class _ProfileContent extends StatelessWidget {
   }
 
   String? _resolveRole() {
-    // Prefer navigation extras
-    if (navRole != null && navRole!.isNotEmpty) return navRole;
-    // Try profile data
-    return profile['role'] as String?;
+    if (widget.navRole != null && widget.navRole!.isNotEmpty) {
+      return widget.navRole;
+    }
+    return widget.profile['role'] as String?;
   }
 
   String _buildInitials(String name) {
@@ -238,7 +327,10 @@ class _LargeAvatar extends StatelessWidget {
 }
 
 class _InitialsCircle extends StatelessWidget {
-  const _InitialsCircle({required this.initials, required this.color});
+  const _InitialsCircle({
+    required this.initials,
+    required this.color,
+  });
 
   final String initials;
   final Color color;
@@ -272,7 +364,8 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
         color: _color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
@@ -428,7 +521,10 @@ class _ProfileShimmer extends StatelessWidget {
         child: Column(
           children: [
             // Avatar
-            const CircleAvatar(radius: 56, backgroundColor: Colors.white),
+            const CircleAvatar(
+              radius: 56,
+              backgroundColor: Colors.white,
+            ),
             const SizedBox(height: 16),
             // Name
             Container(
@@ -466,7 +562,8 @@ class _ProfileShimmer extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                borderRadius:
+                    BorderRadius.circular(AppTheme.radiusLg),
               ),
             ),
           ],
@@ -501,8 +598,10 @@ class _ErrorState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: theme.colorScheme.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                color:
+                    theme.colorScheme.error.withValues(alpha: 0.1),
+                borderRadius:
+                    BorderRadius.circular(AppTheme.radiusLg),
               ),
               child: Icon(
                 Icons.error_outline,

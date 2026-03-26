@@ -1,65 +1,165 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/extensions.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../mock_data.dart';
-import '../../types/conversation.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../data/messaging_repository_impl.dart';
+import '../../domain/entities/conversation_entity.dart';
+import '../../domain/entities/message_entity.dart';
+import '../providers/messaging_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Chat screen — messages view for a single conversation
+// Chat screen -- messages view for a single conversation
 // ---------------------------------------------------------------------------
 
-/// Displays the message thread for a given conversation, with a text input bar.
-class ChatScreen extends StatefulWidget {
+/// Displays the message thread for a given conversation with real-time
+/// updates, typing indicators, file uploads, and edit/delete support.
+class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key, required this.conversationId});
 
   final String conversationId;
 
   @override
-  State<ChatScreen> createState() => _ChatScreenState();
+  ConsumerState<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  late List<Message> _messages;
-  Conversation? _conversation;
+  Timer? _typingDebounce;
 
   @override
   void initState() {
     super.initState();
-    _conversation = mockConversations
-        .where((c) => c.id == widget.conversationId)
-        .firstOrNull;
-    _messages = List.of(
-      mockMessages.where((m) => m.conversationId == widget.conversationId),
-    );
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _typingDebounce?.cancel();
     super.dispose();
   }
 
-  void _sendMessage() {
+  void _onScroll() {
+    // Load older messages when scrolled near the top
+    if (_scrollController.position.pixels <=
+        _scrollController.position.minScrollExtent + 100) {
+      ref
+          .read(messagesProvider(widget.conversationId).notifier)
+          .loadOlderMessages();
+    }
+  }
+
+  void _onTextChanged(String text) {
+    _typingDebounce?.cancel();
+    if (text.trim().isNotEmpty) {
+      _typingDebounce = Timer(const Duration(milliseconds: 500), () {
+        ref
+            .read(messagesProvider(widget.conversationId).notifier)
+            .sendTyping();
+      });
+    }
+  }
+
+  Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    setState(() {
-      _messages.add(Message(
-        id: 'm${DateTime.now().millisecondsSinceEpoch}',
-        conversationId: widget.conversationId,
-        senderId: 'me',
-        content: text,
-        sentAt: TimeOfDay.now().format(context),
-        isOwn: true,
-      ));
-    });
     _controller.clear();
+    final sent = await ref
+        .read(messagesProvider(widget.conversationId).notifier)
+        .sendTextMessage(text);
 
-    // Scroll to bottom after adding message
+    if (sent != null) {
+      _scrollToBottom();
+    }
+  }
+
+  Future<void> _pickAndSendFile() async {
+    final l10n = AppLocalizations.of(context)!;
+
+    final result = await FilePicker.platform.pickFiles();
+    if (result == null || result.files.isEmpty) return;
+
+    final file = result.files.first;
+    if (file.name.isEmpty) return;
+
+    final contentType = _guessContentType(file.name);
+
+    try {
+      final repo = ref.read(messagingRepositoryProvider);
+      final uploadInfo = await repo.getUploadUrl(
+        filename: file.name,
+        contentType: contentType,
+      );
+
+      // Upload file to presigned URL via raw bytes
+      if (file.path != null) {
+        final fileBytes = await File(file.path!).readAsBytes();
+        await Dio().put(
+          uploadInfo.uploadUrl,
+          data: Stream.fromIterable(fileBytes.map((b) => [b])),
+          options: Options(
+            headers: {
+              'Content-Type': contentType,
+              'Content-Length': fileBytes.length,
+            },
+          ),
+        );
+      }
+
+      // Send file message
+      await ref
+          .read(messagesProvider(widget.conversationId).notifier)
+          .sendFileMessage(
+            filename: file.name,
+            contentType: contentType,
+            fileKey: uploadInfo.fileKey,
+            fileUrl: uploadInfo.uploadUrl.split('?').first,
+            fileSize: file.size,
+          );
+
+      _scrollToBottom();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.uploadError)),
+        );
+      }
+    }
+  }
+
+  String _guessContentType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'gif':
+        return 'image/gif';
+      case 'doc':
+      case 'docx':
+        return 'application/msword';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -71,24 +171,122 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  void _showEditDialog(MessageEntity message) {
+    final editController = TextEditingController(text: message.content);
+    final l10n = AppLocalizations.of(context)!;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.messagingEditMessage),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+          maxLines: null,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref
+                  .read(messagesProvider(widget.conversationId).notifier)
+                  .editMessage(
+                    messageId: message.id,
+                    content: editController.text.trim(),
+                  );
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirm(MessageEntity message) {
+    final l10n = AppLocalizations.of(context)!;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.messagingDeleteMessage),
+        content: Text(l10n.messagingDeleteConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref
+                  .read(messagesProvider(widget.conversationId).notifier)
+                  .deleteMessage(message.id);
+            },
+            child: Text(l10n.remove),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_conversation == null) {
+    final msgState = ref.watch(messagesProvider(widget.conversationId));
+    final convState = ref.watch(conversationsProvider);
+    final authState = ref.watch(authProvider);
+    final currentUserId = authState.user?['id'] as String? ?? '';
+
+    // Find conversation details from conversations state
+    final conversation = convState.conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+
+    // Auto-scroll when new messages arrive
+    ref.listen<MessagesState>(
+      messagesProvider(widget.conversationId),
+      (prev, next) {
+        if (prev != null &&
+            next.messages.length > prev.messages.length) {
+          _scrollToBottom();
+        }
+      },
+    );
+
+    if (msgState.isLoading && msgState.messages.isEmpty) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(
-          child: Text(AppLocalizations.of(context)!.messagingConversationNotFound),
-        ),
+        body: const _ChatShimmer(),
       );
     }
 
     return Scaffold(
-      appBar: _ChatAppBar(conversation: _conversation!),
+      appBar: _ChatAppBar(
+        conversation: conversation,
+        typingUserName: msgState.typingUserName,
+      ),
       body: Column(
         children: [
+          // Loading more indicator
+          if (msgState.isLoadingMore)
+            const Padding(
+              padding: EdgeInsets.all(8),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+
           // Messages
           Expanded(
-            child: _messages.isEmpty
+            child: msgState.messages.isEmpty
                 ? _EmptyChatState()
                 : ListView.builder(
                     controller: _scrollController,
@@ -96,17 +294,34 @@ class _ChatScreenState extends State<ChatScreen> {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    itemCount: _messages.length,
+                    itemCount: msgState.messages.length,
                     itemBuilder: (context, index) {
-                      return _MessageBubble(message: _messages[index]);
+                      final message = msgState.messages[index];
+                      final isOwn = message.senderId == currentUserId;
+                      return _MessageBubble(
+                        message: message,
+                        isOwn: isOwn,
+                        onEdit: isOwn && !message.isDeleted
+                            ? () => _showEditDialog(message)
+                            : null,
+                        onDelete: isOwn && !message.isDeleted
+                            ? () => _showDeleteConfirm(message)
+                            : null,
+                      );
                     },
                   ),
           ),
+
+          // Typing indicator
+          if (msgState.typingUserName != null)
+            _TypingIndicator(userName: msgState.typingUserName!),
 
           // Input bar
           _MessageInputBar(
             controller: _controller,
             onSend: _sendMessage,
+            onTextChanged: _onTextChanged,
+            onAttach: _pickAndSendFile,
           ),
         ],
       ),
@@ -115,22 +330,20 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Chat app bar — avatar, name, online status
+// Chat app bar -- avatar, name, online status
 // ---------------------------------------------------------------------------
 
 class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _ChatAppBar({required this.conversation});
+  const _ChatAppBar({
+    required this.conversation,
+    this.typingUserName,
+  });
 
-  final Conversation conversation;
+  final ConversationEntity? conversation;
+  final String? typingUserName;
 
-  String get _initials {
-    return conversation.name
-        .split(' ')
-        .map((w) => w.isNotEmpty ? w[0] : '')
-        .join()
-        .substring(0, conversation.name.split(' ').length >= 2 ? 2 : 1)
-        .toUpperCase();
-  }
+  String get _initials =>
+      conversation?.otherUserName.initials ?? '?';
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -138,6 +351,17 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final online = conversation?.online ?? false;
+
+    String subtitle;
+    if (typingUserName != null) {
+      subtitle = l10n.messagingTyping(typingUserName!);
+    } else if (online) {
+      subtitle = l10n.messagingOnline;
+    } else {
+      subtitle = l10n.messagingOffline;
+    }
 
     return AppBar(
       titleSpacing: 0,
@@ -172,7 +396,7 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                 ),
               ),
-              if (conversation.online)
+              if (online)
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -200,20 +424,23 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  conversation.name,
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 15),
+                  conversation?.otherUserName ?? '',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontSize: 15),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  conversation.online
-                      ? AppLocalizations.of(context)!.messagingOnline
-                      : AppLocalizations.of(context)!.messagingOffline,
+                  subtitle,
                   style: TextStyle(
                     fontSize: 12,
-                    color: conversation.online
-                        ? const Color(0xFF22C55E)
-                        : theme.extension<AppColors>()?.mutedForeground,
+                    color: typingUserName != null
+                        ? theme.colorScheme.primary
+                        : online
+                            ? const Color(0xFF22C55E)
+                            : theme
+                                .extension<AppColors>()
+                                ?.mutedForeground,
                   ),
                 ),
               ],
@@ -240,67 +467,362 @@ class _ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
 // ---------------------------------------------------------------------------
 
 class _MessageBubble extends StatelessWidget {
-  const _MessageBubble({required this.message});
+  const _MessageBubble({
+    required this.message,
+    required this.isOwn,
+    this.onEdit,
+    this.onDelete,
+  });
 
-  final Message message;
+  final MessageEntity message;
+  final bool isOwn;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  String _formatTime() {
+    try {
+      final dt = DateTime.parse(message.createdAt);
+      final h = dt.hour.toString().padLeft(2, '0');
+      final m = dt.minute.toString().padLeft(2, '0');
+      return '$h:$m';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Widget _buildStatusIcon(BuildContext context) {
+    switch (message.status) {
+      case 'sending':
+        return Icon(
+          Icons.access_time,
+          size: 12,
+          color: isOwn
+              ? Colors.white.withValues(alpha: 0.6)
+              : Theme.of(context)
+                  .extension<AppColors>()
+                  ?.mutedForeground,
+        );
+      case 'sent':
+        return Icon(
+          Icons.check,
+          size: 12,
+          color: isOwn
+              ? Colors.white.withValues(alpha: 0.7)
+              : Theme.of(context)
+                  .extension<AppColors>()
+                  ?.mutedForeground,
+        );
+      case 'delivered':
+        return Icon(
+          Icons.done_all,
+          size: 12,
+          color: isOwn
+              ? Colors.white.withValues(alpha: 0.7)
+              : Theme.of(context)
+                  .extension<AppColors>()
+                  ?.mutedForeground,
+        );
+      case 'read':
+        return const Icon(
+          Icons.done_all,
+          size: 12,
+          color: Color(0xFF3B82F6), // blue check marks
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
-    final isOwn = message.isOwn;
+    final l10n = AppLocalizations.of(context)!;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Align(
-        alignment: isOwn ? Alignment.centerRight : Alignment.centerLeft,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.sizeOf(context).width * 0.75,
-          ),
+    // Deleted message
+    if (message.isDeleted) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Align(
+          alignment:
+              isOwn ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 10,
             ),
             decoration: BoxDecoration(
-              color: isOwn
-                  ? const Color(0xFFF43F5E) // rose-500
-                  : (appColors?.muted ?? const Color(0xFFF1F5F9)),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: Radius.circular(isOwn ? 16 : 4),
-                bottomRight: Radius.circular(isOwn ? 4 : 16),
+              color: appColors?.muted ?? const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: appColors?.border ?? theme.dividerColor,
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  message.content,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    color: isOwn
-                        ? Colors.white
-                        : theme.colorScheme.onSurface,
-                  ),
+                Icon(
+                  Icons.block,
+                  size: 14,
+                  color: appColors?.mutedForeground,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(width: 6),
                 Text(
-                  message.sentAt,
+                  l10n.messagingDeleted,
                   style: TextStyle(
-                    fontSize: 10,
-                    color: isOwn
-                        ? Colors.white.withValues(alpha: 0.7)
-                        : (appColors?.mutedForeground ??
-                            const Color(0xFF94A3B8)),
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                    color: appColors?.mutedForeground,
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      );
+    }
+
+    // File message
+    if (message.isFile) {
+      return _buildFileBubble(context, theme, appColors, l10n);
+    }
+
+    // Text message
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onLongPress: isOwn && (onEdit != null || onDelete != null)
+            ? () => _showContextMenu(context, l10n)
+            : null,
+        child: Align(
+          alignment:
+              isOwn ? Alignment.centerRight : Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: isOwn
+                    ? const Color(0xFFF43F5E) // rose-500
+                    : (appColors?.muted ?? const Color(0xFFF1F5F9)),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(16),
+                  topRight: const Radius.circular(16),
+                  bottomLeft: Radius.circular(isOwn ? 16 : 4),
+                  bottomRight: Radius.circular(isOwn ? 4 : 16),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: isOwn
+                          ? Colors.white
+                          : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.isEdited)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Text(
+                            '(${l10n.messagingEdited})',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontStyle: FontStyle.italic,
+                              color: isOwn
+                                  ? Colors.white
+                                      .withValues(alpha: 0.6)
+                                  : appColors?.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      Text(
+                        _formatTime(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: isOwn
+                              ? Colors.white
+                                  .withValues(alpha: 0.7)
+                              : (appColors?.mutedForeground ??
+                                  const Color(0xFF94A3B8)),
+                        ),
+                      ),
+                      if (isOwn) ...[
+                        const SizedBox(width: 4),
+                        _buildStatusIcon(context),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFileBubble(
+    BuildContext context,
+    ThemeData theme,
+    AppColors? appColors,
+    AppLocalizations l10n,
+  ) {
+    final filename =
+        message.metadata?['filename'] as String? ?? message.content;
+    final fileSize = message.metadata?['size'] as int? ?? 0;
+    final sizeLabel = fileSize > 0
+        ? '${(fileSize / 1024).toStringAsFixed(1)} KB'
+        : '';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: GestureDetector(
+        onLongPress: isOwn ? () => _showContextMenu(context, l10n) : null,
+        child: Align(
+          alignment:
+              isOwn ? Alignment.centerRight : Alignment.centerLeft,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isOwn
+                    ? const Color(0xFFF43F5E)
+                    : (appColors?.muted ?? const Color(0xFFF1F5F9)),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.insert_drive_file_outlined,
+                    size: 24,
+                    color: isOwn
+                        ? Colors.white
+                        : theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          filename,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isOwn
+                                ? Colors.white
+                                : theme.colorScheme.onSurface,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (sizeLabel.isNotEmpty)
+                          Text(
+                            sizeLabel,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isOwn
+                                  ? Colors.white
+                                      .withValues(alpha: 0.7)
+                                  : appColors?.mutedForeground,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showContextMenu(BuildContext context, AppLocalizations l10n) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onEdit != null)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: Text(l10n.messagingEditMessage),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onEdit!();
+                },
+              ),
+            if (onDelete != null)
+              ListTile(
+                leading: Icon(
+                  Icons.delete_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                title: Text(
+                  l10n.messagingDeleteMessage,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onDelete!();
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Typing indicator
+// ---------------------------------------------------------------------------
+
+class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator({required this.userName});
+
+  final String userName;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Text(
+        AppLocalizations.of(context)!.messagingTyping(userName),
+        style: TextStyle(
+          fontSize: 12,
+          fontStyle: FontStyle.italic,
+          color: appColors?.mutedForeground,
         ),
       ),
     );
@@ -315,10 +837,14 @@ class _MessageInputBar extends StatelessWidget {
   const _MessageInputBar({
     required this.controller,
     required this.onSend,
+    required this.onTextChanged,
+    required this.onAttach,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
+  final ValueChanged<String> onTextChanged;
+  final VoidCallback onAttach;
 
   @override
   Widget build(BuildContext context) {
@@ -350,7 +876,7 @@ class _MessageInputBar extends StatelessWidget {
               size: 20,
               color: appColors?.mutedForeground,
             ),
-            onPressed: () {},
+            onPressed: onAttach,
           ),
 
           // Text field
@@ -359,10 +885,13 @@ class _MessageInputBar extends StatelessWidget {
               controller: controller,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => onSend(),
+              onChanged: onTextChanged,
               decoration: InputDecoration(
-                hintText: AppLocalizations.of(context)!.messagingWriteMessage,
+                hintText:
+                    AppLocalizations.of(context)!.messagingWriteMessage,
                 filled: true,
-                fillColor: appColors?.muted ?? const Color(0xFFF1F5F9),
+                fillColor:
+                    appColors?.muted ?? const Color(0xFFF1F5F9),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 10,
@@ -378,7 +907,8 @@ class _MessageInputBar extends StatelessWidget {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                    color: theme.colorScheme.primary
+                        .withValues(alpha: 0.3),
                   ),
                 ),
               ),
@@ -402,7 +932,8 @@ class _MessageInputBar extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: hasText
                         ? const Color(0xFFF43F5E)
-                        : (appColors?.muted ?? const Color(0xFFF1F5F9)),
+                        : (appColors?.muted ??
+                            const Color(0xFFF1F5F9)),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -418,6 +949,51 @@ class _MessageInputBar extends StatelessWidget {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Chat shimmer loading
+// ---------------------------------------------------------------------------
+
+class _ChatShimmer extends StatelessWidget {
+  const _ChatShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final baseColor =
+        isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final highlightColor =
+        isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: List.generate(5, (index) {
+            final isOwn = index % 2 == 1;
+            return Align(
+              alignment: isOwn
+                  ? Alignment.centerRight
+                  : Alignment.centerLeft,
+              child: Container(
+                width: MediaQuery.sizeOf(context).width * 0.6,
+                height: 48,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -443,9 +1019,10 @@ class _EmptyChatState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            AppLocalizations.of(context)!.messagingNoMessages,
+            AppLocalizations.of(context)!.messagingStartConversation,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color:
+                  theme.colorScheme.onSurface.withValues(alpha: 0.4),
             ),
           ),
         ],

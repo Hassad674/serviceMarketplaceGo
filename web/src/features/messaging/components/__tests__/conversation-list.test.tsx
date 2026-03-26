@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { ConversationList } from "../conversation-list"
-import type { Conversation, ConversationRole } from "../../types"
+import type { Conversation } from "../../types"
 
 // Mock next-intl — return the key as the translated string
 vi.mock("next-intl", () => ({
@@ -16,12 +16,14 @@ vi.mock("lucide-react", () => ({
 function createConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     id: "conv-1",
-    name: "Alice Martin",
-    role: "freelancer",
-    lastMessage: "Sounds good!",
-    lastMessageAt: "10:30",
-    avatar: null,
-    unread: 0,
+    other_user_id: "user-1",
+    other_user_name: "Alice Martin",
+    other_user_role: "provider",
+    other_photo_url: "",
+    last_message: "Sounds good!",
+    last_message_at: new Date().toISOString(),
+    unread_count: 0,
+    last_seq: 1,
     online: false,
     ...overrides,
   }
@@ -30,12 +32,12 @@ function createConversation(overrides: Partial<Conversation> = {}): Conversation
 function defaultProps(overrides: Record<string, unknown> = {}) {
   return {
     conversations: [
-      createConversation({ id: "conv-1", name: "Alice Martin", role: "freelancer" as ConversationRole }),
-      createConversation({ id: "conv-2", name: "Bob Agency", role: "agency" as ConversationRole }),
-      createConversation({ id: "conv-3", name: "Corp Enterprise", role: "enterprise" as ConversationRole }),
+      createConversation({ id: "conv-1", other_user_name: "Alice Martin", other_user_role: "provider" }),
+      createConversation({ id: "conv-2", other_user_name: "Bob Agency", other_user_role: "agency" }),
+      createConversation({ id: "conv-3", other_user_name: "Corp Enterprise", other_user_role: "enterprise" }),
     ],
     activeId: null,
-    roleFilter: "all" as "all" | ConversationRole,
+    roleFilter: "all",
     searchQuery: "",
     onSelect: vi.fn(),
     onRoleFilterChange: vi.fn(),
@@ -70,7 +72,7 @@ describe("ConversationList", () => {
 
   it("shows unread badge", () => {
     const conversations = [
-      createConversation({ id: "conv-1", name: "Alice", unread: 5 }),
+      createConversation({ id: "conv-1", other_user_name: "Alice", unread_count: 5 }),
     ]
     render(
       <ConversationList {...defaultProps({ conversations })} />,
@@ -81,8 +83,8 @@ describe("ConversationList", () => {
 
   it("search filters conversations by name", () => {
     const conversations = [
-      createConversation({ id: "conv-1", name: "Alice Martin" }),
-      createConversation({ id: "conv-2", name: "Bob Smith" }),
+      createConversation({ id: "conv-1", other_user_name: "Alice Martin" }),
+      createConversation({ id: "conv-2", other_user_name: "Bob Smith" }),
     ]
     render(
       <ConversationList
@@ -96,7 +98,7 @@ describe("ConversationList", () => {
 
   it("shows online indicator", () => {
     const conversations = [
-      createConversation({ id: "conv-1", name: "Online User", online: true }),
+      createConversation({ id: "conv-1", other_user_name: "Online User", online: true }),
     ]
 
     const { container } = render(
@@ -121,7 +123,7 @@ describe("ConversationList", () => {
   it("calls onSelect when conversation clicked", () => {
     const onSelect = vi.fn()
     const conversations = [
-      createConversation({ id: "conv-42", name: "Clickable User" }),
+      createConversation({ id: "conv-42", other_user_name: "Clickable User" }),
     ]
     render(
       <ConversationList {...defaultProps({ conversations, onSelect })} />,

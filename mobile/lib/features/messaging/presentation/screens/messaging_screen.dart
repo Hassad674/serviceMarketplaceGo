@@ -1,42 +1,51 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/extensions.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../mock_data.dart';
-import '../../types/conversation.dart';
+import '../../domain/entities/conversation_entity.dart';
+import '../providers/messaging_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Role color mapping — matches web role badge colors
+// Role color mapping -- matches web role badge colors
 // ---------------------------------------------------------------------------
 
 const _roleColors = {
   'agency': Color(0xFF2563EB), // blue-600
-  'freelancer': Color(0xFFF43F5E), // rose-500
+  'provider': Color(0xFFF43F5E), // rose-500
   'enterprise': Color(0xFF8B5CF6), // purple-500
 };
 
 // ---------------------------------------------------------------------------
-// Messaging screen — conversation list
+// Messaging screen -- conversation list
 // ---------------------------------------------------------------------------
 
-/// Displays a searchable, role-filterable list of conversations.
-class MessagingScreen extends StatefulWidget {
+/// Displays a searchable, role-filterable list of real conversations
+/// fetched from the backend via [conversationsProvider].
+class MessagingScreen extends ConsumerStatefulWidget {
   const MessagingScreen({super.key});
 
   @override
-  State<MessagingScreen> createState() => _MessagingScreenState();
+  ConsumerState<MessagingScreen> createState() => _MessagingScreenState();
 }
 
-class _MessagingScreenState extends State<MessagingScreen> {
+class _MessagingScreenState extends ConsumerState<MessagingScreen> {
   String _searchQuery = '';
   String _roleFilter = 'all';
 
-  List<Conversation> get _filteredConversations {
-    return mockConversations.where((c) {
-      final matchesRole = _roleFilter == 'all' || c.role == _roleFilter;
+  List<ConversationEntity> _applyFilters(
+    List<ConversationEntity> conversations,
+  ) {
+    return conversations.where((c) {
+      final matchesRole =
+          _roleFilter == 'all' || c.otherUserRole == _roleFilter;
       final matchesSearch = _searchQuery.isEmpty ||
-          c.name.toLowerCase().contains(_searchQuery.toLowerCase());
+          c.otherUserName
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
       return matchesRole && matchesSearch;
     }).toList();
   }
@@ -46,6 +55,7 @@ class _MessagingScreenState extends State<MessagingScreen> {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
+    final convState = ref.watch(conversationsProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.messages)),
@@ -80,23 +90,62 @@ class _MessagingScreenState extends State<MessagingScreen> {
           const SizedBox(height: 4),
 
           // Conversation list
-          Expanded(
-            child: _filteredConversations.isEmpty
-                ? _EmptyState(message: l10n.messagingNoConversations)
-                : ListView.builder(
-                    itemCount: _filteredConversations.length,
-                    itemBuilder: (context, index) {
-                      final conversation = _filteredConversations[index];
-                      return _ConversationTile(
-                        conversation: conversation,
-                        onTap: () => context.push(
-                          '/chat/${conversation.id}',
-                        ),
-                      );
-                    },
-                  ),
-          ),
+          Expanded(child: _buildBody(convState, l10n)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBody(ConversationsState convState, AppLocalizations l10n) {
+    if (convState.isLoading) {
+      return const _ConversationListShimmer();
+    }
+
+    if (convState.error != null) {
+      return _ErrorState(
+        message: convState.error!,
+        onRetry: () =>
+            ref.read(conversationsProvider.notifier).loadConversations(),
+      );
+    }
+
+    final filtered = _applyFilters(convState.conversations);
+
+    if (filtered.isEmpty) {
+      return _EmptyState(message: l10n.messagingNoConversations);
+    }
+
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(conversationsProvider.notifier).loadConversations(),
+      child: ListView.builder(
+        itemCount: filtered.length + (convState.hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= filtered.length) {
+            // Load more trigger
+            ref.read(conversationsProvider.notifier).loadMore();
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+          final conversation = filtered[index];
+          return _ConversationTile(
+            conversation: conversation,
+            onTap: () {
+              ref
+                  .read(conversationsProvider.notifier)
+                  .clearUnread(conversation.id);
+              context.push('/chat/${conversation.id}');
+            },
+          );
+        },
       ),
     );
   }
@@ -121,7 +170,7 @@ class _RoleFilterRow extends StatelessWidget {
     final filters = [
       ('all', l10n.messagingAllRoles, null),
       ('agency', l10n.messagingAgency, const Color(0xFF2563EB)),
-      ('freelancer', l10n.messagingFreelancer, const Color(0xFFF43F5E)),
+      ('provider', l10n.messagingFreelancer, const Color(0xFFF43F5E)),
       ('enterprise', l10n.messagingEnterprise, const Color(0xFF8B5CF6)),
     ];
 
@@ -153,13 +202,15 @@ class _RoleFilterRow extends StatelessWidget {
                       .colorScheme
                       .onSurface
                       .withValues(alpha: 0.06),
-              selectedColor: color ?? Theme.of(context).colorScheme.onSurface,
+              selectedColor:
+                  color ?? Theme.of(context).colorScheme.onSurface,
               side: BorderSide.none,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
               showCheckmark: false,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             ),
           );
         }).toList(),
@@ -178,19 +229,24 @@ class _ConversationTile extends StatelessWidget {
     required this.onTap,
   });
 
-  final Conversation conversation;
+  final ConversationEntity conversation;
   final VoidCallback onTap;
 
-  String get _initials {
-    return conversation.name
-        .split(' ')
-        .map((w) => w.isNotEmpty ? w[0] : '')
-        .join()
-        .substring(0, conversation.name.split(' ').length >= 2 ? 2 : 1)
-        .toUpperCase();
-  }
+  String get _initials => conversation.otherUserName.initials;
 
-  Color get _roleColor => _roleColors[conversation.role] ?? Colors.grey;
+  Color get _roleColor =>
+      _roleColors[conversation.otherUserRole] ?? Colors.grey;
+
+  String _formatTime(BuildContext context) {
+    final raw = conversation.lastMessageAt;
+    if (raw == null || raw.isEmpty) return '';
+    try {
+      final dt = DateTime.parse(raw);
+      return dt.toRelative();
+    } catch (_) {
+      return raw;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,11 +256,12 @@ class _ConversationTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border(
             left: BorderSide(
-              color: conversation.unread > 0
+              color: conversation.unreadCount > 0
                   ? _roleColor
                   : Colors.transparent,
               width: 3,
@@ -233,10 +290,10 @@ class _ConversationTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.name,
+                          conversation.otherUserName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: 14,
-                            fontWeight: conversation.unread > 0
+                            fontWeight: conversation.unreadCount > 0
                                 ? FontWeight.w700
                                 : FontWeight.w600,
                           ),
@@ -244,14 +301,13 @@ class _ConversationTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (conversation.lastMessageAt != null)
-                        Text(
-                          conversation.lastMessageAt!,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontSize: 11,
-                            color: appColors?.mutedForeground,
-                          ),
+                      Text(
+                        _formatTime(context),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color: appColors?.mutedForeground,
                         ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -260,7 +316,8 @@ class _ConversationTile extends StatelessWidget {
                       Expanded(
                         child: Text(
                           conversation.lastMessage ??
-                              AppLocalizations.of(context)!.messagingNoMessages,
+                              AppLocalizations.of(context)!
+                                  .messagingNoMessages,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: appColors?.mutedForeground,
                           ),
@@ -268,7 +325,7 @@ class _ConversationTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (conversation.unread > 0)
+                      if (conversation.unreadCount > 0)
                         Container(
                           margin: const EdgeInsets.only(left: 8),
                           padding: const EdgeInsets.symmetric(
@@ -280,7 +337,7 @@ class _ConversationTile extends StatelessWidget {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            '${conversation.unread}',
+                            '${conversation.unreadCount}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -366,6 +423,74 @@ class _Avatar extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Shimmer loading skeleton
+// ---------------------------------------------------------------------------
+
+class _ConversationListShimmer extends StatelessWidget {
+  const _ConversationListShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final baseColor =
+        isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final highlightColor =
+        isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
+
+    return Shimmer.fromColors(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  radius: 22,
+                  backgroundColor: Colors.white,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 140,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        width: double.infinity,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Empty state
 // ---------------------------------------------------------------------------
 
@@ -391,10 +516,62 @@ class _EmptyState extends StatelessWidget {
           Text(
             message,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              color:
+                  theme.colorScheme.onSurface.withValues(alpha: 0.4),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Error state
+// ---------------------------------------------------------------------------
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: theme.colorScheme.error,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.retry),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(140, 44),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

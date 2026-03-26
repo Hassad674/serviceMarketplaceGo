@@ -9,6 +9,7 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/role_selection_screen.dart';
 import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.dart';
+import '../../features/messaging/presentation/providers/messaging_provider.dart';
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
@@ -189,7 +190,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 // ---------------------------------------------------------------------------
 
 /// Wraps authenticated screens with a persistent bottom navigation bar.
-class DashboardShell extends StatelessWidget {
+///
+/// Reads [totalUnreadProvider] to display a badge on the Messages tab.
+class DashboardShell extends ConsumerWidget {
   final Widget child;
   const DashboardShell({super.key, required this.child});
 
@@ -202,10 +205,11 @@ class DashboardShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final totalUnread = ref.watch(totalUnreadProvider);
 
     return Scaffold(
       body: child,
@@ -228,8 +232,32 @@ class DashboardShell extends StatelessWidget {
               label: l10n.home,
             ),
             NavigationDestination(
-              icon: const Icon(Icons.chat_outlined),
-              selectedIcon: const Icon(Icons.chat),
+              icon: totalUnread > 0
+                  ? Badge(
+                      label: Text(
+                        totalUnread > 99 ? '99+' : '$totalUnread',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFF43F5E),
+                      child: const Icon(Icons.chat_outlined),
+                    )
+                  : const Icon(Icons.chat_outlined),
+              selectedIcon: totalUnread > 0
+                  ? Badge(
+                      label: Text(
+                        totalUnread > 99 ? '99+' : '$totalUnread',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFF43F5E),
+                      child: const Icon(Icons.chat),
+                    )
+                  : const Icon(Icons.chat),
               label: l10n.messages,
             ),
             NavigationDestination(

@@ -860,6 +860,96 @@ abstract class AppLocalizations {
   /// **'Conversation not found'**
   String get messagingConversationNotFound;
 
+  /// No description provided for @messagingSendMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a message'**
+  String get messagingSendMessage;
+
+  /// No description provided for @messagingTyping.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is typing...'**
+  String messagingTyping(String name);
+
+  /// No description provided for @messagingEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get messagingEdited;
+
+  /// No description provided for @messagingDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'This message was deleted'**
+  String get messagingDeleted;
+
+  /// No description provided for @messagingDelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivered'**
+  String get messagingDelivered;
+
+  /// No description provided for @messagingRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Read'**
+  String get messagingRead;
+
+  /// No description provided for @messagingSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent'**
+  String get messagingSent;
+
+  /// No description provided for @messagingSending.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending...'**
+  String get messagingSending;
+
+  /// No description provided for @messagingReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting...'**
+  String get messagingReconnecting;
+
+  /// No description provided for @messagingEditMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit message'**
+  String get messagingEditMessage;
+
+  /// No description provided for @messagingDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete message'**
+  String get messagingDeleteMessage;
+
+  /// No description provided for @messagingDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this message?'**
+  String get messagingDeleteConfirm;
+
+  /// No description provided for @messagingFileUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a file'**
+  String get messagingFileUpload;
+
+  /// No description provided for @messagingStartConversation.
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet. Start the conversation!'**
+  String get messagingStartConversation;
+
+  /// No description provided for @messagingLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get messagingLoadMore;
+
   /// No description provided for @projects.
   ///
   /// In en, this message translates to:

@@ -143,6 +143,26 @@
   "messagingFreelancer": "Freelance/Apporteur",
   "messagingEnterprise": "Entreprise",
   "messagingConversationNotFound": "Conversation introuvable",
+  "messagingSendMessage": "Envoyer un message",
+  "messagingTyping": "{name} est en train d'\u00e9crire...",
+  "@messagingTyping": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "messagingEdited": "modifi\u00e9",
+  "messagingDeleted": "Ce message a \u00e9t\u00e9 supprim\u00e9",
+  "messagingDelivered": "Distribu\u00e9",
+  "messagingRead": "Lu",
+  "messagingSent": "Envoy\u00e9",
+  "messagingSending": "Envoi en cours...",
+  "messagingReconnecting": "Reconnexion...",
+  "messagingEditMessage": "Modifier le message",
+  "messagingDeleteMessage": "Supprimer le message",
+  "messagingDeleteConfirm": "\u00cates-vous s\u00fbr de vouloir supprimer ce message ?",
+  "messagingFileUpload": "Envoyer un fichier",
+  "messagingStartConversation": "Aucun message. Lancez la conversation !",
+  "messagingLoadMore": "Charger plus",
 
   "projects": "Projets",
   "createProject": "Cr\u00e9er un projet",

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 
 	"marketplace-backend/internal/config"
@@ -13,6 +15,8 @@ type RouterDeps struct {
 	Profile        *ProfileHandler
 	Upload         *UploadHandler
 	Health         *HealthHandler
+	Messaging      *MessagingHandler
+	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
 	SessionService service.SessionService
@@ -72,6 +76,27 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Public profiles
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
 		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
+
+		// Messaging routes (authenticated)
+		if deps.Messaging != nil {
+			r.Route("/messaging", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Post("/conversations", deps.Messaging.StartConversation)
+				r.Get("/conversations", deps.Messaging.ListConversations)
+				r.Get("/conversations/{id}/messages", deps.Messaging.ListMessages)
+				r.Post("/conversations/{id}/messages", deps.Messaging.SendMessage)
+				r.Post("/conversations/{id}/read", deps.Messaging.MarkAsRead)
+				r.Put("/messages/{id}", deps.Messaging.EditMessage)
+				r.Delete("/messages/{id}", deps.Messaging.DeleteMessage)
+				r.Post("/upload-url", deps.Messaging.GetPresignedURL)
+				r.Get("/unread-count", deps.Messaging.GetTotalUnread)
+			})
+		}
+
+		// WebSocket (auth handled inside the handler)
+		if deps.WSHandler != nil {
+			r.Get("/ws", deps.WSHandler)
+		}
 
 		// Test routes (debug — backend & DB connectivity)
 		r.Route("/test", func(r chi.Router) {

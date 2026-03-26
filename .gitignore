@@ -65,4 +65,6 @@ backend/.env
 backend/.env.*
 !backend/.env.example
 web/test-results/
-web/test-results/
+
+# Claude worktrees
+.claude/worktrees/

@@ -398,6 +398,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messagingConversationNotFound => 'Conversation not found';
 
   @override
+  String get messagingSendMessage => 'Send a message';
+
+  @override
+  String messagingTyping(String name) {
+    return '$name is typing...';
+  }
+
+  @override
+  String get messagingEdited => 'edited';
+
+  @override
+  String get messagingDeleted => 'This message was deleted';
+
+  @override
+  String get messagingDelivered => 'Delivered';
+
+  @override
+  String get messagingRead => 'Read';
+
+  @override
+  String get messagingSent => 'Sent';
+
+  @override
+  String get messagingSending => 'Sending...';
+
+  @override
+  String get messagingReconnecting => 'Reconnecting...';
+
+  @override
+  String get messagingEditMessage => 'Edit message';
+
+  @override
+  String get messagingDeleteMessage => 'Delete message';
+
+  @override
+  String get messagingDeleteConfirm =>
+      'Are you sure you want to delete this message?';
+
+  @override
+  String get messagingFileUpload => 'Send a file';
+
+  @override
+  String get messagingStartConversation =>
+      'No messages yet. Start the conversation!';
+
+  @override
+  String get messagingLoadMore => 'Load more';
+
+  @override
   String get projects => 'Projects';
 
   @override

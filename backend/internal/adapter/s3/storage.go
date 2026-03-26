@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -12,6 +13,7 @@ import (
 
 type StorageService struct {
 	client    *s3.Client
+	presigner *s3.PresignClient
 	bucket    string
 	publicURL string
 }
@@ -36,8 +38,11 @@ func NewStorageService(
 		UsePathStyle: true, // Required for MinIO
 	})
 
+	presigner := s3.NewPresignClient(client)
+
 	return &StorageService{
 		client:    client,
+		presigner: presigner,
 		bucket:    bucket,
 		publicURL: publicURL,
 	}
@@ -77,4 +82,17 @@ func (s *StorageService) Delete(ctx context.Context, key string) error {
 
 func (s *StorageService) GetPublicURL(key string) string {
 	return fmt.Sprintf("%s/%s", s.publicURL, key)
+}
+
+func (s *StorageService) GetPresignedUploadURL(ctx context.Context, key string, contentType string, expiry time.Duration) (string, error) {
+	result, err := s.presigner.PresignPutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(s.bucket),
+		Key:         aws.String(key),
+		ContentType: aws.String(contentType),
+	}, s3.WithPresignExpires(expiry))
+	if err != nil {
+		return "", fmt.Errorf("s3 presign upload %q: %w", key, err)
+	}
+
+	return result.URL, nil
 }

@@ -399,6 +399,55 @@ class AppLocalizationsFr extends AppLocalizations {
   String get messagingConversationNotFound => 'Conversation introuvable';
 
   @override
+  String get messagingSendMessage => 'Envoyer un message';
+
+  @override
+  String messagingTyping(String name) {
+    return '$name est en train d\'écrire...';
+  }
+
+  @override
+  String get messagingEdited => 'modifié';
+
+  @override
+  String get messagingDeleted => 'Ce message a été supprimé';
+
+  @override
+  String get messagingDelivered => 'Distribué';
+
+  @override
+  String get messagingRead => 'Lu';
+
+  @override
+  String get messagingSent => 'Envoyé';
+
+  @override
+  String get messagingSending => 'Envoi en cours...';
+
+  @override
+  String get messagingReconnecting => 'Reconnexion...';
+
+  @override
+  String get messagingEditMessage => 'Modifier le message';
+
+  @override
+  String get messagingDeleteMessage => 'Supprimer le message';
+
+  @override
+  String get messagingDeleteConfirm =>
+      'Êtes-vous sûr de vouloir supprimer ce message ?';
+
+  @override
+  String get messagingFileUpload => 'Envoyer un fichier';
+
+  @override
+  String get messagingStartConversation =>
+      'Aucun message. Lancez la conversation !';
+
+  @override
+  String get messagingLoadMore => 'Charger plus';
+
+  @override
   String get projects => 'Projets';
 
   @override

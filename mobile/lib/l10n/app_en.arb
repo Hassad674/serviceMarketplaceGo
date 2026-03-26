@@ -148,6 +148,26 @@
   "messagingFreelancer": "Freelance/Referrer",
   "messagingEnterprise": "Enterprise",
   "messagingConversationNotFound": "Conversation not found",
+  "messagingSendMessage": "Send a message",
+  "messagingTyping": "{name} is typing...",
+  "@messagingTyping": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "messagingEdited": "edited",
+  "messagingDeleted": "This message was deleted",
+  "messagingDelivered": "Delivered",
+  "messagingRead": "Read",
+  "messagingSent": "Sent",
+  "messagingSending": "Sending...",
+  "messagingReconnecting": "Reconnecting...",
+  "messagingEditMessage": "Edit message",
+  "messagingDeleteMessage": "Delete message",
+  "messagingDeleteConfirm": "Are you sure you want to delete this message?",
+  "messagingFileUpload": "Send a file",
+  "messagingStartConversation": "No messages yet. Start the conversation!",
+  "messagingLoadMore": "Load more",
 
   "projects": "Projects",
   "createProject": "Create Project",

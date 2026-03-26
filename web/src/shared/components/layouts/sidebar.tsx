@@ -18,6 +18,7 @@ import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
 import { useUser, useLogout } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
+import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { cn } from "@/shared/lib/utils"
 
 type NavItem = {
@@ -83,6 +84,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const { data: user } = useUser()
   const logout = useLogout()
   const { isReferrerMode, setReferrerMode, switchToReferrer, switchToFreelance } = useWorkspace()
+  const { data: unreadData } = useUnreadCount()
   const t = useTranslations("sidebar")
   const tCommon = useTranslations("common")
 
@@ -202,6 +204,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               pathname={pathname}
               onClick={onClose}
               collapsed={collapsed}
+              badge={item.labelKey === "messages" ? (unreadData?.count ?? 0) : 0}
             />
           ))}
         </nav>
@@ -309,12 +312,14 @@ function NavLink({
   pathname,
   onClick,
   collapsed,
+  badge = 0,
 }: {
   item: NavItem
   label: string
   pathname: string
   onClick?: () => void
   collapsed: boolean
+  badge?: number
 }) {
   // Track browser search params reactively.
   // pathname alone is not enough — /search?type=freelancer → /search?type=agency
@@ -375,7 +380,17 @@ function NavLink({
         <span className="absolute left-1 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-rose-500" />
       )}
       <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
-      {!collapsed && <span>{label}</span>}
+      {!collapsed && <span className="flex-1">{label}</span>}
+      {badge > 0 && (
+        <span
+          className={cn(
+            "flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white",
+            collapsed && "absolute -right-0.5 -top-0.5 h-4 min-w-4 px-1",
+          )}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   )
 }

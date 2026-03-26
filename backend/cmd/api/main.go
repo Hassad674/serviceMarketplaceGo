@@ -9,11 +9,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
+	"marketplace-backend/internal/adapter/ws"
 	"marketplace-backend/internal/app/auth"
+	"marketplace-backend/internal/app/messaging"
 	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
@@ -74,15 +78,47 @@ func main() {
 		MaxAge: int(cfg.SessionTTL.Seconds()),
 	}
 
+	// Messaging adapters
+	messageRepo := postgres.NewConversationRepository(db)
+	presenceSvc := redisadapter.NewPresenceService(redisClient, 45*time.Second)
+	streamBroadcaster := redisadapter.NewStreamBroadcaster(redisClient, uuid.New().String())
+	rateLimiter := redisadapter.NewMessagingRateLimiter(redisClient)
+
+	// WebSocket hub
+	wsHub := ws.NewHub()
+	go wsHub.Run()
+
+	// Start stream subscriber (distributes Redis stream events to local WS clients)
+	streamCtx, streamCancel := context.WithCancel(context.Background())
+	defer streamCancel()
+	go streamBroadcaster.Subscribe(streamCtx, wsHub.HandleStreamEvent)
+
 	// Initialize application services
 	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)
 	profileSvc := profileapp.NewService(profileRepo)
+	messagingSvc := messaging.NewService(messaging.ServiceDeps{
+		Messages:    messageRepo,
+		Users:       userRepo,
+		Presence:    presenceSvc,
+		Broadcaster: streamBroadcaster,
+		Storage:     storageSvc,
+		RateLimiter: rateLimiter,
+	})
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
 	healthHandler := handler.NewHealthHandler(db)
+	messagingHandler := handler.NewMessagingHandler(messagingSvc)
+
+	wsHandler := ws.ServeWS(ws.ConnDeps{
+		Hub:          wsHub,
+		MessagingSvc: messagingSvc,
+		TokenSvc:     tokenSvc,
+		SessionSvc:   sessionSvc,
+		PresenceSvc:  presenceSvc,
+	})
 
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
@@ -90,6 +126,8 @@ func main() {
 		Profile:        profileHandler,
 		Upload:         uploadHandler,
 		Health:         healthHandler,
+		Messaging:      messagingHandler,
+		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
 		SessionService: sessionSvc,

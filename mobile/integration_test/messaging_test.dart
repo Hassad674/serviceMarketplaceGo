@@ -91,7 +91,7 @@ void main() {
     });
   });
 
-  group('Messaging — Chat Screen', () => {
+  group('Messaging — Chat Screen', () {
     testWidgets('chat screen shows messages', (tester) async {
       await initApp(tester);
       await tapText(tester, 'Sign Up');
