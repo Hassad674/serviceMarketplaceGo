@@ -31,7 +31,10 @@ class ApiClient {
         baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 10),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Auth-Mode': 'token',
+        },
       ),
     );
 
@@ -91,9 +94,15 @@ class ApiClient {
       final response = await Dio().post(
         '$baseUrl/api/v1/auth/refresh',
         data: {'refresh_token': refreshToken},
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth-Mode': 'token',
+          },
+        ),
       );
 
-      final data = response.data['data'] as Map<String, dynamic>;
+      final data = response.data as Map<String, dynamic>;
       final newAccessToken = data['access_token'] as String;
       final newRefreshToken = data['refresh_token'] as String;
       await _storage.saveTokens(newAccessToken, newRefreshToken);

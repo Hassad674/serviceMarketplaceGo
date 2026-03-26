@@ -16,15 +16,31 @@ class ApiException implements Exception {
     required this.message,
   });
 
-  /// Parses the backend error response envelope.
+  /// Parses the backend error response.
+  ///
+  /// The Go backend returns errors in a flat format:
+  /// ```json
+  /// { "error": "error_code", "message": "Human-readable message" }
+  /// ```
   factory ApiException.fromResponse(dynamic data, int statusCode) {
-    if (data is Map<String, dynamic> && data.containsKey('error')) {
-      final error = data['error'] as Map<String, dynamic>;
-      return ApiException(
-        statusCode: statusCode,
-        code: error['code'] as String? ?? 'UNKNOWN_ERROR',
-        message: error['message'] as String? ?? 'An error occurred',
-      );
+    if (data is Map<String, dynamic>) {
+      // Backend flat format: {"error": "code_string", "message": "..."}
+      if (data.containsKey('error') && data['error'] is String) {
+        return ApiException(
+          statusCode: statusCode,
+          code: data['error'] as String,
+          message: data['message'] as String? ?? 'An error occurred',
+        );
+      }
+      // Nested format fallback: {"error": {"code": "...", "message": "..."}}
+      if (data.containsKey('error') && data['error'] is Map<String, dynamic>) {
+        final error = data['error'] as Map<String, dynamic>;
+        return ApiException(
+          statusCode: statusCode,
+          code: error['code'] as String? ?? 'UNKNOWN_ERROR',
+          message: error['message'] as String? ?? 'An error occurred',
+        );
+      }
     }
     return ApiException(
       statusCode: statusCode,
