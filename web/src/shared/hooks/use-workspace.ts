@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 
 const COOKIE_NAME = "workspace"
 const REFERRER_VALUE = "referrer"
@@ -37,7 +37,13 @@ function setWorkspaceCookie(isReferrer: boolean): void {
  * polluting URLs with query parameters.
  */
 export function useWorkspace() {
-  const [isReferrerMode, setIsReferrerMode] = useState(readWorkspaceCookie)
+  // Initialize as false to match server render (no document on server)
+  // Then sync with cookie in useEffect to avoid hydration mismatch
+  const [isReferrerMode, setIsReferrerMode] = useState(false)
+
+  useEffect(() => {
+    setIsReferrerMode(readWorkspaceCookie())
+  }, [])
 
   const setReferrerMode = useCallback((enabled: boolean) => {
     setWorkspaceCookie(enabled)
