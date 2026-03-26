@@ -65,7 +65,7 @@ class ReferrerDashboardScreen extends ConsumerWidget {
               ActionChip(
                 avatar: Icon(Icons.person_search, size: 18, color: _rose500),
                 label: Text(
-                  'Find Freelancers',
+                  l10n.findFreelancers,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurface,
                     fontWeight: FontWeight.w500,

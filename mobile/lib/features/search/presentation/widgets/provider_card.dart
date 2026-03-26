@@ -26,7 +26,13 @@ class ProviderCard extends StatelessWidget {
     final initials = _buildInitials(displayName);
 
     return GestureDetector(
-      onTap: () => context.push('/profiles/$userId'),
+      onTap: () => context.push(
+        '/profiles/$userId',
+        extra: <String, dynamic>{
+          'display_name': displayName,
+          'role': role,
+        },
+      ),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(

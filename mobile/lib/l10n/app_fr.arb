@@ -116,5 +116,19 @@
   "couldNotLoadProfile": "Impossible de charger le profil",
   "checkConnectionRetry": "V\u00e9rifiez votre connexion et r\u00e9essayez.",
   "somethingWentWrong": "Une erreur est survenue",
-  "retry": "R\u00e9essayer"
+  "retry": "R\u00e9essayer",
+
+  "tapToPlay": "Appuyez pour lire",
+  "replaceVideo": "Remplacer la vid\u00e9o",
+  "removeVideo": "Supprimer la vid\u00e9o",
+  "removeVideoConfirmTitle": "Supprimer la vid\u00e9o",
+  "removeVideoConfirmMessage": "\u00cates-vous s\u00fbr de vouloir supprimer votre vid\u00e9o de pr\u00e9sentation ?",
+  "remove": "Supprimer",
+  "darkMode": "Mode sombre",
+  "aboutPlaceholder": "Parlez de vous et de votre expertise",
+  "aboutEditHint": "Parlez de vous...",
+  "aboutUpdated": "\u00c0 propos mis \u00e0 jour",
+  "titlePlaceholder": "Ajoutez votre titre professionnel",
+  "videoRemoved": "Vid\u00e9o supprim\u00e9e",
+  "couldNotOpenVideo": "Impossible d'ouvrir la vid\u00e9o"
 }

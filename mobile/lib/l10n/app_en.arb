@@ -121,5 +121,19 @@
   "couldNotLoadProfile": "Could not load profile",
   "checkConnectionRetry": "Check your connection and try again.",
   "somethingWentWrong": "Something went wrong",
-  "retry": "Retry"
+  "retry": "Retry",
+
+  "tapToPlay": "Tap to play",
+  "replaceVideo": "Replace video",
+  "removeVideo": "Remove video",
+  "removeVideoConfirmTitle": "Remove video",
+  "removeVideoConfirmMessage": "Are you sure you want to remove your presentation video?",
+  "remove": "Remove",
+  "darkMode": "Dark Mode",
+  "aboutPlaceholder": "Tell others about yourself and your expertise",
+  "aboutEditHint": "Tell others about yourself...",
+  "aboutUpdated": "About updated",
+  "titlePlaceholder": "Add your professional title",
+  "videoRemoved": "Video removed",
+  "couldNotOpenVideo": "Could not open video"
 }

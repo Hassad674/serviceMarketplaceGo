@@ -715,6 +715,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get retry;
+
+  /// No description provided for @tapToPlay.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to play'**
+  String get tapToPlay;
+
+  /// No description provided for @replaceVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace video'**
+  String get replaceVideo;
+
+  /// No description provided for @removeVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove video'**
+  String get removeVideo;
+
+  /// No description provided for @removeVideoConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove video'**
+  String get removeVideoConfirmTitle;
+
+  /// No description provided for @removeVideoConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove your presentation video?'**
+  String get removeVideoConfirmMessage;
+
+  /// No description provided for @remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get remove;
+
+  /// No description provided for @darkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark Mode'**
+  String get darkMode;
+
+  /// No description provided for @aboutPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell others about yourself and your expertise'**
+  String get aboutPlaceholder;
+
+  /// No description provided for @aboutEditHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell others about yourself...'**
+  String get aboutEditHint;
+
+  /// No description provided for @aboutUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'About updated'**
+  String get aboutUpdated;
+
+  /// No description provided for @titlePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your professional title'**
+  String get titlePlaceholder;
+
+  /// No description provided for @videoRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'Video removed'**
+  String get videoRemoved;
+
+  /// No description provided for @couldNotOpenVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open video'**
+  String get couldNotOpenVideo;
 }
 
 class _AppLocalizationsDelegate

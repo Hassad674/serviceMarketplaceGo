@@ -311,17 +311,23 @@ function NavLink({
   onClick?: () => void
   collapsed: boolean
 }) {
-  // Match the pathname portion of the nav href against the current pathname.
-  // Query params (e.g. ?type=freelancer) are intentionally ignored for active
-  // detection — the workspace mode is tracked via cookie, not URL.
-  const [hrefPath] = item.href.split("?")
+  // Match pathname + query params for active detection.
+  // For /search links, query params distinguish between types.
+  const [hrefPath, hrefQuery] = item.href.split("?")
+  const currentSearch = typeof window !== "undefined" ? window.location.search : ""
+  const hrefParams = new URLSearchParams(hrefQuery ?? "")
+  const currentParams = new URLSearchParams(currentSearch)
 
-  let isActive = false
-  if (item.exact) {
-    isActive = pathname === hrefPath
-  } else {
-    isActive = pathname === hrefPath || pathname.startsWith(hrefPath + "/")
-  }
+  const pathMatches = item.exact
+    ? pathname === hrefPath
+    : pathname === hrefPath || pathname.startsWith(hrefPath + "/")
+
+  // If href has query params, ALL must match in current URL
+  const queryMatches = !hrefQuery || Array.from(hrefParams.entries()).every(
+    ([key, value]) => currentParams.get(key) === value,
+  )
+
+  const isActive = pathMatches && queryMatches
 
   return (
     <Link

@@ -4,12 +4,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/network/upload_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/profile_provider.dart';
@@ -24,6 +26,7 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileProvider);
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
 
     final user = authState.user;
     final displayName =
@@ -42,7 +45,7 @@ class ProfileScreen extends ConsumerWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Profile')),
+      appBar: AppBar(title: Text(l10n.myProfile)),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -63,7 +66,7 @@ class ProfileScreen extends ConsumerWidget {
 
               // Title section
               _ProfileSectionCard(
-                title: 'Professional Title',
+                title: l10n.professionalTitle,
                 icon: Icons.badge_outlined,
                 child: profileTitle != null && profileTitle.isNotEmpty
                     ? Text(
@@ -71,7 +74,7 @@ class ProfileScreen extends ConsumerWidget {
                         style: theme.textTheme.bodyMedium,
                       )
                     : Text(
-                        'Add your professional title',
+                        l10n.titlePlaceholder,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: appColors?.mutedForeground,
                           fontStyle: FontStyle.italic,
@@ -85,6 +88,12 @@ class ProfileScreen extends ConsumerWidget {
                 videoUrl: profileAsync.whenOrNull(
                   data: (p) => p['presentation_video_url'] as String?,
                 ),
+                onPlayTap: () => _playVideo(
+                  context,
+                  profileAsync.whenOrNull(
+                    data: (p) => p['presentation_video_url'] as String?,
+                  ),
+                ),
                 onUploadTap: () => _openVideoUpload(context, ref),
                 onDeleteTap: () => _confirmDeleteVideo(context, ref),
               ),
@@ -94,7 +103,7 @@ class ProfileScreen extends ConsumerWidget {
               GestureDetector(
                 onTap: () => _openEditAbout(context, ref, profileAbout),
                 child: _ProfileSectionCard(
-                  title: 'About',
+                  title: l10n.about,
                   icon: Icons.info_outline,
                   child: profileAbout != null && profileAbout.isNotEmpty
                       ? Text(
@@ -104,7 +113,7 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         )
                       : Text(
-                          'Tell others about yourself and your expertise',
+                          l10n.aboutPlaceholder,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: appColors?.mutedForeground,
                             fontStyle: FontStyle.italic,
@@ -134,10 +143,31 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   // --------------------------------------------------------------------------
+  // Video playback
+  // --------------------------------------------------------------------------
+
+  void _playVideo(BuildContext context, String? videoUrl) {
+    if (videoUrl == null || videoUrl.isEmpty) return;
+    final l10n = AppLocalizations.of(context)!;
+    launchUrl(
+      Uri.parse(videoUrl),
+      mode: LaunchMode.externalApplication,
+    ).catchError((_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.couldNotOpenVideo)),
+        );
+      }
+      return false;
+    });
+  }
+
+  // --------------------------------------------------------------------------
   // Upload handlers
   // --------------------------------------------------------------------------
 
   void _openPhotoUpload(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showUploadBottomSheet(
       context: context,
       type: UploadMediaType.photo,
@@ -147,7 +177,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.invalidate(profileProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Photo updated')),
+            SnackBar(content: Text(l10n.photoUpdated)),
           );
         }
       },
@@ -155,6 +185,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   void _openVideoUpload(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showUploadBottomSheet(
       context: context,
       type: UploadMediaType.video,
@@ -165,7 +196,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.invalidate(profileProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Video updated')),
+            SnackBar(content: Text(l10n.videoUpdated)),
           );
         }
       },
@@ -177,6 +208,7 @@ class ProfileScreen extends ConsumerWidget {
   // --------------------------------------------------------------------------
 
   void _openEditAbout(BuildContext context, WidgetRef ref, String? currentAbout) {
+    final l10n = AppLocalizations.of(context)!;
     final controller = TextEditingController(text: currentAbout ?? '');
     showModalBottomSheet(
       context: context,
@@ -191,15 +223,15 @@ class ProfileScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('About', style: Theme.of(ctx).textTheme.titleLarge),
+              Text(l10n.about, style: Theme.of(ctx).textTheme.titleLarge),
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
                 maxLines: 5,
                 maxLength: 1000,
-                decoration: const InputDecoration(
-                  hintText: 'Tell others about yourself...',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: l10n.aboutEditHint,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -213,11 +245,11 @@ class ProfileScreen extends ConsumerWidget {
                     if (ctx.mounted) Navigator.pop(ctx);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('About updated')),
+                        SnackBar(content: Text(l10n.aboutUpdated)),
                       );
                     }
                   },
-                  child: const Text('Save'),
+                  child: Text(l10n.save),
                 ),
               ),
             ],
@@ -232,15 +264,16 @@ class ProfileScreen extends ConsumerWidget {
   // --------------------------------------------------------------------------
 
   void _confirmDeleteVideo(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remove video'),
-        content: const Text('Are you sure you want to remove your presentation video?'),
+        title: Text(l10n.removeVideoConfirmTitle),
+        content: Text(l10n.removeVideoConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () async {
@@ -250,12 +283,12 @@ class ProfileScreen extends ConsumerWidget {
               ref.invalidate(profileProvider);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Video removed')),
+                  SnackBar(content: Text(l10n.videoRemoved)),
                 );
               }
             },
             child: Text(
-              'Remove',
+              l10n.remove,
               style: TextStyle(color: Theme.of(ctx).colorScheme.error),
             ),
           ),
@@ -526,11 +559,13 @@ class _RoleBadge extends StatelessWidget {
 class _VideoSectionCard extends StatelessWidget {
   const _VideoSectionCard({
     required this.onUploadTap,
+    required this.onPlayTap,
     this.videoUrl,
     this.onDeleteTap,
   });
 
   final String? videoUrl;
+  final VoidCallback onPlayTap;
   final VoidCallback onUploadTap;
   final VoidCallback? onDeleteTap;
 
@@ -539,6 +574,7 @@ class _VideoSectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final primary = theme.colorScheme.primary;
+    final l10n = AppLocalizations.of(context)!;
 
     return Container(
       width: double.infinity,
@@ -555,57 +591,95 @@ class _VideoSectionCard extends StatelessWidget {
             children: [
               Icon(Icons.videocam_outlined, size: 20, color: primary),
               const SizedBox(width: 8),
-              Text('Presentation Video', style: theme.textTheme.titleMedium),
+              Text(l10n.presentationVideo, style: theme.textTheme.titleMedium),
             ],
           ),
           const SizedBox(height: 16),
 
           if (videoUrl != null && videoUrl!.isNotEmpty)
-            // Video exists: show card + delete button
+            // Video exists: play button, replace button, delete button
             Column(
               children: [
+                // Play video card
                 GestureDetector(
-                  onTap: onUploadTap,
+                  onTap: onPlayTap,
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: primary.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                      border: Border.all(color: primary.withValues(alpha: 0.2)),
+                      border: Border.all(
+                        color: primary.withValues(alpha: 0.2),
+                      ),
                     ),
                     child: Column(
                       children: [
-                        Icon(Icons.play_circle_outline, color: primary, size: 48),
+                        Icon(
+                          Icons.play_circle_outline,
+                          color: primary,
+                          size: 48,
+                        ),
                         const SizedBox(height: 8),
                         Text(
-                          'Presentation Video',
+                          l10n.presentationVideo,
                           style: theme.textTheme.titleMedium?.copyWith(
                             color: primary,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text('Tap to replace', style: theme.textTheme.bodySmall),
+                        Text(
+                          l10n.tapToPlay,
+                          style: theme.textTheme.bodySmall,
+                        ),
                       ],
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+
+                // Replace video button
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: onUploadTap,
+                    icon: const Icon(Icons.upload_outlined, size: 18),
+                    label: Text(l10n.replaceVideo),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppTheme.radiusMd),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Remove video button
                 if (onDeleteTap != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.only(top: 8),
                     child: SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
                         onPressed: onDeleteTap,
-                        icon: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
+                        icon: Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: theme.colorScheme.error,
+                        ),
                         label: Text(
-                          'Remove video',
-                          style: TextStyle(color: theme.colorScheme.error),
+                          l10n.removeVideo,
+                          style:
+                              TextStyle(color: theme.colorScheme.error),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.3)),
+                          side: BorderSide(
+                            color: theme.colorScheme.error
+                                .withValues(alpha: 0.3),
+                          ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusMd),
                           ),
                         ),
                       ),
@@ -637,7 +711,7 @@ class _VideoSectionCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'No presentation video',
+                      l10n.noVideo,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: appColors?.mutedForeground,
                       ),
@@ -648,7 +722,7 @@ class _VideoSectionCard extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: onUploadTap,
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add a video'),
+                        label: Text(l10n.addVideo),
                         style: ElevatedButton.styleFrom(
                           minimumSize: Size.zero,
                           padding:
@@ -674,6 +748,7 @@ class _DarkModeToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
     final themeMode = ref.watch(themeModeProvider);
     final isDark = themeMode == ThemeMode.dark;
 
@@ -688,7 +763,7 @@ class _DarkModeToggle extends ConsumerWidget {
           isDark ? Icons.dark_mode : Icons.light_mode,
           color: theme.colorScheme.primary,
         ),
-        title: const Text('Dark Mode'),
+        title: Text(l10n.darkMode),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         ),
@@ -714,6 +789,7 @@ class _LogoutButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return SizedBox(
       width: double.infinity,
@@ -721,7 +797,7 @@ class _LogoutButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(Icons.logout, color: theme.colorScheme.error),
         label: Text(
-          'Sign Out',
+          l10n.signOut,
           style: TextStyle(color: theme.colorScheme.error),
         ),
         style: OutlinedButton.styleFrom(

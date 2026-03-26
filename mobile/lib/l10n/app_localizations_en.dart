@@ -322,4 +322,45 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get retry => 'Retry';
+
+  @override
+  String get tapToPlay => 'Tap to play';
+
+  @override
+  String get replaceVideo => 'Replace video';
+
+  @override
+  String get removeVideo => 'Remove video';
+
+  @override
+  String get removeVideoConfirmTitle => 'Remove video';
+
+  @override
+  String get removeVideoConfirmMessage =>
+      'Are you sure you want to remove your presentation video?';
+
+  @override
+  String get remove => 'Remove';
+
+  @override
+  String get darkMode => 'Dark Mode';
+
+  @override
+  String get aboutPlaceholder =>
+      'Tell others about yourself and your expertise';
+
+  @override
+  String get aboutEditHint => 'Tell others about yourself...';
+
+  @override
+  String get aboutUpdated => 'About updated';
+
+  @override
+  String get titlePlaceholder => 'Add your professional title';
+
+  @override
+  String get videoRemoved => 'Video removed';
+
+  @override
+  String get couldNotOpenVideo => 'Could not open video';
 }

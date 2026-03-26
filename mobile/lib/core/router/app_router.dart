@@ -114,9 +114,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // --- Public profile route (accessible without bottom nav) ---
       GoRoute(
         path: '/profiles/:id',
-        builder: (context, state) => PublicProfileScreen(
-          userId: state.pathParameters['id'] ?? '',
-        ),
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>?;
+          return PublicProfileScreen(
+            userId: state.pathParameters['id'] ?? '',
+            displayName: extras?['display_name'] as String?,
+            role: extras?['role'] as String?,
+          );
+        },
       ),
 
       // --- Search route (accessible without bottom nav) ---
@@ -373,18 +378,18 @@ class _AgencyDashboard extends ConsumerWidget {
                 subtitle: l10n.roleAgencyDesc,
               ),
               const SizedBox(height: 24),
-              const _SearchActions(actions: [
+              _SearchActions(actions: [
                 _SearchAction(
-                  label: 'Find Freelancers',
+                  label: l10n.findFreelancers,
                   icon: Icons.person_search,
                   type: 'freelancer',
-                  color: Color(0xFFF43F5E),
+                  color: const Color(0xFFF43F5E),
                 ),
                 _SearchAction(
-                  label: 'Find Referrers',
+                  label: l10n.findReferrers,
                   icon: Icons.handshake_outlined,
                   type: 'referrer',
-                  color: Color(0xFFF59E0B),
+                  color: const Color(0xFFF59E0B),
                 ),
               ]),
               const SizedBox(height: 24),
@@ -462,24 +467,24 @@ class _EnterpriseDashboard extends ConsumerWidget {
                 subtitle: l10n.roleEnterpriseDesc,
               ),
               const SizedBox(height: 24),
-              const _SearchActions(actions: [
+              _SearchActions(actions: [
                 _SearchAction(
-                  label: 'Find Freelancers',
+                  label: l10n.findFreelancers,
                   icon: Icons.person_search,
                   type: 'freelancer',
-                  color: Color(0xFFF43F5E),
+                  color: const Color(0xFFF43F5E),
                 ),
                 _SearchAction(
-                  label: 'Find Agencies',
+                  label: l10n.findAgencies,
                   icon: Icons.business,
                   type: 'agency',
-                  color: Color(0xFF2563EB),
+                  color: const Color(0xFF2563EB),
                 ),
                 _SearchAction(
-                  label: 'Find Referrers',
+                  label: l10n.findReferrers,
                   icon: Icons.handshake_outlined,
                   type: 'referrer',
-                  color: Color(0xFFF59E0B),
+                  color: const Color(0xFFF59E0B),
                 ),
               ]),
               const SizedBox(height: 24),
@@ -570,15 +575,6 @@ class _ProviderDashboard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const _SearchActions(actions: [
-                _SearchAction(
-                  label: 'Find Freelancers',
-                  icon: Icons.person_search,
-                  type: 'freelancer',
-                  color: Color(0xFFF43F5E),
-                ),
-              ]),
-              const SizedBox(height: 24),
               _buildStatCards(context, l10n),
             ],
           ),
@@ -624,7 +620,7 @@ class _ProviderDashboard extends ConsumerWidget {
 
 /// Describes a single search action button on the dashboard.
 class _SearchAction {
-  const _SearchAction({
+  _SearchAction({
     required this.label,
     required this.icon,
     required this.type,
@@ -642,7 +638,7 @@ class _SearchAction {
 // ---------------------------------------------------------------------------
 
 class _SearchActions extends StatelessWidget {
-  const _SearchActions({required this.actions});
+  _SearchActions({required this.actions});
 
   final List<_SearchAction> actions;
 

@@ -324,4 +324,44 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get retry => 'Réessayer';
+
+  @override
+  String get tapToPlay => 'Appuyez pour lire';
+
+  @override
+  String get replaceVideo => 'Remplacer la vidéo';
+
+  @override
+  String get removeVideo => 'Supprimer la vidéo';
+
+  @override
+  String get removeVideoConfirmTitle => 'Supprimer la vidéo';
+
+  @override
+  String get removeVideoConfirmMessage =>
+      'Êtes-vous sûr de vouloir supprimer votre vidéo de présentation ?';
+
+  @override
+  String get remove => 'Supprimer';
+
+  @override
+  String get darkMode => 'Mode sombre';
+
+  @override
+  String get aboutPlaceholder => 'Parlez de vous et de votre expertise';
+
+  @override
+  String get aboutEditHint => 'Parlez de vous...';
+
+  @override
+  String get aboutUpdated => 'À propos mis à jour';
+
+  @override
+  String get titlePlaceholder => 'Ajoutez votre titre professionnel';
+
+  @override
+  String get videoRemoved => 'Vidéo supprimée';
+
+  @override
+  String get couldNotOpenVideo => 'Impossible d\'ouvrir la vidéo';
 }
