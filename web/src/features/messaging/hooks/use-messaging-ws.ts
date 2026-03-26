@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import type { WSServerFrame, WSClientFrame, Message, MessageListResponse } from "../types"
+import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse } from "../types"
 import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
 import { MESSAGES_QUERY_KEY } from "./use-messages"
 import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
@@ -173,6 +173,24 @@ export function useMessagingWS(userId: string | undefined) {
             },
           )
           queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+          break
+        }
+        case "presence": {
+          const { user_id: presenceUserId, online } = frame.payload
+          queryClient.setQueryData(
+            CONVERSATIONS_QUERY_KEY,
+            (old: ConversationListResponse | undefined) => {
+              if (!old) return old
+              return {
+                ...old,
+                data: old.data.map((c) =>
+                  c.other_user_id === presenceUserId
+                    ? { ...c, online }
+                    : c,
+                ),
+              }
+            },
+          )
           break
         }
       }

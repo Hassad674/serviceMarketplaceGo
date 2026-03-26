@@ -134,6 +134,8 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
         _handleMessageDeleted(event);
       case 'status_update':
         _handleStatusUpdate(event);
+      case 'presence':
+        _handlePresence(event);
     }
   }
 
@@ -202,6 +204,24 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     // { conversation_id, reader_id, up_to_seq, status }
     // We do not update online/offline from this event — that comes
     // from a separate presence mechanism.
+  }
+
+  void _handlePresence(Map<String, dynamic> event) {
+    final payload = event['payload'] as Map<String, dynamic>?;
+    if (payload == null) return;
+
+    final userId = payload['user_id'] as String?;
+    final online = payload['online'] as bool? ?? false;
+    if (userId == null) return;
+
+    final updated = state.conversations.map((c) {
+      if (c.otherUserId == userId) {
+        return c.copyWith(online: online);
+      }
+      return c;
+    }).toList();
+
+    state = state.copyWith(conversations: updated);
   }
 
   /// Marks a conversation's unread count as zero (called when opening chat).

@@ -29,6 +29,13 @@ func (s *PresenceService) SetOnline(ctx context.Context, userID uuid.UUID) error
 	return nil
 }
 
+func (s *PresenceService) SetOffline(ctx context.Context, userID uuid.UUID) error {
+	if err := s.client.Del(ctx, presenceKey(userID)).Err(); err != nil {
+		return fmt.Errorf("set offline: %w", err)
+	}
+	return nil
+}
+
 func (s *PresenceService) IsOnline(ctx context.Context, userID uuid.UUID) (bool, error) {
 	result, err := s.client.Exists(ctx, presenceKey(userID)).Result()
 	if err != nil {

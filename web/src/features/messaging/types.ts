@@ -77,3 +77,4 @@ export type WSServerFrame =
   | { type: "unread_count"; payload: { count: number } }
   | { type: "message_edited"; payload: Message }
   | { type: "message_deleted"; payload: { message_id: string; conversation_id: string } }
+  | { type: "presence"; payload: { user_id: string; online: boolean } }

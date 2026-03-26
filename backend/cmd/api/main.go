@@ -118,6 +118,7 @@ func main() {
 		TokenSvc:     tokenSvc,
 		SessionSvc:   sessionSvc,
 		PresenceSvc:  presenceSvc,
+		Broadcaster:  streamBroadcaster,
 	})
 
 	// Setup router

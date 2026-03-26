@@ -16,6 +16,7 @@ const (
 	TypeTypingEvent  = "typing"
 	TypeStatusUpdate = "status_update"
 	TypeUnreadCount  = "unread_count"
+	TypePresence     = "presence"
 	TypePong         = "pong"
 	TypeSyncResult   = "sync_result"
 	TypeError        = "error"

@@ -26,11 +26,12 @@ const (
 )
 
 type ConnDeps struct {
-	Hub         *Hub
+	Hub          *Hub
 	MessagingSvc *messaging.Service
 	TokenSvc     service.TokenService
 	SessionSvc   service.SessionService
 	PresenceSvc  service.PresenceService
+	Broadcaster  service.MessageBroadcaster
 }
 
 // ServeWS returns an HTTP handler that upgrades connections to WebSocket.
@@ -59,6 +60,7 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 		deps.Hub.register <- client
 
 		_ = deps.PresenceSvc.SetOnline(r.Context(), userID)
+		go broadcastPresenceChange(userID, true, deps)
 
 		go writePump(conn, client, deps.PresenceSvc)
 		readPump(conn, client, deps)
@@ -88,8 +90,19 @@ func authenticateWS(r *http.Request, tokenSvc service.TokenService, sessionSvc s
 
 func readPump(conn *websocket.Conn, client *Client, deps ConnDeps) {
 	defer func() {
+		// Check connection count BEFORE unregistering so we can detect
+		// if this was the last connection for the user.
+		isLast := deps.Hub.ConnectionCount(client.UserID) <= 1
+
 		deps.Hub.unregister <- client
 		conn.Close(websocket.StatusNormalClosure, "")
+
+		if isLast {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = deps.PresenceSvc.SetOffline(ctx, client.UserID)
+			go broadcastPresenceChange(client.UserID, false, deps)
+		}
 	}()
 
 	conn.SetReadLimit(maxMessageSize)
@@ -233,6 +246,24 @@ func writePump(conn *websocket.Conn, client *Client, presenceSvc service.Presenc
 			cancel()
 		}
 	}
+}
+
+// broadcastPresenceChange notifies all contacts of a user's online/offline status.
+func broadcastPresenceChange(userID uuid.UUID, online bool, deps ConnDeps) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	contactIDs, err := deps.MessagingSvc.GetContactIDs(ctx, userID)
+	if err != nil || len(contactIDs) == 0 {
+		return
+	}
+
+	payload, _ := json.Marshal(map[string]any{
+		"user_id": userID.String(),
+		"online":  online,
+	})
+
+	_ = deps.Broadcaster.BroadcastPresence(ctx, contactIDs, payload)
 }
 
 func (h *Hub) broadcastToOthers(senderID uuid.UUID, participantIDs []uuid.UUID, eventType string, payload []byte) error {

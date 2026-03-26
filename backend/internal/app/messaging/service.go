@@ -307,21 +307,36 @@ type GetPresignedURLInput struct {
 	ContentType string
 }
 
-func (s *Service) GetPresignedUploadURL(ctx context.Context, input GetPresignedURLInput) (string, string, error) {
+type PresignedUploadResult struct {
+	UploadURL string
+	FileKey   string
+	PublicURL string
+}
+
+func (s *Service) GetPresignedUploadURL(ctx context.Context, input GetPresignedURLInput) (PresignedUploadResult, error) {
 	key := fmt.Sprintf("messaging/%s/%d_%s", input.UserID.String(), time.Now().UnixMilli(), input.Filename)
 
 	uploadURL, err := s.storage.GetPresignedUploadURL(ctx, key, input.ContentType, 15*time.Minute)
 	if err != nil {
-		return "", "", fmt.Errorf("get presigned url: %w", err)
+		return PresignedUploadResult{}, fmt.Errorf("get presigned url: %w", err)
 	}
 
 	publicURL := s.storage.GetPublicURL(key)
 
-	return uploadURL, publicURL, nil
+	return PresignedUploadResult{
+		UploadURL: uploadURL,
+		FileKey:   key,
+		PublicURL: publicURL,
+	}, nil
 }
 
 func (s *Service) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
 	return s.messages.GetParticipantIDs(ctx, conversationID)
+}
+
+// GetContactIDs returns distinct user IDs sharing conversations with the given user.
+func (s *Service) GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	return s.messages.GetContactIDs(ctx, userID)
 }
 
 func (s *Service) DeliverMessage(ctx context.Context, messageID, userID uuid.UUID) error {

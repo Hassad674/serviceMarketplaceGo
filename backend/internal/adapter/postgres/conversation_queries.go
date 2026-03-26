@@ -152,6 +152,14 @@ const queryGetParticipantIDs = `
 	FROM conversation_participants
 	WHERE conversation_id = $1`
 
+const queryGetContactIDs = `
+	SELECT DISTINCT cp_other.user_id
+	FROM conversation_participants cp_me
+	JOIN conversation_participants cp_other
+		ON cp_other.conversation_id = cp_me.conversation_id
+		AND cp_other.user_id != $1
+	WHERE cp_me.user_id = $1`
+
 const queryUpdateMessageStatus = `
 	UPDATE messages SET status = $2, updated_at = now() WHERE id = $1`
 

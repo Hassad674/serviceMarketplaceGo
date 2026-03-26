@@ -30,6 +30,7 @@ type mockMessageRepo struct {
 	getParticipantIDsFn        func(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	updateMessageStatusFn      func(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
 	markMessagesAsReadFn       func(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
+	getContactIDsFn            func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
 func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error) {
@@ -137,6 +138,13 @@ func (m *mockMessageRepo) MarkMessagesAsRead(ctx context.Context, conversationID
 	return nil
 }
 
+func (m *mockMessageRepo) GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	if m.getContactIDsFn != nil {
+		return m.getContactIDsFn(ctx, userID)
+	}
+	return nil, nil
+}
+
 // --- mockUserRepo ---
 
 type mockUserRepo struct {
@@ -194,6 +202,7 @@ func (m *mockUserRepo) ExistsByEmail(ctx context.Context, email string) (bool, e
 
 type mockPresenceService struct {
 	setOnlineFn    func(ctx context.Context, userID uuid.UUID) error
+	setOfflineFn   func(ctx context.Context, userID uuid.UUID) error
 	isOnlineFn     func(ctx context.Context, userID uuid.UUID) (bool, error)
 	bulkIsOnlineFn func(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 }
@@ -201,6 +210,13 @@ type mockPresenceService struct {
 func (m *mockPresenceService) SetOnline(ctx context.Context, userID uuid.UUID) error {
 	if m.setOnlineFn != nil {
 		return m.setOnlineFn(ctx, userID)
+	}
+	return nil
+}
+
+func (m *mockPresenceService) SetOffline(ctx context.Context, userID uuid.UUID) error {
+	if m.setOfflineFn != nil {
+		return m.setOfflineFn(ctx, userID)
 	}
 	return nil
 }
@@ -226,6 +242,7 @@ type mockBroadcaster struct {
 	broadcastTypingFn        func(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	broadcastStatusUpdateFn  func(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	broadcastUnreadCountFn   func(ctx context.Context, userID uuid.UUID, count int) error
+	broadcastPresenceFn      func(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 }
 
 func (m *mockBroadcaster) BroadcastNewMessage(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
@@ -252,6 +269,13 @@ func (m *mockBroadcaster) BroadcastStatusUpdate(ctx context.Context, recipientID
 func (m *mockBroadcaster) BroadcastUnreadCount(ctx context.Context, userID uuid.UUID, count int) error {
 	if m.broadcastUnreadCountFn != nil {
 		return m.broadcastUnreadCountFn(ctx, userID, count)
+	}
+	return nil
+}
+
+func (m *mockBroadcaster) BroadcastPresence(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
+	if m.broadcastPresenceFn != nil {
+		return m.broadcastPresenceFn(ctx, recipientIDs, payload)
 	}
 	return nil
 }

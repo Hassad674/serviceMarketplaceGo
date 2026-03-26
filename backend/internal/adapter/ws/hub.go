@@ -67,6 +67,14 @@ func (h *Hub) removeClient(client *Client) {
 	}
 }
 
+// ConnectionCount returns the number of active WS connections for a user.
+func (h *Hub) ConnectionCount(userID uuid.UUID) int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	return len(h.clients[userID])
+}
+
 func (h *Hub) SendToUser(userID uuid.UUID, payload []byte) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

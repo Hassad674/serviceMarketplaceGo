@@ -438,6 +438,32 @@ func (r *ConversationRepository) MarkMessagesAsRead(ctx context.Context, convers
 	return nil
 }
 
+func (r *ConversationRepository) GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryGetContactIDs, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get contact ids: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan contact id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	return ids, nil
+}
+
 // scanMessage scans a single message from a QueryRow result.
 func scanMessage(row *sql.Row) (*message.Message, error) {
 	msg := &message.Message{}

@@ -8,6 +8,7 @@ import (
 
 type PresenceService interface {
 	SetOnline(ctx context.Context, userID uuid.UUID) error
+	SetOffline(ctx context.Context, userID uuid.UUID) error
 	IsOnline(ctx context.Context, userID uuid.UUID) (bool, error)
 	BulkIsOnline(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]bool, error)
 }
@@ -17,6 +18,7 @@ type MessageBroadcaster interface {
 	BroadcastTyping(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	BroadcastStatusUpdate(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	BroadcastUnreadCount(ctx context.Context, userID uuid.UUID, count int) error
+	BroadcastPresence(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 }
 
 type MessagingRateLimiter interface {
