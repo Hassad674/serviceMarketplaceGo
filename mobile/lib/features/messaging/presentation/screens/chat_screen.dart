@@ -46,6 +46,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _controller.addListener(_onInputChanged);
+
+    // Mark this conversation as active so incoming messages don't increment unread
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(conversationsProvider.notifier)
+          .setActiveConversation(widget.conversationId);
+    });
   }
 
   @override
@@ -55,6 +62,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    // Clear active conversation when leaving the chat screen
+    ref
+        .read(conversationsProvider.notifier)
+        .setActiveConversation(null);
+    super.deactivate();
   }
 
   void _onScroll() {

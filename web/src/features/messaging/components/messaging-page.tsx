@@ -5,17 +5,19 @@ import { MessageSquare } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import { ConversationList } from "./conversation-list"
 import { ConversationHeader } from "./conversation-header"
 import { MessageArea } from "./message-area"
 import { MessageInput } from "./message-input"
-import { useConversations } from "../hooks/use-conversations"
+import { useConversations, CONVERSATIONS_QUERY_KEY } from "../hooks/use-conversations"
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from "../hooks/use-messages"
 import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
-import type { Conversation } from "../types"
+import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
+import type { Conversation, ConversationListResponse } from "../types"
 
 export function MessagingPage() {
   const t = useTranslations("messaging")
@@ -36,12 +38,20 @@ export function MessagingPage() {
   const sendMessage = useSendMessage(activeId)
   const editMessageMut = useEditMessage(activeId)
   const deleteMessageMut = useDeleteMessage(activeId)
-  const { typingUsers, sendTyping, isConnected } = useMessagingWS(user?.id)
+  const { typingUsers, sendTyping, isConnected, setActiveConversationId } = useMessagingWS(user?.id)
+
+  const queryClient = useQueryClient()
 
   const conversations = conversationsData?.data ?? []
   const activeConversation = conversations.find(
     (c: Conversation) => c.id === activeId,
   )
+
+  // Keep the WS hook aware of which conversation is currently active,
+  // so it can suppress unread increments for messages in this conversation.
+  useEffect(() => {
+    setActiveConversationId(activeId)
+  }, [activeId, setActiveConversationId])
 
   // Gather all messages from infinite query pages.
   // Backend returns messages in DESC order (newest first) for cursor pagination.
@@ -91,7 +101,23 @@ export function MessagingPage() {
     setActiveId(id)
     setMobileView("chat")
     router.replace(`/messages?id=${id}`)
-  }, [router])
+
+    // Optimistically clear unread_count for the selected conversation
+    queryClient.setQueryData(
+      CONVERSATIONS_QUERY_KEY,
+      (old: ConversationListResponse | undefined) => {
+        if (!old) return old
+        return {
+          ...old,
+          data: old.data.map((c: Conversation) =>
+            c.id === id ? { ...c, unread_count: 0 } : c,
+          ),
+        }
+      },
+    )
+    // Invalidate sidebar unread badge to recalculate total
+    queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY })
+  }, [router, queryClient])
 
   const handleBack = useCallback(() => {
     setMobileView("list")

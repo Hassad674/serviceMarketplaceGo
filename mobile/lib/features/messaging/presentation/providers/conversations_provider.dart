@@ -67,6 +67,10 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   StreamSubscription<Map<String, dynamic>>? _wsSub;
   final Map<String, Timer> _typingTimers = {};
 
+  /// The conversation ID currently being viewed in the chat screen.
+  /// When set, incoming messages for this conversation do NOT increment unread.
+  String? _activeConversationId;
+
   ConversationsNotifier({
     required MessagingRepository repository,
     required MessagingWsService wsService,
@@ -194,12 +198,18 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
       state = state.copyWith(typingUsers: clearedTyping);
     }
 
+    final isActiveConversation = _activeConversationId == conversationId;
+
     final updated = state.conversations.map((c) {
       if (c.id == conversationId) {
+        // Only increment unread if the message is from another user
+        // AND the user is NOT currently viewing this conversation.
+        final shouldIncrementUnread =
+            senderId != _currentUserId && !isActiveConversation;
         return c.copyWith(
           lastMessage: content,
           lastMessageAt: createdAt,
-          unreadCount: senderId != _currentUserId
+          unreadCount: shouldIncrementUnread
               ? c.unreadCount + 1
               : c.unreadCount,
         );
@@ -267,6 +277,16 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     }).toList();
 
     state = state.copyWith(conversations: updated);
+  }
+
+  /// Sets the currently active (viewed) conversation.
+  /// Call with the conversation ID when entering the chat screen,
+  /// and with null when leaving.
+  void setActiveConversation(String? conversationId) {
+    _activeConversationId = conversationId;
+    if (conversationId != null) {
+      clearUnread(conversationId);
+    }
   }
 
   /// Marks a conversation's unread count as zero (called when opening chat).

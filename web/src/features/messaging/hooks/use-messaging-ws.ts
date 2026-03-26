@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse } from "../types"
+import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse, Conversation } from "../types"
+import { markAsRead } from "../api/messaging-api"
 import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
 import { MESSAGES_QUERY_KEY } from "./use-messages"
 import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
@@ -30,6 +31,11 @@ export function useMessagingWS(userId: string | undefined) {
   const userIdRef = useRef(userId)
   const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
+  // Ref to track the currently active (viewed) conversation.
+  // Updated by the parent component via setActiveConversationId.
+  // Used to suppress unread increments for messages in the active conversation.
+  const activeConversationIdRef = useRef<string | null>(null)
+
   const [isConnected, setIsConnected] = useState(false)
   const [typingUsers, setTypingUsers] = useState<TypingState>({})
   const [totalUnread, setTotalUnread] = useState(0)
@@ -38,6 +44,10 @@ export function useMessagingWS(userId: string | undefined) {
   useEffect(() => {
     userIdRef.current = userId
   }, [userId])
+
+  const setActiveConversationId = useCallback((id: string | null) => {
+    activeConversationIdRef.current = id
+  }, [])
 
   const sendFrame = useCallback((frame: WSClientFrame) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -98,9 +108,35 @@ export function useMessagingWS(userId: string | undefined) {
     handleFrameRef.current = (frame: WSServerFrame) => {
       switch (frame.type) {
         case "new_message": {
-          addMessageToCache(frame.payload)
-          queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
-          clearTyping(frame.payload.conversation_id)
+          const incomingMsg = frame.payload
+          addMessageToCache(incomingMsg)
+          clearTyping(incomingMsg.conversation_id)
+
+          const isActiveConversation =
+            activeConversationIdRef.current === incomingMsg.conversation_id
+
+          if (isActiveConversation) {
+            // User is viewing this conversation — optimistically keep unread at 0
+            // and mark as read on the server.
+            queryClient.setQueryData(
+              CONVERSATIONS_QUERY_KEY,
+              (old: ConversationListResponse | undefined) => {
+                if (!old) return old
+                return {
+                  ...old,
+                  data: old.data.map((c: Conversation) =>
+                    c.id === incomingMsg.conversation_id
+                      ? { ...c, last_message: incomingMsg.content, last_message_at: incomingMsg.created_at, unread_count: 0, last_message_seq: incomingMsg.seq }
+                      : c,
+                  ),
+                }
+              },
+            )
+            markAsRead(incomingMsg.conversation_id, incomingMsg.seq).catch(() => {})
+          } else {
+            // Not viewing this conversation — refetch to get updated unread counts
+            queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+          }
           break
         }
         case "typing": {
@@ -291,5 +327,5 @@ export function useMessagingWS(userId: string | undefined) {
     }
   }, [connect])
 
-  return { isConnected, typingUsers, sendTyping, totalUnread }
+  return { isConnected, typingUsers, sendTyping, totalUnread, setActiveConversationId }
 }
