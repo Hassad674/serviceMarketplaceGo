@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  MessageSquare,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
@@ -29,6 +30,7 @@ type NavItem = {
 // Freelance mode nav
 const FREELANCE_NAV: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["agency", "provider", "enterprise"] },
+  { labelKey: "messages", href: "/messages", icon: MessageSquare, roles: ["agency", "provider", "enterprise"] },
   { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
   { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },
@@ -38,6 +40,7 @@ const FREELANCE_NAV: NavItem[] = [
 // Referrer mode nav — no ?mode=referrer needed; cookie tracks the workspace
 const REFERRER_NAV: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["provider"] },
+  { labelKey: "messages", href: "/messages", icon: MessageSquare, roles: ["provider"] },
   { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
 ]

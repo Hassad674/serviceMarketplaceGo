@@ -251,6 +251,20 @@
     "noTitle": "Sans titre",
     "errorLoading": "\u00c9chec du chargement des profils. Veuillez r\u00e9essayer."
   },
+  "messaging": {
+    "title": "Messages",
+    "searchPlaceholder": "Rechercher une conversation...",
+    "noMessages": "Aucun message dans cette conversation",
+    "noConversations": "Aucune conversation",
+    "writeMessage": "\u00c9crivez votre message...",
+    "online": "En ligne",
+    "offline": "Hors ligne",
+    "allRoles": "Tous",
+    "agency": "Agence",
+    "freelancer": "Freelance",
+    "enterprise": "Entreprise",
+    "unread": "non lu(s)"
+  },
   "publicProfile": {
     "agencyProfile": "Profil de l'agence",
     "agencyProfileDesc": "Voir les d\u00e9tails et le portfolio de l'agence",

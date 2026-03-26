@@ -251,6 +251,20 @@
     "noTitle": "No title",
     "errorLoading": "Failed to load profiles. Please try again."
   },
+  "messaging": {
+    "title": "Messages",
+    "searchPlaceholder": "Search a conversation...",
+    "noMessages": "No messages in this conversation",
+    "noConversations": "No conversations yet",
+    "writeMessage": "Write your message...",
+    "online": "Online",
+    "offline": "Offline",
+    "allRoles": "All",
+    "agency": "Agency",
+    "freelancer": "Freelance",
+    "enterprise": "Enterprise",
+    "unread": "unread"
+  },
   "publicProfile": {
     "agencyProfile": "Agency Profile",
     "agencyProfileDesc": "View agency details and portfolio",
