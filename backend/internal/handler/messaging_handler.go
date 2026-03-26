@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -34,9 +35,10 @@ func (h *MessagingHandler) StartConversation(w http.ResponseWriter, r *http.Requ
 	}
 
 	var req struct {
-		RecipientID string `json:"recipient_id"`
-		Content     string `json:"content"`
-		Type        string `json:"type"`
+		RecipientID string          `json:"recipient_id"`
+		Content     string          `json:"content"`
+		Type        string          `json:"type"`
+		Metadata    json.RawMessage `json:"metadata,omitempty"`
 	}
 
 	if err := validator.DecodeJSON(r, &req); err != nil {
@@ -60,6 +62,7 @@ func (h *MessagingHandler) StartConversation(w http.ResponseWriter, r *http.Requ
 		RecipientID: recipientID,
 		Content:     req.Content,
 		Type:        msgType,
+		Metadata:    req.Metadata,
 	})
 	if err != nil {
 		handleMessagingError(w, err)
@@ -138,8 +141,9 @@ func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Content string `json:"content"`
-		Type    string `json:"type"`
+		Content  string          `json:"content"`
+		Type     string          `json:"type"`
+		Metadata json.RawMessage `json:"metadata,omitempty"`
 	}
 
 	if err := validator.DecodeJSON(r, &req); err != nil {
@@ -157,6 +161,7 @@ func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		ConversationID: convID,
 		Content:        req.Content,
 		Type:           msgType,
+		Metadata:       req.Metadata,
 	})
 	if err != nil {
 		handleMessagingError(w, err)
@@ -271,6 +276,7 @@ func (h *MessagingHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 	var req struct {
 		Filename    string `json:"filename"`
 		ContentType string `json:"content_type"`
+		MimeType    string `json:"mime_type"`
 	}
 
 	if err := validator.DecodeJSON(r, &req); err != nil {
@@ -278,15 +284,21 @@ func (h *MessagingHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if req.Filename == "" || req.ContentType == "" {
-		res.Error(w, http.StatusBadRequest, "validation_error", "filename and content_type are required")
+	// Accept either content_type or mime_type from frontend
+	contentType := req.ContentType
+	if contentType == "" {
+		contentType = req.MimeType
+	}
+
+	if req.Filename == "" || contentType == "" {
+		res.Error(w, http.StatusBadRequest, "validation_error", "filename and content_type (or mime_type) are required")
 		return
 	}
 
-	uploadURL, publicURL, err := h.messagingSvc.GetPresignedUploadURL(r.Context(), messaging.GetPresignedURLInput{
+	result, err := h.messagingSvc.GetPresignedUploadURL(r.Context(), messaging.GetPresignedURLInput{
 		UserID:      userID,
 		Filename:    req.Filename,
-		ContentType: req.ContentType,
+		ContentType: contentType,
 	})
 	if err != nil {
 		slog.Error("presigned url generation failed", "error", err)
@@ -295,8 +307,9 @@ func (h *MessagingHandler) GetPresignedURL(w http.ResponseWriter, r *http.Reques
 	}
 
 	res.JSON(w, http.StatusOK, response.PresignedURLResponse{
-		UploadURL: uploadURL,
-		PublicURL: publicURL,
+		UploadURL: result.UploadURL,
+		FileKey:   result.FileKey,
+		PublicURL: result.PublicURL,
 	})
 }
 

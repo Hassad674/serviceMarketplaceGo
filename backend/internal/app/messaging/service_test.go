@@ -606,15 +606,16 @@ func TestGetTotalUnread_RepoError(t *testing.T) {
 func TestGetPresignedUploadURL_Success(t *testing.T) {
 	svc := newTestService(nil, nil, nil, nil, nil, nil)
 
-	uploadURL, publicURL, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
+	result, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
 		UserID:      uuid.New(),
 		Filename:    "document.pdf",
 		ContentType: "application/pdf",
 	})
 
 	require.NoError(t, err)
-	assert.NotEmpty(t, uploadURL)
-	assert.NotEmpty(t, publicURL)
+	assert.NotEmpty(t, result.UploadURL)
+	assert.NotEmpty(t, result.FileKey)
+	assert.NotEmpty(t, result.PublicURL)
 }
 
 // --- DeliverMessage tests ---
@@ -1026,7 +1027,7 @@ func TestGetPresignedUploadURL_KeyFormat(t *testing.T) {
 
 	svc := newTestService(nil, nil, nil, nil, storage, nil)
 
-	_, publicURL, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
+	result, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
 		UserID:      userID,
 		Filename:    "document.pdf",
 		ContentType: "application/pdf",
@@ -1035,7 +1036,8 @@ func TestGetPresignedUploadURL_KeyFormat(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, capturedKey, "messaging/"+userID.String())
 	assert.Contains(t, capturedKey, "document.pdf")
-	assert.Contains(t, publicURL, "messaging/"+userID.String())
+	assert.Contains(t, result.FileKey, "messaging/"+userID.String())
+	assert.Contains(t, result.PublicURL, "messaging/"+userID.String())
 }
 
 // --- GetPresignedUploadURL: storage error ---
@@ -1049,7 +1051,7 @@ func TestGetPresignedUploadURL_StorageError(t *testing.T) {
 
 	svc := newTestService(nil, nil, nil, nil, storage, nil)
 
-	uploadURL, publicURL, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
+	result, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
 		UserID:      uuid.New(),
 		Filename:    "file.pdf",
 		ContentType: "application/pdf",
@@ -1057,8 +1059,8 @@ func TestGetPresignedUploadURL_StorageError(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "get presigned url")
-	assert.Empty(t, uploadURL)
-	assert.Empty(t, publicURL)
+	assert.Empty(t, result.UploadURL)
+	assert.Empty(t, result.FileKey)
 }
 
 // --- SendMessage: file type with metadata ---

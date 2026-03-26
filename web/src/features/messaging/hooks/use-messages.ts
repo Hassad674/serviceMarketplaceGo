@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { listMessages, sendMessage, editMessage, deleteMessage } from "../api/messaging-api"
+import type { FileMessageMetadata } from "../api/messaging-api"
 import type { Message, MessageListResponse } from "../types"
 import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
 
@@ -31,7 +32,7 @@ export function useSendMessage(conversationId: string | null) {
     }: {
       content: string
       type?: "text" | "file"
-      metadata?: { file_key: string; filename: string; size: number; mime_type: string }
+      metadata?: FileMessageMetadata
     }) => sendMessage(conversationId!, content, type, metadata),
 
     onMutate: async ({ content, type = "text", metadata }) => {
@@ -50,7 +51,7 @@ export function useSendMessage(conversationId: string | null) {
         content,
         type,
         metadata: metadata
-          ? { url: "", filename: metadata.filename, size: metadata.size, mime_type: metadata.mime_type }
+          ? { url: metadata.url, filename: metadata.filename, size: metadata.size, mime_type: metadata.mime_type }
           : null,
         seq: 0,
         status: "sending",

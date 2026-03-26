@@ -42,6 +42,7 @@ type StartConversationResponse struct {
 
 type PresignedURLResponse struct {
 	UploadURL string `json:"upload_url"`
+	FileKey   string `json:"file_key"`
 	PublicURL string `json:"public_url"`
 }
 

@@ -20,7 +20,14 @@ export function listMessages(conversationId: string, cursor?: string): Promise<M
   )
 }
 
-export function sendMessage(conversationId: string, content: string, type: "text" | "file" = "text", metadata?: { file_key: string; filename: string; size: number; mime_type: string }): Promise<Message> {
+export type FileMessageMetadata = {
+  url: string
+  filename: string
+  size: number
+  mime_type: string
+}
+
+export function sendMessage(conversationId: string, content: string, type: "text" | "file" = "text", metadata?: FileMessageMetadata): Promise<Message> {
   return apiClient<Message>(
     `/api/v1/messaging/conversations/${conversationId}/messages`,
     {
@@ -57,10 +64,10 @@ export function deleteMessage(messageId: string): Promise<void> {
   })
 }
 
-export function getPresignedURL(filename: string, mimeType: string): Promise<PresignedURLResponse> {
+export function getPresignedURL(filename: string, contentType: string): Promise<PresignedURLResponse> {
   return apiClient<PresignedURLResponse>("/api/v1/messaging/upload-url", {
     method: "POST",
-    body: { filename, mime_type: mimeType },
+    body: { filename, content_type: contentType },
   })
 }
 

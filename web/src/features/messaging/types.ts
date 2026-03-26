@@ -56,6 +56,7 @@ export type StartConversationResponse = {
 export type PresignedURLResponse = {
   upload_url: string
   file_key: string
+  public_url: string
 }
 
 export type UnreadCountResponse = {

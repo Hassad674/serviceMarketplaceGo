@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { MessageSquare } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useSearchParams } from "next/navigation"
+import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import { ConversationList } from "./conversation-list"
@@ -19,7 +20,9 @@ import type { Conversation } from "../types"
 export function MessagingPage() {
   const t = useTranslations("messaging")
   const searchParams = useSearchParams()
+  const router = useRouter()
   const { data: user } = useUser()
+  const initializedFromUrl = useRef(false)
 
   const [activeId, setActiveId] = useState<string | null>(
     searchParams.get("id"),
@@ -48,14 +51,20 @@ export function MessagingPage() {
     ? [...messagesQuery.data.pages].reverse().flatMap((page) => [...page.data].reverse())
     : []
 
-  // Deep-link from query param
+  // Deep-link from query param — only on initial mount.
+  // Subsequent conversation switches are handled by handleSelect
+  // which updates both activeId and the URL.
   useEffect(() => {
+    if (initializedFromUrl.current) return
+    initializedFromUrl.current = true
+
     const paramId = searchParams.get("id")
     if (paramId && paramId !== activeId) {
       setActiveId(paramId)
       setMobileView("chat")
     }
-  }, [searchParams, activeId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Track the latest message seq in the active conversation for read receipts
   const latestSeq = allMessages.length > 0
@@ -92,7 +101,8 @@ export function MessagingPage() {
   const handleSelect = useCallback((id: string) => {
     setActiveId(id)
     setMobileView("chat")
-  }, [])
+    router.replace(`/messages?id=${id}`)
+  }, [router])
 
   const handleBack = useCallback(() => {
     setMobileView("list")
@@ -107,7 +117,7 @@ export function MessagingPage() {
   )
 
   const handleSendFile = useCallback(
-    (content: string, metadata: { file_key: string; filename: string; size: number; mime_type: string }) => {
+    (content: string, metadata: { url: string; filename: string; size: number; mime_type: string }) => {
       if (!activeId) return
       sendMessage.mutate({ content, type: "file", metadata })
     },
@@ -133,6 +143,9 @@ export function MessagingPage() {
   }, [activeId, sendTyping])
 
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
+  if (typingUserForConversation) {
+    console.log("[Messaging] typingUserForConversation", typingUserForConversation, "activeId=", activeId)
+  }
 
   return (
     <div className="-mx-5 -mt-5 flex h-[calc(100vh-3.5rem)] overflow-hidden bg-white dark:bg-gray-900">
