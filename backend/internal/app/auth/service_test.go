@@ -780,3 +780,156 @@ func TestAuthService_ResetPassword_AlreadyUsedToken(t *testing.T) {
 
 	assert.ErrorIs(t, err, user.ErrUnauthorized)
 }
+
+// --- EnableReferrer tests ---
+
+func TestAuthService_EnableReferrer_Success(t *testing.T) {
+	providerUser := &user.User{
+		ID:              uuid.New(),
+		Email:           "provider@example.com",
+		Role:            user.RoleProvider,
+		ReferrerEnabled: false,
+	}
+
+	var updatedUser *user.User
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == providerUser.ID {
+				return providerUser, nil
+			}
+			return nil, user.ErrUserNotFound
+		},
+		updateFn: func(_ context.Context, u *user.User) error {
+			updatedUser = u
+			return nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.EnableReferrer(context.Background(), providerUser.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.ReferrerEnabled, "referrer should be enabled")
+	assert.NotNil(t, updatedUser, "user should be persisted")
+	assert.True(t, updatedUser.ReferrerEnabled, "persisted user should have referrer enabled")
+}
+
+func TestAuthService_EnableReferrer_NonProviderRole(t *testing.T) {
+	tests := []struct {
+		name string
+		role user.Role
+	}{
+		{"agency cannot be referrer", user.RoleAgency},
+		{"enterprise cannot be referrer", user.RoleEnterprise},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			nonProviderUser := &user.User{
+				ID:   uuid.New(),
+				Role: tt.role,
+			}
+
+			userRepo := &mockUserRepo{
+				getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+					return nonProviderUser, nil
+				},
+			}
+
+			svc := newTestService(userRepo, nil, nil, nil, nil)
+
+			result, err := svc.EnableReferrer(context.Background(), nonProviderUser.ID)
+
+			assert.ErrorIs(t, err, user.ErrInvalidRole)
+			assert.Nil(t, result)
+		})
+	}
+}
+
+func TestAuthService_EnableReferrer_UserNotFound(t *testing.T) {
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
+			return nil, user.ErrUserNotFound
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.EnableReferrer(context.Background(), uuid.New())
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "enable referrer")
+	assert.Nil(t, result)
+}
+
+func TestAuthService_EnableReferrer_UpdateFailure(t *testing.T) {
+	providerUser := &user.User{
+		ID:   uuid.New(),
+		Role: user.RoleProvider,
+	}
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
+			return providerUser, nil
+		},
+		updateFn: func(_ context.Context, _ *user.User) error {
+			return fmt.Errorf("database connection lost")
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.EnableReferrer(context.Background(), providerUser.ID)
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "enable referrer")
+	assert.Nil(t, result)
+}
+
+func TestAuthService_EnableReferrer_AlreadyEnabled(t *testing.T) {
+	// Should succeed idempotently even if already enabled
+	providerUser := &user.User{
+		ID:              uuid.New(),
+		Role:            user.RoleProvider,
+		ReferrerEnabled: true,
+	}
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
+			return providerUser, nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.EnableReferrer(context.Background(), providerUser.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.ReferrerEnabled)
+}
+
+func TestAuthService_EnableReferrer_SetsUpdatedAt(t *testing.T) {
+	providerUser := &user.User{
+		ID:        uuid.New(),
+		Role:      user.RoleProvider,
+		UpdatedAt: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+	}
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
+			return providerUser, nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.EnableReferrer(context.Background(), providerUser.ID)
+
+	require.NoError(t, err)
+	assert.True(t, result.UpdatedAt.After(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)),
+		"updated_at should be refreshed to a recent time")
+}
