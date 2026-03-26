@@ -24,17 +24,22 @@ type NavItem = {
   icon: React.ElementType
   exact?: boolean
   roles: string[]
-  referrerOnly?: boolean
-  hideInReferrerMode?: boolean
 }
 
-const NAV_ITEMS: NavItem[] = [
+// Freelance mode nav
+const FREELANCE_NAV: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["agency", "provider", "enterprise"] },
-  { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"], hideInReferrerMode: true },
-  { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"], referrerOnly: true },
-  { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise", "provider"] },
+  { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
+  { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
   { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },
   { labelKey: "findReferrers", href: "/search?type=referrer", icon: Search, roles: ["agency", "enterprise"] },
+]
+
+// Referrer mode nav (separate so links stay in referrer context)
+const REFERRER_NAV: NavItem[] = [
+  { labelKey: "dashboard", href: "/dashboard?mode=referrer", icon: LayoutDashboard, exact: true, roles: ["provider"] },
+  { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
+  { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -52,12 +57,10 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 function getFilteredNav(role: string, isReferrerMode: boolean): NavItem[] {
-  return NAV_ITEMS.filter((item) => {
-    if (!item.roles.includes(role)) return false
-    if (item.referrerOnly && !isReferrerMode) return false
-    if (item.hideInReferrerMode && isReferrerMode) return false
-    return true
-  })
+  if (role === "provider" && isReferrerMode) {
+    return REFERRER_NAV.filter((item) => item.roles.includes(role))
+  }
+  return FREELANCE_NAV.filter((item) => item.roles.includes(role))
 }
 
 const STORAGE_KEY = "sidebar-collapsed"
@@ -78,7 +81,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const tCommon = useTranslations("common")
 
   const role = user?.role ?? ""
-  const isReferrerMode = pathname === "/referral" || searchParams.get("mode") === "referrer"
+  const isReferrerMode = pathname === "/referral" || searchParams.get("mode") === "referrer" || pathname === "/dashboard" && searchParams.get("mode") === "referrer"
   const items = getFilteredNav(role, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
 
