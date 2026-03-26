@@ -8,7 +8,7 @@ import { MESSAGES_QUERY_KEY } from "./use-messages"
 import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
 
 const HEARTBEAT_INTERVAL = 30_000
-const TYPING_CLEAR_DELAY = 3_000
+const TYPING_CLEAR_DELAY = 5_000
 const MAX_RECONNECT_DELAY = 30_000
 
 function getWSUrl(): string {

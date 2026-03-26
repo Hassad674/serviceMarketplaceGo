@@ -872,6 +872,12 @@ abstract class AppLocalizations {
   /// **'{name} is typing...'**
   String messagingTyping(String name);
 
+  /// No description provided for @messagingTypingShort.
+  ///
+  /// In en, this message translates to:
+  /// **'typing...'**
+  String get messagingTypingShort;
+
   /// No description provided for @messagingEdited.
   ///
   /// In en, this message translates to:

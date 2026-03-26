@@ -155,6 +155,7 @@
       "name": {"type": "String"}
     }
   },
+  "messagingTypingShort": "typing...",
   "messagingEdited": "edited",
   "messagingDeleted": "This message was deleted",
   "messagingDelivered": "Delivered",

@@ -48,11 +48,16 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
+type TypingEntry = { userId: string }
+
+type TypingState = Record<string, TypingEntry>
+
 interface ConversationListProps {
   conversations: Conversation[]
   activeId: string | null
   roleFilter: string
   searchQuery: string
+  typingUsers: TypingState
   onSelect: (id: string) => void
   onRoleFilterChange: (role: string) => void
   onSearchChange: (query: string) => void
@@ -63,6 +68,7 @@ export function ConversationList({
   activeId,
   roleFilter,
   searchQuery,
+  typingUsers,
   onSelect,
   onRoleFilterChange,
   onSearchChange,
@@ -141,6 +147,7 @@ export function ConversationList({
               key={conversation.id}
               conversation={conversation}
               isActive={conversation.id === activeId}
+              isTyping={!!typingUsers[conversation.id]}
               onSelect={onSelect}
             />
           ))
@@ -153,12 +160,14 @@ export function ConversationList({
 interface ConversationItemProps {
   conversation: Conversation
   isActive: boolean
+  isTyping: boolean
   onSelect: (id: string) => void
 }
 
 function ConversationItem({
   conversation,
   isActive,
+  isTyping,
   onSelect,
 }: ConversationItemProps) {
   const t = useTranslations("messaging")
@@ -214,9 +223,15 @@ function ConversationItem({
           )}
         </div>
         <div className="mt-0.5 flex items-center justify-between">
-          <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-            {conversation.last_message ?? t("noMessages")}
-          </p>
+          {isTyping ? (
+            <p className="truncate text-xs italic text-rose-500 dark:text-rose-400">
+              {t("typingShort")}
+            </p>
+          ) : (
+            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+              {conversation.last_message ?? t("noMessages")}
+            </p>
+          )}
           {conversation.unread_count > 0 && (
             <span className="ml-2 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">
               {conversation.unread_count}

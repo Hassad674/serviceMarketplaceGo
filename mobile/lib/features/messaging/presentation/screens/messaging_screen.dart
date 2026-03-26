@@ -115,6 +115,8 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
       return _EmptyState(message: l10n.messagingNoConversations);
     }
 
+    final typingUsers = convState.typingUsers;
+
     return RefreshIndicator(
       onRefresh: () =>
           ref.read(conversationsProvider.notifier).loadConversations(),
@@ -138,6 +140,7 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
           final conversation = filtered[index];
           return _ConversationTile(
             conversation: conversation,
+            isTyping: typingUsers.containsKey(conversation.id),
             onTap: () {
               ref
                   .read(conversationsProvider.notifier)
@@ -227,10 +230,12 @@ class _ConversationTile extends StatelessWidget {
   const _ConversationTile({
     required this.conversation,
     required this.onTap,
+    this.isTyping = false,
   });
 
   final ConversationEntity conversation;
   final VoidCallback onTap;
+  final bool isTyping;
 
   String get _initials => conversation.otherUserName.initials;
 
@@ -314,16 +319,27 @@ class _ConversationTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          conversation.lastMessage ??
-                              AppLocalizations.of(context)!
-                                  .messagingNoMessages,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: appColors?.mutedForeground,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: isTyping
+                            ? Text(
+                                AppLocalizations.of(context)!
+                                    .messagingTypingShort,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color: const Color(0xFFF43F5E),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              )
+                            : Text(
+                                conversation.lastMessage ??
+                                    AppLocalizations.of(context)!
+                                        .messagingNoMessages,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: appColors?.mutedForeground,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                       ),
                       if (conversation.unreadCount > 0)
                         Container(

@@ -266,6 +266,7 @@
     "enterprise": "Entreprise",
     "unread": "non lu(s)",
     "typing": "{name} est en train d'\u00e9crire",
+    "typingShort": "est en train d'\u00e9crire...",
     "sendMessage": "Envoyer",
     "editMessage": "Modifier",
     "deleteMessage": "Supprimer",

@@ -26,6 +26,9 @@ class ConversationsState {
   final String? nextCursor;
   final bool hasMore;
 
+  /// Map of conversation_id -> user_id for conversations where someone is typing.
+  final Map<String, String> typingUsers;
+
   const ConversationsState({
     this.conversations = const [],
     this.isLoading = false,
@@ -33,6 +36,7 @@ class ConversationsState {
     this.error,
     this.nextCursor,
     this.hasMore = false,
+    this.typingUsers = const {},
   });
 
   ConversationsState copyWith({
@@ -42,6 +46,7 @@ class ConversationsState {
     String? error,
     String? nextCursor,
     bool? hasMore,
+    Map<String, String>? typingUsers,
   }) {
     return ConversationsState(
       conversations: conversations ?? this.conversations,
@@ -50,6 +55,7 @@ class ConversationsState {
       error: error,
       nextCursor: nextCursor ?? this.nextCursor,
       hasMore: hasMore ?? this.hasMore,
+      typingUsers: typingUsers ?? this.typingUsers,
     );
   }
 }
@@ -60,6 +66,7 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   final MessagingWsService _wsService;
   final String? _currentUserId;
   StreamSubscription<Map<String, dynamic>>? _wsSub;
+  final Map<String, Timer> _typingTimers = {};
 
   ConversationsNotifier({
     required MessagingRepository repository,
@@ -126,6 +133,8 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     switch (type) {
       case 'new_message':
         _handleNewMessage(event);
+      case 'typing':
+        _handleTyping(event);
       case 'unread_count':
         _handleUnreadCount(event);
       case 'message_edited':
@@ -139,6 +148,30 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     }
   }
 
+  void _handleTyping(Map<String, dynamic> event) {
+    final payload = event['payload'] as Map<String, dynamic>?;
+    if (payload == null) return;
+
+    final convId = payload['conversation_id'] as String?;
+    final userId = payload['user_id'] as String?;
+    if (convId == null || userId == null || userId == _currentUserId) return;
+
+    // Update typing state
+    final updated = Map<String, String>.from(state.typingUsers);
+    updated[convId] = userId;
+    state = state.copyWith(typingUsers: updated);
+
+    // Clear after 5 seconds
+    _typingTimers[convId]?.cancel();
+    _typingTimers[convId] = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        final cleared = Map<String, String>.from(state.typingUsers);
+        cleared.remove(convId);
+        state = state.copyWith(typingUsers: cleared);
+      }
+    });
+  }
+
   void _handleNewMessage(Map<String, dynamic> event) {
     final msg = event['payload'] as Map<String, dynamic>?;
     if (msg == null) return;
@@ -148,6 +181,15 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     final content = msg['content'] as String? ?? '';
     final createdAt = msg['created_at'] as String?;
     final senderId = msg['sender_id'] as String?;
+
+    // Clear typing indicator for this conversation when a message arrives
+    if (state.typingUsers.containsKey(conversationId)) {
+      _typingTimers[conversationId]?.cancel();
+      _typingTimers.remove(conversationId);
+      final clearedTyping = Map<String, String>.from(state.typingUsers);
+      clearedTyping.remove(conversationId);
+      state = state.copyWith(typingUsers: clearedTyping);
+    }
 
     final updated = state.conversations.map((c) {
       if (c.id == conversationId) {
@@ -238,6 +280,10 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   @override
   void dispose() {
     _wsSub?.cancel();
+    for (final timer in _typingTimers.values) {
+      timer.cancel();
+    }
+    _typingTimers.clear();
     super.dispose();
   }
 }
@@ -533,10 +579,10 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
     // name from the conversation entity (same pattern as the web app).
     state = state.copyWith(typingUserName: userId);
 
-    // Clear typing indicator after 3 seconds
+    // Clear typing indicator after 5 seconds (allows 2s send interval + margin)
     _typingTimer?.cancel();
     _typingTimer = Timer(
-      const Duration(seconds: 3),
+      const Duration(seconds: 5),
       () {
         if (mounted) {
           state = state.copyWith(typingUserName: null);

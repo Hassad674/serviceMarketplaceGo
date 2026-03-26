@@ -35,6 +35,7 @@ function defaultProps(overrides: Partial<Parameters<typeof ConversationList>[0]>
     activeId: null as string | null,
     roleFilter: "all",
     searchQuery: "",
+    typingUsers: {} as Record<string, { userId: string }>,
     onSelect: vi.fn(),
     onRoleFilterChange: vi.fn(),
     onSearchChange: vi.fn(),

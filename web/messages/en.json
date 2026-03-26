@@ -266,6 +266,7 @@
     "enterprise": "Enterprise",
     "unread": "unread",
     "typing": "{name} is typing",
+    "typingShort": "typing...",
     "sendMessage": "Send",
     "editMessage": "Edit",
     "deleteMessage": "Delete",

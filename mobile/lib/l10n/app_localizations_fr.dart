@@ -407,6 +407,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get messagingTypingShort => 'est en train d\'écrire...';
+
+  @override
   String get messagingEdited => 'modifié';
 
   @override

@@ -406,6 +406,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get messagingTypingShort => 'typing...';
+
+  @override
   String get messagingEdited => 'edited';
 
   @override

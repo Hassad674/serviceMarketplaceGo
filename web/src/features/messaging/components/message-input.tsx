@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Paperclip, Send, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { getPresignedURL } from "../api/messaging-api"
 import { FileUploadModal } from "./file-upload-modal"
 
-const TYPING_THROTTLE_MS = 1_500
+const TYPING_INTERVAL_MS = 2_000
 
 interface MessageInputProps {
   onSend: (content: string) => void
@@ -21,7 +21,27 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
   const [value, setValue] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const lastTypingRef = useRef(0)
+  const onTypingRef = useRef(onTyping)
+  const hasContent = value.trim().length > 0
+
+  // Keep callback ref in sync to avoid re-creating the interval effect
+  useEffect(() => {
+    onTypingRef.current = onTyping
+  }, [onTyping])
+
+  // Send typing events every 2s while the input has content
+  useEffect(() => {
+    if (!hasContent) return
+
+    // Fire immediately when input goes from empty to non-empty
+    onTypingRef.current()
+
+    const interval = setInterval(() => {
+      onTypingRef.current()
+    }, TYPING_INTERVAL_MS)
+
+    return () => clearInterval(interval)
+  }, [hasContent])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -40,13 +60,6 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setValue(e.target.value)
-
-    // Throttled typing indicator
-    const now = Date.now()
-    if (now - lastTypingRef.current > TYPING_THROTTLE_MS) {
-      lastTypingRef.current = now
-      onTyping()
-    }
   }
 
   const handleUploadFiles = useCallback(

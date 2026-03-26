@@ -36,16 +36,19 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  DateTime _lastTypingSent = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _typingInterval;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _controller.addListener(_onInputChanged);
   }
 
   @override
   void dispose() {
+    _typingInterval?.cancel();
+    _controller.removeListener(_onInputChanged);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -61,16 +64,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  void _onTextChanged(String text) {
-    if (text.trim().isEmpty) return;
-
-    // Throttle: send typing immediately if 2s have passed since last send
-    final now = DateTime.now();
-    if (now.difference(_lastTypingSent).inMilliseconds > 2000) {
-      _lastTypingSent = now;
+  void _onInputChanged() {
+    final hasText = _controller.text.trim().isNotEmpty;
+    if (hasText && _typingInterval == null) {
+      // Input went from empty to non-empty: send immediately + start interval
       ref
           .read(messagesProvider(widget.conversationId).notifier)
           .sendTyping();
+      _typingInterval = Timer.periodic(
+        const Duration(seconds: 2),
+        (_) => ref
+            .read(messagesProvider(widget.conversationId).notifier)
+            .sendTyping(),
+      );
+    } else if (!hasText && _typingInterval != null) {
+      // Input went from non-empty to empty: stop interval
+      _typingInterval?.cancel();
+      _typingInterval = null;
     }
   }
 
@@ -78,7 +88,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // Stop typing interval before clearing (clear triggers _onInputChanged)
+    _typingInterval?.cancel();
+    _typingInterval = null;
     _controller.clear();
+
     final sent = await ref
         .read(messagesProvider(widget.conversationId).notifier)
         .sendTextMessage(text);
@@ -375,7 +389,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _MessageInputBar(
             controller: _controller,
             onSend: _sendMessage,
-            onTextChanged: _onTextChanged,
             onAttach: _pickAndSendFile,
           ),
         ],
@@ -955,13 +968,11 @@ class _MessageInputBar extends StatelessWidget {
   const _MessageInputBar({
     required this.controller,
     required this.onSend,
-    required this.onTextChanged,
     required this.onAttach,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
-  final ValueChanged<String> onTextChanged;
   final VoidCallback onAttach;
 
   @override
@@ -1003,7 +1014,6 @@ class _MessageInputBar extends StatelessWidget {
               controller: controller,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => onSend(),
-              onChanged: onTextChanged,
               decoration: InputDecoration(
                 hintText:
                     AppLocalizations.of(context)!.messagingWriteMessage,

@@ -162,6 +162,7 @@ export function MessagingPage() {
             activeId={activeId}
             roleFilter={roleFilter}
             searchQuery={searchQuery}
+            typingUsers={typingUsers}
             onSelect={handleSelect}
             onRoleFilterChange={setRoleFilter}
             onSearchChange={setSearchQuery}
