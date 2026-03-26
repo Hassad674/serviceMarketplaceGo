@@ -131,6 +131,10 @@ function isProposalMetadata(metadata: unknown): metadata is ProposalMessageMetad
   return metadata !== null && typeof metadata === "object" && "proposal_id" in (metadata as Record<string, unknown>)
 }
 
+function isFileMetadata(metadata: unknown): metadata is import("../types").FileMetadata {
+  return metadata !== null && typeof metadata === "object" && "filename" in (metadata as Record<string, unknown>)
+}
+
 function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps) {
   const t = useTranslations("messaging")
   const [isEditing, setIsEditing] = useState(false)
@@ -197,7 +201,7 @@ function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps)
         )}
       >
         {/* File message */}
-        {message.type === "file" && message.metadata && (
+        {message.type === "file" && isFileMetadata(message.metadata) && (
           <FileMessage metadata={message.metadata} isOwn={isOwn} />
         )}
 
