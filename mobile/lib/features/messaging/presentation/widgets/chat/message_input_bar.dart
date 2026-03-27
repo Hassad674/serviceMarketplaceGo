@@ -9,7 +9,9 @@ import '../../../../../l10n/app_localizations.dart';
 
 /// Bottom input bar for composing and sending messages.
 ///
-/// Supports text, file attachments, proposals, and voice recording.
+/// WhatsApp-style UX: the right-hand button switches between mic (input empty)
+/// and send (input non-empty). During recording the entire bar transforms into
+/// a recording strip with cancel / stop controls.
 class MessageInputBar extends StatefulWidget {
   const MessageInputBar({
     super.key,
@@ -40,15 +42,34 @@ class MessageInputBar extends StatefulWidget {
   State<MessageInputBar> createState() => _MessageInputBarState();
 }
 
-class _MessageInputBarState extends State<MessageInputBar> {
+class _MessageInputBarState extends State<MessageInputBar>
+    with SingleTickerProviderStateMixin {
+  static const _primaryColor = Color(0xFFF43F5E);
+
   final AudioRecorder _recorder = AudioRecorder();
   bool _isRecording = false;
   int _recordingDuration = 0;
   Timer? _timer;
 
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _pulseAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
+    _pulseController.dispose();
     _recorder.dispose();
     super.dispose();
   }
@@ -68,6 +89,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
       _isRecording = true;
       _recordingDuration = 0;
     });
+    _pulseController.repeat(reverse: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() => _recordingDuration++);
     });
@@ -76,6 +98,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
   Future<void> _stopRecording() async {
     _timer?.cancel();
     _timer = null;
+    _pulseController.stop();
     final path = await _recorder.stop();
     final duration = _recordingDuration;
     setState(() {
@@ -90,6 +113,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
   void _cancelRecording() {
     _timer?.cancel();
     _timer = null;
+    _pulseController.stop();
     _recorder.stop();
     setState(() {
       _isRecording = false;
@@ -114,64 +138,7 @@ class _MessageInputBarState extends State<MessageInputBar> {
       children: [
         // Reply preview bar
         if (widget.replyToName != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: appColors?.muted ?? const Color(0xFFF1F5F9),
-              border: Border(
-                top: BorderSide(
-                  color: appColors?.border ?? theme.dividerColor,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 2,
-                  height: 32,
-                  color: const Color(0xFFF43F5E),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        l10n.messagingReplyingTo(widget.replyToName!),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFF43F5E),
-                        ),
-                      ),
-                      if (widget.replyToContent != null)
-                        Text(
-                          widget.replyToContent!.length > 50
-                              ? '${widget.replyToContent!.substring(0, 50)}...'
-                              : widget.replyToContent!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: appColors?.mutedForeground,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.close,
-                    size: 18,
-                    color: appColors?.mutedForeground,
-                  ),
-                  onPressed: widget.onCancelReply,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-          ),
+          _buildReplyPreview(theme, appColors, l10n),
         Container(
           padding: EdgeInsets.only(
             left: 12,
@@ -196,62 +163,142 @@ class _MessageInputBarState extends State<MessageInputBar> {
     );
   }
 
+  Widget _buildReplyPreview(
+    ThemeData theme,
+    AppColors? appColors,
+    AppLocalizations l10n,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: appColors?.muted ?? const Color(0xFFF1F5F9),
+        border: Border(
+          top: BorderSide(
+            color: appColors?.border ?? theme.dividerColor,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(width: 2, height: 32, color: _primaryColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.messagingReplyingTo(widget.replyToName!),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _primaryColor,
+                  ),
+                ),
+                if (widget.replyToContent != null)
+                  Text(
+                    widget.replyToContent!.length > 50
+                        ? '${widget.replyToContent!.substring(0, 50)}...'
+                        : widget.replyToContent!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: appColors?.mutedForeground,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.close,
+              size: 18,
+              color: appColors?.mutedForeground,
+            ),
+            onPressed: widget.onCancelReply,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRecordingBar(AppColors? appColors, AppLocalizations l10n) {
-    return Row(
-      children: [
-        // Cancel
-        IconButton(
-          icon: const Icon(Icons.close, size: 20),
-          color: appColors?.mutedForeground,
-          tooltip: l10n.messagingCancelRecording,
-          onPressed: _cancelRecording,
-        ),
-        // Red pulse + timer
-        Container(
-          width: 10,
-          height: 10,
-          decoration: const BoxDecoration(
-            color: Color(0xFFEF4444),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          _formatDuration(_recordingDuration),
-          style: const TextStyle(
-            fontSize: 14,
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w500,
-            color: Color(0xFFEF4444),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          l10n.messagingRecording,
-          style: TextStyle(
-            fontSize: 13,
-            color: appColors?.mutedForeground,
-          ),
-        ),
-        const Spacer(),
-        // Stop and send
-        GestureDetector(
-          onTap: _stopRecording,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF43F5E),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.stop,
-              size: 20,
-              color: Colors.white,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEE2E2),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          // Cancel button
+          GestureDetector(
+            onTap: _cancelRecording,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.8),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: appColors?.mutedForeground ?? const Color(0xFF64748B),
+              ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+          // Pulsing red dot
+          AnimatedBuilder(
+            animation: _pulseAnimation,
+            builder: (context, child) {
+              return Opacity(
+                opacity: _pulseAnimation.value,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEF4444),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          // Timer
+          Text(
+            _formatDuration(_recordingDuration),
+            style: const TextStyle(
+              fontSize: 15,
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.w600,
+              color: Color(0xFFEF4444),
+            ),
+          ),
+          const Spacer(),
+          // Stop and send button
+          GestureDetector(
+            onTap: _stopRecording,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: _primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.stop,
+                size: 20,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -282,18 +329,6 @@ class _MessageInputBarState extends State<MessageInputBar> {
             ),
             tooltip: l10n.proposalPropose,
             onPressed: widget.onProposal,
-          ),
-
-        // Voice
-        if (widget.onVoiceRecorded != null)
-          IconButton(
-            icon: Icon(
-              Icons.mic_none,
-              size: 20,
-              color: appColors?.mutedForeground,
-            ),
-            tooltip: l10n.messagingVoiceMessage,
-            onPressed: _startRecording,
           ),
 
         // Text field
@@ -331,37 +366,80 @@ class _MessageInputBarState extends State<MessageInputBar> {
 
         const SizedBox(width: 8),
 
-        // Send button
-        ListenableBuilder(
-          listenable: widget.controller,
-          builder: (context, _) {
-            final hasText = widget.controller.text.trim().isNotEmpty;
-
-            return GestureDetector(
-              onTap: hasText ? widget.onSend : null,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: hasText
-                      ? const Color(0xFFF43F5E)
-                      : (appColors?.muted ?? const Color(0xFFF1F5F9)),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.send,
-                  size: 18,
-                  color: hasText
-                      ? Colors.white
-                      : (appColors?.mutedForeground ??
-                          const Color(0xFF94A3B8)),
-                ),
-              ),
-            );
-          },
-        ),
+        // Primary action button: mic when empty, send when has text
+        _buildPrimaryButton(appColors, l10n),
       ],
+    );
+  }
+
+  /// The single right-hand button that switches between mic and send.
+  Widget _buildPrimaryButton(AppColors? appColors, AppLocalizations l10n) {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final hasText = widget.controller.text.trim().isNotEmpty;
+        final bool canVoice = widget.onVoiceRecorded != null;
+
+        // When there is text, show send button
+        if (hasText) {
+          return GestureDetector(
+            onTap: widget.onSend,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: _primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.send,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+          );
+        }
+
+        // When input is empty and voice is available, show mic
+        if (canVoice) {
+          return GestureDetector(
+            onTap: _startRecording,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: _primaryColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.mic,
+                size: 20,
+                color: Colors.white,
+              ),
+            ),
+          );
+        }
+
+        // No voice capability and no text: disabled send
+        return GestureDetector(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: appColors?.muted ?? const Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.send,
+              size: 18,
+              color: appColors?.mutedForeground ?? const Color(0xFF94A3B8),
+            ),
+          ),
+        );
+      },
     );
   }
 }

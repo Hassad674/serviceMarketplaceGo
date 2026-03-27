@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Paperclip, Send, Loader2, FileText, X, Mic, Square } from "lucide-react"
+import { Paperclip, Send, Loader2, FileText, X, Mic, Square, Plus, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -61,6 +61,7 @@ export function MessageInput({
   const [isUploading, setIsUploading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const onTypingRef = useRef(onTyping)
   const hasContent = value.trim().length > 0
 
@@ -109,6 +110,7 @@ export function MessageInput({
 
   function handleProposal() {
     router.push(`/projects/new?to=${otherUserId}&conversation=${conversationId}`)
+    setMobileMenuOpen(false)
   }
 
   const handleUploadFiles = useCallback(
@@ -117,20 +119,15 @@ export function MessageInput({
       setUploadError(null)
       try {
         for (const file of files) {
-          // Get presigned URL
           const { upload_url, public_url } = await getPresignedURL(
             file.name,
             file.type,
           )
-
-          // Upload to storage via presigned URL
           await fetch(upload_url, {
             method: "PUT",
             body: file,
             headers: { "Content-Type": file.type },
           })
-
-          // Send file message
           onSendFile(file.name, {
             url: public_url,
             filename: file.name,
@@ -148,37 +145,36 @@ export function MessageInput({
     [onSendFile, t],
   )
 
-  const handleVoiceToggle = useCallback(async () => {
-    if (isRecording) {
-      // Capture duration BEFORE stopping (stopRecording clears the timer)
-      const capturedDuration = voice.duration
-      const blob = await voice.stopRecording()
-      if (!blob || !onSendVoice) return
-      voice.setUploading(true)
-      try {
-        const ext = voiceExtFromMime(blob.type)
-        const filename = `voice-${Date.now()}.${ext}`
-        const { upload_url, public_url } = await getPresignedURL(filename, blob.type)
-        await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
-        onSendVoice(t("voiceMessage"), {
-          url: public_url,
-          duration: capturedDuration,
-          size: blob.size,
-          mime_type: blob.type,
-        })
-      } catch {
-        setUploadError(t("uploadFailed"))
-      } finally {
-        voice.setUploading(false)
-      }
-    } else {
-      try {
-        await voice.startRecording()
-      } catch {
-        setUploadError(t("microphonePermission"))
-      }
+  const handleStopAndSend = useCallback(async () => {
+    const capturedDuration = voice.duration
+    const blob = await voice.stopRecording()
+    if (!blob || !onSendVoice) return
+    voice.setUploading(true)
+    try {
+      const ext = voiceExtFromMime(blob.type)
+      const filename = `voice-${Date.now()}.${ext}`
+      const { upload_url, public_url } = await getPresignedURL(filename, blob.type)
+      await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
+      onSendVoice(t("voiceMessage"), {
+        url: public_url,
+        duration: capturedDuration,
+        size: blob.size,
+        mime_type: blob.type,
+      })
+    } catch {
+      setUploadError(t("uploadFailed"))
+    } finally {
+      voice.setUploading(false)
     }
-  }, [isRecording, voice, onSendVoice, t])
+  }, [voice, onSendVoice, t])
+
+  const handleStartRecording = useCallback(async () => {
+    try {
+      await voice.startRecording()
+    } catch {
+      setUploadError(t("microphonePermission"))
+    }
+  }, [voice, t])
 
   const isDisabled = isSending || isUploading || isVoiceUploading
 
@@ -210,37 +206,45 @@ export function MessageInput({
         </div>
       )}
 
-      {/* Voice recording bar */}
+      {/* Voice recording bar -- replaces the normal input */}
       {isRecording && (
-        <div className="flex items-center gap-3 border-t border-gray-100 bg-red-50 px-4 py-3 dark:border-gray-800 dark:bg-red-900/20">
-          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="text-sm font-medium text-red-600 dark:text-red-400">
-            {t("recording")}
-          </span>
-          <span className="font-mono text-sm text-red-500 dark:text-red-400">
-            {formatRecordingDuration(voice.duration)}
-          </span>
-          <div className="flex-1" />
+        <div className="flex items-center gap-3 border-t border-gray-100 bg-rose-50 px-4 py-3 dark:border-gray-800 dark:bg-rose-900/20">
+          {/* Cancel / trash */}
           <button
             type="button"
             onClick={voice.cancelRecording}
-            className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-            aria-label={t("cancelRecording")}
-          >
-            {t("cancelRecording")}
-          </button>
-          <button
-            type="button"
-            onClick={handleVoiceToggle}
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-full",
-              "bg-red-500 text-white transition-all duration-200",
-              "hover:bg-red-600 active:scale-[0.95]",
+              "bg-white/80 text-gray-500 transition-all duration-200",
+              "hover:bg-white hover:text-gray-700",
+              "dark:bg-gray-800/80 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200",
+            )}
+            aria-label={t("cancelRecording")}
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+
+          {/* Red pulsing dot + timer */}
+          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+          <span className="font-mono text-sm font-medium text-red-600 dark:text-red-400">
+            {formatRecordingDuration(voice.duration)}
+          </span>
+
+          <div className="flex-1" />
+
+          {/* Stop and send */}
+          <button
+            type="button"
+            onClick={handleStopAndSend}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-full",
+              "bg-rose-500 text-white transition-all duration-200",
+              "hover:bg-rose-600 hover:shadow-md active:scale-[0.95]",
             )}
             aria-label={t("sendMessage")}
           >
             {isVoiceUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+              <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
             ) : (
               <Square className="h-4 w-4" strokeWidth={2} fill="currentColor" />
             )}
@@ -254,59 +258,88 @@ export function MessageInput({
           onSubmit={handleSubmit}
           className="flex items-center gap-2 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
         >
-          {/* File attachment button */}
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            disabled={isDisabled}
-            className={cn(
-              "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
-              "hover:bg-gray-100 hover:text-gray-600",
-              "dark:hover:bg-gray-800 dark:hover:text-gray-300",
-              isDisabled && "pointer-events-none opacity-50",
-            )}
-            aria-label={t("fileUpload")}
-          >
-            {isUploading ? (
-              <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
-            ) : (
-              <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            )}
-          </button>
-
-          {/* Proposal button */}
-          <button
-            type="button"
-            onClick={handleProposal}
-            disabled={isDisabled}
-            className={cn(
-              "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
-              "hover:bg-rose-50 hover:text-rose-600",
-              "dark:hover:bg-rose-500/10 dark:hover:text-rose-400",
-              isDisabled && "pointer-events-none opacity-50",
-            )}
-            aria-label={t("propose")}
-          >
-            <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
-          </button>
-
-          {/* Voice recorder button */}
-          {onSendVoice && (
+          {/* Desktop: separate buttons for attach + proposal */}
+          <div className="hidden items-center gap-1 md:flex">
             <button
               type="button"
-              onClick={handleVoiceToggle}
+              onClick={() => setModalOpen(true)}
               disabled={isDisabled}
               className={cn(
                 "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
-                "hover:bg-purple-50 hover:text-purple-600",
-                "dark:hover:bg-purple-500/10 dark:hover:text-purple-400",
+                "hover:bg-gray-100 hover:text-gray-600",
+                "dark:hover:bg-gray-800 dark:hover:text-gray-300",
                 isDisabled && "pointer-events-none opacity-50",
               )}
-              aria-label={t("voiceMessage")}
+              aria-label={t("fileUpload")}
             >
-              <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              {isUploading ? (
+                <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
+              ) : (
+                <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
+              )}
             </button>
-          )}
+            <button
+              type="button"
+              onClick={handleProposal}
+              disabled={isDisabled}
+              className={cn(
+                "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
+                "hover:bg-rose-50 hover:text-rose-600",
+                "dark:hover:bg-rose-500/10 dark:hover:text-rose-400",
+                isDisabled && "pointer-events-none opacity-50",
+              )}
+              aria-label={t("propose")}
+            >
+              <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </button>
+          </div>
+
+          {/* Mobile: "+" menu for attach + proposal */}
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              disabled={isDisabled}
+              className={cn(
+                "shrink-0 rounded-full p-2 text-gray-400 transition-all duration-200",
+                mobileMenuOpen && "rotate-45 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+                "hover:bg-gray-100 hover:text-gray-600",
+                "dark:hover:bg-gray-800 dark:hover:text-gray-300",
+                isDisabled && "pointer-events-none opacity-50",
+              )}
+              aria-label={t("fileUpload")}
+            >
+              <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            </button>
+
+            {mobileMenuOpen && (
+              <div
+                className={cn(
+                  "absolute bottom-full left-0 mb-2 flex flex-col gap-1",
+                  "rounded-xl border border-gray-100 bg-white p-1.5 shadow-lg",
+                  "dark:border-gray-700 dark:bg-gray-800",
+                  "animate-in fade-in slide-in-from-bottom-2 duration-200",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => { setModalOpen(true); setMobileMenuOpen(false) }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <Paperclip className="h-4 w-4" strokeWidth={1.5} />
+                  {t("fileUpload")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProposal}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  <FileText className="h-4 w-4" strokeWidth={1.5} />
+                  {t("propose")}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Input */}
           <input
@@ -314,6 +347,7 @@ export function MessageInput({
             value={value}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            onFocus={() => setMobileMenuOpen(false)}
             placeholder={t("writeMessage")}
             aria-label={t("writeMessage")}
             disabled={isDisabled}
@@ -327,24 +361,17 @@ export function MessageInput({
             )}
           />
 
-          {/* Send */}
-          <button
-            type="submit"
-            disabled={!value.trim() || isDisabled}
-            className={cn(
-              "shrink-0 rounded-full p-2.5 transition-all duration-200",
-              value.trim() && !isDisabled
-                ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 hover:shadow-md active:scale-[0.96]"
-                : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
-            )}
-            aria-label={t("sendMessage")}
-          >
-            {isSending ? (
-              <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
-            ) : (
-              <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            )}
-          </button>
+          {/* Primary action: mic when empty, send when has text */}
+          <PrimaryActionButton
+            hasContent={hasContent}
+            canVoice={!!onSendVoice}
+            isDisabled={isDisabled}
+            isSending={isSending}
+            onSend={() => { const trimmed = value.trim(); if (trimmed) { onSend(trimmed, replyTo?.id); setValue(""); onCancelReply?.() } }}
+            onMic={handleStartRecording}
+            sendLabel={t("sendMessage")}
+            micLabel={t("voiceMessage")}
+          />
         </form>
       )}
 
@@ -355,5 +382,81 @@ export function MessageInput({
         uploading={isUploading}
       />
     </>
+  )
+}
+
+/** The single right-hand button: mic when empty, send when has text. */
+function PrimaryActionButton({
+  hasContent,
+  canVoice,
+  isDisabled,
+  isSending,
+  onSend,
+  onMic,
+  sendLabel,
+  micLabel,
+}: {
+  hasContent: boolean
+  canVoice: boolean
+  isDisabled: boolean
+  isSending: boolean
+  onSend: () => void
+  onMic: () => void
+  sendLabel: string
+  micLabel: string
+}) {
+  // Has text: send button
+  if (hasContent) {
+    return (
+      <button
+        type="submit"
+        disabled={isDisabled}
+        className={cn(
+          "shrink-0 rounded-full p-2.5 transition-all duration-200",
+          !isDisabled
+            ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 hover:shadow-md active:scale-[0.96]"
+            : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
+        )}
+        aria-label={sendLabel}
+      >
+        {isSending ? (
+          <Loader2 className="h-[18px] w-[18px] animate-spin" strokeWidth={1.5} />
+        ) : (
+          <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
+        )}
+      </button>
+    )
+  }
+
+  // Empty input + voice available: mic button
+  if (canVoice) {
+    return (
+      <button
+        type="button"
+        onClick={onMic}
+        disabled={isDisabled}
+        className={cn(
+          "shrink-0 rounded-full p-2.5 transition-all duration-200",
+          !isDisabled
+            ? "bg-rose-500 text-white shadow-sm hover:bg-rose-600 hover:shadow-md active:scale-[0.96]"
+            : "bg-gray-100 text-gray-300 dark:bg-gray-800 dark:text-gray-600",
+        )}
+        aria-label={micLabel}
+      >
+        <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
+      </button>
+    )
+  }
+
+  // No voice, no text: disabled send
+  return (
+    <button
+      type="submit"
+      disabled
+      className="shrink-0 rounded-full bg-gray-100 p-2.5 text-gray-300 dark:bg-gray-800 dark:text-gray-600"
+      aria-label={sendLabel}
+    >
+      <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
+    </button>
   )
 }
