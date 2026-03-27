@@ -324,6 +324,11 @@ function StatusBadge({ status }: StatusBadgeProps) {
       icon: Star,
       className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
     },
+    completion_requested: {
+      label: t("completionRequested"),
+      icon: Clock,
+      className: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+    },
     completed: {
       label: t("completed"),
       icon: CheckCircle2,

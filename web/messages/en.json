@@ -309,7 +309,11 @@
     "closeChat": "Close",
     "viewAllMessages": "View all messages",
     "backToList": "Back",
-    "compose": "New message"
+    "compose": "New message",
+    "voiceMessage": "Voice message",
+    "recording": "Recording...",
+    "cancelRecording": "Cancel",
+    "microphonePermission": "Microphone access required"
   },
   "projects": {
     "title": "Projects",
@@ -442,6 +446,17 @@
     "counterProposal": "Counter-proposal (v{version})",
     "supersededByVersion": "Replaced by a newer version",
     "withParty": "With: {name}",
-    "viewProject": "View project"
+    "viewProject": "View project",
+    "terminateMission": "Complete mission",
+    "confirmTermination": "Confirm mission completion",
+    "terminationConfirmMessage": "Are you sure? The client will be notified.",
+    "completionRequested": "Completion requested",
+    "completionAccepted": "Completion accepted",
+    "completionRejected": "Completion rejected \u2014 mission continues",
+    "confirmCompletion": "Confirm completion",
+    "rejectCompletion": "Reject completion",
+    "missionCompleted": "Mission completed",
+    "missionContinues": "Mission continues",
+    "waitingForClientConfirmation": "Waiting for client confirmation"
   }
 }

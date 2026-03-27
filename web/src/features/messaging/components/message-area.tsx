@@ -8,13 +8,15 @@ import {
   Pencil,
   CreditCard,
   DollarSign,
+  RotateCcw,
 } from "lucide-react"
 import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
-import type { Message, ProposalMessageMetadata } from "../types"
+import type { Message, ProposalMessageMetadata, VoiceMetadata } from "../types"
 import { MessageStatusIcon } from "./message-status-icon"
 import { FileMessage } from "./file-message"
+import { VoiceMessage } from "./voice-message"
 import { MessageContextMenu } from "./message-context-menu"
 import { ProposalCard } from "./proposal-card"
 
@@ -26,6 +28,7 @@ interface MessageAreaProps {
   onLoadMore: () => void
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
+  onReply: (message: Message) => void
   conversationId: string
 }
 
@@ -37,6 +40,7 @@ export function MessageArea({
   onLoadMore,
   onEdit,
   onDelete,
+  onReply,
   conversationId,
 }: MessageAreaProps) {
   const t = useTranslations("messaging")
@@ -199,10 +203,16 @@ function isFileMetadata(metadata: unknown): metadata is import("../types").FileM
   return metadata !== null && typeof metadata === "object" && "filename" in (metadata as Record<string, unknown>)
 }
 
+function isVoiceMetadata(metadata: unknown): metadata is VoiceMetadata {
+  return metadata !== null && typeof metadata === "object" && "duration" in (metadata as Record<string, unknown>)
+}
+
 const PROPOSAL_SYSTEM_TYPES = new Set([
   "proposal_accepted",
   "proposal_declined",
   "proposal_paid",
+  "proposal_completed",
+  "proposal_completion_rejected",
 ])
 
 function MessageBubble({
@@ -293,6 +303,16 @@ function MessageBubble({
     )
   }
 
+  // Completion requested — special system message with actions for client
+  if (message.type === "proposal_completion_requested" && isProposalMetadata(message.metadata)) {
+    return (
+      <CompletionRequestedMessage
+        metadata={message.metadata}
+        currentUserId={currentUserId}
+      />
+    )
+  }
+
   // Deleted message
   if (message.deleted_at) {
     return (
@@ -334,6 +354,11 @@ function MessageBubble({
         {/* File message */}
         {message.type === "file" && isFileMetadata(message.metadata) && (
           <FileMessage metadata={message.metadata} isOwn={isOwn} />
+        )}
+
+        {/* Voice message */}
+        {message.type === "voice" && isVoiceMetadata(message.metadata) && (
+          <VoiceMessage metadata={message.metadata} isOwn={isOwn} />
         )}
 
         {/* Text content */}
@@ -444,6 +469,16 @@ function ProposalSystemMessage({
       text: t("proposalPaid"),
       className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
     },
+    proposal_completed: {
+      icon: CheckCircle2,
+      text: t("missionCompleted"),
+      className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+    },
+    proposal_completion_rejected: {
+      icon: RotateCcw,
+      text: t("completionRejected"),
+      className: "bg-gray-50 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300",
+    },
   }
 
   const entry = config[type]
@@ -458,6 +493,43 @@ function ProposalSystemMessage({
         <span className="text-sm font-medium">
           {entry.text} — {metadata.proposal_title} ({formatCurrency(metadata.proposal_amount / 100)})
         </span>
+      </div>
+    </div>
+  )
+}
+
+function CompletionRequestedMessage({
+  metadata,
+  currentUserId,
+}: {
+  metadata: ProposalMessageMetadata
+  currentUserId: string
+}) {
+  const t = useTranslations("proposal")
+  const router = useRouter()
+
+  return (
+    <div className="flex justify-center py-2">
+      <div className="flex flex-col items-center gap-2 rounded-xl bg-amber-50 px-5 py-3 dark:bg-amber-500/10">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+          <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            {t("completionRequested")} — {metadata.proposal_title} ({formatCurrency(metadata.proposal_amount / 100)})
+          </span>
+        </div>
+        {metadata.proposal_client_id === currentUserId && (
+          <button
+            type="button"
+            onClick={() => router.push(`/projects/${metadata.proposal_id}`)}
+            className={cn(
+              "rounded-lg px-3 py-1 text-xs font-semibold text-white",
+              "gradient-primary hover:shadow-glow active:scale-[0.98]",
+              "transition-all duration-200",
+            )}
+          >
+            {t("viewDetails")}
+          </button>
+        )}
       </div>
     </div>
   )

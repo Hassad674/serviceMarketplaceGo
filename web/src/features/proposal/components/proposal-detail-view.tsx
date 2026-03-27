@@ -27,7 +27,8 @@ import {
   useCompleteProposal,
   useRejectCompletion,
 } from "../hooks/use-proposals"
-import type { ProposalResponse, ProposalStatus } from "../types"
+import type { ProposalResponse } from "../types"
+import { StatusBadge, DetailSkeleton } from "./proposal-status-badge"
 
 interface ProposalDetailViewProps {
   proposalId: string
@@ -40,8 +41,16 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const { data: proposal, isLoading, isError } = useProposal(proposalId)
   const acceptMutation = useAcceptProposal()
   const declineMutation = useDeclineProposal()
+  const requestCompletionMutation = useRequestCompletion()
+  const completeProposalMutation = useCompleteProposal()
+  const rejectCompletionMutation = useRejectCompletion()
 
-  const isMutating = acceptMutation.isPending || declineMutation.isPending
+  const isMutating =
+    acceptMutation.isPending ||
+    declineMutation.isPending ||
+    requestCompletionMutation.isPending ||
+    completeProposalMutation.isPending ||
+    rejectCompletionMutation.isPending
 
   if (isLoading) {
     return <DetailSkeleton />
@@ -70,6 +79,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const isRecipient = user?.id === proposal.recipient_id
   const isSender = user?.id === proposal.sender_id
   const isClient = user?.id === proposal.client_id
+  const isProvider = user?.id === proposal.provider_id
 
   function handleAccept() {
     acceptMutation.mutate(proposalId, {
@@ -97,6 +107,18 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
 
   function handlePay() {
     router.push(`/projects/pay?proposal=${proposalId}`)
+  }
+
+  function handleRequestCompletion() {
+    requestCompletionMutation.mutate(proposalId)
+  }
+
+  function handleCompleteProposal() {
+    completeProposalMutation.mutate(proposalId)
+  }
+
+  function handleRejectCompletion() {
+    rejectCompletionMutation.mutate(proposalId)
   }
 
   return (
@@ -223,6 +245,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
             isRecipient={isRecipient}
             isSender={isSender}
             isClient={isClient}
+            isProvider={isProvider}
             isMutating={isMutating}
             acceptPending={acceptMutation.isPending}
             declinePending={declineMutation.isPending}
@@ -230,6 +253,12 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
             onDecline={handleDecline}
             onModify={handleModify}
             onPay={handlePay}
+            onRequestCompletion={handleRequestCompletion}
+            onCompleteProposal={handleCompleteProposal}
+            onRejectCompletion={handleRejectCompletion}
+            requestCompletionPending={requestCompletionMutation.isPending}
+            completePending={completeProposalMutation.isPending}
+            rejectCompletionPending={rejectCompletionMutation.isPending}
           />
         </div>
       </div>
@@ -242,6 +271,7 @@ interface ProposalActionsProps {
   isRecipient: boolean
   isSender: boolean
   isClient: boolean
+  isProvider: boolean
   isMutating: boolean
   acceptPending: boolean
   declinePending: boolean
@@ -249,6 +279,12 @@ interface ProposalActionsProps {
   onDecline: () => void
   onModify: () => void
   onPay: () => void
+  onRequestCompletion: () => void
+  onCompleteProposal: () => void
+  onRejectCompletion: () => void
+  requestCompletionPending: boolean
+  completePending: boolean
+  rejectCompletionPending: boolean
 }
 
 function ProposalActions({
@@ -256,6 +292,7 @@ function ProposalActions({
   isRecipient,
   isSender,
   isClient,
+  isProvider,
   isMutating,
   acceptPending,
   declinePending,
@@ -263,6 +300,12 @@ function ProposalActions({
   onDecline,
   onModify,
   onPay,
+  onRequestCompletion,
+  onCompleteProposal,
+  onRejectCompletion,
+  requestCompletionPending,
+  completePending,
+  rejectCompletionPending,
 }: ProposalActionsProps) {
   const t = useTranslations("proposal")
 
@@ -373,13 +416,125 @@ function ProposalActions({
     )
   }
 
-  // Paid / Active
-  if (proposal.status === "paid" || proposal.status === "active") {
+  // Paid — waiting for activation
+  if (proposal.status === "paid") {
     return (
       <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
         <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
         <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
           {t("missionActive")}
+        </span>
+      </div>
+    )
+  }
+
+  // Active — provider can request completion
+  if (proposal.status === "active" && isProvider) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
+          <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            {t("missionActive")}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onRequestCompletion}
+          disabled={isMutating}
+          className={cn(
+            "w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3",
+            "text-sm font-semibold text-white transition-all duration-200",
+            "gradient-primary hover:shadow-glow active:scale-[0.98]",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+          )}
+        >
+          {requestCompletionPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
+          )}
+          {t("terminateMission")}
+        </button>
+      </div>
+    )
+  }
+
+  // Active — client sees active state
+  if (proposal.status === "active" && isClient) {
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
+        <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          {t("missionActive")}
+        </span>
+      </div>
+    )
+  }
+
+  // Completion requested — client can confirm or reject
+  if (proposal.status === "completion_requested" && isClient) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
+          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+          <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            {t("completionRequested")}
+          </span>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onRejectCompletion}
+            disabled={isMutating}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3",
+              "text-sm font-medium transition-all duration-200",
+              "border border-gray-200 dark:border-gray-600",
+              "text-gray-700 dark:text-gray-300",
+              "hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300",
+              "active:scale-[0.98]",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            {rejectCompletionPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <XCircle className="h-4 w-4" strokeWidth={1.5} />
+            )}
+            {t("rejectCompletion")}
+          </button>
+          <button
+            type="button"
+            onClick={onCompleteProposal}
+            disabled={isMutating}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3",
+              "text-sm font-semibold text-white transition-all duration-200",
+              "gradient-primary",
+              "hover:shadow-glow active:scale-[0.98]",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            {completePending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
+            )}
+            {t("confirmCompletion")}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Completion requested — provider sees waiting state
+  if (proposal.status === "completion_requested" && isProvider) {
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
+        <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+        <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+          {t("waitingForClientConfirmation")}
         </span>
       </div>
     )
@@ -412,90 +567,3 @@ function ProposalActions({
   return null
 }
 
-function StatusBadge({ status }: { status: ProposalStatus }) {
-  const t = useTranslations("proposal")
-
-  const config: Record<string, { label: string; icon: React.ElementType; className: string }> = {
-    pending: {
-      label: t("pending"),
-      icon: Clock,
-      className: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
-    },
-    accepted: {
-      label: t("accepted"),
-      icon: CheckCircle2,
-      className: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400",
-    },
-    declined: {
-      label: t("declined"),
-      icon: XCircle,
-      className: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
-    },
-    withdrawn: {
-      label: t("withdrawn"),
-      icon: XCircle,
-      className: "bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400",
-    },
-    paid: {
-      label: t("paid"),
-      icon: DollarSign,
-      className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
-    },
-    active: {
-      label: t("active"),
-      icon: Star,
-      className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
-    },
-    completed: {
-      label: t("completed"),
-      icon: CheckCircle2,
-      className: "bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400",
-    },
-  }
-
-  const entry = config[status] ?? config.pending
-  const { label, icon: StatusIcon, className } = entry
-
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-medium",
-        className,
-      )}
-    >
-      <StatusIcon className="h-3.5 w-3.5" strokeWidth={2} />
-      {label}
-    </span>
-  )
-}
-
-function DetailSkeleton() {
-  return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <div className="h-5 w-32 animate-pulse rounded bg-gray-200 dark:bg-gray-700 mb-6" />
-      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800/80 overflow-hidden">
-        <div className="h-1.5 animate-pulse bg-gray-200 dark:bg-gray-700" />
-        <div className="px-6 pt-6 pb-8 space-y-6">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 animate-pulse rounded-xl bg-gray-200 dark:bg-gray-700" />
-              <div className="space-y-2">
-                <div className="h-5 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-                <div className="h-3 w-24 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-              </div>
-            </div>
-            <div className="h-6 w-20 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
-          </div>
-          <div className="border-t border-gray-100 dark:border-gray-700" />
-          <div className="h-8 w-32 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-          <div className="border-t border-gray-100 dark:border-gray-700" />
-          <div className="space-y-2">
-            <div className="h-3 w-full animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-            <div className="h-3 w-3/4 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-            <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}

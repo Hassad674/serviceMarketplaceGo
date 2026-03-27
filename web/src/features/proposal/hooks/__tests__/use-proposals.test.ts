@@ -9,6 +9,9 @@ const mockAcceptProposal = vi.fn()
 const mockDeclineProposal = vi.fn()
 const mockModifyProposal = vi.fn()
 const mockSimulatePayment = vi.fn()
+const mockRequestCompletion = vi.fn()
+const mockCompleteProposal = vi.fn()
+const mockRejectCompletion = vi.fn()
 const mockListProjects = vi.fn()
 
 vi.mock("../../api/proposal-api", () => ({
@@ -17,6 +20,9 @@ vi.mock("../../api/proposal-api", () => ({
   declineProposal: (...args: unknown[]) => mockDeclineProposal(...args),
   modifyProposal: (...args: unknown[]) => mockModifyProposal(...args),
   simulatePayment: (...args: unknown[]) => mockSimulatePayment(...args),
+  requestCompletion: (...args: unknown[]) => mockRequestCompletion(...args),
+  completeProposal: (...args: unknown[]) => mockCompleteProposal(...args),
+  rejectCompletion: (...args: unknown[]) => mockRejectCompletion(...args),
   listProjects: (...args: unknown[]) => mockListProjects(...args),
 }))
 
@@ -31,6 +37,9 @@ import {
   useDeclineProposal,
   useModifyProposal,
   useSimulatePayment,
+  useRequestCompletion,
+  useCompleteProposal,
+  useRejectCompletion,
   useProjects,
   PROJECTS_QUERY_KEY,
 } from "../use-proposals"
@@ -259,6 +268,78 @@ describe("useSimulatePayment", () => {
     })
 
     expect(mockSimulatePayment).toHaveBeenCalledWith("proposal-1")
+  })
+})
+
+describe("useRequestCompletion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("calls requestCompletion with proposal ID", async () => {
+    mockRequestCompletion.mockResolvedValueOnce(undefined)
+
+    const { result } = renderHook(() => useRequestCompletion(), {
+      wrapper: createWrapper(),
+    })
+
+    act(() => {
+      result.current.mutate("proposal-1")
+    })
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true)
+    })
+
+    expect(mockRequestCompletion).toHaveBeenCalledWith("proposal-1")
+  })
+})
+
+describe("useCompleteProposal", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("calls completeProposal with proposal ID", async () => {
+    mockCompleteProposal.mockResolvedValueOnce(undefined)
+
+    const { result } = renderHook(() => useCompleteProposal(), {
+      wrapper: createWrapper(),
+    })
+
+    act(() => {
+      result.current.mutate("proposal-1")
+    })
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true)
+    })
+
+    expect(mockCompleteProposal).toHaveBeenCalledWith("proposal-1")
+  })
+})
+
+describe("useRejectCompletion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("calls rejectCompletion with proposal ID", async () => {
+    mockRejectCompletion.mockResolvedValueOnce(undefined)
+
+    const { result } = renderHook(() => useRejectCompletion(), {
+      wrapper: createWrapper(),
+    })
+
+    act(() => {
+      result.current.mutate("proposal-1")
+    })
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true)
+    })
+
+    expect(mockRejectCompletion).toHaveBeenCalledWith("proposal-1")
   })
 })
 

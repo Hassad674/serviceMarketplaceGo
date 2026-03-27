@@ -1,6 +1,7 @@
 export type MessageType =
   | "text"
   | "file"
+  | "voice"
   | "proposal_sent"
   | "proposal_accepted"
   | "proposal_declined"
@@ -20,6 +21,13 @@ export type FileMetadata = {
   mime_type: string
 }
 
+export type VoiceMetadata = {
+  url: string
+  duration: number
+  size: number
+  mime_type: string
+}
+
 export type ProposalMessageMetadata = {
   proposal_id: string
   proposal_title: string
@@ -34,13 +42,21 @@ export type ProposalMessageMetadata = {
   proposal_provider_id: string
 }
 
+export type ReplyToInfo = {
+  id: string
+  sender_id: string
+  content: string
+  type: string
+}
+
 export type Message = {
   id: string
   conversation_id: string
   sender_id: string
   content: string
   type: MessageType
-  metadata: FileMetadata | ProposalMessageMetadata | null
+  metadata: FileMetadata | VoiceMetadata | ProposalMessageMetadata | null
+  reply_to?: ReplyToInfo | null
   seq: number
   status: MessageStatus
   edited_at: string | null
