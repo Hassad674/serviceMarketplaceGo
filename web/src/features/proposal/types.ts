@@ -66,6 +66,12 @@ export type ProposalMessageMetadata = {
   proposal_provider_id: string
 }
 
+export type UploadURLResponse = {
+  upload_url: string
+  file_key: string
+  public_url: string
+}
+
 export function createEmptyProposalForm(): ProposalFormData {
   return {
     recipientId: "",

@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
-import type { ProposalResponse, ProjectListResponse } from "../types"
+import type { ProposalResponse, ProjectListResponse, UploadURLResponse } from "../types"
 
 export type CreateProposalData = {
   recipient_id: string
@@ -64,4 +64,11 @@ export function rejectCompletion(id: string): Promise<void> {
 export function listProjects(cursor?: string): Promise<ProjectListResponse> {
   const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
   return apiClient<ProjectListResponse>(`/api/v1/projects${params}`)
+}
+
+export function getUploadURL(filename: string, contentType: string): Promise<UploadURLResponse> {
+  return apiClient<UploadURLResponse>("/api/v1/messaging/upload-url", {
+    method: "POST",
+    body: { filename, content_type: contentType },
+  })
 }

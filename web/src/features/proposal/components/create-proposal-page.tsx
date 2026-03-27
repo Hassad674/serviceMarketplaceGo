@@ -11,7 +11,8 @@ import { createEmptyProposalForm } from "../types"
 import { ProposalPreview } from "./proposal-preview"
 import { FileDropZone } from "./file-drop-zone"
 import { useCreateProposal, useModifyProposal } from "../hooks/use-proposals"
-import { getProposal } from "../api/proposal-api"
+import { getProposal, getUploadURL } from "../api/proposal-api"
+import type { CreateProposalData } from "../api/proposal-api"
 
 const TITLE_MAX_LENGTH = 100
 
@@ -31,10 +32,11 @@ export function CreateProposalPage() {
   }))
   const [recipientName, setRecipientName] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
 
   const createMutation = useCreateProposal()
   const modifyMutation = useModifyProposal()
-  const isSubmitting = createMutation.isPending || modifyMutation.isPending
+  const isSubmitting = createMutation.isPending || modifyMutation.isPending || isUploading
 
   // Pre-fill form when modifying an existing proposal
   useEffect(() => {
@@ -75,12 +77,45 @@ export function CreateProposalPage() {
     formData.description.trim().length > 0 &&
     Number(formData.amount) > 0
 
-  function handleSubmit(e: React.FormEvent) {
+  async function uploadFiles(files: File[]) {
+    const uploaded: NonNullable<CreateProposalData["documents"]> = []
+    for (const file of files) {
+      const { upload_url, public_url } = await getUploadURL(file.name, file.type || "application/octet-stream")
+      await fetch(upload_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      })
+      uploaded.push({
+        filename: file.name,
+        url: public_url,
+        size: file.size,
+        mime_type: file.type || "application/octet-stream",
+      })
+    }
+    return uploaded
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!isValid || isSubmitting) return
     setSubmitError(null)
 
     const amountCents = Math.round(Number(formData.amount) * 100)
+    let documents: CreateProposalData["documents"]
+
+    // Upload files to storage before submitting the proposal
+    if (formData.files.length > 0) {
+      setIsUploading(true)
+      try {
+        documents = await uploadFiles(formData.files)
+      } catch {
+        setSubmitError(t("uploadError"))
+        setIsUploading(false)
+        return
+      }
+      setIsUploading(false)
+    }
 
     if (modifyId) {
       modifyMutation.mutate(
@@ -91,6 +126,7 @@ export function CreateProposalPage() {
             description: formData.description.trim(),
             amount: amountCents,
             deadline: formData.deadline || undefined,
+            documents,
           },
         },
         {
@@ -111,6 +147,7 @@ export function CreateProposalPage() {
           description: formData.description.trim(),
           amount: amountCents,
           deadline: formData.deadline || undefined,
+          documents,
         },
         {
           onSuccess: () => {
