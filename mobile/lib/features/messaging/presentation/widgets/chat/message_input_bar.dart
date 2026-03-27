@@ -75,38 +75,65 @@ class _MessageInputBarState extends State<MessageInputBar>
   }
 
   Future<void> _startRecording() async {
-    if (!await _recorder.hasPermission()) return;
+    try {
+      final hasPermission = await _recorder.hasPermission();
+      if (!hasPermission) {
+        if (mounted) {
+          final l10n = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.messagingMicrophonePermission)),
+          );
+        }
+        return;
+      }
 
-    final dir = await getTemporaryDirectory();
-    final ts = DateTime.now().millisecondsSinceEpoch;
-    final path = '${dir.path}/voice_$ts.m4a';
+      final dir = await getTemporaryDirectory();
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final path = '${dir.path}/voice_$ts.m4a';
 
-    await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
-      path: path,
-    );
-    setState(() {
-      _isRecording = true;
-      _recordingDuration = 0;
-    });
-    _pulseController.repeat(reverse: true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() => _recordingDuration++);
-    });
+      await _recorder.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: path,
+      );
+      setState(() {
+        _isRecording = true;
+        _recordingDuration = 0;
+      });
+      _pulseController.repeat(reverse: true);
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _recordingDuration++);
+      });
+    } catch (e) {
+      debugPrint('[VoiceRecorder] start error: $e');
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.messagingMicrophonePermission)),
+        );
+      }
+    }
   }
 
   Future<void> _stopRecording() async {
     _timer?.cancel();
     _timer = null;
     _pulseController.stop();
-    final path = await _recorder.stop();
-    final duration = _recordingDuration;
-    setState(() {
-      _isRecording = false;
-      _recordingDuration = 0;
-    });
-    if (path != null && path.isNotEmpty) {
-      widget.onVoiceRecorded?.call(path, duration);
+    try {
+      final path = await _recorder.stop();
+      final duration = _recordingDuration;
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = 0;
+      });
+      if (path != null && path.isNotEmpty) {
+        widget.onVoiceRecorded?.call(path, duration);
+      }
+    } catch (e) {
+      debugPrint('[VoiceRecorder] stop error: $e');
+      setState(() {
+        _isRecording = false;
+        _recordingDuration = 0;
+      });
     }
   }
 
@@ -114,7 +141,7 @@ class _MessageInputBarState extends State<MessageInputBar>
     _timer?.cancel();
     _timer = null;
     _pulseController.stop();
-    _recorder.stop();
+    _recorder.stop().catchError((_) => null);
     setState(() {
       _isRecording = false;
       _recordingDuration = 0;
@@ -156,7 +183,7 @@ class _MessageInputBarState extends State<MessageInputBar>
             ),
           ),
           child: _isRecording
-              ? _buildRecordingBar(appColors, l10n)
+              ? _buildRecordingBar(theme, appColors, l10n)
               : _buildInputBar(theme, appColors, l10n),
         ),
       ],
@@ -224,11 +251,26 @@ class _MessageInputBarState extends State<MessageInputBar>
     );
   }
 
-  Widget _buildRecordingBar(AppColors? appColors, AppLocalizations l10n) {
+  Widget _buildRecordingBar(
+    ThemeData theme,
+    AppColors? appColors,
+    AppLocalizations l10n,
+  ) {
+    final isDark = theme.brightness == Brightness.dark;
+    final barBg = isDark
+        ? const Color(0xFF4C0519).withValues(alpha: 0.4) // rose-950/40
+        : const Color(0xFFFEE2E2); // red-100
+    final cancelBg = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.white.withValues(alpha: 0.8);
+    final timerColor = isDark
+        ? const Color(0xFFF87171) // red-400
+        : const Color(0xFFEF4444); // red-500
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2),
+        color: barBg,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
@@ -240,7 +282,7 @@ class _MessageInputBarState extends State<MessageInputBar>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: cancelBg,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -272,11 +314,11 @@ class _MessageInputBarState extends State<MessageInputBar>
           // Timer
           Text(
             _formatDuration(_recordingDuration),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15,
               fontFamily: 'monospace',
               fontWeight: FontWeight.w600,
-              color: Color(0xFFEF4444),
+              color: timerColor,
             ),
           ),
           const Spacer(),

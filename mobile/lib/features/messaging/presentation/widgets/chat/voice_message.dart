@@ -26,6 +26,7 @@ class VoiceMessageWidget extends StatefulWidget {
 class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
   final AudioPlayer _player = AudioPlayer();
   bool _isPlaying = false;
+  bool _hasStarted = false;
   Duration _position = Duration.zero;
   Duration _totalDuration = Duration.zero;
 
@@ -45,6 +46,7 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
     });
     _player.onPlayerComplete.listen((_) {
       if (mounted) {
+        _hasStarted = false;
         setState(() {
           _isPlaying = false;
           _position = Duration.zero;
@@ -64,7 +66,12 @@ class _VoiceMessageWidgetState extends State<VoiceMessageWidget> {
       await _player.pause();
       setState(() => _isPlaying = false);
     } else {
-      await _player.play(UrlSource(widget.url));
+      if (_hasStarted && _position.inMilliseconds > 0) {
+        await _player.resume();
+      } else {
+        await _player.play(UrlSource(widget.url));
+        _hasStarted = true;
+      }
       setState(() => _isPlaying = true);
     }
   }
