@@ -221,17 +221,30 @@ class CallNotifier extends StateNotifier<CallState> {
   // ---------------------------------------------------------------------------
 
   Future<void> _connectToRoom(String token) async {
-    _room = Room();
-    _room!.addListener(_onRoomDisconnected);
-
     const lkUrl = String.fromEnvironment(
       'LIVEKIT_URL',
       defaultValue: '',
     );
-    if (lkUrl.isEmpty) return;
+    if (lkUrl.isEmpty) {
+      debugPrint('[Call] LIVEKIT_URL not set — skipping room connection');
+      return;
+    }
 
+    _room = Room(
+      roomOptions: const RoomOptions(
+        adaptiveStream: true,
+        dynacast: true,
+        defaultAudioPublishOptions: AudioPublishOptions(
+          dtx: true,
+        ),
+      ),
+    );
+    _room!.addListener(_onRoomDisconnected);
+
+    debugPrint('[Call] Connecting to LiveKit room: $lkUrl');
     await _room!.connect(lkUrl, token);
     await _room!.localParticipant?.setMicrophoneEnabled(true);
+    debugPrint('[Call] Connected, mic enabled');
   }
 
   void _onRoomDisconnected() {

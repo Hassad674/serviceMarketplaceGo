@@ -76,11 +76,17 @@ class _CallEventListenerState extends ConsumerState<CallEventListener> {
     ref.read(callProvider.notifier).handleCallEvent(payload);
   }
 
-  void _handleAcceptCall() {
+  Future<void> _handleAcceptCall() async {
     final callState = ref.read(callProvider);
     final callerName = callState.incomingCallerName;
-    ref.read(callProvider.notifier).acceptCall();
-    Navigator.of(context).push(
+
+    // Accept the call first (API + LiveKit room connection) before navigating.
+    await ref.read(callProvider.notifier).acceptCall();
+    if (!mounted) return;
+
+    // Push CallScreen onto the root navigator so it sits above the GoRouter
+    // shell and is not affected by CallEventListener rebuilds.
+    Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute(
         builder: (_) => CallScreen(recipientName: callerName),
       ),

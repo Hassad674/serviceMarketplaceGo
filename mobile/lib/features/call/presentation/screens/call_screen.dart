@@ -6,10 +6,30 @@ import '../../domain/entities/call_entity.dart';
 import '../providers/call_provider.dart';
 
 /// Full-screen view shown during an active audio call.
-class CallScreen extends ConsumerWidget {
+///
+/// Auto-pops when the call ends (remote hangup, room disconnect, etc.)
+/// by listening to [callProvider] state changes.
+class CallScreen extends ConsumerStatefulWidget {
   const CallScreen({super.key, this.recipientName = ''});
 
   final String recipientName;
+
+  @override
+  ConsumerState<CallScreen> createState() => _CallScreenState();
+}
+
+class _CallScreenState extends ConsumerState<CallScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Pop this screen automatically when the call returns to idle
+    // (e.g. remote hangup, room disconnect).
+    ref.listenManual(callProvider, (previous, next) {
+      if (next.status == CallStatus.idle && mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
 
   String _formatDuration(int seconds) {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
@@ -17,21 +37,23 @@ class CallScreen extends ConsumerWidget {
     return '$m:$s';
   }
 
+  String get _initials {
+    final name = widget.recipientName;
+    if (name.isEmpty) return '?';
+    final parts = name.split(' ');
+    return parts
+        .map((w) => w.isNotEmpty ? w[0] : '')
+        .take(2)
+        .join()
+        .toUpperCase();
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final state = ref.watch(callProvider);
     final notifier = ref.read(callProvider.notifier);
     final l10n = AppLocalizations.of(context)!;
     final isRinging = state.status == CallStatus.ringingOutgoing;
-
-    final initials = recipientName.isNotEmpty
-        ? recipientName
-            .split(' ')
-            .map((w) => w.isNotEmpty ? w[0] : '')
-            .join()
-            .substring(0, recipientName.split(' ').length.clamp(0, 2))
-            .toUpperCase()
-        : '?';
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
@@ -52,7 +74,7 @@ class CallScreen extends ConsumerWidget {
               ),
               child: Center(
                 child: Text(
-                  initials,
+                  _initials,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 32,
@@ -65,7 +87,9 @@ class CallScreen extends ConsumerWidget {
 
             // Name
             Text(
-              recipientName.isNotEmpty ? recipientName : l10n.callAudioCall,
+              widget.recipientName.isNotEmpty
+                  ? widget.recipientName
+                  : l10n.callAudioCall,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 24,
@@ -76,7 +100,9 @@ class CallScreen extends ConsumerWidget {
 
             // Status / timer
             Text(
-              isRinging ? l10n.callCalling : _formatDuration(state.duration),
+              isRinging
+                  ? l10n.callCalling
+                  : _formatDuration(state.duration),
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 16,
@@ -93,7 +119,9 @@ class CallScreen extends ConsumerWidget {
                 // Mute
                 _CallControlButton(
                   icon: state.isMuted ? Icons.mic_off : Icons.mic,
-                  label: state.isMuted ? l10n.callUnmute : l10n.callMute,
+                  label: state.isMuted
+                      ? l10n.callUnmute
+                      : l10n.callMute,
                   isActive: state.isMuted,
                   onPressed: notifier.toggleMute,
                 ),
