@@ -17,6 +17,8 @@ import '../providers/messages_provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../call/presentation/providers/call_provider.dart';
+import '../../../call/presentation/screens/call_screen.dart';
 import '../../../proposal/domain/entities/proposal_entity.dart';
 import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../widgets/chat/chat_app_bar.dart';
@@ -243,8 +245,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       if (!file.existsSync()) return;
       final fileBytes = await file.readAsBytes();
       final fileSize = fileBytes.length;
-      const contentType = 'audio/opus';
-      final filename = 'voice-${DateTime.now().millisecondsSinceEpoch}.ogg';
+      // Determine content type from actual file extension
+      final ext = path.split('.').last.toLowerCase();
+      final contentType = ext == 'm4a' ? 'audio/mp4' : 'audio/$ext';
+      final filename = 'voice-${DateTime.now().millisecondsSinceEpoch}.$ext';
 
       final repo = ref.read(messagingRepositoryProvider);
       final uploadInfo = await repo.getUploadUrl(
@@ -279,7 +283,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             voiceUrl: resolvedUrl,
             duration: durationSeconds.toDouble(),
             size: fileSize,
+            mimeType: contentType,
           );
+
+      // Clean up temporary recording file
+      file.delete().catchError((_) => file);
 
       _scrollToBottom();
     } catch (e) {
@@ -289,6 +297,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           SnackBar(content: Text('${l10n.uploadError}: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _startCall(dynamic conversation) async {
+    if (conversation == null) return;
+    final callNotifier = ref.read(callProvider.notifier);
+    await callNotifier.initiateCall(
+      conversationId: widget.conversationId,
+      recipientId: conversation.otherUserId,
+    );
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CallScreen(
+            recipientName: conversation.otherUserName ?? '',
+          ),
+        ),
+      );
     }
   }
 
@@ -477,6 +503,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       appBar: ChatAppBar(
         conversation: conversation,
         typingUserName: typingDisplayName,
+        onStartCall: () => _startCall(conversation),
       ),
       body: Column(
         children: [

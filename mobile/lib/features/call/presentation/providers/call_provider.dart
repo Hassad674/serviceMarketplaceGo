@@ -164,6 +164,7 @@ class CallNotifier extends StateNotifier<CallState> {
         if (state.status != CallStatus.idle) return;
         state = state.copyWith(
           status: CallStatus.ringingIncoming,
+          incomingCallerName: payload['initiator_name'] as String? ?? '',
           call: CallEntity(
             callId: payload['call_id'] as String? ?? '',
             conversationId: payload['conversation_id'] as String? ?? '',

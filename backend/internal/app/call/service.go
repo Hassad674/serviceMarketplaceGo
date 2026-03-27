@@ -223,6 +223,9 @@ func (s *Service) resolveDisplayName(ctx context.Context, userID uuid.UUID) stri
 }
 
 func (s *Service) broadcastCallSignal(ctx context.Context, eventType string, c *calldomain.Call, recipientIDs []uuid.UUID) {
+	initiatorName := s.resolveDisplayName(ctx, c.InitiatorID)
+	recipientName := s.resolveDisplayName(ctx, c.RecipientID)
+
 	payload, err := json.Marshal(map[string]string{
 		"event":           eventType,
 		"call_id":         c.ID.String(),
@@ -230,6 +233,8 @@ func (s *Service) broadcastCallSignal(ctx context.Context, eventType string, c *
 		"initiator_id":    c.InitiatorID.String(),
 		"recipient_id":    c.RecipientID.String(),
 		"call_type":       string(c.Type),
+		"initiator_name":  initiatorName,
+		"recipient_name":  recipientName,
 	})
 	if err != nil {
 		return

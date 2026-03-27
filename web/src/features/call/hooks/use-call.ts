@@ -24,12 +24,21 @@ export function useCall() {
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const activeCallRef = useRef<ActiveCall | null>(null)
   const durationRef = useRef(0)
+  const stateRef = useRef<CallState>("idle")
 
   // Keep refs in sync
   useEffect(() => { activeCallRef.current = activeCall }, [activeCall])
   useEffect(() => { durationRef.current = duration }, [duration])
+  useEffect(() => { stateRef.current = state }, [state])
 
-  const cleanup = useCallback(() => {
+  const disconnectRoom = useCallback(() => {
+    if (roomRef.current) {
+      roomRef.current.disconnect()
+      roomRef.current = null
+    }
+  }, [])
+
+  const clearTimers = useCallback(() => {
     if (ringTimerRef.current) {
       clearTimeout(ringTimerRef.current)
       ringTimerRef.current = null
@@ -38,16 +47,17 @@ export function useCall() {
       clearInterval(durationTimerRef.current)
       durationTimerRef.current = null
     }
-    if (roomRef.current) {
-      roomRef.current.disconnect()
-      roomRef.current = null
-    }
+  }, [])
+
+  const cleanup = useCallback(() => {
+    clearTimers()
+    disconnectRoom()
     setState("idle")
     setActiveCall(null)
     setIncomingCall(null)
     setIsMuted(false)
     setDuration(0)
-  }, [])
+  }, [clearTimers, disconnectRoom])
 
   const startDurationTimer = useCallback(() => {
     const start = Date.now()
@@ -58,20 +68,35 @@ export function useCall() {
   }, [])
 
   const connectToRoom = useCallback(async (token: string) => {
-    const room = new Room()
-    roomRef.current = room
-
-    room.on(RoomEvent.TrackSubscribed, (_track: RemoteTrack) => {
-      // Remote audio track auto-plays via WebAudio
-    })
-
-    room.on(RoomEvent.Disconnected, () => {
-      cleanup()
-    })
-
     const wsUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || ""
-    await room.connect(wsUrl, token)
-    await room.localParticipant.setMicrophoneEnabled(true)
+    if (!wsUrl) {
+      console.warn("[Call] NEXT_PUBLIC_LIVEKIT_URL is not set, skipping room connection")
+      return
+    }
+
+    try {
+      const room = new Room()
+      roomRef.current = room
+
+      room.on(RoomEvent.TrackSubscribed, (_track: RemoteTrack) => {
+        // Remote audio track auto-plays via WebAudio
+      })
+
+      room.on(RoomEvent.Disconnected, () => {
+        // Only cleanup if we are in an active call -- a disconnect during
+        // ringing is expected (no room yet for the recipient)
+        if (stateRef.current === "active") {
+          cleanup()
+        }
+      })
+
+      await room.connect(wsUrl, token)
+      await room.localParticipant.setMicrophoneEnabled(true)
+    } catch (err) {
+      console.error("[Call] Failed to connect to LiveKit room:", err)
+      // Do NOT cleanup signaling state -- the call can still function
+      // at the signaling level even without media.
+    }
   }, [cleanup])
 
   const doHangup = useCallback(async () => {
@@ -88,30 +113,38 @@ export function useCall() {
     cleanup()
   }, [cleanup])
 
-  const startCall = useCallback(async (conversationId: string, recipientId: string) => {
-    if (state !== "idle") return
+  const startCall = useCallback(async (
+    conversationId: string,
+    recipientId: string,
+  ) => {
+    if (stateRef.current !== "idle") return
     setState("ringing_outgoing")
 
     try {
       const result = await initiateCall(conversationId, recipientId, "audio")
-      setActiveCall({
+      const call: ActiveCall = {
         callId: result.call_id,
         conversationId,
         roomName: result.room_name,
         token: result.token,
         callType: "audio",
         startedAt: null,
-      })
+      }
+      setActiveCall(call)
 
-      await connectToRoom(result.token)
+      // Connect to LiveKit immediately for the initiator so the
+      // recipient can hear audio as soon as they accept.
+      // This is fire-and-forget -- if it fails, the ringing UI stays.
+      connectToRoom(result.token)
 
       ringTimerRef.current = setTimeout(() => {
         doHangup()
       }, RING_TIMEOUT_MS)
-    } catch {
+    } catch (err) {
+      console.error("[Call] Failed to initiate call:", err)
       cleanup()
     }
-  }, [state, connectToRoom, cleanup, doHangup])
+  }, [connectToRoom, cleanup, doHangup])
 
   const acceptIncoming = useCallback(async () => {
     if (!incomingCall) return
@@ -128,13 +161,15 @@ export function useCall() {
       })
       setIncomingCall(null)
       setState("active")
+      clearTimers()
       startDurationTimer()
 
       await connectToRoom(result.token)
-    } catch {
+    } catch (err) {
+      console.error("[Call] Failed to accept call:", err)
       cleanup()
     }
-  }, [incomingCall, connectToRoom, cleanup, startDurationTimer])
+  }, [incomingCall, connectToRoom, cleanup, startDurationTimer, clearTimers])
 
   const declineIncoming = useCallback(async () => {
     if (!incomingCall) return
@@ -155,19 +190,25 @@ export function useCall() {
 
   // Handle WS call events
   const handleCallEvent = useCallback((payload: CallEventPayload) => {
+    const currentState = stateRef.current
+
     switch (payload.event) {
       case "call_incoming":
-        if (state !== "idle") return
+        if (currentState !== "idle") return
         setIncomingCall({
           callId: payload.call_id,
           conversationId: payload.conversation_id,
           initiatorId: payload.initiator_id,
-          initiatorName: "",
+          initiatorName: payload.initiator_name || "",
           callType: payload.call_type,
         })
         setState("ringing_incoming")
         ringTimerRef.current = setTimeout(() => {
-          declineIncoming()
+          // Auto-decline after timeout
+          if (stateRef.current === "ringing_incoming") {
+            declineCallApi(payload.call_id).catch(() => {})
+            cleanup()
+          }
         }, RING_TIMEOUT_MS)
         break
 
@@ -177,9 +218,9 @@ export function useCall() {
           ringTimerRef.current = null
         }
         setState("active")
-        if (activeCall) {
-          setActiveCall({ ...activeCall, startedAt: Date.now() })
-        }
+        setActiveCall((prev) =>
+          prev ? { ...prev, startedAt: Date.now() } : prev,
+        )
         startDurationTimer()
         break
 
@@ -188,7 +229,7 @@ export function useCall() {
         cleanup()
         break
     }
-  }, [state, activeCall, cleanup, declineIncoming, startDurationTimer])
+  }, [cleanup, startDurationTimer])
 
   // Cleanup on unmount
   useEffect(() => {

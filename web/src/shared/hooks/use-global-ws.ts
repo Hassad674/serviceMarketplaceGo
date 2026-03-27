@@ -35,6 +35,13 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMessagingPageActiveRef = useRef(false)
 
+  // Store the callback in a ref so that WS connection is not torn down
+  // when the callback identity changes (e.g. when call state updates).
+  const callEventHandlerRef = useRef<CallEventHandler | undefined>(onCallEvent)
+  useEffect(() => {
+    callEventHandlerRef.current = onCallEvent
+  }, [onCallEvent])
+
   /**
    * When the messaging page mounts its own WS, it should suppress this
    * hook's connection to avoid duplicate WS connections. The messaging
@@ -71,8 +78,8 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
             { count: frame.payload.count },
           )
         }
-        if (frame.type === "call_event" && onCallEvent) {
-          onCallEvent(frame.payload)
+        if (frame.type === "call_event" && callEventHandlerRef.current) {
+          callEventHandlerRef.current(frame.payload)
         }
       } catch {
         // Ignore malformed frames
@@ -93,7 +100,7 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
     ws.onerror = () => {
       ws.close()
     }
-  }, [userId, queryClient, onCallEvent])
+  }, [userId, queryClient])
 
   useEffect(() => {
     connect()

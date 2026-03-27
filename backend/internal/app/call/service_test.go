@@ -399,4 +399,7 @@ func TestBroadcastCallSignal_PayloadStructure(t *testing.T) {
 	assert.Equal(t, "call_incoming", payload["event"])
 	assert.Equal(t, "audio", payload["call_type"])
 	assert.NotEmpty(t, payload["call_id"])
+	// Verify caller name fields are present (resolve to "User" since mock has no users)
+	assert.Equal(t, "User", payload["initiator_name"])
+	assert.Equal(t, "User", payload["recipient_name"])
 }

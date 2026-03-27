@@ -31,4 +31,6 @@ export type CallEventPayload = {
   initiator_id: string
   recipient_id: string
   call_type: CallType
+  initiator_name?: string
+  recipient_name?: string
 }
