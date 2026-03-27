@@ -11,10 +11,12 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.conversation,
     this.typingUserName,
+    this.onStartCall,
   });
 
   final ConversationEntity? conversation;
   final String? typingUserName;
+  final VoidCallback? onStartCall;
 
   String get _initials =>
       conversation?.otherUserName.initials ?? '?';
@@ -124,8 +126,15 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.phone_outlined, size: 20),
-          onPressed: () {},
+          icon: Icon(
+            Icons.phone_outlined,
+            size: 20,
+            color: online
+                ? const Color(0xFF22C55E)
+                : theme.extension<AppColors>()?.mutedForeground,
+          ),
+          onPressed: online ? onStartCall : null,
+          tooltip: online ? l10n.callStartCall : l10n.callRecipientOffline,
         ),
         IconButton(
           icon: const Icon(Icons.more_vert, size: 20),

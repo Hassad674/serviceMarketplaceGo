@@ -25,6 +25,9 @@ type Config struct {
 	StoragePublicURL string
 	ResendAPIKey     string
 	FrontendURL      string
+	LiveKitURL       string
+	LiveKitAPIKey    string
+	LiveKitAPISecret string
 }
 
 func Load() *Config {
@@ -47,6 +50,9 @@ func Load() *Config {
 		StoragePublicURL: getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/marketplace"),
 		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3001"),
+		LiveKitURL:       getEnv("LIVEKIT_URL", ""),
+		LiveKitAPIKey:    getEnv("LIVEKIT_API_KEY", ""),
+		LiveKitAPISecret: getEnv("LIVEKIT_API_SECRET", ""),
 	}
 }
 
@@ -56,6 +62,10 @@ func (c *Config) IsDevelopment() bool {
 
 func (c *Config) IsProduction() bool {
 	return c.Env == "production"
+}
+
+func (c *Config) LiveKitConfigured() bool {
+	return c.LiveKitURL != "" && c.LiveKitAPIKey != "" && c.LiveKitAPISecret != ""
 }
 
 func getEnv(key, fallback string) string {

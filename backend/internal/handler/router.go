@@ -17,6 +17,7 @@ type RouterDeps struct {
 	Health         *HealthHandler
 	Messaging      *MessagingHandler
 	Proposal       *ProposalHandler
+	Call           *CallHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -111,6 +112,17 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Route("/projects", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Get("/", deps.Proposal.ListActiveProjects)
+			})
+		}
+
+		// Call routes (authenticated)
+		if deps.Call != nil {
+			r.Route("/calls", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Post("/initiate", deps.Call.InitiateCall)
+				r.Post("/{id}/accept", deps.Call.AcceptCall)
+				r.Post("/{id}/decline", deps.Call.DeclineCall)
+				r.Post("/{id}/end", deps.Call.EndCall)
 			})
 		}
 

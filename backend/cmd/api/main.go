@@ -11,12 +11,14 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
 	"marketplace-backend/internal/adapter/ws"
 	"marketplace-backend/internal/app/auth"
+	callapp "marketplace-backend/internal/app/call"
 	"marketplace-backend/internal/app/messaging"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
@@ -124,6 +126,25 @@ func main() {
 		Storage:   storageSvc,
 	})
 
+	// Call feature (optional — only when LiveKit is configured)
+	var callHandler *handler.CallHandler
+	if cfg.LiveKitConfigured() {
+		lkClient := livekit.NewClient(cfg.LiveKitURL, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
+		callStateSvc := redisadapter.NewCallStateService(redisClient)
+		callSvc := callapp.NewService(callapp.ServiceDeps{
+			LiveKit:     lkClient,
+			CallState:   callStateSvc,
+			Presence:    presenceSvc,
+			Broadcaster: streamBroadcaster,
+			Messages:    messagingSvc,
+			Users:       userRepo,
+		})
+		callHandler = handler.NewCallHandler(callSvc)
+		slog.Info("call feature enabled (LiveKit configured)")
+	} else {
+		slog.Info("call feature disabled (LiveKit not configured)")
+	}
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
@@ -150,6 +171,7 @@ func main() {
 		Health:         healthHandler,
 		Messaging:      messagingHandler,
 		Proposal:       proposalHandler,
+		Call:           callHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

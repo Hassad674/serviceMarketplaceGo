@@ -462,5 +462,21 @@
     "missionCompleted": "Mission completed",
     "missionContinues": "Mission continues",
     "waitingForClientConfirmation": "Waiting for client confirmation"
+  },
+  "call": {
+    "calling": "Calling...",
+    "incomingCall": "Incoming call",
+    "audioCall": "Audio call",
+    "accept": "Accept",
+    "decline": "Decline",
+    "hangup": "Hang up",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "callEnded": "Call ended",
+    "callMissed": "Missed call",
+    "startCall": "Start audio call",
+    "recipientOffline": "Recipient is offline",
+    "recipientBusy": "Recipient is busy",
+    "unknownCaller": "Unknown caller"
   }
 }

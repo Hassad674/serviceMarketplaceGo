@@ -24,7 +24,10 @@ function getWSUrl(): string {
  * its connect call will find the existing connection via the shared
  * singleton ref.
  */
-export function useGlobalWS(userId: string | undefined) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type CallEventHandler = (payload: any) => void
+
+export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventHandler) {
   const queryClient = useQueryClient()
   const wsRef = useRef<WebSocket | null>(null)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -68,6 +71,9 @@ export function useGlobalWS(userId: string | undefined) {
             { count: frame.payload.count },
           )
         }
+        if (frame.type === "call_event" && onCallEvent) {
+          onCallEvent(frame.payload)
+        }
       } catch {
         // Ignore malformed frames
       }
@@ -87,7 +93,7 @@ export function useGlobalWS(userId: string | undefined) {
     ws.onerror = () => {
       ws.close()
     }
-  }, [userId, queryClient])
+  }, [userId, queryClient, onCallEvent])
 
   useEffect(() => {
     connect()

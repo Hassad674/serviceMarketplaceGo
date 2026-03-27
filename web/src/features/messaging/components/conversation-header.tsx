@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { ArrowLeft, Wifi, WifiOff, FileText } from "lucide-react"
+import { ArrowLeft, Phone, Wifi, WifiOff, FileText } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -13,6 +13,7 @@ interface ConversationHeaderProps {
   onBack?: () => void
   typingUserName?: string
   isConnected: boolean
+  onStartCall?: () => void
 }
 
 export function ConversationHeader({
@@ -20,9 +21,11 @@ export function ConversationHeader({
   onBack,
   typingUserName,
   isConnected,
+  onStartCall,
 }: ConversationHeaderProps) {
   const t = useTranslations("messaging")
   const tProposal = useTranslations("proposal")
+  const tCall = useTranslations("call")
   const router = useRouter()
 
   const initials = conversation.other_user_name
@@ -110,6 +113,25 @@ export function ConversationHeader({
         <FileText className="h-4 w-4" strokeWidth={1.5} />
         {tProposal("startProject")}
       </button>
+
+      {/* Call button */}
+      {onStartCall && (
+        <button
+          type="button"
+          onClick={onStartCall}
+          disabled={!conversation.online}
+          className={cn(
+            "rounded-xl p-2 transition-all duration-200",
+            conversation.online
+              ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+              : "cursor-not-allowed text-gray-300 dark:text-gray-600",
+          )}
+          aria-label={conversation.online ? tCall("startCall") : tCall("recipientOffline")}
+          title={conversation.online ? tCall("startCall") : tCall("recipientOffline")}
+        >
+          <Phone className="h-4 w-4" strokeWidth={1.5} />
+        </button>
+      )}
 
       {/* Connection indicator */}
       <div className="flex items-center gap-1">

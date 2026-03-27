@@ -57,6 +57,10 @@ func (b *StreamBroadcaster) BroadcastPresence(ctx context.Context, recipientIDs 
 	return b.publish(ctx, "presence", recipientIDs, payload)
 }
 
+func (b *StreamBroadcaster) BroadcastCallEvent(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
+	return b.publish(ctx, "call_event", recipientIDs, payload)
+}
+
 func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recipientIDs []uuid.UUID, payload []byte) error {
 	ids, _ := json.Marshal(recipientIDs)
 

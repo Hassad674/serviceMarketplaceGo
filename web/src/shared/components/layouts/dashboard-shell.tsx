@@ -7,6 +7,7 @@ import { Header } from "./header"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import { useGlobalWS } from "@/shared/hooks/use-global-ws"
+import { useCall } from "@/features/call/hooks/use-call"
 
 const ChatWidget = dynamic(
   () =>
@@ -16,14 +17,33 @@ const ChatWidget = dynamic(
   { ssr: false },
 )
 
+const IncomingCallOverlay = dynamic(
+  () =>
+    import("@/features/call/components/incoming-call-overlay").then((m) => ({
+      default: m.IncomingCallOverlay,
+    })),
+  { ssr: false },
+)
+
+const ActiveCallOverlay = dynamic(
+  () =>
+    import("@/features/call/components/active-call-overlay").then((m) => ({
+      default: m.ActiveCallOverlay,
+    })),
+  { ssr: false },
+)
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const { data: user } = useUser()
 
+  // Call feature — global overlay
+  const call = useCall()
+
   // Maintain a global WS connection so the sidebar unread badge updates
   // in real time on every page, not just on /messages.
-  useGlobalWS(user?.id)
+  useGlobalWS(user?.id, call.handleCallEvent)
 
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
@@ -59,6 +79,26 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <ChatWidget />
+
+      {/* Call overlays */}
+      {call.state === "ringing_incoming" && call.incomingCall && (
+        <IncomingCallOverlay
+          call={call.incomingCall}
+          onAccept={call.acceptIncoming}
+          onDecline={call.declineIncoming}
+        />
+      )}
+
+      {(call.state === "active" || call.state === "ringing_outgoing") && (
+        <ActiveCallOverlay
+          state={call.state}
+          recipientName=""
+          duration={call.duration}
+          isMuted={call.isMuted}
+          onToggleMute={call.toggleMute}
+          onHangup={call.hangup}
+        />
+      )}
     </div>
   )
 }

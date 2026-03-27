@@ -20,6 +20,7 @@ const (
 	TypePong         = "pong"
 	TypeSyncResult   = "sync_result"
 	TypeError        = "error"
+	TypeCallEvent    = "call_event"
 )
 
 // StreamEvent represents a broadcast event received from the pub/sub layer.

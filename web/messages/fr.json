@@ -462,5 +462,21 @@
     "missionCompleted": "Mission termin\u00e9e",
     "missionContinues": "La mission continue",
     "waitingForClientConfirmation": "En attente de confirmation du client"
+  },
+  "call": {
+    "calling": "Appel en cours...",
+    "incomingCall": "Appel entrant",
+    "audioCall": "Appel audio",
+    "accept": "Accepter",
+    "decline": "Refuser",
+    "hangup": "Raccrocher",
+    "mute": "Couper le micro",
+    "unmute": "Activer le micro",
+    "callEnded": "Appel termin\u00e9",
+    "callMissed": "Appel manqu\u00e9",
+    "startCall": "D\u00e9marrer un appel audio",
+    "recipientOffline": "Le destinataire est hors ligne",
+    "recipientBusy": "Le destinataire est en appel",
+    "unknownCaller": "Appelant inconnu"
   }
 }
