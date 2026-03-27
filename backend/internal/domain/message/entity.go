@@ -25,6 +25,9 @@ const (
 	MessageTypeProposalCompleted           MessageType = "proposal_completed"
 	MessageTypeProposalCompletionRejected  MessageType = "proposal_completion_rejected"
 
+	// Review message types
+	MessageTypeEvaluationRequest MessageType = "evaluation_request"
+
 	// Call message types
 	MessageTypeCallEnded  MessageType = "call_ended"
 	MessageTypeCallMissed MessageType = "call_missed"
@@ -51,6 +54,7 @@ func (mt MessageType) IsValid() bool {
 		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested,
 		MessageTypeProposalCompletionRequested, MessageTypeProposalCompleted,
 		MessageTypeProposalCompletionRejected,
+		MessageTypeEvaluationRequest,
 		MessageTypeCallEnded, MessageTypeCallMissed:
 		return true
 	}

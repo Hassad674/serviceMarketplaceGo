@@ -20,6 +20,7 @@ import (
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	jobapp "marketplace-backend/internal/app/job"
+	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/app/messaging"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
@@ -134,6 +135,13 @@ func main() {
 		Users: userRepo,
 	})
 
+	// Review feature
+	reviewRepo := postgres.NewReviewRepository(db)
+	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
+		Reviews:   reviewRepo,
+		Proposals: proposalRepo,
+	})
+
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
 	if cfg.LiveKitConfigured() {
@@ -161,6 +169,7 @@ func main() {
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc)
 	jobHandler := handler.NewJobHandler(jobSvc)
+	reviewHandler := handler.NewReviewHandler(reviewSvc)
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
@@ -181,6 +190,7 @@ func main() {
 		Messaging:      messagingHandler,
 		Proposal:       proposalHandler,
 		Job:            jobHandler,
+		Review:         reviewHandler,
 		Call:           callHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,

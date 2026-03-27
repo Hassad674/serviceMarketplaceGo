@@ -1,12 +1,16 @@
 import '../entities/review.dart';
 
+/// Abstract repository for review operations.
 abstract class ReviewRepository {
-  Future<List<Review>> getReviews({String? userId, String? missionId, int page, int limit});
+  Future<List<Review>> getReviewsByUser(String userId);
+  Future<AverageRating> getAverageRating(String userId);
+  Future<bool> canReview(String proposalId);
   Future<Review> createReview({
-    required String missionId,
-    required double globalRating,
-    String? content,
-    required String type,
+    required String proposalId,
+    required int globalRating,
+    int? timeliness,
+    int? communication,
+    int? quality,
+    String? comment,
   });
-  Future<Review> getEvaluation(String reviewId);
 }

@@ -18,6 +18,7 @@ type RouterDeps struct {
 	Messaging      *MessagingHandler
 	Proposal       *ProposalHandler
 	Job            *JobHandler
+	Review         *ReviewHandler
 	Call           *CallHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
@@ -124,6 +125,22 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/mine", deps.Job.ListMyJobs)
 				r.Get("/{id}", deps.Job.GetJob)
 				r.Post("/{id}/close", deps.Job.CloseJob)
+			})
+		}
+
+		// Review routes (mixed: public reads, authenticated writes)
+		if deps.Review != nil {
+			r.Route("/reviews", func(r chi.Router) {
+				// Public: read reviews and average ratings
+				r.Get("/user/{userId}", deps.Review.ListByUser)
+				r.Get("/average/{userId}", deps.Review.GetAverageRating)
+
+				// Authenticated: create reviews and check eligibility
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+					r.Post("/", deps.Review.CreateReview)
+					r.Get("/can-review/{proposalId}", deps.Review.CanReview)
+				})
 			})
 		}
 

@@ -166,6 +166,9 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
 
+	// Send evaluation_request to both parties after completion
+	s.sendProposalMessage(ctx, p.ConversationID, p.ClientID, "evaluation_request", metadata)
+
 	return nil
 }
 
