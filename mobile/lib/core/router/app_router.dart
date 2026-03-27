@@ -151,6 +151,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // --- Proposal creation (full-screen, no bottom nav) ---
+      GoRoute(
+        path: RoutePaths.projectsNew,
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>?;
+          return CreateProposalScreen(
+            recipientId: extras?['recipientId'] as String? ?? '',
+            conversationId:
+                extras?['conversationId'] as String? ?? '',
+            recipientName:
+                extras?['recipientName'] as String? ?? '',
+          );
+        },
+      ),
+
       // --- Authenticated routes (with bottom navigation shell) ---
       ShellRoute(
         builder: (context, state, child) {
@@ -173,19 +188,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.missions,
             builder: (context, state) => const _ProjectsPlaceholder(),
-          ),
-          GoRoute(
-            path: RoutePaths.projectsNew,
-            builder: (context, state) {
-              final extras = state.extra as Map<String, dynamic>?;
-              return CreateProposalScreen(
-                recipientId: extras?['recipientId'] as String? ?? '',
-                conversationId:
-                    extras?['conversationId'] as String? ?? '',
-                recipientName:
-                    extras?['recipientName'] as String? ?? '',
-              );
-            },
           ),
           GoRoute(
             path: RoutePaths.jobs,

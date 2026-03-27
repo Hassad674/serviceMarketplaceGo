@@ -70,22 +70,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void deactivate() {
-    // Send a final markAsRead for any messages received while viewing,
-    // then clear active conversation when leaving the chat screen.
+    // Capture refs before super.deactivate() invalidates them.
     final msgState = ref.read(messagesProvider(widget.conversationId));
-    if (msgState.messages.isNotEmpty) {
-      final lastSeq = msgState.messages
-          .map((m) => m.seq)
-          .reduce((a, b) => a > b ? a : b);
-      if (lastSeq > 0) {
-        ref
-            .read(messagingRepositoryProvider)
-            .markAsRead(widget.conversationId, upToSeq: lastSeq);
+    final repo = ref.read(messagingRepositoryProvider);
+    final notifier = ref.read(conversationsProvider.notifier);
+    final convId = widget.conversationId;
+
+    // Defer provider mutations to avoid "modified a provider while the
+    // widget tree was building" errors from Riverpod.
+    Future.microtask(() {
+      // Send a final markAsRead for any messages received while viewing.
+      if (msgState.messages.isNotEmpty) {
+        final lastSeq = msgState.messages
+            .map((m) => m.seq)
+            .reduce((a, b) => a > b ? a : b);
+        if (lastSeq > 0) {
+          repo.markAsRead(convId, upToSeq: lastSeq);
+        }
       }
-    }
-    ref
-        .read(conversationsProvider.notifier)
-        .setActiveConversation(null);
+      // Clear active conversation when leaving the chat screen.
+      notifier.setActiveConversation(null);
+    });
     super.deactivate();
   }
 

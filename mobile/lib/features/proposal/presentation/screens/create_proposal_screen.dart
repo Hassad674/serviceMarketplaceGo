@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -76,7 +77,7 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
         '${_formData.amount} EUR, '
         'to ${_formData.recipientId}');
 
-    Navigator.of(context).pop(_formData);
+    GoRouter.of(context).pop(_formData);
   }
 
   String _formatDate(DateTime date) {
@@ -200,7 +201,7 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
 
               // Cancel button
               TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => GoRouter.of(context).pop(),
                 child: Text(l10n.cancel),
               ),
               const SizedBox(height: 16),
