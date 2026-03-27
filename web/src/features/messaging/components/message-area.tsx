@@ -85,13 +85,10 @@ export function MessageArea({
     return () => observer.disconnect()
   }, [hasMore, onLoadMore])
 
-  if (isLoading) {
-    return <MessageAreaSkeleton />
-  }
-
   // Compute which proposal IDs have been superseded by a newer version.
   // A proposal_sent or proposal_modified is superseded when a newer
   // proposal_modified message references the same root via proposal_parent_id.
+  // NOTE: This useMemo MUST be before any early return to respect Rules of Hooks.
   const supersededProposalIds = useMemo(() => {
     const superseded = new Set<string>()
     const parentIds = new Set<string>()
@@ -136,6 +133,10 @@ export function MessageArea({
     }
     return superseded
   }, [messages])
+
+  if (isLoading) {
+    return <MessageAreaSkeleton />
+  }
 
   if (messages.length === 0) {
     return (
