@@ -124,6 +124,128 @@ func TestCreateProposal_InvalidRoles(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrInvalidRoleCombination)
 }
 
+func TestCreateProposal_WithDocuments(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	convID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+
+	var capturedDocs []*domain.ProposalDocument
+	proposalRepo := &mockProposalRepo{
+		createWithDocsFn: func(_ context.Context, _ *domain.Proposal, docs []*domain.ProposalDocument) error {
+			capturedDocs = docs
+			return nil
+		},
+	}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, userRepo, msgSender, nil)
+
+	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: convID,
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Build website",
+		Description:    "Full redesign of the corporate website",
+		Amount:         500000,
+		Documents: []DocumentInput{
+			{Filename: "spec.pdf", URL: "https://storage.example.com/spec.pdf", Size: 2048, MimeType: "application/pdf"},
+			{Filename: "mockup.png", URL: "https://storage.example.com/mockup.png", Size: 4096, MimeType: "image/png"},
+		},
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Build website", p.Title)
+	require.Len(t, capturedDocs, 2)
+	assert.Equal(t, "spec.pdf", capturedDocs[0].Filename)
+	assert.Equal(t, "mockup.png", capturedDocs[1].Filename)
+	assert.Equal(t, p.ID, capturedDocs[0].ProposalID)
+	assert.Equal(t, p.ID, capturedDocs[1].ProposalID)
+}
+
+func TestCreateProposal_WithDeadline(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	convID := uuid.New()
+	deadline := time.Now().Add(30 * 24 * time.Hour)
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	proposalRepo := &mockProposalRepo{}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, userRepo, msgSender, nil)
+
+	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: convID,
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Build website",
+		Description:    "Full redesign",
+		Amount:         500000,
+		Deadline:       &deadline,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, p.Deadline)
+	assert.WithinDuration(t, deadline, *p.Deadline, time.Second)
+}
+
+func TestModifyProposal_VersionChain(t *testing.T) {
+	senderID := uuid.New()
+	recipientID := uuid.New()
+	rootProposalID := uuid.New()
+	// Simulate modifying a version 2 proposal that already has a parent
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				SenderID:       senderID,
+				RecipientID:    recipientID,
+				ClientID:       senderID,
+				ProviderID:     recipientID,
+				Status:         domain.StatusPending,
+				Title:          "V2",
+				Amount:         2000,
+				Version:        2,
+				ParentID:       &rootProposalID,
+			}, nil
+		},
+	}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, nil, msgSender, nil)
+
+	modified, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
+		ProposalID:  uuid.New(),
+		UserID:      recipientID,
+		Title:       "V3 counter",
+		Description: "Third version",
+		Amount:      3000,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 3, modified.Version)
+	// ParentID should point to root, not to the immediate parent
+	require.NotNil(t, modified.ParentID)
+	assert.Equal(t, rootProposalID, *modified.ParentID)
+}
+
 // --- AcceptProposal tests ---
 
 func TestAcceptProposal_ByRecipient(t *testing.T) {

@@ -13,6 +13,12 @@ vi.mock("next-intl", () => ({
   },
 }))
 
+// Mock @i18n/navigation (used by ConversationHeader for "Start Project" button)
+vi.mock("@i18n/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  Link: ({ children, ...props }: Record<string, unknown>) => <a {...props}>{children as React.ReactNode}</a>,
+}))
+
 // Mock next/image
 vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => {
@@ -26,6 +32,7 @@ vi.mock("lucide-react", () => ({
   ArrowLeft: (props: Record<string, unknown>) => <span data-testid="arrow-left-icon" {...props} />,
   Wifi: (props: Record<string, unknown>) => <span data-testid="wifi-icon" {...props} />,
   WifiOff: (props: Record<string, unknown>) => <span data-testid="wifi-off-icon" {...props} />,
+  FileText: (props: Record<string, unknown>) => <span data-testid="file-text-icon" {...props} />,
 }))
 
 // Mock TypingIndicator
