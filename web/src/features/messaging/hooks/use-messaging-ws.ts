@@ -101,7 +101,7 @@ export function useMessagingWS(userId: string | undefined) {
     [queryClient],
   )
 
-  // When a proposal status change message arrives (accepted/declined/paid),
+  // When a proposal status change message arrives (accepted/declined/paid/etc.),
   // update the proposal_status in the metadata of all proposal_sent and
   // proposal_modified messages with the same proposal_id in the cache.
   const syncProposalStatusInCache = useCallback(
@@ -113,6 +113,9 @@ export function useMessagingWS(userId: string | undefined) {
         "proposal_accepted",
         "proposal_declined",
         "proposal_paid",
+        "proposal_completion_requested",
+        "proposal_completed",
+        "proposal_completion_rejected",
       ])
       if (!PROPOSAL_STATUS_TYPES.has(message.type)) return
 
@@ -124,31 +127,34 @@ export function useMessagingWS(userId: string | undefined) {
         queryKey,
         (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
           if (!old) return old
-          return {
-            ...old,
-            pages: old.pages.map((page) => ({
-              ...page,
-              data: page.data.map((msg) => {
-                if (
-                  (msg.type === "proposal_sent" || msg.type === "proposal_modified") &&
-                  msg.metadata &&
-                  "proposal_id" in msg.metadata &&
-                  (msg.metadata as ProposalMessageMetadata).proposal_id === proposalId
-                ) {
-                  return {
-                    ...msg,
-                    metadata: { ...(msg.metadata as ProposalMessageMetadata), proposal_status: newStatus },
-                  }
+          let changed = false
+          const newPages = old.pages.map((page) => ({
+            ...page,
+            data: page.data.map((msg) => {
+              if (
+                (msg.type === "proposal_sent" || msg.type === "proposal_modified") &&
+                msg.metadata &&
+                "proposal_id" in msg.metadata &&
+                (msg.metadata as ProposalMessageMetadata).proposal_id === proposalId
+              ) {
+                changed = true
+                return {
+                  ...msg,
+                  metadata: { ...(msg.metadata as ProposalMessageMetadata), proposal_status: newStatus },
                 }
-                return msg
-              }),
-            })),
-          }
+              }
+              return msg
+            }),
+          }))
+          return changed ? { ...old, pages: newPages } : old
         },
       )
 
       // Also invalidate the proposal detail query so /projects/{id} refreshes
       queryClient.invalidateQueries({ queryKey: [...PROPOSAL_QUERY_KEY, proposalId] })
+      // Force a refetch of the messages for this conversation as a fallback
+      // in case the cache mutation alone does not trigger a re-render.
+      queryClient.invalidateQueries({ queryKey })
     },
     [queryClient],
   )

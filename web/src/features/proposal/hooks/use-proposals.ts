@@ -15,6 +15,7 @@ import {
 } from "../api/proposal-api"
 import type { CreateProposalData, ModifyProposalData } from "../api/proposal-api"
 import { CONVERSATIONS_QUERY_KEY } from "@/features/messaging/hooks/use-conversations"
+import { MESSAGES_QUERY_KEY } from "@/features/messaging/hooks/use-messages"
 
 export const PROJECTS_QUERY_KEY = ["projects"]
 export const PROPOSAL_QUERY_KEY = ["proposal"]
@@ -48,6 +49,7 @@ export function useAcceptProposal() {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
     },
   })
 }
@@ -60,6 +62,7 @@ export function useDeclineProposal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
     },
   })
 }
@@ -85,6 +88,7 @@ export function useSimulatePayment() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
     },
   })
 }
@@ -98,6 +102,7 @@ export function useRequestCompletion() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
     },
   })
 }
@@ -111,6 +116,7 @@ export function useCompleteProposal() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
     },
   })
 }
@@ -124,6 +130,7 @@ export function useRejectCompletion() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
     },
   })
 }

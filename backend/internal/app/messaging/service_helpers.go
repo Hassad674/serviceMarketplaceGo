@@ -22,20 +22,40 @@ func (s *Service) GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.U
 }
 
 func (s *Service) broadcastNewMessage(ctx context.Context, convID, senderID uuid.UUID, msg *message.Message) {
+	s.doBroadcast(ctx, convID, senderID, msg, true)
+}
+
+// broadcastSystemMessage sends a WS event to ALL participants including the
+// sender. System messages (proposal status changes, call events) are created
+// by the backend on behalf of a user -- the sender has no local copy, so they
+// must receive the WS event to see the message appear in real time.
+func (s *Service) broadcastSystemMessage(ctx context.Context, convID, senderID uuid.UUID, msg *message.Message) {
+	s.doBroadcast(ctx, convID, senderID, msg, false)
+}
+
+func (s *Service) doBroadcast(ctx context.Context, convID, senderID uuid.UUID, msg *message.Message, excludeSender bool) {
 	participantIDs, err := s.messages.GetParticipantIDs(ctx, convID)
 	if err != nil {
 		return
 	}
 
-	// Filter out sender
-	var recipientIDs []uuid.UUID
+	// For regular messages the sender already has a local copy (optimistic
+	// update), so we skip them. For system messages every participant needs
+	// the event because no one created the message client-side.
+	var broadcastIDs []uuid.UUID
+	var unreadIDs []uuid.UUID
 	for _, id := range participantIDs {
+		if excludeSender && id == senderID {
+			continue
+		}
+		broadcastIDs = append(broadcastIDs, id)
+		// Unread counts are only bumped for users other than the sender.
 		if id != senderID {
-			recipientIDs = append(recipientIDs, id)
+			unreadIDs = append(unreadIDs, id)
 		}
 	}
 
-	if len(recipientIDs) == 0 {
+	if len(broadcastIDs) == 0 {
 		return
 	}
 
@@ -45,20 +65,24 @@ func (s *Service) broadcastNewMessage(ctx context.Context, convID, senderID uuid
 		return
 	}
 
-	if err := s.broadcaster.BroadcastNewMessage(ctx, recipientIDs, payload); err != nil {
+	if err := s.broadcaster.BroadcastNewMessage(ctx, broadcastIDs, payload); err != nil {
 		slog.Error("broadcast new message failed",
 			"error", err,
 			"conversation_id", convID,
 		)
 	}
 
+	if len(unreadIDs) == 0 {
+		return
+	}
+
 	// Send unread count updates (batch query to avoid N+1)
-	unreadCounts, err := s.messages.GetTotalUnreadBatch(ctx, recipientIDs)
+	unreadCounts, err := s.messages.GetTotalUnreadBatch(ctx, unreadIDs)
 	if err != nil {
 		slog.Error("get total unread batch failed", "error", err)
 		return
 	}
-	for _, recipientID := range recipientIDs {
+	for _, recipientID := range unreadIDs {
 		count := unreadCounts[recipientID]
 		if err := s.broadcaster.BroadcastUnreadCount(ctx, recipientID, count); err != nil {
 			slog.Error("broadcast unread count failed",

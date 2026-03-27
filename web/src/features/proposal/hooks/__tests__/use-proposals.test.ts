@@ -26,9 +26,12 @@ vi.mock("../../api/proposal-api", () => ({
   listProjects: (...args: unknown[]) => mockListProjects(...args),
 }))
 
-// Mock the conversations query key export
+// Mock the conversations and messages query key exports
 vi.mock("@/features/messaging/hooks/use-conversations", () => ({
   CONVERSATIONS_QUERY_KEY: ["messaging", "conversations"],
+}))
+vi.mock("@/features/messaging/hooks/use-messages", () => ({
+  MESSAGES_QUERY_KEY: "messaging-messages",
 }))
 
 import {

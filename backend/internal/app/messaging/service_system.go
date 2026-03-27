@@ -33,7 +33,7 @@ func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMes
 		return fmt.Errorf("increment unread: %w", err)
 	}
 
-	s.broadcastNewMessage(ctx, input.ConversationID, input.SenderID, msg)
+	s.broadcastSystemMessage(ctx, input.ConversationID, input.SenderID, msg)
 
 	return nil
 }
