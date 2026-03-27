@@ -214,13 +214,27 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
                 </p>
                 <div className="space-y-2">
                   {proposal.documents.map((doc) => (
-                    <a
+                    <button
                       key={doc.id}
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(doc.url)
+                          const blob = await res.blob()
+                          const blobUrl = URL.createObjectURL(blob)
+                          const link = document.createElement("a")
+                          link.href = blobUrl
+                          link.download = doc.filename
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                          URL.revokeObjectURL(blobUrl)
+                        } catch {
+                          window.open(doc.url, "_blank")
+                        }
+                      }}
                       className={cn(
-                        "flex items-center gap-3 rounded-xl px-4 py-3",
+                        "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left",
                         "border border-gray-100 dark:border-gray-700",
                         "hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors",
                       )}
@@ -230,7 +244,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
                         {doc.filename}
                       </span>
                       <Download className="ml-auto h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
-                    </a>
+                    </button>
                   ))}
                 </div>
               </div>
