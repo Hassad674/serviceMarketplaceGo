@@ -1,0 +1,595 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../review/presentation/widgets/review_bottom_sheet.dart';
+import '../../domain/entities/proposal_entity.dart';
+import '../../types/proposal.dart';
+import '../providers/proposal_provider.dart';
+
+/// Displays all details for a proposal: title, description, amount, deadline,
+/// documents, status, and action buttons (accept/decline/modify/pay).
+class ProposalDetailScreen extends ConsumerWidget {
+  const ProposalDetailScreen({super.key, required this.proposalId});
+
+  final String proposalId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncProposal = ref.watch(proposalByIdProvider(proposalId));
+    final l10n = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.proposalViewDetails),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: asyncProposal.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => _ErrorBody(
+          message: error.toString(),
+          onRetry: () => ref.invalidate(proposalByIdProvider(proposalId)),
+        ),
+        data: (proposal) => _ProposalDetailBody(proposal: proposal),
+      ),
+    );
+  }
+}
+
+class _ErrorBody extends StatelessWidget {
+  const _ErrorBody({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: onRetry,
+              child: Text(l10n.retry),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProposalDetailBody extends ConsumerWidget {
+  const _ProposalDetailBody({required this.proposal});
+
+  final ProposalEntity proposal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+    final authState = ref.watch(authProvider);
+    final currentUserId = authState.user?['id'] as String? ?? '';
+    final isOwn = proposal.senderId == currentUserId;
+    final status = _parseStatus(proposal.status);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ProposalHeader(
+            title: proposal.title,
+            status: status,
+            version: proposal.version,
+          ),
+          const SizedBox(height: 20),
+          if (proposal.description.isNotEmpty) ...[
+            Text(
+              l10n.proposalDescription,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: appColors?.muted ?? const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              ),
+              child: Text(
+                proposal.description,
+                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
+          _DetailRow(
+            icon: Icons.euro_outlined,
+            label: l10n.proposalTotalAmount,
+            value: '\u20AC ${proposal.amountInEuros.toStringAsFixed(2)}',
+            valueColor: theme.colorScheme.primary,
+            valueBold: true,
+          ),
+          const SizedBox(height: 12),
+          if (proposal.deadline != null) ...[
+            _DetailRow(
+              icon: Icons.calendar_today_outlined,
+              label: l10n.proposalDeadline,
+              value: proposal.deadline!,
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Version
+          if (proposal.version > 1) ...[
+            _DetailRow(
+              icon: Icons.history,
+              label: 'Version',
+              value: 'v${proposal.version}',
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Documents
+          if (proposal.documents.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Documents (${proposal.documents.length})',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...proposal.documents.map(
+              (doc) => _DocumentTile(document: doc),
+            ),
+          ],
+
+          const SizedBox(height: 32),
+
+          // Action buttons
+          _ActionButtons(
+            proposal: proposal,
+            isOwn: isOwn,
+            status: status,
+            currentUserId: currentUserId,
+          ),
+        ],
+      ),
+    );
+  }
+
+  ProposalStatus _parseStatus(String value) {
+    return switch (value) {
+      'accepted' => ProposalStatus.accepted,
+      'declined' => ProposalStatus.declined,
+      'withdrawn' => ProposalStatus.withdrawn,
+      'paid' => ProposalStatus.paid,
+      'active' => ProposalStatus.active,
+      'completion_requested' => ProposalStatus.completionRequested,
+      'completed' => ProposalStatus.completed,
+      _ => ProposalStatus.pending,
+    };
+  }
+}
+
+class _ProposalHeader extends StatelessWidget {
+  const _ProposalHeader({
+    required this.title,
+    required this.status,
+    required this.version,
+  });
+
+  final String title;
+  final ProposalStatus status;
+  final int version;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
+    final (label, bgColor, fgColor) = _statusStyle(status, l10n);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          ),
+          child: Icon(
+            Icons.description_outlined,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: fgColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  (String, Color, Color) _statusStyle(
+    ProposalStatus status,
+    AppLocalizations l10n,
+  ) {
+    return switch (status) {
+      ProposalStatus.pending => (
+          l10n.proposalPending,
+          const Color(0xFFFEF3C7),
+          const Color(0xFF92400E),
+        ),
+      ProposalStatus.accepted => (
+          l10n.proposalAccepted,
+          const Color(0xFFDCFCE7),
+          const Color(0xFF166534),
+        ),
+      ProposalStatus.declined => (
+          l10n.proposalDeclined,
+          const Color(0xFFFEE2E2),
+          const Color(0xFF991B1B),
+        ),
+      ProposalStatus.withdrawn => (
+          l10n.proposalWithdrawn,
+          const Color(0xFFF1F5F9),
+          const Color(0xFF475569),
+        ),
+      ProposalStatus.paid || ProposalStatus.active => (
+          l10n.projectStatusActive,
+          const Color(0xFFDCFCE7),
+          const Color(0xFF166534),
+        ),
+      ProposalStatus.completionRequested => (
+          l10n.proposalCompletionRequestedMessage,
+          const Color(0xFFFEF3C7),
+          const Color(0xFF92400E),
+        ),
+      ProposalStatus.completed => (
+          l10n.projectStatusCompleted,
+          const Color(0xFFE0F2FE),
+          const Color(0xFF075985),
+        ),
+    };
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.valueBold = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool valueBold;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: appColors?.mutedForeground),
+          const SizedBox(width: 10),
+          Text(label, style: theme.textTheme.bodyMedium),
+          const Spacer(),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: valueColor,
+              fontWeight: valueBold ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DocumentTile extends StatelessWidget {
+  const _DocumentTile({required this.document});
+
+  final ProposalDocumentEntity document;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: appColors?.muted ?? const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.attach_file, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                document.filename,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              _formatSize(document.size),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: appColors?.mutedForeground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
+class _ActionButtons extends ConsumerWidget {
+  const _ActionButtons({
+    required this.proposal,
+    required this.isOwn,
+    required this.status,
+    required this.currentUserId,
+  });
+
+  final ProposalEntity proposal;
+  final bool isOwn;
+  final ProposalStatus status;
+  final String currentUserId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+
+    // Pending: recipient can accept/decline/modify
+    if (status == ProposalStatus.pending && !isOwn) {
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _decline(context, ref),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    side: BorderSide(
+                      color: theme.colorScheme.error.withValues(alpha: 0.3),
+                    ),
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                  ),
+                  child: Text(l10n.proposalDecline),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _accept(context, ref),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: appColors?.success ?? Colors.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                  ),
+                  child: Text(l10n.proposalAccept),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _modify(context, ref),
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: Text(l10n.proposalModify),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Accepted: client can pay
+    if (status == ProposalStatus.accepted &&
+        proposal.clientId == currentUserId) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _pay(context),
+          icon: const Icon(Icons.payment_outlined, size: 18),
+          label: Text(l10n.payNow),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 48),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Completed: show leave review
+    if (status == ProposalStatus.completed) {
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => ReviewBottomSheet.show(
+            context,
+            proposalId: proposal.id,
+            proposalTitle: proposal.title,
+          ),
+          icon: const Icon(Icons.star_outline, size: 18),
+          label: Text(l10n.leaveReview),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 48),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Future<void> _accept(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(proposalRepositoryProvider);
+    try {
+      await repo.acceptProposal(proposal.id);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _decline(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(proposalRepositoryProvider);
+    try {
+      await repo.declineProposal(proposal.id);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _modify(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(proposalRepositoryProvider);
+    try {
+      final full = await repo.getProposal(proposal.id);
+      if (context.mounted) {
+        GoRouter.of(context).push(
+          '/projects/new',
+          extra: {
+            'recipientId': full.recipientId,
+            'conversationId': full.conversationId,
+            'recipientName': '',
+            'existingProposal': full,
+          },
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
+    }
+  }
+
+  void _pay(BuildContext context) {
+    GoRouter.of(context).push('/projects/pay/${proposal.id}');
+  }
+}

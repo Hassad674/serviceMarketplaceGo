@@ -1879,6 +1879,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Are you sure you want to log out?'**
   String get drawerLogoutConfirm;
+
+  /// No description provided for @drawerSwitchToReferrer.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Referrer'**
+  String get drawerSwitchToReferrer;
+
+  /// No description provided for @drawerSwitchToFreelance.
+  ///
+  /// In en, this message translates to:
+  /// **'Freelance Dashboard'**
+  String get drawerSwitchToFreelance;
+
+  /// No description provided for @proposalViewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get proposalViewDetails;
 }
 
 class _AppLocalizationsDelegate

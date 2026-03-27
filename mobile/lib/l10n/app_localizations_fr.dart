@@ -802,7 +802,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalCompletionRejectedMessage => 'Achèvement refusé';
 
   @override
-  String get evaluationRequestMessage => 'Mission terminée ! Laissez votre avis';
+  String get evaluationRequestMessage =>
+      'Mission terminée ! Laissez votre avis';
 
   @override
   String get leaveReview => 'Évaluer';
@@ -919,4 +920,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get drawerLogoutConfirm => 'Voulez-vous vraiment vous déconnecter ?';
+
+  @override
+  String get drawerSwitchToReferrer => 'Apporteur d\'affaires';
+
+  @override
+  String get drawerSwitchToFreelance => 'Dashboard Freelance';
+
+  @override
+  String get proposalViewDetails => 'Voir les détails';
 }

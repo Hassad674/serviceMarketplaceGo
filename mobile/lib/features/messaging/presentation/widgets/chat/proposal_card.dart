@@ -22,6 +22,7 @@ class ProposalCard extends StatelessWidget {
     this.onDecline,
     this.onModify,
     this.onPay,
+    this.onTap,
   });
 
   final ProposalMessageMetadata metadata;
@@ -32,6 +33,7 @@ class ProposalCard extends StatelessWidget {
   final VoidCallback? onDecline;
   final VoidCallback? onModify;
   final VoidCallback? onPay;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -50,27 +52,58 @@ class ProposalCard extends StatelessWidget {
           ),
           child: Opacity(
             opacity: isOldVersion ? 0.5 : 1.0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-                border: Border.all(
-                  color: appColors?.border ?? theme.dividerColor,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  border: Border.all(
+                    color: appColors?.border ?? theme.dividerColor,
+                  ),
+                  boxShadow: AppTheme.cardShadow,
                 ),
-                boxShadow: AppTheme.cardShadow,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildHeader(theme, l10n),
-                  const Divider(height: 1),
-                  _buildBody(theme, appColors, l10n),
-                  if (_shouldShowActions && !isOldVersion) ...[
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildHeader(theme, l10n),
                     const Divider(height: 1),
-                    _buildActions(theme, l10n),
+                    _buildBody(theme, appColors, l10n),
+                    // "View details" link
+                    if (onTap != null && !isOldVersion) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              l10n.proposalViewDetails,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_shouldShowActions && !isOldVersion) ...[
+                      const Divider(height: 1),
+                      _buildActions(theme, l10n),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

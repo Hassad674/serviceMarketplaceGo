@@ -75,6 +75,9 @@ class _MessageInputBarState extends State<MessageInputBar>
   }
 
   Future<void> _startRecording() async {
+    // Guard against double-start: cancel any existing timer first.
+    if (_isRecording) return;
+
     try {
       final hasPermission = await _recorder.hasPermission();
       if (!hasPermission) {
@@ -95,6 +98,11 @@ class _MessageInputBarState extends State<MessageInputBar>
         const RecordConfig(encoder: AudioEncoder.aacLc),
         path: path,
       );
+
+      // Cancel any stale timer before creating a new one.
+      _timer?.cancel();
+      _timer = null;
+
       setState(() {
         _isRecording = true;
         _recordingDuration = 0;

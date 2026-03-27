@@ -19,6 +19,7 @@ import '../../features/proposal/domain/entities/proposal_entity.dart';
 import '../../features/proposal/presentation/screens/create_proposal_screen.dart';
 import '../../features/proposal/presentation/screens/payment_simulation_screen.dart';
 import '../../features/proposal/presentation/screens/projects_list_screen.dart';
+import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -52,6 +53,7 @@ class RoutePaths {
   static const String search = '/search';
   static const String publicProfile = '/profiles';
   static const String chat = '/chat';
+  static const String proposalDetail = '/projects/detail';
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +180,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/projects/pay/:id',
         builder: (context, state) => PaymentSimulationScreen(
+          proposalId: state.pathParameters['id'] ?? '',
+        ),
+      ),
+
+      // --- Proposal detail (full-screen, no bottom nav) ---
+      GoRoute(
+        path: '/projects/detail/:id',
+        builder: (context, state) => ProposalDetailScreen(
           proposalId: state.pathParameters['id'] ?? '',
         ),
       ),

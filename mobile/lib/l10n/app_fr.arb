@@ -327,5 +327,9 @@
   "drawerFindAgencies": "Trouver des agences",
   "drawerFindReferrers": "Trouver des apporteurs",
   "drawerLogout": "Se d\u00e9connecter",
-  "drawerLogoutConfirm": "Voulez-vous vraiment vous d\u00e9connecter ?"
+  "drawerLogoutConfirm": "Voulez-vous vraiment vous d\u00e9connecter ?",
+
+  "drawerSwitchToReferrer": "Apporteur d'affaires",
+  "drawerSwitchToFreelance": "Dashboard Freelance",
+  "proposalViewDetails": "Voir les d\u00e9tails"
 }

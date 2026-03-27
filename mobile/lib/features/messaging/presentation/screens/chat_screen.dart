@@ -421,6 +421,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
   }
 
+  void _handleViewProposalDetail(String proposalId) {
+    GoRouter.of(context).push('/projects/detail/$proposalId');
+  }
+
   void _showEditDialog(MessageEntity message) {
     final editController = TextEditingController(text: message.content);
     final l10n = AppLocalizations.of(context)!;
@@ -577,6 +581,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         onModifyProposal: _handleModifyProposal,
                         onPayProposal: _handlePayProposal,
                         onReview: _handleReviewProposal,
+                        onViewProposalDetail: _handleViewProposalDetail,
                       );
                     },
                   ),

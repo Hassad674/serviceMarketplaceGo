@@ -1,26 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../l10n/app_localizations.dart';
 
-// ---------------------------------------------------------------------------
 // Role badge colors — matches web sidebar ROLE_COLORS
-// ---------------------------------------------------------------------------
-
 const _roleBadgeColors = {
   'agency': (Color(0xFFDBEAFE), Color(0xFF1D4ED8)), // blue-100, blue-700
   'enterprise': (Color(0xFFF3E8FF), Color(0xFF7E22CE)), // purple-100, purple-700
   'provider': (Color(0xFFFFE4E6), Color(0xFFBE123C)), // rose-100, rose-700
 };
 
-// ---------------------------------------------------------------------------
 // Drawer navigation item data
-// ---------------------------------------------------------------------------
-
 class _DrawerItem {
   const _DrawerItem({
     required this.labelKey,
@@ -107,6 +102,11 @@ class AppDrawer extends ConsumerWidget {
     final role = authState.user?['role'] as String? ?? 'provider';
     final location = GoRouterState.of(context).matchedLocation;
 
+    final isProvider = role == 'provider';
+    final referrerEnabled =
+        authState.user?['referrer_enabled'] as bool? ?? false;
+    final showWorkspaceSwitch = isProvider && referrerEnabled;
+
     return Drawer(
       backgroundColor: theme.colorScheme.surface,
       child: SafeArea(
@@ -114,6 +114,8 @@ class AppDrawer extends ConsumerWidget {
           children: [
             _DrawerHeader(user: authState.user, role: role),
             Divider(height: 1, color: appColors?.border ?? theme.dividerColor),
+            if (showWorkspaceSwitch)
+              _WorkspaceSwitch(l10n: l10n),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -419,6 +421,97 @@ class _DrawerNavTile extends StatelessWidget {
       default:
         return key;
     }
+  }
+}
+
+// Workspace switch — Freelance ↔ Referrer (provider only)
+const _kWorkspacePref = 'workspace_mode';
+
+class _WorkspaceSwitch extends StatefulWidget {
+  const _WorkspaceSwitch({required this.l10n});
+  final AppLocalizations l10n;
+
+  @override
+  State<_WorkspaceSwitch> createState() => _WorkspaceSwitchState();
+}
+
+class _WorkspaceSwitchState extends State<_WorkspaceSwitch> {
+  bool _isReferrerMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (mounted) {
+        setState(() {
+          _isReferrerMode = prefs.getString(_kWorkspacePref) == 'referrer';
+        });
+      }
+    });
+  }
+
+  Future<void> _toggleWorkspace() async {
+    final newMode = !_isReferrerMode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kWorkspacePref, newMode ? 'referrer' : 'freelance');
+    if (!mounted) return;
+    setState(() => _isReferrerMode = newMode);
+    Navigator.of(context).pop();
+    GoRouter.of(context).go(
+      newMode ? RoutePaths.dashboardReferrer : RoutePaths.dashboard,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isRef = _isReferrerMode;
+    final label = isRef
+        ? widget.l10n.drawerSwitchToFreelance
+        : widget.l10n.drawerSwitchToReferrer;
+    final icon = isRef ? Icons.swap_horiz : Icons.auto_awesome;
+    final fgColor = isRef
+        ? (isDark ? const Color(0xFF6EE7B7) : const Color(0xFF059669))
+        : Colors.white;
+    final bgDecor = isRef
+        ? BoxDecoration(
+            color: isDark
+                ? const Color(0xFF065F46).withValues(alpha: 0.25)
+                : const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          )
+        : BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF43F5E), Color(0xFF8B5CF6)],
+            ),
+            borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+          );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: GestureDetector(
+        onTap: _toggleWorkspace,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: bgDecor,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: fgColor),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: fgColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

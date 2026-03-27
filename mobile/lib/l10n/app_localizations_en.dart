@@ -917,4 +917,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get drawerLogoutConfirm => 'Are you sure you want to log out?';
+
+  @override
+  String get drawerSwitchToReferrer => 'Business Referrer';
+
+  @override
+  String get drawerSwitchToFreelance => 'Freelance Dashboard';
+
+  @override
+  String get proposalViewDetails => 'View details';
 }

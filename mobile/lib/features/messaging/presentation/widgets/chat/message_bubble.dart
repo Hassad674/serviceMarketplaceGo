@@ -31,6 +31,7 @@ class MessageBubble extends StatelessWidget {
     this.onModifyProposal,
     this.onPayProposal,
     this.onReview,
+    this.onViewProposalDetail,
   });
 
   final MessageEntity message;
@@ -44,6 +45,7 @@ class MessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onModifyProposal;
   final void Function(String proposalId)? onPayProposal;
   final void Function(String proposalId, String proposalTitle)? onReview;
+  final void Function(String proposalId)? onViewProposalDetail;
 
   String _formatTime() {
     try {
@@ -125,6 +127,9 @@ class MessageBubble extends StatelessWidget {
               : null,
           onPay: onPayProposal != null
               ? () => onPayProposal!(metadata.proposalId)
+              : null,
+          onTap: onViewProposalDetail != null
+              ? () => onViewProposalDetail!(metadata.proposalId)
               : null,
         );
       }

@@ -267,9 +267,23 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   /// Used by the proposal flow to optimistically display a proposal card
   /// in the chat before the backend integration is wired.
   void addLocalMessage(MessageEntity message) {
-    state = state.copyWith(
-      messages: [...state.messages, message],
-    );
+    final updated = [...state.messages, message];
+    _sortMessages(updated);
+    state = state.copyWith(messages: updated);
+  }
+
+  /// Sorts messages in place by `seq` (primary) then `createdAt` (fallback).
+  /// Ensures chronological order: oldest first, newest last.
+  void _sortMessages(List<MessageEntity> messages) {
+    messages.sort((a, b) {
+      // Primary: sort by seq (server-assigned ordering).
+      // seq == 0 means locally-created (optimistic) — push to end.
+      if (a.seq != 0 && b.seq != 0) return a.seq.compareTo(b.seq);
+      if (a.seq != 0 && b.seq == 0) return -1;
+      if (a.seq == 0 && b.seq != 0) return 1;
+      // Both seq == 0: fall back to createdAt.
+      return a.createdAt.compareTo(b.createdAt);
+    });
   }
 
   /// Notifies the server that the user is typing.
@@ -315,8 +329,11 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
     // When a proposal status change arrives, update existing proposal cards
     _syncProposalStatusInMessages(msg);
 
+    final updated = [...state.messages, msg];
+    _sortMessages(updated);
+
     state = state.copyWith(
-      messages: [...state.messages, msg],
+      messages: updated,
       typingUserName: null,
     );
 

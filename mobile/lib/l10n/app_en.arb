@@ -332,5 +332,9 @@
   "drawerFindAgencies": "Find agencies",
   "drawerFindReferrers": "Find referrers",
   "drawerLogout": "Log out",
-  "drawerLogoutConfirm": "Are you sure you want to log out?"
+  "drawerLogoutConfirm": "Are you sure you want to log out?",
+
+  "drawerSwitchToReferrer": "Business Referrer",
+  "drawerSwitchToFreelance": "Freelance Dashboard",
+  "proposalViewDetails": "View details"
 }
