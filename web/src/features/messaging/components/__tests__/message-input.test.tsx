@@ -12,6 +12,12 @@ vi.mock("lucide-react", () => ({
   Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
   Send: (props: Record<string, unknown>) => <span data-testid="send-icon" {...props} />,
   Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
+  FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
+}))
+
+// Mock i18n navigation
+vi.mock("@i18n/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }))
 
 // Mock the messaging API (for getPresignedURL used in file upload)
@@ -21,6 +27,8 @@ vi.mock("../../api/messaging-api", () => ({
 
 function defaultProps(overrides: Partial<Parameters<typeof MessageInput>[0]> = {}) {
   return {
+    conversationId: "conv-123",
+    otherUserId: "user-456",
     onSend: vi.fn(),
     onSendFile: vi.fn(),
     onTyping: vi.fn(),

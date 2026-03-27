@@ -1415,14 +1415,56 @@ abstract class AppLocalizations {
   /// No description provided for @proposalCreate.
   ///
   /// In en, this message translates to:
-  /// **'Create proposal'**
+  /// **'Create a proposal'**
   String get proposalCreate;
 
   /// No description provided for @proposalTitle.
   ///
   /// In en, this message translates to:
-  /// **'Proposal title'**
+  /// **'Mission title'**
   String get proposalTitle;
+
+  /// No description provided for @proposalTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Corporate website redesign'**
+  String get proposalTitleHint;
+
+  /// No description provided for @proposalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get proposalDescription;
+
+  /// No description provided for @proposalDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Detail deliverables and scope of work'**
+  String get proposalDescriptionHint;
+
+  /// No description provided for @proposalAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount (€)'**
+  String get proposalAmount;
+
+  /// No description provided for @proposalAmountHint.
+  ///
+  /// In en, this message translates to:
+  /// **'1500'**
+  String get proposalAmountHint;
+
+  /// No description provided for @proposalDeadline.
+  ///
+  /// In en, this message translates to:
+  /// **'Deadline'**
+  String get proposalDeadline;
+
+  /// No description provided for @proposalRecipient.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient'**
+  String get proposalRecipient;
 
   /// No description provided for @proposalFrom.
   ///
@@ -1435,24 +1477,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Total amount'**
   String get proposalTotalAmount;
-
-  /// No description provided for @proposalEscrow.
-  ///
-  /// In en, this message translates to:
-  /// **'Escrow'**
-  String get proposalEscrow;
-
-  /// No description provided for @proposalInvoice.
-  ///
-  /// In en, this message translates to:
-  /// **'Invoice billing'**
-  String get proposalInvoice;
-
-  /// No description provided for @proposalMilestones.
-  ///
-  /// In en, this message translates to:
-  /// **'milestones'**
-  String get proposalMilestones;
 
   /// No description provided for @proposalPending.
   ///
@@ -1490,11 +1514,11 @@ abstract class AppLocalizations {
   /// **'Send proposal'**
   String get proposalSend;
 
-  /// No description provided for @proposalNegotiable.
+  /// No description provided for @startProject.
   ///
   /// In en, this message translates to:
-  /// **'Negotiable'**
-  String get proposalNegotiable;
+  /// **'Start a project'**
+  String get startProject;
 }
 
 class _AppLocalizationsDelegate

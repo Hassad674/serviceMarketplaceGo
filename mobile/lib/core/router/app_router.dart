@@ -15,8 +15,7 @@ import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/job/presentation/screens/create_job_screen.dart';
 import '../../features/job/presentation/screens/jobs_screen.dart';
-import '../../features/project/presentation/screens/create_project_screen.dart';
-import '../../features/project/presentation/screens/projects_screen.dart';
+import '../../features/proposal/presentation/screens/create_proposal_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -173,11 +172,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RoutePaths.missions,
-            builder: (context, state) => const ProjectsScreen(),
+            builder: (context, state) => const _ProjectsPlaceholder(),
           ),
           GoRoute(
             path: RoutePaths.projectsNew,
-            builder: (context, state) => const CreateProjectScreen(),
+            builder: (context, state) {
+              final extras = state.extra as Map<String, dynamic>?;
+              return CreateProposalScreen(
+                recipientId: extras?['recipientId'] as String? ?? '',
+                conversationId:
+                    extras?['conversationId'] as String? ?? '',
+                recipientName:
+                    extras?['recipientName'] as String? ?? '',
+              );
+            },
           ),
           GoRoute(
             path: RoutePaths.jobs,
@@ -813,6 +821,70 @@ class _StatCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Projects placeholder (empty state with FAB to create proposal)
+// ---------------------------------------------------------------------------
+
+class _ProjectsPlaceholder extends StatelessWidget {
+  const _ProjectsPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(l10n.projects)),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppTheme.radiusXl),
+                  ),
+                  child: Icon(
+                    Icons.folder_open_outlined,
+                    size: 40,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  l10n.noProjects,
+                  style: theme.textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.noProjectsDesc,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () =>
+            GoRouter.of(context).push(RoutePaths.projectsNew),
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
       ),
     );
   }

@@ -684,22 +684,35 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalCreate => 'Créer une proposition';
 
   @override
-  String get proposalTitle => 'Titre de la proposition';
+  String get proposalTitle => 'Titre de la mission';
+
+  @override
+  String get proposalTitleHint => 'ex. Refonte du site web corporate';
+
+  @override
+  String get proposalDescription => 'Description';
+
+  @override
+  String get proposalDescriptionHint =>
+      'Détaillez les livrables et le scope du travail';
+
+  @override
+  String get proposalAmount => 'Montant (€)';
+
+  @override
+  String get proposalAmountHint => '1500';
+
+  @override
+  String get proposalDeadline => 'Date limite';
+
+  @override
+  String get proposalRecipient => 'Destinataire';
 
   @override
   String get proposalFrom => 'Proposition de';
 
   @override
   String get proposalTotalAmount => 'Montant total';
-
-  @override
-  String get proposalEscrow => 'Paiement séquestre';
-
-  @override
-  String get proposalInvoice => 'Facturation';
-
-  @override
-  String get proposalMilestones => 'jalons';
 
   @override
   String get proposalPending => 'En attente';
@@ -720,5 +733,5 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalSend => 'Envoyer la proposition';
 
   @override
-  String get proposalNegotiable => 'Négociable';
+  String get startProject => 'Proposer un projet';
 }

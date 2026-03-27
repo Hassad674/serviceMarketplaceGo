@@ -223,6 +223,8 @@ export function MessagingPage() {
               onDelete={handleDelete}
             />
             <MessageInput
+              conversationId={activeId ?? ""}
+              otherUserId={activeConversation?.other_user_id ?? ""}
               onSend={handleSend}
               onSendFile={handleSendFile}
               onTyping={handleTyping}

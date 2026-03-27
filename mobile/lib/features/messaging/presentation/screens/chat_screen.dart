@@ -14,7 +14,9 @@ import '../../data/messaging_repository_impl.dart';
 import '../../domain/entities/message_entity.dart';
 import '../providers/conversations_provider.dart';
 import '../providers/messages_provider.dart';
-import '../../../proposal/presentation/widgets/proposal_create_sheet.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/router/app_router.dart';
 import '../../../proposal/types/proposal.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
@@ -227,34 +229,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  Future<void> _openProposalSheet() async {
-    final formData = await ProposalCreateSheet.show(context);
-    if (formData == null || !mounted) return;
+  Future<void> _openProposalScreen() async {
+    final convState = ref.read(conversationsProvider);
+    final conversation = convState.conversations
+        .where((c) => c.id == widget.conversationId)
+        .firstOrNull;
+
+    final result = await GoRouter.of(context).push<ProposalFormData>(
+      RoutePaths.projectsNew,
+      extra: {
+        'recipientId': conversation?.otherUserId ?? '',
+        'conversationId': widget.conversationId,
+        'recipientName': conversation?.otherUserName ?? '',
+      },
+    );
+
+    if (result == null || !mounted) return;
 
     final authState = ref.read(authProvider);
     final userName = authState.user?['first_name'] as String? ?? 'You';
 
-    // Build a mock proposal message and inject it into the message list.
-    final totalAmount = formData.paymentType == ProposalPaymentType.escrow
-        ? formData.totalMilestoneAmount
-        : formData.amount;
-
     final metadata = ProposalMessageMetadata(
       proposalId: 'mock-${DateTime.now().millisecondsSinceEpoch}',
       senderName: userName,
-      title: formData.title,
-      totalAmount: totalAmount,
-      paymentType: formData.paymentType,
-      milestoneCount: formData.milestones.length,
+      title: result.title,
+      amount: result.amount,
       status: ProposalStatus.pending,
-      negotiable: formData.negotiable,
+      deadline: result.deadline?.toIso8601String(),
     );
 
     final mockMessage = MessageEntity(
       id: 'proposal-${DateTime.now().millisecondsSinceEpoch}',
       conversationId: widget.conversationId,
       senderId: authState.user?['id'] as String? ?? '',
-      content: formData.title,
+      content: result.title,
       type: 'proposal_sent',
       metadata: metadata.toJson(),
       status: 'sent',
@@ -418,7 +426,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             controller: _controller,
             onSend: _sendMessage,
             onAttach: _pickAndSendFile,
-            onProposal: _openProposalSheet,
+            onProposal: _openProposalScreen,
           ),
         ],
       ),

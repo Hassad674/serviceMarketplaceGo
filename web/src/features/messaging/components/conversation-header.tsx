@@ -1,8 +1,9 @@
 "use client"
 
 import Image from "next/image"
-import { ArrowLeft, Wifi, WifiOff } from "lucide-react"
+import { ArrowLeft, Wifi, WifiOff, FileText } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "../types"
 import { TypingIndicator } from "./typing-indicator"
@@ -21,6 +22,8 @@ export function ConversationHeader({
   isConnected,
 }: ConversationHeaderProps) {
   const t = useTranslations("messaging")
+  const tProposal = useTranslations("proposal")
+  const router = useRouter()
 
   const initials = conversation.other_user_name
     .split(" ")
@@ -28,6 +31,10 @@ export function ConversationHeader({
     .join("")
     .slice(0, 2)
     .toUpperCase()
+
+  function handleStartProject() {
+    router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
+  }
 
   return (
     <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
@@ -88,6 +95,21 @@ export function ConversationHeader({
           </p>
         )}
       </div>
+
+      {/* Start project button */}
+      <button
+        type="button"
+        onClick={handleStartProject}
+        className={cn(
+          "hidden items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium sm:flex",
+          "text-rose-600 transition-all duration-200",
+          "hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10",
+          "active:scale-[0.98]",
+        )}
+      >
+        <FileText className="h-4 w-4" strokeWidth={1.5} />
+        {tProposal("startProject")}
+      </button>
 
       {/* Connection indicator */}
       <div className="flex items-center gap-1">

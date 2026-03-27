@@ -248,18 +248,22 @@
   "jobSave": "Save",
 
   "proposalPropose": "Send a proposal",
-  "proposalCreate": "Create proposal",
-  "proposalTitle": "Proposal title",
+  "proposalCreate": "Create a proposal",
+  "proposalTitle": "Mission title",
+  "proposalTitleHint": "e.g. Corporate website redesign",
+  "proposalDescription": "Description",
+  "proposalDescriptionHint": "Detail deliverables and scope of work",
+  "proposalAmount": "Amount (\u20AC)",
+  "proposalAmountHint": "1500",
+  "proposalDeadline": "Deadline",
+  "proposalRecipient": "Recipient",
   "proposalFrom": "Proposal from",
   "proposalTotalAmount": "Total amount",
-  "proposalEscrow": "Escrow",
-  "proposalInvoice": "Invoice billing",
-  "proposalMilestones": "milestones",
   "proposalPending": "Pending",
   "proposalAccepted": "Accepted",
   "proposalDeclined": "Declined",
   "proposalAccept": "Accept",
   "proposalDecline": "Decline",
   "proposalSend": "Send proposal",
-  "proposalNegotiable": "Negotiable"
+  "startProject": "Start a project"
 }

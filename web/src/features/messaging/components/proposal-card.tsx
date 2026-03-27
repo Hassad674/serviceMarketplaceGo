@@ -1,13 +1,12 @@
 "use client"
 
 import {
-  FileText,
-  ShieldCheck,
-  Layers,
+  Handshake,
   CheckCircle2,
   XCircle,
   Clock,
-  Handshake,
+  Calendar,
+  Paperclip,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
@@ -65,30 +64,33 @@ export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalC
 
         {/* Details grid */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Total amount */}
+          {/* Amount */}
           <DetailItem
-            icon={<DollarIcon />}
+            icon={<EuroIcon />}
             label={t("totalAmount")}
-            value={formatCurrency(metadata.proposal_total_amount)}
+            value={formatCurrency(metadata.proposal_amount)}
             highlight
           />
 
-          {/* Payment type */}
-          <DetailItem
-            icon={metadata.proposal_payment_type === "escrow"
-              ? <ShieldCheck className="h-4 w-4" strokeWidth={1.5} />
-              : <FileText className="h-4 w-4" strokeWidth={1.5} />
-            }
-            label={t("paymentType")}
-            value={metadata.proposal_payment_type === "escrow" ? t("escrow") : t("invoice")}
-          />
-
-          {/* Milestones count (only for escrow) */}
-          {metadata.proposal_payment_type === "escrow" && metadata.proposal_milestones_count > 0 && (
+          {/* Deadline */}
+          {metadata.proposal_deadline && (
             <DetailItem
-              icon={<Layers className="h-4 w-4" strokeWidth={1.5} />}
-              label={t("milestones")}
-              value={`${metadata.proposal_milestones_count} ${metadata.proposal_milestones_count > 1 ? t("milestones") : t("milestone")}`}
+              icon={<Calendar className="h-4 w-4" strokeWidth={1.5} />}
+              label={t("proposalDeadline")}
+              value={new Intl.DateTimeFormat("fr-FR", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              }).format(new Date(metadata.proposal_deadline))}
+            />
+          )}
+
+          {/* Documents count */}
+          {metadata.proposal_documents_count > 0 && (
+            <DetailItem
+              icon={<Paperclip className="h-4 w-4" strokeWidth={1.5} />}
+              label={t("proposalDocuments")}
+              value={`${metadata.proposal_documents_count}`}
             />
           )}
         </div>
@@ -134,7 +136,7 @@ export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalC
   )
 }
 
-function DollarIcon() {
+function EuroIcon() {
   return (
     <span className="flex h-4 w-4 items-center justify-center text-sm font-bold text-current">
       &euro;

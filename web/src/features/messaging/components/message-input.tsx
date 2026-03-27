@@ -3,26 +3,35 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { Paperclip, Send, Loader2, FileText } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { getPresignedURL } from "../api/messaging-api"
 import { FileUploadModal } from "./file-upload-modal"
-import { ProposalCreateModal } from "@/features/proposal/components/proposal-create-modal"
 
 const TYPING_INTERVAL_MS = 2_000
 
 interface MessageInputProps {
+  conversationId: string
+  otherUserId: string
   onSend: (content: string) => void
   onSendFile: (content: string, metadata: { url: string; filename: string; size: number; mime_type: string }) => void
   onTyping: () => void
   isSending: boolean
 }
 
-export function MessageInput({ onSend, onSendFile, onTyping, isSending }: MessageInputProps) {
+export function MessageInput({
+  conversationId,
+  otherUserId,
+  onSend,
+  onSendFile,
+  onTyping,
+  isSending,
+}: MessageInputProps) {
   const t = useTranslations("messaging")
+  const router = useRouter()
   const [value, setValue] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
-  const [proposalModalOpen, setProposalModalOpen] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const onTypingRef = useRef(onTyping)
   const hasContent = value.trim().length > 0
@@ -63,6 +72,10 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setValue(e.target.value)
+  }
+
+  function handleProposal() {
+    router.push(`/projects/new?to=${otherUserId}&conversation=${conversationId}`)
   }
 
   const handleUploadFiles = useCallback(
@@ -138,7 +151,7 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
         {/* Proposal button */}
         <button
           type="button"
-          onClick={() => setProposalModalOpen(true)}
+          onClick={handleProposal}
           disabled={isDisabled}
           className={cn(
             "shrink-0 rounded-lg p-2 text-gray-400 transition-colors",
@@ -195,11 +208,6 @@ export function MessageInput({ onSend, onSendFile, onTyping, isSending }: Messag
         onClose={() => setModalOpen(false)}
         onUploadFiles={handleUploadFiles}
         uploading={isUploading}
-      />
-
-      <ProposalCreateModal
-        open={proposalModalOpen}
-        onClose={() => setProposalModalOpen(false)}
       />
     </>
   )

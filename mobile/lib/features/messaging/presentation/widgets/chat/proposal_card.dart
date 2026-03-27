@@ -67,10 +67,6 @@ class ProposalCard extends StatelessWidget {
   bool get _showActions =>
       !isOwn && metadata.status == ProposalStatus.pending;
 
-  // -----------------------------------------------------------------------
-  // Header: icon + "Proposal from [name]" + status badge
-  // -----------------------------------------------------------------------
-
   Widget _buildHeader(ThemeData theme, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -119,19 +115,11 @@ class ProposalCard extends StatelessWidget {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // Body: amount, payment type, milestones, negotiable
-  // -----------------------------------------------------------------------
-
   Widget _buildBody(
     ThemeData theme,
     AppColors? appColors,
     AppLocalizations l10n,
   ) {
-    final paymentLabel = metadata.paymentType == ProposalPaymentType.escrow
-        ? l10n.proposalEscrow
-        : l10n.proposalInvoice;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
@@ -151,7 +139,7 @@ class ProposalCard extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                '\u20AC ${metadata.totalAmount.toStringAsFixed(2)}',
+                '\u20AC ${metadata.amount.toStringAsFixed(2)}',
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w700,
@@ -159,47 +147,46 @@ class ProposalCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
 
-          // Payment type row
-          Row(
-            children: [
-              Icon(
-                metadata.paymentType == ProposalPaymentType.escrow
-                    ? Icons.lock_outline
-                    : Icons.receipt_long_outlined,
-                size: 18,
-                color: appColors?.mutedForeground,
-              ),
-              const SizedBox(width: 8),
-              Text(paymentLabel, style: theme.textTheme.bodySmall),
-              if (metadata.paymentType == ProposalPaymentType.escrow) ...[
+          // Deadline row (optional)
+          if (metadata.deadline != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 18,
+                  color: appColors?.mutedForeground,
+                ),
+                const SizedBox(width: 8),
+                Text(l10n.proposalDeadline,
+                    style: theme.textTheme.bodySmall),
                 const Spacer(),
                 Text(
-                  '${metadata.milestoneCount} ${l10n.proposalMilestones}',
+                  metadata.deadline!,
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
-            ],
-          ),
+            ),
+          ],
 
-          // Negotiable badge
-          if (metadata.negotiable) ...[
+          // Documents count (optional)
+          if (metadata.documentsCount > 0) ...[
             const SizedBox(height: 10),
             Row(
               children: [
                 Icon(
-                  Icons.swap_horiz,
+                  Icons.attach_file,
                   size: 18,
                   color: appColors?.mutedForeground,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  l10n.proposalNegotiable,
+                  '${metadata.documentsCount} documents',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -209,10 +196,6 @@ class ProposalCard extends StatelessWidget {
       ),
     );
   }
-
-  // -----------------------------------------------------------------------
-  // Action buttons: Accept / Decline
-  // -----------------------------------------------------------------------
 
   Widget _buildActions(ThemeData theme, AppLocalizations l10n) {
     final appColors = theme.extension<AppColors>();
@@ -230,7 +213,8 @@ class ProposalCard extends StatelessWidget {
                   color: theme.colorScheme.error.withValues(alpha: 0.3),
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusSm),
                 ),
                 minimumSize: const Size(0, 38),
               ),
@@ -245,7 +229,8 @@ class ProposalCard extends StatelessWidget {
                 backgroundColor: appColors?.success ?? Colors.green,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusSm),
                 ),
                 minimumSize: const Size(0, 38),
                 elevation: 0,
@@ -259,10 +244,6 @@ class ProposalCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Status badge
-// ---------------------------------------------------------------------------
-
 class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status});
 
@@ -275,18 +256,18 @@ class _StatusBadge extends StatelessWidget {
     final (label, bgColor, fgColor) = switch (status) {
       ProposalStatus.pending => (
           l10n.proposalPending,
-          const Color(0xFFFEF3C7), // amber-100
-          const Color(0xFF92400E), // amber-800
+          const Color(0xFFFEF3C7),
+          const Color(0xFF92400E),
         ),
       ProposalStatus.accepted => (
           l10n.proposalAccepted,
-          const Color(0xFFDCFCE7), // green-100
-          const Color(0xFF166534), // green-800
+          const Color(0xFFDCFCE7),
+          const Color(0xFF166534),
         ),
       ProposalStatus.declined => (
           l10n.proposalDeclined,
-          const Color(0xFFFEE2E2), // red-100
-          const Color(0xFF991B1B), // red-800
+          const Color(0xFFFEE2E2),
+          const Color(0xFF991B1B),
         ),
     };
 

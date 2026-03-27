@@ -12,11 +12,11 @@ export type FileMetadata = {
 export type ProposalMessageMetadata = {
   proposal_id: string
   proposal_title: string
-  proposal_total_amount: number
-  proposal_payment_type: "escrow" | "invoice"
-  proposal_milestones_count: number
+  proposal_amount: number
   proposal_status: "pending" | "accepted" | "declined" | "withdrawn"
+  proposal_deadline: string | null
   proposal_sender_name: string
+  proposal_documents_count: number
 }
 
 export type Message = {
