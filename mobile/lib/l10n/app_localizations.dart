@@ -1649,8 +1649,14 @@ abstract class AppLocalizations {
   /// No description provided for @evaluationRequestMessage.
   ///
   /// In en, this message translates to:
-  /// **'Please leave a review'**
+  /// **'Mission completed! Leave a review'**
   String get evaluationRequestMessage;
+
+  /// No description provided for @leaveReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave a review'**
+  String get leaveReview;
 
   /// No description provided for @proposalNewMessage.
   ///

@@ -18,6 +18,7 @@ import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from ".
 import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
 import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
+import { ReviewModal } from "@/features/review/components/review-modal"
 import type { Conversation, ConversationListResponse, Message } from "../types"
 
 export function MessagingPage() {
@@ -34,6 +35,7 @@ export function MessagingPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
   const [replyTo, setReplyTo] = useState<{ id: string; senderName: string; content: string } | null>(null)
+  const [reviewTarget, setReviewTarget] = useState<{ proposalId: string; proposalTitle: string } | null>(null)
 
   const callCtx = useCallContext()
 
@@ -203,6 +205,13 @@ export function MessagingPage() {
     [activeId, sendMessage],
   )
 
+  const handleReview = useCallback(
+    (proposalId: string, proposalTitle: string) => {
+      setReviewTarget({ proposalId, proposalTitle })
+    },
+    [],
+  )
+
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
 
   return (
@@ -257,6 +266,7 @@ export function MessagingPage() {
               onDelete={handleDelete}
               onReply={handleReply}
               conversationId={activeId ?? ""}
+              onReview={handleReview}
             />
             <MessageInput
               conversationId={activeId ?? ""}
@@ -274,6 +284,16 @@ export function MessagingPage() {
           <EmptyState label={t("noConversations")} />
         )}
       </div>
+
+      {/* Review modal — opens from evaluation_request messages */}
+      {reviewTarget && (
+        <ReviewModal
+          proposalId={reviewTarget.proposalId}
+          proposalTitle={reviewTarget.proposalTitle}
+          isOpen
+          onClose={() => setReviewTarget(null)}
+        />
+      )}
     </div>
   )
 }

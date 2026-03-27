@@ -802,7 +802,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalCompletionRejectedMessage => 'Achèvement refusé';
 
   @override
-  String get evaluationRequestMessage => 'Veuillez laisser un avis';
+  String get evaluationRequestMessage => 'Mission terminée ! Laissez votre avis';
+
+  @override
+  String get leaveReview => 'Évaluer';
 
   @override
   String get proposalNewMessage => 'Nouvelle proposition';

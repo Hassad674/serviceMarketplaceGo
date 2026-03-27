@@ -30,6 +30,7 @@ class MessageBubble extends StatelessWidget {
     this.onDeclineProposal,
     this.onModifyProposal,
     this.onPayProposal,
+    this.onReview,
   });
 
   final MessageEntity message;
@@ -42,6 +43,7 @@ class MessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onDeclineProposal;
   final void Function(String proposalId)? onModifyProposal;
   final void Function(String proposalId)? onPayProposal;
+  final void Function(String proposalId, String proposalTitle)? onReview;
 
   String _formatTime() {
     try {
@@ -103,27 +105,36 @@ class MessageBubble extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
 
-    // Proposal-related message types
-    if (_isProposalCard(message.type) && message.metadata != null) {
-      final metadata =
-          ProposalMessageMetadata.fromJson(message.metadata!);
-      return ProposalCard(
-        metadata: metadata,
-        isOwn: isOwn,
-        currentUserId: currentUserId,
-        onAccept: onAcceptProposal != null
-            ? () => onAcceptProposal!(metadata.proposalId)
-            : null,
-        onDecline: onDeclineProposal != null
-            ? () => onDeclineProposal!(metadata.proposalId)
-            : null,
-        onModify: onModifyProposal != null
-            ? () => onModifyProposal!(metadata.proposalId)
-            : null,
-        onPay: onPayProposal != null
-            ? () => onPayProposal!(metadata.proposalId)
-            : null,
-      );
+    // Proposal card types: render rich ProposalCard when metadata exists.
+    if (_isProposalCard(message.type)) {
+      final meta = message.metadata ?? {};
+      if (meta.isNotEmpty) {
+        final metadata = ProposalMessageMetadata.fromJson(meta);
+        return ProposalCard(
+          metadata: metadata,
+          isOwn: isOwn,
+          currentUserId: currentUserId,
+          onAccept: onAcceptProposal != null
+              ? () => onAcceptProposal!(metadata.proposalId)
+              : null,
+          onDecline: onDeclineProposal != null
+              ? () => onDeclineProposal!(metadata.proposalId)
+              : null,
+          onModify: onModifyProposal != null
+              ? () => onModifyProposal!(metadata.proposalId)
+              : null,
+          onPay: onPayProposal != null
+              ? () => onPayProposal!(metadata.proposalId)
+              : null,
+        );
+      }
+      // Fallback: render as system message if metadata is missing
+      return _buildSystemMessage(context, theme, appColors, l10n);
+    }
+
+    // Evaluation request — special system message with "Leave a review" button
+    if (message.type == 'evaluation_request') {
+      return _buildEvaluationRequest(context, theme, appColors, l10n);
     }
 
     // System messages for proposal lifecycle and call events.
@@ -259,6 +270,7 @@ class MessageBubble extends StatelessWidget {
   }
 
   /// Returns true for system-level lifecycle events (proposals, calls).
+  /// Note: `evaluation_request` is handled separately with a review button.
   bool _isSystemMessage(String type) {
     return type == 'proposal_accepted' ||
         type == 'proposal_declined' ||
@@ -266,9 +278,77 @@ class MessageBubble extends StatelessWidget {
         type == 'proposal_completion_requested' ||
         type == 'proposal_completed' ||
         type == 'proposal_completion_rejected' ||
-        type == 'evaluation_request' ||
         type == 'call_ended' ||
         type == 'call_missed';
+  }
+
+  Widget _buildEvaluationRequest(
+    BuildContext context,
+    ThemeData theme,
+    AppColors? appColors,
+    AppLocalizations l10n,
+  ) {
+    const color = Color(0xFF10B981); // emerald-500
+    final meta = message.metadata;
+    final proposalId = meta?['proposal_id'] as String? ?? '';
+    final proposalTitle = meta?['proposal_title'] as String? ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star_outline, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      l10n.evaluationRequestMessage,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 32,
+                child: FilledButton(
+                  onPressed: onReview != null
+                      ? () => onReview!(proposalId, proposalTitle)
+                      : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFF43F5E),
+                    foregroundColor: Colors.white,
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(l10n.leaveReview),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSystemMessage(
@@ -278,6 +358,21 @@ class MessageBubble extends StatelessWidget {
     AppLocalizations l10n,
   ) {
     final (icon, label, color) = switch (message.type) {
+      'proposal_sent' => (
+          Icons.description_outlined,
+          l10n.proposalNewMessage,
+          const Color(0xFFF43F5E),
+        ),
+      'proposal_modified' => (
+          Icons.edit_outlined,
+          l10n.proposalModifiedMessage,
+          const Color(0xFFF59E0B),
+        ),
+      'proposal_payment_requested' => (
+          Icons.payment_outlined,
+          l10n.proposalPaymentRequestedMessage,
+          const Color(0xFF3B82F6),
+        ),
       'proposal_accepted' => (
           Icons.check_circle_outline,
           l10n.proposalAcceptedMessage,

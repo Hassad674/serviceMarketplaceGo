@@ -25,6 +25,7 @@ import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
 import '../widgets/chat/empty_chat_state.dart';
+import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../widgets/chat/message_bubble.dart';
 import '../widgets/chat/message_input_bar.dart';
 import '../widgets/chat/typing_indicator_widget.dart';
@@ -49,6 +50,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   Timer? _typingInterval;
   MessageEntity? _replyToMessage;
+
+  bool _hasScrolledToBottom = false;
 
   @override
   void initState() {
@@ -173,9 +176,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         contentType: contentType,
       );
 
-      debugPrint('[FileUpload] presigned URL: ${uploadInfo.uploadUrl}');
-      debugPrint('[FileUpload] public URL: ${uploadInfo.publicUrl}');
-
       Uint8List fileBytes;
       if (file.bytes != null && file.bytes!.isNotEmpty) {
         fileBytes = file.bytes!;
@@ -185,8 +185,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         throw Exception('Cannot read file: no bytes and no path');
       }
 
-      debugPrint('[FileUpload] file size: ${fileBytes.length} bytes');
-
       final uploadDio = Dio(
         BaseOptions(
           connectTimeout: const Duration(seconds: 30),
@@ -195,7 +193,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
       );
 
-      final uploadResponse = await uploadDio.put<void>(
+      await uploadDio.put<void>(
         uploadInfo.uploadUrl,
         data: Stream.fromIterable([fileBytes]),
         options: Options(
@@ -205,8 +203,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           },
         ),
       );
-
-      debugPrint('[FileUpload] upload status: ${uploadResponse.statusCode}');
 
       final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
           ? uploadInfo.publicUrl
@@ -224,12 +220,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       _scrollToBottom();
     } catch (e) {
-      debugPrint('[FileUpload] ERROR: $e');
-      if (e is DioException) {
-        debugPrint('[FileUpload] DioError type: ${e.type}');
-        debugPrint('[FileUpload] DioError response: ${e.response}');
-        debugPrint('[FileUpload] DioError message: ${e.message}');
-      }
+      debugPrint('[FileUpload] $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${l10n.uploadError}: $e')),
@@ -422,6 +413,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     GoRouter.of(context).push('/projects/pay/$proposalId');
   }
 
+  void _handleReviewProposal(String proposalId, String proposalTitle) {
+    ReviewBottomSheet.show(
+      context,
+      proposalId: proposalId,
+      proposalTitle: proposalTitle,
+    );
+  }
+
   void _showEditDialog(MessageEntity message) {
     final editController = TextEditingController(text: message.content);
     final l10n = AppLocalizations.of(context)!;
@@ -498,16 +497,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .where((c) => c.id == widget.conversationId)
         .firstOrNull;
 
-    // Auto-scroll when new messages arrive
+    // Auto-scroll when new messages are appended (not older-page prepends).
     ref.listen<MessagesState>(
       messagesProvider(widget.conversationId),
       (prev, next) {
-        if (prev != null &&
-            next.messages.length > prev.messages.length) {
-          _scrollToBottom();
+        if (next.messages.length > (prev?.messages.length ?? 0)) {
+          final sameTail = prev != null &&
+              prev.messages.isNotEmpty &&
+              next.messages.last.id == prev.messages.last.id;
+          if (!sameTail) _scrollToBottom();
         }
       },
     );
+
+    // Scroll to bottom once after initial load (messages are ASC).
+    if (!_hasScrolledToBottom && msgState.messages.isNotEmpty) {
+      _hasScrolledToBottom = true;
+      _scrollToBottom();
+    }
 
     if (msgState.isLoading && msgState.messages.isEmpty) {
       return Scaffold(
@@ -569,6 +576,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         onDeclineProposal: _handleDeclineProposal,
                         onModifyProposal: _handleModifyProposal,
                         onPayProposal: _handlePayProposal,
+                        onReview: _handleReviewProposal,
                       );
                     },
                   ),

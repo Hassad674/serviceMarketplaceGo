@@ -800,7 +800,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proposalCompletionRejectedMessage => 'Completion rejected';
 
   @override
-  String get evaluationRequestMessage => 'Please leave a review';
+  String get evaluationRequestMessage => 'Mission completed! Leave a review';
+
+  @override
+  String get leaveReview => 'Leave a review';
 
   @override
   String get proposalNewMessage => 'New proposal';

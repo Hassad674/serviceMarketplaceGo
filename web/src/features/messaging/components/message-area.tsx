@@ -32,6 +32,7 @@ interface MessageAreaProps {
   onDelete: (messageId: string) => void
   onReply: (message: Message) => void
   conversationId: string
+  onReview?: (proposalId: string, proposalTitle: string) => void
 }
 
 export function MessageArea({
@@ -44,6 +45,7 @@ export function MessageArea({
   onDelete,
   onReply,
   conversationId,
+  onReview,
 }: MessageAreaProps) {
   const t = useTranslations("messaging")
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -181,6 +183,7 @@ export function MessageArea({
             onEdit={onEdit}
             onDelete={onDelete}
             supersededProposalIds={supersededProposalIds}
+            onReview={onReview}
           />
         ))}
       </div>
@@ -196,6 +199,7 @@ interface MessageBubbleProps {
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
   supersededProposalIds: Set<string>
+  onReview?: (proposalId: string, proposalTitle: string) => void
 }
 
 function isProposalMetadata(metadata: unknown): metadata is ProposalMessageMetadata {
@@ -226,6 +230,7 @@ function MessageBubble({
   onEdit,
   onDelete,
   supersededProposalIds,
+  onReview,
 }: MessageBubbleProps) {
   const t = useTranslations("messaging")
   const tp = useTranslations("proposal")
@@ -321,7 +326,7 @@ function MessageBubble({
     return (
       <EvaluationRequestMessage
         metadata={message.metadata}
-        conversationId={conversationId}
+        onReview={onReview}
       />
     )
   }
@@ -550,13 +555,12 @@ function CompletionRequestedMessage({
 
 function EvaluationRequestMessage({
   metadata,
-  conversationId,
+  onReview,
 }: {
   metadata: ProposalMessageMetadata
-  conversationId: string
+  onReview?: (proposalId: string, proposalTitle: string) => void
 }) {
   const t = useTranslations("review")
-  const router = useRouter()
 
   return (
     <div className="flex justify-center py-2">
@@ -569,7 +573,7 @@ function EvaluationRequestMessage({
         </div>
         <button
           type="button"
-          onClick={() => router.push(`/projects/${metadata.proposal_id}?review=true`)}
+          onClick={() => onReview?.(metadata.proposal_id, metadata.proposal_title)}
           className={cn(
             "rounded-lg px-3 py-1 text-xs font-semibold text-white",
             "gradient-primary hover:shadow-glow active:scale-[0.98]",
