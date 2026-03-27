@@ -1,22 +1,56 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+/// Represents a review left after a completed proposal.
+class Review {
+  final String id;
+  final String proposalId;
+  final String reviewerId;
+  final String reviewedId;
+  final int globalRating;
+  final int? timeliness;
+  final int? communication;
+  final int? quality;
+  final String comment;
+  final DateTime createdAt;
 
-part 'review.freezed.dart';
-part 'review.g.dart';
+  const Review({
+    required this.id,
+    required this.proposalId,
+    required this.reviewerId,
+    required this.reviewedId,
+    required this.globalRating,
+    this.timeliness,
+    this.communication,
+    this.quality,
+    this.comment = '',
+    required this.createdAt,
+  });
 
-enum ReviewType { providerToClient, clientToProvider }
+  factory Review.fromJson(Map<String, dynamic> json) {
+    return Review(
+      id: json['id'] as String,
+      proposalId: json['proposal_id'] as String,
+      reviewerId: json['reviewer_id'] as String,
+      reviewedId: json['reviewed_id'] as String,
+      globalRating: json['global_rating'] as int,
+      timeliness: json['timeliness'] as int?,
+      communication: json['communication'] as int?,
+      quality: json['quality'] as int?,
+      comment: json['comment'] as String? ?? '',
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+}
 
-@freezed
-class Review with _$Review {
-  const factory Review({
-    required String id,
-    required String missionId,
-    required String evaluatorId,
-    required double globalRating,
-    String? content,
-    @Default(ReviewType.clientToProvider) ReviewType type,
-    required DateTime createdAt,
-  }) = _Review;
+/// Aggregated rating stats for a user.
+class AverageRating {
+  final double average;
+  final int count;
 
-  factory Review.fromJson(Map<String, dynamic> json) =>
-      _$ReviewFromJson(json);
+  const AverageRating({required this.average, required this.count});
+
+  factory AverageRating.fromJson(Map<String, dynamic> json) {
+    return AverageRating(
+      average: (json['average'] as num).toDouble(),
+      count: json['count'] as int,
+    );
+  }
 }

@@ -482,5 +482,23 @@
     "recipientOffline": "Recipient is offline",
     "recipientBusy": "Recipient is busy",
     "unknownCaller": "Unknown caller"
+  },
+  "review": {
+    "title": "Leave a review",
+    "close": "Close",
+    "globalRating": "Overall rating",
+    "detailedCriteria": "Detailed criteria (optional)",
+    "timeliness": "Timeliness",
+    "communication": "Communication",
+    "quality": "Deliverable quality",
+    "comment": "Written review",
+    "commentPlaceholder": "Describe your experience: quality of work, deadlines, communication, strengths, areas for improvement...",
+    "submit": "Submit review",
+    "cancel": "Cancel",
+    "reviewsTitle": "Reviews",
+    "reviewSingular": "review",
+    "reviewPlural": "reviews",
+    "evaluationRequest": "Mission completed! Leave a review",
+    "leaveReview": "Leave a review"
   }
 }

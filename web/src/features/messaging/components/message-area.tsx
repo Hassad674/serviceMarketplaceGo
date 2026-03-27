@@ -9,6 +9,7 @@ import {
   CreditCard,
   DollarSign,
   RotateCcw,
+  Star,
 } from "lucide-react"
 import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
@@ -19,6 +20,7 @@ import { FileMessage } from "./file-message"
 import { VoiceMessage } from "./voice-message"
 import { MessageContextMenu } from "./message-context-menu"
 import { ProposalCard } from "./proposal-card"
+import { MessageAreaSkeleton } from "./message-area-skeleton"
 
 interface MessageAreaProps {
   messages: Message[]
@@ -314,6 +316,16 @@ function MessageBubble({
     )
   }
 
+  // Evaluation request — system message with "Leave a review" button
+  if (message.type === "evaluation_request" && isProposalMetadata(message.metadata)) {
+    return (
+      <EvaluationRequestMessage
+        metadata={message.metadata}
+        conversationId={conversationId}
+      />
+    )
+  }
+
   // Deleted message
   if (message.deleted_at) {
     return (
@@ -536,28 +548,38 @@ function CompletionRequestedMessage({
   )
 }
 
-function MessageAreaSkeleton() {
+function EvaluationRequestMessage({
+  metadata,
+  conversationId,
+}: {
+  metadata: ProposalMessageMetadata
+  conversationId: string
+}) {
+  const t = useTranslations("review")
+  const router = useRouter()
+
   return (
-    <div className="flex-1 overflow-hidden px-5 py-4">
-      <div className="mx-auto flex max-w-4xl flex-col gap-3">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className={cn(
-              "flex",
-              i % 2 === 0 ? "justify-end" : "justify-start",
-            )}
-          >
-            <div
-              className={cn(
-                "animate-pulse rounded-2xl px-4 py-2.5",
-                i % 2 === 0 ? "bg-rose-200 dark:bg-rose-500/20" : "bg-gray-200 dark:bg-gray-700",
-              )}
-              style={{ width: `${40 + (i * 10) % 35}%`, height: "48px" }}
-            />
-          </div>
-        ))}
+    <div className="flex justify-center py-2">
+      <div className="flex flex-col items-center gap-2 rounded-xl bg-emerald-50 px-5 py-3 dark:bg-emerald-500/10">
+        <div className="flex items-center gap-2">
+          <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            {t("evaluationRequest")}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push(`/projects/${metadata.proposal_id}?review=true`)}
+          className={cn(
+            "rounded-lg px-3 py-1 text-xs font-semibold text-white",
+            "gradient-primary hover:shadow-glow active:scale-[0.98]",
+            "transition-all duration-200",
+          )}
+        >
+          {t("leaveReview")}
+        </button>
       </div>
     </div>
   )
 }
+

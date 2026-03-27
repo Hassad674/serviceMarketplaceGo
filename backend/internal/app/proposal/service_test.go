@@ -738,8 +738,9 @@ func TestCompleteProposal_Success(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	assert.Len(t, msgSender.calls, 1)
+	assert.Len(t, msgSender.calls, 2)
 	assert.Equal(t, "proposal_completed", msgSender.calls[0].Type)
+	assert.Equal(t, "evaluation_request", msgSender.calls[1].Type)
 }
 
 func TestCompleteProposal_NotClient(t *testing.T) {

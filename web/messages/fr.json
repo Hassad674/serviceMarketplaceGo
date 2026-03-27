@@ -482,5 +482,23 @@
     "recipientOffline": "Le destinataire est hors ligne",
     "recipientBusy": "Le destinataire est en appel",
     "unknownCaller": "Appelant inconnu"
+  },
+  "review": {
+    "title": "Laisser un avis",
+    "close": "Fermer",
+    "globalRating": "Note globale",
+    "detailedCriteria": "Crit\u00e8res d\u00e9taill\u00e9s (optionnel)",
+    "timeliness": "Respect des d\u00e9lais",
+    "communication": "Communication",
+    "quality": "Qualit\u00e9 du livrable",
+    "comment": "Avis \u00e9crit",
+    "commentPlaceholder": "D\u00e9crivez votre exp\u00e9rience : qualit\u00e9 du travail, respect des d\u00e9lais, communication, points forts, axes d'am\u00e9lioration...",
+    "submit": "Envoyer l'avis",
+    "cancel": "Annuler",
+    "reviewsTitle": "Avis",
+    "reviewSingular": "avis",
+    "reviewPlural": "avis",
+    "evaluationRequest": "Mission termin\u00e9e ! Laissez votre avis",
+    "leaveReview": "\u00c9valuer"
   }
 }
