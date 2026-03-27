@@ -304,7 +304,8 @@ function StatusBadge({ status }: StatusBadgeProps) {
     },
   }
 
-  const { label, icon: StatusIcon, className } = config[status]
+  const entry = config[status] ?? config.pending
+  const { label, icon: StatusIcon, className } = entry
 
   return (
     <span

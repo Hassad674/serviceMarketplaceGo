@@ -160,10 +160,20 @@ func isParticipant(p *domain.Proposal, userID uuid.UUID) bool {
 
 func buildStatusMetadata(p *domain.Proposal) json.RawMessage {
 	m := map[string]any{
-		"proposal_id": p.ID.String(),
-		"title":       p.Title,
-		"amount":      p.Amount,
-		"status":      string(p.Status),
+		"proposal_id":              p.ID.String(),
+		"proposal_title":           p.Title,
+		"proposal_amount":          p.Amount,
+		"proposal_status":          string(p.Status),
+		"proposal_version":         p.Version,
+		"proposal_client_id":       p.ClientID.String(),
+		"proposal_provider_id":     p.ProviderID.String(),
+		"proposal_sender_name":     "",
+		"proposal_documents_count": 0,
+	}
+	if p.ParentID != nil {
+		m["proposal_parent_id"] = p.ParentID.String()
+	} else {
+		m["proposal_parent_id"] = nil
 	}
 	data, _ := json.Marshal(m)
 	return data

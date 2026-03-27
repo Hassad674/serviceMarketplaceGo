@@ -82,15 +82,23 @@ func buildDocuments(proposalID uuid.UUID, inputs []DocumentInput) []*domain.Prop
 
 func buildProposalMetadata(p *domain.Proposal, senderName string, docsCount int) json.RawMessage {
 	m := map[string]any{
-		"proposal_id":     p.ID.String(),
-		"title":           p.Title,
-		"amount":          p.Amount,
-		"status":          string(p.Status),
-		"documents_count": docsCount,
-		"sender_name":     senderName,
+		"proposal_id":              p.ID.String(),
+		"proposal_title":           p.Title,
+		"proposal_amount":          p.Amount,
+		"proposal_status":          string(p.Status),
+		"proposal_documents_count": docsCount,
+		"proposal_sender_name":     senderName,
+		"proposal_version":         p.Version,
+		"proposal_client_id":       p.ClientID.String(),
+		"proposal_provider_id":     p.ProviderID.String(),
+	}
+	if p.ParentID != nil {
+		m["proposal_parent_id"] = p.ParentID.String()
+	} else {
+		m["proposal_parent_id"] = nil
 	}
 	if p.Deadline != nil {
-		m["deadline"] = p.Deadline.Format(time.RFC3339)
+		m["proposal_deadline"] = p.Deadline.Format(time.RFC3339)
 	}
 	data, _ := json.Marshal(m)
 	return data
