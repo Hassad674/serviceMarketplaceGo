@@ -61,6 +61,7 @@ class CallNotifier extends StateNotifier<CallState> {
 
   final CallRepository _repo;
   Room? _room;
+  EventsListener<RoomEvent>? _roomEventListener;
   Timer? _ringTimer;
   Timer? _durationTimer;
 
@@ -239,16 +240,21 @@ class CallNotifier extends StateNotifier<CallState> {
         ),
       ),
     );
-    _room!.addListener(_onRoomDisconnected);
+
+    // Use LiveKit's typed event listener — NOT ChangeNotifier.addListener,
+    // which fires on every internal state change and would immediately
+    // trigger cleanup.
+    _roomEventListener?.dispose();
+    _roomEventListener = _room!.createListener();
+    _roomEventListener!.on<RoomDisconnectedEvent>((_) {
+      debugPrint('[Call] Room disconnected event received');
+      _cleanup();
+    });
 
     debugPrint('[Call] Connecting to LiveKit room: $lkUrl');
     await _room!.connect(lkUrl, token);
     await _room!.localParticipant?.setMicrophoneEnabled(true);
     debugPrint('[Call] Connected, mic enabled');
-  }
-
-  void _onRoomDisconnected() {
-    _cleanup();
   }
 
   void _startRingTimeout() {
@@ -281,7 +287,8 @@ class CallNotifier extends StateNotifier<CallState> {
     _ringTimer = null;
     _durationTimer?.cancel();
     _durationTimer = null;
-    _room?.removeListener(_onRoomDisconnected);
+    _roomEventListener?.dispose();
+    _roomEventListener = null;
     _room?.disconnect();
     _room = null;
     state = CallState(errorMessage: errorMessage);
