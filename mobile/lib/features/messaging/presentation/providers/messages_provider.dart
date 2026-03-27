@@ -209,7 +209,7 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
     try {
       final sent = await _repository.sendMessage(
         conversationId: conversationId,
-        content: '',
+        content: 'Voice message',
         type: 'voice',
         metadata: metadata,
       );
