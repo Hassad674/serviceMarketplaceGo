@@ -1058,7 +1058,7 @@ func TestGetPresignedUploadURL_InvalidFileType(t *testing.T) {
 func TestGetPresignedUploadURL_AllowedTypes(t *testing.T) {
 	svc := newTestService(nil, nil, nil, nil, nil, nil)
 
-	allowedFiles := []string{"photo.jpg", "doc.pdf", "sheet.xlsx", "archive.zip", "notes.txt"}
+	allowedFiles := []string{"photo.jpg", "doc.pdf", "sheet.xlsx", "archive.zip", "notes.txt", "voice.m4a", "voice.webm"}
 	for _, filename := range allowedFiles {
 		result, err := svc.GetPresignedUploadURL(context.Background(), GetPresignedURLInput{
 			UserID:      uuid.New(),

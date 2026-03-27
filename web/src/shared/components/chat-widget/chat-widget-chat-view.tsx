@@ -13,6 +13,15 @@ import type { Conversation, Message } from "@/features/messaging/types"
 
 const TYPING_INTERVAL_MS = 2_000
 
+/** Map an audio MIME type to a file extension the backend allowlist accepts. */
+function voiceExtFromMime(mime: string): string {
+  if (mime.includes("webm")) return "webm"
+  if (mime.includes("mp4")) return "mp4"
+  if (mime.includes("ogg")) return "ogg"
+  if (mime.includes("wav")) return "wav"
+  return "webm"
+}
+
 interface ChatWidgetChatViewProps {
   conversation: Conversation | null
   conversationId: string | null
@@ -258,16 +267,19 @@ function WidgetMessageInput({
 
   const handleVoiceToggle = useCallback(async () => {
     if (isRecording) {
+      // Capture duration BEFORE stopping (stopRecording clears the timer)
+      const capturedDuration = voice.duration
       const blob = await voice.stopRecording()
       if (!blob || !onSendVoice) return
       voice.setUploading(true)
       try {
-        const filename = `voice-${Date.now()}.webm`
+        const ext = voiceExtFromMime(blob.type)
+        const filename = `voice-${Date.now()}.${ext}`
         const { upload_url, public_url } = await getPresignedURL(filename, blob.type)
         await fetch(upload_url, { method: "PUT", body: blob, headers: { "Content-Type": blob.type } })
         onSendVoice(t("voiceMessage"), {
           url: public_url,
-          duration: voice.duration,
+          duration: capturedDuration,
           size: blob.size,
           mime_type: blob.type,
         })

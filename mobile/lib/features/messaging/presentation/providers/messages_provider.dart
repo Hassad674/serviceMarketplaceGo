@@ -197,12 +197,13 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
     required String voiceUrl,
     required double duration,
     required int size,
+    String mimeType = 'audio/mp4',
   }) async {
     final metadata = {
       'url': voiceUrl,
       'duration': duration,
       'size': size,
-      'mime_type': 'audio/opus',
+      'mime_type': mimeType,
     };
 
     try {

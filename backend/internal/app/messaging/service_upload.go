@@ -31,7 +31,7 @@ var allowedUploadExtensions = map[string]bool{
 	".ppt": true, ".pptx": true, ".odt": true, ".ods": true, ".odp": true,
 	".txt": true, ".csv": true, ".rtf": true, ".md": true,
 	".zip": true, ".tar": true, ".gz": true, ".rar": true, ".7z": true,
-	".mp4": true, ".mp3": true, ".wav": true, ".ogg": true, ".webm": true,
+	".mp4": true, ".mp3": true, ".wav": true, ".ogg": true, ".webm": true, ".m4a": true,
 }
 
 func (s *Service) GetPresignedUploadURL(ctx context.Context, input GetPresignedURLInput) (PresignedUploadResult, error) {

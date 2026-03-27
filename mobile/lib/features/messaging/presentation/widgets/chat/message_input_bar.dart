@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../../../../core/theme/app_theme.dart';
@@ -55,7 +56,14 @@ class _MessageInputBarState extends State<MessageInputBar> {
   Future<void> _startRecording() async {
     if (!await _recorder.hasPermission()) return;
 
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.opus), path: '');
+    final dir = await getTemporaryDirectory();
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final path = '${dir.path}/voice_$ts.m4a';
+
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc),
+      path: path,
+    );
     setState(() {
       _isRecording = true;
       _recordingDuration = 0;
