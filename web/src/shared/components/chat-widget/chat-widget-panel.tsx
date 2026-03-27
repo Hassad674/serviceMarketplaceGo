@@ -168,6 +168,14 @@ export function ChatWidgetPanel({
     [deleteMessageMut],
   )
 
+  const handleSendVoice = useCallback(
+    (content: string, metadata: { url: string; duration: number; size: number; mime_type: string }) => {
+      if (!activeConversationId) return
+      sendMessageMut.mutate({ content, type: "voice", metadata })
+    },
+    [activeConversationId, sendMessageMut],
+  )
+
   const handleTyping = useCallback(() => {
     if (activeConversationId) sendTyping(activeConversationId)
   }, [activeConversationId, sendTyping])
@@ -205,6 +213,7 @@ export function ChatWidgetPanel({
           onLoadMore={() => messagesQuery.fetchNextPage()}
           onSend={handleSend}
           onSendFile={handleSendFile}
+          onSendVoice={handleSendVoice}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onTyping={handleTyping}

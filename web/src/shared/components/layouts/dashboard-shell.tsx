@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import dynamic from "next/dynamic"
 import { Sidebar, SIDEBAR_STORAGE_KEY } from "./sidebar"
 import { Header } from "./header"
@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import { useGlobalWS } from "@/shared/hooks/use-global-ws"
 import { useCall } from "@/features/call/hooks/use-call"
+import { CallContext } from "@/shared/hooks/use-call-context"
 
 const ChatWidget = dynamic(
   () =>
@@ -40,6 +41,20 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   // Call feature — global overlay
   const call = useCall()
+  const recipientNameRef = useRef("")
+
+  const wrappedStartCall = useCallback(
+    async (conversationId: string, recipientId: string, recipientName?: string) => {
+      recipientNameRef.current = recipientName ?? ""
+      await call.startCall(conversationId, recipientId)
+    },
+    [call.startCall],
+  )
+
+  const callContextValue = useMemo(
+    () => ({ startCall: wrappedStartCall }),
+    [wrappedStartCall],
+  )
 
   // Maintain a global WS connection so the sidebar unread badge updates
   // in real time on every page, not just on /messages.
@@ -59,46 +74,48 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50/50 dark:bg-gray-950">
-      <Sidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        collapsed={collapsed}
-        onToggleCollapse={toggleCollapse}
-      />
-      <div
-        className={cn(
-          "flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300",
+    <CallContext.Provider value={callContextValue}>
+      <div className="flex h-screen bg-gray-50/50 dark:bg-gray-950">
+        <Sidebar
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={collapsed}
+          onToggleCollapse={toggleCollapse}
+        />
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col overflow-hidden transition-all duration-300",
+          )}
+        >
+          <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
+          <main className="flex-1 overflow-y-auto p-5">
+            <div className="mx-auto w-full max-w-4xl">
+              {children}
+            </div>
+          </main>
+        </div>
+        <ChatWidget />
+
+        {/* Call overlays */}
+        {call.state === "ringing_incoming" && call.incomingCall && (
+          <IncomingCallOverlay
+            call={call.incomingCall}
+            onAccept={call.acceptIncoming}
+            onDecline={call.declineIncoming}
+          />
         )}
-      >
-        <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
-        <main className="flex-1 overflow-y-auto p-5">
-          <div className="mx-auto w-full max-w-4xl">
-            {children}
-          </div>
-        </main>
+
+        {(call.state === "active" || call.state === "ringing_outgoing") && (
+          <ActiveCallOverlay
+            state={call.state}
+            recipientName={recipientNameRef.current}
+            duration={call.duration}
+            isMuted={call.isMuted}
+            onToggleMute={call.toggleMute}
+            onHangup={call.hangup}
+          />
+        )}
       </div>
-      <ChatWidget />
-
-      {/* Call overlays */}
-      {call.state === "ringing_incoming" && call.incomingCall && (
-        <IncomingCallOverlay
-          call={call.incomingCall}
-          onAccept={call.acceptIncoming}
-          onDecline={call.declineIncoming}
-        />
-      )}
-
-      {(call.state === "active" || call.state === "ringing_outgoing") && (
-        <ActiveCallOverlay
-          state={call.state}
-          recipientName=""
-          duration={call.duration}
-          isMuted={call.isMuted}
-          onToggleMute={call.toggleMute}
-          onHangup={call.hangup}
-        />
-      )}
-    </div>
+    </CallContext.Provider>
   )
 }

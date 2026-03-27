@@ -27,11 +27,18 @@ export type FileMessageMetadata = {
   mime_type: string
 }
 
+export type VoiceMessageMetadata = {
+  url: string
+  duration: number
+  size: number
+  mime_type: string
+}
+
 export function sendMessage(
   conversationId: string,
   content: string,
-  type: "text" | "file" = "text",
-  metadata?: FileMessageMetadata,
+  type: "text" | "file" | "voice" = "text",
+  metadata?: FileMessageMetadata | VoiceMessageMetadata,
   replyToId?: string,
 ): Promise<Message> {
   return apiClient<Message>(

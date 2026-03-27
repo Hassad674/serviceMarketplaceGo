@@ -8,6 +8,7 @@ import { useRouter } from "@i18n/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
+import { useCallContext } from "@/shared/hooks/use-call-context"
 import { ConversationList } from "./conversation-list"
 import { ConversationHeader } from "./conversation-header"
 import { MessageArea } from "./message-area"
@@ -33,6 +34,8 @@ export function MessagingPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
   const [replyTo, setReplyTo] = useState<{ id: string; senderName: string; content: string } | null>(null)
+
+  const callCtx = useCallContext()
 
   const { data: conversationsData, isLoading: conversationsLoading } = useConversations()
   const messagesQuery = useMessages(activeId)
@@ -183,6 +186,23 @@ export function MessagingPage() {
     if (activeId) sendTyping(activeId)
   }, [activeId, sendTyping])
 
+  const handleStartCall = useCallback(() => {
+    if (!activeConversation || !callCtx) return
+    callCtx.startCall(
+      activeConversation.id,
+      activeConversation.other_user_id,
+      activeConversation.other_user_name,
+    )
+  }, [activeConversation, callCtx])
+
+  const handleSendVoice = useCallback(
+    (content: string, metadata: { url: string; duration: number; size: number; mime_type: string }) => {
+      if (!activeId) return
+      sendMessage.mutate({ content, type: "voice", metadata })
+    },
+    [activeId, sendMessage],
+  )
+
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
 
   return (
@@ -225,6 +245,7 @@ export function MessagingPage() {
               onBack={handleBack}
               typingUserName={typingUserForConversation ? activeConversation.other_user_name : undefined}
               isConnected={isConnected}
+              onStartCall={handleStartCall}
             />
             <MessageArea
               messages={allMessages}
@@ -242,6 +263,7 @@ export function MessagingPage() {
               otherUserId={activeConversation?.other_user_id ?? ""}
               onSend={handleSend}
               onSendFile={handleSendFile}
+              onSendVoice={handleSendVoice}
               onTyping={handleTyping}
               isSending={sendMessage.isPending}
               replyTo={replyTo}

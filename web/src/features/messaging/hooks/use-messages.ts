@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { listMessages, sendMessage, editMessage, deleteMessage } from "../api/messaging-api"
-import type { FileMessageMetadata } from "../api/messaging-api"
+import type { FileMessageMetadata, VoiceMessageMetadata } from "../api/messaging-api"
 import type { Message, MessageListResponse } from "../types"
 import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
 
@@ -32,8 +32,8 @@ export function useSendMessage(conversationId: string | null) {
       replyToId,
     }: {
       content: string
-      type?: "text" | "file"
-      metadata?: FileMessageMetadata
+      type?: "text" | "file" | "voice"
+      metadata?: FileMessageMetadata | VoiceMessageMetadata
       replyToId?: string
     }) => sendMessage(conversationId!, content, type, metadata, replyToId),
 
@@ -52,9 +52,7 @@ export function useSendMessage(conversationId: string | null) {
         sender_id: "optimistic",
         content,
         type,
-        metadata: metadata
-          ? { url: metadata.url, filename: metadata.filename, size: metadata.size, mime_type: metadata.mime_type }
-          : null,
+        metadata: metadata ?? null,
         seq: 0,
         status: "sending",
         edited_at: null,
