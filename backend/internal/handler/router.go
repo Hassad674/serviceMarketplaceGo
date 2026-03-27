@@ -16,6 +16,7 @@ type RouterDeps struct {
 	Upload         *UploadHandler
 	Health         *HealthHandler
 	Messaging      *MessagingHandler
+	Proposal       *ProposalHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -90,6 +91,23 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Delete("/messages/{id}", deps.Messaging.DeleteMessage)
 				r.Post("/upload-url", deps.Messaging.GetPresignedURL)
 				r.Get("/unread-count", deps.Messaging.GetTotalUnread)
+			})
+		}
+
+		// Proposal routes (authenticated)
+		if deps.Proposal != nil {
+			r.Route("/proposals", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Post("/", deps.Proposal.CreateProposal)
+				r.Get("/{id}", deps.Proposal.GetProposal)
+				r.Post("/{id}/accept", deps.Proposal.AcceptProposal)
+				r.Post("/{id}/decline", deps.Proposal.DeclineProposal)
+				r.Post("/{id}/modify", deps.Proposal.ModifyProposal)
+				r.Post("/{id}/pay", deps.Proposal.SimulatePayment)
+			})
+			r.Route("/projects", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Get("/", deps.Proposal.ListActiveProjects)
 			})
 		}
 

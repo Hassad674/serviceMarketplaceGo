@@ -19,6 +19,7 @@ import (
 	"marketplace-backend/internal/app/auth"
 	"marketplace-backend/internal/app/messaging"
 	profileapp "marketplace-backend/internal/app/profile"
+	proposalapp "marketplace-backend/internal/app/proposal"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/pkg/crypto"
@@ -114,12 +115,22 @@ func main() {
 		RateLimiter: rateLimiter,
 	})
 
+	// Proposal
+	proposalRepo := postgres.NewProposalRepository(db)
+	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
+		Proposals: proposalRepo,
+		Users:     userRepo,
+		Messages:  messagingSvc,
+		Storage:   storageSvc,
+	})
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
+	proposalHandler := handler.NewProposalHandler(proposalSvc)
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
@@ -138,6 +149,7 @@ func main() {
 		Upload:         uploadHandler,
 		Health:         healthHandler,
 		Messaging:      messagingHandler,
+		Proposal:       proposalHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
