@@ -23,6 +23,9 @@ import {
   useProposal,
   useAcceptProposal,
   useDeclineProposal,
+  useRequestCompletion,
+  useCompleteProposal,
+  useRejectCompletion,
 } from "../hooks/use-proposals"
 import type { ProposalResponse, ProposalStatus } from "../types"
 

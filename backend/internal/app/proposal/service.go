@@ -74,3 +74,18 @@ type PayProposalInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
 }
+
+type RequestCompletionInput struct {
+	ProposalID uuid.UUID
+	UserID     uuid.UUID
+}
+
+type CompleteProposalInput struct {
+	ProposalID uuid.UUID
+	UserID     uuid.UUID
+}
+
+type RejectCompletionInput struct {
+	ProposalID uuid.UUID
+	UserID     uuid.UUID
+}

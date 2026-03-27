@@ -8,6 +8,9 @@ import {
   declineProposal,
   modifyProposal,
   simulatePayment,
+  requestCompletion,
+  completeProposal,
+  rejectCompletion,
   listProjects,
 } from "../api/proposal-api"
 import type { CreateProposalData, ModifyProposalData } from "../api/proposal-api"
@@ -78,6 +81,45 @@ export function useSimulatePayment() {
 
   return useMutation({
     mutationFn: (id: string) => simulatePayment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+    },
+  })
+}
+
+export function useRequestCompletion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => requestCompletion(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+    },
+  })
+}
+
+export function useCompleteProposal() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => completeProposal(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
+    },
+  })
+}
+
+export function useRejectCompletion() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => rejectCompletion(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })

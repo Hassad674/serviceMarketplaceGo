@@ -5,6 +5,7 @@ export type ProposalStatus =
   | "withdrawn"
   | "paid"
   | "active"
+  | "completion_requested"
   | "completed"
 
 export type ProposalDocument = {

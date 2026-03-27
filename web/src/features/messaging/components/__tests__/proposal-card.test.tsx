@@ -5,9 +5,12 @@ import type { ProposalMessageMetadata } from "../../types"
 
 // Mock next-intl
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, params?: Record<string, string>) => {
+  useTranslations: () => (key: string, params?: Record<string, string | number>) => {
     if (key === "proposalFrom" && params?.name) {
       return `From ${params.name}`
+    }
+    if (key === "counterProposal" && params?.version) {
+      return `counterProposal`
     }
     return key
   },
@@ -217,8 +220,8 @@ describe("ProposalCard", () => {
     expect(screen.queryByText("modify")).toBeNull()
   })
 
-  it("applies opacity for outdated versions", () => {
-    const { container } = render(
+  it("shows counter-proposal label for version > 1", () => {
+    render(
       <ProposalCard
         metadata={createMetadata({
           proposal_status: "pending",
@@ -231,17 +234,17 @@ describe("ProposalCard", () => {
       />,
     )
 
-    const card = container.firstElementChild as HTMLElement
-    expect(card.className).toContain("opacity-50")
+    expect(screen.getByText("counterProposal")).toBeDefined()
   })
 
-  it("does not apply opacity for first version", () => {
-    const { container } = render(
+  it("shows proposalFrom label for version 1", () => {
+    render(
       <ProposalCard
         metadata={createMetadata({
           proposal_status: "pending",
           proposal_version: 1,
           proposal_parent_id: null,
+          proposal_sender_name: "Alice",
         })}
         isOwn={false}
         currentUserId="user-1"
@@ -249,8 +252,7 @@ describe("ProposalCard", () => {
       />,
     )
 
-    const card = container.firstElementChild as HTMLElement
-    expect(card.className).not.toContain("opacity-50")
+    expect(screen.getByText("From Alice")).toBeDefined()
   })
 
   it("calls accept mutation when Accept clicked", () => {

@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse, Conversation } from "../types"
+import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse, Conversation, ProposalMessageMetadata } from "../types"
 import { markAsRead } from "../api/messaging-api"
 import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
 import { MESSAGES_QUERY_KEY } from "./use-messages"
 import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
+import { PROPOSAL_QUERY_KEY } from "@/features/proposal/hooks/use-proposals"
 
 const HEARTBEAT_INTERVAL = 30_000
 const TYPING_CLEAR_DELAY = 5_000
@@ -100,6 +101,58 @@ export function useMessagingWS(userId: string | undefined) {
     [queryClient],
   )
 
+  // When a proposal status change message arrives (accepted/declined/paid),
+  // update the proposal_status in the metadata of all proposal_sent and
+  // proposal_modified messages with the same proposal_id in the cache.
+  const syncProposalStatusInCache = useCallback(
+    (message: Message) => {
+      const meta = message.metadata as ProposalMessageMetadata | null
+      if (!meta?.proposal_id) return
+
+      const PROPOSAL_STATUS_TYPES = new Set([
+        "proposal_accepted",
+        "proposal_declined",
+        "proposal_paid",
+      ])
+      if (!PROPOSAL_STATUS_TYPES.has(message.type)) return
+
+      const newStatus = meta.proposal_status
+      const proposalId = meta.proposal_id
+      const queryKey = [MESSAGES_QUERY_KEY, message.conversation_id]
+
+      queryClient.setQueryData(
+        queryKey,
+        (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              data: page.data.map((msg) => {
+                if (
+                  (msg.type === "proposal_sent" || msg.type === "proposal_modified") &&
+                  msg.metadata &&
+                  "proposal_id" in msg.metadata &&
+                  (msg.metadata as ProposalMessageMetadata).proposal_id === proposalId
+                ) {
+                  return {
+                    ...msg,
+                    metadata: { ...(msg.metadata as ProposalMessageMetadata), proposal_status: newStatus },
+                  }
+                }
+                return msg
+              }),
+            })),
+          }
+        },
+      )
+
+      // Also invalidate the proposal detail query so /projects/{id} refreshes
+      queryClient.invalidateQueries({ queryKey: [...PROPOSAL_QUERY_KEY, proposalId] })
+    },
+    [queryClient],
+  )
+
   // Use a ref for the frame handler so the WS onmessage callback
   // always calls the latest version without reconnecting.
   const handleFrameRef = useRef<(frame: WSServerFrame) => void>(() => {})
@@ -111,6 +164,7 @@ export function useMessagingWS(userId: string | undefined) {
           const incomingMsg = frame.payload
           addMessageToCache(incomingMsg)
           clearTyping(incomingMsg.conversation_id)
+          syncProposalStatusInCache(incomingMsg)
 
           const isActiveConversation =
             activeConversationIdRef.current === incomingMsg.conversation_id
@@ -252,7 +306,7 @@ export function useMessagingWS(userId: string | undefined) {
         }
       }
     }
-  }, [queryClient, addMessageToCache, clearTyping])
+  }, [queryClient, addMessageToCache, clearTyping, syncProposalStatusInCache])
 
   const connect = useCallback(() => {
     if (!userId) return

@@ -14,12 +14,15 @@ const (
 	MessageTypeFile MessageType = "file"
 
 	// Proposal message types — carry data in metadata, not content.
-	MessageTypeProposalSent             MessageType = "proposal_sent"
-	MessageTypeProposalAccepted         MessageType = "proposal_accepted"
-	MessageTypeProposalDeclined         MessageType = "proposal_declined"
-	MessageTypeProposalModified         MessageType = "proposal_modified"
-	MessageTypeProposalPaid             MessageType = "proposal_paid"
-	MessageTypeProposalPaymentRequested MessageType = "proposal_payment_requested"
+	MessageTypeProposalSent                MessageType = "proposal_sent"
+	MessageTypeProposalAccepted            MessageType = "proposal_accepted"
+	MessageTypeProposalDeclined            MessageType = "proposal_declined"
+	MessageTypeProposalModified            MessageType = "proposal_modified"
+	MessageTypeProposalPaid                MessageType = "proposal_paid"
+	MessageTypeProposalPaymentRequested    MessageType = "proposal_payment_requested"
+	MessageTypeProposalCompletionRequested MessageType = "proposal_completion_requested"
+	MessageTypeProposalCompleted           MessageType = "proposal_completed"
+	MessageTypeProposalCompletionRejected  MessageType = "proposal_completion_rejected"
 )
 
 // IsProposalType returns true if the message type is a proposal event type.
@@ -27,7 +30,9 @@ func (mt MessageType) IsProposalType() bool {
 	switch mt {
 	case MessageTypeProposalSent, MessageTypeProposalAccepted,
 		MessageTypeProposalDeclined, MessageTypeProposalModified,
-		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested:
+		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested,
+		MessageTypeProposalCompletionRequested, MessageTypeProposalCompleted,
+		MessageTypeProposalCompletionRejected:
 		return true
 	}
 	return false
@@ -38,7 +43,9 @@ func (mt MessageType) IsValid() bool {
 	case MessageTypeText, MessageTypeFile,
 		MessageTypeProposalSent, MessageTypeProposalAccepted,
 		MessageTypeProposalDeclined, MessageTypeProposalModified,
-		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested:
+		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested,
+		MessageTypeProposalCompletionRequested, MessageTypeProposalCompleted,
+		MessageTypeProposalCompletionRejected:
 		return true
 	}
 	return false

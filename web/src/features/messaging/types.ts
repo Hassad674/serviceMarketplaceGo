@@ -7,6 +7,9 @@ export type MessageType =
   | "proposal_modified"
   | "proposal_paid"
   | "proposal_payment_requested"
+  | "proposal_completion_requested"
+  | "proposal_completed"
+  | "proposal_completion_rejected"
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read"
 
@@ -21,7 +24,7 @@ export type ProposalMessageMetadata = {
   proposal_id: string
   proposal_title: string
   proposal_amount: number
-  proposal_status: "pending" | "accepted" | "declined" | "withdrawn" | "paid" | "active" | "completed"
+  proposal_status: "pending" | "accepted" | "declined" | "withdrawn" | "paid" | "active" | "completion_requested" | "completed"
   proposal_deadline: string | null
   proposal_sender_name: string
   proposal_documents_count: number

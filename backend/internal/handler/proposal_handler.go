@@ -233,6 +233,81 @@ func (h *ProposalHandler) SimulatePayment(w http.ResponseWriter, r *http.Request
 	res.JSON(w, http.StatusOK, map[string]string{"status": "paid"})
 }
 
+func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+
+	err = h.proposalSvc.RequestCompletion(r.Context(), proposalapp.RequestCompletionInput{
+		ProposalID: proposalID,
+		UserID:     userID,
+	})
+	if err != nil {
+		handleProposalError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "completion_requested"})
+}
+
+func (h *ProposalHandler) CompleteProposal(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+
+	err = h.proposalSvc.CompleteProposal(r.Context(), proposalapp.CompleteProposalInput{
+		ProposalID: proposalID,
+		UserID:     userID,
+	})
+	if err != nil {
+		handleProposalError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "completed"})
+}
+
+func (h *ProposalHandler) RejectCompletion(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+
+	err = h.proposalSvc.RejectCompletion(r.Context(), proposalapp.RejectCompletionInput{
+		ProposalID: proposalID,
+		UserID:     userID,
+	})
+	if err != nil {
+		handleProposalError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "active"})
+}
+
 func (h *ProposalHandler) ListActiveProjects(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -285,6 +360,10 @@ func handleProposalError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "empty_description", err.Error())
 	case errors.Is(err, proposaldomain.ErrInvalidAmount):
 		res.Error(w, http.StatusBadRequest, "invalid_amount", err.Error())
+	case errors.Is(err, proposaldomain.ErrNotProvider):
+		res.Error(w, http.StatusForbidden, "not_provider", err.Error())
+	case errors.Is(err, proposaldomain.ErrNotClient):
+		res.Error(w, http.StatusForbidden, "not_client", err.Error())
 	default:
 		slog.Error("unhandled proposal error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")

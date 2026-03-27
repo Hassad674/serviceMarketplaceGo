@@ -1,6 +1,15 @@
 "use client"
 
-import { FolderOpen, Plus, Calendar, Clock, CheckCircle2, DollarSign, Star } from "lucide-react"
+import {
+  FolderOpen,
+  Plus,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  DollarSign,
+  Star,
+  ArrowRight,
+} from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn, formatCurrency } from "@/shared/lib/utils"
@@ -50,9 +59,9 @@ export default function ProjectsListPage() {
         </div>
       )}
 
-      {/* Project cards */}
+      {/* Project cards — horizontal full-width list */}
       {!isLoading && projects.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-3">
           {projects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
@@ -63,45 +72,53 @@ export default function ProjectsListPage() {
 }
 
 function ProjectCard({ project }: { project: ProposalResponse }) {
+  const tp = useTranslations("proposal")
+
   return (
     <Link
       href={`/projects/${project.id}`}
       className={cn(
-        "block rounded-2xl border bg-white p-6 transition-all duration-200",
+        "flex items-center gap-5 rounded-2xl border bg-white px-6 py-5",
+        "transition-all duration-200",
         "border-gray-100 shadow-sm",
         "hover:shadow-md hover:border-rose-200 hover:-translate-y-0.5",
         "dark:bg-gray-800/80 dark:border-gray-700 dark:hover:border-rose-500/30",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">
-          {project.title}
-        </h3>
+      {/* Status badge */}
+      <div className="shrink-0">
         <ProjectStatusBadge status={project.status} />
       </div>
 
-      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-        {project.description}
-      </p>
+      {/* Title + description */}
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-bold text-gray-900 dark:text-white truncate">
+          {project.title}
+        </h3>
+        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+          {project.description}
+        </p>
+      </div>
 
-      <div className="mt-4 flex items-center gap-4">
-        <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-          <DollarSign className="h-3.5 w-3.5" strokeWidth={1.5} />
-          <span className="font-semibold text-gray-900 dark:text-white">
-            {formatCurrency(project.amount / 100)}
-          </span>
-        </div>
+      {/* Amount */}
+      <div className="shrink-0 text-right">
+        <p className="text-sm font-bold text-gray-900 dark:text-white">
+          {formatCurrency(project.amount / 100)}
+        </p>
         {project.deadline && (
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <Calendar className="h-3.5 w-3.5" strokeWidth={1.5} />
-            <span>
-              {new Intl.DateTimeFormat("fr-FR", {
-                day: "numeric",
-                month: "short",
-              }).format(new Date(project.deadline))}
-            </span>
-          </div>
+          <p className="mt-0.5 flex items-center justify-end gap-1 text-xs text-gray-500 dark:text-gray-400">
+            <Calendar className="h-3 w-3" strokeWidth={1.5} />
+            {new Intl.DateTimeFormat("fr-FR", {
+              day: "numeric",
+              month: "short",
+            }).format(new Date(project.deadline))}
+          </p>
         )}
+      </div>
+
+      {/* Arrow */}
+      <div className="shrink-0">
+        <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-600" strokeWidth={1.5} />
       </div>
     </Link>
   )
@@ -146,11 +163,11 @@ function ProjectStatusBadge({ status }: { status: ProposalStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium",
         entry.className,
       )}
     >
-      <Icon className="h-3 w-3" strokeWidth={2} />
+      <Icon className="h-3.5 w-3.5" strokeWidth={2} />
       {entry.label}
     </span>
   )
@@ -158,21 +175,20 @@ function ProjectStatusBadge({ status }: { status: ProposalStatus }) {
 
 function ProjectsSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="flex flex-col gap-3">
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-700 dark:bg-gray-800/80"
+          className="flex items-center gap-5 rounded-2xl border border-gray-100 bg-white px-6 py-5 dark:border-gray-700 dark:bg-gray-800/80"
         >
-          <div className="flex items-start justify-between">
+          <div className="h-6 w-20 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+          <div className="flex-1 space-y-1.5">
             <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="h-5 w-16 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+            <div className="h-3 w-1/2 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
           </div>
-          <div className="mt-3 h-3 w-full animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-          <div className="mt-1.5 h-3 w-2/3 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-          <div className="mt-4 flex gap-4">
-            <div className="h-3 w-16 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
-            <div className="h-3 w-20 animate-pulse rounded bg-gray-100 dark:bg-gray-700" />
+          <div className="space-y-1.5 text-right">
+            <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            <div className="h-3 w-16 animate-pulse rounded bg-gray-100 dark:bg-gray-700 ml-auto" />
           </div>
         </div>
       ))}

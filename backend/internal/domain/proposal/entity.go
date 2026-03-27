@@ -11,19 +11,21 @@ import (
 type ProposalStatus string
 
 const (
-	StatusPending   ProposalStatus = "pending"
-	StatusAccepted  ProposalStatus = "accepted"
-	StatusDeclined  ProposalStatus = "declined"
-	StatusWithdrawn ProposalStatus = "withdrawn"
-	StatusPaid      ProposalStatus = "paid"
-	StatusActive    ProposalStatus = "active"
-	StatusCompleted ProposalStatus = "completed"
+	StatusPending             ProposalStatus = "pending"
+	StatusAccepted            ProposalStatus = "accepted"
+	StatusDeclined            ProposalStatus = "declined"
+	StatusWithdrawn           ProposalStatus = "withdrawn"
+	StatusPaid                ProposalStatus = "paid"
+	StatusActive              ProposalStatus = "active"
+	StatusCompletionRequested ProposalStatus = "completion_requested"
+	StatusCompleted           ProposalStatus = "completed"
 )
 
 func (s ProposalStatus) IsValid() bool {
 	switch s {
 	case StatusPending, StatusAccepted, StatusDeclined,
-		StatusWithdrawn, StatusPaid, StatusActive, StatusCompleted:
+		StatusWithdrawn, StatusPaid, StatusActive,
+		StatusCompletionRequested, StatusCompleted:
 		return true
 	}
 	return false
@@ -194,15 +196,47 @@ func (p *Proposal) MarkActive() error {
 	return nil
 }
 
-// MarkCompleted transitions an active proposal to completed.
-func (p *Proposal) MarkCompleted() error {
+// RequestCompletion transitions an active proposal to completion_requested.
+// Only the provider can request completion.
+func (p *Proposal) RequestCompletion(userID uuid.UUID) error {
 	if p.Status != StatusActive {
 		return ErrInvalidStatus
+	}
+	if userID != p.ProviderID {
+		return ErrNotProvider
+	}
+	p.Status = StatusCompletionRequested
+	p.UpdatedAt = time.Now()
+	return nil
+}
+
+// ConfirmCompletion transitions a completion_requested proposal to completed.
+// Only the client can confirm completion.
+func (p *Proposal) ConfirmCompletion(userID uuid.UUID) error {
+	if p.Status != StatusCompletionRequested {
+		return ErrInvalidStatus
+	}
+	if userID != p.ClientID {
+		return ErrNotClient
 	}
 	now := time.Now()
 	p.Status = StatusCompleted
 	p.CompletedAt = &now
 	p.UpdatedAt = now
+	return nil
+}
+
+// RejectCompletion transitions a completion_requested proposal back to active.
+// Only the client can reject a completion request.
+func (p *Proposal) RejectCompletion(userID uuid.UUID) error {
+	if p.Status != StatusCompletionRequested {
+		return ErrInvalidStatus
+	}
+	if userID != p.ClientID {
+		return ErrNotClient
+	}
+	p.Status = StatusActive
+	p.UpdatedAt = time.Now()
 	return nil
 }
 

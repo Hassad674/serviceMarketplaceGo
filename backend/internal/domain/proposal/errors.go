@@ -14,4 +14,6 @@ var (
 	ErrCannotModify           = errors.New("only the recipient can modify a pending proposal")
 	ErrAlreadyAccepted        = errors.New("proposal is already accepted")
 	ErrAlreadyDeclined        = errors.New("proposal is already declined")
+	ErrNotProvider            = errors.New("only the provider can perform this action")
+	ErrNotClient              = errors.New("only the client can perform this action")
 )

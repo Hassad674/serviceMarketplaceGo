@@ -70,7 +70,7 @@ const queryListActiveProjectsFirst = `
 		created_at, updated_at
 	FROM proposals
 	WHERE (client_id = $1 OR provider_id = $1)
-		AND status IN ('paid', 'active', 'completed')
+		AND status IN ('paid', 'active', 'completion_requested', 'completed')
 	ORDER BY created_at DESC, id DESC
 	LIMIT $2`
 
@@ -83,7 +83,7 @@ const queryListActiveProjectsWithCursor = `
 		created_at, updated_at
 	FROM proposals
 	WHERE (client_id = $1 OR provider_id = $1)
-		AND status IN ('paid', 'active', 'completed')
+		AND status IN ('paid', 'active', 'completion_requested', 'completed')
 		AND (created_at, id) < ($2, $3)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`

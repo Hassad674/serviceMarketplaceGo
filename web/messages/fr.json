@@ -438,6 +438,10 @@
     "proposalWithdrawn": "Proposition retir\u00e9e",
     "backToProjects": "Retour aux projets",
     "viewDetails": "Voir les d\u00e9tails",
-    "acceptedRedirecting": "Proposition accept\u00e9e ! Redirection vers le paiement..."
+    "acceptedRedirecting": "Proposition accept\u00e9e ! Redirection vers le paiement...",
+    "counterProposal": "Contre-proposition (v{version})",
+    "supersededByVersion": "Remplac\u00e9e par une version plus r\u00e9cente",
+    "withParty": "Avec : {name}",
+    "viewProject": "Voir le projet"
   }
 }

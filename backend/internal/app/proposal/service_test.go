@@ -622,3 +622,182 @@ func TestGetProposal_NotAuthorized(t *testing.T) {
 
 	assert.ErrorIs(t, err, domain.ErrNotAuthorized)
 }
+
+// --- RequestCompletion tests ---
+
+func TestRequestCompletion_Success(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				SenderID:       clientID,
+				RecipientID:    providerID,
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusActive,
+				Title:          "Active project",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, nil, msgSender, nil)
+
+	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
+		ProposalID: uuid.New(),
+		UserID:     providerID,
+	})
+
+	require.NoError(t, err)
+	assert.Len(t, msgSender.calls, 1)
+	assert.Equal(t, "proposal_completion_requested", msgSender.calls[0].Type)
+}
+
+func TestRequestCompletion_NotProvider(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:         uuid.New(),
+				ClientID:   clientID,
+				ProviderID: providerID,
+				Status:     domain.StatusActive,
+			}, nil
+		},
+	}
+
+	svc := newTestService(proposalRepo, nil, nil, nil)
+
+	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
+		ProposalID: uuid.New(),
+		UserID:     clientID,
+	})
+
+	assert.ErrorIs(t, err, domain.ErrNotProvider)
+}
+
+func TestRequestCompletion_NotActive(t *testing.T) {
+	providerID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:         uuid.New(),
+				ClientID:   uuid.New(),
+				ProviderID: providerID,
+				Status:     domain.StatusPending,
+			}, nil
+		},
+	}
+
+	svc := newTestService(proposalRepo, nil, nil, nil)
+
+	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
+		ProposalID: uuid.New(),
+		UserID:     providerID,
+	})
+
+	assert.ErrorIs(t, err, domain.ErrInvalidStatus)
+}
+
+// --- CompleteProposal tests ---
+
+func TestCompleteProposal_Success(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				SenderID:       providerID,
+				RecipientID:    clientID,
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusCompletionRequested,
+				Title:          "Completion pending",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, nil, msgSender, nil)
+
+	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
+		ProposalID: uuid.New(),
+		UserID:     clientID,
+	})
+
+	require.NoError(t, err)
+	assert.Len(t, msgSender.calls, 1)
+	assert.Equal(t, "proposal_completed", msgSender.calls[0].Type)
+}
+
+func TestCompleteProposal_NotClient(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:         uuid.New(),
+				ClientID:   clientID,
+				ProviderID: providerID,
+				Status:     domain.StatusCompletionRequested,
+			}, nil
+		},
+	}
+
+	svc := newTestService(proposalRepo, nil, nil, nil)
+
+	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
+		ProposalID: uuid.New(),
+		UserID:     providerID,
+	})
+
+	assert.ErrorIs(t, err, domain.ErrNotClient)
+}
+
+// --- RejectCompletion tests ---
+
+func TestRejectCompletion_Success(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				SenderID:       providerID,
+				RecipientID:    clientID,
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusCompletionRequested,
+				Title:          "Completion pending",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, nil, msgSender, nil)
+
+	err := svc.RejectCompletion(context.Background(), RejectCompletionInput{
+		ProposalID: uuid.New(),
+		UserID:     clientID,
+	})
+
+	require.NoError(t, err)
+	assert.Len(t, msgSender.calls, 1)
+	assert.Equal(t, "proposal_completion_rejected", msgSender.calls[0].Type)
+}

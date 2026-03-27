@@ -129,6 +129,66 @@ func (s *Service) SimulatePayment(ctx context.Context, input PayProposalInput) e
 	return nil
 }
 
+func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletionInput) error {
+	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+
+	if err := p.RequestCompletion(input.UserID); err != nil {
+		return err
+	}
+
+	if err := s.proposals.Update(ctx, p); err != nil {
+		return fmt.Errorf("update proposal: %w", err)
+	}
+
+	metadata := buildStatusMetadata(p)
+	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completion_requested", metadata)
+
+	return nil
+}
+
+func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalInput) error {
+	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+
+	if err := p.ConfirmCompletion(input.UserID); err != nil {
+		return err
+	}
+
+	if err := s.proposals.Update(ctx, p); err != nil {
+		return fmt.Errorf("update proposal: %w", err)
+	}
+
+	metadata := buildStatusMetadata(p)
+	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
+
+	return nil
+}
+
+func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionInput) error {
+	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+
+	if err := p.RejectCompletion(input.UserID); err != nil {
+		return err
+	}
+
+	if err := s.proposals.Update(ctx, p); err != nil {
+		return fmt.Errorf("update proposal: %w", err)
+	}
+
+	metadata := buildStatusMetadata(p)
+	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completion_rejected", metadata)
+
+	return nil
+}
+
 func (s *Service) GetProposal(ctx context.Context, userID, proposalID uuid.UUID) (*domain.Proposal, []*domain.ProposalDocument, error) {
 	p, err := s.proposals.GetByID(ctx, proposalID)
 	if err != nil {

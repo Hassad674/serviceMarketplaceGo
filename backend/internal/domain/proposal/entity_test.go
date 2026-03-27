@@ -467,33 +467,58 @@ func TestProposal_MarkActive(t *testing.T) {
 	}
 }
 
-func TestProposal_MarkCompleted(t *testing.T) {
-	tests := []struct {
-		name    string
-		status  ProposalStatus
-		wantErr error
-	}{
-		{name: "active to completed", status: StatusActive},
-		{name: "paid cannot complete", status: StatusPaid, wantErr: ErrInvalidStatus},
-		{name: "pending cannot complete", status: StatusPending, wantErr: ErrInvalidStatus},
-	}
+func TestProposal_CompletionFlow(t *testing.T) {
+	t.Run("request completion as provider", func(t *testing.T) {
+		p := newPendingProposal()
+		p.Status = StatusActive
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := newPendingProposal()
-			p.Status = tt.status
+		err := p.RequestCompletion(p.ProviderID)
+		require.NoError(t, err)
+		assert.Equal(t, StatusCompletionRequested, p.Status)
+	})
 
-			err := p.MarkCompleted()
+	t.Run("confirm completion as client", func(t *testing.T) {
+		p := newPendingProposal()
+		p.Status = StatusCompletionRequested
 
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, StatusCompleted, p.Status)
-				assert.NotNil(t, p.CompletedAt)
-			}
-		})
-	}
+		err := p.ConfirmCompletion(p.ClientID)
+		require.NoError(t, err)
+		assert.Equal(t, StatusCompleted, p.Status)
+		assert.NotNil(t, p.CompletedAt)
+	})
+
+	t.Run("paid cannot request completion", func(t *testing.T) {
+		p := newPendingProposal()
+		p.Status = StatusPaid
+
+		err := p.RequestCompletion(p.ProviderID)
+		assert.ErrorIs(t, err, ErrInvalidStatus)
+	})
+
+	t.Run("pending cannot request completion", func(t *testing.T) {
+		p := newPendingProposal()
+		p.Status = StatusPending
+
+		err := p.RequestCompletion(p.ProviderID)
+		assert.ErrorIs(t, err, ErrInvalidStatus)
+	})
+
+	t.Run("active cannot confirm completion directly", func(t *testing.T) {
+		p := newPendingProposal()
+		p.Status = StatusActive
+
+		err := p.ConfirmCompletion(p.ClientID)
+		assert.ErrorIs(t, err, ErrInvalidStatus)
+	})
+
+	t.Run("reject completion as client", func(t *testing.T) {
+		p := newPendingProposal()
+		p.Status = StatusCompletionRequested
+
+		err := p.RejectCompletion(p.ClientID)
+		require.NoError(t, err)
+		assert.Equal(t, StatusActive, p.Status)
+	})
 }
 
 func TestProposal_CanBeModifiedBy(t *testing.T) {

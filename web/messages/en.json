@@ -438,6 +438,10 @@
     "proposalWithdrawn": "Proposal withdrawn",
     "backToProjects": "Back to projects",
     "viewDetails": "View details",
-    "acceptedRedirecting": "Proposal accepted! Redirecting to payment..."
+    "acceptedRedirecting": "Proposal accepted! Redirecting to payment...",
+    "counterProposal": "Counter-proposal (v{version})",
+    "supersededByVersion": "Replaced by a newer version",
+    "withParty": "With: {name}",
+    "viewProject": "View project"
   }
 }

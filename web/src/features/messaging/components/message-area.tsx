@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useEffect, useState, useCallback } from "react"
+import { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import {
   MessageSquare,
   CheckCircle2,
@@ -85,6 +85,54 @@ export function MessageArea({
     return <MessageAreaSkeleton />
   }
 
+  // Compute which proposal IDs have been superseded by a newer version.
+  // A proposal_sent or proposal_modified is superseded when a newer
+  // proposal_modified message references the same root via proposal_parent_id.
+  const supersededProposalIds = useMemo(() => {
+    const superseded = new Set<string>()
+    const parentIds = new Set<string>()
+    for (const msg of messages) {
+      if (msg.type === "proposal_modified" && isProposalMetadata(msg.metadata)) {
+        const meta = msg.metadata as ProposalMessageMetadata
+        if (meta.proposal_parent_id) {
+          parentIds.add(meta.proposal_parent_id)
+        }
+      }
+    }
+    // Any proposal_sent whose proposal_id is a parent_id of a modified version is superseded
+    for (const msg of messages) {
+      if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
+        const meta = msg.metadata as ProposalMessageMetadata
+        if (parentIds.has(meta.proposal_id)) {
+          superseded.add(meta.proposal_id)
+        }
+      }
+    }
+    // Also mark older modified versions as superseded (keep only the latest)
+    const versionMap = new Map<string, number>()
+    for (const msg of messages) {
+      if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
+        const meta = msg.metadata as ProposalMessageMetadata
+        const rootId = meta.proposal_parent_id ?? meta.proposal_id
+        const current = versionMap.get(rootId) ?? 0
+        if (meta.proposal_version > current) {
+          versionMap.set(rootId, meta.proposal_version)
+        }
+      }
+    }
+    for (const msg of messages) {
+      if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
+        const meta = msg.metadata as ProposalMessageMetadata
+        const rootId = meta.proposal_parent_id ?? meta.proposal_id
+        const maxVersion = versionMap.get(rootId) ?? 1
+        if (meta.proposal_version < maxVersion) {
+          superseded.add(meta.proposal_id)
+        }
+      }
+    }
+    return superseded
+  }, [messages])
+
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -125,6 +173,7 @@ export function MessageArea({
             conversationId={conversationId}
             onEdit={onEdit}
             onDelete={onDelete}
+            supersededProposalIds={supersededProposalIds}
           />
         ))}
       </div>
@@ -139,6 +188,7 @@ interface MessageBubbleProps {
   conversationId: string
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
+  supersededProposalIds: Set<string>
 }
 
 function isProposalMetadata(metadata: unknown): metadata is ProposalMessageMetadata {
@@ -162,6 +212,7 @@ function MessageBubble({
   conversationId,
   onEdit,
   onDelete,
+  supersededProposalIds,
 }: MessageBubbleProps) {
   const t = useTranslations("messaging")
   const tp = useTranslations("proposal")
@@ -182,14 +233,24 @@ function MessageBubble({
     (message.type === "proposal_sent" || message.type === "proposal_modified") &&
     isProposalMetadata(message.metadata)
   ) {
+    const meta = message.metadata as ProposalMessageMetadata
+    const isSuperseded = supersededProposalIds.has(meta.proposal_id)
+
     return (
-      <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
-        <ProposalCard
-          metadata={message.metadata}
-          isOwn={isOwn}
-          currentUserId={currentUserId}
-          conversationId={conversationId}
-        />
+      <div className={cn("flex flex-col gap-1", isOwn ? "items-end" : "items-start")}>
+        {isSuperseded && (
+          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 px-2">
+            {tp("supersededByVersion", { version: meta.proposal_version + 1 })}
+          </span>
+        )}
+        <div className={cn(isSuperseded && "opacity-40 pointer-events-none")}>
+          <ProposalCard
+            metadata={message.metadata}
+            isOwn={isOwn}
+            currentUserId={currentUserId}
+            conversationId={conversationId}
+          />
+        </div>
       </div>
     )
   }

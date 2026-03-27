@@ -52,11 +52,8 @@ export function ProposalCard({
     metadata.proposal_status === "accepted" &&
     metadata.proposal_client_id === currentUserId
   const showModifyButton = isOwn && metadata.proposal_status === "pending"
-  const isOutdated =
-    metadata.proposal_parent_id !== null &&
-    metadata.proposal_version > 1 &&
-    metadata.proposal_status === "pending"
 
+  const isCounterProposal = metadata.proposal_version > 1
   const isClient = metadata.proposal_client_id === currentUserId
 
   function handleAccept(e: React.MouseEvent) {
@@ -106,7 +103,6 @@ export function ProposalCard({
         "bg-white dark:bg-gray-800/80",
         "border-gray-200 dark:border-gray-700",
         "shadow-sm hover:shadow-md hover:border-rose-200 dark:hover:border-rose-500/30",
-        isOutdated && "opacity-50",
       )}
     >
       {/* Header gradient bar */}
@@ -122,7 +118,9 @@ export function ProposalCard({
             </div>
             <div className="min-w-0">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {t("proposalFrom", { name: metadata.proposal_sender_name })}
+                {isCounterProposal
+                  ? t("counterProposal", { version: metadata.proposal_version })
+                  : t("proposalFrom", { name: metadata.proposal_sender_name })}
               </p>
               <h3 className="truncate text-sm font-bold text-gray-900 dark:text-white">
                 {metadata.proposal_title}
