@@ -308,7 +308,8 @@
     "openChat": "Messages",
     "closeChat": "Close",
     "viewAllMessages": "View all messages",
-    "backToList": "Back"
+    "backToList": "Back",
+    "compose": "New message"
   },
   "projects": {
     "title": "Projects",

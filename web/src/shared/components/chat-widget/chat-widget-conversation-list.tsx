@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import Image from "next/image"
-import { Search, X, ExternalLink } from "lucide-react"
+import { Search, ChevronDown, ExternalLink, MessageSquare, SquarePen } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -56,18 +56,29 @@ export function ChatWidgetConversationList({
   )
 
   return (
-    <div className="flex h-full max-h-[500px] flex-col">
-      {/* Header */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 px-4 dark:border-gray-800">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+    <div className="flex h-full max-h-[600px] flex-col">
+      {/* Header — Contra style */}
+      <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-gray-100 px-4 dark:border-gray-800">
+        <MessageSquare
+          className="h-[18px] w-[18px] text-gray-700 dark:text-gray-300"
+          strokeWidth={1.5}
+        />
+        <h2 className="flex-1 text-sm font-semibold text-gray-900 dark:text-white">
           {t("title")}
         </h2>
+        <button
+          onClick={() => router.push("/messages")}
+          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          aria-label={t("compose")}
+        >
+          <SquarePen className="h-4 w-4" strokeWidth={1.5} />
+        </button>
         <button
           onClick={onClose}
           className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           aria-label={t("close")}
         >
-          <X className="h-4 w-4" strokeWidth={1.5} />
+          <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
         </button>
       </div>
 

@@ -8,7 +8,7 @@ import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
 import { useConversations, CONVERSATIONS_QUERY_KEY } from "@/features/messaging/hooks/use-conversations"
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from "@/features/messaging/hooks/use-messages"
 import { useMessagingWS } from "@/features/messaging/hooks/use-messaging-ws"
-import { markAsRead } from "@/features/messaging/api/messaging-api"
+import { markAsRead, getPresignedURL } from "@/features/messaging/api/messaging-api"
 import type { Conversation, ConversationListResponse } from "@/features/messaging/types"
 import { ChatWidgetConversationList } from "./chat-widget-conversation-list"
 import { ChatWidgetChatView } from "./chat-widget-chat-view"
@@ -126,6 +126,34 @@ export function ChatWidgetPanel({
     [activeConversationId, sendMessageMut],
   )
 
+  const handleSendFile = useCallback(
+    async (files: File[]) => {
+      if (!activeConversationId) return
+      for (const file of files) {
+        const { upload_url, public_url } = await getPresignedURL(
+          file.name,
+          file.type,
+        )
+        await fetch(upload_url, {
+          method: "PUT",
+          body: file,
+          headers: { "Content-Type": file.type },
+        })
+        sendMessageMut.mutate({
+          content: file.name,
+          type: "file",
+          metadata: {
+            url: public_url,
+            filename: file.name,
+            size: file.size,
+            mime_type: file.type,
+          },
+        })
+      }
+    },
+    [activeConversationId, sendMessageMut],
+  )
+
   const handleEdit = useCallback(
     (messageId: string, content: string) => {
       editMessageMut.mutate({ messageId, content })
@@ -147,12 +175,12 @@ export function ChatWidgetPanel({
   return (
     <div
       className={cn(
-        "fixed bottom-24 right-6 z-50 flex w-[380px] flex-col overflow-hidden",
-        "rounded-2xl border border-gray-200 bg-white shadow-xl",
+        "fixed bottom-0 right-6 z-50 flex w-[420px] flex-col overflow-hidden",
+        "rounded-t-2xl border border-b-0 border-gray-200 bg-white shadow-xl",
         "dark:border-gray-700 dark:bg-gray-900",
-        "animate-scale-in origin-bottom-right",
+        "animate-slide-up",
       )}
-      style={{ maxHeight: "500px" }}
+      style={{ maxHeight: "600px" }}
     >
       {view === "list" ? (
         <ChatWidgetConversationList
@@ -165,6 +193,7 @@ export function ChatWidgetPanel({
       ) : (
         <ChatWidgetChatView
           conversation={activeConversation ?? null}
+          conversationId={activeConversationId}
           messages={allMessages}
           currentUserId={user?.id ?? ""}
           isLoading={messagesQuery.isLoading}
@@ -175,6 +204,7 @@ export function ChatWidgetPanel({
           }
           onLoadMore={() => messagesQuery.fetchNextPage()}
           onSend={handleSend}
+          onSendFile={handleSendFile}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onTyping={handleTyping}

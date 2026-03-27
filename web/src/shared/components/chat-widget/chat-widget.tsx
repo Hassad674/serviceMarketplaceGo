@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, ChevronUp } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
@@ -39,11 +39,10 @@ export function ChatWidget() {
   // Hide on /messages pages (any locale prefix)
   if (pathname.includes("/messages")) return null
 
+  // Hide bar on mobile — the navbar badge is enough
+  if (!isDesktop) return null
+
   function handleToggle() {
-    if (!isDesktop) {
-      router.push("/messages")
-      return
-    }
     if (isOpen) {
       close()
     } else {
@@ -53,33 +52,44 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* Floating action button */}
-      <button
-        onClick={handleToggle}
-        className={cn(
-          "fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center",
-          "rounded-full bg-rose-500 text-white shadow-lg",
-          "transition-all duration-200 hover:bg-rose-600 hover:shadow-glow",
-          "active:scale-[0.96]",
-        )}
-        aria-label={t("openChat")}
-      >
-        <MessageSquare className="h-6 w-6" strokeWidth={1.5} />
-        {unreadCount > 0 && (
-          <span
-            className={cn(
-              "absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center",
-              "rounded-full bg-rose-600 px-1.5 text-[10px] font-bold text-white",
-              "ring-2 ring-white dark:ring-gray-950",
-            )}
-          >
-            {unreadCount > 99 ? "99+" : unreadCount}
+      {/* Contra-style bottom bar (closed state) or panel header (open state) */}
+      {!isOpen && (
+        <button
+          onClick={handleToggle}
+          className={cn(
+            "fixed bottom-0 right-6 z-50 flex h-12 w-[300px] items-center gap-2.5 px-4",
+            "rounded-t-xl border border-b-0 border-gray-200 bg-white shadow-lg",
+            "transition-all duration-200 hover:shadow-xl",
+            "dark:border-gray-700 dark:bg-gray-900",
+          )}
+          aria-label={t("openChat")}
+        >
+          <MessageSquare
+            className="h-[18px] w-[18px] text-gray-700 dark:text-gray-300"
+            strokeWidth={1.5}
+          />
+          <span className="flex-1 text-left text-sm font-semibold text-gray-900 dark:text-white">
+            {t("title")}
           </span>
-        )}
-      </button>
+          {unreadCount > 0 && (
+            <span
+              className={cn(
+                "flex h-5 min-w-5 items-center justify-center",
+                "rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white",
+              )}
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+          <ChevronUp
+            className="h-4 w-4 text-gray-400 dark:text-gray-500"
+            strokeWidth={1.5}
+          />
+        </button>
+      )}
 
       {/* Desktop panel */}
-      {isDesktop && isOpen && (
+      {isOpen && (
         <ChatWidgetPanel
           view={view}
           activeConversationId={activeConversationId}
