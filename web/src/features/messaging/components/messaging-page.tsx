@@ -17,7 +17,7 @@ import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from ".
 import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
 import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
-import type { Conversation, ConversationListResponse } from "../types"
+import type { Conversation, ConversationListResponse, Message } from "../types"
 
 export function MessagingPage() {
   const t = useTranslations("messaging")
@@ -32,6 +32,7 @@ export function MessagingPage() {
   const [roleFilter, setRoleFilter] = useState<"all" | string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
+  const [replyTo, setReplyTo] = useState<{ id: string; senderName: string; content: string } | null>(null)
 
   const { data: conversationsData, isLoading: conversationsLoading } = useConversations()
   const messagesQuery = useMessages(activeId)
@@ -137,12 +138,24 @@ export function MessagingPage() {
   }, [])
 
   const handleSend = useCallback(
-    (content: string) => {
+    (content: string, replyToId?: string) => {
       if (!activeId) return
-      sendMessage.mutate({ content, type: "text" })
+      sendMessage.mutate({ content, type: "text", replyToId })
     },
     [activeId, sendMessage],
   )
+
+  const handleReply = useCallback(
+    (message: Message) => {
+      const senderName = message.sender_id === user?.id
+        ? (user?.display_name ?? "You")
+        : (activeConversation?.other_user_name ?? "")
+      setReplyTo({ id: message.id, senderName, content: message.content })
+    },
+    [user?.id, user?.display_name, activeConversation?.other_user_name],
+  )
+
+  const clearReply = useCallback(() => setReplyTo(null), [])
 
   const handleSendFile = useCallback(
     (content: string, metadata: { url: string; filename: string; size: number; mime_type: string }) => {
@@ -221,6 +234,7 @@ export function MessagingPage() {
               onLoadMore={() => messagesQuery.fetchNextPage()}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onReply={handleReply}
               conversationId={activeId ?? ""}
             />
             <MessageInput
@@ -230,6 +244,8 @@ export function MessagingPage() {
               onSendFile={handleSendFile}
               onTyping={handleTyping}
               isSending={sendMessage.isPending}
+              replyTo={replyTo}
+              onCancelReply={clearReply}
             />
           </>
         ) : (

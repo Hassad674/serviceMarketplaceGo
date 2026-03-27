@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Paperclip, Send, Loader2, FileText } from "lucide-react"
+import { Paperclip, Send, Loader2, FileText, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -10,13 +10,21 @@ import { FileUploadModal } from "./file-upload-modal"
 
 const TYPING_INTERVAL_MS = 2_000
 
+interface ReplyTarget {
+  id: string
+  senderName: string
+  content: string
+}
+
 interface MessageInputProps {
   conversationId: string
   otherUserId: string
-  onSend: (content: string) => void
+  onSend: (content: string, replyToId?: string) => void
   onSendFile: (content: string, metadata: { url: string; filename: string; size: number; mime_type: string }) => void
   onTyping: () => void
   isSending: boolean
+  replyTo?: ReplyTarget | null
+  onCancelReply?: () => void
 }
 
 export function MessageInput({
@@ -26,6 +34,8 @@ export function MessageInput({
   onSendFile,
   onTyping,
   isSending,
+  replyTo,
+  onCancelReply,
 }: MessageInputProps) {
   const t = useTranslations("messaging")
   const router = useRouter()
@@ -59,8 +69,9 @@ export function MessageInput({
     e.preventDefault()
     const trimmed = value.trim()
     if (!trimmed || isSending) return
-    onSend(trimmed)
+    onSend(trimmed, replyTo?.id)
     setValue("")
+    onCancelReply?.()
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -124,6 +135,27 @@ export function MessageInput({
           <p className="text-xs text-red-600 dark:text-red-400">{uploadError}</p>
         </div>
       )}
+
+      {/* Reply preview bar */}
+      {replyTo && (
+        <div className="flex items-center gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-800/50">
+          <div className="min-w-0 flex-1 border-l-2 border-rose-500 pl-2">
+            <p className="text-xs font-semibold text-rose-500">{t("replyingTo", { name: replyTo.senderName })}</p>
+            <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+              {replyTo.content.length > 50 ? replyTo.content.slice(0, 50) + "..." : replyTo.content}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+            aria-label={t("cancelReply")}
+          >
+            <X className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={handleSubmit}
         className="flex items-center gap-2 border-t border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900"

@@ -61,6 +61,28 @@ func TestNewMessage_FileWithEmptyContent(t *testing.T) {
 	assert.Equal(t, MessageTypeFile, msg.Type)
 }
 
+func TestNewMessage_ValidVoiceMessage(t *testing.T) {
+	convID := uuid.New()
+	senderID := uuid.New()
+	meta := json.RawMessage(`{"url":"https://example.com/voice.webm","duration":42.5,"size":8192,"mime_type":"audio/webm"}`)
+
+	msg, err := NewMessage(convID, senderID, "", MessageTypeVoice, meta, 3)
+
+	require.NoError(t, err)
+	require.NotNil(t, msg)
+	assert.Equal(t, MessageTypeVoice, msg.Type)
+	assert.Empty(t, msg.Content)
+	assert.NotNil(t, msg.Metadata)
+}
+
+func TestNewMessage_VoiceWithEmptyContent(t *testing.T) {
+	msg, err := NewMessage(uuid.New(), uuid.New(), "", MessageTypeVoice, nil, 1)
+
+	require.NoError(t, err)
+	require.NotNil(t, msg)
+	assert.Equal(t, MessageTypeVoice, msg.Type)
+}
+
 func TestNewMessage_ContentTooLong(t *testing.T) {
 	longContent := strings.Repeat("a", MaxContentLength+1)
 	msg, err := NewMessage(uuid.New(), uuid.New(), longContent, MessageTypeText, nil, 1)
@@ -146,6 +168,7 @@ func TestMessageType_IsValid(t *testing.T) {
 	}{
 		{"text is valid", MessageTypeText, true},
 		{"file is valid", MessageTypeFile, true},
+		{"voice is valid", MessageTypeVoice, true},
 		{"image is invalid", MessageType("image"), false},
 		{"empty is invalid", MessageType(""), false},
 		{"audio is invalid", MessageType("audio"), false},

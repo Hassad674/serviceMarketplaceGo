@@ -7,6 +7,7 @@ import '../../../domain/entities/message_entity.dart';
 import 'file_message_bubble.dart';
 import 'message_context_menu.dart';
 import 'proposal_card.dart';
+import 'voice_message.dart';
 
 /// Renders a single chat message bubble (text, file, deleted, or proposal).
 ///
@@ -22,6 +23,7 @@ class MessageBubble extends StatelessWidget {
     required this.message,
     required this.isOwn,
     required this.currentUserId,
+    this.onReply,
     this.onEdit,
     this.onDelete,
     this.onAcceptProposal,
@@ -33,6 +35,7 @@ class MessageBubble extends StatelessWidget {
   final MessageEntity message;
   final bool isOwn;
   final String currentUserId;
+  final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final void Function(String proposalId)? onAcceptProposal;
@@ -143,16 +146,22 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
+    // Voice message
+    if (message.isVoice && message.metadata != null) {
+      return _buildVoiceBubble(context, theme, appColors);
+    }
+
     // Text message
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
-        onLongPress: isOwn && (onEdit != null || onDelete != null)
+        onLongPress: (onReply != null || onEdit != null || onDelete != null)
             ? () => showMessageContextMenu(
                   context: context,
                   l10n: l10n,
-                  onEdit: onEdit,
-                  onDelete: onDelete,
+                  onReply: onReply,
+                  onEdit: isOwn ? onEdit : null,
+                  onDelete: isOwn ? onDelete : null,
                 )
             : null,
         child: Align(
@@ -181,6 +190,12 @@ class MessageBubble extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
+                  // Reply preview
+                  if (message.replyTo != null)
+                    _ReplyPreviewWidget(
+                      replyTo: message.replyTo!,
+                      isOwn: isOwn,
+                    ),
                   Text(
                     message.content,
                     style: TextStyle(
@@ -310,6 +325,54 @@ class MessageBubble extends StatelessWidget {
     );
   }
 
+  Widget _buildVoiceBubble(
+    BuildContext context,
+    ThemeData theme,
+    AppColors? appColors,
+  ) {
+    final url = message.metadata!['url'] as String? ?? '';
+    final duration =
+        (message.metadata!['duration'] as num?)?.toDouble() ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Align(
+        alignment:
+            isOwn ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.65,
+            minWidth: 180,
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              color: isOwn
+                  ? const Color(0xFFF43F5E)
+                  : (appColors?.muted ?? const Color(0xFFF1F5F9)),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: Radius.circular(isOwn ? 16 : 4),
+                bottomRight: Radius.circular(isOwn ? 4 : 16),
+              ),
+            ),
+            child: VoiceMessageWidget(
+              url: url,
+              duration: duration,
+              isOwn: isOwn,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Voice messages build helper uses _ReplyPreviewWidget too — keep consistent
+
   Widget _buildDeletedBubble(
     BuildContext context,
     AppColors? appColors,
@@ -354,6 +417,51 @@ class MessageBubble extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Compact preview of the replied-to message, shown inside the bubble.
+class _ReplyPreviewWidget extends StatelessWidget {
+  const _ReplyPreviewWidget({
+    required this.replyTo,
+    required this.isOwn,
+  });
+
+  final ReplyToInfo replyTo;
+  final bool isOwn;
+
+  @override
+  Widget build(BuildContext context) {
+    final truncated = replyTo.content.length > 50
+        ? '${replyTo.content.substring(0, 50)}...'
+        : replyTo.content;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        border: const Border(
+          left: BorderSide(color: Color(0xFFF43F5E), width: 2),
+        ),
+        color: isOwn
+            ? Colors.white.withValues(alpha: 0.15)
+            : const Color(0xFFF43F5E).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        truncated.isEmpty
+            ? AppLocalizations.of(context)!.messagingDeleted
+            : truncated,
+        style: TextStyle(
+          fontSize: 12,
+          color: isOwn
+              ? Colors.white.withValues(alpha: 0.8)
+              : const Color(0xFF64748B),
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

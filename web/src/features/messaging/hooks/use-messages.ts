@@ -29,11 +29,13 @@ export function useSendMessage(conversationId: string | null) {
       content,
       type,
       metadata,
+      replyToId,
     }: {
       content: string
       type?: "text" | "file"
       metadata?: FileMessageMetadata
-    }) => sendMessage(conversationId!, content, type, metadata),
+      replyToId?: string
+    }) => sendMessage(conversationId!, content, type, metadata, replyToId),
 
     onMutate: async ({ content, type = "text", metadata }) => {
       const queryKey = [MESSAGES_QUERY_KEY, conversationId]

@@ -27,12 +27,18 @@ export type FileMessageMetadata = {
   mime_type: string
 }
 
-export function sendMessage(conversationId: string, content: string, type: "text" | "file" = "text", metadata?: FileMessageMetadata): Promise<Message> {
+export function sendMessage(
+  conversationId: string,
+  content: string,
+  type: "text" | "file" = "text",
+  metadata?: FileMessageMetadata,
+  replyToId?: string,
+): Promise<Message> {
   return apiClient<Message>(
     `/api/v1/messaging/conversations/${conversationId}/messages`,
     {
       method: "POST",
-      body: { content, type, metadata },
+      body: { content, type, metadata, reply_to_id: replyToId },
     },
   )
 }

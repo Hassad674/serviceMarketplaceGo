@@ -450,6 +450,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get messagingLoadMore => 'Load more';
 
   @override
+  String get messagingVoiceMessage => 'Voice message';
+
+  @override
+  String get messagingRecording => 'Recording...';
+
+  @override
+  String get messagingCancelRecording => 'Cancel';
+
+  @override
+  String get messagingMicrophonePermission => 'Microphone access required';
+
+  @override
+  String get messagingReply => 'Reply';
+
+  @override
+  String messagingReplyingTo(String name) {
+    return 'Replying to $name';
+  }
+
+  @override
   String get projects => 'Projects';
 
   @override
@@ -776,4 +796,43 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startProject => 'Start a project';
+
+  @override
+  String get callCalling => 'Calling...';
+
+  @override
+  String get callIncomingCall => 'Incoming call';
+
+  @override
+  String get callAudioCall => 'Audio call';
+
+  @override
+  String get callAccept => 'Accept';
+
+  @override
+  String get callDecline => 'Decline';
+
+  @override
+  String get callHangup => 'Hang up';
+
+  @override
+  String get callMute => 'Mute';
+
+  @override
+  String get callUnmute => 'Unmute';
+
+  @override
+  String get callEnded => 'Call ended';
+
+  @override
+  String get callMissed => 'Missed call';
+
+  @override
+  String get callStartCall => 'Start audio call';
+
+  @override
+  String get callRecipientOffline => 'Recipient is offline';
+
+  @override
+  String get callUnknownCaller => 'Unknown caller';
 }

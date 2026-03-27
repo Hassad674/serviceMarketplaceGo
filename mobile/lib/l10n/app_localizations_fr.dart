@@ -451,6 +451,26 @@ class AppLocalizationsFr extends AppLocalizations {
   String get messagingLoadMore => 'Charger plus';
 
   @override
+  String get messagingVoiceMessage => 'Message vocal';
+
+  @override
+  String get messagingRecording => 'Enregistrement...';
+
+  @override
+  String get messagingCancelRecording => 'Annuler';
+
+  @override
+  String get messagingMicrophonePermission => 'Accès au microphone requis';
+
+  @override
+  String get messagingReply => 'Répondre';
+
+  @override
+  String messagingReplyingTo(String name) {
+    return 'Réponse à $name';
+  }
+
+  @override
   String get projects => 'Projets';
 
   @override
@@ -778,4 +798,43 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get startProject => 'Proposer un projet';
+
+  @override
+  String get callCalling => 'Appel en cours...';
+
+  @override
+  String get callIncomingCall => 'Appel entrant';
+
+  @override
+  String get callAudioCall => 'Appel audio';
+
+  @override
+  String get callAccept => 'Accepter';
+
+  @override
+  String get callDecline => 'Refuser';
+
+  @override
+  String get callHangup => 'Raccrocher';
+
+  @override
+  String get callMute => 'Couper le micro';
+
+  @override
+  String get callUnmute => 'Activer le micro';
+
+  @override
+  String get callEnded => 'Appel terminé';
+
+  @override
+  String get callMissed => 'Appel manqué';
+
+  @override
+  String get callStartCall => 'Démarrer un appel audio';
+
+  @override
+  String get callRecipientOffline => 'Le destinataire est hors ligne';
+
+  @override
+  String get callUnknownCaller => 'Appelant inconnu';
 }

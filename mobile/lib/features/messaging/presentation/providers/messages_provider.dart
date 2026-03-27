@@ -123,7 +123,7 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   }
 
   /// Sends a text message in this conversation.
-  Future<MessageEntity?> sendTextMessage(String content) async {
+  Future<MessageEntity?> sendTextMessage(String content, {String? replyToId}) async {
     // Optimistic: insert with "sending" status
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final optimistic = MessageEntity(
@@ -143,6 +143,7 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
       final sent = await _repository.sendMessage(
         conversationId: conversationId,
         content: content,
+        replyToId: replyToId,
       );
       // Replace optimistic message with the real one
       final updated = state.messages.map((m) {
@@ -180,6 +181,35 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
         conversationId: conversationId,
         content: filename,
         type: 'file',
+        metadata: metadata,
+      );
+      state = state.copyWith(
+        messages: [...state.messages, sent],
+      );
+      return sent;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Sends a voice message after uploading to R2.
+  Future<MessageEntity?> sendVoiceMessage({
+    required String voiceUrl,
+    required double duration,
+    required int size,
+  }) async {
+    final metadata = {
+      'url': voiceUrl,
+      'duration': duration,
+      'size': size,
+      'mime_type': 'audio/opus',
+    };
+
+    try {
+      final sent = await _repository.sendMessage(
+        conversationId: conversationId,
+        content: '',
+        type: 'voice',
         metadata: metadata,
       );
       state = state.copyWith(

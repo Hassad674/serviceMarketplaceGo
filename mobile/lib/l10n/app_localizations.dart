@@ -956,6 +956,42 @@ abstract class AppLocalizations {
   /// **'Load more'**
   String get messagingLoadMore;
 
+  /// No description provided for @messagingVoiceMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice message'**
+  String get messagingVoiceMessage;
+
+  /// No description provided for @messagingRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording...'**
+  String get messagingRecording;
+
+  /// No description provided for @messagingCancelRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get messagingCancelRecording;
+
+  /// No description provided for @messagingMicrophonePermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone access required'**
+  String get messagingMicrophonePermission;
+
+  /// No description provided for @messagingReply.
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get messagingReply;
+
+  /// No description provided for @messagingReplyingTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Replying to {name}'**
+  String messagingReplyingTo(String name);
+
   /// No description provided for @projects.
   ///
   /// In en, this message translates to:
@@ -1603,6 +1639,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start a project'**
   String get startProject;
+
+  /// No description provided for @callCalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Calling...'**
+  String get callCalling;
+
+  /// No description provided for @callIncomingCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming call'**
+  String get callIncomingCall;
+
+  /// No description provided for @callAudioCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio call'**
+  String get callAudioCall;
+
+  /// No description provided for @callAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get callAccept;
+
+  /// No description provided for @callDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get callDecline;
+
+  /// No description provided for @callHangup.
+  ///
+  /// In en, this message translates to:
+  /// **'Hang up'**
+  String get callHangup;
+
+  /// No description provided for @callMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get callMute;
+
+  /// No description provided for @callUnmute.
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get callUnmute;
+
+  /// No description provided for @callEnded.
+  ///
+  /// In en, this message translates to:
+  /// **'Call ended'**
+  String get callEnded;
+
+  /// No description provided for @callMissed.
+  ///
+  /// In en, this message translates to:
+  /// **'Missed call'**
+  String get callMissed;
+
+  /// No description provided for @callStartCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Start audio call'**
+  String get callStartCall;
+
+  /// No description provided for @callRecipientOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Recipient is offline'**
+  String get callRecipientOffline;
+
+  /// No description provided for @callUnknownCaller.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown caller'**
+  String get callUnknownCaller;
 }
 
 class _AppLocalizationsDelegate

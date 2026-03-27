@@ -32,6 +32,11 @@ dependencies:
   connectivity_plus: ^6.0.1
   lottie: ^3.0.0
   web_socket_channel: ^3.0.1
+  livekit_client: ^2.3.0
+  permission_handler: ^11.3.0
+  wakelock_plus: ^1.2.8
+  record: ^5.1.0
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:

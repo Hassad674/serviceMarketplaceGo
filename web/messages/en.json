@@ -313,7 +313,11 @@
     "voiceMessage": "Voice message",
     "recording": "Recording...",
     "cancelRecording": "Cancel",
-    "microphonePermission": "Microphone access required"
+    "microphonePermission": "Microphone access required",
+    "reply": "Reply",
+    "replyingTo": "Replying to {name}",
+    "cancelReply": "Cancel reply",
+    "fileMessage": "File"
   },
   "projects": {
     "title": "Projects",

@@ -10,8 +10,9 @@ import (
 type MessageType string
 
 const (
-	MessageTypeText MessageType = "text"
-	MessageTypeFile MessageType = "file"
+	MessageTypeText  MessageType = "text"
+	MessageTypeFile  MessageType = "file"
+	MessageTypeVoice MessageType = "voice"
 
 	// Proposal message types — carry data in metadata, not content.
 	MessageTypeProposalSent                MessageType = "proposal_sent"
@@ -23,6 +24,10 @@ const (
 	MessageTypeProposalCompletionRequested MessageType = "proposal_completion_requested"
 	MessageTypeProposalCompleted           MessageType = "proposal_completed"
 	MessageTypeProposalCompletionRejected  MessageType = "proposal_completion_rejected"
+
+	// Call message types
+	MessageTypeCallEnded  MessageType = "call_ended"
+	MessageTypeCallMissed MessageType = "call_missed"
 )
 
 // IsProposalType returns true if the message type is a proposal event type.
@@ -40,12 +45,13 @@ func (mt MessageType) IsProposalType() bool {
 
 func (mt MessageType) IsValid() bool {
 	switch mt {
-	case MessageTypeText, MessageTypeFile,
+	case MessageTypeText, MessageTypeFile, MessageTypeVoice,
 		MessageTypeProposalSent, MessageTypeProposalAccepted,
 		MessageTypeProposalDeclined, MessageTypeProposalModified,
 		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested,
 		MessageTypeProposalCompletionRequested, MessageTypeProposalCompleted,
-		MessageTypeProposalCompletionRejected:
+		MessageTypeProposalCompletionRejected,
+		MessageTypeCallEnded, MessageTypeCallMissed:
 		return true
 	}
 	return false
@@ -114,6 +120,13 @@ type FileMetadata struct {
 	MimeType string `json:"mime_type"`
 }
 
+type VoiceMetadata struct {
+	URL      string  `json:"url"`
+	Duration float64 `json:"duration"`
+	Size     int64   `json:"size"`
+	MimeType string  `json:"mime_type"`
+}
+
 func NewMessage(
 	conversationID, senderID uuid.UUID,
 	content string,
@@ -130,7 +143,7 @@ func NewMessage(
 	}
 
 	// Proposal message types carry data in metadata, content is optional.
-	// File messages also allow empty content (already handled above).
+	// File and voice messages also allow empty content (already handled above).
 
 	if len(content) > MaxContentLength {
 		return nil, ErrContentTooLong

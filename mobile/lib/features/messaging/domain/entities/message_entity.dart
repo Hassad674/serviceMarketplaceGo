@@ -1,3 +1,27 @@
+/// Lightweight preview of a replied-to message.
+class ReplyToInfo {
+  final String id;
+  final String senderId;
+  final String content;
+  final String type;
+
+  const ReplyToInfo({
+    required this.id,
+    required this.senderId,
+    required this.content,
+    required this.type,
+  });
+
+  factory ReplyToInfo.fromJson(Map<String, dynamic> json) {
+    return ReplyToInfo(
+      id: json['id'] as String,
+      senderId: json['sender_id'] as String,
+      content: json['content'] as String? ?? '',
+      type: json['type'] as String? ?? 'text',
+    );
+  }
+}
+
 /// Represents a single chat message in a conversation.
 ///
 /// Maps to the backend `Message` response:
@@ -9,6 +33,7 @@ class MessageEntity {
   final String content;
   final String type; // "text" | "file"
   final Map<String, dynamic>? metadata;
+  final ReplyToInfo? replyTo;
   final int seq;
   final String status; // "sending" | "sent" | "delivered" | "read"
   final String? editedAt;
@@ -22,6 +47,7 @@ class MessageEntity {
     required this.content,
     this.type = 'text',
     this.metadata,
+    this.replyTo,
     this.seq = 0,
     this.status = 'sent',
     this.editedAt,
@@ -37,6 +63,9 @@ class MessageEntity {
       content: json['content'] as String? ?? '',
       type: json['type'] as String? ?? 'text',
       metadata: json['metadata'] as Map<String, dynamic>?,
+      replyTo: json['reply_to'] != null
+          ? ReplyToInfo.fromJson(json['reply_to'] as Map<String, dynamic>)
+          : null,
       seq: json['seq'] as int? ?? 0,
       status: json['status'] as String? ?? 'sent',
       editedAt: json['edited_at'] as String?,
@@ -53,6 +82,14 @@ class MessageEntity {
       'content': content,
       'type': type,
       'metadata': metadata,
+      'reply_to': replyTo != null
+          ? {
+              'id': replyTo!.id,
+              'sender_id': replyTo!.senderId,
+              'content': replyTo!.content,
+              'type': replyTo!.type,
+            }
+          : null,
       'seq': seq,
       'status': status,
       'edited_at': editedAt,
@@ -64,6 +101,7 @@ class MessageEntity {
   bool get isDeleted => deletedAt != null;
   bool get isEdited => editedAt != null;
   bool get isFile => type == 'file';
+  bool get isVoice => type == 'voice';
 
   MessageEntity copyWith({
     String? id,
@@ -72,6 +110,7 @@ class MessageEntity {
     String? content,
     String? type,
     Map<String, dynamic>? metadata,
+    ReplyToInfo? replyTo,
     int? seq,
     String? status,
     String? editedAt,
@@ -85,6 +124,7 @@ class MessageEntity {
       content: content ?? this.content,
       type: type ?? this.type,
       metadata: metadata ?? this.metadata,
+      replyTo: replyTo ?? this.replyTo,
       seq: seq ?? this.seq,
       status: status ?? this.status,
       editedAt: editedAt ?? this.editedAt,

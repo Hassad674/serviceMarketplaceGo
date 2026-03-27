@@ -313,7 +313,11 @@
     "voiceMessage": "Message vocal",
     "recording": "Enregistrement...",
     "cancelRecording": "Annuler",
-    "microphonePermission": "Acc\u00e8s au microphone requis"
+    "microphonePermission": "Acc\u00e8s au microphone requis",
+    "reply": "R\u00e9pondre",
+    "replyingTo": "R\u00e9ponse \u00e0 {name}",
+    "cancelReply": "Annuler la r\u00e9ponse",
+    "fileMessage": "Fichier"
   },
   "projects": {
     "title": "Projets",

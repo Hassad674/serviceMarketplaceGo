@@ -97,7 +97,7 @@ describe("MessageInput", () => {
     fireEvent.change(input, { target: { value: "  Hello!  " } })
     fireEvent.submit(input.closest("form")!)
 
-    expect(onSend).toHaveBeenCalledWith("Hello!")
+    expect(onSend).toHaveBeenCalledWith("Hello!", undefined)
   })
 
   it("clears input after successful send", () => {
@@ -119,7 +119,7 @@ describe("MessageInput", () => {
     fireEvent.change(input, { target: { value: "Hello!" } })
     fireEvent.keyDown(input, { key: "Enter", shiftKey: false })
 
-    expect(onSend).toHaveBeenCalledWith("Hello!")
+    expect(onSend).toHaveBeenCalledWith("Hello!", undefined)
   })
 
   it("does not call onSend when input is empty", () => {

@@ -45,6 +45,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   Timer? _typingInterval;
+  MessageEntity? _replyToMessage;
 
   @override
   void initState() {
@@ -131,13 +132,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _typingInterval = null;
     _controller.clear();
 
+    final replyId = _replyToMessage?.id;
+    setState(() => _replyToMessage = null);
+
     final sent = await ref
         .read(messagesProvider(widget.conversationId).notifier)
-        .sendTextMessage(text);
+        .sendTextMessage(text, replyToId: replyId);
 
     if (sent != null) {
       _scrollToBottom();
     }
+  }
+
+  void _handleReply(MessageEntity message) {
+    setState(() => _replyToMessage = message);
+  }
+
+  void _cancelReply() {
+    setState(() => _replyToMessage = null);
   }
 
   Future<void> _pickAndSendFile() async {
@@ -215,6 +227,63 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         debugPrint('[FileUpload] DioError response: ${e.response}');
         debugPrint('[FileUpload] DioError message: ${e.message}');
       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.uploadError}: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _sendVoiceMessage(String path, int durationSeconds) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    try {
+      final file = File(path);
+      if (!file.existsSync()) return;
+      final fileBytes = await file.readAsBytes();
+      final fileSize = fileBytes.length;
+      const contentType = 'audio/opus';
+      final filename = 'voice-${DateTime.now().millisecondsSinceEpoch}.ogg';
+
+      final repo = ref.read(messagingRepositoryProvider);
+      final uploadInfo = await repo.getUploadUrl(
+        filename: filename,
+        contentType: contentType,
+      );
+
+      final uploadDio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds: 30),
+          sendTimeout: const Duration(seconds: 60),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      );
+
+      await uploadDio.put<void>(
+        uploadInfo.uploadUrl,
+        data: Stream.fromIterable([fileBytes]),
+        options: Options(
+          contentType: contentType,
+          headers: {Headers.contentLengthHeader: fileSize},
+        ),
+      );
+
+      final resolvedUrl = uploadInfo.publicUrl.isNotEmpty
+          ? uploadInfo.publicUrl
+          : uploadInfo.uploadUrl.split('?').first;
+
+      await ref
+          .read(messagesProvider(widget.conversationId).notifier)
+          .sendVoiceMessage(
+            voiceUrl: resolvedUrl,
+            duration: durationSeconds.toDouble(),
+            size: fileSize,
+          );
+
+      _scrollToBottom();
+    } catch (e) {
+      debugPrint('[VoiceUpload] ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${l10n.uploadError}: $e')),
@@ -438,6 +507,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         message: message,
                         isOwn: isOwn,
                         currentUserId: currentUserId,
+                        onReply: !message.isDeleted
+                            ? () => _handleReply(message)
+                            : null,
                         onEdit: isOwn && !message.isDeleted
                             ? () => _showEditDialog(message)
                             : null,
@@ -461,6 +533,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onSend: _sendMessage,
             onAttach: _pickAndSendFile,
             onProposal: _openProposalScreen,
+            onVoiceRecorded: _sendVoiceMessage,
+            replyToName: _replyToMessage != null
+                ? (_replyToMessage!.senderId == currentUserId
+                    ? 'You'
+                    : conversation?.otherUserName ?? '')
+                : null,
+            replyToContent: _replyToMessage?.content,
+            onCancelReply: _cancelReply,
           ),
         ],
       ),

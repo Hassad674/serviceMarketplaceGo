@@ -164,6 +164,17 @@
   "messagingFileUpload": "Envoyer un fichier",
   "messagingStartConversation": "Aucun message. Lancez la conversation !",
   "messagingLoadMore": "Charger plus",
+  "messagingVoiceMessage": "Message vocal",
+  "messagingRecording": "Enregistrement...",
+  "messagingCancelRecording": "Annuler",
+  "messagingMicrophonePermission": "Acc\u00e8s au microphone requis",
+  "messagingReply": "R\u00e9pondre",
+  "messagingReplyingTo": "R\u00e9ponse \u00e0 {name}",
+  "@messagingReplyingTo": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
 
   "projects": "Projets",
   "createProject": "Cr\u00e9er un projet",
@@ -274,5 +285,19 @@
   "noActiveProjectsDesc": "Les propositions accept\u00e9es appara\u00eetront ici une fois pay\u00e9es.",
   "projectStatusActive": "Actif",
   "projectStatusCompleted": "Termin\u00e9",
-  "startProject": "Proposer un projet"
+  "startProject": "Proposer un projet",
+
+  "callCalling": "Appel en cours...",
+  "callIncomingCall": "Appel entrant",
+  "callAudioCall": "Appel audio",
+  "callAccept": "Accepter",
+  "callDecline": "Refuser",
+  "callHangup": "Raccrocher",
+  "callMute": "Couper le micro",
+  "callUnmute": "Activer le micro",
+  "callEnded": "Appel termin\u00e9",
+  "callMissed": "Appel manqu\u00e9",
+  "callStartCall": "D\u00e9marrer un appel audio",
+  "callRecipientOffline": "Le destinataire est hors ligne",
+  "callUnknownCaller": "Appelant inconnu"
 }

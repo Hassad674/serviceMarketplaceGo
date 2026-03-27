@@ -169,6 +169,17 @@
   "messagingFileUpload": "Send a file",
   "messagingStartConversation": "No messages yet. Start the conversation!",
   "messagingLoadMore": "Load more",
+  "messagingVoiceMessage": "Voice message",
+  "messagingRecording": "Recording...",
+  "messagingCancelRecording": "Cancel",
+  "messagingMicrophonePermission": "Microphone access required",
+  "messagingReply": "Reply",
+  "messagingReplyingTo": "Replying to {name}",
+  "@messagingReplyingTo": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
 
   "projects": "Projects",
   "createProject": "Create Project",
@@ -279,5 +290,19 @@
   "noActiveProjectsDesc": "Accepted proposals will appear here once paid.",
   "projectStatusActive": "Active",
   "projectStatusCompleted": "Completed",
-  "startProject": "Start a project"
+  "startProject": "Start a project",
+
+  "callCalling": "Calling...",
+  "callIncomingCall": "Incoming call",
+  "callAudioCall": "Audio call",
+  "callAccept": "Accept",
+  "callDecline": "Decline",
+  "callHangup": "Hang up",
+  "callMute": "Mute",
+  "callUnmute": "Unmute",
+  "callEnded": "Call ended",
+  "callMissed": "Missed call",
+  "callStartCall": "Start audio call",
+  "callRecipientOffline": "Recipient is offline",
+  "callUnknownCaller": "Unknown caller"
 }
