@@ -63,12 +63,11 @@ export default function ProjectsListPage() {
 }
 
 function ProjectCard({ project }: { project: ProposalResponse }) {
-  const tp = useTranslations("proposal")
-
   return (
-    <div
+    <Link
+      href={`/projects/${project.id}`}
       className={cn(
-        "rounded-2xl border bg-white p-6 transition-all duration-200",
+        "block rounded-2xl border bg-white p-6 transition-all duration-200",
         "border-gray-100 shadow-sm",
         "hover:shadow-md hover:border-rose-200 hover:-translate-y-0.5",
         "dark:bg-gray-800/80 dark:border-gray-700 dark:hover:border-rose-500/30",
@@ -104,7 +103,7 @@ function ProjectCard({ project }: { project: ProposalResponse }) {
           </div>
         )}
       </div>
-    </div>
+    </Link>
   )
 }
 

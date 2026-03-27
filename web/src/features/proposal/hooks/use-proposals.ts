@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createProposal,
+  getProposal,
   acceptProposal,
   declineProposal,
   modifyProposal,
@@ -13,6 +14,16 @@ import type { CreateProposalData, ModifyProposalData } from "../api/proposal-api
 import { CONVERSATIONS_QUERY_KEY } from "@/features/messaging/hooks/use-conversations"
 
 export const PROJECTS_QUERY_KEY = ["projects"]
+export const PROPOSAL_QUERY_KEY = ["proposal"]
+
+export function useProposal(id: string) {
+  return useQuery({
+    queryKey: [...PROPOSAL_QUERY_KEY, id],
+    queryFn: () => getProposal(id),
+    enabled: !!id,
+    staleTime: 30 * 1000,
+  })
+}
 
 export function useCreateProposal() {
   const queryClient = useQueryClient()
@@ -33,6 +44,7 @@ export function useAcceptProposal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
     },
   })
 }
@@ -44,6 +56,7 @@ export function useDeclineProposal() {
     mutationFn: (id: string) => declineProposal(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
     },
   })
 }
@@ -68,6 +81,7 @@ export function useSimulatePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
     },
   })
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, fireEvent } from "@testing-library/react"
 import { ProposalCard } from "../proposal-card"
 import type { ProposalMessageMetadata } from "../../types"
@@ -32,6 +32,7 @@ vi.mock("lucide-react", () => ({
   Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
   DollarSign: (props: Record<string, unknown>) => <span data-testid="dollar-icon" {...props} />,
   Star: (props: Record<string, unknown>) => <span data-testid="star-icon" {...props} />,
+  ExternalLink: (props: Record<string, unknown>) => <span data-testid="external-link-icon" {...props} />,
 }))
 
 // Mock proposal hooks
@@ -266,7 +267,7 @@ describe("ProposalCard", () => {
     )
 
     fireEvent.click(screen.getByText("accept"))
-    expect(acceptMutateFn).toHaveBeenCalledWith("proposal-42")
+    expect(acceptMutateFn).toHaveBeenCalledWith("proposal-42", expect.objectContaining({ onSuccess: expect.any(Function) }))
   })
 
   it("calls decline mutation when Decline clicked", () => {

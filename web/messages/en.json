@@ -420,6 +420,24 @@
     "proposalModified": "Proposal modified",
     "proposalPaid": "Proposal paid",
     "proposalNotFound": "Proposal not found",
-    "fetchError": "Failed to load proposal"
+    "fetchError": "Failed to load proposal",
+    "detailTitle": "Proposal details",
+    "description": "Description",
+    "sentBy": "Sent by",
+    "client": "Client",
+    "provider": "Provider",
+    "deadline": "Deadline",
+    "documents": "Documents",
+    "versionLabel": "Version {version}",
+    "proceedToPayment": "Proceed to payment",
+    "withdraw": "Withdraw",
+    "waitingForResponse": "Waiting for response",
+    "waitingForPayment": "Waiting for client payment",
+    "missionActive": "Mission in progress",
+    "proposalRefused": "Proposal declined",
+    "proposalWithdrawn": "Proposal withdrawn",
+    "backToProjects": "Back to projects",
+    "viewDetails": "View details",
+    "acceptedRedirecting": "Proposal accepted! Redirecting to payment..."
   }
 }

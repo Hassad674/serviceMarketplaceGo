@@ -12,6 +12,7 @@ import {
   Loader2,
   DollarSign,
   Star,
+  ExternalLink,
 } from "lucide-react"
 import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
@@ -56,15 +57,30 @@ export function ProposalCard({
     metadata.proposal_version > 1 &&
     metadata.proposal_status === "pending"
 
-  function handleAccept() {
-    acceptMutation.mutate(metadata.proposal_id)
+  const isClient = metadata.proposal_client_id === currentUserId
+
+  function handleAccept(e: React.MouseEvent) {
+    e.stopPropagation()
+    acceptMutation.mutate(metadata.proposal_id, {
+      onSuccess: () => {
+        if (isClient) {
+          router.push(`/projects/pay?proposal=${metadata.proposal_id}`)
+        }
+      },
+    })
   }
 
-  function handleDecline() {
+  function handleDecline(e: React.MouseEvent) {
+    e.stopPropagation()
     declineMutation.mutate(metadata.proposal_id)
   }
 
-  function handleModify() {
+  function handleViewDetail() {
+    router.push(`/projects/${metadata.proposal_id}`)
+  }
+
+  function handleModify(e: React.MouseEvent) {
+    e.stopPropagation()
     const params = new URLSearchParams({
       modify: metadata.proposal_id,
       conversation: conversationId,
@@ -73,18 +89,23 @@ export function ProposalCard({
     router.push(`/projects/new?${params.toString()}`)
   }
 
-  function handlePay() {
+  function handlePay(e: React.MouseEvent) {
+    e.stopPropagation()
     router.push(`/projects/pay?proposal=${metadata.proposal_id}`)
   }
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={handleViewDetail}
+      onKeyDown={(e) => { if (e.key === "Enter") handleViewDetail() }}
       className={cn(
-        "w-full max-w-[420px] rounded-2xl border overflow-hidden",
+        "w-full max-w-[420px] rounded-2xl border overflow-hidden cursor-pointer",
         "transition-all duration-200",
         "bg-white dark:bg-gray-800/80",
         "border-gray-200 dark:border-gray-700",
-        "shadow-sm hover:shadow-md",
+        "shadow-sm hover:shadow-md hover:border-rose-200 dark:hover:border-rose-500/30",
         isOutdated && "opacity-50",
       )}
     >
@@ -246,6 +267,14 @@ export function ProposalCard({
             </button>
           </>
         )}
+
+        {/* View details hint */}
+        <div className="flex items-center justify-center gap-1.5 pt-1">
+          <ExternalLink className="h-3 w-3 text-gray-400 dark:text-gray-500" strokeWidth={1.5} />
+          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500">
+            {t("viewDetails")}
+          </span>
+        </div>
       </div>
     </div>
   )

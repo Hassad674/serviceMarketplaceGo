@@ -420,6 +420,24 @@
     "proposalModified": "Proposition modifi\u00e9e",
     "proposalPaid": "Proposition pay\u00e9e",
     "proposalNotFound": "Proposition introuvable",
-    "fetchError": "Impossible de charger la proposition"
+    "fetchError": "Impossible de charger la proposition",
+    "detailTitle": "D\u00e9tails de la proposition",
+    "description": "Description",
+    "sentBy": "Envoy\u00e9e par",
+    "client": "Client",
+    "provider": "Prestataire",
+    "deadline": "Date limite",
+    "documents": "Documents",
+    "versionLabel": "Version {version}",
+    "proceedToPayment": "Proc\u00e9der au paiement",
+    "withdraw": "Retirer",
+    "waitingForResponse": "En attente de r\u00e9ponse",
+    "waitingForPayment": "En attente du paiement du client",
+    "missionActive": "Mission en cours",
+    "proposalRefused": "Proposition refus\u00e9e",
+    "proposalWithdrawn": "Proposition retir\u00e9e",
+    "backToProjects": "Retour aux projets",
+    "viewDetails": "Voir les d\u00e9tails",
+    "acceptedRedirecting": "Proposition accept\u00e9e ! Redirection vers le paiement..."
   }
 }
