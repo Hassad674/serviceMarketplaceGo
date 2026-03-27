@@ -858,5 +858,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get callRecipientOffline => 'Le destinataire est hors ligne';
 
   @override
+  String get callUserBusy => 'L\'utilisateur est déjà en appel';
+
+  @override
+  String get callFailed => 'L\'appel n\'a pas pu être lancé';
+
+  @override
   String get callUnknownCaller => 'Appelant inconnu';
 }

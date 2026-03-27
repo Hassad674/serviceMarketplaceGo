@@ -856,5 +856,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get callRecipientOffline => 'Recipient is offline';
 
   @override
+  String get callUserBusy => 'User is already in a call';
+
+  @override
+  String get callFailed => 'Call could not be started';
+
+  @override
   String get callUnknownCaller => 'Unknown caller';
 }

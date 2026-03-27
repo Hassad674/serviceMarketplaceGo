@@ -306,5 +306,7 @@
   "callMissed": "Appel manqu\u00e9",
   "callStartCall": "D\u00e9marrer un appel audio",
   "callRecipientOffline": "Le destinataire est hors ligne",
+  "callUserBusy": "L'utilisateur est d\u00e9j\u00e0 en appel",
+  "callFailed": "L'appel n'a pas pu \u00eatre lanc\u00e9",
   "callUnknownCaller": "Appelant inconnu"
 }

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -21,6 +23,7 @@ class CallState {
     this.isMuted = false,
     this.duration = 0,
     this.incomingCallerName = '',
+    this.errorMessage,
   });
 
   final CallStatus status;
@@ -29,12 +32,17 @@ class CallState {
   final int duration;
   final String incomingCallerName;
 
+  /// Non-null when the last call attempt failed (e.g. recipient offline).
+  /// Cleared when a new action starts.
+  final String? errorMessage;
+
   CallState copyWith({
     CallStatus? status,
     CallEntity? call,
     bool? isMuted,
     int? duration,
     String? incomingCallerName,
+    String? errorMessage,
   }) {
     return CallState(
       status: status ?? this.status,
@@ -42,6 +50,7 @@ class CallState {
       isMuted: isMuted ?? this.isMuted,
       duration: duration ?? this.duration,
       incomingCallerName: incomingCallerName ?? this.incomingCallerName,
+      errorMessage: errorMessage,
     );
   }
 }
@@ -56,6 +65,9 @@ class CallNotifier extends StateNotifier<CallState> {
   Timer? _durationTimer;
 
   /// Start an outgoing call.
+  ///
+  /// On failure the state returns to idle with [CallState.errorMessage]
+  /// populated so the UI layer can display feedback (e.g. snackbar).
   Future<void> initiateCall({
     required String conversationId,
     required String recipientId,
@@ -65,7 +77,10 @@ class CallNotifier extends StateNotifier<CallState> {
     final micPermission = await Permission.microphone.request();
     if (!micPermission.isGranted) return;
 
-    state = state.copyWith(status: CallStatus.ringingOutgoing);
+    state = state.copyWith(
+      status: CallStatus.ringingOutgoing,
+      errorMessage: null,
+    );
 
     try {
       final result = await _repo.initiateCall(
@@ -86,8 +101,9 @@ class CallNotifier extends StateNotifier<CallState> {
 
       await _connectToRoom(result.token);
       _startRingTimeout();
-    } catch (_) {
-      _cleanup();
+    } catch (e) {
+      debugPrint('[Call] initiateCall error: $e');
+      _cleanup(errorMessage: _parseErrorMessage(e));
     }
   }
 
@@ -112,7 +128,8 @@ class CallNotifier extends StateNotifier<CallState> {
       _cancelRingTimer();
       _startDurationTimer();
       await _connectToRoom(result.token);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Call] acceptCall error: $e');
       _cleanup();
     }
   }
@@ -127,7 +144,7 @@ class CallNotifier extends StateNotifier<CallState> {
     try {
       await _repo.declineCall(call.callId);
     } catch (_) {
-      // Ignore
+      // Best-effort: the server may already have cleaned up.
     }
     _cleanup();
   }
@@ -142,9 +159,14 @@ class CallNotifier extends StateNotifier<CallState> {
     try {
       await _repo.endCall(call.callId, state.duration);
     } catch (_) {
-      // Ignore
+      // Best-effort: the server may already have cleaned up.
     }
     _cleanup();
+  }
+
+  /// Clear the error message (e.g. after the UI has shown it).
+  void clearError() {
+    state = state.copyWith(errorMessage: null);
   }
 
   /// Toggle microphone mute.
@@ -158,18 +180,23 @@ class CallNotifier extends StateNotifier<CallState> {
   /// Handle an incoming call event from WebSocket.
   void handleCallEvent(Map<String, dynamic> payload) {
     final event = payload['event'] as String? ?? '';
+    debugPrint('[Call] handleCallEvent: $event');
 
     switch (event) {
       case 'call_incoming':
         if (state.status != CallStatus.idle) return;
         state = state.copyWith(
           status: CallStatus.ringingIncoming,
-          incomingCallerName: payload['initiator_name'] as String? ?? '',
+          incomingCallerName:
+              payload['initiator_name'] as String? ?? '',
           call: CallEntity(
             callId: payload['call_id'] as String? ?? '',
-            conversationId: payload['conversation_id'] as String? ?? '',
-            initiatorId: payload['initiator_id'] as String? ?? '',
-            recipientId: payload['recipient_id'] as String? ?? '',
+            conversationId:
+                payload['conversation_id'] as String? ?? '',
+            initiatorId:
+                payload['initiator_id'] as String? ?? '',
+            recipientId:
+                payload['recipient_id'] as String? ?? '',
             callType: CallType.audio,
           ),
         );
@@ -189,9 +216,12 @@ class CallNotifier extends StateNotifier<CallState> {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
   Future<void> _connectToRoom(String token) async {
     _room = Room();
-
     _room!.addListener(_onRoomDisconnected);
 
     const lkUrl = String.fromEnvironment(
@@ -233,7 +263,7 @@ class CallNotifier extends StateNotifier<CallState> {
     });
   }
 
-  void _cleanup() {
+  void _cleanup({String? errorMessage}) {
     _ringTimer?.cancel();
     _ringTimer = null;
     _durationTimer?.cancel();
@@ -241,7 +271,27 @@ class CallNotifier extends StateNotifier<CallState> {
     _room?.removeListener(_onRoomDisconnected);
     _room?.disconnect();
     _room = null;
-    state = const CallState();
+    state = CallState(errorMessage: errorMessage);
+  }
+
+  /// Extracts a user-friendly error message from the API error.
+  String _parseErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map<String, dynamic>) {
+        // Backend error format: {"error":"code","message":"..."}
+        final msg = data['message'] as String?;
+        final code = data['error'] as String?;
+        if (code == 'recipient_offline') {
+          return 'recipient_offline';
+        }
+        if (code == 'user_busy') {
+          return 'user_busy';
+        }
+        if (msg != null && msg.isNotEmpty) return msg;
+      }
+    }
+    return 'call_failed';
   }
 
   @override

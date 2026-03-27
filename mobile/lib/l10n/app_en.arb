@@ -311,5 +311,7 @@
   "callMissed": "Missed call",
   "callStartCall": "Start audio call",
   "callRecipientOffline": "Recipient is offline",
+  "callUserBusy": "User is already in a call",
+  "callFailed": "Call could not be started",
   "callUnknownCaller": "Unknown caller"
 }

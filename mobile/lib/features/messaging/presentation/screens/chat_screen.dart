@@ -17,6 +17,7 @@ import '../providers/messages_provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../call/domain/entities/call_entity.dart';
 import '../../../call/presentation/providers/call_provider.dart';
 import '../../../call/presentation/screens/call_screen.dart';
 import '../../../proposal/domain/entities/proposal_entity.dart';
@@ -307,7 +308,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       conversationId: widget.conversationId,
       recipientId: conversation.otherUserId,
     );
-    if (mounted) {
+    if (!mounted) return;
+
+    final callState = ref.read(callProvider);
+    if (callState.status == CallStatus.ringingOutgoing) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CallScreen(
@@ -315,6 +319,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
       );
+    } else if (callState.errorMessage != null) {
+      final l10n = AppLocalizations.of(context)!;
+      final msg = _callErrorToMessage(l10n, callState.errorMessage!);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
+      );
+      callNotifier.clearError();
+    }
+  }
+
+  String _callErrorToMessage(AppLocalizations l10n, String code) {
+    switch (code) {
+      case 'recipient_offline':
+        return l10n.callRecipientOffline;
+      case 'user_busy':
+        return l10n.callUserBusy;
+      default:
+        return l10n.callFailed;
     }
   }
 
