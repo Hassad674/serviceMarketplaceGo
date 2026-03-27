@@ -1,11 +1,20 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import dynamic from "next/dynamic"
 import { Sidebar, SIDEBAR_STORAGE_KEY } from "./sidebar"
 import { Header } from "./header"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import { useGlobalWS } from "@/shared/hooks/use-global-ws"
+
+const ChatWidget = dynamic(
+  () =>
+    import("../chat-widget/chat-widget").then((m) => ({
+      default: m.ChatWidget,
+    })),
+  { ssr: false },
+)
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -49,6 +58,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+      <ChatWidget />
     </div>
   )
 }

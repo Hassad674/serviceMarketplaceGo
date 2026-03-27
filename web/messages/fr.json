@@ -304,7 +304,11 @@
     "statusDelivered": "Distribu\u00e9",
     "statusRead": "Lu",
     "uploadFailed": "L'envoi du fichier a \u00e9chou\u00e9. Veuillez r\u00e9essayer.",
-    "propose": "Envoyer une proposition"
+    "propose": "Envoyer une proposition",
+    "openChat": "Messages",
+    "closeChat": "Fermer",
+    "viewAllMessages": "Voir tous les messages",
+    "backToList": "Retour"
   },
   "projects": {
     "title": "Projets",

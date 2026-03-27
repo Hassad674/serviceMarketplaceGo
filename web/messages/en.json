@@ -304,7 +304,11 @@
     "statusDelivered": "Delivered",
     "statusRead": "Read",
     "uploadFailed": "File upload failed. Please try again.",
-    "propose": "Send a proposal"
+    "propose": "Send a proposal",
+    "openChat": "Messages",
+    "closeChat": "Close",
+    "viewAllMessages": "View all messages",
+    "backToList": "Back"
   },
   "projects": {
     "title": "Projects",
