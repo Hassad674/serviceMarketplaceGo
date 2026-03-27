@@ -186,6 +186,7 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
     if (conversationId == null) return;
 
     final content = msg['content'] as String? ?? '';
+    final msgType = msg['type'] as String? ?? 'text';
     final createdAt = msg['created_at'] as String?;
     final senderId = msg['sender_id'] as String?;
 
@@ -200,6 +201,9 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
 
     final isActiveConversation = _activeConversationId == conversationId;
 
+    // Show a preview label for non-text message types.
+    final displayContent = _previewForType(msgType, content);
+
     final updated = state.conversations.map((c) {
       if (c.id == conversationId) {
         // Only increment unread if the message is from another user
@@ -207,7 +211,7 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
         final shouldIncrementUnread =
             senderId != _currentUserId && !isActiveConversation;
         return c.copyWith(
-          lastMessage: content,
+          lastMessage: displayContent,
           lastMessageAt: createdAt,
           unreadCount: shouldIncrementUnread
               ? c.unreadCount + 1
@@ -303,6 +307,50 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
       return c;
     }).toList();
     state = state.copyWith(conversations: updated);
+  }
+
+  /// Returns a short preview string for a message type.
+  ///
+  /// Used in the conversation list to show a meaningful snippet
+  /// instead of empty content for non-text messages.
+  static String _previewForType(String msgType, String content) {
+    if (content.isNotEmpty && !msgType.startsWith('proposal_')) {
+      return content;
+    }
+    switch (msgType) {
+      case 'text':
+        return content;
+      case 'file':
+        return content.isNotEmpty ? content : '\uD83D\uDCCE File';
+      case 'voice':
+        return '\uD83C\uDF99\uFE0F Voice message';
+      case 'proposal_sent':
+        return '\uD83D\uDCC4 New proposal';
+      case 'proposal_modified':
+        return '\uD83D\uDCC4 Proposal modified';
+      case 'proposal_accepted':
+        return '\u2705 Proposal accepted';
+      case 'proposal_declined':
+        return '\u274C Proposal declined';
+      case 'proposal_paid':
+        return '\uD83D\uDCB3 Payment confirmed';
+      case 'proposal_payment_requested':
+        return '\uD83D\uDCB3 Payment requested';
+      case 'proposal_completion_requested':
+        return '\u23F3 Completion requested';
+      case 'proposal_completed':
+        return '\u2705 Mission completed';
+      case 'proposal_completion_rejected':
+        return '\u274C Completion rejected';
+      case 'evaluation_request':
+        return '\u2B50 Review requested';
+      case 'call_ended':
+        return '\uD83D\uDCDE Call ended';
+      case 'call_missed':
+        return '\uD83D\uDCDE Missed call';
+      default:
+        return content;
+    }
   }
 
   @override

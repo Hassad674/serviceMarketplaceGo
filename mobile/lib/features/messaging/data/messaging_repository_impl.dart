@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
@@ -81,10 +82,16 @@ class MessagingRepositoryImpl implements MessagingRepository {
     );
     final body = response.data as Map<String, dynamic>;
     final rawList = (body['data'] as List<dynamic>?) ?? [];
-    final messages = rawList
-        .cast<Map<String, dynamic>>()
-        .map(MessageEntity.fromJson)
-        .toList();
+    final messages = <MessageEntity>[];
+    for (final raw in rawList) {
+      try {
+        messages.add(
+          MessageEntity.fromJson(raw as Map<String, dynamic>),
+        );
+      } catch (e) {
+        debugPrint('[MessagingRepo] skipping unparseable message: $e');
+      }
+    }
 
     return PaginatedResponse(
       data: messages,

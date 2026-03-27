@@ -31,7 +31,7 @@ class MessageEntity {
   final String conversationId;
   final String senderId;
   final String content;
-  final String type; // "text" | "file"
+  final String type; // "text" | "file" | "voice" | "proposal_*" | "call_*" | ...
   final Map<String, dynamic>? metadata;
   final ReplyToInfo? replyTo;
   final int seq;
@@ -102,6 +102,12 @@ class MessageEntity {
   bool get isEdited => editedAt != null;
   bool get isFile => type == 'file';
   bool get isVoice => type == 'voice';
+  bool get isProposalType => type.startsWith('proposal_');
+  bool get isSystemType =>
+      isProposalType ||
+      type == 'evaluation_request' ||
+      type == 'call_ended' ||
+      type == 'call_missed';
 
   MessageEntity copyWith({
     String? id,

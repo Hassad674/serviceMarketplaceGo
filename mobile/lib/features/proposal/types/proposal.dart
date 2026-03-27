@@ -11,6 +11,7 @@ enum ProposalStatus {
   withdrawn,
   paid,
   active,
+  completionRequested,
   completed,
 }
 
@@ -50,6 +51,8 @@ class ProposalMessageMetadata {
     this.documentsCount = 0,
     this.version = 1,
     this.parentId,
+    this.clientId,
+    this.providerId,
   });
 
   final String proposalId;
@@ -61,6 +64,8 @@ class ProposalMessageMetadata {
   final int documentsCount;
   final int version;
   final String? parentId;
+  final String? clientId;
+  final String? providerId;
 
   factory ProposalMessageMetadata.fromJson(Map<String, dynamic> json) {
     return ProposalMessageMetadata(
@@ -73,6 +78,8 @@ class ProposalMessageMetadata {
       documentsCount: json['proposal_documents_count'] as int? ?? 0,
       version: json['proposal_version'] as int? ?? 1,
       parentId: json['proposal_parent_id'] as String?,
+      clientId: json['proposal_client_id'] as String?,
+      providerId: json['proposal_provider_id'] as String?,
     );
   }
 
@@ -87,6 +94,8 @@ class ProposalMessageMetadata {
       'proposal_documents_count': documentsCount,
       'proposal_version': version,
       'proposal_parent_id': parentId,
+      'proposal_client_id': clientId,
+      'proposal_provider_id': providerId,
     };
   }
 
@@ -102,6 +111,8 @@ class ProposalMessageMetadata {
         return ProposalStatus.paid;
       case 'active':
         return ProposalStatus.active;
+      case 'completion_requested':
+        return ProposalStatus.completionRequested;
       case 'completed':
         return ProposalStatus.completed;
       default:

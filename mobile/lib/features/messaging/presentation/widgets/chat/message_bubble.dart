@@ -126,8 +126,8 @@ class MessageBubble extends StatelessWidget {
       );
     }
 
-    // System messages for proposal lifecycle events.
-    if (_isProposalSystemMessage(message.type)) {
+    // System messages for proposal lifecycle and call events.
+    if (_isSystemMessage(message.type)) {
       return _buildSystemMessage(context, theme, appColors, l10n);
     }
 
@@ -258,11 +258,17 @@ class MessageBubble extends StatelessWidget {
         type == 'proposal_payment_requested';
   }
 
-  /// Returns true for system-level proposal events.
-  bool _isProposalSystemMessage(String type) {
+  /// Returns true for system-level lifecycle events (proposals, calls).
+  bool _isSystemMessage(String type) {
     return type == 'proposal_accepted' ||
         type == 'proposal_declined' ||
-        type == 'proposal_paid';
+        type == 'proposal_paid' ||
+        type == 'proposal_completion_requested' ||
+        type == 'proposal_completed' ||
+        type == 'proposal_completion_rejected' ||
+        type == 'evaluation_request' ||
+        type == 'call_ended' ||
+        type == 'call_missed';
   }
 
   Widget _buildSystemMessage(
@@ -286,6 +292,36 @@ class MessageBubble extends StatelessWidget {
           Icons.payment_outlined,
           l10n.proposalPaidMessage,
           const Color(0xFF22C55E),
+        ),
+      'proposal_completion_requested' => (
+          Icons.pending_actions,
+          l10n.proposalCompletionRequestedMessage,
+          const Color(0xFFF59E0B),
+        ),
+      'proposal_completed' => (
+          Icons.task_alt,
+          l10n.proposalCompletedMessage,
+          const Color(0xFF22C55E),
+        ),
+      'proposal_completion_rejected' => (
+          Icons.cancel_outlined,
+          l10n.proposalCompletionRejectedMessage,
+          const Color(0xFFEF4444),
+        ),
+      'evaluation_request' => (
+          Icons.star_outline,
+          l10n.evaluationRequestMessage,
+          const Color(0xFF3B82F6),
+        ),
+      'call_ended' => (
+          Icons.call_end_outlined,
+          l10n.callEnded,
+          appColors?.mutedForeground ?? const Color(0xFF94A3B8),
+        ),
+      'call_missed' => (
+          Icons.phone_missed_outlined,
+          l10n.callMissed,
+          const Color(0xFFEF4444),
         ),
       _ => (
           Icons.info_outline,

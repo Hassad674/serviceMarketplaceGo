@@ -790,6 +790,27 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalPaidMessage => 'Paiement confirmé, mission en cours';
 
   @override
+  String get proposalPaymentRequestedMessage => 'Paiement demandé';
+
+  @override
+  String get proposalCompletionRequestedMessage => 'Achèvement demandé';
+
+  @override
+  String get proposalCompletedMessage => 'Mission terminée';
+
+  @override
+  String get proposalCompletionRejectedMessage => 'Achèvement refusé';
+
+  @override
+  String get evaluationRequestMessage => 'Veuillez laisser un avis';
+
+  @override
+  String get proposalNewMessage => 'Nouvelle proposition';
+
+  @override
+  String get proposalModifiedMessage => 'Proposition modifiée';
+
+  @override
   String get payNow => 'Payer maintenant';
 
   @override

@@ -84,8 +84,10 @@ class ProposalCard extends StatelessWidget {
     if (metadata.status == ProposalStatus.pending && !isOwn) {
       return true; // recipient can accept/decline/modify
     }
-    if (metadata.status == ProposalStatus.accepted && !isOwn) {
-      return true; // client can pay
+    // "Pay now" is shown to the client (payer), not just !isOwn.
+    if (metadata.status == ProposalStatus.accepted) {
+      final isClient = metadata.clientId == currentUserId;
+      return isClient;
     }
     return false;
   }
@@ -370,6 +372,11 @@ class _StatusBadge extends StatelessWidget {
           l10n.projectStatusActive,
           const Color(0xFFDCFCE7),
           const Color(0xFF166534),
+        ),
+      ProposalStatus.completionRequested => (
+          l10n.proposalCompletionRequestedMessage,
+          const Color(0xFFFEF3C7),
+          const Color(0xFF92400E),
         ),
       ProposalStatus.completed => (
           l10n.projectStatusCompleted,

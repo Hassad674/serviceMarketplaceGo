@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronDown, Check } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { useUser } from "@/shared/hooks/use-user"
 import type { JobFormData } from "../types"
 import { createDefaultJobFormData } from "../types"
 import { useCreateJob } from "../hooks/use-jobs"
@@ -17,9 +18,18 @@ export function CreateJobForm() {
   const t = useTranslations("job")
   const router = useRouter()
   const createJob = useCreateJob()
+  const { data: user } = useUser()
   const [formData, setFormData] = useState<JobFormData>(createDefaultJobFormData)
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["details"]))
   const [error, setError] = useState<string | null>(null)
+
+  // Agency role: force applicantType to "freelancers"
+  const isAgency = user?.role === "agency"
+  useEffect(() => {
+    if (isAgency) {
+      setFormData((prev) => ({ ...prev, applicantType: "freelancers" }))
+    }
+  }, [isAgency])
 
   function updateField<K extends keyof JobFormData>(
     field: K,
@@ -46,7 +56,9 @@ export function CreateJobForm() {
 
   function validate(): string | null {
     if (!formData.title.trim()) return t("errorTitleRequired")
-    if (!formData.description.trim()) return t("errorDescriptionRequired")
+    if (formData.descriptionType !== "video" && !formData.description.trim()) {
+      return t("errorDescriptionRequired")
+    }
     const minBudget = parseInt(formData.minBudget, 10)
     const maxBudget = parseInt(formData.maxBudget, 10)
     if (!minBudget || minBudget <= 0) return t("errorBudgetRequired")
@@ -63,6 +75,10 @@ export function CreateJobForm() {
       return
     }
 
+    const minBudget = parseInt(formData.minBudget, 10)
+    const maxBudget = parseInt(formData.maxBudget, 10)
+    const durationWeeks = parseInt(formData.durationWeeks, 10)
+
     createJob.mutate(
       {
         title: formData.title.trim(),
@@ -70,14 +86,28 @@ export function CreateJobForm() {
         skills: formData.skills,
         applicant_type: formData.applicantType,
         budget_type: formData.budgetType,
-        min_budget: parseInt(formData.minBudget, 10),
-        max_budget: parseInt(formData.maxBudget, 10),
+        min_budget: minBudget,
+        max_budget: maxBudget,
+        payment_frequency:
+          formData.budgetType === "long_term"
+            ? formData.paymentFrequency
+            : undefined,
+        duration_weeks:
+          formData.budgetType === "long_term" && !formData.isIndefinite && durationWeeks > 0
+            ? durationWeeks
+            : undefined,
+        is_indefinite:
+          formData.budgetType === "long_term" ? formData.isIndefinite : false,
+        description_type: formData.descriptionType,
+        video_url: formData.videoUrl || undefined,
       },
       { onSuccess: () => router.push("/jobs") },
     )
   }
 
-  const isDetailsComplete = formData.title.trim() !== "" && formData.description.trim() !== ""
+  const isDetailsComplete = formData.title.trim() !== "" && (
+    formData.descriptionType === "video" || formData.description.trim() !== ""
+  )
   const isBudgetComplete = formData.minBudget !== "" && formData.maxBudget !== ""
 
   return (
@@ -131,7 +161,11 @@ export function CreateJobForm() {
           isComplete={isDetailsComplete}
           onToggle={() => toggleSection("details")}
         >
-          <JobDetailsSection formData={formData} updateField={updateField} />
+          <JobDetailsSection
+            formData={formData}
+            updateField={updateField}
+            hideApplicantType={isAgency}
+          />
         </AccordionSection>
 
         <AccordionSection
@@ -199,7 +233,6 @@ function AccordionSection({
         className="flex w-full items-center gap-4 px-6 py-5 text-left"
         aria-expanded={isOpen}
       >
-        {/* Validation indicator */}
         <div
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-all duration-200",
@@ -226,7 +259,6 @@ function AccordionSection({
         />
       </button>
 
-      {/* Collapsible content */}
       <div
         className={cn(
           "overflow-hidden transition-all duration-300 ease-out",

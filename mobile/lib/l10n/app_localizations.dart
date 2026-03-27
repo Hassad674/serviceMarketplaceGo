@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr'),
+    Locale('fr')
   ];
 
   /// No description provided for @appTitle.
@@ -1622,6 +1622,48 @@ abstract class AppLocalizations {
   /// **'Payment confirmed, mission in progress'**
   String get proposalPaidMessage;
 
+  /// No description provided for @proposalPaymentRequestedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment requested'**
+  String get proposalPaymentRequestedMessage;
+
+  /// No description provided for @proposalCompletionRequestedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Completion requested'**
+  String get proposalCompletionRequestedMessage;
+
+  /// No description provided for @proposalCompletedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Mission completed'**
+  String get proposalCompletedMessage;
+
+  /// No description provided for @proposalCompletionRejectedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Completion rejected'**
+  String get proposalCompletionRejectedMessage;
+
+  /// No description provided for @evaluationRequestMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Please leave a review'**
+  String get evaluationRequestMessage;
+
+  /// No description provided for @proposalNewMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'New proposal'**
+  String get proposalNewMessage;
+
+  /// No description provided for @proposalModifiedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal modified'**
+  String get proposalModifiedMessage;
+
   /// No description provided for @payNow.
   ///
   /// In en, this message translates to:
@@ -1800,9 +1842,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }
