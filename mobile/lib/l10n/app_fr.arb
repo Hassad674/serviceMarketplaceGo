@@ -252,6 +252,13 @@
   "jobCancel": "Annuler",
   "jobContinue": "Continuer",
   "jobSave": "Enregistrer",
+  "jobPublish": "Publier",
+  "jobMyJobs": "Mes offres",
+  "jobNoJobs": "Aucune offre",
+  "jobNoJobsDesc": "Cr\u00e9ez votre premi\u00e8re offre d'emploi pour trouver des talents.",
+  "jobStatusOpen": "Ouverte",
+  "jobStatusClosed": "Ferm\u00e9e",
+  "jobClose": "Fermer",
 
   "proposalPropose": "Envoyer une proposition",
   "proposalCreate": "Cr\u00e9er une proposition",

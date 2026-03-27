@@ -17,6 +17,7 @@ type RouterDeps struct {
 	Health         *HealthHandler
 	Messaging      *MessagingHandler
 	Proposal       *ProposalHandler
+	Job            *JobHandler
 	Call           *CallHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
@@ -112,6 +113,17 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Route("/projects", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Get("/", deps.Proposal.ListActiveProjects)
+			})
+		}
+
+		// Job routes (authenticated)
+		if deps.Job != nil {
+			r.Route("/jobs", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Post("/", deps.Job.CreateJob)
+				r.Get("/mine", deps.Job.ListMyJobs)
+				r.Get("/{id}", deps.Job.GetJob)
+				r.Post("/{id}/close", deps.Job.CloseJob)
 			})
 		}
 

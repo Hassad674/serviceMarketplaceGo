@@ -19,6 +19,7 @@ import (
 	"marketplace-backend/internal/adapter/ws"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
+	jobapp "marketplace-backend/internal/app/job"
 	"marketplace-backend/internal/app/messaging"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
@@ -126,6 +127,13 @@ func main() {
 		Storage:   storageSvc,
 	})
 
+	// Job feature
+	jobRepo := postgres.NewJobRepository(db)
+	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
+		Jobs:  jobRepo,
+		Users: userRepo,
+	})
+
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
 	if cfg.LiveKitConfigured() {
@@ -152,6 +160,7 @@ func main() {
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc)
+	jobHandler := handler.NewJobHandler(jobSvc)
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
@@ -171,6 +180,7 @@ func main() {
 		Health:         healthHandler,
 		Messaging:      messagingHandler,
 		Proposal:       proposalHandler,
+		Job:            jobHandler,
 		Call:           callHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,

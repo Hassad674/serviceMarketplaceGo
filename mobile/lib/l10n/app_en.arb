@@ -257,6 +257,13 @@
   "jobCancel": "Cancel",
   "jobContinue": "Continue",
   "jobSave": "Save",
+  "jobPublish": "Publish",
+  "jobMyJobs": "My Jobs",
+  "jobNoJobs": "No jobs yet",
+  "jobNoJobsDesc": "Create your first job posting to start finding talent.",
+  "jobStatusOpen": "Open",
+  "jobStatusClosed": "Closed",
+  "jobClose": "Close",
 
   "proposalPropose": "Send a proposal",
   "proposalCreate": "Create a proposal",

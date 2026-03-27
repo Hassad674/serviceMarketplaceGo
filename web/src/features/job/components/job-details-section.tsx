@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import type { JobFormData } from "../types"
-import { ContractorCount } from "./contractor-count"
 import { ApplicantTypeSelector } from "./applicant-type-selector"
 
 type JobDetailsSectionProps = {
@@ -82,22 +81,6 @@ export function JobDetailsSection({ formData, updateField }: JobDetailsSectionPr
         tags={formData.skills}
         max={MAX_TAGS}
         onChange={(tags) => updateField("skills", tags)}
-      />
-
-      {/* Tools */}
-      <TagInput
-        label={t("tools")}
-        placeholder={t("toolsPlaceholder")}
-        tags={formData.tools}
-        max={MAX_TAGS}
-        onChange={(tags) => updateField("tools", tags)}
-      />
-
-      {/* Contractor count */}
-      <ContractorCount
-        label={t("contractorCount")}
-        value={formData.contractorCount}
-        onChange={(v) => updateField("contractorCount", v)}
       />
 
       {/* Applicant type */}

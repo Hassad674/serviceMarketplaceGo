@@ -697,6 +697,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jobSave => 'Save';
 
   @override
+  String get jobPublish => 'Publish';
+
+  @override
+  String get jobMyJobs => 'My Jobs';
+
+  @override
+  String get jobNoJobs => 'No jobs yet';
+
+  @override
+  String get jobNoJobsDesc =>
+      'Create your first job posting to start finding talent.';
+
+  @override
+  String get jobStatusOpen => 'Open';
+
+  @override
+  String get jobStatusClosed => 'Closed';
+
+  @override
+  String get jobClose => 'Close';
+
+  @override
   String get proposalPropose => 'Send a proposal';
 
   @override

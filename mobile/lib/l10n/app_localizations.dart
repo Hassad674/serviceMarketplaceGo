@@ -1442,6 +1442,48 @@ abstract class AppLocalizations {
   /// **'Save'**
   String get jobSave;
 
+  /// No description provided for @jobPublish.
+  ///
+  /// In en, this message translates to:
+  /// **'Publish'**
+  String get jobPublish;
+
+  /// No description provided for @jobMyJobs.
+  ///
+  /// In en, this message translates to:
+  /// **'My Jobs'**
+  String get jobMyJobs;
+
+  /// No description provided for @jobNoJobs.
+  ///
+  /// In en, this message translates to:
+  /// **'No jobs yet'**
+  String get jobNoJobs;
+
+  /// No description provided for @jobNoJobsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your first job posting to start finding talent.'**
+  String get jobNoJobsDesc;
+
+  /// No description provided for @jobStatusOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get jobStatusOpen;
+
+  /// No description provided for @jobStatusClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get jobStatusClosed;
+
+  /// No description provided for @jobClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get jobClose;
+
   /// No description provided for @proposalPropose.
   ///
   /// In en, this message translates to:

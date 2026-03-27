@@ -7,6 +7,7 @@ import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { JobFormData } from "../types"
 import { createDefaultJobFormData } from "../types"
+import { useCreateJob } from "../hooks/use-jobs"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
 
@@ -15,8 +16,10 @@ type SectionId = "details" | "budget"
 export function CreateJobForm() {
   const t = useTranslations("job")
   const router = useRouter()
+  const createJob = useCreateJob()
   const [formData, setFormData] = useState<JobFormData>(createDefaultJobFormData)
   const [openSections, setOpenSections] = useState<Set<SectionId>>(new Set(["details"]))
+  const [error, setError] = useState<string | null>(null)
 
   function updateField<K extends keyof JobFormData>(
     field: K,
@@ -38,17 +41,44 @@ export function CreateJobForm() {
   }
 
   function handleCancel() {
-    router.push("/dashboard")
+    router.push("/jobs")
   }
 
-  function handleContinue() {
-    console.log("Job form data:", formData)
+  function validate(): string | null {
+    if (!formData.title.trim()) return t("errorTitleRequired")
+    if (!formData.description.trim()) return t("errorDescriptionRequired")
+    const minBudget = parseInt(formData.minBudget, 10)
+    const maxBudget = parseInt(formData.maxBudget, 10)
+    if (!minBudget || minBudget <= 0) return t("errorBudgetRequired")
+    if (!maxBudget || maxBudget <= 0) return t("errorBudgetRequired")
+    if (minBudget > maxBudget) return t("errorMinExceedsMax")
+    return null
+  }
+
+  function handleSubmit() {
+    setError(null)
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    createJob.mutate(
+      {
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        skills: formData.skills,
+        applicant_type: formData.applicantType,
+        budget_type: formData.budgetType,
+        min_budget: parseInt(formData.minBudget, 10),
+        max_budget: parseInt(formData.maxBudget, 10),
+      },
+      { onSuccess: () => router.push("/jobs") },
+    )
   }
 
   const isDetailsComplete = formData.title.trim() !== "" && formData.description.trim() !== ""
-  const isBudgetComplete = formData.budgetType === "ongoing"
-    ? formData.minRate !== "" && formData.maxRate !== ""
-    : formData.minBudget !== "" && formData.maxBudget !== ""
+  const isBudgetComplete = formData.minBudget !== "" && formData.maxBudget !== ""
 
   return (
     <div className="mx-auto max-w-[680px]">
@@ -71,17 +101,26 @@ export function CreateJobForm() {
           </button>
           <button
             type="button"
-            onClick={handleContinue}
+            onClick={handleSubmit}
+            disabled={createJob.isPending}
             className={cn(
               "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
               "gradient-primary transition-all duration-200",
               "hover:shadow-glow active:scale-[0.98]",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            {t("continue")}
+            {createJob.isPending ? "..." : t("publish")}
           </button>
         </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
 
       {/* Sections */}
       <div className="space-y-4">
@@ -106,14 +145,16 @@ export function CreateJobForm() {
           <div className="mt-6 flex justify-end">
             <button
               type="button"
-              onClick={handleContinue}
+              onClick={handleSubmit}
+              disabled={createJob.isPending}
               className={cn(
                 "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
                 "gradient-primary transition-all duration-200",
                 "hover:shadow-glow active:scale-[0.98]",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              {t("save")}
+              {createJob.isPending ? "..." : t("publish")}
             </button>
           </div>
         </AccordionSection>

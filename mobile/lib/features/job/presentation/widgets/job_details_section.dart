@@ -4,10 +4,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../types/job.dart';
 import 'applicant_type_selector.dart';
-import 'contractor_counter.dart';
 
-/// Section 1: Job details — title, description, skills, tools,
-/// contractor count, and applicant type.
+/// Section 1: Job details -- title, description, skills, and applicant type.
 class JobDetailsSection extends StatelessWidget {
   const JobDetailsSection({
     super.key,
@@ -16,11 +14,6 @@ class JobDetailsSection extends StatelessWidget {
     required this.skills,
     required this.onSkillAdded,
     required this.onSkillRemoved,
-    required this.tools,
-    required this.onToolAdded,
-    required this.onToolRemoved,
-    required this.contractorCount,
-    required this.onContractorCountChanged,
     required this.applicantType,
     required this.onApplicantTypeChanged,
     required this.isExpanded,
@@ -32,11 +25,6 @@ class JobDetailsSection extends StatelessWidget {
   final List<String> skills;
   final ValueChanged<String> onSkillAdded;
   final ValueChanged<int> onSkillRemoved;
-  final List<String> tools;
-  final ValueChanged<String> onToolAdded;
-  final ValueChanged<int> onToolRemoved;
-  final int contractorCount;
-  final ValueChanged<int> onContractorCountChanged;
   final ApplicantType applicantType;
   final ValueChanged<ApplicantType> onApplicantTypeChanged;
   final bool isExpanded;
@@ -101,24 +89,6 @@ class JobDetailsSection extends StatelessWidget {
           maxItems: 5,
           onAdded: onSkillAdded,
           onRemoved: onSkillRemoved,
-        ),
-        const SizedBox(height: 20),
-
-        // Tools
-        _ChipInput(
-          label: l10n.jobTools,
-          hintText: l10n.jobToolsHint,
-          items: tools,
-          maxItems: 5,
-          onAdded: onToolAdded,
-          onRemoved: onToolRemoved,
-        ),
-        const SizedBox(height: 20),
-
-        // Contractor count
-        ContractorCounter(
-          value: contractorCount,
-          onChanged: onContractorCountChanged,
         ),
         const SizedBox(height: 20),
 
@@ -218,7 +188,7 @@ class JobDetailsSection extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Reusable chip input for skills and tools
+// Reusable chip input for skills
 // ---------------------------------------------------------------------------
 
 class _ChipInput extends StatefulWidget {
@@ -295,7 +265,8 @@ class _ChipInputState extends State<_ChipInput> {
               onPressed: canAdd ? _addItem : null,
               icon: const Icon(Icons.add, size: 20),
               style: IconButton.styleFrom(
-                backgroundColor: canAdd ? primary : primary.withValues(alpha: 0.3),
+                backgroundColor:
+                    canAdd ? primary : primary.withValues(alpha: 0.3),
                 foregroundColor: Colors.white,
               ),
             ),
@@ -328,7 +299,8 @@ class _ChipInputState extends State<_ChipInput> {
                     color: primary.withValues(alpha: 0.2),
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                    borderRadius:
+                        BorderRadius.circular(AppTheme.radiusSm),
                   ),
                 ),
             ],

@@ -1,33 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/repositories/job_repository.dart';
 import '../../types/job.dart';
+import '../providers/job_provider.dart';
 import '../widgets/budget_section.dart';
 import '../widgets/job_details_section.dart';
 
 /// Full-page scrollable form for creating a new job posting.
 ///
-/// Composed of two expandable sections delegated to dedicated widget files.
-/// Frontend-only: tapping "Continue" shows a snackbar (no backend call).
-class CreateJobScreen extends StatefulWidget {
+/// Composed of two expandable sections. Tapping "Publish" calls the
+/// backend API to persist the job, then pops back to the jobs list.
+class CreateJobScreen extends ConsumerStatefulWidget {
   const CreateJobScreen({super.key});
 
   @override
-  State<CreateJobScreen> createState() => _CreateJobScreenState();
+  ConsumerState<CreateJobScreen> createState() => _CreateJobScreenState();
 }
 
-class _CreateJobScreenState extends State<CreateJobScreen> {
+class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Text controllers
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _minRateController = TextEditingController();
-  final _maxRateController = TextEditingController();
   final _minBudgetController = TextEditingController();
   final _maxBudgetController = TextEditingController();
-  final _durationController = TextEditingController();
 
   // Form data
   late final JobFormData _formData;
@@ -35,6 +35,7 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   // Expansion state
   bool _detailsExpanded = true;
   bool _budgetExpanded = false;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -46,18 +47,12 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _minRateController.dispose();
-    _maxRateController.dispose();
     _minBudgetController.dispose();
     _maxBudgetController.dispose();
-    _durationController.dispose();
     super.dispose();
   }
 
-  // -----------------------------------------------------------------------
   // Section 1 callbacks
-  // -----------------------------------------------------------------------
-
   void _onSkillAdded(String skill) {
     setState(() => _formData.skills.add(skill));
   }
@@ -66,74 +61,66 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
     setState(() => _formData.skills.removeAt(index));
   }
 
-  void _onToolAdded(String tool) {
-    setState(() => _formData.tools.add(tool));
-  }
-
-  void _onToolRemoved(int index) {
-    setState(() => _formData.tools.removeAt(index));
-  }
-
-  void _onContractorCountChanged(int count) {
-    setState(() => _formData.contractorCount = count);
-  }
-
   void _onApplicantTypeChanged(ApplicantType type) {
     setState(() => _formData.applicantType = type);
   }
 
-  // -----------------------------------------------------------------------
   // Section 2 callbacks
-  // -----------------------------------------------------------------------
-
   void _onBudgetTypeChanged(BudgetType type) {
     setState(() => _formData.budgetType = type);
   }
 
-  void _onPaymentFrequencyChanged(PaymentFrequency frequency) {
-    setState(() => _formData.paymentFrequency = frequency);
-  }
-
-  void _onMaxHoursChanged(int hours) {
-    setState(() => _formData.maxHoursPerWeek = hours);
-  }
-
-  void _onDurationUnitChanged(DurationUnit unit) {
-    setState(() => _formData.durationUnit = unit);
-  }
-
-  void _onIndefiniteChanged(bool value) {
-    setState(() {
-      _formData.isIndefinite = value;
-      if (value) _durationController.clear();
-    });
-  }
-
-  // -----------------------------------------------------------------------
   // Submit
-  // -----------------------------------------------------------------------
-
-  void _onContinue() {
+  Future<void> _onSubmit() async {
     _formData.title = _titleController.text.trim();
     _formData.description = _descriptionController.text.trim();
-    _formData.minRate = _minRateController.text.trim();
-    _formData.maxRate = _maxRateController.text.trim();
     _formData.minBudget = _minBudgetController.text.trim();
     _formData.maxBudget = _maxBudgetController.text.trim();
-    _formData.estimatedDuration = _durationController.text.trim();
 
     if (!_formKey.currentState!.validate()) return;
 
-    final l10n = AppLocalizations.of(context)!;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.jobSave)),
-    );
-    Navigator.of(context).pop();
-  }
+    final minBudget = int.tryParse(_formData.minBudget) ?? 0;
+    final maxBudget = int.tryParse(_formData.maxBudget) ?? 0;
 
-  // -----------------------------------------------------------------------
-  // Build
-  // -----------------------------------------------------------------------
+    if (minBudget <= 0 || maxBudget <= 0) return;
+
+    setState(() => _submitting = true);
+
+    final budgetTypeStr = _formData.budgetType == BudgetType.oneShot
+        ? 'one_shot'
+        : 'long_term';
+
+    final applicantTypeStr = switch (_formData.applicantType) {
+      ApplicantType.all => 'all',
+      ApplicantType.freelancers => 'freelancers',
+      ApplicantType.agencies => 'agencies',
+    };
+
+    final result = await createJobAction(
+      ref,
+      CreateJobData(
+        title: _formData.title,
+        description: _formData.description,
+        skills: _formData.skills,
+        applicantType: applicantTypeStr,
+        budgetType: budgetTypeStr,
+        minBudget: minBudget,
+        maxBudget: maxBudget,
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _submitting = false);
+
+    if (result != null) {
+      Navigator.of(context).pop();
+    } else {
+      final l10n = AppLocalizations.of(context)!;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.unexpectedError)),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +138,7 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton(
-              onPressed: _onContinue,
+              onPressed: _submitting ? null : _onSubmit,
               style: FilledButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,
@@ -160,7 +147,16 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
                       BorderRadius.circular(AppTheme.radiusSm),
                 ),
               ),
-              child: Text(l10n.jobContinue),
+              child: _submitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(l10n.jobPublish),
             ),
           ),
         ],
@@ -178,11 +174,6 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
                 skills: _formData.skills,
                 onSkillAdded: _onSkillAdded,
                 onSkillRemoved: _onSkillRemoved,
-                tools: _formData.tools,
-                onToolAdded: _onToolAdded,
-                onToolRemoved: _onToolRemoved,
-                contractorCount: _formData.contractorCount,
-                onContractorCountChanged: _onContractorCountChanged,
                 applicantType: _formData.applicantType,
                 onApplicantTypeChanged: _onApplicantTypeChanged,
                 isExpanded: _detailsExpanded,
@@ -192,23 +183,12 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Section 2: Budget and duration
+              // Section 2: Budget
               BudgetSection(
                 budgetType: _formData.budgetType,
                 onBudgetTypeChanged: _onBudgetTypeChanged,
-                paymentFrequency: _formData.paymentFrequency,
-                onPaymentFrequencyChanged: _onPaymentFrequencyChanged,
-                minRateController: _minRateController,
-                maxRateController: _maxRateController,
-                maxHoursPerWeek: _formData.maxHoursPerWeek,
-                onMaxHoursChanged: _onMaxHoursChanged,
                 minBudgetController: _minBudgetController,
                 maxBudgetController: _maxBudgetController,
-                durationController: _durationController,
-                durationUnit: _formData.durationUnit,
-                onDurationUnitChanged: _onDurationUnitChanged,
-                isIndefinite: _formData.isIndefinite,
-                onIndefiniteChanged: _onIndefiniteChanged,
                 isExpanded: _budgetExpanded,
                 onExpansionChanged: (expanded) {
                   setState(() => _budgetExpanded = expanded);
@@ -216,9 +196,9 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Continue button (bottom)
+              // Publish button (bottom)
               ElevatedButton(
-                onPressed: _onContinue,
+                onPressed: _submitting ? null : _onSubmit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: Colors.white,
@@ -228,7 +208,16 @@ class _CreateJobScreenState extends State<CreateJobScreen> {
                         BorderRadius.circular(AppTheme.radiusMd),
                   ),
                 ),
-                child: Text(l10n.jobContinue),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(l10n.jobPublish),
               ),
               const SizedBox(height: 8),
 

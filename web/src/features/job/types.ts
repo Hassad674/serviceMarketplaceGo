@@ -1,6 +1,4 @@
-export type BudgetType = "ongoing" | "one_time"
-
-export type PaymentFrequency = "hourly" | "weekly" | "monthly"
+export type BudgetType = "one_shot" | "long_term"
 
 export type ApplicantType = "all" | "freelancers" | "agencies"
 
@@ -8,21 +6,10 @@ export type JobFormData = {
   title: string
   description: string
   skills: string[]
-  tools: string[]
-  contractorCount: number
   applicantType: ApplicantType
   budgetType: BudgetType
-  // ongoing
-  paymentFrequency: PaymentFrequency
-  minRate: string
-  maxRate: string
-  maxHoursPerWeek: number
-  // one_time
   minBudget: string
   maxBudget: string
-  // common
-  estimatedDuration: string
-  isIndefinite: boolean
 }
 
 export function createDefaultJobFormData(): JobFormData {
@@ -30,17 +17,31 @@ export function createDefaultJobFormData(): JobFormData {
     title: "",
     description: "",
     skills: [],
-    tools: [],
-    contractorCount: 1,
     applicantType: "all",
-    budgetType: "ongoing",
-    paymentFrequency: "hourly",
-    minRate: "",
-    maxRate: "",
-    maxHoursPerWeek: 40,
+    budgetType: "one_shot",
     minBudget: "",
     maxBudget: "",
-    estimatedDuration: "",
-    isIndefinite: false,
   }
+}
+
+export type JobResponse = {
+  id: string
+  creator_id: string
+  title: string
+  description: string
+  skills: string[]
+  applicant_type: string
+  budget_type: string
+  min_budget: number
+  max_budget: number
+  status: string
+  created_at: string
+  updated_at: string
+  closed_at?: string
+}
+
+export type JobListResponse = {
+  data: JobResponse[]
+  next_cursor: string
+  has_more: boolean
 }

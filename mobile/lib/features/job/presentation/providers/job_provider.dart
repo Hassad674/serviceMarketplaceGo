@@ -20,7 +20,7 @@ final myJobsProvider = FutureProvider<List<JobEntity>>((ref) async {
 
 /// Helper to create a job. Returns the created entity or null on error.
 Future<JobEntity?> createJobAction(
-  Ref ref,
+  WidgetRef ref,
   CreateJobData data,
 ) async {
   try {
@@ -35,7 +35,7 @@ Future<JobEntity?> createJobAction(
 }
 
 /// Helper to close a job.
-Future<bool> closeJobAction(Ref ref, String id) async {
+Future<bool> closeJobAction(WidgetRef ref, String id) async {
   try {
     final repo = ref.read(jobRepositoryProvider);
     await repo.closeJob(id);
