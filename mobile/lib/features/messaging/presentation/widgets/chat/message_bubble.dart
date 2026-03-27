@@ -8,20 +8,37 @@ import 'file_message_bubble.dart';
 import 'message_context_menu.dart';
 import 'proposal_card.dart';
 
-/// Renders a single chat message bubble (text, file, or deleted).
+/// Renders a single chat message bubble (text, file, deleted, or proposal).
+///
+/// Handles proposal lifecycle message types:
+/// - `proposal_sent` / `proposal_modified` -- rich ProposalCard
+/// - `proposal_accepted` -- system message (green)
+/// - `proposal_declined` -- system message (red)
+/// - `proposal_paid` -- system message (green)
+/// - `proposal_payment_requested` -- card with "Pay now" button
 class MessageBubble extends StatelessWidget {
   const MessageBubble({
     super.key,
     required this.message,
     required this.isOwn,
+    required this.currentUserId,
     this.onEdit,
     this.onDelete,
+    this.onAcceptProposal,
+    this.onDeclineProposal,
+    this.onModifyProposal,
+    this.onPayProposal,
   });
 
   final MessageEntity message;
   final bool isOwn;
+  final String currentUserId;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final void Function(String proposalId)? onAcceptProposal;
+  final void Function(String proposalId)? onDeclineProposal;
+  final void Function(String proposalId)? onModifyProposal;
+  final void Function(String proposalId)? onPayProposal;
 
   String _formatTime() {
     try {
@@ -83,16 +100,32 @@ class MessageBubble extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
 
-    // Proposal message
-    if (message.type == 'proposal_sent' && message.metadata != null) {
+    // Proposal-related message types
+    if (_isProposalCard(message.type) && message.metadata != null) {
       final metadata =
           ProposalMessageMetadata.fromJson(message.metadata!);
       return ProposalCard(
         metadata: metadata,
         isOwn: isOwn,
-        onAccept: isOwn ? null : () {},
-        onDecline: isOwn ? null : () {},
+        currentUserId: currentUserId,
+        onAccept: onAcceptProposal != null
+            ? () => onAcceptProposal!(metadata.proposalId)
+            : null,
+        onDecline: onDeclineProposal != null
+            ? () => onDeclineProposal!(metadata.proposalId)
+            : null,
+        onModify: onModifyProposal != null
+            ? () => onModifyProposal!(metadata.proposalId)
+            : null,
+        onPay: onPayProposal != null
+            ? () => onPayProposal!(metadata.proposalId)
+            : null,
       );
+    }
+
+    // System messages for proposal lifecycle events.
+    if (_isProposalSystemMessage(message.type)) {
+      return _buildSystemMessage(context, theme, appColors, l10n);
     }
 
     // Deleted message
@@ -197,6 +230,80 @@ class MessageBubble extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Returns true for message types that render as a ProposalCard.
+  bool _isProposalCard(String type) {
+    return type == 'proposal_sent' ||
+        type == 'proposal_modified' ||
+        type == 'proposal_payment_requested';
+  }
+
+  /// Returns true for system-level proposal events.
+  bool _isProposalSystemMessage(String type) {
+    return type == 'proposal_accepted' ||
+        type == 'proposal_declined' ||
+        type == 'proposal_paid';
+  }
+
+  Widget _buildSystemMessage(
+    BuildContext context,
+    ThemeData theme,
+    AppColors? appColors,
+    AppLocalizations l10n,
+  ) {
+    final (icon, label, color) = switch (message.type) {
+      'proposal_accepted' => (
+          Icons.check_circle_outline,
+          l10n.proposalAcceptedMessage,
+          const Color(0xFF22C55E),
+        ),
+      'proposal_declined' => (
+          Icons.cancel_outlined,
+          l10n.proposalDeclinedMessage,
+          const Color(0xFFEF4444),
+        ),
+      'proposal_paid' => (
+          Icons.payment_outlined,
+          l10n.proposalPaidMessage,
+          const Color(0xFF22C55E),
+        ),
+      _ => (
+          Icons.info_outline,
+          message.content,
+          appColors?.mutedForeground ?? const Color(0xFF94A3B8),
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

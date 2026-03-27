@@ -6,27 +6,39 @@ import '../../../../proposal/types/proposal.dart';
 
 /// Renders a proposal message as a rich Material card inside the chat.
 ///
-/// Displayed when `message.type == 'proposal_sent'`. Extracts metadata
-/// from `message.metadata` via [ProposalMessageMetadata].
+/// Displayed when `message.type` is `proposal_sent` or `proposal_modified`.
+/// Extracts metadata from `message.metadata` via [ProposalMessageMetadata].
+///
+/// Action buttons are conditionally shown based on proposal status,
+/// ownership, and version (old versions are greyed out).
 class ProposalCard extends StatelessWidget {
   const ProposalCard({
     super.key,
     required this.metadata,
     required this.isOwn,
+    required this.currentUserId,
+    this.isLatestVersion = true,
     this.onAccept,
     this.onDecline,
+    this.onModify,
+    this.onPay,
   });
 
   final ProposalMessageMetadata metadata;
   final bool isOwn;
+  final String currentUserId;
+  final bool isLatestVersion;
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
+  final VoidCallback? onModify;
+  final VoidCallback? onPay;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final isOldVersion = !isLatestVersion;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -36,27 +48,30 @@ class ProposalCard extends StatelessWidget {
           constraints: BoxConstraints(
             maxWidth: MediaQuery.sizeOf(context).width * 0.8,
           ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              border: Border.all(
-                color: appColors?.border ?? theme.dividerColor,
+          child: Opacity(
+            opacity: isOldVersion ? 0.5 : 1.0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                border: Border.all(
+                  color: appColors?.border ?? theme.dividerColor,
+                ),
+                boxShadow: AppTheme.cardShadow,
               ),
-              boxShadow: AppTheme.cardShadow,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildHeader(theme, l10n),
-                const Divider(height: 1),
-                _buildBody(theme, appColors, l10n),
-                if (_showActions) ...[
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(theme, l10n),
                   const Divider(height: 1),
-                  _buildActions(theme, l10n),
+                  _buildBody(theme, appColors, l10n),
+                  if (_shouldShowActions && !isOldVersion) ...[
+                    const Divider(height: 1),
+                    _buildActions(theme, l10n),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -64,8 +79,16 @@ class ProposalCard extends StatelessWidget {
     );
   }
 
-  bool get _showActions =>
-      !isOwn && metadata.status == ProposalStatus.pending;
+  /// Determine whether to show action buttons.
+  bool get _shouldShowActions {
+    if (metadata.status == ProposalStatus.pending && !isOwn) {
+      return true; // recipient can accept/decline/modify
+    }
+    if (metadata.status == ProposalStatus.accepted && !isOwn) {
+      return true; // client can pay
+    }
+    return false;
+  }
 
   Widget _buildHeader(ThemeData theme, AppLocalizations l10n) {
     return Padding(
@@ -192,6 +215,28 @@ class ProposalCard extends StatelessWidget {
               ],
             ),
           ],
+
+          // Version indicator
+          if (metadata.version > 1) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Icons.history,
+                  size: 18,
+                  color: appColors?.mutedForeground,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'v${metadata.version}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -200,42 +245,89 @@ class ProposalCard extends StatelessWidget {
   Widget _buildActions(ThemeData theme, AppLocalizations l10n) {
     final appColors = theme.extension<AppColors>();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: onDecline,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-                side: BorderSide(
-                  color: theme.colorScheme.error.withValues(alpha: 0.3),
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.radiusSm),
-                ),
-                minimumSize: const Size(0, 38),
+    // Accepted state: show "Pay now" button for the client (recipient).
+    if (metadata.status == ProposalStatus.accepted) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: onPay,
+            icon: const Icon(Icons.payment_outlined, size: 18),
+            label: Text(l10n.payNow),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
               ),
-              child: Text(l10n.proposalDecline),
+              minimumSize: const Size(0, 38),
+              elevation: 0,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: onAccept,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: appColors?.success ?? Colors.green,
-                foregroundColor: Colors.white,
+        ),
+      );
+    }
+
+    // Pending state: accept / decline / modify buttons.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onDecline,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    side: BorderSide(
+                      color:
+                          theme.colorScheme.error.withValues(alpha: 0.3),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                    minimumSize: const Size(0, 38),
+                  ),
+                  child: Text(l10n.proposalDecline),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: onAccept,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        appColors?.success ?? Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSm),
+                    ),
+                    minimumSize: const Size(0, 38),
+                    elevation: 0,
+                  ),
+                  child: Text(l10n.proposalAccept),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onModify,
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: Text(l10n.proposalModify),
+              style: OutlinedButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius:
                       BorderRadius.circular(AppTheme.radiusSm),
                 ),
-                minimumSize: const Size(0, 38),
-                elevation: 0,
+                minimumSize: const Size(0, 36),
               ),
-              child: Text(l10n.proposalAccept),
             ),
           ),
         ],
@@ -268,6 +360,21 @@ class _StatusBadge extends StatelessWidget {
           l10n.proposalDeclined,
           const Color(0xFFFEE2E2),
           const Color(0xFF991B1B),
+        ),
+      ProposalStatus.withdrawn => (
+          l10n.proposalWithdrawn,
+          const Color(0xFFF1F5F9),
+          const Color(0xFF475569),
+        ),
+      ProposalStatus.paid || ProposalStatus.active => (
+          l10n.projectStatusActive,
+          const Color(0xFFDCFCE7),
+          const Color(0xFF166534),
+        ),
+      ProposalStatus.completed => (
+          l10n.projectStatusCompleted,
+          const Color(0xFFE0F2FE),
+          const Color(0xFF075985),
         ),
     };
 

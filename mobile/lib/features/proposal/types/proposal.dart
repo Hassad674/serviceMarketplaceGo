@@ -4,7 +4,15 @@
 // the proposal card rendered inside chat messages.
 
 /// Status of a proposal within a conversation.
-enum ProposalStatus { pending, accepted, declined }
+enum ProposalStatus {
+  pending,
+  accepted,
+  declined,
+  withdrawn,
+  paid,
+  active,
+  completed,
+}
 
 /// Holds all data collected by the proposal creation form.
 class ProposalFormData {
@@ -40,6 +48,8 @@ class ProposalMessageMetadata {
     required this.status,
     this.deadline,
     this.documentsCount = 0,
+    this.version = 1,
+    this.parentId,
   });
 
   final String proposalId;
@@ -49,6 +59,8 @@ class ProposalMessageMetadata {
   final ProposalStatus status;
   final String? deadline;
   final int documentsCount;
+  final int version;
+  final String? parentId;
 
   factory ProposalMessageMetadata.fromJson(Map<String, dynamic> json) {
     return ProposalMessageMetadata(
@@ -59,6 +71,8 @@ class ProposalMessageMetadata {
       status: _parseStatus(json['proposal_status'] as String?),
       deadline: json['proposal_deadline'] as String?,
       documentsCount: json['proposal_documents_count'] as int? ?? 0,
+      version: json['proposal_version'] as int? ?? 1,
+      parentId: json['proposal_parent_id'] as String?,
     );
   }
 
@@ -71,6 +85,8 @@ class ProposalMessageMetadata {
       'proposal_status': status.name,
       'proposal_deadline': deadline,
       'proposal_documents_count': documentsCount,
+      'proposal_version': version,
+      'proposal_parent_id': parentId,
     };
   }
 
@@ -80,6 +96,14 @@ class ProposalMessageMetadata {
         return ProposalStatus.accepted;
       case 'declined':
         return ProposalStatus.declined;
+      case 'withdrawn':
+        return ProposalStatus.withdrawn;
+      case 'paid':
+        return ProposalStatus.paid;
+      case 'active':
+        return ProposalStatus.active;
+      case 'completed':
+        return ProposalStatus.completed;
       default:
         return ProposalStatus.pending;
     }

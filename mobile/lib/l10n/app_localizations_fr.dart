@@ -733,5 +733,49 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalSend => 'Envoyer la proposition';
 
   @override
+  String get proposalModify => 'Contre-proposition';
+
+  @override
+  String get proposalWithdrawn => 'Retirée';
+
+  @override
+  String get proposalAcceptedMessage => 'Proposition acceptée';
+
+  @override
+  String get proposalDeclinedMessage => 'Proposition refusée';
+
+  @override
+  String get proposalPaidMessage => 'Paiement confirmé, mission en cours';
+
+  @override
+  String get payNow => 'Payer maintenant';
+
+  @override
+  String get confirmPayment => 'Confirmer le paiement';
+
+  @override
+  String get paymentSimulation => 'Paiement';
+
+  @override
+  String get paymentSuccess => 'Paiement confirmé !';
+
+  @override
+  String get paymentSuccessDesc =>
+      'La mission est maintenant active. Redirection vers les projets...';
+
+  @override
+  String get noActiveProjects => 'Aucun projet actif';
+
+  @override
+  String get noActiveProjectsDesc =>
+      'Les propositions acceptées apparaîtront ici une fois payées.';
+
+  @override
+  String get projectStatusActive => 'Actif';
+
+  @override
+  String get projectStatusCompleted => 'Terminé';
+
+  @override
   String get startProject => 'Proposer un projet';
 }

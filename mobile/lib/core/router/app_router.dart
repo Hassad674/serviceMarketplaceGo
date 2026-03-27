@@ -15,7 +15,10 @@ import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/job/presentation/screens/create_job_screen.dart';
 import '../../features/job/presentation/screens/jobs_screen.dart';
+import '../../features/proposal/domain/entities/proposal_entity.dart';
 import '../../features/proposal/presentation/screens/create_proposal_screen.dart';
+import '../../features/proposal/presentation/screens/payment_simulation_screen.dart';
+import '../../features/proposal/presentation/screens/projects_list_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
@@ -42,6 +45,8 @@ class RoutePaths {
   static const String projectsNew = '/projects/new';
   static const String jobs = '/jobs';
   static const String jobsCreate = '/jobs/create';
+  static const String projectsPay = '/projects/pay';
+  static const String projectsList = '/projects/list';
   static const String profile = '/profile';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
@@ -151,7 +156,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // --- Proposal creation (full-screen, no bottom nav) ---
+      // --- Proposal creation / modification (full-screen, no bottom nav) ---
       GoRoute(
         path: RoutePaths.projectsNew,
         builder: (context, state) {
@@ -162,8 +167,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 extras?['conversationId'] as String? ?? '',
             recipientName:
                 extras?['recipientName'] as String? ?? '',
+            existingProposal:
+                extras?['existingProposal'] as ProposalEntity?,
           );
         },
+      ),
+
+      // --- Payment simulation (full-screen, no bottom nav) ---
+      GoRoute(
+        path: '/projects/pay/:id',
+        builder: (context, state) => PaymentSimulationScreen(
+          proposalId: state.pathParameters['id'] ?? '',
+        ),
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---
@@ -187,7 +202,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RoutePaths.missions,
-            builder: (context, state) => const _ProjectsPlaceholder(),
+            builder: (context, state) => const ProjectsListScreen(),
           ),
           GoRoute(
             path: RoutePaths.jobs,
@@ -828,116 +843,4 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Projects placeholder (empty state with FAB to create proposal)
-// ---------------------------------------------------------------------------
-
-class _ProjectsPlaceholder extends StatelessWidget {
-  const _ProjectsPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(l10n.projects)),
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusXl),
-                  ),
-                  child: Icon(
-                    Icons.folder_open_outlined,
-                    size: 40,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  l10n.noProjects,
-                  style: theme.textTheme.titleLarge,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.noProjectsDesc,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () =>
-            GoRouter.of(context).push(RoutePaths.projectsNew),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Placeholder screen
-// ---------------------------------------------------------------------------
-
-/// Temporary placeholder for screens that have not been implemented yet.
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-              ),
-              child: Icon(
-                Icons.construction,
-                size: 32,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(title, style: theme.textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(
-              l10n.comingSoon,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// Placeholder screens removed -- replaced by ProjectsListScreen.

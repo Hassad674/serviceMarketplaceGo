@@ -17,7 +17,8 @@ import '../providers/messages_provider.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
-import '../../../proposal/types/proposal.dart';
+import '../../../proposal/domain/entities/proposal_entity.dart';
+import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
 import '../widgets/chat/empty_chat_state.dart';
@@ -234,51 +235,74 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     });
   }
 
-  Future<void> _openProposalScreen() async {
+  Future<void> _openProposalScreen({ProposalEntity? existingProposal}) async {
     final convState = ref.read(conversationsProvider);
     final conversation = convState.conversations
         .where((c) => c.id == widget.conversationId)
         .firstOrNull;
 
-    final result = await GoRouter.of(context).push<ProposalFormData>(
+    final result = await GoRouter.of(context).push<dynamic>(
       RoutePaths.projectsNew,
       extra: {
         'recipientId': conversation?.otherUserId ?? '',
         'conversationId': widget.conversationId,
         'recipientName': conversation?.otherUserName ?? '',
+        'existingProposal': existingProposal,
       },
     );
 
-    if (result == null || !mounted) return;
+    // The create/modify screen now returns a ProposalEntity from the backend.
+    // The backend also broadcasts a WS message, so we just need to scroll.
+    if (result != null && mounted) {
+      _scrollToBottom();
+    }
+  }
 
-    final authState = ref.read(authProvider);
-    final userName = authState.user?['first_name'] as String? ?? 'You';
+  Future<void> _handleAcceptProposal(String proposalId) async {
+    final repo = ref.read(proposalRepositoryProvider);
+    try {
+      await repo.acceptProposal(proposalId);
+      // Backend broadcasts WS message; UI will update reactively.
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
+        );
+      }
+    }
+  }
 
-    final metadata = ProposalMessageMetadata(
-      proposalId: 'mock-${DateTime.now().millisecondsSinceEpoch}',
-      senderName: userName,
-      title: result.title,
-      amount: result.amount,
-      status: ProposalStatus.pending,
-      deadline: result.deadline?.toIso8601String(),
-    );
+  Future<void> _handleDeclineProposal(String proposalId) async {
+    final repo = ref.read(proposalRepositoryProvider);
+    try {
+      await repo.declineProposal(proposalId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
+        );
+      }
+    }
+  }
 
-    final mockMessage = MessageEntity(
-      id: 'proposal-${DateTime.now().millisecondsSinceEpoch}',
-      conversationId: widget.conversationId,
-      senderId: authState.user?['id'] as String? ?? '',
-      content: result.title,
-      type: 'proposal_sent',
-      metadata: metadata.toJson(),
-      status: 'sent',
-      createdAt: DateTime.now().toIso8601String(),
-    );
+  Future<void> _handleModifyProposal(String proposalId) async {
+    try {
+      final repo = ref.read(proposalRepositoryProvider);
+      final proposal = await repo.getProposal(proposalId);
+      if (mounted) {
+        _openProposalScreen(existingProposal: proposal);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
+        );
+      }
+    }
+  }
 
-    ref
-        .read(messagesProvider(widget.conversationId).notifier)
-        .addLocalMessage(mockMessage);
-
-    _scrollToBottom();
+  void _handlePayProposal(String proposalId) {
+    GoRouter.of(context).push('/projects/pay/$proposalId');
   }
 
   void _showEditDialog(MessageEntity message) {
@@ -413,12 +437,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       return MessageBubble(
                         message: message,
                         isOwn: isOwn,
+                        currentUserId: currentUserId,
                         onEdit: isOwn && !message.isDeleted
                             ? () => _showEditDialog(message)
                             : null,
                         onDelete: isOwn && !message.isDeleted
                             ? () => _showDeleteConfirm(message)
                             : null,
+                        onAcceptProposal: _handleAcceptProposal,
+                        onDeclineProposal: _handleDeclineProposal,
+                        onModifyProposal: _handleModifyProposal,
+                        onPayProposal: _handlePayProposal,
                       );
                     },
                   ),

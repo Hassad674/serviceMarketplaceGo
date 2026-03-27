@@ -1514,6 +1514,90 @@ abstract class AppLocalizations {
   /// **'Send proposal'**
   String get proposalSend;
 
+  /// No description provided for @proposalModify.
+  ///
+  /// In en, this message translates to:
+  /// **'Counter-offer'**
+  String get proposalModify;
+
+  /// No description provided for @proposalWithdrawn.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawn'**
+  String get proposalWithdrawn;
+
+  /// No description provided for @proposalAcceptedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal accepted'**
+  String get proposalAcceptedMessage;
+
+  /// No description provided for @proposalDeclinedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal declined'**
+  String get proposalDeclinedMessage;
+
+  /// No description provided for @proposalPaidMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment confirmed, mission in progress'**
+  String get proposalPaidMessage;
+
+  /// No description provided for @payNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Pay now'**
+  String get payNow;
+
+  /// No description provided for @confirmPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm payment'**
+  String get confirmPayment;
+
+  /// No description provided for @paymentSimulation.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment'**
+  String get paymentSimulation;
+
+  /// No description provided for @paymentSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment confirmed!'**
+  String get paymentSuccess;
+
+  /// No description provided for @paymentSuccessDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'The mission is now active. Redirecting to projects...'**
+  String get paymentSuccessDesc;
+
+  /// No description provided for @noActiveProjects.
+  ///
+  /// In en, this message translates to:
+  /// **'No active projects'**
+  String get noActiveProjects;
+
+  /// No description provided for @noActiveProjectsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted proposals will appear here once paid.'**
+  String get noActiveProjectsDesc;
+
+  /// No description provided for @projectStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get projectStatusActive;
+
+  /// No description provided for @projectStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get projectStatusCompleted;
+
   /// No description provided for @startProject.
   ///
   /// In en, this message translates to:

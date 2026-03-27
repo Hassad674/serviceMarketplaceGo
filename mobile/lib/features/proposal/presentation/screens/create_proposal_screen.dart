@@ -1,38 +1,50 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/entities/proposal_entity.dart';
+import '../../domain/repositories/proposal_repository.dart';
 import '../../types/proposal.dart';
+import '../providers/proposal_provider.dart';
 
-/// Full-page form for creating a new proposal.
+/// Full-page form for creating or modifying a proposal.
 ///
 /// Receives `recipientId`, `conversationId`, and `recipientName` via
-/// route extras. Collects title, description, amount, deadline.
-/// Frontend-only: tapping "Send" logs data and pops the screen.
-class CreateProposalScreen extends StatefulWidget {
+/// route extras. When `existingProposal` is provided, pre-fills the form
+/// for a counter-offer (modify mode).
+class CreateProposalScreen extends ConsumerStatefulWidget {
   const CreateProposalScreen({
     super.key,
     this.recipientId = '',
     this.conversationId = '',
     this.recipientName = '',
+    this.existingProposal,
   });
 
   final String recipientId;
   final String conversationId;
   final String recipientName;
 
+  /// When non-null, the screen acts in "modify" mode (counter-offer).
+  final ProposalEntity? existingProposal;
+
   @override
-  State<CreateProposalScreen> createState() => _CreateProposalScreenState();
+  ConsumerState<CreateProposalScreen> createState() =>
+      _CreateProposalScreenState();
 }
 
-class _CreateProposalScreenState extends State<CreateProposalScreen> {
+class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
 
   late final ProposalFormData _formData;
+  bool _isSubmitting = false;
+
+  bool get _isModifyMode => widget.existingProposal != null;
 
   @override
   void initState() {
@@ -42,6 +54,19 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
       conversationId: widget.conversationId,
       recipientName: widget.recipientName,
     );
+
+    // Pre-fill form in modify mode.
+    if (_isModifyMode) {
+      final p = widget.existingProposal!;
+      _titleController.text = p.title;
+      _descriptionController.text = p.description;
+      _amountController.text = p.amountInEuros.toStringAsFixed(2);
+      if (p.deadline != null) {
+        try {
+          _formData.deadline = DateTime.parse(p.deadline!);
+        } catch (_) {}
+      }
+    }
   }
 
   @override
@@ -65,19 +90,57 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
     }
   }
 
-  void _onSend() {
+  Future<void> _onSend() async {
     _formData.title = _titleController.text.trim();
     _formData.description = _descriptionController.text.trim();
     _formData.amount = double.tryParse(_amountController.text) ?? 0;
 
     if (!_formKey.currentState!.validate()) return;
 
-    // Mock: just log the data. Backend integration will come later.
-    debugPrint('Sending proposal: ${_formData.title}, '
-        '${_formData.amount} EUR, '
-        'to ${_formData.recipientId}');
+    setState(() => _isSubmitting = true);
 
-    GoRouter.of(context).pop(_formData);
+    final amountCentimes = (_formData.amount * 100).round();
+    final deadlineIso = _formData.deadline?.toUtc().toIso8601String();
+
+    try {
+      final repo = ref.read(proposalRepositoryProvider);
+
+      if (_isModifyMode) {
+        final modified = await repo.modifyProposal(
+          widget.existingProposal!.id,
+          ModifyProposalData(
+            title: _formData.title,
+            description: _formData.description,
+            amount: amountCentimes,
+            deadline: deadlineIso,
+          ),
+        );
+        if (mounted) {
+          GoRouter.of(context).pop(modified);
+        }
+      } else {
+        final created = await repo.createProposal(
+          CreateProposalData(
+            recipientId: _formData.recipientId,
+            conversationId: _formData.conversationId,
+            title: _formData.title,
+            description: _formData.description,
+            amount: amountCentimes,
+            deadline: deadlineIso,
+          ),
+        );
+        if (mounted) {
+          GoRouter.of(context).pop(created);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.unexpectedError}: $e')),
+        );
+      }
+    }
   }
 
   String _formatDate(DateTime date) {
@@ -91,17 +154,21 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final sendLabel =
+        _isModifyMode ? l10n.proposalModify : l10n.proposalSend;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.proposalCreate),
         actions: [
           TextButton(
-            onPressed: _onSend,
+            onPressed: _isSubmitting ? null : _onSend,
             child: Text(
-              l10n.proposalSend,
+              sendLabel,
               style: TextStyle(
-                color: theme.colorScheme.primary,
+                color: _isSubmitting
+                    ? theme.disabledColor
+                    : theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -183,9 +250,9 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
               _buildDeadlineField(theme, appColors, l10n),
               const SizedBox(height: 32),
 
-              // Send button
+              // Send / Modify button
               ElevatedButton(
-                onPressed: _onSend,
+                onPressed: _isSubmitting ? null : _onSend,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: Colors.white,
@@ -195,7 +262,16 @@ class _CreateProposalScreenState extends State<CreateProposalScreen> {
                         BorderRadius.circular(AppTheme.radiusMd),
                   ),
                 ),
-                child: Text(l10n.proposalSend),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(sendLabel),
               ),
               const SizedBox(height: 8),
 
