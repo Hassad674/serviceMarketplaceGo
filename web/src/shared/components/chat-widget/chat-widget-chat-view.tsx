@@ -81,6 +81,7 @@ export function ChatWidgetChatView({
           onLoadMore={onLoadMore}
           onEdit={onEdit}
           onDelete={onDelete}
+          conversationId={conversationId ?? ""}
         />
       </div>
 

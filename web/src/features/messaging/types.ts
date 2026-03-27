@@ -1,4 +1,12 @@
-export type MessageType = "text" | "file" | "proposal_sent"
+export type MessageType =
+  | "text"
+  | "file"
+  | "proposal_sent"
+  | "proposal_accepted"
+  | "proposal_declined"
+  | "proposal_modified"
+  | "proposal_paid"
+  | "proposal_payment_requested"
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read"
 
@@ -13,10 +21,14 @@ export type ProposalMessageMetadata = {
   proposal_id: string
   proposal_title: string
   proposal_amount: number
-  proposal_status: "pending" | "accepted" | "declined" | "withdrawn"
+  proposal_status: "pending" | "accepted" | "declined" | "withdrawn" | "paid" | "active" | "completed"
   proposal_deadline: string | null
   proposal_sender_name: string
   proposal_documents_count: number
+  proposal_version: number
+  proposal_parent_id: string | null
+  proposal_client_id: string
+  proposal_provider_id: string
 }
 
 export type Message = {

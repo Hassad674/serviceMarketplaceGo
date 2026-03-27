@@ -1,14 +1,17 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { X } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { useRouter } from "@i18n/navigation"
+import { X, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { ProposalFormData } from "../types"
 import { createEmptyProposalForm } from "../types"
 import { ProposalPreview } from "./proposal-preview"
 import { FileDropZone } from "./file-drop-zone"
+import { useCreateProposal, useModifyProposal } from "../hooks/use-proposals"
+import { getProposal } from "../api/proposal-api"
 
 const TITLE_MAX_LENGTH = 100
 
@@ -19,6 +22,7 @@ export function CreateProposalPage() {
 
   const recipientId = searchParams.get("to") ?? ""
   const conversationId = searchParams.get("conversation") ?? ""
+  const modifyId = searchParams.get("modify")
 
   const [formData, setFormData] = useState<ProposalFormData>(() => ({
     ...createEmptyProposalForm(),
@@ -26,16 +30,36 @@ export function CreateProposalPage() {
     conversationId,
   }))
   const [recipientName, setRecipientName] = useState("")
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  const createMutation = useCreateProposal()
+  const modifyMutation = useModifyProposal()
+  const isSubmitting = createMutation.isPending || modifyMutation.isPending
+
+  // Pre-fill form when modifying an existing proposal
+  useEffect(() => {
+    if (!modifyId) return
+    getProposal(modifyId).then((p) => {
+      setFormData((prev) => ({
+        ...prev,
+        title: p.title,
+        description: p.description,
+        amount: (p.amount / 100).toString(),
+        deadline: p.deadline ? p.deadline.split("T")[0] : "",
+      }))
+    }).catch(() => {
+      setSubmitError(t("fetchError"))
+    })
+  }, [modifyId, t])
 
   // Sync query params into form data when they change
   useEffect(() => {
     setFormData((prev) => ({ ...prev, recipientId, conversationId }))
   }, [recipientId, conversationId])
 
-  // Mock recipient fetch — in the future this would be an API call
+  // Mock recipient fetch
   useEffect(() => {
     if (!recipientId) return
-    // Placeholder: set a display name based on the ID
     setRecipientName(`User ${recipientId.slice(0, 8)}`)
   }, [recipientId])
 
@@ -53,9 +77,51 @@ export function CreateProposalPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isValid) return
-    // Mock: just log the data. Backend integration will come later.
-    console.log("Sending proposal:", formData)
+    if (!isValid || isSubmitting) return
+    setSubmitError(null)
+
+    const amountCents = Math.round(Number(formData.amount) * 100)
+
+    if (modifyId) {
+      modifyMutation.mutate(
+        {
+          id: modifyId,
+          data: {
+            title: formData.title.trim(),
+            description: formData.description.trim(),
+            amount: amountCents,
+            deadline: formData.deadline || undefined,
+          },
+        },
+        {
+          onSuccess: () => {
+            router.push(`/messages?id=${conversationId}`)
+          },
+          onError: (err) => {
+            setSubmitError(err.message)
+          },
+        },
+      )
+    } else {
+      createMutation.mutate(
+        {
+          recipient_id: recipientId,
+          conversation_id: conversationId,
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          amount: amountCents,
+          deadline: formData.deadline || undefined,
+        },
+        {
+          onSuccess: () => {
+            router.push(`/messages?id=${conversationId}`)
+          },
+          onError: (err) => {
+            setSubmitError(err.message)
+          },
+        },
+      )
+    }
   }
 
   function handleCancel() {
@@ -86,26 +152,34 @@ export function CreateProposalPage() {
         </button>
 
         <h1 className="text-base font-semibold text-gray-900 dark:text-white">
-          {t("createProposal")}
+          {modifyId ? t("modify") : t("createProposal")}
         </h1>
 
         <button
           type="submit"
           form="proposal-form"
-          disabled={!isValid}
+          disabled={!isValid || isSubmitting}
           className={cn(
             "rounded-xl px-5 py-2 text-sm font-semibold text-white transition-all duration-200",
-            isValid
+            "flex items-center gap-2",
+            isValid && !isSubmitting
               ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
               : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500",
           )}
         >
+          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {t("proposalSend")}
         </button>
       </header>
 
       {/* Body */}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        {submitError && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+            {submitError}
+          </div>
+        )}
+
         <div className="flex flex-col gap-8 lg:flex-row">
           {/* Form column */}
           <form
@@ -261,14 +335,16 @@ export function CreateProposalPage() {
               </button>
               <button
                 type="submit"
-                disabled={!isValid}
+                disabled={!isValid || isSubmitting}
                 className={cn(
                   "flex-1 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200",
-                  isValid
+                  "flex items-center justify-center gap-2",
+                  isValid && !isSubmitting
                     ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
                     : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500",
                 )}
               >
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("proposalSend")}
               </button>
             </div>

@@ -221,6 +221,7 @@ export function MessagingPage() {
               onLoadMore={() => messagesQuery.fetchNextPage()}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              conversationId={activeId ?? ""}
             />
             <MessageInput
               conversationId={activeId ?? ""}

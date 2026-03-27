@@ -1,9 +1,17 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback } from "react"
-import { MessageSquare } from "lucide-react"
+import {
+  MessageSquare,
+  CheckCircle2,
+  XCircle,
+  Pencil,
+  CreditCard,
+  DollarSign,
+} from "lucide-react"
+import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
-import { cn } from "@/shared/lib/utils"
+import { cn, formatCurrency } from "@/shared/lib/utils"
 import type { Message, ProposalMessageMetadata } from "../types"
 import { MessageStatusIcon } from "./message-status-icon"
 import { FileMessage } from "./file-message"
@@ -18,6 +26,7 @@ interface MessageAreaProps {
   onLoadMore: () => void
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
+  conversationId: string
 }
 
 export function MessageArea({
@@ -28,6 +37,7 @@ export function MessageArea({
   onLoadMore,
   onEdit,
   onDelete,
+  conversationId,
 }: MessageAreaProps) {
   const t = useTranslations("messaging")
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -111,6 +121,8 @@ export function MessageArea({
             key={message.id}
             message={message}
             isOwn={message.sender_id === currentUserId || message.sender_id === "optimistic"}
+            currentUserId={currentUserId}
+            conversationId={conversationId}
             onEdit={onEdit}
             onDelete={onDelete}
           />
@@ -123,6 +135,8 @@ export function MessageArea({
 interface MessageBubbleProps {
   message: Message
   isOwn: boolean
+  currentUserId: string
+  conversationId: string
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
 }
@@ -135,8 +149,23 @@ function isFileMetadata(metadata: unknown): metadata is import("../types").FileM
   return metadata !== null && typeof metadata === "object" && "filename" in (metadata as Record<string, unknown>)
 }
 
-function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps) {
+const PROPOSAL_SYSTEM_TYPES = new Set([
+  "proposal_accepted",
+  "proposal_declined",
+  "proposal_paid",
+])
+
+function MessageBubble({
+  message,
+  isOwn,
+  currentUserId,
+  conversationId,
+  onEdit,
+  onDelete,
+}: MessageBubbleProps) {
   const t = useTranslations("messaging")
+  const tp = useTranslations("proposal")
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
 
@@ -148,16 +177,57 @@ function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps)
     setIsEditing(false)
   }, [editContent, message.content, message.id, onEdit])
 
-  // Proposal message — render ProposalCard instead of a text bubble
-  if (message.type === "proposal_sent" && isProposalMetadata(message.metadata)) {
+  // Proposal sent or modified — render ProposalCard
+  if (
+    (message.type === "proposal_sent" || message.type === "proposal_modified") &&
+    isProposalMetadata(message.metadata)
+  ) {
     return (
       <div className={cn("flex", isOwn ? "justify-end" : "justify-start")}>
         <ProposalCard
           metadata={message.metadata}
           isOwn={isOwn}
-          onAccept={() => console.log("Accept proposal:", message.metadata)}
-          onDecline={() => console.log("Decline proposal:", message.metadata)}
+          currentUserId={currentUserId}
+          conversationId={conversationId}
         />
+      </div>
+    )
+  }
+
+  // System messages for proposal state changes
+  if (PROPOSAL_SYSTEM_TYPES.has(message.type) && isProposalMetadata(message.metadata)) {
+    return (
+      <ProposalSystemMessage
+        type={message.type}
+        metadata={message.metadata}
+      />
+    )
+  }
+
+  // Payment requested — special system message with action
+  if (message.type === "proposal_payment_requested" && isProposalMetadata(message.metadata)) {
+    const payMeta = message.metadata
+    return (
+      <div className="flex justify-center py-2">
+        <div className="flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-2.5 dark:bg-blue-500/10">
+          <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
+          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+            {tp("paymentRequested")}
+          </span>
+          {payMeta.proposal_client_id === currentUserId && (
+            <button
+              type="button"
+              onClick={() => router.push(`/projects/pay?proposal=${payMeta.proposal_id}`)}
+              className={cn(
+                "rounded-lg px-3 py-1 text-xs font-semibold text-white",
+                "gradient-primary hover:shadow-glow active:scale-[0.98]",
+                "transition-all duration-200",
+              )}
+            >
+              {tp("payNow")}
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -284,6 +354,50 @@ function MessageBubble({ message, isOwn, onEdit, onDelete }: MessageBubbleProps)
           onDelete={() => onDelete(message.id)}
         />
       )}
+    </div>
+  )
+}
+
+function ProposalSystemMessage({
+  type,
+  metadata,
+}: {
+  type: string
+  metadata: ProposalMessageMetadata
+}) {
+  const t = useTranslations("proposal")
+
+  const config: Record<string, { icon: React.ElementType; text: string; className: string }> = {
+    proposal_accepted: {
+      icon: CheckCircle2,
+      text: t("proposalAccepted"),
+      className: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300",
+    },
+    proposal_declined: {
+      icon: XCircle,
+      text: t("proposalDeclined"),
+      className: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300",
+    },
+    proposal_paid: {
+      icon: DollarSign,
+      text: t("proposalPaid"),
+      className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
+    },
+  }
+
+  const entry = config[type]
+  if (!entry) return null
+
+  const Icon = entry.icon
+
+  return (
+    <div className="flex justify-center py-2">
+      <div className={cn("flex items-center gap-2 rounded-xl px-4 py-2", entry.className)}>
+        <Icon className="h-4 w-4" strokeWidth={1.5} />
+        <span className="text-sm font-medium">
+          {entry.text} — {metadata.proposal_title} ({formatCurrency(metadata.proposal_amount / 100)})
+        </span>
+      </div>
     </div>
   )
 }

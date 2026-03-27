@@ -314,7 +314,10 @@
   "projects": {
     "title": "Projects",
     "createProject": "Create Project",
-    "noProjects": "No projects yet"
+    "noProjects": "No active projects yet",
+    "activeProjects": "Active projects",
+    "status": "Status",
+    "amount": "Amount"
   },
   "job": {
     "title": "Jobs",
@@ -397,6 +400,26 @@
     "declined": "Declined",
     "withdrawn": "Withdrawn",
     "accept": "Accept",
-    "decline": "Decline"
+    "decline": "Decline",
+    "modify": "Modify proposal",
+    "pay": "Pay now",
+    "payNow": "Pay now",
+    "paid": "Paid",
+    "active": "Active",
+    "completed": "Completed",
+    "version": "Version",
+    "paymentSimulation": "Payment confirmation",
+    "paymentSimulationDesc": "Review and confirm your payment",
+    "confirmPayment": "Confirm payment",
+    "processing": "Processing...",
+    "paymentSuccess": "Payment confirmed!",
+    "paymentError": "Payment failed. Please try again.",
+    "paymentRequested": "Payment requested",
+    "proposalAccepted": "Proposal accepted",
+    "proposalDeclined": "Proposal declined",
+    "proposalModified": "Proposal modified",
+    "proposalPaid": "Proposal paid",
+    "proposalNotFound": "Proposal not found",
+    "fetchError": "Failed to load proposal"
   }
 }

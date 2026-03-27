@@ -1,4 +1,45 @@
-export type ProposalStatus = "pending" | "accepted" | "declined" | "withdrawn"
+export type ProposalStatus =
+  | "pending"
+  | "accepted"
+  | "declined"
+  | "withdrawn"
+  | "paid"
+  | "active"
+  | "completed"
+
+export type ProposalDocument = {
+  id: string
+  filename: string
+  url: string
+  size: number
+  mime_type: string
+}
+
+export type ProposalResponse = {
+  id: string
+  conversation_id: string
+  sender_id: string
+  recipient_id: string
+  title: string
+  description: string
+  amount: number
+  deadline: string | null
+  status: ProposalStatus
+  parent_id: string | null
+  version: number
+  client_id: string
+  provider_id: string
+  documents: ProposalDocument[]
+  accepted_at: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export type ProjectListResponse = {
+  data: ProposalResponse[]
+  next_cursor: string
+  has_more: boolean
+}
 
 export type ProposalFormData = {
   recipientId: string
@@ -18,6 +59,10 @@ export type ProposalMessageMetadata = {
   proposal_deadline: string | null
   proposal_sender_name: string
   proposal_documents_count: number
+  proposal_version: number
+  proposal_parent_id: string | null
+  proposal_client_id: string
+  proposal_provider_id: string
 }
 
 export function createEmptyProposalForm(): ProposalFormData {

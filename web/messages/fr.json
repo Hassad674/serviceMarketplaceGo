@@ -314,7 +314,10 @@
   "projects": {
     "title": "Projets",
     "createProject": "Cr\u00e9er un projet",
-    "noProjects": "Aucun projet pour le moment"
+    "noProjects": "Aucun projet actif pour le moment",
+    "activeProjects": "Projets actifs",
+    "status": "Statut",
+    "amount": "Montant"
   },
   "job": {
     "title": "Offres d'emploi",
@@ -397,6 +400,26 @@
     "declined": "Refus\u00e9e",
     "withdrawn": "Retir\u00e9e",
     "accept": "Accepter",
-    "decline": "Refuser"
+    "decline": "Refuser",
+    "modify": "Modifier la proposition",
+    "pay": "Payer maintenant",
+    "payNow": "Payer maintenant",
+    "paid": "Pay\u00e9e",
+    "active": "Active",
+    "completed": "Termin\u00e9e",
+    "version": "Version",
+    "paymentSimulation": "Confirmation de paiement",
+    "paymentSimulationDesc": "V\u00e9rifiez et confirmez votre paiement",
+    "confirmPayment": "Confirmer le paiement",
+    "processing": "Traitement...",
+    "paymentSuccess": "Paiement confirm\u00e9 !",
+    "paymentError": "Le paiement a \u00e9chou\u00e9. Veuillez r\u00e9essayer.",
+    "paymentRequested": "Paiement demand\u00e9",
+    "proposalAccepted": "Proposition accept\u00e9e",
+    "proposalDeclined": "Proposition refus\u00e9e",
+    "proposalModified": "Proposition modifi\u00e9e",
+    "proposalPaid": "Proposition pay\u00e9e",
+    "proposalNotFound": "Proposition introuvable",
+    "fetchError": "Impossible de charger la proposition"
   }
 }

@@ -17,6 +17,12 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }))
 
+// Mock @i18n/navigation
+vi.mock("@i18n/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
+  Link: ({ children, ...props }: Record<string, unknown>) => <a {...props}>{children as React.ReactNode}</a>,
+}))
+
 // Mock lucide-react icons
 vi.mock("lucide-react", () => ({
   MessageSquare: (props: Record<string, unknown>) => <span data-testid="message-square-icon" {...props} />,
@@ -28,6 +34,10 @@ vi.mock("lucide-react", () => ({
   CheckCheck: (props: Record<string, unknown>) => <span data-testid="checkcheck-icon" {...props} />,
   Download: (props: Record<string, unknown>) => <span data-testid="download-icon" {...props} />,
   FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
+  CheckCircle2: (props: Record<string, unknown>) => <span data-testid="check-circle-icon" {...props} />,
+  XCircle: (props: Record<string, unknown>) => <span data-testid="x-circle-icon" {...props} />,
+  CreditCard: (props: Record<string, unknown>) => <span data-testid="credit-card-icon" {...props} />,
+  DollarSign: (props: Record<string, unknown>) => <span data-testid="dollar-icon" {...props} />,
 }))
 
 // Mock sub-components that are imported
@@ -48,6 +58,10 @@ vi.mock("../message-context-menu", () => ({
       <button onClick={onDelete} data-testid="delete-btn">delete</button>
     </span>
   ),
+}))
+
+vi.mock("../proposal-card", () => ({
+  ProposalCard: () => <span data-testid="proposal-card" />,
 }))
 
 function createMessage(overrides: Partial<Message> = {}): Message {
@@ -76,6 +90,7 @@ function defaultProps(overrides: Partial<Parameters<typeof MessageArea>[0]> = {}
     onLoadMore: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
+    conversationId: "conv-1",
     ...overrides,
   }
 }

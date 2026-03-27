@@ -7,24 +7,75 @@ import {
   Clock,
   Calendar,
   Paperclip,
+  CreditCard,
+  Pencil,
+  Loader2,
+  DollarSign,
+  Star,
 } from "lucide-react"
+import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import type { ProposalMessageMetadata } from "../types"
+// Cross-feature import — ProposalCard renders proposal actions within messaging context.
+// This is an accepted exception documented in the task spec.
+import {
+  useAcceptProposal,
+  useDeclineProposal,
+} from "@/features/proposal/hooks/use-proposals"
 
 type ProposalStatus = ProposalMessageMetadata["proposal_status"]
 
 type ProposalCardProps = {
   metadata: ProposalMessageMetadata
   isOwn: boolean
-  onAccept: () => void
-  onDecline: () => void
+  currentUserId: string
+  conversationId: string
 }
 
-export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalCardProps) {
+export function ProposalCard({
+  metadata,
+  isOwn,
+  currentUserId,
+  conversationId,
+}: ProposalCardProps) {
   const t = useTranslations("proposal")
+  const router = useRouter()
+  const acceptMutation = useAcceptProposal()
+  const declineMutation = useDeclineProposal()
 
-  const showActions = !isOwn && metadata.proposal_status === "pending"
+  const isMutating = acceptMutation.isPending || declineMutation.isPending
+  const isRecipient = !isOwn
+  const showPendingActions = isRecipient && metadata.proposal_status === "pending"
+  const showPayButton =
+    metadata.proposal_status === "accepted" &&
+    metadata.proposal_client_id === currentUserId
+  const showModifyButton = isOwn && metadata.proposal_status === "pending"
+  const isOutdated =
+    metadata.proposal_parent_id !== null &&
+    metadata.proposal_version > 1 &&
+    metadata.proposal_status === "pending"
+
+  function handleAccept() {
+    acceptMutation.mutate(metadata.proposal_id)
+  }
+
+  function handleDecline() {
+    declineMutation.mutate(metadata.proposal_id)
+  }
+
+  function handleModify() {
+    const params = new URLSearchParams({
+      modify: metadata.proposal_id,
+      conversation: conversationId,
+      to: isOwn ? metadata.proposal_provider_id : metadata.proposal_client_id,
+    })
+    router.push(`/projects/new?${params.toString()}`)
+  }
+
+  function handlePay() {
+    router.push(`/projects/pay?proposal=${metadata.proposal_id}`)
+  }
 
   return (
     <div
@@ -34,6 +85,7 @@ export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalC
         "bg-white dark:bg-gray-800/80",
         "border-gray-200 dark:border-gray-700",
         "shadow-sm hover:shadow-md",
+        isOutdated && "opacity-50",
       )}
     >
       {/* Header gradient bar */}
@@ -68,7 +120,7 @@ export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalC
           <DetailItem
             icon={<EuroIcon />}
             label={t("totalAmount")}
-            value={formatCurrency(metadata.proposal_amount)}
+            value={formatCurrency(metadata.proposal_amount / 100)}
             highlight
           />
 
@@ -93,16 +145,26 @@ export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalC
               value={`${metadata.proposal_documents_count}`}
             />
           )}
+
+          {/* Version */}
+          {metadata.proposal_version > 1 && (
+            <DetailItem
+              icon={<Pencil className="h-4 w-4" strokeWidth={1.5} />}
+              label={t("version")}
+              value={`v${metadata.proposal_version}`}
+            />
+          )}
         </div>
 
-        {/* Action buttons (only for recipient when pending) */}
-        {showActions && (
+        {/* Pending action buttons (Accept / Decline) */}
+        {showPendingActions && (
           <>
             <div className="border-t border-gray-100 dark:border-gray-700" />
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={onDecline}
+                onClick={handleDecline}
+                disabled={isMutating}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
                   "text-sm font-medium transition-all duration-200",
@@ -110,25 +172,78 @@ export function ProposalCard({ metadata, isOwn, onAccept, onDecline }: ProposalC
                   "text-gray-700 dark:text-gray-300",
                   "hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-500",
                   "active:scale-[0.98]",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
               >
-                <XCircle className="h-4 w-4" strokeWidth={1.5} />
+                {declineMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4" strokeWidth={1.5} />
+                )}
                 {t("decline")}
               </button>
               <button
                 type="button"
-                onClick={onAccept}
+                onClick={handleAccept}
+                disabled={isMutating}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
                   "text-sm font-semibold text-white transition-all duration-200",
                   "gradient-primary",
                   "hover:shadow-glow active:scale-[0.98]",
+                  "disabled:opacity-50 disabled:cursor-not-allowed",
                 )}
               >
-                <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
+                {acceptMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
+                )}
                 {t("accept")}
               </button>
             </div>
+          </>
+        )}
+
+        {/* Modify button (sender, pending) */}
+        {showModifyButton && (
+          <>
+            <div className="border-t border-gray-100 dark:border-gray-700" />
+            <button
+              type="button"
+              onClick={handleModify}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
+                "text-sm font-medium transition-all duration-200",
+                "border border-gray-200 dark:border-gray-600",
+                "text-gray-700 dark:text-gray-300",
+                "hover:bg-gray-50 dark:hover:bg-gray-700",
+                "active:scale-[0.98]",
+              )}
+            >
+              <Pencil className="h-4 w-4" strokeWidth={1.5} />
+              {t("modify")}
+            </button>
+          </>
+        )}
+
+        {/* Pay button (client, accepted) */}
+        {showPayButton && (
+          <>
+            <div className="border-t border-gray-100 dark:border-gray-700" />
+            <button
+              type="button"
+              onClick={handlePay}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
+                "text-sm font-semibold text-white transition-all duration-200",
+                "gradient-primary",
+                "hover:shadow-glow active:scale-[0.98]",
+              )}
+            >
+              <CreditCard className="h-4 w-4" strokeWidth={1.5} />
+              {t("pay")}
+            </button>
           </>
         )}
       </div>
@@ -170,6 +285,21 @@ function StatusBadge({ status }: StatusBadgeProps) {
     withdrawn: {
       label: t("withdrawn"),
       icon: XCircle,
+      className: "bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400",
+    },
+    paid: {
+      label: t("paid"),
+      icon: DollarSign,
+      className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+    },
+    active: {
+      label: t("active"),
+      icon: Star,
+      className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+    },
+    completed: {
+      label: t("completed"),
+      icon: CheckCircle2,
       className: "bg-gray-50 text-gray-600 dark:bg-gray-500/10 dark:text-gray-400",
     },
   }
