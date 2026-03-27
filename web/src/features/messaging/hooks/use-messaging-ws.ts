@@ -152,9 +152,6 @@ export function useMessagingWS(userId: string | undefined) {
 
       // Also invalidate the proposal detail query so /projects/{id} refreshes
       queryClient.invalidateQueries({ queryKey: [...PROPOSAL_QUERY_KEY, proposalId] })
-      // Force a refetch of the messages for this conversation as a fallback
-      // in case the cache mutation alone does not trigger a re-render.
-      queryClient.invalidateQueries({ queryKey })
     },
     [queryClient],
   )

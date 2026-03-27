@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -237,6 +238,11 @@ func buildStatusMetadata(p *domain.Proposal) json.RawMessage {
 		m["proposal_parent_id"] = p.ParentID.String()
 	} else {
 		m["proposal_parent_id"] = nil
+	}
+	if p.Deadline != nil {
+		m["proposal_deadline"] = p.Deadline.Format(time.RFC3339)
+	} else {
+		m["proposal_deadline"] = nil
 	}
 	data, _ := json.Marshal(m)
 	return data

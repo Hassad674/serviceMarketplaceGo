@@ -34,8 +34,13 @@ export function useCreateProposal() {
 
   return useMutation({
     mutationFn: (data: CreateProposalData) => createProposal(data),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      // Invalidate messages for the target conversation so the sender
+      // sees the proposal_sent message immediately after navigating back.
+      queryClient.invalidateQueries({
+        queryKey: [MESSAGES_QUERY_KEY, variables.conversation_id],
+      })
     },
   })
 }
@@ -49,7 +54,10 @@ export function useAcceptProposal() {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
+      // Do NOT invalidate MESSAGES_QUERY_KEY here. The WS handler adds the
+      // system message and syncProposalStatusInCache updates proposal cards.
+      // A server refetch would overwrite the cache fix because the stored
+      // proposal_sent message still has proposal_status="pending" in the DB.
     },
   })
 }
@@ -62,7 +70,7 @@ export function useDeclineProposal() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
+      // Do NOT invalidate MESSAGES_QUERY_KEY -- same reason as useAcceptProposal.
     },
   })
 }
@@ -88,7 +96,7 @@ export function useSimulatePayment() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
+      // WS syncProposalStatusInCache handles card status update
     },
   })
 }
@@ -102,7 +110,7 @@ export function useRequestCompletion() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
+      // WS syncProposalStatusInCache handles card status update
     },
   })
 }
@@ -116,7 +124,7 @@ export function useCompleteProposal() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
+      // WS syncProposalStatusInCache handles card status update
     },
   })
 }
@@ -130,7 +138,7 @@ export function useRejectCompletion() {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: PROPOSAL_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: [MESSAGES_QUERY_KEY] })
+      // WS syncProposalStatusInCache handles card status update
     },
   })
 }

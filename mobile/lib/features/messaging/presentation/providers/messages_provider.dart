@@ -298,11 +298,22 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   void _handleNewMessage(Map<String, dynamic> event) {
     final msgJson = event['payload'] as Map<String, dynamic>?;
     if (msgJson == null) return;
-    final msg = MessageEntity.fromJson(msgJson);
+
+    final MessageEntity msg;
+    try {
+      msg = MessageEntity.fromJson(msgJson);
+    } catch (e) {
+      debugPrint('[Messages] failed to parse WS message: $e');
+      return;
+    }
+
     if (msg.conversationId != conversationId) return;
 
-    // Avoid duplicates (from optimistic insert)
+    // Avoid duplicates (from optimistic insert or re-broadcast)
     if (state.messages.any((m) => m.id == msg.id)) return;
+
+    // When a proposal status change arrives, update existing proposal cards
+    _syncProposalStatusInMessages(msg);
 
     state = state.copyWith(
       messages: [...state.messages, msg],
@@ -312,6 +323,44 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
     // Mark as read since chat is open
     _markConversationAsRead();
     _wsService.sendAck(msg.id);
+  }
+
+  /// When a proposal_accepted/declined/paid/etc. message arrives, update the
+  /// proposal_status in all existing proposal_sent and proposal_modified
+  /// messages with the same proposal_id so their cards reflect the new status.
+  void _syncProposalStatusInMessages(MessageEntity incoming) {
+    const statusTypes = {
+      'proposal_accepted',
+      'proposal_declined',
+      'proposal_paid',
+      'proposal_completion_requested',
+      'proposal_completed',
+      'proposal_completion_rejected',
+    };
+    if (!statusTypes.contains(incoming.type)) return;
+
+    final meta = incoming.metadata;
+    if (meta == null) return;
+    final proposalId = meta['proposal_id'] as String?;
+    final newStatus = meta['proposal_status'] as String?;
+    if (proposalId == null || newStatus == null) return;
+
+    var changed = false;
+    final updated = state.messages.map((m) {
+      if ((m.type == 'proposal_sent' || m.type == 'proposal_modified') &&
+          m.metadata != null &&
+          m.metadata!['proposal_id'] == proposalId) {
+        changed = true;
+        final updatedMeta = Map<String, dynamic>.from(m.metadata!);
+        updatedMeta['proposal_status'] = newStatus;
+        return m.copyWith(metadata: updatedMeta);
+      }
+      return m;
+    }).toList();
+
+    if (changed) {
+      state = state.copyWith(messages: updated);
+    }
   }
 
   void _handleTyping(Map<String, dynamic> event) {
