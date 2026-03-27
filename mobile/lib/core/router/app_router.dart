@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'dart:async';
-
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/auth/presentation/screens/agency_register_screen.dart';
 import '../../features/auth/presentation/screens/enterprise_register_screen.dart';
@@ -11,11 +9,6 @@ import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/auth/presentation/screens/role_selection_screen.dart';
 import '../../features/dashboard/presentation/screens/referrer_dashboard_screen.dart';
-import '../../features/call/domain/entities/call_entity.dart';
-import '../../features/call/presentation/providers/call_provider.dart';
-import '../../features/call/presentation/screens/call_screen.dart';
-import '../../features/call/presentation/widgets/incoming_call_overlay.dart';
-import '../../features/messaging/data/messaging_ws_service.dart';
 import '../../features/messaging/presentation/providers/messaging_provider.dart';
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
@@ -236,17 +229,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 /// Wraps authenticated screens with a persistent bottom navigation bar.
 ///
 /// Reads [totalUnreadProvider] to display a badge on the Messages tab.
-/// Listens to WS events for incoming calls and shows the call overlay.
-class DashboardShell extends ConsumerStatefulWidget {
+/// Call event handling is done globally by [CallEventListener] in main.dart.
+class DashboardShell extends ConsumerWidget {
   final Widget child;
   const DashboardShell({super.key, required this.child});
-
-  @override
-  ConsumerState<DashboardShell> createState() => _DashboardShellState();
-}
-
-class _DashboardShellState extends ConsumerState<DashboardShell> {
-  StreamSubscription<Map<String, dynamic>>? _wsSubscription;
 
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -257,137 +243,83 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
   }
 
   @override
-  void initState() {
-    super.initState();
-    // Listen to WS events for call signaling
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final wsService = ref.read(messagingWsServiceProvider);
-      _wsSubscription = wsService.events.listen(_onWsEvent);
-    });
-  }
-
-  @override
-  void dispose() {
-    _wsSubscription?.cancel();
-    super.dispose();
-  }
-
-  void _onWsEvent(Map<String, dynamic> event) {
-    final type = event['type'] as String? ?? '';
-    if (type == 'call_event') {
-      final payload = event['payload'] as Map<String, dynamic>? ?? event;
-      ref.read(callProvider.notifier).handleCallEvent(payload);
-    }
-  }
-
-  void _handleAcceptCall() {
-    final callState = ref.read(callProvider);
-    final callerName = callState.incomingCallerName;
-    ref.read(callProvider.notifier).acceptCall();
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CallScreen(recipientName: callerName),
-      ),
-    );
-  }
-
-  void _handleDeclineCall() {
-    ref.read(callProvider.notifier).declineCall();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
     final totalUnread = ref.watch(totalUnreadProvider);
-    final callState = ref.watch(callProvider);
 
-    return Stack(
-      children: [
-        Scaffold(
-          body: widget.child,
-          bottomNavigationBar: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              border: Border(
-                top: BorderSide(
-                  color: appColors?.border ?? theme.dividerColor,
-                  width: 1,
-                ),
-              ),
-            ),
-            child: NavigationBar(
-              selectedIndex: _currentIndex(context),
-              destinations: [
-                NavigationDestination(
-                  icon: const Icon(Icons.dashboard_outlined),
-                  selectedIcon: const Icon(Icons.dashboard),
-                  label: l10n.home,
-                ),
-                NavigationDestination(
-                  icon: totalUnread > 0
-                      ? Badge(
-                          label: Text(
-                            totalUnread > 99 ? '99+' : '$totalUnread',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          backgroundColor: const Color(0xFFF43F5E),
-                          child: const Icon(Icons.chat_outlined),
-                        )
-                      : const Icon(Icons.chat_outlined),
-                  selectedIcon: totalUnread > 0
-                      ? Badge(
-                          label: Text(
-                            totalUnread > 99 ? '99+' : '$totalUnread',
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          backgroundColor: const Color(0xFFF43F5E),
-                          child: const Icon(Icons.chat),
-                        )
-                      : const Icon(Icons.chat),
-                  label: l10n.messages,
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.work_outline),
-                  selectedIcon: const Icon(Icons.work),
-                  label: l10n.missions,
-                ),
-                NavigationDestination(
-                  icon: const Icon(Icons.person_outline),
-                  selectedIcon: const Icon(Icons.person),
-                  label: l10n.profile,
-                ),
-              ],
-              onDestinationSelected: (index) {
-                final routes = [
-                  RoutePaths.dashboard,
-                  RoutePaths.messaging,
-                  RoutePaths.missions,
-                  RoutePaths.profile,
-                ];
-                GoRouter.of(context).go(routes[index]);
-              },
+    return Scaffold(
+      body: child,
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          border: Border(
+            top: BorderSide(
+              color: appColors?.border ?? theme.dividerColor,
+              width: 1,
             ),
           ),
         ),
-
-        // Incoming call overlay -- shown on top of everything
-        if (callState.status == CallStatus.ringingIncoming)
-          IncomingCallOverlay(
-            callerName: callState.incomingCallerName.isNotEmpty
-                ? callState.incomingCallerName
-                : l10n.callUnknownCaller,
-            onAccept: _handleAcceptCall,
-            onDecline: _handleDeclineCall,
-          ),
-      ],
+        child: NavigationBar(
+          selectedIndex: _currentIndex(context),
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.dashboard_outlined),
+              selectedIcon: const Icon(Icons.dashboard),
+              label: l10n.home,
+            ),
+            NavigationDestination(
+              icon: totalUnread > 0
+                  ? Badge(
+                      label: Text(
+                        totalUnread > 99 ? '99+' : '$totalUnread',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFF43F5E),
+                      child: const Icon(Icons.chat_outlined),
+                    )
+                  : const Icon(Icons.chat_outlined),
+              selectedIcon: totalUnread > 0
+                  ? Badge(
+                      label: Text(
+                        totalUnread > 99 ? '99+' : '$totalUnread',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFF43F5E),
+                      child: const Icon(Icons.chat),
+                    )
+                  : const Icon(Icons.chat),
+              label: l10n.messages,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.work_outline),
+              selectedIcon: const Icon(Icons.work),
+              label: l10n.missions,
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.person_outline),
+              selectedIcon: const Icon(Icons.person),
+              label: l10n.profile,
+            ),
+          ],
+          onDestinationSelected: (index) {
+            final routes = [
+              RoutePaths.dashboard,
+              RoutePaths.messaging,
+              RoutePaths.missions,
+              RoutePaths.profile,
+            ];
+            GoRouter.of(context).go(routes[index]);
+          },
+        ),
+      ),
     );
   }
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
-import { Room, RoomEvent, RemoteTrack } from "livekit-client"
+import { Room, RoomEvent, RemoteTrack, Track, RemoteTrackPublication, RemoteParticipant } from "livekit-client"
 import {
   initiateCall,
   acceptCall as acceptCallApi,
@@ -36,6 +36,10 @@ export function useCall() {
       roomRef.current.disconnect()
       roomRef.current = null
     }
+    // Remove any attached LiveKit audio elements from the DOM
+    document
+      .querySelectorAll("audio[data-livekit-audio]")
+      .forEach((el) => el.remove())
   }, [])
 
   const clearTimers = useCallback(() => {
@@ -78,9 +82,24 @@ export function useCall() {
       const room = new Room()
       roomRef.current = room
 
-      room.on(RoomEvent.TrackSubscribed, (_track: RemoteTrack) => {
-        // Remote audio track auto-plays via WebAudio
-      })
+      room.on(
+        RoomEvent.TrackSubscribed,
+        (track: RemoteTrack, _pub: RemoteTrackPublication, _participant: RemoteParticipant) => {
+          if (track.kind === Track.Kind.Audio) {
+            // attach() creates an <audio> element and starts playback
+            const el = track.attach()
+            el.setAttribute("data-livekit-audio", "true")
+            document.body.appendChild(el)
+          }
+        },
+      )
+
+      room.on(
+        RoomEvent.TrackUnsubscribed,
+        (track: RemoteTrack) => {
+          track.detach().forEach((el) => el.remove())
+        },
+      )
 
       room.on(RoomEvent.Disconnected, () => {
         // Only cleanup if we are in an active call -- a disconnect during
@@ -237,6 +256,9 @@ export function useCall() {
       if (ringTimerRef.current) clearTimeout(ringTimerRef.current)
       if (durationTimerRef.current) clearInterval(durationTimerRef.current)
       if (roomRef.current) roomRef.current.disconnect()
+      document
+        .querySelectorAll("audio[data-livekit-audio]")
+        .forEach((el) => el.remove())
     }
   }, [])
 

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/router/app_router.dart';
+import 'features/call/presentation/widgets/call_event_listener.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,6 +59,9 @@ class MarketplaceApp extends ConsumerWidget {
         Locale('fr'),
       ],
       routerConfig: router,
+      builder: (context, child) {
+        return CallEventListener(child: child ?? const SizedBox.shrink());
+      },
     );
   }
 }

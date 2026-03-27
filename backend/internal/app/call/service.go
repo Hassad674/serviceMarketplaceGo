@@ -243,8 +243,17 @@ func (s *Service) broadcastCallSignal(ctx context.Context, eventType string, c *
 }
 
 func (s *Service) sendCallSystemMessage(ctx context.Context, c *calldomain.Call) {
-	durationStr := formatDuration(c.Duration)
-	content := fmt.Sprintf("Audio call - %s", durationStr)
+	var content string
+	var msgType message.MessageType
+
+	if c.Duration > 0 {
+		durationStr := formatDuration(c.Duration)
+		content = fmt.Sprintf("Audio call - %s", durationStr)
+		msgType = message.MessageTypeCallEnded
+	} else {
+		content = "Missed call"
+		msgType = message.MessageTypeCallMissed
+	}
 
 	metadata, _ := json.Marshal(map[string]any{
 		"call_id":  c.ID.String(),
@@ -256,7 +265,7 @@ func (s *Service) sendCallSystemMessage(ctx context.Context, c *calldomain.Call)
 		ConversationID: c.ConversationID,
 		SenderID:       c.InitiatorID,
 		Content:        content,
-		Type:           string(message.MessageTypeCallEnded),
+		Type:           string(msgType),
 		Metadata:       metadata,
 	})
 }

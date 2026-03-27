@@ -342,6 +342,33 @@ func TestEnd_HappyPath(t *testing.T) {
 	assert.Contains(t, ms.sent[0].Content, "2:00")
 }
 
+func TestEnd_MissedCall_ZeroDuration(t *testing.T) {
+	svc, _, _, pr, _, ms := setupService()
+	initiatorID := uuid.New()
+	recipientID := uuid.New()
+	pr.online[recipientID] = true
+
+	result, _ := svc.Initiate(context.Background(), InitiateInput{
+		ConversationID: uuid.New(),
+		InitiatorID:    initiatorID,
+		RecipientID:    recipientID,
+		Type:           calldomain.TypeAudio,
+	})
+
+	// End while still ringing (not accepted) with duration 0
+	err := svc.End(context.Background(), EndInput{
+		CallID:   result.CallID,
+		UserID:   initiatorID,
+		Duration: 0,
+	})
+	require.NoError(t, err)
+
+	// System message should say "Missed call", not "Audio call - 0:00"
+	require.Len(t, ms.sent, 1)
+	assert.Equal(t, "Missed call", ms.sent[0].Content)
+	assert.Equal(t, "call_missed", ms.sent[0].Type)
+}
+
 func TestEnd_NotParticipant(t *testing.T) {
 	svc, _, _, pr, _, _ := setupService()
 	recipientID := uuid.New()
