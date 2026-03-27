@@ -12,11 +12,33 @@ type MessageType string
 const (
 	MessageTypeText MessageType = "text"
 	MessageTypeFile MessageType = "file"
+
+	// Proposal message types — carry data in metadata, not content.
+	MessageTypeProposalSent             MessageType = "proposal_sent"
+	MessageTypeProposalAccepted         MessageType = "proposal_accepted"
+	MessageTypeProposalDeclined         MessageType = "proposal_declined"
+	MessageTypeProposalModified         MessageType = "proposal_modified"
+	MessageTypeProposalPaid             MessageType = "proposal_paid"
+	MessageTypeProposalPaymentRequested MessageType = "proposal_payment_requested"
 )
+
+// IsProposalType returns true if the message type is a proposal event type.
+func (mt MessageType) IsProposalType() bool {
+	switch mt {
+	case MessageTypeProposalSent, MessageTypeProposalAccepted,
+		MessageTypeProposalDeclined, MessageTypeProposalModified,
+		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested:
+		return true
+	}
+	return false
+}
 
 func (mt MessageType) IsValid() bool {
 	switch mt {
-	case MessageTypeText, MessageTypeFile:
+	case MessageTypeText, MessageTypeFile,
+		MessageTypeProposalSent, MessageTypeProposalAccepted,
+		MessageTypeProposalDeclined, MessageTypeProposalModified,
+		MessageTypeProposalPaid, MessageTypeProposalPaymentRequested:
 		return true
 	}
 	return false
@@ -99,6 +121,9 @@ func NewMessage(
 	if msgType == MessageTypeText && content == "" {
 		return nil, ErrEmptyContent
 	}
+
+	// Proposal message types carry data in metadata, content is optional.
+	// File messages also allow empty content (already handled above).
 
 	if len(content) > MaxContentLength {
 		return nil, ErrContentTooLong
