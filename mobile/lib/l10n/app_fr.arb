@@ -315,5 +315,16 @@
   "callRecipientOffline": "Le destinataire est hors ligne",
   "callUserBusy": "L'utilisateur est d\u00e9j\u00e0 en appel",
   "callFailed": "L'appel n'a pas pu \u00eatre lanc\u00e9",
-  "callUnknownCaller": "Appelant inconnu"
+  "callUnknownCaller": "Appelant inconnu",
+
+  "drawerDashboard": "Tableau de bord",
+  "drawerMessages": "Messages",
+  "drawerProjects": "Projets",
+  "drawerJobs": "Offres d'emploi",
+  "drawerProfile": "Mon profil",
+  "drawerFindFreelancers": "Trouver des freelances",
+  "drawerFindAgencies": "Trouver des agences",
+  "drawerFindReferrers": "Trouver des apporteurs",
+  "drawerLogout": "Se d\u00e9connecter",
+  "drawerLogoutConfirm": "Voulez-vous vraiment vous d\u00e9connecter ?"
 }

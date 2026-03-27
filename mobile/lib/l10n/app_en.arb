@@ -320,5 +320,16 @@
   "callRecipientOffline": "Recipient is offline",
   "callUserBusy": "User is already in a call",
   "callFailed": "Call could not be started",
-  "callUnknownCaller": "Unknown caller"
+  "callUnknownCaller": "Unknown caller",
+
+  "drawerDashboard": "Dashboard",
+  "drawerMessages": "Messages",
+  "drawerProjects": "Projects",
+  "drawerJobs": "Job postings",
+  "drawerProfile": "My profile",
+  "drawerFindFreelancers": "Find freelancers",
+  "drawerFindAgencies": "Find agencies",
+  "drawerFindReferrers": "Find referrers",
+  "drawerLogout": "Log out",
+  "drawerLogoutConfirm": "Are you sure you want to log out?"
 }

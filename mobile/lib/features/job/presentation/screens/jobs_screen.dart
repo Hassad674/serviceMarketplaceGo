@@ -22,7 +22,13 @@ class JobsScreen extends ConsumerWidget {
     final jobsAsync = ref.watch(myJobsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.jobMyJobs)),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: openShellDrawer,
+        ),
+        title: Text(l10n.jobMyJobs),
+      ),
       body: SafeArea(
         child: jobsAsync.when(
           loading: () => const Center(

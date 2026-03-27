@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/extensions.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -58,7 +59,13 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
     final convState = ref.watch(conversationsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.messages)),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: openShellDrawer,
+        ),
+        title: Text(l10n.messages),
+      ),
       body: Column(
         children: [
           // Search bar

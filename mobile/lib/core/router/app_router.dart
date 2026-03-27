@@ -22,6 +22,7 @@ import '../../features/proposal/presentation/screens/projects_list_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/app_drawer.dart';
 import '../theme/app_theme.dart';
 
 // ---------------------------------------------------------------------------
@@ -226,11 +227,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 // Dashboard shell with bottom navigation
 // ---------------------------------------------------------------------------
 
-/// Wraps authenticated screens with a persistent bottom navigation bar.
+/// Wraps authenticated screens with a persistent bottom navigation bar
+/// and a navigation drawer accessible via hamburger icon.
 ///
 /// Reads [totalUnreadProvider] to display a badge on the Messages tab.
 /// Call event handling is done globally by [CallEventListener] in main.dart.
 class DashboardShell extends ConsumerWidget {
+  /// Key for the outer Scaffold — inner screens use this to open the drawer.
+  static final scaffoldKey = GlobalKey<ScaffoldState>();
+
   final Widget child;
   const DashboardShell({super.key, required this.child});
 
@@ -250,6 +255,8 @@ class DashboardShell extends ConsumerWidget {
     final totalUnread = ref.watch(totalUnreadProvider);
 
     return Scaffold(
+      key: scaffoldKey,
+      drawer: const AppDrawer(),
       body: child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -322,6 +329,15 @@ class DashboardShell extends ConsumerWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Drawer open helper — used by inner screens to trigger the shell drawer
+// ---------------------------------------------------------------------------
+
+/// Opens the [DashboardShell] drawer from any inner screen's AppBar.
+void openShellDrawer() {
+  DashboardShell.scaffoldKey.currentState?.openDrawer();
 }
 
 // ---------------------------------------------------------------------------
@@ -442,6 +458,10 @@ class _AgencyDashboard extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: openShellDrawer,
+        ),
         title: const Text('Marketplace'),
         actions: [
           IconButton(
@@ -531,6 +551,10 @@ class _EnterpriseDashboard extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: openShellDrawer,
+        ),
         title: const Text('Marketplace'),
         actions: [
           IconButton(
@@ -628,6 +652,10 @@ class _ProviderDashboard extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: openShellDrawer,
+        ),
         title: const Text('Marketplace'),
         actions: [
           IconButton(

@@ -884,4 +884,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get callUnknownCaller => 'Unknown caller';
+
+  @override
+  String get drawerDashboard => 'Dashboard';
+
+  @override
+  String get drawerMessages => 'Messages';
+
+  @override
+  String get drawerProjects => 'Projects';
+
+  @override
+  String get drawerJobs => 'Job postings';
+
+  @override
+  String get drawerProfile => 'My profile';
+
+  @override
+  String get drawerFindFreelancers => 'Find freelancers';
+
+  @override
+  String get drawerFindAgencies => 'Find agencies';
+
+  @override
+  String get drawerFindReferrers => 'Find referrers';
+
+  @override
+  String get drawerLogout => 'Log out';
+
+  @override
+  String get drawerLogoutConfirm => 'Are you sure you want to log out?';
 }

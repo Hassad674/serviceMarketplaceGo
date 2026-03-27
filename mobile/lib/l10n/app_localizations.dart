@@ -1813,6 +1813,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unknown caller'**
   String get callUnknownCaller;
+
+  /// No description provided for @drawerDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Dashboard'**
+  String get drawerDashboard;
+
+  /// No description provided for @drawerMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get drawerMessages;
+
+  /// No description provided for @drawerProjects.
+  ///
+  /// In en, this message translates to:
+  /// **'Projects'**
+  String get drawerProjects;
+
+  /// No description provided for @drawerJobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Job postings'**
+  String get drawerJobs;
+
+  /// No description provided for @drawerProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'My profile'**
+  String get drawerProfile;
+
+  /// No description provided for @drawerFindFreelancers.
+  ///
+  /// In en, this message translates to:
+  /// **'Find freelancers'**
+  String get drawerFindFreelancers;
+
+  /// No description provided for @drawerFindAgencies.
+  ///
+  /// In en, this message translates to:
+  /// **'Find agencies'**
+  String get drawerFindAgencies;
+
+  /// No description provided for @drawerFindReferrers.
+  ///
+  /// In en, this message translates to:
+  /// **'Find referrers'**
+  String get drawerFindReferrers;
+
+  /// No description provided for @drawerLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Log out'**
+  String get drawerLogout;
+
+  /// No description provided for @drawerLogoutConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to log out?'**
+  String get drawerLogoutConfirm;
 }
 
 class _AppLocalizationsDelegate

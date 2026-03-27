@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/proposal_entity.dart';
@@ -19,7 +20,13 @@ class ProjectsListScreen extends ConsumerWidget {
     final projectsAsync = ref.watch(projectsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.activeProjects)),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.menu),
+          onPressed: openShellDrawer,
+        ),
+        title: Text(l10n.activeProjects),
+      ),
       body: SafeArea(
         child: projectsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),

@@ -886,4 +886,34 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get callUnknownCaller => 'Appelant inconnu';
+
+  @override
+  String get drawerDashboard => 'Tableau de bord';
+
+  @override
+  String get drawerMessages => 'Messages';
+
+  @override
+  String get drawerProjects => 'Projets';
+
+  @override
+  String get drawerJobs => 'Offres d\'emploi';
+
+  @override
+  String get drawerProfile => 'Mon profil';
+
+  @override
+  String get drawerFindFreelancers => 'Trouver des freelances';
+
+  @override
+  String get drawerFindAgencies => 'Trouver des agences';
+
+  @override
+  String get drawerFindReferrers => 'Trouver des apporteurs';
+
+  @override
+  String get drawerLogout => 'Se déconnecter';
+
+  @override
+  String get drawerLogoutConfirm => 'Voulez-vous vraiment vous déconnecter ?';
 }
