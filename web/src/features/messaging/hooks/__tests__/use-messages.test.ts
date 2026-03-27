@@ -94,7 +94,7 @@ describe("useSendMessage", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(mockSendMessage).toHaveBeenCalledWith("conv-1", "Hello!", undefined, undefined)
+    expect(mockSendMessage).toHaveBeenCalledWith("conv-1", "Hello!", undefined, undefined, undefined)
   })
 })
 

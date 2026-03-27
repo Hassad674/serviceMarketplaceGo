@@ -105,12 +105,32 @@ type Message struct {
 	Content        string
 	Type           MessageType
 	Metadata       json.RawMessage
+	ReplyToID      *uuid.UUID
+	ReplyPreview   *ReplyPreview // populated on read, nil if no reply
 	Seq            int
 	Status         MessageStatus
 	EditedAt       *time.Time
 	DeletedAt      *time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// ReplyPreview is a lightweight snapshot of a replied-to message,
+// resolved by the adapter layer and attached for API responses.
+type ReplyPreview struct {
+	ID       uuid.UUID
+	SenderID uuid.UUID
+	Content  string
+	Type     MessageType
+}
+
+// TruncateContent shortens text to maxLen runes, appending "..." if truncated.
+func TruncateContent(s string, maxLen int) string {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
+		return s
+	}
+	return string(runes[:maxLen]) + "..."
 }
 
 type FileMetadata struct {
@@ -127,37 +147,43 @@ type VoiceMetadata struct {
 	MimeType string  `json:"mime_type"`
 }
 
-func NewMessage(
-	conversationID, senderID uuid.UUID,
-	content string,
-	msgType MessageType,
-	metadata json.RawMessage,
-	seq int,
-) (*Message, error) {
-	if !msgType.IsValid() {
+// NewMessageInput groups parameters for NewMessage to stay within the 4-param limit.
+type NewMessageInput struct {
+	ConversationID uuid.UUID
+	SenderID       uuid.UUID
+	Content        string
+	Type           MessageType
+	Metadata       json.RawMessage
+	ReplyToID      *uuid.UUID
+	Seq            int
+}
+
+func NewMessage(in NewMessageInput) (*Message, error) {
+	if !in.Type.IsValid() {
 		return nil, ErrInvalidMessageType
 	}
 
-	if msgType == MessageTypeText && content == "" {
+	if in.Type == MessageTypeText && in.Content == "" {
 		return nil, ErrEmptyContent
 	}
 
 	// Proposal message types carry data in metadata, content is optional.
 	// File and voice messages also allow empty content (already handled above).
 
-	if len(content) > MaxContentLength {
+	if len(in.Content) > MaxContentLength {
 		return nil, ErrContentTooLong
 	}
 
 	now := time.Now()
 	return &Message{
 		ID:             uuid.New(),
-		ConversationID: conversationID,
-		SenderID:       senderID,
-		Content:        content,
-		Type:           msgType,
-		Metadata:       metadata,
-		Seq:            seq,
+		ConversationID: in.ConversationID,
+		SenderID:       in.SenderID,
+		Content:        in.Content,
+		Type:           in.Type,
+		Metadata:       in.Metadata,
+		ReplyToID:      in.ReplyToID,
+		Seq:            in.Seq,
 		Status:         MessageStatusSent,
 		CreatedAt:      now,
 		UpdatedAt:      now,

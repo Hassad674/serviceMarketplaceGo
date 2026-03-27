@@ -65,6 +65,7 @@ abstract class MessagingRepository {
     required String content,
     String type = 'text',
     Map<String, dynamic>? metadata,
+    String? replyToId,
   });
 
   /// Marks messages as read up to a given sequence number.

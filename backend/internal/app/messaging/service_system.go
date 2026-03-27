@@ -14,14 +14,13 @@ import (
 func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMessageInput) error {
 	msgType := message.MessageType(input.Type)
 
-	msg, err := message.NewMessage(
-		input.ConversationID,
-		input.SenderID,
-		input.Content,
-		msgType,
-		input.Metadata,
-		0,
-	)
+	msg, err := message.NewMessage(message.NewMessageInput{
+		ConversationID: input.ConversationID,
+		SenderID:       input.SenderID,
+		Content:        input.Content,
+		Type:           msgType,
+		Metadata:       input.Metadata,
+	})
 	if err != nil {
 		return fmt.Errorf("create system message: %w", err)
 	}

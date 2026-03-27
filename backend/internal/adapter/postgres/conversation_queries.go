@@ -91,40 +91,49 @@ const queryNextSeq = `
 	WHERE conversation_id = $1`
 
 const queryInsertMessage = `
-	INSERT INTO messages (id, conversation_id, sender_id, content, msg_type, metadata, seq, status, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+	INSERT INTO messages (id, conversation_id, sender_id, content, msg_type, metadata, reply_to_id, seq, status, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 const queryUpdateConversationTimestamp = `
 	UPDATE conversations SET updated_at = $2 WHERE id = $1`
 
 const queryGetMessage = `
-	SELECT id, conversation_id, sender_id, content, msg_type, metadata, seq, status,
-		edited_at, deleted_at, created_at, updated_at
-	FROM messages WHERE id = $1`
+	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,
+		m.reply_to_id, m.seq, m.status, m.edited_at, m.deleted_at, m.created_at, m.updated_at,
+		r.id, r.sender_id, r.content, r.msg_type
+	FROM messages m
+	LEFT JOIN messages r ON r.id = m.reply_to_id
+	WHERE m.id = $1`
 
 const queryListMessagesFirst = `
-	SELECT id, conversation_id, sender_id, content, msg_type, metadata, seq, status,
-		edited_at, deleted_at, created_at, updated_at
-	FROM messages
-	WHERE conversation_id = $1
-	ORDER BY created_at DESC, id DESC
+	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,
+		m.reply_to_id, m.seq, m.status, m.edited_at, m.deleted_at, m.created_at, m.updated_at,
+		r.id, r.sender_id, r.content, r.msg_type
+	FROM messages m
+	LEFT JOIN messages r ON r.id = m.reply_to_id
+	WHERE m.conversation_id = $1
+	ORDER BY m.created_at DESC, m.id DESC
 	LIMIT $2`
 
 const queryListMessagesWithCursor = `
-	SELECT id, conversation_id, sender_id, content, msg_type, metadata, seq, status,
-		edited_at, deleted_at, created_at, updated_at
-	FROM messages
-	WHERE conversation_id = $1
-		AND (created_at, id) < ($2, $3)
-	ORDER BY created_at DESC, id DESC
+	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,
+		m.reply_to_id, m.seq, m.status, m.edited_at, m.deleted_at, m.created_at, m.updated_at,
+		r.id, r.sender_id, r.content, r.msg_type
+	FROM messages m
+	LEFT JOIN messages r ON r.id = m.reply_to_id
+	WHERE m.conversation_id = $1
+		AND (m.created_at, m.id) < ($2, $3)
+	ORDER BY m.created_at DESC, m.id DESC
 	LIMIT $4`
 
 const queryMessagesSinceSeq = `
-	SELECT id, conversation_id, sender_id, content, msg_type, metadata, seq, status,
-		edited_at, deleted_at, created_at, updated_at
-	FROM messages
-	WHERE conversation_id = $1 AND seq > $2
-	ORDER BY seq ASC
+	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,
+		m.reply_to_id, m.seq, m.status, m.edited_at, m.deleted_at, m.created_at, m.updated_at,
+		r.id, r.sender_id, r.content, r.msg_type
+	FROM messages m
+	LEFT JOIN messages r ON r.id = m.reply_to_id
+	WHERE m.conversation_id = $1 AND m.seq > $2
+	ORDER BY m.seq ASC
 	LIMIT $3`
 
 const queryUpdateMessage = `

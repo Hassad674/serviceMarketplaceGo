@@ -99,12 +99,14 @@ class MessagingRepositoryImpl implements MessagingRepository {
     required String content,
     String type = 'text',
     Map<String, dynamic>? metadata,
+    String? replyToId,
   }) async {
     final body = <String, dynamic>{
       'content': content,
       'type': type,
     };
     if (metadata != null) body['metadata'] = metadata;
+    if (replyToId != null) body['reply_to_id'] = replyToId;
 
     final response = await _apiClient.post(
       '/api/v1/messaging/conversations/$conversationId/messages',

@@ -74,7 +74,13 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 		return nil, uuid.UUID{}, fmt.Errorf("find or create conversation: %w", err)
 	}
 
-	msg, err := message.NewMessage(convID, input.SenderID, input.Content, input.Type, input.Metadata, 0)
+	msg, err := message.NewMessage(message.NewMessageInput{
+		ConversationID: convID,
+		SenderID:       input.SenderID,
+		Content:        input.Content,
+		Type:           input.Type,
+		Metadata:       input.Metadata,
+	})
 	if err != nil {
 		return nil, uuid.UUID{}, err
 	}
@@ -98,6 +104,7 @@ type SendMessageInput struct {
 	Content        string
 	Type           message.MessageType
 	Metadata       json.RawMessage
+	ReplyToID      *uuid.UUID
 }
 
 func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*message.Message, error) {
@@ -119,13 +126,25 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 		return nil, message.ErrRateLimitExceeded
 	}
 
-	msg, err := message.NewMessage(input.ConversationID, input.SenderID, input.Content, input.Type, input.Metadata, 0)
+	msg, err := message.NewMessage(message.NewMessageInput{
+		ConversationID: input.ConversationID,
+		SenderID:       input.SenderID,
+		Content:        input.Content,
+		Type:           input.Type,
+		Metadata:       input.Metadata,
+		ReplyToID:      input.ReplyToID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	if err := s.messages.CreateMessage(ctx, msg); err != nil {
 		return nil, fmt.Errorf("create message: %w", err)
+	}
+
+	// Populate reply preview for the broadcast and HTTP response.
+	if msg.ReplyToID != nil {
+		s.populateReplyPreview(ctx, msg)
 	}
 
 	if err := s.messages.IncrementUnread(ctx, input.ConversationID, input.SenderID); err != nil {

@@ -38,6 +38,8 @@ vi.mock("lucide-react", () => ({
   XCircle: (props: Record<string, unknown>) => <span data-testid="x-circle-icon" {...props} />,
   CreditCard: (props: Record<string, unknown>) => <span data-testid="credit-card-icon" {...props} />,
   DollarSign: (props: Record<string, unknown>) => <span data-testid="dollar-icon" {...props} />,
+  Reply: (props: Record<string, unknown>) => <span data-testid="reply-icon" {...props} />,
+  RotateCcw: (props: Record<string, unknown>) => <span data-testid="rotate-icon" {...props} />,
 }))
 
 // Mock sub-components that are imported
@@ -90,6 +92,7 @@ function defaultProps(overrides: Partial<Parameters<typeof MessageArea>[0]> = {}
     onLoadMore: vi.fn(),
     onEdit: vi.fn(),
     onDelete: vi.fn(),
+    onReply: vi.fn(),
     conversationId: "conv-1",
     ...overrides,
   }

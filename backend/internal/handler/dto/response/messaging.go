@@ -9,17 +9,26 @@ import (
 )
 
 type MessageResponse struct {
-	ID             string          `json:"id"`
-	ConversationID string          `json:"conversation_id"`
-	SenderID       string          `json:"sender_id"`
-	Content        string          `json:"content"`
-	Type           string          `json:"type"`
-	Metadata       json.RawMessage `json:"metadata"`
-	Seq            int             `json:"seq"`
-	Status         string          `json:"status"`
-	EditedAt       *string         `json:"edited_at,omitempty"`
-	DeletedAt      *string         `json:"deleted_at,omitempty"`
-	CreatedAt      string          `json:"created_at"`
+	ID             string           `json:"id"`
+	ConversationID string           `json:"conversation_id"`
+	SenderID       string           `json:"sender_id"`
+	Content        string           `json:"content"`
+	Type           string           `json:"type"`
+	Metadata       json.RawMessage  `json:"metadata"`
+	ReplyTo        *ReplyToResponse `json:"reply_to,omitempty"`
+	Seq            int              `json:"seq"`
+	Status         string           `json:"status"`
+	EditedAt       *string          `json:"edited_at,omitempty"`
+	DeletedAt      *string          `json:"deleted_at,omitempty"`
+	CreatedAt      string           `json:"created_at"`
+}
+
+// ReplyToResponse is the lightweight preview of the original message.
+type ReplyToResponse struct {
+	ID       string `json:"id"`
+	SenderID string `json:"sender_id"`
+	Content  string `json:"content"`
+	Type     string `json:"type"`
 }
 
 type ConversationResponse struct {
@@ -66,6 +75,15 @@ func NewMessageResponse(m *message.Message) MessageResponse {
 		Seq:            m.Seq,
 		Status:         string(m.Status),
 		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+	}
+
+	if m.ReplyPreview != nil {
+		resp.ReplyTo = &ReplyToResponse{
+			ID:       m.ReplyPreview.ID.String(),
+			SenderID: m.ReplyPreview.SenderID.String(),
+			Content:  m.ReplyPreview.Content,
+			Type:     string(m.ReplyPreview.Type),
+		}
 	}
 
 	if m.EditedAt != nil {

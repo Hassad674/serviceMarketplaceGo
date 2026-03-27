@@ -14,7 +14,7 @@ func TestNewMessage_ValidTextMessage(t *testing.T) {
 	convID := uuid.New()
 	senderID := uuid.New()
 
-	msg, err := NewMessage(convID, senderID, "Hello world", MessageTypeText, nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: convID, SenderID: senderID, Content: "Hello world", Type: MessageTypeText, Seq: 1})
 
 	require.NoError(t, err)
 	require.NotNil(t, msg)
@@ -36,7 +36,7 @@ func TestNewMessage_ValidFileMessage(t *testing.T) {
 	senderID := uuid.New()
 	meta := json.RawMessage(`{"url":"https://example.com/file.pdf","filename":"file.pdf","size":1024,"mime_type":"application/pdf"}`)
 
-	msg, err := NewMessage(convID, senderID, "file.pdf", MessageTypeFile, meta, 5)
+	msg, err := NewMessage(NewMessageInput{ConversationID: convID, SenderID: senderID, Content: "file.pdf", Type: MessageTypeFile, Metadata: meta, Seq: 5})
 
 	require.NoError(t, err)
 	require.NotNil(t, msg)
@@ -46,7 +46,7 @@ func TestNewMessage_ValidFileMessage(t *testing.T) {
 }
 
 func TestNewMessage_EmptyContent(t *testing.T) {
-	msg, err := NewMessage(uuid.New(), uuid.New(), "", MessageTypeText, nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Type: MessageTypeText, Seq: 1})
 
 	assert.ErrorIs(t, err, ErrEmptyContent)
 	assert.Nil(t, msg)
@@ -54,7 +54,7 @@ func TestNewMessage_EmptyContent(t *testing.T) {
 
 func TestNewMessage_FileWithEmptyContent(t *testing.T) {
 	// File messages with empty content are allowed (content check only applies to text)
-	msg, err := NewMessage(uuid.New(), uuid.New(), "", MessageTypeFile, nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Type: MessageTypeFile, Seq: 1})
 
 	require.NoError(t, err)
 	require.NotNil(t, msg)
@@ -66,7 +66,7 @@ func TestNewMessage_ValidVoiceMessage(t *testing.T) {
 	senderID := uuid.New()
 	meta := json.RawMessage(`{"url":"https://example.com/voice.webm","duration":42.5,"size":8192,"mime_type":"audio/webm"}`)
 
-	msg, err := NewMessage(convID, senderID, "", MessageTypeVoice, meta, 3)
+	msg, err := NewMessage(NewMessageInput{ConversationID: convID, SenderID: senderID, Type: MessageTypeVoice, Metadata: meta, Seq: 3})
 
 	require.NoError(t, err)
 	require.NotNil(t, msg)
@@ -76,7 +76,7 @@ func TestNewMessage_ValidVoiceMessage(t *testing.T) {
 }
 
 func TestNewMessage_VoiceWithEmptyContent(t *testing.T) {
-	msg, err := NewMessage(uuid.New(), uuid.New(), "", MessageTypeVoice, nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Type: MessageTypeVoice, Seq: 1})
 
 	require.NoError(t, err)
 	require.NotNil(t, msg)
@@ -85,7 +85,7 @@ func TestNewMessage_VoiceWithEmptyContent(t *testing.T) {
 
 func TestNewMessage_ContentTooLong(t *testing.T) {
 	longContent := strings.Repeat("a", MaxContentLength+1)
-	msg, err := NewMessage(uuid.New(), uuid.New(), longContent, MessageTypeText, nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: longContent, Type: MessageTypeText, Seq: 1})
 
 	assert.ErrorIs(t, err, ErrContentTooLong)
 	assert.Nil(t, msg)
@@ -93,7 +93,7 @@ func TestNewMessage_ContentTooLong(t *testing.T) {
 
 func TestNewMessage_ContentExactlyAtMax(t *testing.T) {
 	maxContent := strings.Repeat("a", MaxContentLength)
-	msg, err := NewMessage(uuid.New(), uuid.New(), maxContent, MessageTypeText, nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: maxContent, Type: MessageTypeText, Seq: 1})
 
 	require.NoError(t, err)
 	require.NotNil(t, msg)
@@ -101,14 +101,14 @@ func TestNewMessage_ContentExactlyAtMax(t *testing.T) {
 }
 
 func TestNewMessage_InvalidType(t *testing.T) {
-	msg, err := NewMessage(uuid.New(), uuid.New(), "hello", MessageType("image"), nil, 1)
+	msg, err := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: "hello", Type: MessageType("image"), Seq: 1})
 
 	assert.ErrorIs(t, err, ErrInvalidMessageType)
 	assert.Nil(t, msg)
 }
 
 func TestMessage_Edit(t *testing.T) {
-	msg, _ := NewMessage(uuid.New(), uuid.New(), "original", MessageTypeText, nil, 1)
+	msg, _ := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: "original", Type: MessageTypeText, Seq: 1})
 	originalUpdatedAt := msg.UpdatedAt
 
 	msg.Edit("edited content")
@@ -119,7 +119,7 @@ func TestMessage_Edit(t *testing.T) {
 }
 
 func TestMessage_SoftDelete(t *testing.T) {
-	msg, _ := NewMessage(uuid.New(), uuid.New(), "to be deleted", MessageTypeText, nil, 1)
+	msg, _ := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: "to be deleted", Type: MessageTypeText, Seq: 1})
 
 	msg.SoftDelete()
 
@@ -128,7 +128,7 @@ func TestMessage_SoftDelete(t *testing.T) {
 }
 
 func TestMessage_MarkDelivered(t *testing.T) {
-	msg, _ := NewMessage(uuid.New(), uuid.New(), "hello", MessageTypeText, nil, 1)
+	msg, _ := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: "hello", Type: MessageTypeText, Seq: 1})
 	assert.Equal(t, MessageStatusSent, msg.Status)
 
 	msg.MarkDelivered()
@@ -137,7 +137,7 @@ func TestMessage_MarkDelivered(t *testing.T) {
 }
 
 func TestMessage_MarkRead(t *testing.T) {
-	msg, _ := NewMessage(uuid.New(), uuid.New(), "hello", MessageTypeText, nil, 1)
+	msg, _ := NewMessage(NewMessageInput{ConversationID: uuid.New(), SenderID: uuid.New(), Content: "hello", Type: MessageTypeText, Seq: 1})
 
 	msg.MarkRead()
 

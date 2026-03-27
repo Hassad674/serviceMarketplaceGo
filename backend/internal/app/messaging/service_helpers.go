@@ -84,11 +84,21 @@ func marshalMessageForWS(msg *message.Message) map[string]any {
 		"content":         msg.Content,
 		"type":            string(msg.Type),
 		"metadata":        metadata,
+		"reply_to":        nil,
 		"seq":             msg.Seq,
 		"status":          string(msg.Status),
 		"edited_at":       nil,
 		"deleted_at":      nil,
 		"created_at":      msg.CreatedAt.Format(time.RFC3339),
+	}
+
+	if msg.ReplyPreview != nil {
+		result["reply_to"] = map[string]any{
+			"id":        msg.ReplyPreview.ID.String(),
+			"sender_id": msg.ReplyPreview.SenderID.String(),
+			"content":   msg.ReplyPreview.Content,
+			"type":      string(msg.ReplyPreview.Type),
+		}
 	}
 
 	if msg.EditedAt != nil {
@@ -99,6 +109,24 @@ func marshalMessageForWS(msg *message.Message) map[string]any {
 	}
 
 	return result
+}
+
+// populateReplyPreview fetches the replied-to message and attaches a preview.
+func (s *Service) populateReplyPreview(ctx context.Context, msg *message.Message) {
+	if msg.ReplyToID == nil {
+		return
+	}
+	replied, err := s.messages.GetMessage(ctx, *msg.ReplyToID)
+	if err != nil {
+		slog.Warn("failed to fetch reply-to message", "reply_to_id", msg.ReplyToID, "error", err)
+		return
+	}
+	msg.ReplyPreview = &message.ReplyPreview{
+		ID:       replied.ID,
+		SenderID: replied.SenderID,
+		Content:  message.TruncateContent(replied.Content, 100),
+		Type:     replied.Type,
+	}
 }
 
 func (s *Service) enrichWithPresence(ctx context.Context, summaries []repository.ConversationSummary) {

@@ -145,13 +145,23 @@ func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		msgType = message.MessageTypeText
 	}
 
-	msg, err := h.messagingSvc.SendMessage(r.Context(), messaging.SendMessageInput{
+	sendInput := messaging.SendMessageInput{
 		SenderID:       userID,
 		ConversationID: convID,
 		Content:        req.Content,
 		Type:           msgType,
 		Metadata:       req.Metadata,
-	})
+	}
+	if req.ReplyToID != "" {
+		replyID, parseErr := uuid.Parse(req.ReplyToID)
+		if parseErr != nil {
+			res.Error(w, http.StatusBadRequest, "invalid_reply_to_id", "reply_to_id must be a valid UUID")
+			return
+		}
+		sendInput.ReplyToID = &replyID
+	}
+
+	msg, err := h.messagingSvc.SendMessage(r.Context(), sendInput)
 	if err != nil {
 		handleMessagingError(w, err)
 		return

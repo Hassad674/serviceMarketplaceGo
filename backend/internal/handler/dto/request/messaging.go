@@ -10,9 +10,10 @@ type StartConversationRequest struct {
 }
 
 type SendMessageRequest struct {
-	Content  string          `json:"content"`
-	Type     string          `json:"type"`
-	Metadata json.RawMessage `json:"metadata,omitempty"`
+	Content   string          `json:"content"`
+	Type      string          `json:"type"`
+	Metadata  json.RawMessage `json:"metadata,omitempty"`
+	ReplyToID string          `json:"reply_to_id,omitempty"`
 }
 
 type MarkAsReadRequest struct {

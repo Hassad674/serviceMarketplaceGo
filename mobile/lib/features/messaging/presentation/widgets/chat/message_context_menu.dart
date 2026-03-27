@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../../l10n/app_localizations.dart';
 
-/// Shows a bottom sheet with edit/delete actions for a message.
+/// Shows a bottom sheet with reply/edit/delete actions for a message.
 void showMessageContextMenu({
   required BuildContext context,
   required AppLocalizations l10n,
+  VoidCallback? onReply,
   VoidCallback? onEdit,
   VoidCallback? onDelete,
 }) {
@@ -18,6 +19,15 @@ void showMessageContextMenu({
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (onReply != null)
+            ListTile(
+              leading: const Icon(Icons.reply_outlined),
+              title: Text(l10n.messagingReply),
+              onTap: () {
+                Navigator.pop(ctx);
+                onReply();
+              },
+            ),
           if (onEdit != null)
             ListTile(
               leading: const Icon(Icons.edit_outlined),

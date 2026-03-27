@@ -235,7 +235,7 @@ func (r *ConversationRepository) CreateMessage(ctx context.Context, msg *message
 
 	if _, err := tx.ExecContext(ctx, queryInsertMessage,
 		msg.ID, msg.ConversationID, msg.SenderID, msg.Content,
-		string(msg.Type), msg.Metadata, msg.Seq, string(msg.Status),
+		string(msg.Type), msg.Metadata, msg.ReplyToID, msg.Seq, string(msg.Status),
 		msg.CreatedAt, msg.UpdatedAt,
 	); err != nil {
 		return fmt.Errorf("insert message: %w", err)
@@ -527,15 +527,18 @@ func (r *ConversationRepository) GetContactIDs(ctx context.Context, userID uuid.
 	return ids, nil
 }
 
-// scanMessage scans a single message from a QueryRow result.
+// scanMessage scans a single message from a QueryRow result (with reply JOIN).
 func scanMessage(row *sql.Row) (*message.Message, error) {
 	msg := &message.Message{}
 	var msgType, status string
+	var replyID, replySenderID *uuid.UUID
+	var replyContent, replyType *string
 
 	err := row.Scan(
 		&msg.ID, &msg.ConversationID, &msg.SenderID, &msg.Content,
-		&msgType, &msg.Metadata, &msg.Seq, &status,
+		&msgType, &msg.Metadata, &msg.ReplyToID, &msg.Seq, &status,
 		&msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt, &msg.UpdatedAt,
+		&replyID, &replySenderID, &replyContent, &replyType,
 	)
 	if err != nil {
 		return nil, err
@@ -543,19 +546,23 @@ func scanMessage(row *sql.Row) (*message.Message, error) {
 
 	msg.Type = message.MessageType(msgType)
 	msg.Status = message.MessageStatus(status)
+	msg.ReplyPreview = buildReplyPreview(replyID, replySenderID, replyContent, replyType)
 	return msg, nil
 }
 
-// scanMessageFromRows scans a single message from a Rows iterator.
+// scanMessageFromRows scans a single message from a Rows iterator (with reply JOIN).
 func scanMessageFromRows(rows *sql.Rows) (*message.Message, error) {
 	msg := &message.Message{}
 	var msgType, status string
 	var metadata []byte
+	var replyID, replySenderID *uuid.UUID
+	var replyContent, replyType *string
 
 	err := rows.Scan(
 		&msg.ID, &msg.ConversationID, &msg.SenderID, &msg.Content,
-		&msgType, &metadata, &msg.Seq, &status,
+		&msgType, &metadata, &msg.ReplyToID, &msg.Seq, &status,
 		&msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt, &msg.UpdatedAt,
+		&replyID, &replySenderID, &replyContent, &replyType,
 	)
 	if err != nil {
 		return nil, err
@@ -566,5 +573,24 @@ func scanMessageFromRows(rows *sql.Rows) (*message.Message, error) {
 	}
 	msg.Type = message.MessageType(msgType)
 	msg.Status = message.MessageStatus(status)
+	msg.ReplyPreview = buildReplyPreview(replyID, replySenderID, replyContent, replyType)
 	return msg, nil
+}
+
+// buildReplyPreview constructs a ReplyPreview from nullable JOIN columns.
+func buildReplyPreview(id, senderID *uuid.UUID, content, msgType *string) *message.ReplyPreview {
+	if id == nil {
+		return nil
+	}
+	rp := &message.ReplyPreview{ID: *id}
+	if senderID != nil {
+		rp.SenderID = *senderID
+	}
+	if content != nil {
+		rp.Content = message.TruncateContent(*content, 100)
+	}
+	if msgType != nil {
+		rp.Type = message.MessageType(*msgType)
+	}
+	return rp
 }
