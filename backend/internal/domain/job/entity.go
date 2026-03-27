@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// JobStatus represents the lifecycle state of a job posting.
 type JobStatus string
 
 const (
@@ -18,7 +17,6 @@ func (s JobStatus) IsValid() bool {
 	return s == StatusOpen || s == StatusClosed
 }
 
-// BudgetType distinguishes project engagement models.
 type BudgetType string
 
 const (
@@ -30,7 +28,6 @@ func (b BudgetType) IsValid() bool {
 	return b == BudgetOneShot || b == BudgetLongTerm
 }
 
-// ApplicantType restricts who may apply to a job.
 type ApplicantType string
 
 const (
@@ -43,7 +40,29 @@ func (a ApplicantType) IsValid() bool {
 	return a == ApplicantAll || a == ApplicantFreelancers || a == ApplicantAgencies
 }
 
-// Job represents a public job posting.
+type PaymentFrequency string
+
+const (
+	FrequencyWeekly  PaymentFrequency = "weekly"
+	FrequencyMonthly PaymentFrequency = "monthly"
+)
+
+func (f PaymentFrequency) IsValid() bool {
+	return f == FrequencyWeekly || f == FrequencyMonthly
+}
+
+type DescriptionType string
+
+const (
+	DescriptionText  DescriptionType = "text"
+	DescriptionVideo DescriptionType = "video"
+	DescriptionBoth  DescriptionType = "both"
+)
+
+func (d DescriptionType) IsValid() bool {
+	return d == DescriptionText || d == DescriptionVideo || d == DescriptionBoth
+}
+
 type Job struct {
 	ID            uuid.UUID
 	CreatorID     uuid.UUID
@@ -58,9 +77,15 @@ type Job struct {
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	ClosedAt      *time.Time
+
+	PaymentFrequency *PaymentFrequency
+	DurationWeeks    *int
+	IsIndefinite     bool
+
+	DescriptionType DescriptionType
+	VideoURL        *string
 }
 
-// NewJobInput contains the fields required to create a new Job.
 type NewJobInput struct {
 	CreatorID     uuid.UUID
 	Title         string
@@ -70,40 +95,21 @@ type NewJobInput struct {
 	BudgetType    BudgetType
 	MinBudget     int
 	MaxBudget     int
+
+	PaymentFrequency *PaymentFrequency
+	DurationWeeks    *int
+	IsIndefinite     bool
+
+	DescriptionType DescriptionType
+	VideoURL        *string
 }
 
 const titleMaxLength = 100
 const skillsMaxCount = 5
 
-// NewJob creates a validated Job from the given input.
 func NewJob(input NewJobInput) (*Job, error) {
-	title := input.Title
-	if title == "" {
-		return nil, ErrEmptyTitle
-	}
-	if len(title) > titleMaxLength {
-		return nil, ErrTitleTooLong
-	}
-	if input.Description == "" {
-		return nil, ErrEmptyDescription
-	}
-	if len(input.Skills) > skillsMaxCount {
-		return nil, ErrTooManySkills
-	}
-	if !input.ApplicantType.IsValid() {
-		return nil, ErrInvalidApplicantType
-	}
-	if !input.BudgetType.IsValid() {
-		return nil, ErrInvalidBudgetType
-	}
-	if input.MinBudget <= 0 {
-		return nil, ErrInvalidBudget
-	}
-	if input.MaxBudget <= 0 {
-		return nil, ErrInvalidBudget
-	}
-	if input.MinBudget > input.MaxBudget {
-		return nil, ErrMinExceedsMax
+	if err := validateJobInput(input); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -112,23 +118,73 @@ func NewJob(input NewJobInput) (*Job, error) {
 		skills = []string{}
 	}
 
+	descType := input.DescriptionType
+	if descType == "" {
+		descType = DescriptionText
+	}
+
 	return &Job{
-		ID:            uuid.New(),
-		CreatorID:     input.CreatorID,
-		Title:         title,
-		Description:   input.Description,
-		Skills:        skills,
-		ApplicantType: input.ApplicantType,
-		BudgetType:    input.BudgetType,
-		MinBudget:     input.MinBudget,
-		MaxBudget:     input.MaxBudget,
-		Status:        StatusOpen,
-		CreatedAt:     now,
-		UpdatedAt:     now,
+		ID:               uuid.New(),
+		CreatorID:        input.CreatorID,
+		Title:            input.Title,
+		Description:      input.Description,
+		Skills:           skills,
+		ApplicantType:    input.ApplicantType,
+		BudgetType:       input.BudgetType,
+		MinBudget:        input.MinBudget,
+		MaxBudget:        input.MaxBudget,
+		Status:           StatusOpen,
+		CreatedAt:        now,
+		UpdatedAt:        now,
+		PaymentFrequency: input.PaymentFrequency,
+		DurationWeeks:    input.DurationWeeks,
+		IsIndefinite:     input.IsIndefinite,
+		DescriptionType:  descType,
+		VideoURL:         input.VideoURL,
 	}, nil
 }
 
-// Close transitions an open job to closed. Only the creator may close it.
+func validateJobInput(input NewJobInput) error {
+	if input.Title == "" {
+		return ErrEmptyTitle
+	}
+	if len(input.Title) > titleMaxLength {
+		return ErrTitleTooLong
+	}
+	dt := input.DescriptionType
+	if dt == "" {
+		dt = DescriptionText
+	}
+	if dt != DescriptionVideo && input.Description == "" {
+		return ErrEmptyDescription
+	}
+	if len(input.Skills) > skillsMaxCount {
+		return ErrTooManySkills
+	}
+	if !input.ApplicantType.IsValid() {
+		return ErrInvalidApplicantType
+	}
+	if !input.BudgetType.IsValid() {
+		return ErrInvalidBudgetType
+	}
+	if input.MinBudget <= 0 || input.MaxBudget <= 0 {
+		return ErrInvalidBudget
+	}
+	if input.MinBudget > input.MaxBudget {
+		return ErrMinExceedsMax
+	}
+	if input.BudgetType == BudgetLongTerm && input.PaymentFrequency != nil && !input.PaymentFrequency.IsValid() {
+		return ErrInvalidPaymentFrequency
+	}
+	if dt != "" && dt.IsValid() && (dt == DescriptionVideo || dt == DescriptionBoth) && input.VideoURL == nil {
+		return ErrVideoURLRequired
+	}
+	if dt != "" && !dt.IsValid() {
+		return ErrInvalidDescriptionType
+	}
+	return nil
+}
+
 func (j *Job) Close(userID uuid.UUID) error {
 	if j.CreatorID != userID {
 		return ErrNotOwner

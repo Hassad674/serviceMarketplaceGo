@@ -1,14 +1,8 @@
-// Form-specific types for the Create Job flow.
-//
-// These are presentation-layer types used only by the form.
-// They are separate from the domain [JobEntity] which
-// represents persisted data from the API.
-
 enum BudgetType { oneShot, longTerm }
-
 enum ApplicantType { all, freelancers, agencies }
+enum PaymentFrequency { weekly, monthly }
+enum DescriptionType { text, video, both }
 
-/// Holds all data collected by the Create Job form.
 class JobFormData {
   JobFormData({
     this.title = '',
@@ -18,6 +12,11 @@ class JobFormData {
     this.budgetType = BudgetType.oneShot,
     this.minBudget = '',
     this.maxBudget = '',
+    this.paymentFrequency = PaymentFrequency.monthly,
+    this.durationWeeks = '',
+    this.isIndefinite = false,
+    this.descriptionType = DescriptionType.text,
+    this.videoUrl = '',
   }) : skills = skills ?? [];
 
   String title;
@@ -27,4 +26,9 @@ class JobFormData {
   BudgetType budgetType;
   String minBudget;
   String maxBudget;
+  PaymentFrequency paymentFrequency;
+  String durationWeeks;
+  bool isIndefinite;
+  DescriptionType descriptionType;
+  String videoUrl;
 }

@@ -1,6 +1,5 @@
 import '../entities/job_entity.dart';
 
-/// Data needed to create a new job posting.
 class CreateJobData {
   const CreateJobData({
     required this.title,
@@ -10,6 +9,11 @@ class CreateJobData {
     required this.budgetType,
     required this.minBudget,
     required this.maxBudget,
+    this.paymentFrequency,
+    this.durationWeeks,
+    this.isIndefinite = false,
+    this.descriptionType = 'text',
+    this.videoUrl,
   });
 
   final String title;
@@ -19,9 +23,13 @@ class CreateJobData {
   final String budgetType;
   final int minBudget;
   final int maxBudget;
+  final String? paymentFrequency;
+  final int? durationWeeks;
+  final bool isIndefinite;
+  final String descriptionType;
+  final String? videoUrl;
 }
 
-/// Abstract repository contract for job operations.
 abstract class JobRepository {
   Future<JobEntity> createJob(CreateJobData data);
   Future<JobEntity> getJob(String id);

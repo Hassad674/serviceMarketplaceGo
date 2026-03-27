@@ -9,6 +9,11 @@ export type CreateJobData = {
   budget_type: string
   min_budget: number
   max_budget: number
+  payment_frequency?: string
+  duration_weeks?: number
+  is_indefinite: boolean
+  description_type: string
+  video_url?: string
 }
 
 export function createJob(data: CreateJobData): Promise<JobResponse> {

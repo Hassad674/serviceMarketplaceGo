@@ -1,7 +1,3 @@
-/// Domain entity representing a job posting.
-///
-/// Maps to the backend `JobResponse` from
-/// `GET /api/v1/jobs/{id}` and `GET /api/v1/jobs/mine`.
 class JobEntity {
   const JobEntity({
     required this.id,
@@ -17,6 +13,11 @@ class JobEntity {
     required this.createdAt,
     required this.updatedAt,
     this.closedAt,
+    this.paymentFrequency,
+    this.durationWeeks,
+    this.isIndefinite = false,
+    this.descriptionType = 'text',
+    this.videoUrl,
   });
 
   final String id;
@@ -24,14 +25,19 @@ class JobEntity {
   final String title;
   final String description;
   final List<String> skills;
-  final String applicantType; // all | freelancers | agencies
-  final String budgetType; // one_shot | long_term
+  final String applicantType;
+  final String budgetType;
   final int minBudget;
   final int maxBudget;
-  final String status; // open | closed
+  final String status;
   final String createdAt;
   final String updatedAt;
   final String? closedAt;
+  final String? paymentFrequency;
+  final int? durationWeeks;
+  final bool isIndefinite;
+  final String descriptionType;
+  final String? videoUrl;
 
   bool get isOpen => status == 'open';
 
@@ -40,11 +46,8 @@ class JobEntity {
       id: json['id'] as String,
       creatorId: json['creator_id'] as String,
       title: json['title'] as String,
-      description: json['description'] as String,
-      skills: (json['skills'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
+      description: (json['description'] as String?) ?? '',
+      skills: (json['skills'] as List<dynamic>?)?.map((e) => e as String).toList() ?? [],
       applicantType: json['applicant_type'] as String,
       budgetType: json['budget_type'] as String,
       minBudget: json['min_budget'] as int,
@@ -53,6 +56,11 @@ class JobEntity {
       createdAt: json['created_at'] as String,
       updatedAt: json['updated_at'] as String,
       closedAt: json['closed_at'] as String?,
+      paymentFrequency: json['payment_frequency'] as String?,
+      durationWeeks: json['duration_weeks'] as int?,
+      isIndefinite: (json['is_indefinite'] as bool?) ?? false,
+      descriptionType: (json['description_type'] as String?) ?? 'text',
+      videoUrl: json['video_url'] as String?,
     );
   }
 }
