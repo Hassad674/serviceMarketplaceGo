@@ -57,7 +57,7 @@ export function ChatWidget() {
         <button
           onClick={handleToggle}
           className={cn(
-            "fixed bottom-0 right-6 z-50 flex h-12 w-[300px] items-center gap-2.5 px-4",
+            "fixed bottom-0 right-6 z-50 flex h-12 w-[320px] items-center gap-2.5 px-4",
             "rounded-t-xl border border-b-0 border-gray-200 bg-white shadow-lg",
             "transition-all duration-200 hover:shadow-xl",
             "dark:border-gray-700 dark:bg-gray-900",

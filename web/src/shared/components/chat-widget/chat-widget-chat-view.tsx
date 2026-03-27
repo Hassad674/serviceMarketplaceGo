@@ -52,7 +52,7 @@ export function ChatWidgetChatView({
 
   if (!conversation) {
     return (
-      <div className="flex h-[600px] items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         <p className="text-xs text-gray-400 dark:text-gray-500">
           {t("noConversations")}
         </p>
@@ -61,7 +61,7 @@ export function ChatWidgetChatView({
   }
 
   return (
-    <div className="flex h-[600px] flex-col">
+    <div className="flex h-full flex-col">
       {/* Header */}
       <ChatViewHeader
         name={conversation.other_user_name}

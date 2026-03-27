@@ -180,7 +180,7 @@ export function ChatWidgetPanel({
         "dark:border-gray-700 dark:bg-gray-900",
         "animate-slide-up",
       )}
-      style={{ maxHeight: "600px" }}
+      style={{ height: "calc(100vh - 100px)", maxHeight: "calc(100vh - 100px)", minHeight: "700px" }}
     >
       {view === "list" ? (
         <ChatWidgetConversationList

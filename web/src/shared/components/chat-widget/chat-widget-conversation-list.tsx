@@ -2,9 +2,8 @@
 
 import { useState, useMemo } from "react"
 import Image from "next/image"
-import { Search, ChevronDown, ExternalLink, MessageSquare, SquarePen } from "lucide-react"
+import { Search, ChevronDown, MessageSquare } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "@/features/messaging/types"
 
@@ -42,7 +41,6 @@ export function ChatWidgetConversationList({
   onClose,
 }: ChatWidgetConversationListProps) {
   const t = useTranslations("messaging")
-  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
 
   const filtered = useMemo(
@@ -56,7 +54,7 @@ export function ChatWidgetConversationList({
   )
 
   return (
-    <div className="flex h-full max-h-[600px] flex-col">
+    <div className="flex h-full flex-col">
       {/* Header — Contra style */}
       <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-gray-100 px-4 dark:border-gray-800">
         <MessageSquare
@@ -66,13 +64,6 @@ export function ChatWidgetConversationList({
         <h2 className="flex-1 text-sm font-semibold text-gray-900 dark:text-white">
           {t("title")}
         </h2>
-        <button
-          onClick={() => router.push("/messages")}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          aria-label={t("compose")}
-        >
-          <SquarePen className="h-4 w-4" strokeWidth={1.5} />
-        </button>
         <button
           onClick={onClose}
           className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
@@ -128,20 +119,6 @@ export function ChatWidgetConversationList({
         )}
       </div>
 
-      {/* View all link */}
-      <div className="shrink-0 border-t border-gray-100 dark:border-gray-800">
-        <button
-          onClick={() => router.push("/messages")}
-          className={cn(
-            "flex w-full items-center justify-center gap-1.5 py-2.5 text-xs font-medium",
-            "text-rose-500 transition-colors hover:text-rose-600",
-            "dark:text-rose-400 dark:hover:text-rose-300",
-          )}
-        >
-          {t("viewAllMessages")}
-          <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-        </button>
-      </div>
     </div>
   )
 }
