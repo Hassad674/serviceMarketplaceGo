@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -215,7 +216,7 @@ func main() {
 		SessionSvc:       sessionSvc,
 		PresenceSvc:      presenceSvc,
 		Broadcaster:      streamBroadcaster,
-		AllowedWSOrigins: cfg.AllowedOrigins,
+		AllowedWSOrigins: wsOriginPatterns(cfg.AllowedOrigins),
 	})
 
 	// Setup router
@@ -273,4 +274,22 @@ func main() {
 	}
 
 	slog.Info("server stopped")
+}
+
+// wsOriginPatterns converts full origin URLs (e.g. "https://example.com")
+// to hostname patterns (e.g. "example.com") for coder/websocket OriginPatterns,
+// and adds a wildcard for local development.
+func wsOriginPatterns(origins []string) []string {
+	patterns := make([]string, 0, len(origins)+1)
+	for _, o := range origins {
+		// Strip scheme — coder/websocket matches on hostname only.
+		host := strings.TrimPrefix(o, "https://")
+		host = strings.TrimPrefix(host, "http://")
+		if host != "" {
+			patterns = append(patterns, host)
+		}
+	}
+	// Always allow localhost for dev.
+	patterns = append(patterns, "localhost:*")
+	return patterns
 }
