@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../domain/entities/review.dart';
 import '../providers/review_provider.dart';
@@ -106,6 +107,10 @@ class _ReviewCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(review.comment, style: theme.textTheme.bodyMedium),
             ],
+            if (review.videoUrl.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _ReviewVideoPlayer(videoUrl: review.videoUrl),
+            ],
           ],
         ),
       ),
@@ -116,5 +121,82 @@ class _ReviewCard extends StatelessWidget {
     return '${dt.day.toString().padLeft(2, '0')}/'
         '${dt.month.toString().padLeft(2, '0')}/'
         '${dt.year}';
+  }
+}
+
+/// Inline video player for a review video.
+class _ReviewVideoPlayer extends StatefulWidget {
+  final String videoUrl;
+
+  const _ReviewVideoPlayer({required this.videoUrl});
+
+  @override
+  State<_ReviewVideoPlayer> createState() => _ReviewVideoPlayerState();
+}
+
+class _ReviewVideoPlayerState extends State<_ReviewVideoPlayer> {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+    )..initialize().then((_) {
+        if (mounted) setState(() => _initialized = true);
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () {
+        if (_controller.value.isPlaying) {
+          _controller.pause();
+        } else {
+          _controller.play();
+        }
+        setState(() {});
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: VideoPlayer(_controller),
+            ),
+            if (!_controller.value.isPlaying)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(12),
+                child: const Icon(
+                  Icons.play_arrow,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }

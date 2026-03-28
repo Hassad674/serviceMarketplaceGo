@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../../core/network/api_client.dart';
 import '../domain/entities/review.dart';
 import '../domain/repositories/review_repository.dart';
@@ -41,6 +43,7 @@ class ReviewRepositoryImpl implements ReviewRepository {
     int? communication,
     int? quality,
     String? comment,
+    String? videoUrl,
   }) async {
     final body = <String, dynamic>{
       'proposal_id': proposalId,
@@ -50,10 +53,23 @@ class ReviewRepositoryImpl implements ReviewRepository {
     if (communication != null) body['communication'] = communication;
     if (quality != null) body['quality'] = quality;
     if (comment != null && comment.isNotEmpty) body['comment'] = comment;
+    if (videoUrl != null && videoUrl.isNotEmpty) body['video_url'] = videoUrl;
 
     final response = await _api.post('/api/v1/reviews', data: body);
     return Review.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
+  }
+
+  @override
+  Future<String> uploadReviewVideo(String filePath) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    final response = await _api.post(
+      '/api/v1/upload/review-video',
+      data: formData,
+    );
+    return response.data['url'] as String;
   }
 }

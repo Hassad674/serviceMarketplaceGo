@@ -9,6 +9,7 @@ class Review {
   final int? communication;
   final int? quality;
   final String comment;
+  final String videoUrl;
   final DateTime createdAt;
 
   const Review({
@@ -21,6 +22,7 @@ class Review {
     this.communication,
     this.quality,
     this.comment = '',
+    this.videoUrl = '',
     required this.createdAt,
   });
 
@@ -35,6 +37,7 @@ class Review {
       communication: json['communication'] as int?,
       quality: json['quality'] as int?,
       comment: json['comment'] as String? ?? '',
+      videoUrl: json['video_url'] as String? ?? '',
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }

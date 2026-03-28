@@ -12,5 +12,7 @@ abstract class ReviewRepository {
     int? communication,
     int? quality,
     String? comment,
+    String? videoUrl,
   });
+  Future<String> uploadReviewVideo(String filePath);
 }
