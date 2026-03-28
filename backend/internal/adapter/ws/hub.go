@@ -62,9 +62,11 @@ func (h *Hub) removeClient(client *Client) {
 		if _, exists := conns[client]; exists {
 			delete(conns, client)
 			close(client.Send)
-			if len(conns) == 0 {
+			remaining := len(conns)
+			if remaining == 0 {
 				delete(h.clients, client.UserID)
 			}
+			slog.Info("ws: client unregistered", "user_id", client.UserID.String(), "remaining_connections", remaining)
 		}
 	}
 }
@@ -83,7 +85,7 @@ func (h *Hub) SendToUser(userID uuid.UUID, payload []byte) {
 
 	clients, ok := h.clients[userID]
 	if !ok {
-		slog.Debug("ws: no clients for user", "user_id", userID.String())
+		slog.Warn("ws: no clients for user", "user_id", userID.String())
 		return
 	}
 
