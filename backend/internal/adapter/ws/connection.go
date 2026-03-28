@@ -122,7 +122,6 @@ func readPump(conn *websocket.Conn, client *Client, deps ConnDeps) {
 		readCancel()
 
 		if err != nil {
-			slog.Info("ws: readPump exit", "user_id", client.UserID.String(), "error", err.Error())
 			return
 		}
 

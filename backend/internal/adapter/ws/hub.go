@@ -51,7 +51,6 @@ func (h *Hub) addClient(client *Client) {
 		h.clients[client.UserID] = make(map[*Client]bool)
 	}
 	h.clients[client.UserID][client] = true
-	slog.Info("ws: client registered", "user_id", client.UserID.String(), "total_connections", len(h.clients[client.UserID]))
 }
 
 func (h *Hub) removeClient(client *Client) {
@@ -62,11 +61,9 @@ func (h *Hub) removeClient(client *Client) {
 		if _, exists := conns[client]; exists {
 			delete(conns, client)
 			close(client.Send)
-			remaining := len(conns)
-			if remaining == 0 {
+			if len(conns) == 0 {
 				delete(h.clients, client.UserID)
 			}
-			slog.Info("ws: client unregistered", "user_id", client.UserID.String(), "remaining_connections", remaining)
 		}
 	}
 }
@@ -85,11 +82,8 @@ func (h *Hub) SendToUser(userID uuid.UUID, payload []byte) {
 
 	clients, ok := h.clients[userID]
 	if !ok {
-		slog.Warn("ws: no clients for user", "user_id", userID.String())
 		return
 	}
-
-	slog.Info("ws: sending to user", "user_id", userID.String(), "client_count", len(clients), "payload_len", len(payload))
 
 	for client := range clients {
 		select {
@@ -118,7 +112,6 @@ func (h *Hub) HandleStreamEvent(event StreamEvent) {
 		return
 	}
 
-	slog.Info("ws: stream event received", "type", event.Type, "recipients", len(recipientIDs))
 
 	envelope := Envelope{
 		Type:    event.Type,
