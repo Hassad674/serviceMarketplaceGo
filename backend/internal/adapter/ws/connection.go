@@ -69,7 +69,7 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 }
 
 func authenticateWS(r *http.Request, tokenSvc service.TokenService, sessionSvc service.SessionService) (uuid.UUID, error) {
-	// Strategy 1: Session cookie (web)
+	// Strategy 1: Session cookie (web, same-origin)
 	if cookie, err := r.Cookie("session_id"); err == nil && cookie.Value != "" {
 		session, err := sessionSvc.Get(r.Context(), cookie.Value)
 		if err == nil {
@@ -77,7 +77,15 @@ func authenticateWS(r *http.Request, tokenSvc service.TokenService, sessionSvc s
 		}
 	}
 
-	// Strategy 2: Query param token (mobile)
+	// Strategy 2: Session ID as query param (web, cross-origin production)
+	if sid := r.URL.Query().Get("session_id"); sid != "" {
+		session, err := sessionSvc.Get(r.Context(), sid)
+		if err == nil {
+			return session.UserID, nil
+		}
+	}
+
+	// Strategy 3: JWT token as query param (mobile)
 	token := r.URL.Query().Get("token")
 	if token != "" {
 		claims, err := tokenSvc.ValidateAccessToken(token)

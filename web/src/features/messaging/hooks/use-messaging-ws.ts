@@ -15,7 +15,16 @@ const MAX_RECONNECT_DELAY = 30_000
 
 function getWSUrl(): string {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
-  return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  if (apiUrl.includes("localhost")) {
+    return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  }
+  // Production: connect directly to Railway WS with session_id query param
+  const wsBase = apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  const wsToken = document.cookie
+    .split("; ")
+    .find((c) => c.startsWith("ws_token="))
+    ?.split("=")[1]
+  return wsToken ? `${wsBase}?session_id=${wsToken}` : wsBase
 }
 
 type TypingEntry = { userId: string }

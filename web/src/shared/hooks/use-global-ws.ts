@@ -10,10 +10,20 @@ const HEARTBEAT_INTERVAL = 30_000
 const MAX_RECONNECT_DELAY = 30_000
 
 function getWSUrl(): string {
-  // WebSocket always connects directly to the backend (no proxy).
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
-  // In production, use wss:// to the real backend
-  return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  // In dev, connect directly — session cookie is same-origin.
+  if (apiUrl.includes("localhost")) {
+    return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  }
+  // Production: connect directly to Railway WS, pass session_id via query param
+  // (Vercel doesn't proxy WebSocket). The ws_token cookie is non-httpOnly and
+  // readable by JS — it contains the session_id for WS auth.
+  const wsBase = apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  const wsToken = document.cookie
+    .split("; ")
+    .find((c) => c.startsWith("ws_token="))
+    ?.split("=")[1]
+  return wsToken ? `${wsBase}?session_id=${wsToken}` : wsBase
 }
 
 /**
