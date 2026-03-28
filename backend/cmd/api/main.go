@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
@@ -29,6 +30,7 @@ import (
 	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/port/service"
 	"marketplace-backend/pkg/crypto"
 )
 
@@ -172,13 +174,25 @@ func main() {
 	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo)
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
 
+	// Push notification service (optional — only when FCM is configured)
+	var pushSvc service.PushService
+	if cfg.FCMConfigured() {
+		fcmSvc, fcmErr := fcm.NewPushService(cfg.FCMCredentialsPath)
+		if fcmErr != nil {
+			slog.Error("failed to init FCM push service", "error", fcmErr)
+		} else {
+			pushSvc = fcmSvc
+			slog.Info("push notification service enabled (FCM)")
+		}
+	}
+
 	// Notification feature
 	notifRepo := postgres.NewNotificationRepository(db)
 	notifSvc := notifapp.NewService(notifapp.ServiceDeps{
 		Notifications: notifRepo,
 		Presence:      presenceSvc,
 		Broadcaster:   streamBroadcaster,
-		Push:          nil, // FCM adapter wired in Phase 6 when configured
+		Push:          pushSvc, // nil if FCM not configured
 		Email:         emailSvc,
 		Users:         userRepo,
 	})

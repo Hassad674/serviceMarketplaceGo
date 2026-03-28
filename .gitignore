@@ -66,5 +66,10 @@ backend/.env.*
 !backend/.env.example
 web/test-results/
 
+# Firebase credentials (never commit)
+**/firebase-credentials.json
+**/google-services.json
+**/GoogleService-Info.plist
+
 # Claude worktrees
 .claude/worktrees/

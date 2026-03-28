@@ -97,12 +97,11 @@ func (b *StreamBroadcaster) EnsureConsumerGroup(ctx context.Context) error {
 type StreamHandler func(event StreamEvent)
 
 func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler) {
-	consumerName := b.sourceID
-
-	if err := b.EnsureConsumerGroup(ctx); err != nil {
-		slog.Error("failed to ensure consumer group", "error", err)
-		return
-	}
+	// Use plain XREAD (not consumer groups). For a single backend instance,
+	// consumer groups cause problems: each deploy creates a new consumer name
+	// (random UUID), leaving dead consumers with undelivered pending messages.
+	// XREAD with "$" reads only new messages, which is exactly what we need.
+	lastID := "$"
 
 	for {
 		select {
@@ -111,12 +110,10 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 		default:
 		}
 
-		streams, err := b.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
-			Group:    consumerGroup,
-			Consumer: consumerName,
-			Streams:  []string{streamKey, ">"},
-			Count:    10,
-			Block:    5 * time.Second,
+		streams, err := b.client.XRead(ctx, &goredis.XReadArgs{
+			Streams: []string{streamKey, lastID},
+			Count:   10,
+			Block:   5 * time.Second,
 		}).Result()
 
 		if err != nil {
@@ -138,7 +135,7 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 				}
 
 				handler(event)
-				b.ackMessage(ctx, msg.ID)
+				lastID = msg.ID
 			}
 		}
 	}

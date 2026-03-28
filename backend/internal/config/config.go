@@ -27,7 +27,8 @@ type Config struct {
 	FrontendURL      string
 	LiveKitURL       string
 	LiveKitAPIKey    string
-	LiveKitAPISecret string
+	LiveKitAPISecret   string
+	FCMCredentialsPath string
 }
 
 func Load() *Config {
@@ -52,7 +53,8 @@ func Load() *Config {
 		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3001"),
 		LiveKitURL:       getEnv("LIVEKIT_URL", ""),
 		LiveKitAPIKey:    getEnv("LIVEKIT_API_KEY", ""),
-		LiveKitAPISecret: getEnv("LIVEKIT_API_SECRET", ""),
+		LiveKitAPISecret:   getEnv("LIVEKIT_API_SECRET", ""),
+		FCMCredentialsPath: getEnv("FCM_CREDENTIALS_PATH", ""),
 	}
 }
 
@@ -66,6 +68,10 @@ func (c *Config) IsProduction() bool {
 
 func (c *Config) LiveKitConfigured() bool {
 	return c.LiveKitURL != "" && c.LiveKitAPIKey != "" && c.LiveKitAPISecret != ""
+}
+
+func (c *Config) FCMConfigured() bool {
+	return c.FCMCredentialsPath != ""
 }
 
 func getEnv(key, fallback string) string {

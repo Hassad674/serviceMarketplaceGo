@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../features/messaging/data/messaging_ws_service.dart';
 import '../../data/notification_repository_impl.dart';
 import '../../domain/entities/app_notification.dart';
 import '../../domain/repositories/notification_repository.dart';
@@ -9,9 +12,20 @@ import '../../domain/repositories/notification_repository.dart';
 // ---------------------------------------------------------------------------
 
 /// Provides the total unread notification count for badge display.
+/// Listens to WS events of type "notification" to auto-refresh.
 final unreadNotificationCountProvider =
     FutureProvider.autoDispose<int>((ref) async {
   final repo = ref.read(notificationRepositoryProvider);
+
+  // Listen to WS events and invalidate self when a notification arrives
+  final wsSvc = ref.watch(messagingWsServiceProvider);
+  final sub = wsSvc.events.listen((event) {
+    if (event['type'] == 'notification') {
+      ref.invalidateSelf();
+    }
+  });
+  ref.onDispose(sub.cancel);
+
   return repo.getUnreadCount();
 });
 

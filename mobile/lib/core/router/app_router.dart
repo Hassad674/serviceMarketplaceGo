@@ -27,6 +27,7 @@ import '../../features/payment_info/presentation/screens/payment_info_screen.dar
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_drawer.dart';
+import '../notifications/fcm_service.dart';
 import '../theme/app_theme.dart';
 
 /// Global navigator key — used by [CallEventListener] to push modal
@@ -260,12 +261,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 ///
 /// Reads [totalUnreadProvider] to display a badge on the Messages tab.
 /// Call event handling is done globally by [CallEventListener] in main.dart.
-class DashboardShell extends ConsumerWidget {
+class DashboardShell extends ConsumerStatefulWidget {
   /// Key for the outer Scaffold — inner screens use this to open the drawer.
   static final scaffoldKey = GlobalKey<ScaffoldState>();
 
   final Widget child;
   const DashboardShell({super.key, required this.child});
+
+  @override
+  ConsumerState<DashboardShell> createState() => _DashboardShellState();
+}
+
+class _DashboardShellState extends ConsumerState<DashboardShell> {
+  bool _fcmInitialized = false;
 
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -276,16 +284,22 @@ class DashboardShell extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
     final totalUnread = ref.watch(totalUnreadProvider);
 
+    // Initialize FCM push notifications once after auth
+    if (!_fcmInitialized) {
+      _fcmInitialized = true;
+      Future.microtask(() => FCMService.initialize(ref));
+    }
+
     return Scaffold(
-      key: scaffoldKey,
+      key: DashboardShell.scaffoldKey,
       drawer: const AppDrawer(),
-      body: child,
+      body: widget.child,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
