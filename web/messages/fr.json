@@ -332,11 +332,23 @@
   },
   "projects": {
     "title": "Projets",
-    "createProject": "Créer un projet",
+    "createProject": "Cr\u00e9er un projet",
     "noProjects": "Aucun projet actif pour le moment",
     "activeProjects": "Projets actifs",
     "status": "Statut",
-    "amount": "Montant"
+    "amount": "Montant",
+    "activeMissions": "Missions actives",
+    "totalAmount": "Montant en cours",
+    "nextDeadline": "Prochaine \u00e9ch\u00e9ance",
+    "inProgress": "En cours",
+    "completedTab": "Termin\u00e9s",
+    "all": "Tous",
+    "searchPlaceholder": "Rechercher un projet...",
+    "emptyState": "Aucune mission en cours",
+    "emptyStateSubtitle": "Vos projets appara\u00eetront ici une fois le paiement confirm\u00e9.",
+    "with": "Avec",
+    "completionPending": "Compl\u00e9tion demand\u00e9e \u2014 En attente de validation",
+    "completed": "Termin\u00e9"
   },
   "job": {
     "title": "Offres",
@@ -486,7 +498,20 @@
     "rejectCompletion": "Refuser la fin",
     "missionCompleted": "Mission terminée",
     "missionContinues": "La mission continue",
-    "waitingForClientConfirmation": "En attente de confirmation du client"
+    "waitingForClientConfirmation": "En attente de confirmation du client",
+    "stepCreated": "Cr\u00e9\u00e9e",
+    "stepAccepted": "Accept\u00e9e",
+    "stepPaid": "Pay\u00e9e",
+    "stepActive": "Active",
+    "stepCompleted": "Termin\u00e9e",
+    "status": "Statut",
+    "actions": "Actions",
+    "participants": "Participants",
+    "goToConversation": "Aller \u00e0 la conversation",
+    "waitingPayment": "En attente du paiement",
+    "missionActiveDesc": "Mission en cours",
+    "awaitingCompletion": "En attente de confirmation",
+    "noDeadline": "Non d\u00e9finie"
   },
   "call": {
     "calling": "Appel en cours...",
