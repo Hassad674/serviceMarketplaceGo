@@ -40,6 +40,14 @@ vi.mock("lucide-react", () => ({
   DollarSign: (props: Record<string, unknown>) => <span data-testid="dollar-icon" {...props} />,
   Reply: (props: Record<string, unknown>) => <span data-testid="reply-icon" {...props} />,
   RotateCcw: (props: Record<string, unknown>) => <span data-testid="rotate-icon" {...props} />,
+  Star: (props: Record<string, unknown>) => <span data-testid="star-icon" {...props} />,
+  Trophy: (props: Record<string, unknown>) => <span data-testid="trophy-icon" {...props} />,
+  ArrowRight: (props: Record<string, unknown>) => <span data-testid="arrow-right-icon" {...props} />,
+  Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
+  Calendar: (props: Record<string, unknown>) => <span data-testid="calendar-icon" {...props} />,
+  Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
+  Handshake: (props: Record<string, unknown>) => <span data-testid="handshake-icon" {...props} />,
+  ExternalLink: (props: Record<string, unknown>) => <span data-testid="external-link-icon" {...props} />,
 }))
 
 // Mock sub-components that are imported
@@ -64,6 +72,13 @@ vi.mock("../message-context-menu", () => ({
 
 vi.mock("../proposal-card", () => ({
   ProposalCard: () => <span data-testid="proposal-card" />,
+}))
+
+vi.mock("../proposal-system-message", () => ({
+  ProposalSystemMessage: () => <span data-testid="proposal-system-message" />,
+  PaymentRequestedMessage: () => <span data-testid="payment-requested-message" />,
+  CompletionRequestedMessage: () => <span data-testid="completion-requested-message" />,
+  EvaluationRequestMessage: () => <span data-testid="evaluation-request-message" />,
 }))
 
 function createMessage(overrides: Partial<Message> = {}): Message {

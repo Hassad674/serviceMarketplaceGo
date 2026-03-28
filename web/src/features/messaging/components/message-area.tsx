@@ -1,19 +1,9 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
-import {
-  MessageSquare,
-  CheckCircle2,
-  XCircle,
-  Pencil,
-  CreditCard,
-  DollarSign,
-  RotateCcw,
-  Star,
-} from "lucide-react"
-import { useRouter } from "@i18n/navigation"
+import { MessageSquare } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { cn, formatCurrency } from "@/shared/lib/utils"
+import { cn } from "@/shared/lib/utils"
 import type { Message, ProposalMessageMetadata, ReplyToInfo, VoiceMetadata } from "../types"
 import { MessageStatusIcon } from "./message-status-icon"
 import { FileMessage } from "./file-message"
@@ -21,6 +11,12 @@ import { VoiceMessage } from "./voice-message"
 import { MessageContextMenu } from "./message-context-menu"
 import { ProposalCard } from "./proposal-card"
 import { MessageAreaSkeleton } from "./message-area-skeleton"
+import {
+  ProposalSystemMessage,
+  PaymentRequestedMessage,
+  CompletionRequestedMessage,
+  EvaluationRequestMessage,
+} from "./proposal-system-message"
 
 interface MessageAreaProps {
   messages: Message[]
@@ -94,48 +90,7 @@ export function MessageArea({
   // proposal_modified message references the same root via proposal_parent_id.
   // NOTE: This useMemo MUST be before any early return to respect Rules of Hooks.
   const supersededProposalIds = useMemo(() => {
-    const superseded = new Set<string>()
-    const parentIds = new Set<string>()
-    for (const msg of messages) {
-      if (msg.type === "proposal_modified" && isProposalMetadata(msg.metadata)) {
-        const meta = msg.metadata as ProposalMessageMetadata
-        if (meta.proposal_parent_id) {
-          parentIds.add(meta.proposal_parent_id)
-        }
-      }
-    }
-    // Any proposal_sent whose proposal_id is a parent_id of a modified version is superseded
-    for (const msg of messages) {
-      if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
-        const meta = msg.metadata as ProposalMessageMetadata
-        if (parentIds.has(meta.proposal_id)) {
-          superseded.add(meta.proposal_id)
-        }
-      }
-    }
-    // Also mark older modified versions as superseded (keep only the latest)
-    const versionMap = new Map<string, number>()
-    for (const msg of messages) {
-      if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
-        const meta = msg.metadata as ProposalMessageMetadata
-        const rootId = meta.proposal_parent_id ?? meta.proposal_id
-        const current = versionMap.get(rootId) ?? 0
-        if (meta.proposal_version > current) {
-          versionMap.set(rootId, meta.proposal_version)
-        }
-      }
-    }
-    for (const msg of messages) {
-      if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
-        const meta = msg.metadata as ProposalMessageMetadata
-        const rootId = meta.proposal_parent_id ?? meta.proposal_id
-        const maxVersion = versionMap.get(rootId) ?? 1
-        if (meta.proposal_version < maxVersion) {
-          superseded.add(meta.proposal_id)
-        }
-      }
-    }
-    return superseded
+    return computeSupersededIds(messages)
   }, [messages])
 
   if (isLoading) {
@@ -147,10 +102,10 @@ export function MessageArea({
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <MessageSquare
-            className="mx-auto h-12 w-12 text-gray-200 dark:text-gray-700"
+            className="mx-auto h-12 w-12 text-slate-200 dark:text-slate-700"
             strokeWidth={1}
           />
-          <p className="mt-3 text-sm text-gray-400 dark:text-gray-500">
+          <p className="mt-3 text-sm text-slate-400 dark:text-slate-500">
             {t("noMessages")}
           </p>
         </div>
@@ -166,7 +121,7 @@ export function MessageArea({
           <div ref={topSentinelRef} className="flex justify-center py-2">
             <button
               onClick={onLoadMore}
-              className="text-xs text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
             >
               {t("loadMore")}
             </button>
@@ -190,6 +145,51 @@ export function MessageArea({
       </div>
     </div>
   )
+}
+
+function computeSupersededIds(messages: Message[]): Set<string> {
+  const superseded = new Set<string>()
+  const parentIds = new Set<string>()
+  for (const msg of messages) {
+    if (msg.type === "proposal_modified" && isProposalMetadata(msg.metadata)) {
+      const meta = msg.metadata as ProposalMessageMetadata
+      if (meta.proposal_parent_id) {
+        parentIds.add(meta.proposal_parent_id)
+      }
+    }
+  }
+  // Any proposal_sent whose proposal_id is a parent_id of a modified version is superseded
+  for (const msg of messages) {
+    if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
+      const meta = msg.metadata as ProposalMessageMetadata
+      if (parentIds.has(meta.proposal_id)) {
+        superseded.add(meta.proposal_id)
+      }
+    }
+  }
+  // Also mark older modified versions as superseded (keep only the latest)
+  const versionMap = new Map<string, number>()
+  for (const msg of messages) {
+    if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
+      const meta = msg.metadata as ProposalMessageMetadata
+      const rootId = meta.proposal_parent_id ?? meta.proposal_id
+      const current = versionMap.get(rootId) ?? 0
+      if (meta.proposal_version > current) {
+        versionMap.set(rootId, meta.proposal_version)
+      }
+    }
+  }
+  for (const msg of messages) {
+    if ((msg.type === "proposal_sent" || msg.type === "proposal_modified") && isProposalMetadata(msg.metadata)) {
+      const meta = msg.metadata as ProposalMessageMetadata
+      const rootId = meta.proposal_parent_id ?? meta.proposal_id
+      const maxVersion = versionMap.get(rootId) ?? 1
+      if (meta.proposal_version < maxVersion) {
+        superseded.add(meta.proposal_id)
+      }
+    }
+  }
+  return superseded
 }
 
 interface MessageBubbleProps {
@@ -222,6 +222,7 @@ const PROPOSAL_SYSTEM_TYPES = new Set([
   "proposal_paid",
   "proposal_completed",
   "proposal_completion_rejected",
+  "proposal_modified",
 ])
 
 function MessageBubble({
@@ -237,17 +238,6 @@ function MessageBubble({
 }: MessageBubbleProps) {
   const t = useTranslations("messaging")
   const tp = useTranslations("proposal")
-  const router = useRouter()
-  const [isEditing, setIsEditing] = useState(false)
-  const [editContent, setEditContent] = useState(message.content)
-
-  const handleEditSubmit = useCallback(() => {
-    const trimmed = editContent.trim()
-    if (trimmed && trimmed !== message.content) {
-      onEdit(message.id, trimmed)
-    }
-    setIsEditing(false)
-  }, [editContent, message.content, message.id, onEdit])
 
   // Proposal sent or modified — render ProposalCard
   if (
@@ -260,7 +250,7 @@ function MessageBubble({
     return (
       <div className={cn("flex flex-col gap-1", isOwn ? "items-end" : "items-start")}>
         {isSuperseded && (
-          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 px-2">
+          <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 px-2">
             {tp("supersededByVersion", { version: meta.proposal_version + 1 })}
           </span>
         )}
@@ -288,29 +278,11 @@ function MessageBubble({
 
   // Payment requested — special system message with action
   if (message.type === "proposal_payment_requested" && isProposalMetadata(message.metadata)) {
-    const payMeta = message.metadata
     return (
-      <div className="flex justify-center py-2">
-        <div className="flex items-center gap-3 rounded-xl bg-blue-50 px-4 py-2.5 dark:bg-blue-500/10">
-          <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
-          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-            {tp("paymentRequested")}
-          </span>
-          {payMeta.proposal_client_id === currentUserId && (
-            <button
-              type="button"
-              onClick={() => router.push(`/projects/pay?proposal=${payMeta.proposal_id}`)}
-              className={cn(
-                "rounded-lg px-3 py-1 text-xs font-semibold text-white",
-                "gradient-primary hover:shadow-glow active:scale-[0.98]",
-                "transition-all duration-200",
-              )}
-            >
-              {tp("payNow")}
-            </button>
-          )}
-        </div>
-      </div>
+      <PaymentRequestedMessage
+        metadata={message.metadata}
+        currentUserId={currentUserId}
+      />
     )
   }
 
@@ -348,14 +320,50 @@ function MessageBubble({
           isOwn ? "justify-end" : "justify-start",
         )}
       >
-        <div className="max-w-[75%] rounded-2xl bg-gray-100/60 px-4 py-2.5 dark:bg-gray-800/40">
-          <p className="text-sm italic text-gray-400 dark:text-gray-500">
+        <div className="max-w-[75%] rounded-2xl bg-slate-100/60 px-4 py-2.5 dark:bg-slate-800/40">
+          <p className="text-sm italic text-slate-400 dark:text-slate-500">
             {t("messageDeleted")}
           </p>
         </div>
       </div>
     )
   }
+
+  return (
+    <TextMessageBubble
+      message={message}
+      isOwn={isOwn}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      onReply={onReply}
+    />
+  )
+}
+
+function TextMessageBubble({
+  message,
+  isOwn,
+  onEdit,
+  onDelete,
+  onReply,
+}: {
+  message: Message
+  isOwn: boolean
+  onEdit: (messageId: string, content: string) => void
+  onDelete: (messageId: string) => void
+  onReply: (message: Message) => void
+}) {
+  const t = useTranslations("messaging")
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(message.content)
+
+  const handleEditSubmit = useCallback(() => {
+    const trimmed = editContent.trim()
+    if (trimmed && trimmed !== message.content) {
+      onEdit(message.id, trimmed)
+    }
+    setIsEditing(false)
+  }, [editContent, message.content, message.id, onEdit])
 
   const timeStr = new Date(message.created_at).toLocaleTimeString([], {
     hour: "2-digit",
@@ -374,7 +382,7 @@ function MessageBubble({
           "max-w-[75%] rounded-2xl px-4 py-2.5",
           isOwn
             ? "bg-rose-500 text-white"
-            : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
+            : "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100",
         )}
       >
         {/* Reply preview block */}
@@ -399,33 +407,12 @@ function MessageBubble({
 
         {/* Edit mode */}
         {isEditing && (
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleEditSubmit()
-                if (e.key === "Escape") setIsEditing(false)
-              }}
-              className="w-full rounded-lg bg-white/20 px-2 py-1 text-sm text-inherit outline-none"
-              autoFocus
-            />
-            <div className="flex gap-1 text-[10px]">
-              <button
-                onClick={handleEditSubmit}
-                className="rounded px-2 py-0.5 hover:bg-white/20"
-              >
-                {t("save")}
-              </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="rounded px-2 py-0.5 hover:bg-white/20"
-              >
-                {t("cancel")}
-              </button>
-            </div>
-          </div>
+          <EditInput
+            value={editContent}
+            onChange={setEditContent}
+            onSubmit={handleEditSubmit}
+            onCancel={() => setIsEditing(false)}
+          />
         )}
 
         {/* Edited label */}
@@ -433,7 +420,7 @@ function MessageBubble({
           <span
             className={cn(
               "text-[10px] italic",
-              isOwn ? "text-rose-200" : "text-gray-400 dark:text-gray-500",
+              isOwn ? "text-rose-200" : "text-slate-400 dark:text-slate-500",
             )}
           >
             {" "}({t("messageEdited")})
@@ -452,7 +439,7 @@ function MessageBubble({
               "text-[10px]",
               isOwn
                 ? "text-rose-200"
-                : "text-gray-400 dark:text-gray-500",
+                : "text-slate-400 dark:text-slate-500",
             )}
           >
             {timeStr}
@@ -476,125 +463,38 @@ function MessageBubble({
   )
 }
 
-function ProposalSystemMessage({
-  type,
-  metadata,
+function EditInput({
+  value,
+  onChange,
+  onSubmit,
+  onCancel,
 }: {
-  type: string
-  metadata: ProposalMessageMetadata
+  value: string
+  onChange: (val: string) => void
+  onSubmit: () => void
+  onCancel: () => void
 }) {
-  const t = useTranslations("proposal")
-
-  const config: Record<string, { icon: React.ElementType; text: string; className: string }> = {
-    proposal_accepted: {
-      icon: CheckCircle2,
-      text: t("proposalAccepted"),
-      className: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-300",
-    },
-    proposal_declined: {
-      icon: XCircle,
-      text: t("proposalDeclined"),
-      className: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300",
-    },
-    proposal_paid: {
-      icon: DollarSign,
-      text: t("proposalPaid"),
-      className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
-    },
-    proposal_completed: {
-      icon: CheckCircle2,
-      text: t("missionCompleted"),
-      className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-    },
-    proposal_completion_rejected: {
-      icon: RotateCcw,
-      text: t("completionRejected"),
-      className: "bg-gray-50 text-gray-700 dark:bg-gray-500/10 dark:text-gray-300",
-    },
-  }
-
-  const entry = config[type]
-  if (!entry) return null
-
-  const Icon = entry.icon
+  const t = useTranslations("messaging")
 
   return (
-    <div className="flex justify-center py-2">
-      <div className={cn("flex items-center gap-2 rounded-xl px-4 py-2", entry.className)}>
-        <Icon className="h-4 w-4" strokeWidth={1.5} />
-        <span className="text-sm font-medium">
-          {entry.text} — {metadata.proposal_title} ({formatCurrency(metadata.proposal_amount / 100)})
-        </span>
-      </div>
-    </div>
-  )
-}
-
-function CompletionRequestedMessage({
-  metadata,
-  currentUserId,
-}: {
-  metadata: ProposalMessageMetadata
-  currentUserId: string
-}) {
-  const t = useTranslations("proposal")
-  const router = useRouter()
-
-  return (
-    <div className="flex justify-center py-2">
-      <div className="flex flex-col items-center gap-2 rounded-xl bg-amber-50 px-5 py-3 dark:bg-amber-500/10">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
-          <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-            {t("completionRequested")} — {metadata.proposal_title} ({formatCurrency(metadata.proposal_amount / 100)})
-          </span>
-        </div>
-        {metadata.proposal_client_id === currentUserId && (
-          <button
-            type="button"
-            onClick={() => router.push(`/projects/${metadata.proposal_id}`)}
-            className={cn(
-              "rounded-lg px-3 py-1 text-xs font-semibold text-white",
-              "gradient-primary hover:shadow-glow active:scale-[0.98]",
-              "transition-all duration-200",
-            )}
-          >
-            {t("viewDetails")}
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function EvaluationRequestMessage({
-  metadata,
-  onReview,
-}: {
-  metadata: ProposalMessageMetadata
-  onReview?: (proposalId: string, proposalTitle: string) => void
-}) {
-  const t = useTranslations("review")
-
-  return (
-    <div className="flex justify-center py-2">
-      <div className="flex flex-col items-center gap-2 rounded-xl bg-emerald-50 px-5 py-3 dark:bg-emerald-500/10">
-        <div className="flex items-center gap-2">
-          <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
-          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            {t("evaluationRequest")}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={() => onReview?.(metadata.proposal_id, metadata.proposal_title)}
-          className={cn(
-            "rounded-lg px-3 py-1 text-xs font-semibold text-white",
-            "gradient-primary hover:shadow-glow active:scale-[0.98]",
-            "transition-all duration-200",
-          )}
-        >
-          {t("leaveReview")}
+    <div className="space-y-2">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") onSubmit()
+          if (e.key === "Escape") onCancel()
+        }}
+        className="w-full rounded-lg bg-white/20 px-2 py-1 text-sm text-inherit outline-none"
+        autoFocus
+      />
+      <div className="flex gap-1 text-[10px]">
+        <button onClick={onSubmit} className="rounded px-2 py-0.5 hover:bg-white/20">
+          {t("save")}
+        </button>
+        <button onClick={onCancel} className="rounded px-2 py-0.5 hover:bg-white/20">
+          {t("cancel")}
         </button>
       </div>
     </div>
@@ -626,7 +526,7 @@ function ReplyPreviewBlock({
           "truncate text-xs",
           isOwn
             ? "text-white/80"
-            : "text-gray-500 dark:text-gray-400",
+            : "text-slate-500 dark:text-slate-400",
         )}
       >
         {truncated || "..."}
@@ -634,4 +534,3 @@ function ReplyPreviewBlock({
     </div>
   )
 }
-

@@ -358,7 +358,7 @@ describe("ProposalCard", () => {
     expect(screen.getByText("3")).toBeDefined()
   })
 
-  it("renders version badge for version > 1", () => {
+  it("shows counter-proposal label for version > 1", () => {
     render(
       <ProposalCard
         metadata={createMetadata({ proposal_version: 3 })}
@@ -368,20 +368,21 @@ describe("ProposalCard", () => {
       />,
     )
 
-    expect(screen.getByText("v3")).toBeDefined()
+    // Version > 1 renders counter-proposal label instead of proposalFrom
+    expect(screen.getByText("counterProposal")).toBeDefined()
   })
 
-  it("does not render version badge for version 1", () => {
+  it("shows proposalFrom label for version 1 (not counter-proposal)", () => {
     render(
       <ProposalCard
-        metadata={createMetadata({ proposal_version: 1 })}
+        metadata={createMetadata({ proposal_version: 1, proposal_sender_name: "Test" })}
         isOwn={false}
         currentUserId="user-1"
         conversationId="conv-1"
       />,
     )
 
-    expect(screen.queryByText("v1")).toBeNull()
+    expect(screen.getByText("From Test")).toBeDefined()
   })
 
   it("renders sender name", () => {
