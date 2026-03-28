@@ -39,6 +39,7 @@ type CreateReviewInput struct {
 	Communication *int
 	Quality       *int
 	Comment       string
+	VideoURL      string
 }
 
 // CreateReview validates the context and persists a new review.
@@ -82,6 +83,7 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		Communication: in.Communication,
 		Quality:       in.Quality,
 		Comment:       in.Comment,
+		VideoURL:      in.VideoURL,
 	})
 	if err != nil {
 		return nil, err

@@ -189,6 +189,47 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
+const maxReviewVideoSize = 100 << 20 // 100 MB
+
+func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxReviewVideoSize)
+	if err := r.ParseMultipartForm(maxReviewVideoSize); err != nil {
+		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 100MB")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
+		return
+	}
+	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "video/") {
+		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video (mp4, webm, mov)")
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	key := fmt.Sprintf("reviews/%s/video_%s%s", userID.String(), uuid.New().String(), ext)
+
+	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	if err != nil {
+		slog.Error("review video upload failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"url": url})
+}
+
 func (h *UploadHandler) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

@@ -17,6 +17,7 @@ type Review struct {
 	Communication *int
 	Quality       *int
 	Comment       string
+	VideoURL      string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -31,6 +32,7 @@ type NewReviewInput struct {
 	Communication *int
 	Quality       *int
 	Comment       string
+	VideoURL      string
 }
 
 // NewReview creates a validated Review from the given input.
@@ -80,6 +82,7 @@ func NewReview(in NewReviewInput) (*Review, error) {
 		Communication: in.Communication,
 		Quality:       in.Quality,
 		Comment:       in.Comment,
+		VideoURL:      in.VideoURL,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}, nil

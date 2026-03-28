@@ -58,6 +58,12 @@ const _primaryItems = [
     icon: Icons.person_outline,
     route: RoutePaths.profile,
   ),
+  _DrawerItem(
+    labelKey: 'drawerPaymentInfo',
+    icon: Icons.credit_card_outlined,
+    route: RoutePaths.paymentInfo,
+    roles: ['agency', 'provider'],
+  ),
 ];
 
 // Search / discovery items
@@ -81,10 +87,6 @@ const _searchItems = [
     roles: ['agency', 'enterprise'],
   ),
 ];
-
-// ---------------------------------------------------------------------------
-// AppDrawer widget
-// ---------------------------------------------------------------------------
 
 /// Application drawer with user header, role-based navigation, and logout.
 ///
@@ -180,9 +182,7 @@ class AppDrawer extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Drawer header — avatar + name + role badge
-// ---------------------------------------------------------------------------
 
 class _DrawerHeader extends StatelessWidget {
   const _DrawerHeader({required this.user, required this.role});
@@ -268,9 +268,7 @@ class _DrawerHeader extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Role badge pill
-// ---------------------------------------------------------------------------
 
 class _RoleBadge extends StatelessWidget {
   const _RoleBadge({
@@ -320,9 +318,7 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
 // Navigation tile — single drawer link
-// ---------------------------------------------------------------------------
 
 class _DrawerNavTile extends StatelessWidget {
   const _DrawerNavTile({
@@ -418,6 +414,8 @@ class _DrawerNavTile extends StatelessWidget {
         return l10n.drawerFindAgencies;
       case 'drawerFindReferrers':
         return l10n.drawerFindReferrers;
+      case 'drawerPaymentInfo':
+        return l10n.drawerPaymentInfo;
       default:
         return key;
     }

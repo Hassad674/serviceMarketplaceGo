@@ -17,6 +17,7 @@ type ReviewResponse struct {
 	Communication *int      `json:"communication"`
 	Quality       *int      `json:"quality"`
 	Comment       string    `json:"comment"`
+	VideoURL      string    `json:"video_url"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -32,6 +33,7 @@ func ReviewFromDomain(r *review.Review) ReviewResponse {
 		Communication: r.Communication,
 		Quality:       r.Quality,
 		Comment:       r.Comment,
+		VideoURL:      r.VideoURL,
 		CreatedAt:     r.CreatedAt,
 	}
 }

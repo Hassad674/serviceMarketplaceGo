@@ -8,4 +8,5 @@ type CreateReviewRequest struct {
 	Communication *int   `json:"communication,omitempty"`
 	Quality       *int   `json:"quality,omitempty"`
 	Comment       string `json:"comment,omitempty"`
+	VideoURL      string `json:"video_url,omitempty"`
 }

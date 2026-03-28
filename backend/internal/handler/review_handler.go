@@ -56,6 +56,7 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		Communication: req.Communication,
 		Quality:       req.Quality,
 		Comment:       req.Comment,
+		VideoURL:      req.VideoURL,
 	})
 	if err != nil {
 		handleReviewError(w, err)

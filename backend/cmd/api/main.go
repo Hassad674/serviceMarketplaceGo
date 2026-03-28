@@ -142,6 +142,11 @@ func main() {
 		Proposals: proposalRepo,
 	})
 
+	// Social links feature
+	socialLinkRepo := postgres.NewSocialLinkRepository(db)
+	socialLinkSvc := profileapp.NewSocialLinkService(socialLinkRepo)
+	socialLinkHandler := handler.NewSocialLinkHandler(socialLinkSvc)
+
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
 	if cfg.LiveKitConfigured() {
@@ -192,6 +197,7 @@ func main() {
 		Job:            jobHandler,
 		Review:         reviewHandler,
 		Call:           callHandler,
+		SocialLink:     socialLinkHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

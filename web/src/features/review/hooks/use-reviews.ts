@@ -6,6 +6,7 @@ import {
   fetchAverageRating,
   fetchCanReview,
   createReview,
+  uploadReviewVideo,
   type CreateReviewPayload,
 } from "../api/review-api"
 
@@ -48,5 +49,11 @@ export function useCreateReview() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reviews"] })
     },
+  })
+}
+
+export function useUploadReviewVideo() {
+  return useMutation({
+    mutationFn: (file: File) => uploadReviewVideo(file),
   })
 }

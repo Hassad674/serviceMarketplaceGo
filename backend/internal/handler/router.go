@@ -20,6 +20,7 @@ type RouterDeps struct {
 	Job            *JobHandler
 	Review         *ReviewHandler
 	Call           *CallHandler
+	SocialLink     *SocialLinkHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -75,6 +76,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Delete("/video", deps.Upload.DeleteVideo)
 			r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
 			r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
+			r.Post("/review-video", deps.Upload.UploadReviewVideo)
 		})
 
 		// Public profiles
@@ -141,6 +143,20 @@ func NewRouter(deps RouterDeps) chi.Router {
 					r.Post("/", deps.Review.CreateReview)
 					r.Get("/can-review/{proposalId}", deps.Review.CanReview)
 				})
+			})
+		}
+
+		// Social link routes
+		if deps.SocialLink != nil {
+			// Public: read social links
+			r.Get("/profiles/{userId}/social-links", deps.SocialLink.ListPublicSocialLinks)
+
+			// Authenticated: manage own social links
+			r.Route("/profile/social-links", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Get("/", deps.SocialLink.ListMySocialLinks)
+				r.Put("/", deps.SocialLink.UpsertSocialLink)
+				r.Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
 			})
 		}
 

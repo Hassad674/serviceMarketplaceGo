@@ -1,0 +1,167 @@
+"use client"
+
+import { useState, useCallback } from "react"
+import { AlertTriangle, CheckCircle } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { cn } from "@/shared/lib/utils"
+import { PersonalInfoSection } from "./personal-info-section"
+import { BusinessInfoSection } from "./business-info-section"
+import { BankAccountSection } from "./bank-account-section"
+import { isIbanCountry } from "./country-select"
+import type { PaymentInfoFormData, BankAccountMode } from "../types"
+import { INITIAL_FORM_DATA } from "../types"
+
+function isFormValid(data: PaymentInfoFormData): boolean {
+  const personalComplete =
+    data.firstName.trim() !== "" &&
+    data.lastName.trim() !== "" &&
+    data.dateOfBirth !== "" &&
+    data.email.trim() !== "" &&
+    data.country !== "" &&
+    data.address.trim() !== "" &&
+    data.city.trim() !== "" &&
+    data.postalCode.trim() !== ""
+
+  if (!personalComplete) return false
+
+  if (data.isBusiness) {
+    const businessComplete =
+      data.businessRole !== "" &&
+      data.businessName.trim() !== "" &&
+      data.businessAddress.trim() !== "" &&
+      data.businessCity.trim() !== "" &&
+      data.businessPostalCode.trim() !== "" &&
+      data.taxId.trim() !== ""
+    if (!businessComplete) return false
+  }
+
+  const bankComplete =
+    data.accountHolder.trim() !== "" &&
+    (data.bankMode === "iban"
+      ? data.iban.trim() !== ""
+      : data.accountNumber.trim() !== "" && data.routingNumber.trim() !== "")
+
+  return bankComplete
+}
+
+export function PaymentInfoPage() {
+  const t = useTranslations("paymentInfo")
+  const [data, setData] = useState<PaymentInfoFormData>(INITIAL_FORM_DATA)
+  const [saved, setSaved] = useState(false)
+
+  const handleChange = useCallback(
+    (field: keyof PaymentInfoFormData, value: string) => {
+      setData((prev) => {
+        const next = { ...prev, [field]: value }
+        // Auto-switch bank mode when country changes
+        if (field === "country") {
+          next.bankMode = isIbanCountry(value) ? "iban" : "local"
+        }
+        return next
+      })
+      setSaved(false)
+    },
+    [],
+  )
+
+  const handleToggleBusiness = useCallback(() => {
+    setData((prev) => ({ ...prev, isBusiness: !prev.isBusiness }))
+    setSaved(false)
+  }, [])
+
+  const handleBankModeChange = useCallback((mode: BankAccountMode) => {
+    setData((prev) => ({ ...prev, bankMode: mode }))
+    setSaved(false)
+  }, [])
+
+  const handleSave = useCallback(() => {
+    // eslint-disable-next-line no-console
+    console.log("Payment info submitted:", data)
+    setSaved(true)
+  }, [data])
+
+  const valid = isFormValid(data)
+
+  return (
+    <div className="space-y-6">
+      {/* Page header */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          {t("title")}
+        </h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {t("subtitle")}
+        </p>
+      </div>
+
+      {/* Verification status banner */}
+      {saved ? (
+        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+          <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
+          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+            {t("saved")}
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
+          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+            {t("incomplete")}
+          </p>
+        </div>
+      )}
+
+      {/* Business toggle */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={data.isBusiness}
+          onClick={handleToggleBusiness}
+          className={cn(
+            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+            data.isBusiness ? "bg-rose-500" : "bg-gray-300 dark:bg-gray-600",
+          )}
+        >
+          <span
+            className={cn(
+              "inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 shadow-sm",
+              data.isBusiness ? "translate-x-6" : "translate-x-1",
+            )}
+          />
+        </button>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          {t("isBusiness")}
+        </span>
+      </div>
+
+      {/* Sections */}
+      <PersonalInfoSection data={data} onChange={handleChange} />
+
+      {data.isBusiness && (
+        <BusinessInfoSection data={data} onChange={handleChange} />
+      )}
+
+      <BankAccountSection
+        data={data}
+        onChange={handleChange}
+        onChangeBankMode={handleBankModeChange}
+      />
+
+      {/* Save button */}
+      <button
+        type="button"
+        disabled={!valid}
+        onClick={handleSave}
+        className={cn(
+          "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-200 sm:w-auto",
+          valid
+            ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
+            : "cursor-not-allowed bg-gray-300 dark:bg-gray-700",
+        )}
+      >
+        {t("save")}
+      </button>
+    </div>
+  )
+}

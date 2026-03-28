@@ -925,5 +925,127 @@ class AppLocalizationsEn extends AppLocalizations {
   String get drawerSwitchToFreelance => 'Freelance Dashboard';
 
   @override
+  String get drawerPaymentInfo => 'Payment Info';
+
+  @override
   String get proposalViewDetails => 'View details';
+
+  @override
+  String get paymentInfoTitle => 'Payment Information';
+
+  @override
+  String get paymentInfoSubtitle =>
+      'Complete your information to receive payments for your projects.';
+
+  @override
+  String get paymentInfoIsBusiness => 'I operate as a registered business';
+
+  @override
+  String get paymentInfoPersonalInfo => 'Personal Information';
+
+  @override
+  String get paymentInfoLegalRep => 'Legal Representative';
+
+  @override
+  String get paymentInfoBusinessInfo => 'Business Information';
+
+  @override
+  String get paymentInfoBankAccount => 'Bank Account';
+
+  @override
+  String get paymentInfoFirstName => 'First name';
+
+  @override
+  String get paymentInfoLastName => 'Last name';
+
+  @override
+  String get paymentInfoDob => 'Date of birth';
+
+  @override
+  String get paymentInfoEmail => 'Email';
+
+  @override
+  String get paymentInfoCountry => 'Country';
+
+  @override
+  String get paymentInfoAddress => 'Address';
+
+  @override
+  String get paymentInfoCity => 'City';
+
+  @override
+  String get paymentInfoPostalCode => 'Postal code';
+
+  @override
+  String get paymentInfoYourRole => 'Your role in the company';
+
+  @override
+  String get paymentInfoBusinessName => 'Business name';
+
+  @override
+  String get paymentInfoBusinessAddress => 'Business address';
+
+  @override
+  String get paymentInfoBusinessCity => 'Business city';
+
+  @override
+  String get paymentInfoBusinessPostalCode => 'Business postal code';
+
+  @override
+  String get paymentInfoTaxId => 'Tax ID';
+
+  @override
+  String get paymentInfoTaxIdHint => 'SIRET, EIN, VAT ID...';
+
+  @override
+  String get paymentInfoVatNumber => 'VAT number (optional)';
+
+  @override
+  String get paymentInfoVatNumberHint => 'EU VAT number (optional)';
+
+  @override
+  String get paymentInfoIban => 'IBAN';
+
+  @override
+  String get paymentInfoIbanHint => 'FR76 1234 5678 9012 3456 78';
+
+  @override
+  String get paymentInfoNoIban => 'I don\'t have an IBAN';
+
+  @override
+  String get paymentInfoUseIban => 'I have an IBAN';
+
+  @override
+  String get paymentInfoAccountNumber => 'Account number';
+
+  @override
+  String get paymentInfoRoutingNumber => 'Routing number';
+
+  @override
+  String get paymentInfoAccountHolder => 'Account holder name';
+
+  @override
+  String get paymentInfoSave => 'Save';
+
+  @override
+  String get paymentInfoSaved => 'Payment information saved';
+
+  @override
+  String get paymentInfoIncomplete =>
+      'Complete your payment information to receive payments';
+
+  @override
+  String get paymentInfoRoleOwner => 'Owner';
+
+  @override
+  String get paymentInfoRoleCeo => 'CEO';
+
+  @override
+  String get paymentInfoRoleDirector => 'Director';
+
+  @override
+  String get paymentInfoRolePartner => 'Partner';
+
+  @override
+  String get paymentInfoRoleOther => 'Other';
 }

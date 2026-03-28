@@ -10,6 +10,7 @@ export type Review = {
   communication: number | null
   quality: number | null
   comment: string
+  video_url: string | null
   created_at: string
 }
 
@@ -35,6 +36,7 @@ export type CreateReviewPayload = {
   communication?: number
   quality?: number
   comment?: string
+  video_url?: string
 }
 
 export async function fetchReviewsByUser(userId: string, cursor?: string) {
@@ -56,6 +58,27 @@ export async function fetchCanReview(proposalId: string) {
 export async function createReview(payload: CreateReviewPayload) {
   return apiClient<{ data: Review }>("/api/v1/reviews", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: payload,
   })
+}
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
+
+export async function uploadReviewVideo(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append("file", file)
+
+  const res = await fetch(`${API_URL}/api/v1/upload/review-video`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Upload failed" }))
+    throw new Error(err.message || "Upload failed")
+  }
+
+  const data = await res.json()
+  return data.url
 }
