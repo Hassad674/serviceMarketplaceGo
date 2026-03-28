@@ -53,6 +53,15 @@ function createWrapper() {
     createElement(QueryClientProvider, { client: queryClient }, children)
 }
 
+// Helper: flush the async getWSUrl() microtask so the WebSocket is created.
+// getWSUrl is async (returns Promise), even in dev where it resolves immediately.
+async function flushWSConnect() {
+  await act(async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+}
+
 describe("useMessagingWS", () => {
   beforeEach(() => {
     vi.useFakeTimers()
@@ -64,7 +73,7 @@ describe("useMessagingWS", () => {
     vi.restoreAllMocks()
   })
 
-  it("does not connect when userId is undefined", () => {
+  it("does not connect when userId is undefined", async () => {
     renderHook(() => useMessagingWS(undefined), {
       wrapper: createWrapper(),
     })
@@ -72,9 +81,15 @@ describe("useMessagingWS", () => {
     expect(mockWSInstance).toBeUndefined()
   })
 
-  it("connects and sets isConnected to true on open", () => {
+  it("connects and sets isConnected to true on open", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
+    })
+    await flushWSConnect()
+
+    // Flush the async getWSUrl() microtask so WebSocket is created
+    await act(async () => {
+      await vi.runAllTimersAsync()
     })
 
     expect(result.current.isConnected).toBe(false)
@@ -88,10 +103,11 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(true)
   })
 
-  it("sends heartbeat on interval after connection opens", () => {
+  it("sends heartbeat on interval after connection opens", async () => {
     renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -108,10 +124,11 @@ describe("useMessagingWS", () => {
     )
   })
 
-  it("handles new_message frame and updates typing state", () => {
+  it("handles new_message frame and updates typing state", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -155,10 +172,11 @@ describe("useMessagingWS", () => {
     expect(result.current.typingUsers["conv-1"]).toBeUndefined()
   })
 
-  it("handles typing frame from another user", () => {
+  it("handles typing frame from another user", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -179,10 +197,11 @@ describe("useMessagingWS", () => {
     })
   })
 
-  it("ignores typing frame from self", () => {
+  it("ignores typing frame from self", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -201,10 +220,11 @@ describe("useMessagingWS", () => {
     expect(result.current.typingUsers["conv-1"]).toBeUndefined()
   })
 
-  it("clears typing after delay", () => {
+  it("clears typing after delay", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -230,10 +250,11 @@ describe("useMessagingWS", () => {
     expect(result.current.typingUsers["conv-1"]).toBeUndefined()
   })
 
-  it("handles unread_count frame", () => {
+  it("handles unread_count frame", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -252,10 +273,11 @@ describe("useMessagingWS", () => {
     expect(result.current.totalUnread).toBe(7)
   })
 
-  it("handles presence frame without crashing", () => {
+  it("handles presence frame without crashing", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -276,10 +298,11 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(true)
   })
 
-  it("handles status_update frame without crashing", () => {
+  it("handles status_update frame without crashing", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -303,10 +326,11 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(true)
   })
 
-  it("ignores malformed frames", () => {
+  it("ignores malformed frames", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -321,10 +345,11 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(true)
   })
 
-  it("sets isConnected to false on close", () => {
+  it("sets isConnected to false on close", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -341,10 +366,11 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(false)
   })
 
-  it("schedules reconnect on close with increasing delay", () => {
+  it("schedules reconnect on close with increasing delay", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -365,18 +391,20 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(false)
 
     // Advance timers to trigger reconnect (delay = 1000ms * 2^0 = 1000ms)
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(1500)
     })
+    await flushWSConnect()
 
     // After reconnect, a new WS instance was created (different object)
     expect(mockWSInstance).not.toBe(closedInstance)
   })
 
-  it("sends sync on reconnect when lastSeqMap has entries", () => {
+  it("sends sync on reconnect when lastSeqMap has entries", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -436,10 +464,11 @@ describe("useMessagingWS", () => {
     expect(syncFrame.conversations["conv-1"]).toBe(5)
   })
 
-  it("sendTyping sends typing frame", () => {
+  it("sendTyping sends typing frame", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -455,10 +484,11 @@ describe("useMessagingWS", () => {
     )
   })
 
-  it("cleans up on unmount", () => {
+  it("cleans up on unmount", async () => {
     const { unmount } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -472,10 +502,11 @@ describe("useMessagingWS", () => {
     expect(instance.close).toHaveBeenCalled()
   })
 
-  it("handles message_edited frame without crashing", () => {
+  it("handles message_edited frame without crashing", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
@@ -506,10 +537,11 @@ describe("useMessagingWS", () => {
     expect(result.current.isConnected).toBe(true)
   })
 
-  it("handles message_deleted frame without crashing", () => {
+  it("handles message_deleted frame without crashing", async () => {
     const { result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
+    await flushWSConnect()
 
     act(() => {
       mockWSInstance.readyState = MockWebSocket.OPEN
