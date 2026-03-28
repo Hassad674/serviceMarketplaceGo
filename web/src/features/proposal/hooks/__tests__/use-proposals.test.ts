@@ -8,7 +8,7 @@ const mockCreateProposal = vi.fn()
 const mockAcceptProposal = vi.fn()
 const mockDeclineProposal = vi.fn()
 const mockModifyProposal = vi.fn()
-const mockSimulatePayment = vi.fn()
+const mockInitiatePayment = vi.fn()
 const mockRequestCompletion = vi.fn()
 const mockCompleteProposal = vi.fn()
 const mockRejectCompletion = vi.fn()
@@ -19,7 +19,7 @@ vi.mock("../../api/proposal-api", () => ({
   acceptProposal: (...args: unknown[]) => mockAcceptProposal(...args),
   declineProposal: (...args: unknown[]) => mockDeclineProposal(...args),
   modifyProposal: (...args: unknown[]) => mockModifyProposal(...args),
-  simulatePayment: (...args: unknown[]) => mockSimulatePayment(...args),
+  initiatePayment: (...args: unknown[]) => mockInitiatePayment(...args),
   requestCompletion: (...args: unknown[]) => mockRequestCompletion(...args),
   completeProposal: (...args: unknown[]) => mockCompleteProposal(...args),
   rejectCompletion: (...args: unknown[]) => mockRejectCompletion(...args),
@@ -39,7 +39,7 @@ import {
   useAcceptProposal,
   useDeclineProposal,
   useModifyProposal,
-  useSimulatePayment,
+  useInitiatePayment,
   useRequestCompletion,
   useCompleteProposal,
   useRejectCompletion,
@@ -250,15 +250,15 @@ describe("useModifyProposal", () => {
   })
 })
 
-describe("useSimulatePayment", () => {
+describe("useInitiatePayment", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it("calls simulatePayment with proposal ID", async () => {
-    mockSimulatePayment.mockResolvedValueOnce(undefined)
+  it("calls initiatePayment with proposal ID", async () => {
+    mockInitiatePayment.mockResolvedValueOnce(undefined)
 
-    const { result } = renderHook(() => useSimulatePayment(), {
+    const { result } = renderHook(() => useInitiatePayment(), {
       wrapper: createWrapper(),
     })
 
@@ -270,7 +270,7 @@ describe("useSimulatePayment", () => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockSimulatePayment).toHaveBeenCalledWith("proposal-1")
+    expect(mockInitiatePayment).toHaveBeenCalledWith("proposal-1")
   })
 })
 

@@ -28,7 +28,7 @@ func validSaveInput() SavePaymentInfoInput {
 
 func TestGetPaymentInfo_NotFound(t *testing.T) {
 	repo := &mockPaymentInfoRepo{}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
 	info, err := svc.GetPaymentInfo(context.Background(), uuid.New())
 
@@ -51,7 +51,7 @@ func TestGetPaymentInfo_Found(t *testing.T) {
 			return nil, domain.ErrNotFound
 		},
 	}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
 	info, err := svc.GetPaymentInfo(context.Background(), userID)
 
@@ -67,9 +67,9 @@ func TestSavePaymentInfo_Success(t *testing.T) {
 			return nil
 		},
 	}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput())
+	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput(), "")
 
 	require.NoError(t, err)
 	require.NotNil(t, info)
@@ -79,12 +79,12 @@ func TestSavePaymentInfo_Success(t *testing.T) {
 
 func TestSavePaymentInfo_ValidationError(t *testing.T) {
 	repo := &mockPaymentInfoRepo{}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
 	input := validSaveInput()
 	input.FirstName = ""
 
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input)
+	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input, "")
 
 	assert.Nil(t, info)
 	assert.ErrorIs(t, err, domain.ErrFirstNameRequired)
@@ -92,7 +92,7 @@ func TestSavePaymentInfo_ValidationError(t *testing.T) {
 
 func TestIsComplete_NotFound(t *testing.T) {
 	repo := &mockPaymentInfoRepo{}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
 	complete, err := svc.IsComplete(context.Background(), uuid.New())
 
@@ -117,7 +117,7 @@ func TestIsComplete_Complete(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
 	complete, err := svc.IsComplete(context.Background(), userID)
 
@@ -135,7 +135,7 @@ func TestIsComplete_Incomplete(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := NewService(repo)
+	svc := NewService(repo, nil, nil)
 
 	complete, err := svc.IsComplete(context.Background(), userID)
 

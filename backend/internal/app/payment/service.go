@@ -10,14 +10,17 @@ import (
 
 	domain "marketplace-backend/internal/domain/payment"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 type Service struct {
 	payments repository.PaymentInfoRepository
+	records  repository.PaymentRecordRepository
+	stripe   service.StripeService // nil if Stripe not configured
 }
 
-func NewService(payments repository.PaymentInfoRepository) *Service {
-	return &Service{payments: payments}
+func NewService(payments repository.PaymentInfoRepository, records repository.PaymentRecordRepository, stripe service.StripeService) *Service {
+	return &Service{payments: payments, records: records, stripe: stripe}
 }
 
 // GetPaymentInfo returns the payment info for the user, or nil if not found.
@@ -61,7 +64,7 @@ type SavePaymentInfoInput struct {
 }
 
 // SavePaymentInfo validates and upserts the payment info for the user.
-func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput) (*domain.PaymentInfo, error) {
+func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput, tosIP string) (*domain.PaymentInfo, error) {
 	info, err := domain.NewPaymentInfo(domain.NewPaymentInfoInput{
 		UserID:             userID,
 		FirstName:          input.FirstName,
@@ -94,6 +97,9 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 	if err := s.payments.Upsert(ctx, info); err != nil {
 		return nil, fmt.Errorf("save payment info: %w", err)
 	}
+
+	// Create Stripe connected account if configured and not already created
+	s.ensureStripeAccount(ctx, info, tosIP)
 
 	return info, nil
 }

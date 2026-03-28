@@ -28,7 +28,10 @@ type Config struct {
 	LiveKitURL       string
 	LiveKitAPIKey    string
 	LiveKitAPISecret   string
-	FCMCredentialsPath string
+	FCMCredentialsPath   string
+	StripeSecretKey      string
+	StripePublishableKey string
+	StripeWebhookSecret  string
 }
 
 func Load() *Config {
@@ -54,7 +57,10 @@ func Load() *Config {
 		LiveKitURL:       getEnv("LIVEKIT_URL", ""),
 		LiveKitAPIKey:    getEnv("LIVEKIT_API_KEY", ""),
 		LiveKitAPISecret:   getEnv("LIVEKIT_API_SECRET", ""),
-		FCMCredentialsPath: getEnv("FCM_CREDENTIALS_PATH", ""),
+		FCMCredentialsPath:   getEnv("FCM_CREDENTIALS_PATH", ""),
+		StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
+		StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),
+		StripeWebhookSecret:  getEnv("STRIPE_WEBHOOK_SECRET", ""),
 	}
 }
 
@@ -72,6 +78,10 @@ func (c *Config) LiveKitConfigured() bool {
 
 func (c *Config) FCMConfigured() bool {
 	return c.FCMCredentialsPath != ""
+}
+
+func (c *Config) StripeConfigured() bool {
+	return c.StripeSecretKey != "" && c.StripePublishableKey != ""
 }
 
 func getEnv(key, fallback string) string {

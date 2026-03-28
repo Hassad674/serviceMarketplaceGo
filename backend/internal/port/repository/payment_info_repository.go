@@ -11,4 +11,5 @@ import (
 type PaymentInfoRepository interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*payment.PaymentInfo, error)
 	Upsert(ctx context.Context, info *payment.PaymentInfo) error
+	UpdateStripeFields(ctx context.Context, userID uuid.UUID, stripeAccountID string, stripeVerified bool) error
 }

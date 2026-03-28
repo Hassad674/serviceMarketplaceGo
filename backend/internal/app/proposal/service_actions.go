@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/port/service"
 )
 
 func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput) error {
@@ -116,35 +118,87 @@ func (s *Service) ModifyProposal(ctx context.Context, input ModifyProposalInput)
 	return modified, nil
 }
 
-func (s *Service) SimulatePayment(ctx context.Context, input PayProposalInput) error {
+// InitiatePayment creates a Stripe PaymentIntent or falls back to simulation.
+// Returns nil output when simulation mode completes the payment immediately.
+func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (*service.PaymentIntentOutput, error) {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {
-		return fmt.Errorf("get proposal: %w", err)
+		return nil, fmt.Errorf("get proposal: %w", err)
 	}
 
 	if input.UserID != p.ClientID {
-		return domain.ErrNotAuthorized
+		return nil, domain.ErrNotAuthorized
 	}
 
+	if p.Status != domain.StatusAccepted {
+		return nil, domain.ErrInvalidStatus
+	}
+
+	// Real Stripe mode
+	if s.payments != nil {
+		result, err := s.payments.CreatePaymentIntent(ctx, service.PaymentIntentInput{
+			ProposalID:     p.ID,
+			ClientID:       p.ClientID,
+			ProviderID:     p.ProviderID,
+			ProposalAmount: p.Amount,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("create payment intent: %w", err)
+		}
+		return result, nil
+	}
+
+	// Simulation fallback (dev mode)
+	return nil, s.simulatePayment(ctx, p, input.UserID)
+}
+
+// simulatePayment immediately marks the proposal as paid+active (dev mode only).
+func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, userID uuid.UUID) error {
 	if err := p.MarkPaid(); err != nil {
 		return err
 	}
-
 	if err := p.MarkActive(); err != nil {
 		return err
 	}
-
 	if err := s.proposals.Update(ctx, p); err != nil {
 		return fmt.Errorf("update proposal: %w", err)
 	}
 
 	metadata := buildStatusMetadata(p)
-	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_paid", metadata)
-
+	s.sendProposalMessage(ctx, p.ConversationID, userID, "proposal_paid", metadata)
 	s.sendNotification(ctx, p.ProviderID, "proposal_paid", "Payment received",
 		"A payment has been made for your proposal",
 		buildNotificationData(p.ID, p.ConversationID, p.Title))
+	return nil
+}
 
+// ConfirmPaymentAndActivate is called by the webhook handler after Stripe confirms payment.
+func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid.UUID) error {
+	p, err := s.proposals.GetByID(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+
+	// Idempotency: already paid/active
+	if p.Status == domain.StatusPaid || p.Status == domain.StatusActive {
+		return nil
+	}
+
+	if err := p.MarkPaid(); err != nil {
+		return err
+	}
+	if err := p.MarkActive(); err != nil {
+		return err
+	}
+	if err := s.proposals.Update(ctx, p); err != nil {
+		return fmt.Errorf("update proposal: %w", err)
+	}
+
+	metadata := buildStatusMetadata(p)
+	s.sendProposalMessage(ctx, p.ConversationID, p.ClientID, "proposal_paid", metadata)
+	s.sendNotification(ctx, p.ProviderID, "proposal_paid", "Payment received",
+		"A payment has been made for your proposal",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
 	return nil
 }
 
@@ -197,6 +251,13 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
 		"Your mission has been marked as complete",
 		buildNotificationData(p.ID, p.ConversationID, p.Title))
+
+	// Transfer funds to provider (non-blocking — log errors but don't fail completion)
+	if s.payments != nil {
+		if err := s.payments.TransferToProvider(ctx, p.ID); err != nil {
+			slog.Error("failed to transfer to provider", "proposal_id", p.ID, "error", err)
+		}
+	}
 
 	return nil
 }
