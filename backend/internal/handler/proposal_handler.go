@@ -104,7 +104,8 @@ func (h *ProposalHandler) GetProposal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewProposalResponse(p, docs))
+	clientName, providerName := h.proposalSvc.GetParticipantNames(r.Context(), p.ClientID, p.ProviderID)
+	res.JSON(w, http.StatusOK, response.NewProposalResponseWithNames(p, docs, clientName, providerName))
 }
 
 func (h *ProposalHandler) AcceptProposal(w http.ResponseWriter, r *http.Request) {
@@ -324,7 +325,16 @@ func (h *ProposalHandler) ListActiveProjects(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewProjectListResponse(proposals, nextCursor))
+	data := make([]response.ProposalResponse, len(proposals))
+	for i, p := range proposals {
+		cn, pn := h.proposalSvc.GetParticipantNames(r.Context(), p.ClientID, p.ProviderID)
+		data[i] = response.NewProposalResponseWithNames(p, nil, cn, pn)
+	}
+	res.JSON(w, http.StatusOK, response.ProjectListResponse{
+		Data:       data,
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != "",
+	})
 }
 
 func convertDocumentInputs(inputs []request.DocumentInput) []proposalapp.DocumentInput {

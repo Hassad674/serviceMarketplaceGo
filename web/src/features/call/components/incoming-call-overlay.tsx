@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Phone, PhoneOff } from "lucide-react"
+import { Phone, PhoneOff, Video } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { IncomingCall } from "../types"
@@ -46,10 +46,14 @@ export function IncomingCallOverlay({ call, onAccept, onDecline }: IncomingCallO
         {/* Header */}
         <div className="mb-6 flex items-center justify-center gap-3">
           <div className="animate-pulse rounded-full bg-emerald-100 p-3 dark:bg-emerald-900/30">
-            <Phone className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            {call.callType === "video" ? (
+              <Video className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Phone className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            )}
           </div>
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {t("incomingCall")}
+            {call.callType === "video" ? t("incomingVideoCall") : t("incomingCall")}
           </h2>
         </div>
 
@@ -62,7 +66,7 @@ export function IncomingCallOverlay({ call, onAccept, onDecline }: IncomingCallO
             {call.initiatorName || t("unknownCaller")}
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("audioCall")} &middot; {elapsed}s
+            {call.callType === "video" ? t("videoCall") : t("audioCall")} &middot; {elapsed}s
           </p>
         </div>
 

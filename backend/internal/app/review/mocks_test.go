@@ -7,6 +7,7 @@ import (
 
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domain "marketplace-backend/internal/domain/review"
+	"marketplace-backend/internal/port/service"
 )
 
 // mockProposal is a test helper to build proposals with minimal fields.
@@ -97,5 +98,20 @@ func (m *mockProposalRepo) GetDocuments(ctx context.Context, proposalID uuid.UUI
 }
 
 func (m *mockProposalRepo) CreateDocument(ctx context.Context, doc *proposaldomain.ProposalDocument) error {
+	return nil
+}
+
+// --- mockNotificationSender ---
+
+type mockNotificationSender struct {
+	sendFn func(ctx context.Context, input service.NotificationInput) error
+	calls  []service.NotificationInput
+}
+
+func (m *mockNotificationSender) Send(ctx context.Context, input service.NotificationInput) error {
+	m.calls = append(m.calls, input)
+	if m.sendFn != nil {
+		return m.sendFn(ctx, input)
+	}
 	return nil
 }

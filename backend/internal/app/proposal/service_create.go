@@ -60,6 +60,10 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 	metadata := buildProposalMetadata(p, sender.DisplayName, len(docs))
 	s.sendProposalMessage(ctx, p.ConversationID, p.SenderID, "proposal_sent", metadata)
 
+	s.sendNotification(ctx, input.RecipientID, "proposal_received", "New proposal",
+		sender.DisplayName+" sent you a proposal",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+
 	return p, nil
 }
 
@@ -112,4 +116,34 @@ func (s *Service) sendProposalMessage(ctx context.Context, convID, senderID uuid
 		Type:           msgType,
 		Metadata:       metadata,
 	})
+}
+
+func (s *Service) sendNotification(ctx context.Context, userID uuid.UUID, notifType, title, body string, data json.RawMessage) {
+	if s.notifications == nil {
+		return
+	}
+	_ = s.notifications.Send(ctx, service.NotificationInput{
+		UserID: userID,
+		Type:   notifType,
+		Title:  title,
+		Body:   body,
+		Data:   data,
+	})
+}
+
+func buildNotificationData(proposalID, conversationID uuid.UUID, proposalTitle string) json.RawMessage {
+	data, _ := json.Marshal(map[string]string{
+		"proposal_id":     proposalID.String(),
+		"conversation_id": conversationID.String(),
+		"proposal_title":  proposalTitle,
+	})
+	return data
+}
+
+func (s *Service) resolveUserName(ctx context.Context, userID uuid.UUID) string {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return "Someone"
+	}
+	return u.DisplayName
 }

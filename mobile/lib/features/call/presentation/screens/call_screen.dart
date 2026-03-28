@@ -1,33 +1,90 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:livekit_client/livekit_client.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/call_entity.dart';
 import '../providers/call_provider.dart';
+import '../widgets/call_event_listener.dart';
+import '../widgets/video_renderer_widget.dart';
 
-/// Full-screen view shown during an active audio call.
+/// Full-screen view shown during an active call (audio or video).
 ///
 /// Auto-pops when the call ends (remote hangup, room disconnect, etc.)
 /// by listening to [callProvider] state changes.
 class CallScreen extends ConsumerStatefulWidget {
-  const CallScreen({super.key, this.recipientName = ''});
+  const CallScreen({
+    super.key,
+    this.recipientName = '',
+    this.callType = CallType.audio,
+  });
 
   final String recipientName;
+  final CallType callType;
 
   @override
   ConsumerState<CallScreen> createState() => _CallScreenState();
 }
 
 class _CallScreenState extends ConsumerState<CallScreen> {
+  bool _controlsVisible = true;
+  Timer? _hideControlsTimer;
+  double _localVideoX = 16;
+  double _localVideoY = 16;
+
   @override
   void initState() {
     super.initState();
-    // Pop this screen automatically when the call returns to idle
-    // (e.g. remote hangup, room disconnect).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(callScreenVisibleProvider.notifier).state = true;
+    });
+    _listenForCallEnd();
+    _listenForRoomEvents();
+    _resetControlsTimer();
+  }
+
+  @override
+  void dispose() {
+    _hideControlsTimer?.cancel();
+    // Capture the notifier before super.dispose() invalidates ref.
+    final notifier = ref.read(callScreenVisibleProvider.notifier);
+    notifier.state = false;
+    super.dispose();
+  }
+
+  void _listenForCallEnd() {
     ref.listenManual(callProvider, (previous, next) {
       if (next.status == CallStatus.idle && mounted) {
         Navigator.of(context).pop();
       }
+    });
+  }
+
+  /// Listen for LiveKit track events to trigger rebuilds when remote
+  /// participants publish or unpublish video tracks.
+  void _listenForRoomEvents() {
+    final room = ref.read(callProvider.notifier).room;
+    if (room == null) return;
+
+    final listener = room.createListener();
+    listener
+      ..on<TrackSubscribedEvent>((_) => _triggerRebuild())
+      ..on<TrackUnsubscribedEvent>((_) => _triggerRebuild())
+      ..on<TrackMutedEvent>((_) => _triggerRebuild())
+      ..on<TrackUnmutedEvent>((_) => _triggerRebuild());
+  }
+
+  void _triggerRebuild() {
+    if (mounted) setState(() {});
+  }
+
+  void _resetControlsTimer() {
+    _hideControlsTimer?.cancel();
+    setState(() => _controlsVisible = true);
+    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _controlsVisible = false);
     });
   }
 
@@ -53,80 +110,225 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     final state = ref.watch(callProvider);
     final notifier = ref.read(callProvider.notifier);
     final l10n = AppLocalizations.of(context)!;
-    final isRinging = state.status == CallStatus.ringingOutgoing;
+    final isVideo = widget.callType == CallType.video;
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      body: SafeArea(
-        child: Column(
+      body: GestureDetector(
+        onTap: _resetControlsTimer,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            const Spacer(),
+            _buildBackground(notifier, isVideo, state, l10n),
+            if (isVideo) _buildLocalVideoThumbnail(notifier, state),
+            _buildTopBar(state, l10n),
+            _buildBottomBar(state, notifier, l10n, isVideo),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // Avatar
-            Container(
-              width: 96,
-              height: 96,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Color(0xFFF43F5E), Color(0xFF8B5CF6)],
-                ),
+  /// The main background: remote video for video calls, avatar for audio.
+  Widget _buildBackground(
+    CallNotifier notifier,
+    bool isVideo,
+    CallState state,
+    AppLocalizations l10n,
+  ) {
+    final remoteTrack = _getRemoteVideoTrack(notifier);
+
+    if (isVideo && remoteTrack != null) {
+      return VideoRendererWidget(track: remoteTrack);
+    }
+
+    return _buildAvatarFallback(state, l10n);
+  }
+
+  Widget _buildAvatarFallback(CallState state, AppLocalizations l10n) {
+    final isRinging = state.status == CallStatus.ringingOutgoing;
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _AvatarCircle(initials: _initials),
+          const SizedBox(height: 24),
+          Text(
+            widget.recipientName.isNotEmpty
+                ? widget.recipientName
+                : l10n.callAudioCall,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isRinging
+                ? l10n.callCalling
+                : _formatDuration(state.duration),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 16,
+              fontFamily: isRinging ? null : 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Draggable local camera thumbnail shown during video calls.
+  Widget _buildLocalVideoThumbnail(
+    CallNotifier notifier,
+    CallState state,
+  ) {
+    if (state.isCameraOff) return const SizedBox.shrink();
+
+    final localTrack = _getLocalVideoTrack(notifier);
+    if (localTrack == null) return const SizedBox.shrink();
+
+    return Positioned(
+      right: _localVideoX,
+      top: _localVideoY + MediaQuery.of(context).padding.top,
+      child: GestureDetector(
+        onPanUpdate: (details) {
+          setState(() {
+            _localVideoX -= details.delta.dx;
+            _localVideoY += details.delta.dy;
+          });
+        },
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 120,
+            height: 90,
+            child: VideoRendererWidget(
+              track: localTrack,
+              mirror: true,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar(CallState state, AppLocalizations l10n) {
+    final isRinging = state.status == CallStatus.ringingOutgoing;
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: AnimatedOpacity(
+        opacity: _controlsVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 200),
+        child: IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: Container(
+            padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 8,
+              left: 16,
+              right: 16,
+              bottom: 12,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.6),
+                  Colors.transparent,
+                ],
               ),
-              child: Center(
-                child: Text(
-                  _initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.recipientName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                Text(
+                  isRinging
+                      ? l10n.callCalling
+                      : _formatDuration(state.duration),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 14,
+                    fontFamily: isRinging ? null : 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(
+    CallState state,
+    CallNotifier notifier,
+    AppLocalizations l10n,
+    bool isVideo,
+  ) {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: AnimatedOpacity(
+        opacity: _controlsVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 200),
+        child: IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).padding.bottom + 32,
+              top: 24,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.6),
+                  Colors.transparent,
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-
-            // Name
-            Text(
-              widget.recipientName.isNotEmpty
-                  ? widget.recipientName
-                  : l10n.callAudioCall,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            // Status / timer
-            Text(
-              isRinging
-                  ? l10n.callCalling
-                  : _formatDuration(state.duration),
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 16,
-                fontFamily: isRinging ? null : 'monospace',
-              ),
-            ),
-
-            const Spacer(),
-
-            // Controls
-            Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Mute
                 _CallControlButton(
                   icon: state.isMuted ? Icons.mic_off : Icons.mic,
-                  label: state.isMuted
-                      ? l10n.callUnmute
-                      : l10n.callMute,
+                  label: state.isMuted ? l10n.callUnmute : l10n.callMute,
                   isActive: state.isMuted,
                   onPressed: notifier.toggleMute,
                 ),
-                const SizedBox(width: 48),
-                // Hang up
+                if (isVideo) ...[
+                  const SizedBox(width: 32),
+                  _CallControlButton(
+                    icon: state.isCameraOff
+                        ? Icons.videocam_off
+                        : Icons.videocam,
+                    label: state.isCameraOff
+                        ? l10n.callCameraOn
+                        : l10n.callCameraOff,
+                    isActive: state.isCameraOff,
+                    onPressed: notifier.toggleCamera,
+                  ),
+                ],
+                const SizedBox(width: 32),
                 _CallControlButton(
                   icon: Icons.call_end,
                   label: l10n.callHangup,
@@ -138,8 +340,64 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 48),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Track helpers
+  // ---------------------------------------------------------------------------
+
+  VideoTrack? _getRemoteVideoTrack(CallNotifier notifier) {
+    final room = notifier.room;
+    if (room == null) return null;
+    final participants = room.remoteParticipants.values;
+    if (participants.isEmpty) return null;
+
+    final pubs = participants.first.videoTrackPublications;
+    if (pubs.isEmpty) return null;
+    return pubs.first.track as VideoTrack?;
+  }
+
+  VideoTrack? _getLocalVideoTrack(CallNotifier notifier) {
+    final room = notifier.room;
+    if (room == null) return null;
+    final pubs = room.localParticipant?.videoTrackPublications;
+    if (pubs == null || pubs.isEmpty) return null;
+    return pubs.first.track as VideoTrack?;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-widgets
+// ---------------------------------------------------------------------------
+
+class _AvatarCircle extends StatelessWidget {
+  const _AvatarCircle({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [Color(0xFFF43F5E), Color(0xFF8B5CF6)],
+        ),
+      ),
+      child: Center(
+        child: Text(
+          initials,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );

@@ -191,12 +191,13 @@ export function MessagingPage() {
     if (activeId) sendTyping(activeId)
   }, [activeId, sendTyping])
 
-  const handleStartCall = useCallback(() => {
+  const handleStartCall = useCallback((callType: "audio" | "video" = "audio") => {
     if (!activeConversation || !callCtx) return
     callCtx.startCall(
       activeConversation.id,
       activeConversation.other_user_id,
       activeConversation.other_user_name,
+      callType,
     )
   }, [activeConversation, callCtx])
 

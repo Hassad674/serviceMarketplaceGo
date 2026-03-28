@@ -301,11 +301,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _startCall(dynamic conversation) async {
+    await _initiateCallOfType(conversation, CallType.audio);
+  }
+
+  Future<void> _startVideoCall(dynamic conversation) async {
+    await _initiateCallOfType(conversation, CallType.video);
+  }
+
+  Future<void> _initiateCallOfType(
+    dynamic conversation,
+    CallType callType,
+  ) async {
     if (conversation == null) return;
     final callNotifier = ref.read(callProvider.notifier);
     await callNotifier.initiateCall(
       conversationId: widget.conversationId,
       recipientId: conversation.otherUserId,
+      callType: callType,
     );
     if (!mounted) return;
 
@@ -315,6 +327,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         MaterialPageRoute(
           builder: (_) => CallScreen(
             recipientName: conversation.otherUserName ?? '',
+            callType: callType,
           ),
         ),
       );
@@ -545,6 +558,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         conversation: conversation,
         typingUserName: typingDisplayName,
         onStartCall: () => _startCall(conversation),
+        onStartVideoCall: () => _startVideoCall(conversation),
       ),
       body: Column(
         children: [

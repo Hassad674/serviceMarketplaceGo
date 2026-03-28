@@ -66,7 +66,11 @@ export default function ProjectsListPage() {
     if (!searchQuery.trim()) return base
 
     const query = searchQuery.toLowerCase()
-    return base.filter((p) => p.title.toLowerCase().includes(query))
+    return base.filter((p) =>
+      p.title.toLowerCase().includes(query) ||
+      p.client_name.toLowerCase().includes(query) ||
+      p.provider_name.toLowerCase().includes(query)
+    )
   }, [activeTab, inProgress, completed, missions, searchQuery])
 
   const stats = useMemo(() => computeStats(inProgress), [inProgress])
@@ -273,10 +277,14 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
 
 function ProjectCard({ project }: { project: ProposalResponse }) {
   const t = useTranslations("projects")
+  const { data: user } = useUser()
 
   const statusConfig = getStatusDot(project.status)
   const isCompletionRequested = project.status === "completion_requested"
   const isCompleted = project.status === "completed"
+  const partnerName = user?.id === project.client_id
+    ? project.provider_name
+    : project.client_name
 
   return (
     <Link
@@ -297,6 +305,11 @@ function ProjectCard({ project }: { project: ProposalResponse }) {
         <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
           {project.title}
         </h3>
+        {partnerName && (
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {t("with")}: {partnerName}
+          </p>
+        )}
         {isCompletionRequested && (
           <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">
             {t("completionPending")}

@@ -34,10 +34,11 @@ func newTestService(
 		storage = &mockStorageService{}
 	}
 	return NewService(ServiceDeps{
-		Proposals: proposalRepo,
-		Users:     userRepo,
-		Messages:  msgSender,
-		Storage:   storage,
+		Proposals:     proposalRepo,
+		Users:         userRepo,
+		Messages:      msgSender,
+		Storage:       storage,
+		Notifications: &mockNotificationSender{},
 	})
 }
 

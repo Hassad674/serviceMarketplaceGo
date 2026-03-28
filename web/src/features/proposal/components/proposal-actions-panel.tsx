@@ -347,7 +347,7 @@ function ConversationLink({ conversationId }: { conversationId: string }) {
 
   return (
     <Link
-      href={`/messages?c=${conversationId}`}
+      href={`/messages?id=${conversationId}`}
       className={cn(
         "flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
         "text-sm font-medium transition-all duration-200",

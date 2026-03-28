@@ -33,6 +33,10 @@ func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput)
 		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_payment_requested", metadata)
 	}
 
+	s.sendNotification(ctx, p.SenderID, "proposal_accepted", "Proposal accepted",
+		"Your proposal has been accepted",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+
 	return nil
 }
 
@@ -52,6 +56,10 @@ func (s *Service) DeclineProposal(ctx context.Context, input DeclineProposalInpu
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_declined", metadata)
+
+	s.sendNotification(ctx, p.SenderID, "proposal_declined", "Proposal declined",
+		"Your proposal has been declined",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 	return nil
 }
@@ -99,6 +107,12 @@ func (s *Service) ModifyProposal(ctx context.Context, input ModifyProposalInput)
 	metadata := buildStatusMetadata(modified)
 	s.sendProposalMessage(ctx, modified.ConversationID, input.UserID, "proposal_modified", metadata)
 
+	// Notify the other party (the original sender receives the modification notice)
+	modifierName := s.resolveUserName(ctx, input.UserID)
+	s.sendNotification(ctx, original.SenderID, "proposal_modified", "Proposal modified",
+		modifierName+" modified the proposal",
+		buildNotificationData(modified.ID, modified.ConversationID, modified.Title))
+
 	return modified, nil
 }
 
@@ -127,6 +141,10 @@ func (s *Service) SimulatePayment(ctx context.Context, input PayProposalInput) e
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_paid", metadata)
 
+	s.sendNotification(ctx, p.ProviderID, "proposal_paid", "Payment received",
+		"A payment has been made for your proposal",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+
 	return nil
 }
 
@@ -146,6 +164,10 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completion_requested", metadata)
+
+	s.sendNotification(ctx, p.ClientID, "completion_requested", "Completion requested",
+		"The provider has requested to mark the mission as complete",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 	return nil
 }
@@ -171,6 +193,10 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	// The provider never evaluates the client.
 	// Enterprise evaluates Freelance/Agency, Agency evaluates Freelance.
 	s.sendEvaluationRequest(ctx, p.ConversationID, p.ClientID, metadata)
+
+	s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
+		"Your mission has been marked as complete",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 	return nil
 }
@@ -211,6 +237,16 @@ func (s *Service) GetProposal(ctx context.Context, userID, proposalID uuid.UUID)
 	}
 
 	return p, docs, nil
+}
+
+func (s *Service) GetParticipantNames(ctx context.Context, clientID, providerID uuid.UUID) (clientName, providerName string) {
+	if c, err := s.users.GetByID(ctx, clientID); err == nil {
+		clientName = c.DisplayName
+	}
+	if p, err := s.users.GetByID(ctx, providerID); err == nil {
+		providerName = p.DisplayName
+	}
+	return clientName, providerName
 }
 
 func (s *Service) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {

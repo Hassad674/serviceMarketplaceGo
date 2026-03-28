@@ -30,6 +30,8 @@ export type ProposalResponse = {
   version: number
   client_id: string
   provider_id: string
+  client_name: string
+  provider_name: string
   documents: ProposalDocument[]
   accepted_at: string | null
   paid_at: string | null

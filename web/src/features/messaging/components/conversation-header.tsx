@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { ArrowLeft, Phone, Wifi, WifiOff, FileText } from "lucide-react"
+import { ArrowLeft, Phone, Video, Wifi, WifiOff, FileText } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -13,7 +13,7 @@ interface ConversationHeaderProps {
   onBack?: () => void
   typingUserName?: string
   isConnected: boolean
-  onStartCall?: () => void
+  onStartCall?: (type: "audio" | "video") => void
 }
 
 export function ConversationHeader({
@@ -114,23 +114,40 @@ export function ConversationHeader({
         {tProposal("startProject")}
       </button>
 
-      {/* Call button */}
+      {/* Call buttons */}
       {onStartCall && (
-        <button
-          type="button"
-          onClick={onStartCall}
-          disabled={!conversation.online}
-          className={cn(
-            "rounded-xl p-2 transition-all duration-200",
-            conversation.online
-              ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
-              : "cursor-not-allowed text-gray-300 dark:text-gray-600",
-          )}
-          aria-label={conversation.online ? tCall("startCall") : tCall("recipientOffline")}
-          title={conversation.online ? tCall("startCall") : tCall("recipientOffline")}
-        >
-          <Phone className="h-4 w-4" strokeWidth={1.5} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onStartCall("audio")}
+            disabled={!conversation.online}
+            className={cn(
+              "rounded-xl p-2 transition-all duration-200",
+              conversation.online
+                ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+                : "cursor-not-allowed text-gray-300 dark:text-gray-600",
+            )}
+            aria-label={conversation.online ? tCall("startAudioCall") : tCall("recipientOffline")}
+            title={conversation.online ? tCall("startAudioCall") : tCall("recipientOffline")}
+          >
+            <Phone className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onStartCall("video")}
+            disabled={!conversation.online}
+            className={cn(
+              "rounded-xl p-2 transition-all duration-200",
+              conversation.online
+                ? "text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+                : "cursor-not-allowed text-gray-300 dark:text-gray-600",
+            )}
+            aria-label={conversation.online ? tCall("startVideoCall") : tCall("recipientOffline")}
+            title={conversation.online ? tCall("startVideoCall") : tCall("recipientOffline")}
+          >
+            <Video className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        </div>
       )}
 
       {/* Connection indicator */}

@@ -24,6 +24,7 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
+	notifapp "marketplace-backend/internal/app/notification"
 	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
@@ -78,10 +79,18 @@ func main() {
 	sessionSvc := redisadapter.NewSessionService(redisClient, cfg.SessionTTL)
 
 	// Cookie configuration
+	// In production (cross-origin: Railway backend + Vercel frontend),
+	// SameSite=None is required for cookies to be sent cross-origin.
+	// SameSite=None requires Secure=true.
+	sameSite := http.SameSiteLaxMode
+	if cfg.IsProduction() {
+		sameSite = http.SameSiteNoneMode
+	}
 	cookieCfg := &handler.CookieConfig{
-		Secure: cfg.CookieSecure,
-		Domain: "",
-		MaxAge: int(cfg.SessionTTL.Seconds()),
+		Secure:   cfg.CookieSecure,
+		Domain:   "",
+		MaxAge:   int(cfg.SessionTTL.Seconds()),
+		SameSite: sameSite,
 	}
 
 	// Messaging adapters
@@ -122,12 +131,6 @@ func main() {
 
 	// Proposal
 	proposalRepo := postgres.NewProposalRepository(db)
-	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
-		Proposals: proposalRepo,
-		Users:     userRepo,
-		Messages:  messagingSvc,
-		Storage:   storageSvc,
-	})
 
 	// Job feature
 	jobRepo := postgres.NewJobRepository(db)
@@ -138,10 +141,6 @@ func main() {
 
 	// Review feature
 	reviewRepo := postgres.NewReviewRepository(db)
-	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
-		Reviews:   reviewRepo,
-		Proposals: proposalRepo,
-	})
 
 	// Social links feature
 	socialLinkRepo := postgres.NewSocialLinkRepository(db)
@@ -171,6 +170,33 @@ func main() {
 	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
 	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo)
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
+
+	// Notification feature
+	notifRepo := postgres.NewNotificationRepository(db)
+	notifSvc := notifapp.NewService(notifapp.ServiceDeps{
+		Notifications: notifRepo,
+		Presence:      presenceSvc,
+		Broadcaster:   streamBroadcaster,
+		Push:          nil, // FCM adapter wired in Phase 6 when configured
+		Email:         emailSvc,
+		Users:         userRepo,
+	})
+	notifHandler := handler.NewNotificationHandler(notifSvc)
+	slog.Info("notification feature enabled")
+
+	// Wire services that depend on notifications
+	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
+		Proposals:     proposalRepo,
+		Users:         userRepo,
+		Messages:      messagingSvc,
+		Storage:       storageSvc,
+		Notifications: notifSvc,
+	})
+	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
+		Reviews:       reviewRepo,
+		Proposals:     proposalRepo,
+		Notifications: notifSvc,
+	})
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
@@ -205,6 +231,7 @@ func main() {
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
 		PaymentInfo:    paymentInfoHandler,
+		Notification:   notifHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

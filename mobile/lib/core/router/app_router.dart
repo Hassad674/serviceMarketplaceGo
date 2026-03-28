@@ -21,11 +21,17 @@ import '../../features/proposal/presentation/screens/payment_simulation_screen.d
 import '../../features/proposal/presentation/screens/projects_list_screen.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
+import '../../features/notification/presentation/screens/notification_screen.dart';
+import '../../features/notification/presentation/widgets/notification_badge.dart';
 import '../../features/payment_info/presentation/screens/payment_info_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_drawer.dart';
 import '../theme/app_theme.dart';
+
+/// Global navigator key — used by [CallEventListener] to push modal
+/// screens from above the GoRouter navigator in the widget tree.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 // ---------------------------------------------------------------------------
 // Route path constants
@@ -52,6 +58,7 @@ class RoutePaths {
   static const String projectsList = '/projects/list';
   static const String profile = '/profile';
   static const String paymentInfo = '/payment-info';
+  static const String notifications = '/notifications';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
   static const String chat = '/chat';
@@ -89,6 +96,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.login,
     redirect: (context, state) {
       final isAuthenticated = authState.status == AuthStatus.authenticated;
@@ -232,6 +240,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.paymentInfo,
             builder: (context, state) => const PaymentInfoScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.notifications,
+            builder: (context, state) => const NotificationScreen(),
           ),
         ],
       ),
@@ -480,9 +492,8 @@ class _AgencyDashboard extends ConsumerWidget {
         ),
         title: const Text('Marketplace'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+          NotificationBadge(
+            onTap: () => GoRouter.of(context).go(RoutePaths.notifications),
           ),
         ],
       ),
@@ -573,9 +584,8 @@ class _EnterpriseDashboard extends ConsumerWidget {
         ),
         title: const Text('Marketplace'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+          NotificationBadge(
+            onTap: () => GoRouter.of(context).go(RoutePaths.notifications),
           ),
         ],
       ),
@@ -674,9 +684,8 @@ class _ProviderDashboard extends ConsumerWidget {
         ),
         title: const Text('Marketplace'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+          NotificationBadge(
+            onTap: () => GoRouter.of(context).go(RoutePaths.notifications),
           ),
         ],
       ),

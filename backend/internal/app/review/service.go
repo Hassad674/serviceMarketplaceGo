@@ -2,31 +2,36 @@ package review
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // ServiceDeps groups the dependencies for the review service.
 type ServiceDeps struct {
-	Reviews   repository.ReviewRepository
-	Proposals repository.ProposalRepository
+	Reviews       repository.ReviewRepository
+	Proposals     repository.ProposalRepository
+	Notifications service.NotificationSender
 }
 
 // Service orchestrates review use cases.
 type Service struct {
-	reviews   repository.ReviewRepository
-	proposals repository.ProposalRepository
+	reviews       repository.ReviewRepository
+	proposals     repository.ProposalRepository
+	notifications service.NotificationSender
 }
 
 // NewService creates a new review service.
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
-		reviews:   deps.Reviews,
-		proposals: deps.Proposals,
+		reviews:       deps.Reviews,
+		proposals:     deps.Proposals,
+		notifications: deps.Notifications,
 	}
 }
 
@@ -90,6 +95,21 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 
 	if err := s.reviews.Create(ctx, r); err != nil {
 		return nil, fmt.Errorf("persist review: %w", err)
+	}
+
+	if s.notifications != nil {
+		notifData, _ := json.Marshal(map[string]any{
+			"review_id":   r.ID.String(),
+			"proposal_id": r.ProposalID.String(),
+			"rating":      r.GlobalRating,
+		})
+		_ = s.notifications.Send(ctx, service.NotificationInput{
+			UserID: r.ReviewedID,
+			Type:   "review_received",
+			Title:  "New review received",
+			Body:   fmt.Sprintf("You received a %d-star review", r.GlobalRating),
+			Data:   notifData,
+		})
 	}
 
 	return r, nil

@@ -163,5 +163,20 @@ func (m *mockStorageService) GetPresignedUploadURL(ctx context.Context, key stri
 	return "https://storage.example.com/presigned/" + key, nil
 }
 
+// --- mockNotificationSender ---
+
+type mockNotificationSender struct {
+	sendFn func(ctx context.Context, input service.NotificationInput) error
+	calls  []service.NotificationInput
+}
+
+func (m *mockNotificationSender) Send(ctx context.Context, input service.NotificationInput) error {
+	m.calls = append(m.calls, input)
+	if m.sendFn != nil {
+		return m.sendFn(ctx, input)
+	}
+	return nil
+}
+
 // suppress unused import warning
 var _ = json.RawMessage{}

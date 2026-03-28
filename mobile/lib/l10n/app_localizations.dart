@@ -1820,6 +1820,60 @@ abstract class AppLocalizations {
   /// **'Unknown caller'**
   String get callUnknownCaller;
 
+  /// No description provided for @callVideoCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Video call'**
+  String get callVideoCall;
+
+  /// No description provided for @callStartVideoCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Start video call'**
+  String get callStartVideoCall;
+
+  /// No description provided for @callCamera.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get callCamera;
+
+  /// No description provided for @callCameraOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera off'**
+  String get callCameraOff;
+
+  /// No description provided for @callCameraOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera on'**
+  String get callCameraOn;
+
+  /// No description provided for @callNoVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera is off'**
+  String get callNoVideo;
+
+  /// No description provided for @callIncomingVideoCall.
+  ///
+  /// In en, this message translates to:
+  /// **'Incoming video call'**
+  String get callIncomingVideoCall;
+
+  /// No description provided for @callTapToReturn.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to return to call'**
+  String get callTapToReturn;
+
+  /// No description provided for @callMinimize.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize'**
+  String get callMinimize;
+
   /// No description provided for @drawerDashboard.
   ///
   /// In en, this message translates to:
@@ -1897,6 +1951,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Payment Info'**
   String get drawerPaymentInfo;
+
+  /// No description provided for @drawerNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get drawerNotifications;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @noNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get noNotifications;
+
+  /// No description provided for @noNotificationsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll be notified when something happens'**
+  String get noNotificationsDesc;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all read'**
+  String get markAllRead;
 
   /// No description provided for @proposalViewDetails.
   ///

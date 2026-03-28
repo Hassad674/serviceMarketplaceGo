@@ -8,7 +8,7 @@ import {
   declineCall as declineCallApi,
   endCall as endCallApi,
 } from "../api/call-api"
-import type { CallState, ActiveCall, IncomingCall, CallEventPayload } from "../types"
+import type { CallState, CallType, CallViewMode, ActiveCall, IncomingCall, CallEventPayload } from "../types"
 
 const RING_TIMEOUT_MS = 30_000
 
@@ -17,7 +17,10 @@ export function useCall() {
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null)
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null)
   const [isMuted, setIsMuted] = useState(false)
+  const [isCameraOff, setIsCameraOff] = useState(false)
   const [duration, setDuration] = useState(0)
+  const [viewMode, setViewMode] = useState<CallViewMode>("pip")
+  const [room, setRoom] = useState<Room | null>(null)
 
   const roomRef = useRef<Room | null>(null)
   const ringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -60,7 +63,10 @@ export function useCall() {
     setActiveCall(null)
     setIncomingCall(null)
     setIsMuted(false)
+    setIsCameraOff(false)
     setDuration(0)
+    setViewMode("pip")
+    setRoom(null)
   }, [clearTimers, disconnectRoom])
 
   const startDurationTimer = useCallback(() => {
@@ -71,7 +77,7 @@ export function useCall() {
     }, 1000)
   }, [])
 
-  const connectToRoom = useCallback(async (token: string) => {
+  const connectToRoom = useCallback(async (token: string, callType: CallType = "audio") => {
     const wsUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || ""
     if (!wsUrl) {
       console.warn("[Call] NEXT_PUBLIC_LIVEKIT_URL is not set, skipping room connection")
@@ -79,14 +85,14 @@ export function useCall() {
     }
 
     try {
-      const room = new Room()
-      roomRef.current = room
+      const newRoom = new Room()
+      roomRef.current = newRoom
+      setRoom(newRoom)
 
-      room.on(
+      newRoom.on(
         RoomEvent.TrackSubscribed,
         (track: RemoteTrack, _pub: RemoteTrackPublication, _participant: RemoteParticipant) => {
           if (track.kind === Track.Kind.Audio) {
-            // attach() creates an <audio> element and starts playback
             const el = track.attach()
             el.setAttribute("data-livekit-audio", "true")
             document.body.appendChild(el)
@@ -94,27 +100,32 @@ export function useCall() {
         },
       )
 
-      room.on(
+      newRoom.on(
         RoomEvent.TrackUnsubscribed,
         (track: RemoteTrack) => {
           track.detach().forEach((el) => el.remove())
         },
       )
 
-      room.on(RoomEvent.Disconnected, () => {
-        // Only cleanup if we are in an active call -- a disconnect during
-        // ringing is expected (no room yet for the recipient)
+      newRoom.on(RoomEvent.Disconnected, () => {
         if (stateRef.current === "active") {
           cleanup()
         }
       })
 
-      await room.connect(wsUrl, token)
-      await room.localParticipant.setMicrophoneEnabled(true)
+      await newRoom.connect(wsUrl, token)
+      await newRoom.localParticipant.setMicrophoneEnabled(true)
+
+      if (callType === "video") {
+        try {
+          await newRoom.localParticipant.setCameraEnabled(true)
+        } catch (camErr) {
+          console.warn("[Call] Camera failed, continuing without video:", camErr)
+          setIsCameraOff(true)
+        }
+      }
     } catch (err) {
       console.error("[Call] Failed to connect to LiveKit room:", err)
-      // Do NOT cleanup signaling state -- the call can still function
-      // at the signaling level even without media.
     }
   }, [cleanup])
 
@@ -135,26 +146,26 @@ export function useCall() {
   const startCall = useCallback(async (
     conversationId: string,
     recipientId: string,
+    callType: CallType = "audio",
   ) => {
     if (stateRef.current !== "idle") return
     setState("ringing_outgoing")
 
     try {
-      const result = await initiateCall(conversationId, recipientId, "audio")
+      const result = await initiateCall(conversationId, recipientId, callType)
       const call: ActiveCall = {
         callId: result.call_id,
         conversationId,
         roomName: result.room_name,
         token: result.token,
-        callType: "audio",
+        callType,
         startedAt: null,
       }
       setActiveCall(call)
 
       // Connect to LiveKit immediately for the initiator so the
       // recipient can hear audio as soon as they accept.
-      // This is fire-and-forget -- if it fails, the ringing UI stays.
-      connectToRoom(result.token)
+      connectToRoom(result.token, callType)
 
       ringTimerRef.current = setTimeout(() => {
         doHangup()
@@ -183,7 +194,7 @@ export function useCall() {
       clearTimers()
       startDurationTimer()
 
-      await connectToRoom(result.token)
+      await connectToRoom(result.token, incomingCall.callType)
     } catch (err) {
       console.error("[Call] Failed to accept call:", err)
       cleanup()
@@ -206,6 +217,13 @@ export function useCall() {
     roomRef.current.localParticipant.setMicrophoneEnabled(!newMuted)
     setIsMuted(newMuted)
   }, [isMuted])
+
+  const toggleCamera = useCallback(() => {
+    if (!roomRef.current) return
+    const newOff = !isCameraOff
+    roomRef.current.localParticipant.setCameraEnabled(!newOff)
+    setIsCameraOff(newOff)
+  }, [isCameraOff])
 
   // Handle WS call events
   const handleCallEvent = useCallback((payload: CallEventPayload) => {
@@ -267,12 +285,17 @@ export function useCall() {
     activeCall,
     incomingCall,
     isMuted,
+    isCameraOff,
     duration,
+    viewMode,
+    room,
     startCall,
     acceptIncoming,
     declineIncoming,
     hangup: doHangup,
     toggleMute,
+    toggleCamera,
+    setViewMode,
     handleCallEvent,
   }
 }

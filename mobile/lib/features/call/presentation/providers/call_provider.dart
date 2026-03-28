@@ -21,6 +21,7 @@ class CallState {
     this.status = CallStatus.idle,
     this.call,
     this.isMuted = false,
+    this.isCameraOff = false,
     this.duration = 0,
     this.incomingCallerName = '',
     this.errorMessage,
@@ -29,6 +30,7 @@ class CallState {
   final CallStatus status;
   final CallEntity? call;
   final bool isMuted;
+  final bool isCameraOff;
   final int duration;
   final String incomingCallerName;
 
@@ -40,6 +42,7 @@ class CallState {
     CallStatus? status,
     CallEntity? call,
     bool? isMuted,
+    bool? isCameraOff,
     int? duration,
     String? incomingCallerName,
     String? errorMessage,
@@ -48,6 +51,7 @@ class CallState {
       status: status ?? this.status,
       call: call ?? this.call,
       isMuted: isMuted ?? this.isMuted,
+      isCameraOff: isCameraOff ?? this.isCameraOff,
       duration: duration ?? this.duration,
       incomingCallerName: incomingCallerName ?? this.incomingCallerName,
       errorMessage: errorMessage,
@@ -65,6 +69,10 @@ class CallNotifier extends StateNotifier<CallState> {
   Timer? _ringTimer;
   Timer? _durationTimer;
 
+  /// Public accessor for the LiveKit [Room] so the call screen can
+  /// read video tracks from participants.
+  Room? get room => _room;
+
   /// Start an outgoing call.
   ///
   /// On failure the state returns to idle with [CallState.errorMessage]
@@ -72,11 +80,22 @@ class CallNotifier extends StateNotifier<CallState> {
   Future<void> initiateCall({
     required String conversationId,
     required String recipientId,
+    CallType callType = CallType.audio,
   }) async {
     if (state.status != CallStatus.idle) return;
 
     final micPermission = await Permission.microphone.request();
     if (!micPermission.isGranted) return;
+
+    // For video calls, request camera but fallback to audio if denied.
+    var effectiveType = callType;
+    if (callType == CallType.video) {
+      final camPermission = await Permission.camera.request();
+      if (!camPermission.isGranted) {
+        debugPrint('[Call] Camera permission denied, falling back to audio');
+        effectiveType = CallType.audio;
+      }
+    }
 
     state = state.copyWith(
       status: CallStatus.ringingOutgoing,
@@ -84,9 +103,11 @@ class CallNotifier extends StateNotifier<CallState> {
     );
 
     try {
+      final typeStr = effectiveType == CallType.video ? 'video' : 'audio';
       final result = await _repo.initiateCall(
         conversationId: conversationId,
         recipientId: recipientId,
+        type: typeStr,
       );
 
       final call = CallEntity(
@@ -94,13 +115,13 @@ class CallNotifier extends StateNotifier<CallState> {
         conversationId: conversationId,
         initiatorId: '',
         recipientId: recipientId,
-        callType: CallType.audio,
+        callType: effectiveType,
         roomName: result.roomName,
         token: result.token,
       );
       state = state.copyWith(call: call);
 
-      await _connectToRoom(result.token);
+      await _connectToRoom(result.token, callType: effectiveType);
       _startRingTimeout();
     } catch (e) {
       debugPrint('[Call] initiateCall error: $e');
@@ -116,6 +137,16 @@ class CallNotifier extends StateNotifier<CallState> {
     final micPermission = await Permission.microphone.request();
     if (!micPermission.isGranted) return;
 
+    // For video calls, request camera but fallback to audio if denied.
+    var effectiveType = call.callType;
+    if (call.callType == CallType.video) {
+      final camPermission = await Permission.camera.request();
+      if (!camPermission.isGranted) {
+        debugPrint('[Call] Camera permission denied, accepting as audio');
+        effectiveType = CallType.audio;
+      }
+    }
+
     try {
       final result = await _repo.acceptCall(call.callId);
       state = state.copyWith(
@@ -123,12 +154,13 @@ class CallNotifier extends StateNotifier<CallState> {
         call: call.copyWith(
           token: result.token,
           roomName: result.roomName,
+          callType: effectiveType,
           startedAt: DateTime.now(),
         ),
       );
       _cancelRingTimer();
       _startDurationTimer();
-      await _connectToRoom(result.token);
+      await _connectToRoom(result.token, callType: effectiveType);
     } catch (e) {
       debugPrint('[Call] acceptCall error: $e');
       _cleanup();
@@ -178,6 +210,14 @@ class CallNotifier extends StateNotifier<CallState> {
     state = state.copyWith(isMuted: newMuted);
   }
 
+  /// Toggle camera on/off (video calls only).
+  void toggleCamera() {
+    if (_room == null) return;
+    final newCameraOff = !state.isCameraOff;
+    _room!.localParticipant?.setCameraEnabled(!newCameraOff);
+    state = state.copyWith(isCameraOff: newCameraOff);
+  }
+
   /// Handle an incoming call event from WebSocket.
   void handleCallEvent(Map<String, dynamic> payload) {
     final event = payload['event'] as String? ?? '';
@@ -186,6 +226,10 @@ class CallNotifier extends StateNotifier<CallState> {
     switch (event) {
       case 'call_incoming':
         if (state.status != CallStatus.idle) return;
+        final incomingCallType =
+            (payload['call_type'] as String?) == 'video'
+                ? CallType.video
+                : CallType.audio;
         state = state.copyWith(
           status: CallStatus.ringingIncoming,
           incomingCallerName:
@@ -198,7 +242,7 @@ class CallNotifier extends StateNotifier<CallState> {
                 payload['initiator_id'] as String? ?? '',
             recipientId:
                 payload['recipient_id'] as String? ?? '',
-            callType: CallType.audio,
+            callType: incomingCallType,
           ),
         );
         _startRingTimeout();
@@ -221,26 +265,46 @@ class CallNotifier extends StateNotifier<CallState> {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  Future<void> _connectToRoom(String token) async {
+  Future<void> _connectToRoom(
+    String token, {
+    CallType callType = CallType.audio,
+  }) async {
     const lkUrl = String.fromEnvironment(
       'LIVEKIT_URL',
       defaultValue: '',
     );
+    debugPrint('[Call] LIVEKIT_URL value: "${lkUrl.isEmpty ? "(empty)" : lkUrl}"');
     if (lkUrl.isEmpty) {
       debugPrint('[Call] LIVEKIT_URL not set — skipping room connection');
       return;
     }
 
+    final isVideo = callType == CallType.video;
     _room = Room(
-      roomOptions: const RoomOptions(
+      roomOptions: RoomOptions(
         adaptiveStream: true,
         dynacast: true,
-        defaultAudioPublishOptions: AudioPublishOptions(
+        defaultAudioPublishOptions: const AudioPublishOptions(
           dtx: true,
         ),
+        defaultVideoPublishOptions: isVideo
+            ? const VideoPublishOptions(simulcast: true)
+            : const VideoPublishOptions(),
       ),
     );
 
+    _setupRoomEventListener();
+
+    debugPrint('[Call] Connecting to LiveKit room: $lkUrl');
+    await _room!.connect(lkUrl, token);
+    await _room!.localParticipant?.setMicrophoneEnabled(true);
+    if (isVideo) {
+      await _room!.localParticipant?.setCameraEnabled(true);
+    }
+    debugPrint('[Call] Connected, mic enabled, camera=${isVideo}');
+  }
+
+  void _setupRoomEventListener() {
     // Use LiveKit's typed event listener — NOT ChangeNotifier.addListener,
     // which fires on every internal state change and would immediately
     // trigger cleanup.
@@ -250,11 +314,6 @@ class CallNotifier extends StateNotifier<CallState> {
       debugPrint('[Call] Room disconnected event received');
       _cleanup();
     });
-
-    debugPrint('[Call] Connecting to LiveKit room: $lkUrl');
-    await _room!.connect(lkUrl, token);
-    await _room!.localParticipant?.setMicrophoneEnabled(true);
-    debugPrint('[Call] Connected, mic enabled');
   }
 
   void _startRingTimeout() {
@@ -291,7 +350,7 @@ class CallNotifier extends StateNotifier<CallState> {
     _roomEventListener = null;
     _room?.disconnect();
     _room = null;
-    state = CallState(errorMessage: errorMessage);
+    state = CallState(errorMessage: errorMessage); // resets isCameraOff
   }
 
   /// Extracts a user-friendly error message from the API error.

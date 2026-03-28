@@ -598,6 +598,21 @@
     "rolePartner": "Partner",
     "roleOther": "Other"
   },
+  "notifications": {
+    "title": "Notifications",
+    "markAllAsRead": "Mark all as read",
+    "seeAll": "See all notifications",
+    "empty": "No notifications yet",
+    "emptyDescription": "You'll be notified when something important happens.",
+    "proposalReceived": "New proposal received",
+    "proposalAccepted": "Proposal accepted",
+    "proposalDeclined": "Proposal declined",
+    "reviewReceived": "New review received",
+    "preferences": "Notification preferences",
+    "inApp": "In-app",
+    "push": "Push",
+    "email": "Email"
+  },
   "review": {
     "title": "Leave a review",
     "close": "Close",

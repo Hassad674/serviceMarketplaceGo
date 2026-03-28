@@ -22,6 +22,7 @@ type RouterDeps struct {
 	Call           *CallHandler
 	SocialLink     *SocialLinkHandler
 	PaymentInfo    *PaymentInfoHandler
+	Notification   *NotificationHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -179,6 +180,21 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/", deps.PaymentInfo.GetPaymentInfo)
 				r.Put("/", deps.PaymentInfo.SavePaymentInfo)
 				r.Get("/status", deps.PaymentInfo.GetPaymentInfoStatus)
+			})
+		}
+
+		// Notification routes (authenticated)
+		if deps.Notification != nil {
+			r.Route("/notifications", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Get("/", deps.Notification.ListNotifications)
+				r.Get("/unread-count", deps.Notification.GetUnreadCount)
+				r.Post("/{id}/read", deps.Notification.MarkAsRead)
+				r.Post("/read-all", deps.Notification.MarkAllAsRead)
+				r.Delete("/{id}", deps.Notification.DeleteNotification)
+				r.Get("/preferences", deps.Notification.GetPreferences)
+				r.Put("/preferences", deps.Notification.UpdatePreferences)
+				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
 			})
 		}
 

@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Menu, Bell, Search, LogOut, User, ChevronDown } from "lucide-react"
+import { Menu, Search, LogOut, User, ChevronDown } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { useUser, useLogout } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
+import { NotificationBell } from "@/features/notification/components/notification-bell"
 import { cn } from "@/shared/lib/utils"
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -90,12 +91,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         <ThemeToggle className="rounded-lg border-0 bg-transparent shadow-none hover:shadow-none hover:bg-gray-100 dark:hover:bg-slate-700" />
 
         {/* Notifications */}
-        <button
-          className="relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
-          aria-label="Notifications"
-        >
-          <Bell className="h-[18px] w-[18px]" strokeWidth={1.5} />
-        </button>
+        <NotificationBell />
 
         {/* User dropdown */}
         {user && (

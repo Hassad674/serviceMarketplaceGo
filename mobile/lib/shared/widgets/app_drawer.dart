@@ -43,6 +43,11 @@ const _primaryItems = [
     route: RoutePaths.messaging,
   ),
   _DrawerItem(
+    labelKey: 'drawerNotifications',
+    icon: Icons.notifications_outlined,
+    route: RoutePaths.notifications,
+  ),
+  _DrawerItem(
     labelKey: 'drawerProjects',
     icon: Icons.folder_open_outlined,
     route: RoutePaths.missions,
@@ -416,6 +421,8 @@ class _DrawerNavTile extends StatelessWidget {
         return l10n.drawerFindReferrers;
       case 'drawerPaymentInfo':
         return l10n.drawerPaymentInfo;
+      case 'drawerNotifications':
+        return l10n.drawerNotifications;
       default:
         return key;
     }

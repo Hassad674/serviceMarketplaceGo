@@ -47,3 +47,18 @@ func (s *EmailService) SendPasswordReset(ctx context.Context, to string, resetUR
 	}
 	return nil
 }
+
+func (s *EmailService) SendNotification(ctx context.Context, to, subject, html string) error {
+	params := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{to},
+		Subject: subject,
+		Html:    html,
+	}
+
+	_, err := s.client.Emails.Send(params)
+	if err != nil {
+		return fmt.Errorf("failed to send notification email: %w", err)
+	}
+	return nil
+}

@@ -7,6 +7,8 @@ export type CallState =
 
 export type CallType = "audio" | "video"
 
+export type CallViewMode = "pip" | "fullscreen"
+
 export type ActiveCall = {
   callId: string
   conversationId: string

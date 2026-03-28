@@ -26,10 +26,10 @@ const IncomingCallOverlay = dynamic(
   { ssr: false },
 )
 
-const ActiveCallOverlay = dynamic(
+const CallOverlay = dynamic(
   () =>
-    import("@/features/call/components/active-call-overlay").then((m) => ({
-      default: m.ActiveCallOverlay,
+    import("@/features/call/components/call-overlay").then((m) => ({
+      default: m.CallOverlay,
     })),
   { ssr: false },
 )
@@ -44,9 +44,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const recipientNameRef = useRef("")
 
   const wrappedStartCall = useCallback(
-    async (conversationId: string, recipientId: string, recipientName?: string) => {
+    async (
+      conversationId: string,
+      recipientId: string,
+      recipientName?: string,
+      callType?: "audio" | "video",
+    ) => {
       recipientNameRef.current = recipientName ?? ""
-      await call.startCall(conversationId, recipientId)
+      await call.startCall(conversationId, recipientId, callType ?? "audio")
     },
     [call.startCall],
   )
@@ -106,13 +111,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         )}
 
         {(call.state === "active" || call.state === "ringing_outgoing") && (
-          <ActiveCallOverlay
+          <CallOverlay
             state={call.state}
+            callType={call.activeCall?.callType ?? "audio"}
             recipientName={recipientNameRef.current}
             duration={call.duration}
             isMuted={call.isMuted}
+            isCameraOff={call.isCameraOff}
+            viewMode={call.viewMode}
+            room={call.room}
             onToggleMute={call.toggleMute}
+            onToggleCamera={call.toggleCamera}
             onHangup={call.hangup}
+            onSetViewMode={call.setViewMode}
           />
         )}
       </div>

@@ -173,3 +173,7 @@ func (m *mockEmailService) SendPasswordReset(ctx context.Context, to string, res
 	}
 	return nil
 }
+
+func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) error {
+	return nil
+}

@@ -20,6 +20,8 @@ type ProposalResponse struct {
 	Version        int                `json:"version"`
 	ClientID       string             `json:"client_id"`
 	ProviderID     string             `json:"provider_id"`
+	ClientName     string             `json:"client_name"`
+	ProviderName   string             `json:"provider_name"`
 	Documents      []DocumentResponse `json:"documents"`
 	AcceptedAt     *string            `json:"accepted_at,omitempty"`
 	PaidAt         *string            `json:"paid_at,omitempty"`
@@ -41,6 +43,10 @@ type ProjectListResponse struct {
 }
 
 func NewProposalResponse(p *proposal.Proposal, docs []*proposal.ProposalDocument) ProposalResponse {
+	return NewProposalResponseWithNames(p, docs, "", "")
+}
+
+func NewProposalResponseWithNames(p *proposal.Proposal, docs []*proposal.ProposalDocument, clientName, providerName string) ProposalResponse {
 	resp := ProposalResponse{
 		ID:             p.ID.String(),
 		ConversationID: p.ConversationID.String(),
@@ -53,6 +59,8 @@ func NewProposalResponse(p *proposal.Proposal, docs []*proposal.ProposalDocument
 		Version:        p.Version,
 		ClientID:       p.ClientID.String(),
 		ProviderID:     p.ProviderID.String(),
+		ClientName:     clientName,
+		ProviderName:   providerName,
 		Documents:      NewDocumentListResponse(docs),
 		CreatedAt:      p.CreatedAt.Format(time.RFC3339),
 	}

@@ -892,6 +892,33 @@ class AppLocalizationsFr extends AppLocalizations {
   String get callUnknownCaller => 'Appelant inconnu';
 
   @override
+  String get callVideoCall => 'Appel vidéo';
+
+  @override
+  String get callStartVideoCall => 'Démarrer un appel vidéo';
+
+  @override
+  String get callCamera => 'Caméra';
+
+  @override
+  String get callCameraOff => 'Caméra désactivée';
+
+  @override
+  String get callCameraOn => 'Caméra activée';
+
+  @override
+  String get callNoVideo => 'La caméra est désactivée';
+
+  @override
+  String get callIncomingVideoCall => 'Appel vidéo entrant';
+
+  @override
+  String get callTapToReturn => 'Appuyez pour revenir à l\'appel';
+
+  @override
+  String get callMinimize => 'Réduire';
+
+  @override
   String get drawerDashboard => 'Tableau de bord';
 
   @override
@@ -929,6 +956,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get drawerPaymentInfo => 'Infos paiement';
+
+  @override
+  String get drawerNotifications => 'Notifications';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get noNotifications => 'Aucune notification';
+
+  @override
+  String get noNotificationsDesc =>
+      'Vous serez notifié lorsque quelque chose se passe';
+
+  @override
+  String get markAllRead => 'Tout marquer comme lu';
 
   @override
   String get proposalViewDetails => 'Voir les détails';

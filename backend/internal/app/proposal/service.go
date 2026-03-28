@@ -10,25 +10,28 @@ import (
 )
 
 type ServiceDeps struct {
-	Proposals repository.ProposalRepository
-	Users     repository.UserRepository
-	Messages  service.MessageSender
-	Storage   service.StorageService
+	Proposals     repository.ProposalRepository
+	Users         repository.UserRepository
+	Messages      service.MessageSender
+	Storage       service.StorageService
+	Notifications service.NotificationSender
 }
 
 type Service struct {
-	proposals repository.ProposalRepository
-	users     repository.UserRepository
-	messages  service.MessageSender
-	storage   service.StorageService
+	proposals     repository.ProposalRepository
+	users         repository.UserRepository
+	messages      service.MessageSender
+	storage       service.StorageService
+	notifications service.NotificationSender
 }
 
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
-		proposals: deps.Proposals,
-		users:     deps.Users,
-		messages:  deps.Messages,
-		storage:   deps.Storage,
+		proposals:     deps.Proposals,
+		users:         deps.Users,
+		messages:      deps.Messages,
+		storage:       deps.Storage,
+		notifications: deps.Notifications,
 	}
 }
 

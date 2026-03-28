@@ -598,6 +598,21 @@
     "rolePartner": "Associ\u00e9",
     "roleOther": "Autre"
   },
+  "notifications": {
+    "title": "Notifications",
+    "markAllAsRead": "Tout marquer comme lu",
+    "seeAll": "Voir toutes les notifications",
+    "empty": "Aucune notification",
+    "emptyDescription": "Vous serez notifié lorsque quelque chose d'important se passe.",
+    "proposalReceived": "Nouvelle proposition reçue",
+    "proposalAccepted": "Proposition acceptée",
+    "proposalDeclined": "Proposition refusée",
+    "reviewReceived": "Nouvel avis reçu",
+    "preferences": "Préférences de notification",
+    "inApp": "In-app",
+    "push": "Push",
+    "email": "Email"
+  },
   "review": {
     "title": "Laisser un avis",
     "close": "Fermer",

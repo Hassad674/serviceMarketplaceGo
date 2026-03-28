@@ -6,6 +6,7 @@ type StartCallFn = (
   conversationId: string,
   recipientId: string,
   recipientName?: string,
+  callType?: "audio" | "video",
 ) => Promise<void>
 
 interface CallContextValue {

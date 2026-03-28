@@ -260,6 +260,7 @@ type mockBroadcaster struct {
 	broadcastStatusUpdateFn  func(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	broadcastUnreadCountFn   func(ctx context.Context, userID uuid.UUID, count int) error
 	broadcastPresenceFn      func(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
+	broadcastNotificationFn  func(ctx context.Context, userID uuid.UUID, payload []byte) error
 }
 
 func (m *mockBroadcaster) BroadcastNewMessage(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
@@ -293,6 +294,13 @@ func (m *mockBroadcaster) BroadcastUnreadCount(ctx context.Context, userID uuid.
 func (m *mockBroadcaster) BroadcastPresence(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
 	if m.broadcastPresenceFn != nil {
 		return m.broadcastPresenceFn(ctx, recipientIDs, payload)
+	}
+	return nil
+}
+
+func (m *mockBroadcaster) BroadcastNotification(ctx context.Context, userID uuid.UUID, payload []byte) error {
+	if m.broadcastNotificationFn != nil {
+		return m.broadcastNotificationFn(ctx, userID, payload)
 	}
 	return nil
 }

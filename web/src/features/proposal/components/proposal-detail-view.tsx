@@ -149,9 +149,8 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
               />
             </div>
             <ParticipantsCard
-              isClient={isClient}
-              clientId={proposal.client_id}
-              providerId={proposal.provider_id}
+              clientName={proposal.client_name}
+              providerName={proposal.provider_name}
             />
           </div>
         </div>
@@ -314,12 +313,11 @@ function DocumentsList({ documents }: { documents: ProposalResponse["documents"]
 }
 
 interface ParticipantsCardProps {
-  isClient: boolean
-  clientId: string
-  providerId: string
+  clientName: string
+  providerName: string
 }
 
-function ParticipantsCard({ isClient, clientId, providerId }: ParticipantsCardProps) {
+function ParticipantsCard({ clientName, providerName }: ParticipantsCardProps) {
   const t = useTranslations("proposal")
 
   return (
@@ -329,18 +327,16 @@ function ParticipantsCard({ isClient, clientId, providerId }: ParticipantsCardPr
       </p>
       <div className="space-y-3">
         <ParticipantRow
+          name={clientName}
           role={t("client")}
-          isCurrentUser={isClient}
           badgeClass="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400"
           avatarClass="bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
-          initial="C"
         />
         <ParticipantRow
+          name={providerName}
           role={t("provider")}
-          isCurrentUser={!isClient}
           badgeClass="bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400"
           avatarClass="bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
-          initial="P"
         />
       </div>
     </div>
@@ -348,23 +344,20 @@ function ParticipantsCard({ isClient, clientId, providerId }: ParticipantsCardPr
 }
 
 interface ParticipantRowProps {
+  name: string
   role: string
-  isCurrentUser: boolean
   badgeClass: string
   avatarClass: string
-  initial: string
 }
 
-function ParticipantRow({ role, isCurrentUser, badgeClass, avatarClass, initial }: ParticipantRowProps) {
-  const { data: user } = useUser()
-  const displayName = isCurrentUser && user ? user.display_name : role
+function ParticipantRow({ name, role, badgeClass, avatarClass }: ParticipantRowProps) {
+  const displayName = name || role
+  const initial = displayName.charAt(0).toUpperCase()
 
   return (
     <div className="flex items-center gap-3">
       <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold", avatarClass)}>
-        {isCurrentUser && user
-          ? user.display_name.charAt(0).toUpperCase()
-          : initial}
+        {initial}
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-slate-900 dark:text-white truncate">

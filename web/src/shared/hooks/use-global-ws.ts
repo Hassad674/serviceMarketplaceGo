@@ -3,6 +3,8 @@
 import { useEffect, useRef, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { UNREAD_COUNT_QUERY_KEY } from "./use-unread-count"
+import { UNREAD_NOTIF_COUNT_KEY } from "@/features/notification/hooks/use-unread-notification-count"
+import { NOTIFICATIONS_QUERY_KEY } from "@/features/notification/hooks/use-notifications"
 
 const HEARTBEAT_INTERVAL = 30_000
 const MAX_RECONNECT_DELAY = 30_000
@@ -77,6 +79,20 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
             UNREAD_COUNT_QUERY_KEY,
             { count: frame.payload.count },
           )
+        }
+        if (frame.type === "notification") {
+          queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY })
+          queryClient.setQueryData(UNREAD_NOTIF_COUNT_KEY, (old: unknown) => {
+            const prev = old as { data?: { count?: number } } | undefined
+            return {
+              data: { count: ((prev?.data?.count ?? 0) + 1) },
+            }
+          })
+        }
+        if (frame.type === "notification_unread_count") {
+          queryClient.setQueryData(UNREAD_NOTIF_COUNT_KEY, {
+            data: { count: frame.payload?.count ?? 0 },
+          })
         }
         if (frame.type === "call_event" && callEventHandlerRef.current) {
           callEventHandlerRef.current(frame.payload)

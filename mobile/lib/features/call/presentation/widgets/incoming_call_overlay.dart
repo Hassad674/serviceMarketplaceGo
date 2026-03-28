@@ -4,17 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/entities/call_entity.dart';
 
 /// Full-screen overlay shown when an incoming call is ringing.
 class IncomingCallOverlay extends StatefulWidget {
   const IncomingCallOverlay({
     super.key,
     required this.callerName,
+    this.callType = CallType.audio,
     required this.onAccept,
     required this.onDecline,
   });
 
   final String callerName;
+  final CallType callType;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
@@ -60,22 +63,26 @@ class _IncomingCallOverlayState extends State<IncomingCallOverlay> {
           children: [
             const Spacer(),
 
-            // Pulsing phone icon
+            // Pulsing call icon
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: const Color(0xFF22C55E).withValues(alpha: 0.2),
               ),
-              child: const Icon(
-                Icons.phone,
-                color: Color(0xFF22C55E),
+              child: Icon(
+                widget.callType == CallType.video
+                    ? Icons.videocam
+                    : Icons.phone,
+                color: const Color(0xFF22C55E),
                 size: 32,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              l10n.callIncomingCall,
+              widget.callType == CallType.video
+                  ? l10n.callIncomingVideoCall
+                  : l10n.callIncomingCall,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -116,7 +123,7 @@ class _IncomingCallOverlayState extends State<IncomingCallOverlay> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${l10n.callAudioCall} \u00b7 ${_elapsed}s',
+              '${widget.callType == CallType.video ? l10n.callVideoCall : l10n.callAudioCall} \u00b7 ${_elapsed}s',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
@@ -139,7 +146,9 @@ class _IncomingCallOverlayState extends State<IncomingCallOverlay> {
                 const SizedBox(width: 64),
                 // Accept
                 _CircleButton(
-                  icon: Icons.phone,
+                  icon: widget.callType == CallType.video
+                      ? Icons.videocam
+                      : Icons.phone,
                   color: const Color(0xFF22C55E),
                   label: l10n.callAccept,
                   onTap: widget.onAccept,
