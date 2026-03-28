@@ -14,7 +14,7 @@ import {
 import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
-import type { Message, ProposalMessageMetadata, VoiceMetadata } from "../types"
+import type { Message, ProposalMessageMetadata, ReplyToInfo, VoiceMetadata } from "../types"
 import { MessageStatusIcon } from "./message-status-icon"
 import { FileMessage } from "./file-message"
 import { VoiceMessage } from "./voice-message"
@@ -182,6 +182,7 @@ export function MessageArea({
             conversationId={conversationId}
             onEdit={onEdit}
             onDelete={onDelete}
+            onReply={onReply}
             supersededProposalIds={supersededProposalIds}
             onReview={onReview}
           />
@@ -198,6 +199,7 @@ interface MessageBubbleProps {
   conversationId: string
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
+  onReply: (message: Message) => void
   supersededProposalIds: Set<string>
   onReview?: (proposalId: string, proposalTitle: string) => void
 }
@@ -229,6 +231,7 @@ function MessageBubble({
   conversationId,
   onEdit,
   onDelete,
+  onReply,
   supersededProposalIds,
   onReview,
 }: MessageBubbleProps) {
@@ -369,6 +372,11 @@ function MessageBubble({
             : "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100",
         )}
       >
+        {/* Reply preview block */}
+        {message.reply_to && (
+          <ReplyPreviewBlock replyTo={message.reply_to} isOwn={isOwn} />
+        )}
+
         {/* File message */}
         {message.type === "file" && isFileMetadata(message.metadata) && (
           <FileMessage metadata={message.metadata} isOwn={isOwn} />
@@ -448,14 +456,15 @@ function MessageBubble({
         </div>
       </div>
 
-      {/* Context menu for own messages */}
-      {isOwn && !message.id.startsWith("temp-") && !isEditing && (
+      {/* Context menu — Reply on all messages, Edit/Delete on own */}
+      {!message.id.startsWith("temp-") && !isEditing && (
         <MessageContextMenu
-          onEdit={() => {
+          onReply={() => onReply(message)}
+          onEdit={isOwn ? () => {
             setEditContent(message.content)
             setIsEditing(true)
-          }}
-          onDelete={() => onDelete(message.id)}
+          } : undefined}
+          onDelete={isOwn ? () => onDelete(message.id) : undefined}
         />
       )}
     </div>
@@ -583,6 +592,40 @@ function EvaluationRequestMessage({
           {t("leaveReview")}
         </button>
       </div>
+    </div>
+  )
+}
+
+function ReplyPreviewBlock({
+  replyTo,
+  isOwn,
+}: {
+  replyTo: ReplyToInfo
+  isOwn: boolean
+}) {
+  const truncated = replyTo.content.length > 80
+    ? replyTo.content.slice(0, 80) + "..."
+    : replyTo.content
+
+  return (
+    <div
+      className={cn(
+        "mb-1.5 rounded border-l-2 border-rose-400 px-2 py-1",
+        isOwn
+          ? "bg-white/15"
+          : "bg-rose-500/8 dark:bg-rose-400/10",
+      )}
+    >
+      <p
+        className={cn(
+          "truncate text-xs",
+          isOwn
+            ? "text-white/80"
+            : "text-gray-500 dark:text-gray-400",
+        )}
+      >
+        {truncated || "..."}
+      </p>
     </div>
   )
 }

@@ -1,16 +1,17 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Reply, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
 interface MessageContextMenuProps {
-  onEdit: () => void
-  onDelete: () => void
+  onReply?: () => void
+  onEdit?: () => void
+  onDelete?: () => void
 }
 
-export function MessageContextMenu({ onEdit, onDelete }: MessageContextMenuProps) {
+export function MessageContextMenu({ onReply, onEdit, onDelete }: MessageContextMenuProps) {
   const t = useTranslations("messaging")
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -51,34 +52,54 @@ export function MessageContextMenu({ onEdit, onDelete }: MessageContextMenuProps
             "animate-in fade-in slide-in-from-top-1 duration-150",
           )}
         >
-          <button
-            onClick={() => {
-              setOpen(false)
-              onEdit()
-            }}
-            className={cn(
-              "flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700",
-              "transition-colors hover:bg-gray-50",
-              "dark:text-gray-300 dark:hover:bg-gray-700",
-            )}
-          >
-            <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {t("editMessage")}
-          </button>
-          <button
-            onClick={() => {
-              setOpen(false)
-              onDelete()
-            }}
-            className={cn(
-              "flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600",
-              "transition-colors hover:bg-red-50",
-              "dark:text-red-400 dark:hover:bg-red-500/10",
-            )}
-          >
-            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {t("deleteMessage")}
-          </button>
+          {onReply && (
+            <button
+              onClick={() => {
+                setOpen(false)
+                onReply()
+              }}
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700",
+                "transition-colors hover:bg-gray-50",
+                "dark:text-gray-300 dark:hover:bg-gray-700",
+              )}
+            >
+              <Reply className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {t("reply")}
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={() => {
+                setOpen(false)
+                onEdit()
+              }}
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700",
+                "transition-colors hover:bg-gray-50",
+                "dark:text-gray-300 dark:hover:bg-gray-700",
+              )}
+            >
+              <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {t("editMessage")}
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => {
+                setOpen(false)
+                onDelete()
+              }}
+              className={cn(
+                "flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600",
+                "transition-colors hover:bg-red-50",
+                "dark:text-red-400 dark:hover:bg-red-500/10",
+              )}
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              {t("deleteMessage")}
+            </button>
+          )}
         </div>
       )}
     </div>
