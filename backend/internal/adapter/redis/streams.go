@@ -134,6 +134,7 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 					SourceID:     msg.Values["source_id"].(string),
 				}
 
+				slog.Info("stream: dispatching event", "type", event.Type, "msg_id", msg.ID)
 				handler(event)
 				lastID = msg.ID
 			}

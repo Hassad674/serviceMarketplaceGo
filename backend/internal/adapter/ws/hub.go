@@ -51,6 +51,7 @@ func (h *Hub) addClient(client *Client) {
 		h.clients[client.UserID] = make(map[*Client]bool)
 	}
 	h.clients[client.UserID][client] = true
+	slog.Info("ws: client registered", "user_id", client.UserID.String(), "total_connections", len(h.clients[client.UserID]))
 }
 
 func (h *Hub) removeClient(client *Client) {
@@ -82,14 +83,16 @@ func (h *Hub) SendToUser(userID uuid.UUID, payload []byte) {
 
 	clients, ok := h.clients[userID]
 	if !ok {
+		slog.Debug("ws: no clients for user", "user_id", userID.String())
 		return
 	}
+
+	slog.Info("ws: sending to user", "user_id", userID.String(), "client_count", len(clients), "payload_len", len(payload))
 
 	for client := range clients {
 		select {
 		case client.Send <- payload:
 		default:
-			// Client buffer full, skip
 			slog.Warn("client send buffer full, dropping message",
 				"user_id", userID.String())
 		}
@@ -112,6 +115,8 @@ func (h *Hub) HandleStreamEvent(event StreamEvent) {
 		slog.Error("failed to unmarshal recipient ids", "error", err)
 		return
 	}
+
+	slog.Info("ws: stream event received", "type", event.Type, "recipients", len(recipientIDs))
 
 	envelope := Envelope{
 		Type:    event.Type,
