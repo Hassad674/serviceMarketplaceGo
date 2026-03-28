@@ -11,6 +11,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -232,11 +233,19 @@ func syncSingleConversation(client *Client, convIDStr string, sinceSeq int, deps
 		return
 	}
 
+	// Convert domain messages to snake_case maps matching the client-side
+	// Message type. Domain structs have no json tags and would serialize
+	// with PascalCase field names, breaking frontend parsing.
+	serialized := make([]map[string]any, len(messages))
+	for i, msg := range messages {
+		serialized[i] = marshalMessageForSync(msg)
+	}
+
 	envelope, err := json.Marshal(Envelope{
 		Type: TypeSyncResult,
 		Payload: map[string]any{
 			"conversation_id": convID.String(),
-			"messages":        messages,
+			"messages":        serialized,
 		},
 	})
 	if err != nil {
@@ -245,6 +254,50 @@ func syncSingleConversation(client *Client, convIDStr string, sinceSeq int, deps
 	}
 
 	client.Send <- envelope
+}
+
+// marshalMessageForSync converts a domain Message to a JSON-friendly map
+// with snake_case keys matching the client-side Message type.
+// This mirrors the format used by the new_message WS broadcast and the
+// REST API responses, ensuring sync results are parseable by frontends.
+func marshalMessageForSync(msg *message.Message) map[string]any {
+	metadata := json.RawMessage("null")
+	if len(msg.Metadata) > 0 {
+		metadata = msg.Metadata
+	}
+
+	result := map[string]any{
+		"id":              msg.ID.String(),
+		"conversation_id": msg.ConversationID.String(),
+		"sender_id":       msg.SenderID.String(),
+		"content":         msg.Content,
+		"type":            string(msg.Type),
+		"metadata":        metadata,
+		"reply_to":        nil,
+		"seq":             msg.Seq,
+		"status":          string(msg.Status),
+		"edited_at":       nil,
+		"deleted_at":      nil,
+		"created_at":      msg.CreatedAt.Format(time.RFC3339),
+	}
+
+	if msg.ReplyPreview != nil {
+		result["reply_to"] = map[string]any{
+			"id":        msg.ReplyPreview.ID.String(),
+			"sender_id": msg.ReplyPreview.SenderID.String(),
+			"content":   msg.ReplyPreview.Content,
+			"type":      string(msg.ReplyPreview.Type),
+		}
+	}
+
+	if msg.EditedAt != nil {
+		result["edited_at"] = msg.EditedAt.Format(time.RFC3339)
+	}
+	if msg.DeletedAt != nil {
+		result["deleted_at"] = msg.DeletedAt.Format(time.RFC3339)
+	}
+
+	return result
 }
 
 func sendError(client *Client, errMsg string) {

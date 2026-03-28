@@ -53,16 +53,15 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		return nil, domain.ErrNotCompleted
 	}
 
-	// Verify the reviewer is a participant
-	if in.ReviewerID != p.ClientID && in.ReviewerID != p.ProviderID {
+	// Only the client (the party who pays) can leave a review.
+	// Enterprise evaluates Freelance/Agency, Agency evaluates Freelance.
+	// The provider never evaluates the client.
+	if in.ReviewerID != p.ClientID {
 		return nil, domain.ErrNotParticipant
 	}
 
-	// Determine who is being reviewed (the other party)
+	// The reviewed party is always the provider.
 	reviewedID := p.ProviderID
-	if in.ReviewerID == p.ProviderID {
-		reviewedID = p.ClientID
-	}
 
 	// Check for duplicate review
 	already, err := s.reviews.HasReviewed(ctx, in.ProposalID, in.ReviewerID)
@@ -110,6 +109,7 @@ func (s *Service) GetAverageRating(ctx context.Context, userID uuid.UUID) (*doma
 }
 
 // CanReview checks if the current user can review a given proposal.
+// Only the client (the paying party) is allowed to leave a review.
 func (s *Service) CanReview(ctx context.Context, proposalID, userID uuid.UUID) (bool, error) {
 	p, err := s.proposals.GetByID(ctx, proposalID)
 	if err != nil {
@@ -118,7 +118,8 @@ func (s *Service) CanReview(ctx context.Context, proposalID, userID uuid.UUID) (
 	if p.Status != "completed" {
 		return false, nil
 	}
-	if userID != p.ClientID && userID != p.ProviderID {
+	// Only the client can review; the provider never evaluates.
+	if userID != p.ClientID {
 		return false, nil
 	}
 	already, err := s.reviews.HasReviewed(ctx, proposalID, userID)

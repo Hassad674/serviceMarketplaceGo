@@ -41,6 +41,7 @@ export type ProposalMessageMetadata = {
   proposal_parent_id: string | null
   proposal_client_id: string
   proposal_provider_id: string
+  target_user_id?: string
 }
 
 export type ReplyToInfo = {

@@ -324,8 +324,13 @@ function MessageBubble({
     )
   }
 
-  // Evaluation request — system message with "Leave a review" button
+  // Evaluation request — system message with "Leave a review" button.
+  // Only visible to the client (target_user_id in metadata).
   if (message.type === "evaluation_request" && isProposalMetadata(message.metadata)) {
+    const meta = message.metadata as ProposalMessageMetadata
+    if (meta.target_user_id && meta.target_user_id !== currentUserId) {
+      return null
+    }
     return (
       <EvaluationRequestMessage
         metadata={message.metadata}

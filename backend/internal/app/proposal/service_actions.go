@@ -167,8 +167,10 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
 
-	// Send evaluation_request to both parties after completion
-	s.sendProposalMessage(ctx, p.ConversationID, p.ClientID, "evaluation_request", metadata)
+	// Send evaluation_request only to the client (the party who pays).
+	// The provider never evaluates the client.
+	// Enterprise evaluates Freelance/Agency, Agency evaluates Freelance.
+	s.sendEvaluationRequest(ctx, p.ConversationID, p.ClientID, metadata)
 
 	return nil
 }
@@ -213,6 +215,18 @@ func (s *Service) GetProposal(ctx context.Context, userID, proposalID uuid.UUID)
 
 func (s *Service) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {
 	return s.proposals.ListActiveProjects(ctx, userID, cursorStr, limit)
+}
+
+// sendEvaluationRequest sends an evaluation_request system message enriched
+// with target_user_id so the frontend only renders it for the client.
+func (s *Service) sendEvaluationRequest(ctx context.Context, convID, clientID uuid.UUID, baseMetadata json.RawMessage) {
+	// Enrich metadata with target_user_id so frontends can filter visibility.
+	var m map[string]any
+	_ = json.Unmarshal(baseMetadata, &m)
+	m["target_user_id"] = clientID.String()
+	enriched, _ := json.Marshal(m)
+
+	s.sendProposalMessage(ctx, convID, clientID, "evaluation_request", enriched)
 }
 
 func isParticipant(p *domain.Proposal, userID uuid.UUID) bool {

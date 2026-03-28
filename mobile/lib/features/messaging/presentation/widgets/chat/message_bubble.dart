@@ -137,8 +137,13 @@ class MessageBubble extends StatelessWidget {
       return _buildSystemMessage(context, theme, appColors, l10n);
     }
 
-    // Evaluation request — special system message with "Leave a review" button
+    // Evaluation request — special system message with "Leave a review" button.
+    // Only visible to the client (target_user_id in metadata).
     if (message.type == 'evaluation_request') {
+      final targetUserId = message.metadata?['target_user_id'] as String?;
+      if (targetUserId != null && targetUserId != currentUserId) {
+        return const SizedBox.shrink();
+      }
       return _buildEvaluationRequest(context, theme, appColors, l10n);
     }
 

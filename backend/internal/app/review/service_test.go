@@ -148,6 +148,55 @@ func TestService_CanReview(t *testing.T) {
 	assert.True(t, can)
 }
 
+func TestService_CreateReview_ProviderCannotReview(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	svc := NewService(ServiceDeps{
+		Reviews: &mockReviewRepo{},
+		Proposals: &mockProposalRepo{
+			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {
+				return &mockProposal{
+					ClientID:   clientID,
+					ProviderID: providerID,
+					Status:     "completed",
+				}, nil
+			},
+		},
+	})
+
+	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+		ProposalID:   uuid.New(),
+		ReviewerID:   providerID, // provider tries to review
+		GlobalRating: 5,
+		Comment:      "Great client",
+	})
+
+	assert.ErrorIs(t, err, domain.ErrNotParticipant)
+}
+
+func TestService_CanReview_ProviderCannotReview(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	svc := NewService(ServiceDeps{
+		Reviews: &mockReviewRepo{},
+		Proposals: &mockProposalRepo{
+			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {
+				return &mockProposal{
+					ClientID:   clientID,
+					ProviderID: providerID,
+					Status:     "completed",
+				}, nil
+			},
+		},
+	})
+
+	can, err := svc.CanReview(context.Background(), uuid.New(), providerID)
+	assert.NoError(t, err)
+	assert.False(t, can, "provider must not be able to review")
+}
+
 func TestService_CanReview_NotCompleted(t *testing.T) {
 	svc := NewService(ServiceDeps{
 		Reviews: &mockReviewRepo{},
