@@ -139,11 +139,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _controller.clear();
 
     final replyId = _replyToMessage?.id;
+    final replyInfo = _replyToMessage != null
+        ? ReplyToInfo(
+            id: _replyToMessage!.id,
+            senderId: _replyToMessage!.senderId,
+            content: _replyToMessage!.content,
+            type: _replyToMessage!.type,
+          )
+        : null;
     setState(() => _replyToMessage = null);
 
     final sent = await ref
         .read(messagesProvider(widget.conversationId).notifier)
-        .sendTextMessage(text, replyToId: replyId);
+        .sendTextMessage(text, replyToId: replyId, replyToInfo: replyInfo);
 
     if (sent != null) {
       _scrollToBottom();

@@ -34,7 +34,7 @@ export function MessagingPage() {
   const [roleFilter, setRoleFilter] = useState<"all" | string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
-  const [replyTo, setReplyTo] = useState<{ id: string; senderName: string; content: string } | null>(null)
+  const [replyTo, setReplyTo] = useState<{ id: string; senderId: string; senderName: string; content: string; type: string } | null>(null)
   const [reviewTarget, setReviewTarget] = useState<{ proposalId: string; proposalTitle: string } | null>(null)
 
   const callCtx = useCallContext()
@@ -145,9 +145,12 @@ export function MessagingPage() {
   const handleSend = useCallback(
     (content: string, replyToId?: string) => {
       if (!activeId) return
-      sendMessage.mutate({ content, type: "text", replyToId })
+      const replyToInfo = replyTo && replyToId
+        ? { id: replyTo.id, sender_id: replyTo.senderId, content: replyTo.content, type: replyTo.type }
+        : undefined
+      sendMessage.mutate({ content, type: "text", replyToId, replyToInfo })
     },
-    [activeId, sendMessage],
+    [activeId, sendMessage, replyTo],
   )
 
   const handleReply = useCallback(
@@ -155,7 +158,7 @@ export function MessagingPage() {
       const senderName = message.sender_id === user?.id
         ? (user?.display_name ?? "You")
         : (activeConversation?.other_user_name ?? "")
-      setReplyTo({ id: message.id, senderName, content: message.content })
+      setReplyTo({ id: message.id, senderId: message.sender_id, senderName, content: message.content, type: message.type })
     },
     [user?.id, user?.display_name, activeConversation?.other_user_name],
   )

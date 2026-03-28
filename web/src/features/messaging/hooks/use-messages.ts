@@ -35,9 +35,10 @@ export function useSendMessage(conversationId: string | null) {
       type?: "text" | "file" | "voice"
       metadata?: FileMessageMetadata | VoiceMessageMetadata
       replyToId?: string
+      replyToInfo?: { id: string; sender_id: string; content: string; type: string }
     }) => sendMessage(conversationId!, content, type, metadata, replyToId),
 
-    onMutate: async ({ content, type = "text", metadata }) => {
+    onMutate: async ({ content, type = "text", metadata, replyToInfo }) => {
       const queryKey = [MESSAGES_QUERY_KEY, conversationId]
       await queryClient.cancelQueries({ queryKey })
 
@@ -53,6 +54,7 @@ export function useSendMessage(conversationId: string | null) {
         content,
         type,
         metadata: metadata ?? null,
+        reply_to: replyToInfo ?? null,
         seq: 0,
         status: "sending",
         edited_at: null,

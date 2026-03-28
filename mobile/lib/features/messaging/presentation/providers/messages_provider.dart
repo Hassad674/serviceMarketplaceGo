@@ -123,7 +123,11 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
   }
 
   /// Sends a text message in this conversation.
-  Future<MessageEntity?> sendTextMessage(String content, {String? replyToId}) async {
+  Future<MessageEntity?> sendTextMessage(
+    String content, {
+    String? replyToId,
+    ReplyToInfo? replyToInfo,
+  }) async {
     // Optimistic: insert with "sending" status
     final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
     final optimistic = MessageEntity(
@@ -131,6 +135,7 @@ class MessagesNotifier extends StateNotifier<MessagesState> {
       conversationId: conversationId,
       senderId: _currentUserId ?? '',
       content: content,
+      replyTo: replyToInfo,
       status: 'sending',
       createdAt: DateTime.now().toIso8601String(),
     );
