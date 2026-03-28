@@ -3,17 +3,10 @@
 import {
   ArrowLeft,
   Calendar,
-  CheckCircle2,
-  Clock,
-  CreditCard,
   DollarSign,
   Download,
   FileText,
-  Handshake,
-  Loader2,
-  Pencil,
-  Star,
-  XCircle,
+  User,
 } from "lucide-react"
 import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
@@ -27,8 +20,9 @@ import {
   useCompleteProposal,
   useRejectCompletion,
 } from "../hooks/use-proposals"
+import { ProposalStepper } from "./proposal-stepper"
+import { ActionsPanel } from "./proposal-actions-panel"
 import type { ProposalResponse } from "../types"
-import { StatusBadge, DetailSkeleton } from "./proposal-status-badge"
 
 interface ProposalDetailViewProps {
   proposalId: string
@@ -57,23 +51,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   }
 
   if (isError || !proposal) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-center space-y-3">
-          <FileText className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {t("proposalNotFound")}
-          </p>
-          <button
-            type="button"
-            onClick={() => router.push("/projects")}
-            className="text-sm text-rose-500 hover:text-rose-600 font-medium"
-          >
-            {t("backToProjects")}
-          </button>
-        </div>
-      </div>
-    )
+    return <ErrorState onBack={() => router.push("/projects")} />
   }
 
   const isRecipient = user?.id === proposal.recipient_id
@@ -122,462 +100,369 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Back button */}
       <button
         type="button"
         onClick={() => router.push("/projects")}
-        className="mb-6 flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+        className="mb-6 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         {t("backToProjects")}
       </button>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800/80 overflow-hidden">
-        {/* Gradient bar */}
-        <div className="h-1.5 gradient-primary" />
+      {/* Stepper */}
+      <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+        <ProposalStepper status={proposal.status} />
+      </div>
 
-        <div className="px-6 pt-6 pb-8 space-y-6">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
-                <Handshake className="h-6 w-6 text-rose-600 dark:text-rose-400" strokeWidth={1.5} />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white truncate">
-                  {proposal.title}
-                </h1>
-                {proposal.version > 1 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {t("versionLabel", { version: proposal.version })}
-                  </p>
-                )}
-              </div>
+      {/* Split layout */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Left column - content */}
+        <div className="flex-1 min-w-0 space-y-6">
+          <ContentPanel proposal={proposal} />
+        </div>
+
+        {/* Right column - actions (sticky on desktop) */}
+        <div className="w-full lg:w-80 shrink-0">
+          <div className="lg:sticky lg:top-24 space-y-4">
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+              <ActionsPanel
+                proposal={proposal}
+                isRecipient={isRecipient}
+                isSender={isSender}
+                isClient={isClient}
+                isProvider={isProvider}
+                isMutating={isMutating}
+                acceptPending={acceptMutation.isPending}
+                declinePending={declineMutation.isPending}
+                requestCompletionPending={requestCompletionMutation.isPending}
+                completePending={completeProposalMutation.isPending}
+                rejectCompletionPending={rejectCompletionMutation.isPending}
+                onAccept={handleAccept}
+                onDecline={handleDecline}
+                onModify={handleModify}
+                onPay={handlePay}
+                onRequestCompletion={handleRequestCompletion}
+                onCompleteProposal={handleCompleteProposal}
+                onRejectCompletion={handleRejectCompletion}
+              />
             </div>
-            <StatusBadge status={proposal.status} />
+            <ParticipantsCard
+              isClient={isClient}
+              clientId={proposal.client_id}
+              providerId={proposal.provider_id}
+            />
           </div>
+        </div>
+      </div>
 
-          <div className="border-t border-gray-100 dark:border-gray-700" />
+      {/* Mobile sticky action bar */}
+      <MobileActionBar
+        proposal={proposal}
+        isRecipient={isRecipient}
+        isSender={isSender}
+        isClient={isClient}
+        isProvider={isProvider}
+        isMutating={isMutating}
+        acceptPending={acceptMutation.isPending}
+        declinePending={declineMutation.isPending}
+        requestCompletionPending={requestCompletionMutation.isPending}
+        completePending={completeProposalMutation.isPending}
+        rejectCompletionPending={rejectCompletionMutation.isPending}
+        onAccept={handleAccept}
+        onDecline={handleDecline}
+        onModify={handleModify}
+        onPay={handlePay}
+        onRequestCompletion={handleRequestCompletion}
+        onCompleteProposal={handleCompleteProposal}
+        onRejectCompletion={handleRejectCompletion}
+      />
+    </div>
+  )
+}
 
-          {/* Amount */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 dark:bg-green-500/10">
-              <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" strokeWidth={1.5} />
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                {t("totalAmount")}
-              </p>
-              <p className="text-xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(proposal.amount / 100)}
-              </p>
-            </div>
-          </div>
+function ContentPanel({ proposal }: { proposal: ProposalResponse }) {
+  const t = useTranslations("proposal")
 
-          {/* Deadline */}
-          {proposal.deadline && (
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
-                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                  {t("deadline")}
-                </p>
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {formatDate(proposal.deadline)}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="border-t border-gray-100 dark:border-gray-700" />
-
-          {/* Description */}
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-2">
-              {t("description")}
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
+      <div className="h-1 gradient-primary" />
+      <div className="p-6 space-y-6">
+        {/* Title */}
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            {proposal.title}
+          </h1>
+          {proposal.version > 1 && (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {t("versionLabel", { version: proposal.version })}
             </p>
-            <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-              {proposal.description}
-            </p>
-          </div>
-
-          {/* Documents */}
-          {proposal.documents && proposal.documents.length > 0 && (
-            <>
-              <div className="border-t border-gray-100 dark:border-gray-700" />
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500 mb-3">
-                  {t("documents")} ({proposal.documents.length})
-                </p>
-                <div className="space-y-2">
-                  {proposal.documents.map((doc) => (
-                    <button
-                      key={doc.id}
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(doc.url)
-                          const blob = await res.blob()
-                          const blobUrl = URL.createObjectURL(blob)
-                          const link = document.createElement("a")
-                          link.href = blobUrl
-                          link.download = doc.filename
-                          document.body.appendChild(link)
-                          link.click()
-                          document.body.removeChild(link)
-                          URL.revokeObjectURL(blobUrl)
-                        } catch {
-                          window.open(doc.url, "_blank")
-                        }
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left",
-                        "border border-gray-100 dark:border-gray-700",
-                        "hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors",
-                      )}
-                    >
-                      <FileText className="h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                        {doc.filename}
-                      </span>
-                      <Download className="ml-auto h-4 w-4 shrink-0 text-gray-400" strokeWidth={1.5} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
           )}
+        </div>
 
-          <div className="border-t border-gray-100 dark:border-gray-700" />
-
-          {/* Action section */}
-          <ProposalActions
-            proposal={proposal}
-            isRecipient={isRecipient}
-            isSender={isSender}
-            isClient={isClient}
-            isProvider={isProvider}
-            isMutating={isMutating}
-            acceptPending={acceptMutation.isPending}
-            declinePending={declineMutation.isPending}
-            onAccept={handleAccept}
-            onDecline={handleDecline}
-            onModify={handleModify}
-            onPay={handlePay}
-            onRequestCompletion={handleRequestCompletion}
-            onCompleteProposal={handleCompleteProposal}
-            onRejectCompletion={handleRejectCompletion}
-            requestCompletionPending={requestCompletionMutation.isPending}
-            completePending={completeProposalMutation.isPending}
-            rejectCompletionPending={rejectCompletionMutation.isPending}
+        {/* Stats row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <StatCard
+            icon={DollarSign}
+            label={t("totalAmount")}
+            value={formatCurrency(proposal.amount / 100)}
+            iconBg="bg-green-50 dark:bg-green-500/10"
+            iconColor="text-green-600 dark:text-green-400"
+          />
+          <StatCard
+            icon={Calendar}
+            label={t("deadline")}
+            value={
+              proposal.deadline
+                ? formatDate(proposal.deadline)
+                : t("noDeadline")
+            }
+            iconBg="bg-blue-50 dark:bg-blue-500/10"
+            iconColor="text-blue-600 dark:text-blue-400"
           />
         </div>
+
+        {/* Description */}
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-2">
+            {t("description")}
+          </p>
+          <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+            {proposal.description}
+          </p>
+        </div>
+
+        {/* Documents */}
+        {proposal.documents && proposal.documents.length > 0 && (
+          <DocumentsList documents={proposal.documents} />
+        )}
       </div>
     </div>
   )
 }
 
-interface ProposalActionsProps {
-  proposal: ProposalResponse
-  isRecipient: boolean
-  isSender: boolean
-  isClient: boolean
-  isProvider: boolean
-  isMutating: boolean
-  acceptPending: boolean
-  declinePending: boolean
-  onAccept: () => void
-  onDecline: () => void
-  onModify: () => void
-  onPay: () => void
-  onRequestCompletion: () => void
-  onCompleteProposal: () => void
-  onRejectCompletion: () => void
-  requestCompletionPending: boolean
-  completePending: boolean
-  rejectCompletionPending: boolean
+interface StatCardProps {
+  icon: React.ElementType
+  label: string
+  value: string
+  iconBg: string
+  iconColor: string
 }
 
-function ProposalActions({
-  proposal,
-  isRecipient,
-  isSender,
-  isClient,
-  isProvider,
-  isMutating,
-  acceptPending,
-  declinePending,
-  onAccept,
-  onDecline,
-  onModify,
-  onPay,
-  onRequestCompletion,
-  onCompleteProposal,
-  onRejectCompletion,
-  requestCompletionPending,
-  completePending,
-  rejectCompletionPending,
-}: ProposalActionsProps) {
+function StatCard({ icon: Icon, label, value, iconBg, iconColor }: StatCardProps) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4 border border-slate-100 dark:bg-slate-800 dark:border-slate-700">
+      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", iconBg)}>
+        <Icon className={cn("h-5 w-5", iconColor)} strokeWidth={1.5} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+          {value}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function DocumentsList({ documents }: { documents: ProposalResponse["documents"] }) {
   const t = useTranslations("proposal")
 
-  // Pending — recipient can accept/decline
-  if (proposal.status === "pending" && isRecipient) {
-    return (
-      <div className="space-y-3">
-        <div className="flex gap-3">
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">
+        {t("documents")} ({documents.length})
+      </p>
+      <div className="space-y-2">
+        {documents.map((doc) => (
           <button
+            key={doc.id}
             type="button"
-            onClick={onDecline}
-            disabled={isMutating}
+            onClick={async () => {
+              try {
+                const res = await fetch(doc.url)
+                const blob = await res.blob()
+                const blobUrl = URL.createObjectURL(blob)
+                const link = document.createElement("a")
+                link.href = blobUrl
+                link.download = doc.filename
+                document.body.appendChild(link)
+                link.click()
+                document.body.removeChild(link)
+                URL.revokeObjectURL(blobUrl)
+              } catch {
+                window.open(doc.url, "_blank")
+              }
+            }}
             className={cn(
-              "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3",
-              "text-sm font-medium transition-all duration-200",
-              "border border-gray-200 dark:border-gray-600",
-              "text-gray-700 dark:text-gray-300",
-              "hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300",
-              "active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left",
+              "border border-slate-100 dark:border-slate-700",
+              "hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors",
             )}
           >
-            {declinePending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <XCircle className="h-4 w-4" strokeWidth={1.5} />
-            )}
-            {t("decline")}
+            <FileText className="h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.5} />
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">
+              {doc.filename}
+            </span>
+            <Download className="ml-auto h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.5} />
           </button>
-          <button
-            type="button"
-            onClick={onAccept}
-            disabled={isMutating}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3",
-              "text-sm font-semibold text-white transition-all duration-200",
-              "gradient-primary",
-              "hover:shadow-glow active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            {acceptPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
-            )}
-            {t("accept")}
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={onModify}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5",
-            "text-sm font-medium transition-all duration-200",
-            "border border-gray-200 dark:border-gray-600",
-            "text-gray-700 dark:text-gray-300",
-            "hover:bg-gray-50 dark:hover:bg-gray-700",
-            "active:scale-[0.98]",
-          )}
-        >
-          <Pencil className="h-4 w-4" strokeWidth={1.5} />
-          {t("modify")}
-        </button>
+        ))}
       </div>
-    )
-  }
-
-  // Pending — sender sees waiting state
-  if (proposal.status === "pending" && isSender) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
-        <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-          {t("waitingForResponse")}
-        </span>
-      </div>
-    )
-  }
-
-  // Accepted — client can proceed to payment
-  if (proposal.status === "accepted" && isClient) {
-    return (
-      <button
-        type="button"
-        onClick={onPay}
-        className={cn(
-          "w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3",
-          "text-sm font-semibold text-white transition-all duration-200",
-          "gradient-primary hover:shadow-glow active:scale-[0.98]",
-        )}
-      >
-        <CreditCard className="h-4 w-4" strokeWidth={1.5} />
-        {t("proceedToPayment")}
-      </button>
-    )
-  }
-
-  // Accepted — provider waits for payment
-  if (proposal.status === "accepted" && !isClient) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-blue-50 px-4 py-3 dark:bg-blue-500/10">
-        <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-          {t("waitingForPayment")}
-        </span>
-      </div>
-    )
-  }
-
-  // Paid — waiting for activation
-  if (proposal.status === "paid") {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
-        <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          {t("missionActive")}
-        </span>
-      </div>
-    )
-  }
-
-  // Active — provider can request completion
-  if (proposal.status === "active" && isProvider) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
-          <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
-          <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            {t("missionActive")}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onRequestCompletion}
-          disabled={isMutating}
-          className={cn(
-            "w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3",
-            "text-sm font-semibold text-white transition-all duration-200",
-            "gradient-primary hover:shadow-glow active:scale-[0.98]",
-            "disabled:opacity-50 disabled:cursor-not-allowed",
-          )}
-        >
-          {requestCompletionPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
-          )}
-          {t("terminateMission")}
-        </button>
-      </div>
-    )
-  }
-
-  // Active — client sees active state
-  if (proposal.status === "active" && isClient) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-500/10">
-        <Star className="h-4 w-4 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          {t("missionActive")}
-        </span>
-      </div>
-    )
-  }
-
-  // Completion requested — client can confirm or reject
-  if (proposal.status === "completion_requested" && isClient) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
-          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
-          <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-            {t("completionRequested")}
-          </span>
-        </div>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onRejectCompletion}
-            disabled={isMutating}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3",
-              "text-sm font-medium transition-all duration-200",
-              "border border-gray-200 dark:border-gray-600",
-              "text-gray-700 dark:text-gray-300",
-              "hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-300",
-              "active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            {rejectCompletionPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <XCircle className="h-4 w-4" strokeWidth={1.5} />
-            )}
-            {t("rejectCompletion")}
-          </button>
-          <button
-            type="button"
-            onClick={onCompleteProposal}
-            disabled={isMutating}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3",
-              "text-sm font-semibold text-white transition-all duration-200",
-              "gradient-primary",
-              "hover:shadow-glow active:scale-[0.98]",
-              "disabled:opacity-50 disabled:cursor-not-allowed",
-            )}
-          >
-            {completePending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
-            )}
-            {t("confirmCompletion")}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // Completion requested — provider sees waiting state
-  if (proposal.status === "completion_requested" && isProvider) {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-50 px-4 py-3 dark:bg-amber-500/10">
-        <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-          {t("waitingForClientConfirmation")}
-        </span>
-      </div>
-    )
-  }
-
-  // Declined
-  if (proposal.status === "declined") {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-3 dark:bg-red-500/10">
-        <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-red-700 dark:text-red-300">
-          {t("proposalRefused")}
-        </span>
-      </div>
-    )
-  }
-
-  // Withdrawn
-  if (proposal.status === "withdrawn") {
-    return (
-      <div className="flex items-center justify-center gap-2 rounded-xl bg-gray-50 px-4 py-3 dark:bg-gray-500/10">
-        <XCircle className="h-4 w-4 text-gray-500 dark:text-gray-400" strokeWidth={1.5} />
-        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-          {t("proposalWithdrawn")}
-        </span>
-      </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }
 
+interface ParticipantsCardProps {
+  isClient: boolean
+  clientId: string
+  providerId: string
+}
+
+function ParticipantsCard({ isClient, clientId, providerId }: ParticipantsCardProps) {
+  const t = useTranslations("proposal")
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-3">
+        {t("participants")}
+      </p>
+      <div className="space-y-3">
+        <ParticipantRow
+          role={t("client")}
+          isCurrentUser={isClient}
+          badgeClass="bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400"
+          avatarClass="bg-purple-100 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400"
+          initial="C"
+        />
+        <ParticipantRow
+          role={t("provider")}
+          isCurrentUser={!isClient}
+          badgeClass="bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400"
+          avatarClass="bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-400"
+          initial="P"
+        />
+      </div>
+    </div>
+  )
+}
+
+interface ParticipantRowProps {
+  role: string
+  isCurrentUser: boolean
+  badgeClass: string
+  avatarClass: string
+  initial: string
+}
+
+function ParticipantRow({ role, isCurrentUser, badgeClass, avatarClass, initial }: ParticipantRowProps) {
+  const { data: user } = useUser()
+  const displayName = isCurrentUser && user ? user.display_name : role
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold", avatarClass)}>
+        {isCurrentUser && user
+          ? user.display_name.charAt(0).toUpperCase()
+          : initial}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+          {displayName}
+        </p>
+      </div>
+      <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-medium", badgeClass)}>
+        {role}
+      </span>
+    </div>
+  )
+}
+
+function MobileActionBar(props: React.ComponentProps<typeof ActionsPanel>) {
+  // Only show on mobile when there are actions
+  const hasActions = shouldShowActions(props.proposal, props)
+  if (!hasActions) return null
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur-xl p-4 lg:hidden dark:border-slate-700 dark:bg-slate-900/90">
+      <ActionsPanel {...props} />
+    </div>
+  )
+}
+
+function shouldShowActions(
+  proposal: ProposalResponse,
+  flags: { isRecipient: boolean; isClient: boolean; isProvider: boolean },
+): boolean {
+  if (proposal.status === "pending" && flags.isRecipient) return true
+  if (proposal.status === "accepted" && flags.isClient) return true
+  if (proposal.status === "active" && flags.isProvider) return true
+  if (proposal.status === "completion_requested" && flags.isClient) return true
+  return false
+}
+
+function ErrorState({ onBack }: { onBack: () => void }) {
+  const t = useTranslations("proposal")
+
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="text-center space-y-3">
+        <FileText className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-600" />
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t("proposalNotFound")}
+        </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-sm text-rose-500 hover:text-rose-600 font-medium"
+        >
+          {t("backToProjects")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function DetailSkeleton() {
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      <div className="h-5 w-32 animate-shimmer rounded bg-slate-200 dark:bg-slate-700 mb-6" />
+      {/* Stepper skeleton */}
+      <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="flex items-center justify-between">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="h-8 w-8 animate-shimmer rounded-full bg-slate-200 dark:bg-slate-700" />
+                <div className="h-3 w-12 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+              </div>
+              {i < 5 && <div className="flex-1 h-0.5 mx-2 mt-[-1.25rem] bg-slate-200 dark:bg-slate-700" />}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Content skeleton */}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1">
+          <div className="rounded-2xl border border-slate-100 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/80 space-y-6">
+            <div className="h-7 w-3/4 animate-shimmer rounded bg-slate-200 dark:bg-slate-700" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="h-16 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-700" />
+              <div className="h-16 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-700" />
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 w-full animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+              <div className="h-3 w-3/4 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+              <div className="h-3 w-1/2 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+            </div>
+          </div>
+        </div>
+        <div className="w-full lg:w-80">
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 dark:border-slate-700 dark:bg-slate-800/80">
+            <div className="h-24 animate-shimmer rounded-xl bg-slate-100 dark:bg-slate-700" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

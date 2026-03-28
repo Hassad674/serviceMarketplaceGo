@@ -336,7 +336,19 @@
     "noProjects": "No active projects yet",
     "activeProjects": "Active projects",
     "status": "Status",
-    "amount": "Amount"
+    "amount": "Amount",
+    "activeMissions": "Active missions",
+    "totalAmount": "Amount in progress",
+    "nextDeadline": "Next deadline",
+    "inProgress": "In progress",
+    "completedTab": "Completed",
+    "all": "All",
+    "searchPlaceholder": "Search a project...",
+    "emptyState": "No active missions",
+    "emptyStateSubtitle": "Your projects will appear here once payment is confirmed.",
+    "with": "With",
+    "completionPending": "Completion requested \u2014 Awaiting validation",
+    "completed": "Completed"
   },
   "job": {
     "title": "Jobs",
@@ -496,8 +508,20 @@
     "systemModified": "Proposal modified",
     "systemPaymentRequested": "Payment requested",
     "systemEvaluationRequest": "Leave a review",
-    "noDeadline": "No deadline",
-    "noDocuments": "None"
+    "noDeadline": "Not defined",
+    "noDocuments": "None",
+    "stepCreated": "Created",
+    "stepAccepted": "Accepted",
+    "stepPaid": "Paid",
+    "stepActive": "Active",
+    "stepCompleted": "Completed",
+    "status": "Status",
+    "actions": "Actions",
+    "participants": "Participants",
+    "goToConversation": "Go to conversation",
+    "waitingPayment": "Waiting for payment",
+    "missionActiveDesc": "Mission in progress",
+    "awaitingCompletion": "Awaiting completion confirmation"
   },
   "call": {
     "calling": "Calling...",
