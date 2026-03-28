@@ -85,21 +85,14 @@ export function PersonalInfoSection({ data, onChange }: PersonalInfoSectionProps
           type="date"
           required
         />
-        <InputField
-          label={t("email")}
-          value={data.email}
-          onChange={(v) => onChange("email", v)}
-          type="email"
-          required
-        />
         <div>
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t("country")}
+            {t("nationality")}
             <span className="ml-0.5 text-red-500">*</span>
           </label>
           <CountrySelect
-            value={data.country}
-            onChange={(v) => onChange("country", v)}
+            value={data.nationality}
+            onChange={(v) => onChange("nationality", v)}
           />
         </div>
         <InputField

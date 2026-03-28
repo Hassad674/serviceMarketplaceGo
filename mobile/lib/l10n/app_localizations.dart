@@ -1964,17 +1964,11 @@ abstract class AppLocalizations {
   /// **'Date of birth'**
   String get paymentInfoDob;
 
-  /// No description provided for @paymentInfoEmail.
+  /// No description provided for @paymentInfoNationality.
   ///
   /// In en, this message translates to:
-  /// **'Email'**
-  String get paymentInfoEmail;
-
-  /// No description provided for @paymentInfoCountry.
-  ///
-  /// In en, this message translates to:
-  /// **'Country'**
-  String get paymentInfoCountry;
+  /// **'Nationality'**
+  String get paymentInfoNationality;
 
   /// No description provided for @paymentInfoAddress.
   ///
@@ -2024,6 +2018,12 @@ abstract class AppLocalizations {
   /// **'Business postal code'**
   String get paymentInfoBusinessPostalCode;
 
+  /// No description provided for @paymentInfoBusinessCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Country of registration'**
+  String get paymentInfoBusinessCountry;
+
   /// No description provided for @paymentInfoTaxId.
   ///
   /// In en, this message translates to:
@@ -2060,6 +2060,24 @@ abstract class AppLocalizations {
   /// **'FR76 1234 5678 9012 3456 78'**
   String get paymentInfoIbanHint;
 
+  /// No description provided for @paymentInfoBic.
+  ///
+  /// In en, this message translates to:
+  /// **'BIC / SWIFT (optional)'**
+  String get paymentInfoBic;
+
+  /// No description provided for @paymentInfoBicHint.
+  ///
+  /// In en, this message translates to:
+  /// **'BNPAFRPP'**
+  String get paymentInfoBicHint;
+
+  /// No description provided for @paymentInfoIbanHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'If your bank hasn\'t provided an IBAN, you can generate one at'**
+  String get paymentInfoIbanHelp;
+
   /// No description provided for @paymentInfoNoIban.
   ///
   /// In en, this message translates to:
@@ -2089,6 +2107,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Account holder name'**
   String get paymentInfoAccountHolder;
+
+  /// No description provided for @paymentInfoBankCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank country'**
+  String get paymentInfoBankCountry;
 
   /// No description provided for @paymentInfoSave.
   ///

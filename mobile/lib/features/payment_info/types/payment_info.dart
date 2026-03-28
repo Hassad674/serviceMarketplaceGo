@@ -14,8 +14,7 @@ class PaymentInfoFormData {
     this.firstName = '',
     this.lastName = '',
     this.dateOfBirth = '',
-    this.email = '',
-    this.country = '',
+    this.nationality = '',
     this.address = '',
     this.city = '',
     this.postalCode = '',
@@ -24,21 +23,23 @@ class PaymentInfoFormData {
     this.businessAddress = '',
     this.businessCity = '',
     this.businessPostalCode = '',
+    this.businessCountry = '',
     this.taxId = '',
     this.vatNumber = '',
     this.bankMode = BankAccountMode.iban,
     this.iban = '',
+    this.bic = '',
     this.accountNumber = '',
     this.routingNumber = '',
     this.accountHolder = '',
+    this.bankCountry = '',
   });
 
   final bool isBusiness;
   final String firstName;
   final String lastName;
   final String dateOfBirth;
-  final String email;
-  final String country;
+  final String nationality;
   final String address;
   final String city;
   final String postalCode;
@@ -47,21 +48,23 @@ class PaymentInfoFormData {
   final String businessAddress;
   final String businessCity;
   final String businessPostalCode;
+  final String businessCountry;
   final String taxId;
   final String vatNumber;
   final BankAccountMode bankMode;
   final String iban;
+  final String bic;
   final String accountNumber;
   final String routingNumber;
   final String accountHolder;
+  final String bankCountry;
 
   PaymentInfoFormData copyWith({
     bool? isBusiness,
     String? firstName,
     String? lastName,
     String? dateOfBirth,
-    String? email,
-    String? country,
+    String? nationality,
     String? address,
     String? city,
     String? postalCode,
@@ -70,21 +73,23 @@ class PaymentInfoFormData {
     String? businessAddress,
     String? businessCity,
     String? businessPostalCode,
+    String? businessCountry,
     String? taxId,
     String? vatNumber,
     BankAccountMode? bankMode,
     String? iban,
+    String? bic,
     String? accountNumber,
     String? routingNumber,
     String? accountHolder,
+    String? bankCountry,
   }) {
     return PaymentInfoFormData(
       isBusiness: isBusiness ?? this.isBusiness,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
-      email: email ?? this.email,
-      country: country ?? this.country,
+      nationality: nationality ?? this.nationality,
       address: address ?? this.address,
       city: city ?? this.city,
       postalCode: postalCode ?? this.postalCode,
@@ -93,13 +98,16 @@ class PaymentInfoFormData {
       businessAddress: businessAddress ?? this.businessAddress,
       businessCity: businessCity ?? this.businessCity,
       businessPostalCode: businessPostalCode ?? this.businessPostalCode,
+      businessCountry: businessCountry ?? this.businessCountry,
       taxId: taxId ?? this.taxId,
       vatNumber: vatNumber ?? this.vatNumber,
       bankMode: bankMode ?? this.bankMode,
       iban: iban ?? this.iban,
+      bic: bic ?? this.bic,
       accountNumber: accountNumber ?? this.accountNumber,
       routingNumber: routingNumber ?? this.routingNumber,
       accountHolder: accountHolder ?? this.accountHolder,
+      bankCountry: bankCountry ?? this.bankCountry,
     );
   }
 }

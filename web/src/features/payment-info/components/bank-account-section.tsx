@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { CountrySelect } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
 
 type BankAccountSectionProps = {
@@ -68,13 +69,25 @@ export function BankAccountSection({ data, onChange, onChangeBankMode }: BankAcc
               />
             </div>
             <div className="sm:col-span-2">
-              <button
-                type="button"
-                onClick={() => onChangeBankMode("local")}
-                className="text-sm font-medium text-rose-500 transition-colors hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300"
-              >
-                {t("noIban")}
-              </button>
+              <InputField
+                label={t("bic")}
+                value={data.bic}
+                onChange={(v) => onChange("bic", v)}
+                placeholder={t("bicPlaceholder")}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {t("ibanHelp")}{" "}
+                <a
+                  href="https://www.iban.com/calculate-iban"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-rose-500 underline transition-colors hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300"
+                >
+                  iban.com
+                </a>
+              </p>
             </div>
           </>
         ) : (
@@ -91,25 +104,48 @@ export function BankAccountSection({ data, onChange, onChangeBankMode }: BankAcc
               onChange={(v) => onChange("routingNumber", v)}
               required
             />
-            <div className="sm:col-span-2">
-              <button
-                type="button"
-                onClick={() => onChangeBankMode("iban")}
-                className="text-sm font-medium text-rose-500 transition-colors hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300"
-              >
-                {t("useIban")}
-              </button>
-            </div>
           </>
         )}
 
+        {/* IBAN toggle checkbox */}
         <div className="sm:col-span-2">
-          <InputField
-            label={t("accountHolder")}
-            value={data.accountHolder}
-            onChange={(v) => onChange("accountHolder", v)}
-            required
-          />
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={!isIbanMode}
+              onChange={() => onChangeBankMode(isIbanMode ? "local" : "iban")}
+              className={cn(
+                "h-4 w-4 rounded border-gray-300 text-rose-500 transition-colors",
+                "focus:ring-2 focus:ring-rose-500/20 focus:outline-none",
+                "dark:border-gray-600 dark:bg-gray-800",
+              )}
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {t("noIban")}
+            </span>
+          </label>
+        </div>
+
+        {/* Bank country */}
+        <div className="sm:col-span-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                {t("bankCountry")}
+                <span className="ml-0.5 text-red-500">*</span>
+              </label>
+              <CountrySelect
+                value={data.bankCountry}
+                onChange={(v) => onChange("bankCountry", v)}
+              />
+            </div>
+            <InputField
+              label={t("accountHolder")}
+              value={data.accountHolder}
+              onChange={(v) => onChange("accountHolder", v)}
+              required
+            />
+          </div>
         </div>
       </div>
     </section>

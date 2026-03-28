@@ -38,8 +38,7 @@ class _PaymentInfoScreenState extends State<PaymentInfoScreen> {
     final personalOk = _data.firstName.trim().isNotEmpty &&
         _data.lastName.trim().isNotEmpty &&
         _data.dateOfBirth.isNotEmpty &&
-        _data.email.trim().isNotEmpty &&
-        _data.country.isNotEmpty &&
+        _data.nationality.isNotEmpty &&
         _data.address.trim().isNotEmpty &&
         _data.city.trim().isNotEmpty &&
         _data.postalCode.trim().isNotEmpty;
@@ -51,11 +50,13 @@ class _PaymentInfoScreenState extends State<PaymentInfoScreen> {
           _data.businessAddress.trim().isNotEmpty &&
           _data.businessCity.trim().isNotEmpty &&
           _data.businessPostalCode.trim().isNotEmpty &&
+          _data.businessCountry.isNotEmpty &&
           _data.taxId.trim().isNotEmpty;
       if (!bizOk) return false;
     }
 
     final bankOk = _data.accountHolder.trim().isNotEmpty &&
+        _data.bankCountry.isNotEmpty &&
         (_data.bankMode == BankAccountMode.iban
             ? _data.iban.trim().isNotEmpty
             : _data.accountNumber.trim().isNotEmpty &&
@@ -204,20 +205,14 @@ class _PersonalInfoSection extends StatelessWidget {
           value: data.dateOfBirth,
           onChanged: (v) => onUpdate((d) => d.copyWith(dateOfBirth: v)),
         ),
-        PaymentFormField(
-          label: l10n.paymentInfoEmail,
-          value: data.email,
-          onChanged: (v) => onUpdate((d) => d.copyWith(email: v)),
-          keyboardType: TextInputType.emailAddress,
-          required: true,
-        ),
         PaymentCountryDropdown(
-          value: data.country,
+          label: l10n.paymentInfoNationality,
+          value: data.nationality,
           onChanged: (code) {
             final mode = ibanCountryCodes.contains(code)
                 ? BankAccountMode.iban
                 : BankAccountMode.local;
-            onUpdate((d) => d.copyWith(country: code, bankMode: mode));
+            onUpdate((d) => d.copyWith(nationality: code, bankMode: mode));
           },
         ),
         PaymentFormField(
@@ -293,6 +288,12 @@ class _BusinessInfoSection extends StatelessWidget {
               onUpdate((d) => d.copyWith(businessPostalCode: v)),
           required: true,
         ),
+        PaymentCountryDropdown(
+          label: l10n.paymentInfoBusinessCountry,
+          value: data.businessCountry,
+          onChanged: (code) =>
+              onUpdate((d) => d.copyWith(businessCountry: code)),
+        ),
         PaymentFormField(
           label: l10n.paymentInfoTaxId,
           value: data.taxId,
@@ -340,11 +341,13 @@ class _BankAccountSection extends StatelessWidget {
             placeholder: l10n.paymentInfoIbanHint,
             required: true,
           ),
-          PaymentBankModeToggle(
-            label: l10n.paymentInfoNoIban,
-            onTap: () =>
-                onUpdate((d) => d.copyWith(bankMode: BankAccountMode.local)),
+          PaymentFormField(
+            label: l10n.paymentInfoBic,
+            value: data.bic,
+            onChanged: (v) => onUpdate((d) => d.copyWith(bic: v)),
+            placeholder: l10n.paymentInfoBicHint,
           ),
+          PaymentIbanHelpText(helpText: l10n.paymentInfoIbanHelp),
         ] else ...[
           PaymentFormField(
             label: l10n.paymentInfoAccountNumber,
@@ -358,12 +361,23 @@ class _BankAccountSection extends StatelessWidget {
             onChanged: (v) => onUpdate((d) => d.copyWith(routingNumber: v)),
             required: true,
           ),
-          PaymentBankModeToggle(
-            label: l10n.paymentInfoUseIban,
-            onTap: () =>
-                onUpdate((d) => d.copyWith(bankMode: BankAccountMode.iban)),
-          ),
         ],
+        PaymentNoIbanCheckbox(
+          value: !isIban,
+          label: l10n.paymentInfoNoIban,
+          onChanged: (checked) => onUpdate(
+            (d) => d.copyWith(
+              bankMode:
+                  checked ? BankAccountMode.local : BankAccountMode.iban,
+            ),
+          ),
+        ),
+        PaymentCountryDropdown(
+          label: l10n.paymentInfoBankCountry,
+          value: data.bankCountry,
+          onChanged: (code) =>
+              onUpdate((d) => d.copyWith(bankCountry: code)),
+        ),
         PaymentFormField(
           label: l10n.paymentInfoAccountHolder,
           value: data.accountHolder,

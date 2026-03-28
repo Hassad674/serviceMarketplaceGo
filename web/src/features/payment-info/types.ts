@@ -7,8 +7,7 @@ export type PaymentInfoFormData = {
   firstName: string
   lastName: string
   dateOfBirth: string
-  email: string
-  country: string
+  nationality: string
   address: string
   city: string
   postalCode: string
@@ -17,13 +16,16 @@ export type PaymentInfoFormData = {
   businessAddress: string
   businessCity: string
   businessPostalCode: string
+  businessCountry: string
   taxId: string
   vatNumber: string
   bankMode: BankAccountMode
   iban: string
+  bic: string
   accountNumber: string
   routingNumber: string
   accountHolder: string
+  bankCountry: string
 }
 
 export const INITIAL_FORM_DATA: PaymentInfoFormData = {
@@ -31,8 +33,7 @@ export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   firstName: "",
   lastName: "",
   dateOfBirth: "",
-  email: "",
-  country: "",
+  nationality: "",
   address: "",
   city: "",
   postalCode: "",
@@ -41,11 +42,14 @@ export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   businessAddress: "",
   businessCity: "",
   businessPostalCode: "",
+  businessCountry: "",
   taxId: "",
   vatNumber: "",
   bankMode: "iban",
   iban: "",
+  bic: "",
   accountNumber: "",
   routingNumber: "",
   accountHolder: "",
+  bankCountry: "",
 }

@@ -16,8 +16,7 @@ function isFormValid(data: PaymentInfoFormData): boolean {
     data.firstName.trim() !== "" &&
     data.lastName.trim() !== "" &&
     data.dateOfBirth !== "" &&
-    data.email.trim() !== "" &&
-    data.country !== "" &&
+    data.nationality !== "" &&
     data.address.trim() !== "" &&
     data.city.trim() !== "" &&
     data.postalCode.trim() !== ""
@@ -31,12 +30,14 @@ function isFormValid(data: PaymentInfoFormData): boolean {
       data.businessAddress.trim() !== "" &&
       data.businessCity.trim() !== "" &&
       data.businessPostalCode.trim() !== "" &&
+      data.businessCountry !== "" &&
       data.taxId.trim() !== ""
     if (!businessComplete) return false
   }
 
   const bankComplete =
     data.accountHolder.trim() !== "" &&
+    data.bankCountry !== "" &&
     (data.bankMode === "iban"
       ? data.iban.trim() !== ""
       : data.accountNumber.trim() !== "" && data.routingNumber.trim() !== "")
@@ -53,8 +54,8 @@ export function PaymentInfoPage() {
     (field: keyof PaymentInfoFormData, value: string) => {
       setData((prev) => {
         const next = { ...prev, [field]: value }
-        // Auto-switch bank mode when country changes
-        if (field === "country") {
+        // Auto-switch bank mode when nationality changes
+        if (field === "nationality") {
           next.bankMode = isIbanCountry(value) ? "iban" : "local"
         }
         return next

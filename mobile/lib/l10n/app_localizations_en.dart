@@ -962,10 +962,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentInfoDob => 'Date of birth';
 
   @override
-  String get paymentInfoEmail => 'Email';
-
-  @override
-  String get paymentInfoCountry => 'Country';
+  String get paymentInfoNationality => 'Nationality';
 
   @override
   String get paymentInfoAddress => 'Address';
@@ -992,6 +989,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentInfoBusinessPostalCode => 'Business postal code';
 
   @override
+  String get paymentInfoBusinessCountry => 'Country of registration';
+
+  @override
   String get paymentInfoTaxId => 'Tax ID';
 
   @override
@@ -1010,6 +1010,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentInfoIbanHint => 'FR76 1234 5678 9012 3456 78';
 
   @override
+  String get paymentInfoBic => 'BIC / SWIFT (optional)';
+
+  @override
+  String get paymentInfoBicHint => 'BNPAFRPP';
+
+  @override
+  String get paymentInfoIbanHelp =>
+      'If your bank hasn\'t provided an IBAN, you can generate one at';
+
+  @override
   String get paymentInfoNoIban => 'I don\'t have an IBAN';
 
   @override
@@ -1023,6 +1033,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentInfoAccountHolder => 'Account holder name';
+
+  @override
+  String get paymentInfoBankCountry => 'Bank country';
 
   @override
   String get paymentInfoSave => 'Save';

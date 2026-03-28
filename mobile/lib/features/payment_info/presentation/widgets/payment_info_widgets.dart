@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -323,23 +324,26 @@ class PaymentDateField extends StatelessWidget {
 class PaymentCountryDropdown extends StatelessWidget {
   const PaymentCountryDropdown({
     super.key,
+    this.label,
     required this.value,
     required this.onChanged,
   });
 
+  final String? label;
   final String value;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final displayLabel = label ?? l10n.paymentInfoNationality;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
         initialValue: value.isEmpty ? null : value,
         decoration: InputDecoration(
-          labelText: '${l10n.paymentInfoCountry} *',
+          labelText: '$displayLabel *',
         ),
         items: countries
             .map(
@@ -400,33 +404,103 @@ class PaymentRoleDropdown extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Bank mode toggle link
+// No IBAN checkbox
 // ---------------------------------------------------------------------------
 
-class PaymentBankModeToggle extends StatelessWidget {
-  const PaymentBankModeToggle({
+class PaymentNoIbanCheckbox extends StatelessWidget {
+  const PaymentNoIbanCheckbox({
     super.key,
+    required this.value,
     required this.label,
-    required this.onTap,
+    required this.onChanged,
   });
 
+  final bool value;
   final String label;
-  final VoidCallback onTap;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFFF43F5E),
-          ),
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        child: Row(
+          children: [
+            Checkbox(
+              value: value,
+              onChanged: (v) => onChanged(v ?? false),
+              activeColor: const Color(0xFFF43F5E),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// IBAN help text with link
+// ---------------------------------------------------------------------------
+
+class PaymentIbanHelpText extends StatelessWidget {
+  const PaymentIbanHelpText({super.key, required this.helpText});
+
+  final String helpText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Wrap(
+              children: [
+                Text(
+                  '$helpText ',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => launchUrl(
+                    Uri.parse('https://www.iban.com/calculate-iban'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  child: const Text(
+                    'iban.com',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFF43F5E),
+                      decoration: TextDecoration.underline,
+                      decorationColor: Color(0xFFF43F5E),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

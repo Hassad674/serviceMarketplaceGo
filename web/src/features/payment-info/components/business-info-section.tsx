@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { CountrySelect } from "./country-select"
 import type { PaymentInfoFormData } from "../types"
 
 type BusinessInfoSectionProps = {
@@ -80,6 +81,16 @@ export function BusinessInfoSection({ data, onChange }: BusinessInfoSectionProps
           onChange={(v) => onChange("businessPostalCode", v)}
           required
         />
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t("businessCountry")}
+            <span className="ml-0.5 text-red-500">*</span>
+          </label>
+          <CountrySelect
+            value={data.businessCountry}
+            onChange={(v) => onChange("businessCountry", v)}
+          />
+        </div>
         <InputField
           label={t("taxId")}
           value={data.taxId}
