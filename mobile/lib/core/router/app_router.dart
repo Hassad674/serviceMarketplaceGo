@@ -21,6 +21,7 @@ import '../../features/proposal/presentation/screens/payment_simulation_screen.d
 import '../../features/proposal/presentation/screens/projects_list_screen.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
+import '../../features/payment_info/presentation/screens/payment_info_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_drawer.dart';
@@ -50,6 +51,7 @@ class RoutePaths {
   static const String projectsPay = '/projects/pay';
   static const String projectsList = '/projects/list';
   static const String profile = '/profile';
+  static const String paymentInfo = '/payment-info';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
   static const String chat = '/chat';
@@ -226,6 +228,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.profile,
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.paymentInfo,
+            builder: (context, state) => const PaymentInfoScreen(),
           ),
         ],
       ),

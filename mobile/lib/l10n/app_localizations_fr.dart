@@ -928,5 +928,129 @@ class AppLocalizationsFr extends AppLocalizations {
   String get drawerSwitchToFreelance => 'Dashboard Freelance';
 
   @override
+  String get drawerPaymentInfo => 'Infos paiement';
+
+  @override
   String get proposalViewDetails => 'Voir les détails';
+
+  @override
+  String get paymentInfoTitle => 'Informations de paiement';
+
+  @override
+  String get paymentInfoSubtitle =>
+      'Complétez vos informations pour recevoir les paiements de vos missions.';
+
+  @override
+  String get paymentInfoIsBusiness =>
+      'J\'exerce en tant qu\'entreprise enregistrée';
+
+  @override
+  String get paymentInfoPersonalInfo => 'Informations personnelles';
+
+  @override
+  String get paymentInfoLegalRep => 'Représentant légal';
+
+  @override
+  String get paymentInfoBusinessInfo => 'Informations de l\'entreprise';
+
+  @override
+  String get paymentInfoBankAccount => 'Compte bancaire';
+
+  @override
+  String get paymentInfoFirstName => 'Prénom';
+
+  @override
+  String get paymentInfoLastName => 'Nom';
+
+  @override
+  String get paymentInfoDob => 'Date de naissance';
+
+  @override
+  String get paymentInfoEmail => 'Email';
+
+  @override
+  String get paymentInfoCountry => 'Pays';
+
+  @override
+  String get paymentInfoAddress => 'Adresse';
+
+  @override
+  String get paymentInfoCity => 'Ville';
+
+  @override
+  String get paymentInfoPostalCode => 'Code postal';
+
+  @override
+  String get paymentInfoYourRole => 'Votre rôle dans l\'entreprise';
+
+  @override
+  String get paymentInfoBusinessName => 'Raison sociale';
+
+  @override
+  String get paymentInfoBusinessAddress => 'Adresse du siège';
+
+  @override
+  String get paymentInfoBusinessCity => 'Ville du siège';
+
+  @override
+  String get paymentInfoBusinessPostalCode => 'Code postal du siège';
+
+  @override
+  String get paymentInfoTaxId => 'Numéro d\'identification fiscale';
+
+  @override
+  String get paymentInfoTaxIdHint => 'SIRET, EIN, numéro TVA...';
+
+  @override
+  String get paymentInfoVatNumber => 'Numéro de TVA (optionnel)';
+
+  @override
+  String get paymentInfoVatNumberHint =>
+      'Numéro de TVA intracommunautaire (optionnel)';
+
+  @override
+  String get paymentInfoIban => 'IBAN';
+
+  @override
+  String get paymentInfoIbanHint => 'FR76 1234 5678 9012 3456 78';
+
+  @override
+  String get paymentInfoNoIban => 'Je n\'ai pas d\'IBAN';
+
+  @override
+  String get paymentInfoUseIban => 'J\'ai un IBAN';
+
+  @override
+  String get paymentInfoAccountNumber => 'Numéro de compte';
+
+  @override
+  String get paymentInfoRoutingNumber => 'Numéro de routage';
+
+  @override
+  String get paymentInfoAccountHolder => 'Titulaire du compte';
+
+  @override
+  String get paymentInfoSave => 'Enregistrer';
+
+  @override
+  String get paymentInfoSaved => 'Informations de paiement enregistrées';
+
+  @override
+  String get paymentInfoIncomplete =>
+      'Complétez vos informations de paiement pour recevoir vos paiements';
+
+  @override
+  String get paymentInfoRoleOwner => 'Propriétaire';
+
+  @override
+  String get paymentInfoRoleCeo => 'PDG / Gérant';
+
+  @override
+  String get paymentInfoRoleDirector => 'Directeur';
+
+  @override
+  String get paymentInfoRolePartner => 'Associé';
+
+  @override
+  String get paymentInfoRoleOther => 'Autre';
 }
