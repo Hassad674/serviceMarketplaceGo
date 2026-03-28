@@ -561,6 +561,10 @@
     "reviewSingular": "review",
     "reviewPlural": "reviews",
     "evaluationRequest": "Mission completed! Leave a review",
-    "leaveReview": "Leave a review"
+    "leaveReview": "Leave a review",
+    "addVideo": "Add a video",
+    "removeVideo": "Remove video",
+    "videoReview": "Video review",
+    "uploadingVideo": "Uploading video..."
   }
 }
