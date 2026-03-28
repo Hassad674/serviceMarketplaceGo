@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
-import type { ProposalResponse, ProjectListResponse, UploadURLResponse } from "../types"
+import type { ProposalResponse, ProjectListResponse, UploadURLResponse, PaymentIntentResponse } from "../types"
 
 export type CreateProposalData = {
   recipient_id: string
@@ -45,8 +45,8 @@ export function modifyProposal(id: string, data: ModifyProposalData): Promise<Pr
   })
 }
 
-export function simulatePayment(id: string): Promise<void> {
-  return apiClient<void>(`/api/v1/proposals/${id}/pay`, { method: "POST" })
+export function initiatePayment(id: string): Promise<PaymentIntentResponse> {
+  return apiClient<PaymentIntentResponse>(`/api/v1/proposals/${id}/pay`, { method: "POST" })
 }
 
 export function requestCompletion(id: string): Promise<void> {

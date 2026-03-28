@@ -7,7 +7,7 @@ import {
   acceptProposal,
   declineProposal,
   modifyProposal,
-  simulatePayment,
+  initiatePayment,
   requestCompletion,
   completeProposal,
   rejectCompletion,
@@ -87,11 +87,11 @@ export function useModifyProposal() {
   })
 }
 
-export function useSimulatePayment() {
+export function useInitiatePayment() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => simulatePayment(id),
+    mutationFn: (id: string) => initiatePayment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })

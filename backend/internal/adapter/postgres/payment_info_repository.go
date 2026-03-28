@@ -154,6 +154,19 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 	return nil
 }
 
+func (r *PaymentInfoRepository) UpdateStripeFields(ctx context.Context, userID uuid.UUID, stripeAccountID string, stripeVerified bool) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE payment_info SET stripe_account_id = $1, stripe_verified = $2 WHERE user_id = $3`,
+		stripeAccountID, stripeVerified, userID)
+	if err != nil {
+		return fmt.Errorf("update stripe fields: %w", err)
+	}
+	return nil
+}
+
 // nullString converts an empty string to a sql.NullString with Valid=false.
 func nullString(s string) sql.NullString {
 	if s == "" {

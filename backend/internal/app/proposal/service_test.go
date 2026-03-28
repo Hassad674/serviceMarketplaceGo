@@ -507,7 +507,7 @@ func TestSimulatePayment_Success(t *testing.T) {
 
 	svc := newTestService(proposalRepo, nil, msgSender, nil)
 
-	err := svc.SimulatePayment(context.Background(), PayProposalInput{
+	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
 	})
@@ -517,7 +517,7 @@ func TestSimulatePayment_Success(t *testing.T) {
 	assert.Equal(t, "proposal_paid", msgSender.calls[0].Type)
 }
 
-func TestSimulatePayment_ByProvider_Fails(t *testing.T) {
+func TestInitiatePayment_ByProvider_Fails(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
 	now := time.Now()
@@ -536,7 +536,7 @@ func TestSimulatePayment_ByProvider_Fails(t *testing.T) {
 
 	svc := newTestService(proposalRepo, nil, nil, nil)
 
-	err := svc.SimulatePayment(context.Background(), PayProposalInput{
+	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     providerID,
 	})
@@ -544,7 +544,7 @@ func TestSimulatePayment_ByProvider_Fails(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrNotAuthorized)
 }
 
-func TestSimulatePayment_NotAccepted_Fails(t *testing.T) {
+func TestInitiatePayment_NotAccepted_Fails(t *testing.T) {
 	clientID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
@@ -559,7 +559,7 @@ func TestSimulatePayment_NotAccepted_Fails(t *testing.T) {
 
 	svc := newTestService(proposalRepo, nil, nil, nil)
 
-	err := svc.SimulatePayment(context.Background(), PayProposalInput{
+	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
 	})

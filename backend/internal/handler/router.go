@@ -23,6 +23,7 @@ type RouterDeps struct {
 	SocialLink     *SocialLinkHandler
 	PaymentInfo    *PaymentInfoHandler
 	Notification   *NotificationHandler
+	Stripe         *StripeHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -111,7 +112,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/{id}/accept", deps.Proposal.AcceptProposal)
 				r.Post("/{id}/decline", deps.Proposal.DeclineProposal)
 				r.Post("/{id}/modify", deps.Proposal.ModifyProposal)
-				r.Post("/{id}/pay", deps.Proposal.SimulatePayment)
+				r.Post("/{id}/pay", deps.Proposal.PayProposal)
 				r.Post("/{id}/request-completion", deps.Proposal.RequestCompletion)
 				r.Post("/{id}/complete", deps.Proposal.CompleteProposal)
 				r.Post("/{id}/reject-completion", deps.Proposal.RejectCompletion)
@@ -197,6 +198,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Put("/preferences", deps.Notification.UpdatePreferences)
 				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
 			})
+		}
+
+		// Stripe routes
+		if deps.Stripe != nil {
+			r.Route("/stripe", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Get("/config", deps.Stripe.GetConfig)
+			})
+			// Webhook: NO auth — Stripe sends directly, verified by signature
+			r.Post("/stripe/webhook", deps.Stripe.HandleWebhook)
 		}
 
 		// WebSocket (auth handled inside the handler)

@@ -68,6 +68,19 @@ export type ProposalMessageMetadata = {
   proposal_provider_id: string
 }
 
+export type PaymentIntentResponse = {
+  client_secret?: string
+  payment_record_id?: string
+  amounts?: {
+    proposal_amount: number
+    stripe_fee: number
+    platform_fee: number
+    client_total: number
+    provider_payout: number
+  }
+  status?: string // "paid" for simulation mode
+}
+
 export type UploadURLResponse = {
   upload_url: string
   file_key: string

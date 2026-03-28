@@ -15,4 +15,13 @@ var (
 	ErrBankDetailsRequired  = errors.New("IBAN or account number + routing number is required")
 	ErrBusinessNameRequired = errors.New("business name is required when is_business is true")
 	ErrTaxIDRequired        = errors.New("tax ID is required when is_business is true")
+
+	// Payment record errors
+	ErrPaymentRecordNotFound    = errors.New("payment record not found")
+	ErrPaymentAlreadyExists     = errors.New("payment already exists for this proposal")
+	ErrPaymentNotPending        = errors.New("payment is not in pending state")
+	ErrPaymentNotSucceeded      = errors.New("payment has not succeeded")
+	ErrTransferAlreadyDone      = errors.New("transfer already completed")
+	ErrStripeAccountNotFound    = errors.New("provider has no Stripe connected account")
+	ErrStripeAccountNotVerified = errors.New("provider Stripe account is not verified")
 )

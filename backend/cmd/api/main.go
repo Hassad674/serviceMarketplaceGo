@@ -18,6 +18,7 @@ import (
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
+	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	"marketplace-backend/internal/adapter/ws"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
@@ -169,9 +170,20 @@ func main() {
 		slog.Info("call feature disabled (LiveKit not configured)")
 	}
 
-	// Payment info feature
+	// Stripe payment adapter (optional — only when Stripe is configured)
+	var stripeSvc service.StripeService
+	if cfg.StripeConfigured() {
+		stripeAdapter := stripeadapter.NewService(cfg.StripeSecretKey, cfg.StripeWebhookSecret)
+		stripeSvc = stripeAdapter
+		slog.Info("stripe payment adapter enabled")
+	} else {
+		slog.Info("stripe payment adapter disabled (not configured)")
+	}
+
+	// Payment info + records feature
 	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
-	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo)
+	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
+	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo, paymentRecordRepo, stripeSvc)
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
 
 	// Push notification service (optional — only when FCM is configured)
@@ -206,6 +218,7 @@ func main() {
 		Messages:      messagingSvc,
 		Storage:       storageSvc,
 		Notifications: notifSvc,
+		Payments:      paymentProcessor(paymentInfoSvc, cfg),
 	})
 	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       reviewRepo,
@@ -222,6 +235,12 @@ func main() {
 	proposalHandler := handler.NewProposalHandler(proposalSvc)
 	jobHandler := handler.NewJobHandler(jobSvc)
 	reviewHandler := handler.NewReviewHandler(reviewSvc)
+
+	// Stripe handler (optional)
+	var stripeHandler *handler.StripeHandler
+	if cfg.StripeConfigured() {
+		stripeHandler = handler.NewStripeHandler(paymentInfoSvc, proposalSvc, cfg.StripePublishableKey)
+	}
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
@@ -247,6 +266,7 @@ func main() {
 		SocialLink:     socialLinkHandler,
 		PaymentInfo:    paymentInfoHandler,
 		Notification:   notifHandler,
+		Stripe:         stripeHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
@@ -293,6 +313,14 @@ func main() {
 // wsOriginPatterns converts full origin URLs (e.g. "https://example.com")
 // to hostname patterns (e.g. "example.com") for coder/websocket OriginPatterns,
 // and adds a wildcard for local development.
+// paymentProcessor returns the payment service as PaymentProcessor if Stripe is configured, nil otherwise.
+func paymentProcessor(svc *paymentapp.Service, cfg *config.Config) service.PaymentProcessor {
+	if cfg.StripeConfigured() {
+		return svc
+	}
+	return nil
+}
+
 func wsOriginPatterns(origins []string) []string {
 	patterns := make([]string, 0, len(origins)+1)
 	for _, o := range origins {

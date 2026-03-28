@@ -1,0 +1,119 @@
+package payment
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type PaymentRecordStatus string
+
+const (
+	RecordStatusPending   PaymentRecordStatus = "pending"
+	RecordStatusSucceeded PaymentRecordStatus = "succeeded"
+	RecordStatusFailed    PaymentRecordStatus = "failed"
+	RecordStatusRefunded  PaymentRecordStatus = "refunded"
+)
+
+type TransferStatus string
+
+const (
+	TransferPending   TransferStatus = "pending"
+	TransferCompleted TransferStatus = "completed"
+	TransferFailed    TransferStatus = "failed"
+)
+
+type PaymentRecord struct {
+	ID                    uuid.UUID
+	ProposalID            uuid.UUID
+	ClientID              uuid.UUID
+	ProviderID            uuid.UUID
+	StripePaymentIntentID string
+	StripeTransferID      string
+
+	ProposalAmount    int64 // original proposal amount in centimes
+	StripeFeeAmount   int64 // Stripe processing fee (charged to client)
+	PlatformFeeAmount int64 // 5% commission (deducted from provider)
+	ClientTotalAmount int64 // what the client actually pays
+	ProviderPayout    int64 // what the provider receives
+
+	Currency       string
+	Status         PaymentRecordStatus
+	TransferStatus TransferStatus
+
+	PaidAt        *time.Time
+	TransferredAt *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+const platformFeePercent = 5
+
+// NewPaymentRecord creates a payment record and computes all fee amounts.
+// stripeFeeAmount is the estimated or actual Stripe processing fee.
+func NewPaymentRecord(proposalID, clientID, providerID uuid.UUID, proposalAmount, stripeFeeAmount int64) *PaymentRecord {
+	platformFee := proposalAmount * platformFeePercent / 100
+
+	now := time.Now()
+	return &PaymentRecord{
+		ID:                uuid.New(),
+		ProposalID:        proposalID,
+		ClientID:          clientID,
+		ProviderID:        providerID,
+		ProposalAmount:    proposalAmount,
+		StripeFeeAmount:   stripeFeeAmount,
+		PlatformFeeAmount: platformFee,
+		ClientTotalAmount: proposalAmount + stripeFeeAmount,
+		ProviderPayout:    proposalAmount - platformFee,
+		Currency:          "eur",
+		Status:            RecordStatusPending,
+		TransferStatus:    TransferPending,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+}
+
+func (r *PaymentRecord) MarkPaid() error {
+	if r.Status != RecordStatusPending {
+		return ErrPaymentNotPending
+	}
+	r.Status = RecordStatusSucceeded
+	now := time.Now()
+	r.PaidAt = &now
+	r.UpdatedAt = now
+	return nil
+}
+
+func (r *PaymentRecord) MarkFailed() {
+	r.Status = RecordStatusFailed
+	r.UpdatedAt = time.Now()
+}
+
+func (r *PaymentRecord) MarkTransferred(transferID string) error {
+	if r.Status != RecordStatusSucceeded {
+		return ErrPaymentNotSucceeded
+	}
+	if r.TransferStatus != TransferPending {
+		return ErrTransferAlreadyDone
+	}
+	r.StripeTransferID = transferID
+	r.TransferStatus = TransferCompleted
+	now := time.Now()
+	r.TransferredAt = &now
+	r.UpdatedAt = now
+	return nil
+}
+
+func (r *PaymentRecord) MarkTransferFailed() {
+	r.TransferStatus = TransferFailed
+	r.UpdatedAt = time.Now()
+}
+
+// EstimateStripeFee estimates the Stripe processing fee for European cards.
+// Stripe EU rate: 1.5% + 0.25€ (25 centimes).
+func EstimateStripeFee(proposalAmount int64) int64 {
+	// Fee = ceil((amount + 25) / (1 - 0.015)) - amount
+	// Simplified: fee ≈ amount * 0.015 + 25, rounded up
+	fee := (proposalAmount*15 + 999) / 1000 // ceil(amount * 1.5%)
+	return fee + 25
+}

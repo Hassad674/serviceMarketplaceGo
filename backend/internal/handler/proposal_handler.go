@@ -209,7 +209,7 @@ func (h *ProposalHandler) ModifyProposal(w http.ResponseWriter, r *http.Request)
 	res.JSON(w, http.StatusOK, response.NewProposalResponse(p, nil))
 }
 
-func (h *ProposalHandler) SimulatePayment(w http.ResponseWriter, r *http.Request) {
+func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
@@ -222,7 +222,7 @@ func (h *ProposalHandler) SimulatePayment(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	err = h.proposalSvc.SimulatePayment(r.Context(), proposalapp.PayProposalInput{
+	result, err := h.proposalSvc.InitiatePayment(r.Context(), proposalapp.PayProposalInput{
 		ProposalID: proposalID,
 		UserID:     userID,
 	})
@@ -231,7 +231,24 @@ func (h *ProposalHandler) SimulatePayment(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	res.JSON(w, http.StatusOK, map[string]string{"status": "paid"})
+	// Simulation mode: payment completed immediately
+	if result == nil {
+		res.JSON(w, http.StatusOK, map[string]string{"status": "paid"})
+		return
+	}
+
+	// Stripe mode: return client_secret for Elements
+	res.JSON(w, http.StatusOK, response.PaymentIntentResponse{
+		ClientSecret:    result.ClientSecret,
+		PaymentRecordID: result.PaymentRecordID.String(),
+		Amounts: response.PaymentAmounts{
+			ProposalAmount: result.ProposalAmount,
+			StripeFee:      result.StripeFee,
+			PlatformFee:    result.PlatformFee,
+			ClientTotal:    result.ClientTotal,
+			ProviderPayout: result.ProviderPayout,
+		},
+	})
 }
 
 func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Request) {

@@ -26,3 +26,7 @@ func (m *mockPaymentInfoRepo) Upsert(ctx context.Context, info *domain.PaymentIn
 	}
 	return nil
 }
+
+func (m *mockPaymentInfoRepo) UpdateStripeFields(_ context.Context, _ uuid.UUID, _ string, _ bool) error {
+	return nil
+}

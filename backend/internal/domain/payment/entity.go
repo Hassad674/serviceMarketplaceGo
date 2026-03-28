@@ -188,6 +188,16 @@ func validateBusiness(input NewPaymentInfoInput) error {
 	return nil
 }
 
+func (p *PaymentInfo) SetStripeAccount(accountID string) {
+	p.StripeAccountID = accountID
+	p.UpdatedAt = time.Now()
+}
+
+func (p *PaymentInfo) MarkStripeVerified() {
+	p.StripeVerified = true
+	p.UpdatedAt = time.Now()
+}
+
 func validateBankDetails(input NewPaymentInfoInput) error {
 	hasIBAN := strings.TrimSpace(input.IBAN) != ""
 	hasLocal := strings.TrimSpace(input.AccountNumber) != "" &&

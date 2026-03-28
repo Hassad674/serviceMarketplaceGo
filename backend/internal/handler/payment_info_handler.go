@@ -88,7 +88,8 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 		BankCountry:        req.BankCountry,
 	}
 
-	info, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input)
+	tosIP := r.RemoteAddr
+	info, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input, tosIP)
 	if err != nil {
 		handlePaymentInfoError(w, err)
 		return
