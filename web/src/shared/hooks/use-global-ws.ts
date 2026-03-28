@@ -10,7 +10,9 @@ const HEARTBEAT_INTERVAL = 30_000
 const MAX_RECONNECT_DELAY = 30_000
 
 function getWSUrl(): string {
+  // WebSocket always connects directly to the backend (no proxy).
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
+  // In production, use wss:// to the real backend
   return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
 }
 

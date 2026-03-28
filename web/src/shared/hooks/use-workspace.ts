@@ -86,7 +86,8 @@ export function useWorkspace() {
     setIsReferrerMode(true)
 
     // Sync referrer_enabled=true to the backend (once set, stays true permanently)
-    const apiURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"
+    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
+    const apiURL = rawApiUrl.includes("localhost") ? rawApiUrl : ""
     fetch(`${apiURL}/api/v1/auth/referrer-enable`, {
       method: "PUT",
       credentials: "include",

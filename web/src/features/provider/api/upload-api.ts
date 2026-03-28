@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
+import { API_BASE_URL } from "@/shared/lib/api-client"
+
+const API_URL = API_BASE_URL
 
 type UploadResponse = {
   url: string

@@ -1,4 +1,15 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
+// In production, API calls are proxied through Next.js rewrites (same-origin)
+// so cookies work without cross-origin issues. Use relative URLs ("").
+// In development, call the backend directly via full URL.
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
+
+/** HTTP base URL — empty in production (proxy), full URL in dev. */
+export const API_BASE_URL = rawApiUrl.includes("localhost") ? rawApiUrl : ""
+
+/** WebSocket base URL — always the real backend (no proxy for WS). */
+export const WS_BASE_URL = rawApiUrl.replace(/^http/, "ws")
+
+const API_URL = API_BASE_URL
 
 type RequestOptions = {
   method?: string

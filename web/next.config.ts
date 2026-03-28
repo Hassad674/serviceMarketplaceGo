@@ -42,6 +42,19 @@ const nextConfig: NextConfig = {
   // Enable gzip compression (useful for self-hosting)
   compress: true,
 
+  // Proxy API calls through Next.js in production so cookies stay same-origin.
+  // Without this, session_id cookie set by Railway won't be sent to Vercel.
+  async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl || apiUrl.includes("localhost")) return [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiUrl}/api/:path*`,
+      },
+    ];
+  },
+
   // Experimental performance optimizations
   experimental: {
     // Optimize package imports to reduce bundle size
