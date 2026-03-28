@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { AlertTriangle, CheckCircle } from "lucide-react"
+import { useState, useCallback, useEffect } from "react"
+import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { PersonalInfoSection } from "./personal-info-section"
@@ -10,6 +10,8 @@ import { BankAccountSection } from "./bank-account-section"
 import { isIbanCountry } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
 import { INITIAL_FORM_DATA } from "../types"
+import { usePaymentInfo, useSavePaymentInfo } from "../hooks/use-payment-info"
+import type { PaymentInfoResponse } from "../api/payment-info-api"
 
 function isFormValid(data: PaymentInfoFormData): boolean {
   const personalComplete =
@@ -45,16 +47,57 @@ function isFormValid(data: PaymentInfoFormData): boolean {
   return bankComplete
 }
 
+function responseToFormData(res: PaymentInfoResponse): PaymentInfoFormData {
+  const hasIban = res.iban !== ""
+  return {
+    isBusiness: res.is_business,
+    firstName: res.first_name,
+    lastName: res.last_name,
+    dateOfBirth: res.date_of_birth,
+    nationality: res.nationality,
+    address: res.address,
+    city: res.city,
+    postalCode: res.postal_code,
+    businessRole: res.role_in_company as PaymentInfoFormData["businessRole"],
+    businessName: res.business_name,
+    businessAddress: res.business_address,
+    businessCity: res.business_city,
+    businessPostalCode: res.business_postal_code,
+    businessCountry: res.business_country,
+    taxId: res.tax_id,
+    vatNumber: res.vat_number,
+    bankMode: hasIban ? "iban" : "local",
+    iban: res.iban,
+    bic: res.bic,
+    accountNumber: res.account_number,
+    routingNumber: res.routing_number,
+    accountHolder: res.account_holder,
+    bankCountry: res.bank_country,
+  }
+}
+
 export function PaymentInfoPage() {
   const t = useTranslations("paymentInfo")
   const [data, setData] = useState<PaymentInfoFormData>(INITIAL_FORM_DATA)
   const [saved, setSaved] = useState(false)
+  const [initialized, setInitialized] = useState(false)
+
+  const { data: existing, isLoading } = usePaymentInfo()
+  const saveMutation = useSavePaymentInfo()
+
+  useEffect(() => {
+    if (initialized || isLoading) return
+    if (existing) {
+      setData(responseToFormData(existing))
+      setSaved(true)
+    }
+    setInitialized(true)
+  }, [existing, isLoading, initialized])
 
   const handleChange = useCallback(
     (field: keyof PaymentInfoFormData, value: string) => {
       setData((prev) => {
         const next = { ...prev, [field]: value }
-        // Auto-switch bank mode when nationality changes
         if (field === "nationality") {
           next.bankMode = isIbanCountry(value) ? "iban" : "local"
         }
@@ -76,10 +119,18 @@ export function PaymentInfoPage() {
   }, [])
 
   const handleSave = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log("Payment info submitted:", data)
-    setSaved(true)
-  }, [data])
+    saveMutation.mutate(data, {
+      onSuccess: () => setSaved(true),
+    })
+  }, [data, saveMutation])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-6 w-6 animate-spin text-rose-500" />
+      </div>
+    )
+  }
 
   const valid = isFormValid(data)
 
@@ -108,6 +159,18 @@ export function PaymentInfoPage() {
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
           <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
             {t("incomplete")}
+          </p>
+        </div>
+      )}
+
+      {/* API error banner */}
+      {saveMutation.isError && (
+        <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" strokeWidth={1.5} />
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">
+            {saveMutation.error instanceof Error
+              ? saveMutation.error.message
+              : t("saveError")}
           </p>
         </div>
       )}
@@ -152,16 +215,16 @@ export function PaymentInfoPage() {
       {/* Save button */}
       <button
         type="button"
-        disabled={!valid}
+        disabled={!valid || saveMutation.isPending}
         onClick={handleSave}
         className={cn(
           "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-200 sm:w-auto",
-          valid
+          valid && !saveMutation.isPending
             ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
             : "cursor-not-allowed bg-gray-300 dark:bg-gray-700",
         )}
       >
-        {t("save")}
+        {saveMutation.isPending ? t("saving") : t("save")}
       </button>
     </div>
   )

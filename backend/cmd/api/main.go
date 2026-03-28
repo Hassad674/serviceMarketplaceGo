@@ -20,10 +20,11 @@ import (
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	jobapp "marketplace-backend/internal/app/job"
-	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/app/messaging"
+	paymentapp "marketplace-backend/internal/app/payment"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
+	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/pkg/crypto"
@@ -166,6 +167,11 @@ func main() {
 		slog.Info("call feature disabled (LiveKit not configured)")
 	}
 
+	// Payment info feature
+	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
+	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo)
+	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
@@ -198,6 +204,7 @@ func main() {
 		Review:         reviewHandler,
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
+		PaymentInfo:    paymentInfoHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

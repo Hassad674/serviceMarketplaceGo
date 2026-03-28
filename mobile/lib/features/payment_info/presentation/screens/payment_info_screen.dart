@@ -1,31 +1,34 @@
-import 'dart:developer' show log;
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../domain/entities/payment_info_entity.dart';
 import '../../types/payment_info.dart';
+import '../providers/payment_info_provider.dart';
 import '../widgets/payment_info_widgets.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
-/// Payment information form — UI only, no backend call.
+/// Payment information form connected to the backend API.
 ///
-/// Accessible to agency and provider roles. Displays personal info,
-/// optional business info, and bank account fields.
-class PaymentInfoScreen extends StatefulWidget {
+/// Accessible to agency and provider roles. Loads existing data on mount,
+/// displays personal info, optional business info, and bank account fields.
+class PaymentInfoScreen extends ConsumerStatefulWidget {
   const PaymentInfoScreen({super.key});
 
   @override
-  State<PaymentInfoScreen> createState() => _PaymentInfoScreenState();
+  ConsumerState<PaymentInfoScreen> createState() => _PaymentInfoScreenState();
 }
 
-class _PaymentInfoScreenState extends State<PaymentInfoScreen> {
+class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   var _data = const PaymentInfoFormData();
   bool _saved = false;
+  bool _saving = false;
+  bool _initialized = false;
 
   void _update(PaymentInfoFormData Function(PaymentInfoFormData) updater) {
     setState(() {
@@ -64,10 +67,116 @@ class _PaymentInfoScreenState extends State<PaymentInfoScreen> {
     return bankOk;
   }
 
+  void _populateFromEntity(PaymentInfo info) {
+    final hasIban = info.iban.isNotEmpty;
+    _data = PaymentInfoFormData(
+      isBusiness: info.isBusiness,
+      firstName: info.firstName,
+      lastName: info.lastName,
+      dateOfBirth: info.dateOfBirth,
+      nationality: info.nationality,
+      address: info.address,
+      city: info.city,
+      postalCode: info.postalCode,
+      businessRole: _parseBusinessRole(info.roleInCompany),
+      businessName: info.businessName,
+      businessAddress: info.businessAddress,
+      businessCity: info.businessCity,
+      businessPostalCode: info.businessPostalCode,
+      businessCountry: info.businessCountry,
+      taxId: info.taxId,
+      vatNumber: info.vatNumber,
+      bankMode: hasIban ? BankAccountMode.iban : BankAccountMode.local,
+      iban: info.iban,
+      bic: info.bic,
+      accountNumber: info.accountNumber,
+      routingNumber: info.routingNumber,
+      accountHolder: info.accountHolder,
+      bankCountry: info.bankCountry,
+    );
+    _saved = true;
+  }
+
+  BusinessRole? _parseBusinessRole(String value) {
+    const mapping = {
+      'owner': BusinessRole.owner,
+      'ceo': BusinessRole.ceo,
+      'director': BusinessRole.director,
+      'partner': BusinessRole.partner,
+      'other': BusinessRole.other,
+    };
+    return mapping[value.toLowerCase()];
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      final repo = ref.read(paymentInfoRepositoryProvider);
+      await repo.savePaymentInfo(_formDataToJson());
+      ref.invalidate(paymentInfoProvider);
+      ref.invalidate(paymentInfoStatusProvider);
+      if (mounted) setState(() => _saved = true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Map<String, dynamic> _formDataToJson() {
+    return {
+      'first_name': _data.firstName,
+      'last_name': _data.lastName,
+      'date_of_birth': _data.dateOfBirth,
+      'nationality': _data.nationality,
+      'address': _data.address,
+      'city': _data.city,
+      'postal_code': _data.postalCode,
+      'is_business': _data.isBusiness,
+      'business_name': _data.businessName,
+      'business_address': _data.businessAddress,
+      'business_city': _data.businessCity,
+      'business_postal_code': _data.businessPostalCode,
+      'business_country': _data.businessCountry,
+      'tax_id': _data.taxId,
+      'vat_number': _data.vatNumber,
+      'role_in_company': _data.businessRole?.name ?? '',
+      'iban': _data.iban,
+      'bic': _data.bic,
+      'account_number': _data.accountNumber,
+      'routing_number': _data.routingNumber,
+      'account_holder': _data.accountHolder,
+      'bank_country': _data.bankCountry,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final asyncInfo = ref.watch(paymentInfoProvider);
+
+    // Populate form from existing data once
+    if (!_initialized) {
+      asyncInfo.whenData((info) {
+        if (!_initialized && info != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _populateFromEntity(info);
+                _initialized = true;
+              });
+            }
+          });
+        } else if (!_initialized) {
+          _initialized = true;
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -77,88 +186,113 @@ class _PaymentInfoScreenState extends State<PaymentInfoScreen> {
         ),
         title: Text(l10n.paymentInfoTitle),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+      body: asyncInfo.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Subtitle
-              Text(
-                l10n.paymentInfoSubtitle,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+              Text('Error: $error'),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(paymentInfoProvider),
+                child: const Text('Retry'),
               ),
-              const SizedBox(height: 16),
-
-              // Status banner
-              PaymentStatusBanner(saved: _saved),
-              const SizedBox(height: 16),
-
-              // Business toggle
-              PaymentBusinessToggle(
-                value: _data.isBusiness,
-                onChanged: (v) => _update((d) => d.copyWith(isBusiness: v)),
-              ),
-              const SizedBox(height: 16),
-
-              // Personal info
-              _PersonalInfoSection(data: _data, onUpdate: _update),
-              const SizedBox(height: 16),
-
-              // Business info (animated)
-              AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOut,
-                alignment: Alignment.topCenter,
-                child: _data.isBusiness
-                    ? Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _BusinessInfoSection(
-                          data: _data,
-                          onUpdate: _update,
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-
-              // Bank account
-              _BankAccountSection(data: _data, onUpdate: _update),
-              const SizedBox(height: 24),
-
-              // Save button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _isValid
-                      ? () {
-                          log('Payment info: $_data');
-                          setState(() => _saved = true);
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF43F5E),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-                    ),
-                  ),
-                  child: Text(
-                    l10n.paymentInfoSave,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
             ],
           ),
+        ),
+        data: (_) => _buildForm(l10n, theme),
+      ),
+    );
+  }
+
+  Widget _buildForm(AppLocalizations l10n, ThemeData theme) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Subtitle
+            Text(
+              l10n.paymentInfoSubtitle,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Status banner
+            PaymentStatusBanner(saved: _saved),
+            const SizedBox(height: 16),
+
+            // Business toggle
+            PaymentBusinessToggle(
+              value: _data.isBusiness,
+              onChanged: (v) => _update((d) => d.copyWith(isBusiness: v)),
+            ),
+            const SizedBox(height: 16),
+
+            // Personal info
+            _PersonalInfoSection(data: _data, onUpdate: _update),
+            const SizedBox(height: 16),
+
+            // Business info (animated)
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: _data.isBusiness
+                  ? Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _BusinessInfoSection(
+                        data: _data,
+                        onUpdate: _update,
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+
+            // Bank account
+            _BankAccountSection(data: _data, onUpdate: _update),
+            const SizedBox(height: 24),
+
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: _isValid && !_saving ? _save : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF43F5E),
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  ),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        l10n.paymentInfoSave,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );

@@ -21,6 +21,7 @@ type RouterDeps struct {
 	Review         *ReviewHandler
 	Call           *CallHandler
 	SocialLink     *SocialLinkHandler
+	PaymentInfo    *PaymentInfoHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -168,6 +169,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/{id}/accept", deps.Call.AcceptCall)
 				r.Post("/{id}/decline", deps.Call.DeclineCall)
 				r.Post("/{id}/end", deps.Call.EndCall)
+			})
+		}
+
+		// Payment info routes (authenticated)
+		if deps.PaymentInfo != nil {
+			r.Route("/payment-info", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Get("/", deps.PaymentInfo.GetPaymentInfo)
+				r.Put("/", deps.PaymentInfo.SavePaymentInfo)
+				r.Get("/status", deps.PaymentInfo.GetPaymentInfoStatus)
 			})
 		}
 
