@@ -273,7 +273,6 @@ class CallNotifier extends StateNotifier<CallState> {
       'LIVEKIT_URL',
       defaultValue: '',
     );
-    debugPrint('[Call] LIVEKIT_URL value: "${lkUrl.isEmpty ? "(empty)" : lkUrl}"');
     if (lkUrl.isEmpty) {
       debugPrint('[Call] LIVEKIT_URL not set — skipping room connection');
       return;

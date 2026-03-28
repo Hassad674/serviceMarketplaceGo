@@ -77,11 +77,11 @@ func authenticateWS(r *http.Request, tokenSvc service.TokenService, sessionSvc s
 		}
 	}
 
-	// Strategy 2: Session ID as query param (web, cross-origin production)
-	if sid := r.URL.Query().Get("session_id"); sid != "" {
-		session, err := sessionSvc.Get(r.Context(), sid)
+	// Strategy 2: Short-lived WS token as query param (web, cross-origin production)
+	if wsToken := r.URL.Query().Get("ws_token"); wsToken != "" {
+		userID, err := sessionSvc.ValidateWSToken(r.Context(), wsToken)
 		if err == nil {
-			return session.UserID, nil
+			return userID, nil
 		}
 	}
 

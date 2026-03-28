@@ -43,19 +43,6 @@ func (c *CookieConfig) SetSession(w http.ResponseWriter, sessionID string, role 
 		Domain:   c.Domain,
 	})
 
-	// Non-httpOnly ws_token cookie for WebSocket auth in cross-origin production.
-	// The session_id is httpOnly (can't be read by JS), but WebSocket connections
-	// to Railway need auth. This cookie is readable by JS to pass as query param.
-	http.SetCookie(w, &http.Cookie{
-		Name:     "ws_token",
-		Value:    sessionID,
-		Path:     "/",
-		MaxAge:   c.MaxAge,
-		HttpOnly: false,
-		Secure:   c.Secure,
-		SameSite: ss,
-		Domain:   c.Domain,
-	})
 }
 
 func (c *CookieConfig) ClearSession(w http.ResponseWriter) {
@@ -69,14 +56,6 @@ func (c *CookieConfig) ClearSession(w http.ResponseWriter) {
 	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "user_role",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: false,
-		Domain:   c.Domain,
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     "ws_token",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,

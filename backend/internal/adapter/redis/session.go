@@ -82,3 +82,33 @@ func (s *SessionService) Get(ctx context.Context, sessionID string) (*service.Se
 func (s *SessionService) Delete(ctx context.Context, sessionID string) error {
 	return s.client.Del(ctx, "session:"+sessionID).Err()
 }
+
+// CreateWSToken generates a short-lived token for WebSocket authentication.
+// The token maps to the user's ID and expires in 60 seconds.
+// This avoids exposing the session_id in a non-httpOnly cookie.
+func (s *SessionService) CreateWSToken(ctx context.Context, userID uuid.UUID) (string, error) {
+	token := uuid.New().String()
+	key := "ws_token:" + token
+
+	if err := s.client.Set(ctx, key, userID.String(), 60*time.Second).Err(); err != nil {
+		return "", fmt.Errorf("store ws token: %w", err)
+	}
+
+	return token, nil
+}
+
+// ValidateWSToken validates a short-lived WS token and returns the user ID.
+// The token is deleted after validation (single-use).
+func (s *SessionService) ValidateWSToken(ctx context.Context, token string) (uuid.UUID, error) {
+	key := "ws_token:" + token
+
+	val, err := s.client.GetDel(ctx, key).Result()
+	if err == goredis.Nil {
+		return uuid.UUID{}, fmt.Errorf("ws token not found or expired")
+	}
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("validate ws token: %w", err)
+	}
+
+	return uuid.Parse(val)
+}

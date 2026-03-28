@@ -181,6 +181,26 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewUserResponse(u))
 }
 
+// WSToken issues a short-lived single-use token for WebSocket authentication.
+// The frontend calls this via the same-origin proxy (httpOnly session cookie is
+// sent automatically), then passes the token as a query param when connecting to
+// the WebSocket on Railway directly. This avoids exposing the session_id.
+func (h *AuthHandler) WSToken(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	token, err := h.sessionSvc.CreateWSToken(r.Context(), userID)
+	if err != nil {
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to create ws token")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"token": token})
+}
+
 func (h *AuthHandler) EnableReferrer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

@@ -9,21 +9,27 @@ import { NOTIFICATIONS_QUERY_KEY } from "@/features/notification/hooks/use-notif
 const HEARTBEAT_INTERVAL = 30_000
 const MAX_RECONNECT_DELAY = 30_000
 
-function getWSUrl(): string {
+async function getWSUrl(): Promise<string> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
   // In dev, connect directly — session cookie is same-origin.
   if (apiUrl.includes("localhost")) {
     return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
   }
-  // Production: connect directly to Railway WS, pass session_id via query param
-  // (Vercel doesn't proxy WebSocket). The ws_token cookie is non-httpOnly and
-  // readable by JS — it contains the session_id for WS auth.
-  const wsBase = apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
-  const wsToken = document.cookie
-    .split("; ")
-    .find((c) => c.startsWith("ws_token="))
-    ?.split("=")[1]
-  return wsToken ? `${wsBase}?session_id=${wsToken}` : wsBase
+  // Production: fetch a short-lived WS token from the backend (via proxy,
+  // so the httpOnly session cookie is sent automatically). Then connect
+  // to Railway WS directly with this token. The token is single-use and
+  // expires in 60 seconds — no secrets stored in cookies or JS.
+  try {
+    const res = await fetch("/api/v1/auth/ws-token", { credentials: "include" })
+    if (res.ok) {
+      const { token } = await res.json()
+      const wsBase = apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+      return `${wsBase}?ws_token=${token}`
+    }
+  } catch {
+    // Fall through to direct connection attempt
+  }
+  return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
 }
 
 /**
@@ -65,11 +71,12 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
     isMessagingPageActiveRef.current = active
   }, [])
 
-  const connect = useCallback(() => {
+  const connect = useCallback(async () => {
     if (!userId) return
     if (wsRef.current?.readyState === WebSocket.OPEN) return
 
-    const ws = new WebSocket(getWSUrl())
+    const url = await getWSUrl()
+    const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.onopen = () => {

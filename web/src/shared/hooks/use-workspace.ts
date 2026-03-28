@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
+import { API_BASE_URL } from "@/shared/lib/api-client"
 
 const COOKIE_NAME = "workspace"
 const REFERRER_VALUE = "referrer"
@@ -86,9 +87,7 @@ export function useWorkspace() {
     setIsReferrerMode(true)
 
     // Sync referrer_enabled=true to the backend (once set, stays true permanently)
-    const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
-    const apiURL = rawApiUrl.includes("localhost") ? rawApiUrl : ""
-    fetch(`${apiURL}/api/v1/auth/referrer-enable`, {
+    fetch(`${API_BASE_URL}/api/v1/auth/referrer-enable`, {
       method: "PUT",
       credentials: "include",
     }).catch(() => {

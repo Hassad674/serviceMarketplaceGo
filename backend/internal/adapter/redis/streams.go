@@ -11,10 +11,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-const (
-	streamKey     = "messaging:events"
-	consumerGroup = "messaging-group"
-)
+const streamKey = "messaging:events"
 
 type StreamEvent struct {
 	Type         string `json:"type"`
@@ -66,9 +63,12 @@ func (b *StreamBroadcaster) BroadcastCallEvent(ctx context.Context, recipientIDs
 }
 
 func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recipientIDs []uuid.UUID, payload []byte) error {
-	ids, _ := json.Marshal(recipientIDs)
+	ids, err := json.Marshal(recipientIDs)
+	if err != nil {
+		return fmt.Errorf("marshal recipient ids: %w", err)
+	}
 
-	err := b.client.XAdd(ctx, &goredis.XAddArgs{
+	err = b.client.XAdd(ctx, &goredis.XAddArgs{
 		Stream: streamKey,
 		Values: map[string]interface{}{
 			"type":          eventType,
@@ -83,14 +83,6 @@ func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recip
 		return fmt.Errorf("publish stream event: %w", err)
 	}
 
-	return nil
-}
-
-func (b *StreamBroadcaster) EnsureConsumerGroup(ctx context.Context) error {
-	err := b.client.XGroupCreateMkStream(ctx, streamKey, consumerGroup, "$").Err()
-	if err != nil && err.Error() != "BUSYGROUP Consumer Group name already exists" {
-		return fmt.Errorf("create consumer group: %w", err)
-	}
 	return nil
 }
 
@@ -141,8 +133,3 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 	}
 }
 
-func (b *StreamBroadcaster) ackMessage(ctx context.Context, messageID string) {
-	if err := b.client.XAck(ctx, streamKey, consumerGroup, messageID).Err(); err != nil {
-		slog.Error("failed to ack stream message", "error", err, "message_id", messageID)
-	}
-}
