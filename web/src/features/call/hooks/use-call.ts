@@ -107,11 +107,11 @@ export function useCall() {
         },
       )
 
-      newRoom.on(RoomEvent.Disconnected, () => {
-        if (stateRef.current === "active") {
-          cleanup()
-        }
-      })
+      // Note: we intentionally do NOT cleanup on RoomEvent.Disconnected.
+      // LiveKit handles reconnection automatically for transient network issues.
+      // The call ends only via explicit actions: hangup button, remote call_ended
+      // WS event, or ring timeout. Cleaning up on Disconnected caused a race
+      // condition where the recipient's room was killed during connection setup.
 
       await newRoom.connect(wsUrl, token)
       await newRoom.localParticipant.setMicrophoneEnabled(true)

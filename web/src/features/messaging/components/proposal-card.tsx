@@ -69,13 +69,7 @@ export function ProposalCard({
 
   function handleAccept(e: React.MouseEvent) {
     e.stopPropagation()
-    acceptMutation.mutate(metadata.proposal_id, {
-      onSuccess: () => {
-        if (isClient) {
-          router.push(`/projects/pay?proposal=${metadata.proposal_id}`)
-        }
-      },
-    })
+    acceptMutation.mutate(metadata.proposal_id)
   }
 
   function handleDecline(e: React.MouseEvent) {

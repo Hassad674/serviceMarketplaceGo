@@ -11,7 +11,9 @@ import (
 )
 
 func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*portservice.StripeWebhookEvent, error) {
-	event, err := webhook.ConstructEvent(payload, signature, s.webhookSecret)
+	event, err := webhook.ConstructEventWithOptions(payload, signature, s.webhookSecret, webhook.ConstructEventOptions{
+		IgnoreAPIVersionMismatch: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("verify webhook signature: %w", err)
 	}

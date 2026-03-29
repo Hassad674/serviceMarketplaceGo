@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -88,7 +89,7 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 		BankCountry:        req.BankCountry,
 	}
 
-	tosIP := r.RemoteAddr
+	tosIP := extractIP(r.RemoteAddr)
 	info, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input, tosIP)
 	if err != nil {
 		handlePaymentInfoError(w, err)
@@ -112,6 +113,25 @@ func (h *PaymentInfoHandler) GetPaymentInfoStatus(w http.ResponseWriter, r *http
 	}
 
 	res.JSON(w, http.StatusOK, response.PaymentInfoStatusResponse{Complete: complete})
+}
+
+// extractIP strips port and brackets from RemoteAddr (e.g. "[::1]:8080" → "127.0.0.1").
+func extractIP(addr string) string {
+	// Handle IPv6 bracket notation "[::1]:port"
+	if len(addr) > 0 && addr[0] == '[' {
+		if idx := strings.Index(addr, "]"); idx != -1 {
+			ip := addr[1:idx]
+			if ip == "::1" {
+				return "127.0.0.1"
+			}
+			return ip
+		}
+	}
+	// Handle IPv4 "host:port"
+	if idx := strings.LastIndex(addr, ":"); idx != -1 {
+		return addr[:idx]
+	}
+	return addr
 }
 
 func handlePaymentInfoError(w http.ResponseWriter, err error) {

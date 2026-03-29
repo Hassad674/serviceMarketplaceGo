@@ -60,13 +60,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const isProvider = user?.id === proposal.provider_id
 
   function handleAccept() {
-    acceptMutation.mutate(proposalId, {
-      onSuccess: () => {
-        if (isClient) {
-          router.push(`/projects/pay?proposal=${proposalId}`)
-        }
-      },
-    })
+    acceptMutation.mutate(proposalId)
   }
 
   function handleDecline() {

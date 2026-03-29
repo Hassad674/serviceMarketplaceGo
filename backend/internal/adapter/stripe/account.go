@@ -43,30 +43,25 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 		}
 	} else {
 		params.BusinessType = stripe.String("individual")
-	}
-
-	params.Individual = &stripe.PersonParams{
-		FirstName: stripe.String(info.FirstName),
-		LastName:  stripe.String(info.LastName),
-		DOB: &stripe.PersonDOBParams{
-			Day:   stripe.Int64(int64(info.DateOfBirth.Day())),
-			Month: stripe.Int64(int64(info.DateOfBirth.Month())),
-			Year:  stripe.Int64(int64(info.DateOfBirth.Year())),
-		},
-		Address: &stripe.AddressParams{
-			Line1:      stripe.String(info.Address),
-			City:       stripe.String(info.City),
-			PostalCode: stripe.String(info.PostalCode),
-			Country:    stripe.String(resolveCountryCode(info)),
-		},
-	}
-
-	// External bank account
-	if info.IBAN != "" {
-		params.ExternalAccount = &stripe.AccountExternalAccountParams{
-			Token: stripe.String(""), // will use BankAccount params below
+		params.Individual = &stripe.PersonParams{
+			FirstName: stripe.String(info.FirstName),
+			LastName:  stripe.String(info.LastName),
+			DOB: &stripe.PersonDOBParams{
+				Day:   stripe.Int64(int64(info.DateOfBirth.Day())),
+				Month: stripe.Int64(int64(info.DateOfBirth.Month())),
+				Year:  stripe.Int64(int64(info.DateOfBirth.Year())),
+			},
+			Address: &stripe.AddressParams{
+				Line1:      stripe.String(info.Address),
+				City:       stripe.String(info.City),
+				PostalCode: stripe.String(info.PostalCode),
+				Country:    stripe.String(resolveCountryCode(info)),
+			},
 		}
-		// Use raw params for IBAN-based bank account
+	}
+
+	// External bank account via IBAN
+	if info.IBAN != "" {
 		params.AddExtra("external_account[object]", "bank_account")
 		params.AddExtra("external_account[country]", resolveCountryCode(info))
 		params.AddExtra("external_account[currency]", "eur")

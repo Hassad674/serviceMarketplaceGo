@@ -17,23 +17,40 @@ func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.Pay
 	// Check for existing record (idempotency)
 	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
 	if err == nil && existing != nil {
-		if existing.StripePaymentIntentID != "" {
-			return &portservice.PaymentIntentOutput{
-				PaymentRecordID: existing.ID,
-				ProposalAmount:  existing.ProposalAmount,
-				StripeFee:       existing.StripeFeeAmount,
-				PlatformFee:     existing.PlatformFeeAmount,
-				ClientTotal:     existing.ClientTotalAmount,
-				ProviderPayout:  existing.ProviderPayout,
-			}, domain.ErrPaymentAlreadyExists
+		// Record exists — re-call Stripe with same idempotency key (returns same PI)
+		pi, piErr := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
+			AmountCentimes: existing.ClientTotalAmount,
+			Currency:       existing.Currency,
+			ProposalID:     input.ProposalID.String(),
+			ClientID:       input.ClientID.String(),
+			ProviderID:     input.ProviderID.String(),
+			TransferGroup:  input.ProposalID.String(),
+		})
+		if piErr != nil {
+			return nil, fmt.Errorf("retrieve existing payment intent: %w", piErr)
 		}
+		// Update record with PI ID if it was missing (race condition recovery)
+		if existing.StripePaymentIntentID == "" {
+			existing.StripePaymentIntentID = pi.PaymentIntentID
+			_ = s.records.Update(ctx, existing)
+		}
+		return &portservice.PaymentIntentOutput{
+			ClientSecret:    pi.ClientSecret,
+			PaymentRecordID: existing.ID,
+			ProposalAmount:  existing.ProposalAmount,
+			StripeFee:       existing.StripeFeeAmount,
+			PlatformFee:     existing.PlatformFeeAmount,
+			ClientTotal:     existing.ClientTotalAmount,
+			ProviderPayout:  existing.ProviderPayout,
+		}, nil
 	}
 
 	stripeFee := domain.EstimateStripeFee(input.ProposalAmount)
 	record := domain.NewPaymentRecord(input.ProposalID, input.ClientID, input.ProviderID, input.ProposalAmount, stripeFee)
 
 	if err := s.records.Create(ctx, record); err != nil {
-		return nil, fmt.Errorf("persist payment record: %w", err)
+		// Race condition: another request just created it — fetch and return
+		return s.createPaymentIntentFromExisting(ctx, input)
 	}
 
 	pi, err := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
@@ -63,6 +80,42 @@ func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.Pay
 		PlatformFee:     record.PlatformFeeAmount,
 		ClientTotal:     record.ClientTotalAmount,
 		ProviderPayout:  record.ProviderPayout,
+	}, nil
+}
+
+// createPaymentIntentFromExisting handles the race condition where another request
+// already created the record. Fetches the existing record and returns the PI.
+func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
+	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch existing record after race: %w", err)
+	}
+
+	pi, err := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
+		AmountCentimes: existing.ClientTotalAmount,
+		Currency:       existing.Currency,
+		ProposalID:     input.ProposalID.String(),
+		ClientID:       input.ClientID.String(),
+		ProviderID:     input.ProviderID.String(),
+		TransferGroup:  input.ProposalID.String(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create PI from existing: %w", err)
+	}
+
+	if existing.StripePaymentIntentID == "" {
+		existing.StripePaymentIntentID = pi.PaymentIntentID
+		_ = s.records.Update(ctx, existing)
+	}
+
+	return &portservice.PaymentIntentOutput{
+		ClientSecret:    pi.ClientSecret,
+		PaymentRecordID: existing.ID,
+		ProposalAmount:  existing.ProposalAmount,
+		StripeFee:       existing.StripeFeeAmount,
+		PlatformFee:     existing.PlatformFeeAmount,
+		ClientTotal:     existing.ClientTotalAmount,
+		ProviderPayout:  existing.ProviderPayout,
 	}, nil
 }
 

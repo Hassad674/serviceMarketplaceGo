@@ -29,17 +29,31 @@ export function PaymentSimulation() {
 
   useEffect(() => {
     if (!proposalId) return
-    Promise.all([getProposal(proposalId), initiatePayment(proposalId)])
-      .then(([p, pd]) => {
+    let cancelled = false
+
+    getProposal(proposalId)
+      .then((p) => {
+        if (cancelled) return
         setProposal(p)
-        if (pd.status === "paid") {
-          setPaid(true)
-        } else {
-          setPaymentData(pd)
+        // Only initiate payment if proposal is in accepted state
+        if (p.status !== "accepted") {
+          setPaid(p.status === "paid" || p.status === "active" || p.status === "completed" || p.status === "completion_requested")
+          setLoading(false)
+          return
         }
+        return initiatePayment(proposalId).then((pd) => {
+          if (cancelled) return
+          if (pd.status === "paid") {
+            setPaid(true)
+          } else {
+            setPaymentData(pd)
+          }
+        })
       })
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!cancelled) setFetchError(true) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+
+    return () => { cancelled = true }
   }, [proposalId])
 
   if (!proposalId || fetchError) {
