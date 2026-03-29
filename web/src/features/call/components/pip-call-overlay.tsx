@@ -52,7 +52,7 @@ export function PipCallOverlay({
   })
 
   const isRinging = state === "ringing_outgoing"
-  const hasRemoteVideo = callType === "video" && remoteVideoTrack && !isCameraOff
+  const hasRemoteVideo = callType === "video" && remoteVideoTrack != null
   const hasLocalVideo = callType === "video" && localVideoTrack
 
   return (

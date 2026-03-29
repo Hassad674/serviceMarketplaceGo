@@ -70,6 +70,11 @@ export function useCall() {
   }, [clearTimers, disconnectRoom])
 
   const startDurationTimer = useCallback(() => {
+    if (durationTimerRef.current) {
+      clearInterval(durationTimerRef.current)
+      durationTimerRef.current = null
+    }
+    setDuration(0)
     const start = Date.now()
     durationTimerRef.current = setInterval(() => {
       const secs = Math.floor((Date.now() - start) / 1000)
@@ -128,7 +133,7 @@ export function useCall() {
     } catch (err) {
       console.error("[Call] Failed to connect to LiveKit room:", err)
     }
-  }, [cleanup])
+  }, [])
 
   const doHangup = useCallback(async () => {
     const call = activeCallRef.current
@@ -251,6 +256,7 @@ export function useCall() {
         break
 
       case "call_accepted":
+        if (currentState !== "ringing_outgoing") return
         if (ringTimerRef.current) {
           clearTimeout(ringTimerRef.current)
           ringTimerRef.current = null
@@ -263,9 +269,13 @@ export function useCall() {
         break
 
       case "call_declined":
-      case "call_ended":
-        cleanup()
+      case "call_ended": {
+        const currentCallId = activeCallRef.current?.callId
+        if (payload.call_id === currentCallId || currentState === "ringing_incoming") {
+          cleanup()
+        }
         break
+      }
     }
   }, [cleanup, startDurationTimer])
 
