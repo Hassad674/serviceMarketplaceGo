@@ -13,11 +13,11 @@ import { ConversationList } from "./conversation-list"
 import { ConversationHeader } from "./conversation-header"
 import { MessageArea } from "./message-area"
 import { MessageInput } from "./message-input"
-import { useConversations, CONVERSATIONS_QUERY_KEY } from "../hooks/use-conversations"
+import { useConversations, conversationsQueryKey } from "../hooks/use-conversations"
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from "../hooks/use-messages"
 import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
-import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
+import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
 import { ReviewModal } from "@/features/review/components/review-modal"
 import type { Conversation, ConversationListResponse, Message } from "../types"
 
@@ -114,7 +114,7 @@ export function MessagingPage() {
 
     // Optimistically clear unread_count for the selected conversation
     queryClient.setQueryData(
-      CONVERSATIONS_QUERY_KEY,
+      conversationsQueryKey(user?.id),
       (old: ConversationListResponse | undefined) => {
         if (!old) return old
         return {
@@ -129,14 +129,14 @@ export function MessagingPage() {
     // instead of invalidating (which would refetch before markAsRead completes)
     if (clearedUnread > 0) {
       queryClient.setQueryData(
-        UNREAD_COUNT_QUERY_KEY,
+        unreadCountQueryKey(user?.id),
         (old: { count: number } | undefined) => {
           if (!old) return old
           return { count: Math.max(0, old.count - clearedUnread) }
         },
       )
     }
-  }, [router, queryClient, conversations])
+  }, [router, queryClient, conversations, user?.id])
 
   const handleBack = useCallback(() => {
     setMobileView("list")

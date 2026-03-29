@@ -4,8 +4,8 @@ import { useEffect, useCallback, useMemo, useRef } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
-import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
-import { useConversations, CONVERSATIONS_QUERY_KEY } from "@/features/messaging/hooks/use-conversations"
+import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
+import { useConversations, conversationsQueryKey } from "@/features/messaging/hooks/use-conversations"
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from "@/features/messaging/hooks/use-messages"
 import { useMessagingWS } from "@/features/messaging/hooks/use-messaging-ws"
 import { markAsRead, getPresignedURL } from "@/features/messaging/api/messaging-api"
@@ -92,7 +92,7 @@ export function ChatWidgetPanel({
 
       // Optimistically clear unread
       queryClient.setQueryData(
-        CONVERSATIONS_QUERY_KEY,
+        conversationsQueryKey(user?.id),
         (old: ConversationListResponse | undefined) => {
           if (!old) return old
           return {
@@ -105,7 +105,7 @@ export function ChatWidgetPanel({
       )
       if (clearedUnread > 0) {
         queryClient.setQueryData(
-          UNREAD_COUNT_QUERY_KEY,
+          unreadCountQueryKey(user?.id),
           (old: { count: number } | undefined) => {
             if (!old) return old
             return { count: Math.max(0, old.count - clearedUnread) }
@@ -115,7 +115,7 @@ export function ChatWidgetPanel({
 
       onSelectConversation(id)
     },
-    [conversations, queryClient, onSelectConversation],
+    [conversations, queryClient, onSelectConversation, user?.id],
   )
 
   const handleSend = useCallback(

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor, act } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createElement } from "react"
-import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, MESSAGES_QUERY_KEY } from "../use-messages"
+import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, MESSAGES_KEY_BASE, messagesQueryKey } from "../use-messages"
 
 // Mock the API
 const mockListMessages = vi.fn()
@@ -15,6 +15,10 @@ vi.mock("../../api/messaging-api", () => ({
   sendMessage: (...args: unknown[]) => mockSendMessage(...args),
   editMessage: (...args: unknown[]) => mockEditMessage(...args),
   deleteMessage: (...args: unknown[]) => mockDeleteMessage(...args),
+}))
+
+vi.mock("@/shared/hooks/use-current-user-id", () => ({
+  useCurrentUserId: () => "test-user-id",
 }))
 
 function createWrapper() {
@@ -59,7 +63,8 @@ describe("useMessages", () => {
   })
 
   it("uses correct query key format", () => {
-    expect(MESSAGES_QUERY_KEY).toBe("messaging-messages")
+    expect(MESSAGES_KEY_BASE).toBe("messaging-messages")
+    expect(messagesQueryKey("uid-1", "conv-1")).toEqual(["user", "uid-1", "messaging-messages", "conv-1"])
   })
 })
 

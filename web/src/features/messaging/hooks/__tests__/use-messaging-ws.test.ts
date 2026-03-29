@@ -40,6 +40,7 @@ class MockWebSocket {
 
 // Mock modules before tests
 vi.mock("@/shared/hooks/use-unread-count", () => ({
+  unreadCountQueryKey: (uid: string | undefined) => ["user", uid, "messaging", "unread-count"],
   UNREAD_COUNT_QUERY_KEY: ["messaging", "unread-count"],
 }))
 

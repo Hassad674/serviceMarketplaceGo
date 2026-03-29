@@ -1,7 +1,6 @@
 "use client"
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "@i18n/navigation"
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
 
@@ -37,7 +36,6 @@ export function useUser() {
 }
 
 export function useLogout() {
-  const router = useRouter()
   const queryClient = useQueryClient()
 
   return async function logout() {
@@ -46,6 +44,8 @@ export function useLogout() {
       credentials: "include",
     })
     queryClient.clear()
-    router.push("/login")
+    // Hard redirect to destroy all in-memory state (React tree, query cache,
+    // WebSocket connections). router.push would keep stale data in memory.
+    window.location.href = "/login"
   }
 }

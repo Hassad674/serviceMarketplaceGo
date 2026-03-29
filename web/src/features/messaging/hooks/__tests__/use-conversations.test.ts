@@ -2,13 +2,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createElement } from "react"
-import { useConversations, CONVERSATIONS_QUERY_KEY } from "../use-conversations"
+import { useConversations, conversationsQueryKey } from "../use-conversations"
 
 // Mock the API
 const mockListConversations = vi.fn()
 
 vi.mock("../../api/messaging-api", () => ({
   listConversations: (...args: unknown[]) => mockListConversations(...args),
+}))
+
+vi.mock("@/shared/hooks/use-current-user-id", () => ({
+  useCurrentUserId: () => "test-user-id",
 }))
 
 function createWrapper() {
@@ -73,7 +77,7 @@ describe("useConversations", () => {
     expect(result.current.data?.data[0].other_user_name).toBe("Alice")
   })
 
-  it("uses correct query key", () => {
-    expect(CONVERSATIONS_QUERY_KEY).toEqual(["messaging", "conversations"])
+  it("builds user-scoped query key", () => {
+    expect(conversationsQueryKey("uid-123")).toEqual(["user", "uid-123", "messaging", "conversations"])
   })
 })

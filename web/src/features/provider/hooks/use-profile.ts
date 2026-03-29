@@ -2,12 +2,17 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { getMyProfile, updateProfile } from "../api/profile-api"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
-const PROFILE_QUERY_KEY = ["profile"]
+export function profileQueryKey(uid: string | undefined) {
+  return ["user", uid, "profile"] as const
+}
 
 export function useProfile() {
+  const uid = useCurrentUserId()
+
   return useQuery({
-    queryKey: PROFILE_QUERY_KEY,
+    queryKey: profileQueryKey(uid),
     queryFn: () => getMyProfile(),
     staleTime: 5 * 60 * 1000, // 5 minutes — own profile data rarely changes externally
   })
@@ -15,11 +20,12 @@ export function useProfile() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (data: Record<string, string>) =>
       updateProfile(data),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY }),
+      queryClient.invalidateQueries({ queryKey: profileQueryKey(uid) }),
   })
 }

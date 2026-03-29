@@ -7,21 +7,31 @@ import {
   getPaymentInfoStatus,
 } from "../api/payment-info-api"
 import type { PaymentInfoFormData } from "../types"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
-const PAYMENT_INFO_KEY = ["payment-info"]
-const PAYMENT_INFO_STATUS_KEY = ["payment-info-status"]
+function paymentInfoKey(uid: string | undefined) {
+  return ["user", uid, "payment-info"] as const
+}
+
+function paymentInfoStatusKey(uid: string | undefined) {
+  return ["user", uid, "payment-info-status"] as const
+}
 
 export function usePaymentInfo() {
+  const uid = useCurrentUserId()
+
   return useQuery({
-    queryKey: PAYMENT_INFO_KEY,
+    queryKey: paymentInfoKey(uid),
     queryFn: getPaymentInfo,
     staleTime: 5 * 60 * 1000,
   })
 }
 
 export function usePaymentInfoStatus() {
+  const uid = useCurrentUserId()
+
   return useQuery({
-    queryKey: PAYMENT_INFO_STATUS_KEY,
+    queryKey: paymentInfoStatusKey(uid),
     queryFn: getPaymentInfoStatus,
     staleTime: 5 * 60 * 1000,
   })
@@ -29,12 +39,13 @@ export function usePaymentInfoStatus() {
 
 export function useSavePaymentInfo() {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (data: PaymentInfoFormData) => savePaymentInfo(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PAYMENT_INFO_KEY })
-      queryClient.invalidateQueries({ queryKey: PAYMENT_INFO_STATUS_KEY })
+      queryClient.invalidateQueries({ queryKey: paymentInfoKey(uid) })
+      queryClient.invalidateQueries({ queryKey: paymentInfoStatusKey(uid) })
     },
   })
 }
