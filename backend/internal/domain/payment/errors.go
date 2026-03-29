@@ -32,4 +32,8 @@ var (
 	ErrDocumentFileKeyRequired = errors.New("file key is required")
 	ErrDocumentNotFound        = errors.New("identity document not found")
 	ErrDocumentNotPending      = errors.New("document is not in pending state")
+
+	// Business person errors
+	ErrInvalidPersonRole  = errors.New("invalid person role")
+	ErrPersonNameRequired = errors.New("person first and last name are required")
 )

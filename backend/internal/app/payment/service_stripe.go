@@ -398,8 +398,73 @@ func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentI
 
 	slog.Info("stripe connected account created", "user_id", info.UserID, "account_id", accountID)
 
+	// Create Stripe persons for business accounts
+	if info.IsBusiness {
+		s.createStripePersons(ctx, info, accountID, email)
+	}
+
 	// Sync any documents uploaded before the account was created
 	s.syncPendingDocuments(ctx, info.UserID, accountID)
+}
+
+// createStripePersons creates the required Stripe persons for a company account.
+func (s *Service) createStripePersons(ctx context.Context, info *domain.PaymentInfo, accountID, email string) {
+	// Representative person (always required for company)
+	repInput := portservice.CreatePersonInput{
+		FirstName:        info.FirstName,
+		LastName:         info.LastName,
+		Email:            email,
+		Phone:            info.Phone,
+		DOB:              info.DateOfBirth,
+		Address:          info.Address,
+		City:             info.City,
+		PostalCode:       info.PostalCode,
+		Title:            info.RoleInCompany,
+		IsRepresentative: true,
+		IsDirector:       info.IsSelfDirector,
+		IsExecutive:      info.IsSelfExecutive,
+		IsOwner:          !info.NoMajorOwners && info.IsSelfRepresentative,
+	}
+
+	if _, err := s.stripe.CreatePerson(ctx, accountID, repInput); err != nil {
+		slog.Error("failed to create representative person", "error", err)
+	}
+
+	// Additional persons from business_persons table
+	persons, _ := s.persons.ListByUserID(ctx, info.UserID)
+	for _, p := range persons {
+		input := portservice.CreatePersonInput{
+			FirstName: p.FirstName,
+			LastName:  p.LastName,
+			Email:     p.Email,
+			Phone:     p.Phone,
+			DOB:       p.DateOfBirth,
+			Address:   p.Address,
+			City:      p.City,
+			PostalCode: p.PostalCode,
+			Title:     p.Title,
+		}
+		switch p.Role {
+		case domain.RoleDirector:
+			input.IsDirector = true
+		case domain.RoleOwner:
+			input.IsOwner = true
+		case domain.RoleExecutive:
+			input.IsExecutive = true
+		}
+
+		personID, err := s.stripe.CreatePerson(ctx, accountID, input)
+		if err != nil {
+			slog.Error("failed to create business person", "role", p.Role, "error", err)
+			continue
+		}
+		p.StripePersonID = personID
+	}
+
+	// Mark all provided
+	if err := s.stripe.UpdateCompanyFlags(ctx, accountID, true, true, true); err != nil {
+		slog.Error("failed to update company flags", "error", err)
+	}
 }
 
 // syncPendingDocuments uploads pending documents to Stripe after account creation.

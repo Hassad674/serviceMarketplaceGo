@@ -81,14 +81,19 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 		TaxID:              req.TaxID,
 		VATNumber:          req.VATNumber,
 		RoleInCompany:      req.RoleInCompany,
-		Phone:              req.Phone,
-		ActivitySector:     req.ActivitySector,
-		IBAN:               req.IBAN,
-		BIC:                req.BIC,
-		AccountNumber:      req.AccountNumber,
-		RoutingNumber:      req.RoutingNumber,
-		AccountHolder:      req.AccountHolder,
-		BankCountry:        req.BankCountry,
+		Phone:                req.Phone,
+		ActivitySector:       req.ActivitySector,
+		IsSelfRepresentative: req.IsSelfRepresentative,
+		IsSelfDirector:       req.IsSelfDirector,
+		NoMajorOwners:        req.NoMajorOwners,
+		IsSelfExecutive:      req.IsSelfExecutive,
+		BusinessPersons:      mapBusinessPersons(req.BusinessPersons),
+		IBAN:                 req.IBAN,
+		BIC:                  req.BIC,
+		AccountNumber:        req.AccountNumber,
+		RoutingNumber:        req.RoutingNumber,
+		AccountHolder:        req.AccountHolder,
+		BankCountry:          req.BankCountry,
 	}
 
 	tosIP := extractIP(r.RemoteAddr)
@@ -100,6 +105,32 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 	}
 
 	res.JSON(w, http.StatusOK, response.NewPaymentInfoResponse(info))
+}
+
+func mapBusinessPersons(reqs []request.BusinessPersonRequest) []paymentapp.BusinessPersonInput {
+	if len(reqs) == 0 {
+		return nil
+	}
+	result := make([]paymentapp.BusinessPersonInput, len(reqs))
+	for i, r := range reqs {
+		var dob time.Time
+		if r.DateOfBirth != "" {
+			dob, _ = time.Parse("2006-01-02", r.DateOfBirth)
+		}
+		result[i] = paymentapp.BusinessPersonInput{
+			Role:        r.Role,
+			FirstName:   r.FirstName,
+			LastName:    r.LastName,
+			DateOfBirth: dob,
+			Email:       r.Email,
+			Phone:       r.Phone,
+			Address:     r.Address,
+			City:        r.City,
+			PostalCode:  r.PostalCode,
+			Title:       r.Title,
+		}
+	}
+	return result
 }
 
 func (h *PaymentInfoHandler) GetPaymentInfoStatus(w http.ResponseWriter, r *http.Request) {
