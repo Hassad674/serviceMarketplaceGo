@@ -15,6 +15,7 @@ import {
   FolderOpen,
   Briefcase,
   CreditCard,
+  Wallet,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
@@ -39,6 +40,7 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "jobs", href: "/jobs", icon: Briefcase, roles: ["enterprise", "agency"] },
   { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
   { labelKey: "paymentInfo", href: "/payment-info", icon: CreditCard, roles: ["agency", "provider"] },
+  { labelKey: "wallet", href: "/wallet", icon: Wallet, roles: ["agency", "provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
   { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },
   { labelKey: "findReferrers", href: "/search?type=referrer", icon: Search, roles: ["agency", "enterprise"] },

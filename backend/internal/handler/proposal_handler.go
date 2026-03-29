@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/handler/dto/request"
@@ -24,8 +25,8 @@ type ProposalHandler struct {
 	paymentSvc  *paymentapp.Service // nil if Stripe not configured
 }
 
-func NewProposalHandler(svc *proposalapp.Service) *ProposalHandler {
-	return &ProposalHandler{proposalSvc: svc}
+func NewProposalHandler(svc *proposalapp.Service, paymentSvc *paymentapp.Service) *ProposalHandler {
+	return &ProposalHandler{proposalSvc: svc, paymentSvc: paymentSvc}
 }
 
 func (h *ProposalHandler) CreateProposal(w http.ResponseWriter, r *http.Request) {
@@ -276,6 +277,13 @@ func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request)
 	if p.ClientID != userID {
 		res.Error(w, http.StatusForbidden, "not_authorized", "only the client can confirm payment")
 		return
+	}
+
+	// Mark the payment record as succeeded
+	if h.paymentSvc != nil {
+		if err := h.paymentSvc.MarkPaymentSucceeded(r.Context(), proposalID); err != nil {
+			slog.Error("mark payment succeeded", "proposal_id", proposalID, "error", err)
+		}
 	}
 
 	// Confirm payment and activate the proposal

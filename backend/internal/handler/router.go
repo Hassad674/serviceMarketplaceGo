@@ -24,6 +24,7 @@ type RouterDeps struct {
 	PaymentInfo    *PaymentInfoHandler
 	Notification   *NotificationHandler
 	Stripe         *StripeHandler
+	Wallet         *WalletHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -198,6 +199,15 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/preferences", deps.Notification.GetPreferences)
 				r.Put("/preferences", deps.Notification.UpdatePreferences)
 				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
+			})
+		}
+
+		// Wallet routes (authenticated)
+		if deps.Wallet != nil {
+			r.Route("/wallet", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Get("/", deps.Wallet.GetWallet)
+				r.Post("/payout", deps.Wallet.RequestPayout)
 			})
 		}
 

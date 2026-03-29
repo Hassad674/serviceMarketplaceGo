@@ -12,5 +12,6 @@ type PaymentRecordRepository interface {
 	Create(ctx context.Context, record *payment.PaymentRecord) error
 	GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*payment.PaymentRecord, error)
 	GetByPaymentIntentID(ctx context.Context, paymentIntentID string) (*payment.PaymentRecord, error)
+	ListByProviderID(ctx context.Context, providerID uuid.UUID) ([]*payment.PaymentRecord, error)
 	Update(ctx context.Context, record *payment.PaymentRecord) error
 }

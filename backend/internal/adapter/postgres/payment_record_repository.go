@@ -96,6 +96,45 @@ func (r *PaymentRecordRepository) Update(ctx context.Context, rec *payment.Payme
 	return nil
 }
 
+func (r *PaymentRecordRepository) ListByProviderID(ctx context.Context, providerID uuid.UUID) ([]*payment.PaymentRecord, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, proposal_id, client_id, provider_id,
+			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
+			proposal_amount, stripe_fee_amount, platform_fee_amount,
+			client_total_amount, provider_payout,
+			currency, status, transfer_status,
+			paid_at, transferred_at, created_at, updated_at
+		FROM payment_records WHERE provider_id = $1
+		ORDER BY created_at DESC`, providerID)
+	if err != nil {
+		return nil, fmt.Errorf("list payment records: %w", err)
+	}
+	defer rows.Close()
+
+	var records []*payment.PaymentRecord
+	for rows.Next() {
+		var rec payment.PaymentRecord
+		var status, transferStatus string
+		if err := rows.Scan(
+			&rec.ID, &rec.ProposalID, &rec.ClientID, &rec.ProviderID,
+			&rec.StripePaymentIntentID, &rec.StripeTransferID,
+			&rec.ProposalAmount, &rec.StripeFeeAmount, &rec.PlatformFeeAmount,
+			&rec.ClientTotalAmount, &rec.ProviderPayout,
+			&rec.Currency, &status, &transferStatus,
+			&rec.PaidAt, &rec.TransferredAt, &rec.CreatedAt, &rec.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan payment record: %w", err)
+		}
+		rec.Status = payment.PaymentRecordStatus(status)
+		rec.TransferStatus = payment.TransferStatus(transferStatus)
+		records = append(records, &rec)
+	}
+	return records, nil
+}
+
 func (r *PaymentRecordRepository) scanRecord(row *sql.Row) (*payment.PaymentRecord, error) {
 	var rec payment.PaymentRecord
 	var status, transferStatus string

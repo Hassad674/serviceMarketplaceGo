@@ -119,6 +119,22 @@ func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input por
 	}, nil
 }
 
+// MarkPaymentSucceeded marks the payment record as succeeded by proposal ID.
+// Called by the confirm-payment handler as a fallback to the webhook.
+func (s *Service) MarkPaymentSucceeded(ctx context.Context, proposalID uuid.UUID) error {
+	record, err := s.records.GetByProposalID(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("find payment record: %w", err)
+	}
+	if record.Status == domain.RecordStatusSucceeded {
+		return nil // already succeeded
+	}
+	if err := record.MarkPaid(); err != nil {
+		return fmt.Errorf("mark paid: %w", err)
+	}
+	return s.records.Update(ctx, record)
+}
+
 // HandlePaymentSucceeded implements service.PaymentProcessor.
 func (s *Service) HandlePaymentSucceeded(ctx context.Context, paymentIntentID string) (uuid.UUID, error) {
 	record, err := s.records.GetByPaymentIntentID(ctx, paymentIntentID)
@@ -198,6 +214,133 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 	// For now, we log it. A dedicated query would be more efficient.
 	slog.Info("stripe account verified", "account_id", accountID, "verified", verified)
 	return nil
+}
+
+// WalletOverview holds the provider's wallet state.
+type WalletOverview struct {
+	StripeAccountID string              `json:"stripe_account_id"`
+	ChargesEnabled  bool                `json:"charges_enabled"`
+	PayoutsEnabled  bool                `json:"payouts_enabled"`
+	EscrowAmount    int64               `json:"escrow_amount"`
+	AvailableAmount int64               `json:"available_amount"`
+	TransferredAmount int64             `json:"transferred_amount"`
+	Records         []WalletRecord      `json:"records"`
+}
+
+type WalletRecord struct {
+	ProposalID     string `json:"proposal_id"`
+	ProposalAmount int64  `json:"proposal_amount"`
+	PlatformFee    int64  `json:"platform_fee"`
+	ProviderPayout int64  `json:"provider_payout"`
+	PaymentStatus  string `json:"payment_status"`
+	TransferStatus string `json:"transfer_status"`
+	CreatedAt      string `json:"created_at"`
+}
+
+// GetWalletOverview returns the provider's wallet state.
+func (s *Service) GetWalletOverview(ctx context.Context, userID uuid.UUID) (*WalletOverview, error) {
+	info, err := s.payments.GetByUserID(ctx, userID)
+	if err != nil {
+		return &WalletOverview{}, nil
+	}
+
+	wallet := &WalletOverview{
+		StripeAccountID: info.StripeAccountID,
+	}
+
+	// Check Stripe account status
+	if s.stripe != nil && info.StripeAccountID != "" {
+		verified, _ := s.stripe.GetAccountStatus(ctx, info.StripeAccountID)
+		wallet.ChargesEnabled = verified
+		wallet.PayoutsEnabled = verified
+	}
+
+	records, err := s.records.ListByProviderID(ctx, userID)
+	if err != nil {
+		return wallet, nil
+	}
+
+	for _, r := range records {
+		wallet.Records = append(wallet.Records, WalletRecord{
+			ProposalID:     r.ProposalID.String(),
+			ProposalAmount: r.ProposalAmount,
+			PlatformFee:    r.PlatformFeeAmount,
+			ProviderPayout: r.ProviderPayout,
+			PaymentStatus:  string(r.Status),
+			TransferStatus: string(r.TransferStatus),
+			CreatedAt:      r.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		})
+
+		switch {
+		case r.TransferStatus == domain.TransferCompleted:
+			wallet.TransferredAmount += r.ProviderPayout
+		case r.Status == domain.RecordStatusSucceeded && r.TransferStatus == domain.TransferPending:
+			wallet.EscrowAmount += r.ProviderPayout
+		}
+	}
+
+	wallet.AvailableAmount = wallet.EscrowAmount
+
+	return wallet, nil
+}
+
+type PayoutResult struct {
+	Status  string `json:"status"`
+	Message string `json:"message"`
+}
+
+// RequestPayout triggers a manual payout from the connected account.
+func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutResult, error) {
+	info, err := s.payments.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get payment info: %w", err)
+	}
+	if info.StripeAccountID == "" {
+		return nil, domain.ErrStripeAccountNotFound
+	}
+
+	// Find all succeeded payments with pending transfers
+	records, err := s.records.ListByProviderID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list records: %w", err)
+	}
+
+	var transferred int64
+	for _, r := range records {
+		if r.Status != domain.RecordStatusSucceeded || r.TransferStatus != domain.TransferPending {
+			continue
+		}
+
+		transferID, tErr := s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
+			Amount:             r.ProviderPayout,
+			Currency:           r.Currency,
+			DestinationAccount: info.StripeAccountID,
+			TransferGroup:      r.ProposalID.String(),
+			IdempotencyKey:     "transfer_" + r.ProposalID.String(),
+		})
+		if tErr != nil {
+			slog.Error("payout transfer failed", "proposal_id", r.ProposalID, "error", tErr)
+			r.MarkTransferFailed()
+			_ = s.records.Update(ctx, r)
+			continue
+		}
+
+		if err := r.MarkTransferred(transferID); err != nil {
+			slog.Error("mark transferred", "error", err)
+			continue
+		}
+		_ = s.records.Update(ctx, r)
+		transferred += r.ProviderPayout
+	}
+
+	if transferred == 0 {
+		return &PayoutResult{Status: "nothing_to_transfer", Message: "No funds available for transfer"}, nil
+	}
+
+	return &PayoutResult{
+		Status:  "transferred",
+		Message: fmt.Sprintf("Transferred %d centimes to your account", transferred),
+	}, nil
 }
 
 // ensureStripeAccount creates a Stripe connected account if conditions are met.

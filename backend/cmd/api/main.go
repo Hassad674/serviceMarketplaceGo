@@ -236,7 +236,7 @@ func main() {
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
-	proposalHandler := handler.NewProposalHandler(proposalSvc)
+	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
 	jobHandler := handler.NewJobHandler(jobSvc)
 	reviewHandler := handler.NewReviewHandler(reviewSvc)
 
@@ -245,6 +245,9 @@ func main() {
 	if cfg.StripeConfigured() {
 		stripeHandler = handler.NewStripeHandler(paymentInfoSvc, proposalSvc, cfg.StripePublishableKey)
 	}
+
+	// Wallet handler
+	walletHandler := handler.NewWalletHandler(paymentInfoSvc)
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
@@ -271,6 +274,7 @@ func main() {
 		PaymentInfo:    paymentInfoHandler,
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
+		Wallet:         walletHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
