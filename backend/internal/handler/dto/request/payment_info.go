@@ -1,6 +1,7 @@
 package request
 
 type SavePaymentInfoRequest struct {
+	Email       string `json:"email"` // user email for Stripe KYC
 	FirstName   string `json:"first_name"`
 	LastName    string `json:"last_name"`
 	DateOfBirth string `json:"date_of_birth"`
@@ -18,6 +19,9 @@ type SavePaymentInfoRequest struct {
 	TaxID              string `json:"tax_id"`
 	VATNumber          string `json:"vat_number"`
 	RoleInCompany      string `json:"role_in_company"`
+
+	Phone          string `json:"phone"`
+	ActivitySector string `json:"activity_sector"`
 
 	IBAN          string `json:"iban"`
 	BIC           string `json:"bic"`

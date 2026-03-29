@@ -42,7 +42,7 @@ export function useSavePaymentInfo() {
   const uid = useCurrentUserId()
 
   return useMutation({
-    mutationFn: (data: PaymentInfoFormData) => savePaymentInfo(data),
+    mutationFn: (input: { data: PaymentInfoFormData; email?: string }) => savePaymentInfo(input.data, input.email),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentInfoKey(uid) })
       queryClient.invalidateQueries({ queryKey: paymentInfoStatusKey(uid) })

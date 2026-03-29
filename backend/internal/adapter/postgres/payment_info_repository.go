@@ -29,6 +29,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 			address, city, postal_code,
 			is_business, business_name, business_address, business_city,
 			business_postal_code, business_country, tax_id, vat_number, role_in_company,
+			phone, activity_sector,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified,
 			created_at, updated_at
@@ -37,20 +38,10 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 
 	p := &payment.PaymentInfo{}
 	var (
-		businessName    sql.NullString
-		businessAddr    sql.NullString
-		businessCity    sql.NullString
-		businessPostal  sql.NullString
-		businessCountry sql.NullString
-		taxID           sql.NullString
-		vatNumber       sql.NullString
-		roleInCompany   sql.NullString
-		iban            sql.NullString
-		bic             sql.NullString
-		accountNumber   sql.NullString
-		routingNumber   sql.NullString
-		bankCountry     sql.NullString
-		stripeAccID     sql.NullString
+		businessName, businessAddr, businessCity, businessPostal, businessCountry sql.NullString
+		taxID, vatNumber, roleInCompany                                          sql.NullString
+		phone, activitySector                                                    sql.NullString
+		iban, bic, accountNumber, routingNumber, bankCountry, stripeAccID        sql.NullString
 	)
 
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
@@ -59,6 +50,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 		&p.Address, &p.City, &p.PostalCode,
 		&p.IsBusiness, &businessName, &businessAddr, &businessCity,
 		&businessPostal, &businessCountry, &taxID, &vatNumber, &roleInCompany,
+		&phone, &activitySector,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified,
 		&p.CreatedAt, &p.UpdatedAt,
@@ -78,6 +70,8 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 	p.TaxID = taxID.String
 	p.VATNumber = vatNumber.String
 	p.RoleInCompany = roleInCompany.String
+	p.Phone = phone.String
+	p.ActivitySector = activitySector.String
 	p.IBAN = iban.String
 	p.BIC = bic.String
 	p.AccountNumber = accountNumber.String
@@ -99,6 +93,7 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			address, city, postal_code,
 			is_business, business_name, business_address, business_city,
 			business_postal_code, business_country, tax_id, vat_number, role_in_company,
+			phone, activity_sector,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			created_at, updated_at
 		) VALUES (
@@ -107,8 +102,9 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			$7, $8, $9,
 			$10, $11, $12, $13,
 			$14, $15, $16, $17, $18,
-			$19, $20, $21, $22, $23, $24,
-			$25, $26
+			$19, $20,
+			$21, $22, $23, $24, $25, $26,
+			$27, $28
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
 			first_name = EXCLUDED.first_name,
@@ -127,6 +123,8 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			tax_id = EXCLUDED.tax_id,
 			vat_number = EXCLUDED.vat_number,
 			role_in_company = EXCLUDED.role_in_company,
+			phone = EXCLUDED.phone,
+			activity_sector = EXCLUDED.activity_sector,
 			iban = EXCLUDED.iban,
 			bic = EXCLUDED.bic,
 			account_number = EXCLUDED.account_number,
@@ -142,6 +140,7 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 		nullString(info.BusinessCity), nullString(info.BusinessPostalCode),
 		nullString(info.BusinessCountry), nullString(info.TaxID),
 		nullString(info.VATNumber), nullString(info.RoleInCompany),
+		nullString(info.Phone), nullString(info.ActivitySector),
 		nullString(info.IBAN), nullString(info.BIC),
 		nullString(info.AccountNumber), nullString(info.RoutingNumber),
 		info.AccountHolder, nullString(info.BankCountry),
@@ -175,6 +174,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 	var (
 		businessName, businessAddr, businessCity, businessPostal, businessCountry sql.NullString
 		taxID, vatNumber, roleInCompany                                          sql.NullString
+		phone, activitySector                                                    sql.NullString
 		iban, bic, accountNumber, routingNumber, bankCountry, stripeAccID        sql.NullString
 	)
 
@@ -184,6 +184,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 			address, city, postal_code,
 			is_business, business_name, business_address, business_city,
 			business_postal_code, business_country, tax_id, vat_number, role_in_company,
+			phone, activity_sector,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified, created_at, updated_at
 		FROM payment_info WHERE stripe_account_id = $1`, stripeAccountID).Scan(
@@ -192,6 +193,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 		&p.Address, &p.City, &p.PostalCode,
 		&p.IsBusiness, &businessName, &businessAddr, &businessCity,
 		&businessPostal, &businessCountry, &taxID, &vatNumber, &roleInCompany,
+		&phone, &activitySector,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified, &p.CreatedAt, &p.UpdatedAt,
 	)
@@ -210,6 +212,8 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 	p.TaxID = taxID.String
 	p.VATNumber = vatNumber.String
 	p.RoleInCompany = roleInCompany.String
+	p.Phone = phone.String
+	p.ActivitySector = activitySector.String
 	p.IBAN = iban.String
 	p.BIC = bic.String
 	p.AccountNumber = accountNumber.String

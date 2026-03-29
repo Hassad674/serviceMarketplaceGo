@@ -26,6 +26,9 @@ type PaymentInfoResponse struct {
 	VATNumber          string `json:"vat_number"`
 	RoleInCompany      string `json:"role_in_company"`
 
+	Phone          string `json:"phone"`
+	ActivitySector string `json:"activity_sector"`
+
 	IBAN          string `json:"iban"`
 	BIC           string `json:"bic"`
 	AccountNumber string `json:"account_number"`
@@ -64,6 +67,8 @@ func NewPaymentInfoResponse(p *payment.PaymentInfo) PaymentInfoResponse {
 		TaxID:              p.TaxID,
 		VATNumber:          p.VATNumber,
 		RoleInCompany:      p.RoleInCompany,
+		Phone:              p.Phone,
+		ActivitySector:     p.ActivitySector,
 		IBAN:               p.IBAN,
 		BIC:                p.BIC,
 		AccountNumber:      p.AccountNumber,

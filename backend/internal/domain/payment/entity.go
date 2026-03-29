@@ -32,6 +32,10 @@ type PaymentInfo struct {
 	VATNumber       string
 	RoleInCompany   string
 
+	// Contact & KYC
+	Phone          string
+	ActivitySector string // MCC code
+
 	// Bank account
 	IBAN          string
 	BIC           string
@@ -68,6 +72,9 @@ type NewPaymentInfoInput struct {
 	TaxID           string
 	VATNumber       string
 	RoleInCompany   string
+
+	Phone          string
+	ActivitySector string
 
 	IBAN          string
 	BIC           string
@@ -111,6 +118,8 @@ func NewPaymentInfo(input NewPaymentInfoInput) (*PaymentInfo, error) {
 		TaxID:              strings.TrimSpace(input.TaxID),
 		VATNumber:          strings.TrimSpace(input.VATNumber),
 		RoleInCompany:      strings.TrimSpace(input.RoleInCompany),
+		Phone:              strings.TrimSpace(input.Phone),
+		ActivitySector:     input.ActivitySector,
 		IBAN:               strings.TrimSpace(input.IBAN),
 		BIC:                strings.TrimSpace(input.BIC),
 		AccountNumber:      strings.TrimSpace(input.AccountNumber),

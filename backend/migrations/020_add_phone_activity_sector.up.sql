@@ -1,0 +1,2 @@
+ALTER TABLE payment_info ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE payment_info ADD COLUMN IF NOT EXISTS activity_sector TEXT DEFAULT '8999';

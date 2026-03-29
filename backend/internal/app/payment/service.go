@@ -69,6 +69,9 @@ type SavePaymentInfoInput struct {
 	VATNumber          string
 	RoleInCompany      string
 
+	Phone          string
+	ActivitySector string
+
 	IBAN          string
 	BIC           string
 	AccountNumber string
@@ -78,7 +81,7 @@ type SavePaymentInfoInput struct {
 }
 
 // SavePaymentInfo validates and upserts the payment info for the user.
-func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput, tosIP string) (*domain.PaymentInfo, error) {
+func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput, tosIP string, email string) (*domain.PaymentInfo, error) {
 	info, err := domain.NewPaymentInfo(domain.NewPaymentInfoInput{
 		UserID:             userID,
 		FirstName:          input.FirstName,
@@ -97,6 +100,8 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		TaxID:              input.TaxID,
 		VATNumber:          input.VATNumber,
 		RoleInCompany:      input.RoleInCompany,
+		Phone:              input.Phone,
+		ActivitySector:     input.ActivitySector,
 		IBAN:               input.IBAN,
 		BIC:                input.BIC,
 		AccountNumber:      input.AccountNumber,
@@ -113,7 +118,7 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 	}
 
 	// Create Stripe connected account if configured and not already created
-	s.ensureStripeAccount(ctx, info, tosIP)
+	s.ensureStripeAccount(ctx, info, tosIP, email)
 
 	return info, nil
 }

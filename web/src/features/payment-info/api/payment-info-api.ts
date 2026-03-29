@@ -20,6 +20,8 @@ export type PaymentInfoResponse = {
   tax_id: string
   vat_number: string
   role_in_company: string
+  phone: string
+  activity_sector: string
   iban: string
   bic: string
   account_number: string
@@ -40,10 +42,11 @@ export async function getPaymentInfo(): Promise<PaymentInfoResponse | null> {
   return apiClient<PaymentInfoResponse | null>("/api/v1/payment-info")
 }
 
-export async function savePaymentInfo(data: PaymentInfoFormData): Promise<PaymentInfoResponse> {
+export async function savePaymentInfo(data: PaymentInfoFormData, email?: string): Promise<PaymentInfoResponse> {
   return apiClient<PaymentInfoResponse>("/api/v1/payment-info", {
     method: "PUT",
     body: {
+      email: email ?? "",
       first_name: data.firstName,
       last_name: data.lastName,
       date_of_birth: data.dateOfBirth,
@@ -60,6 +63,8 @@ export async function savePaymentInfo(data: PaymentInfoFormData): Promise<Paymen
       tax_id: data.taxId,
       vat_number: data.vatNumber,
       role_in_company: data.businessRole,
+      phone: data.phone,
+      activity_sector: data.activitySector,
       iban: data.iban,
       bic: data.bic,
       account_number: data.accountNumber,

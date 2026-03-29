@@ -19,6 +19,8 @@ export type PaymentInfoFormData = {
   businessCountry: string
   taxId: string
   vatNumber: string
+  phone: string
+  activitySector: string
   bankMode: BankAccountMode
   iban: string
   bic: string
@@ -45,6 +47,8 @@ export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   businessCountry: "",
   taxId: "",
   vatNumber: "",
+  phone: "",
+  activitySector: "8999",
   bankMode: "iban",
   iban: "",
   bic: "",

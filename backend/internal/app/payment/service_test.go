@@ -69,7 +69,7 @@ func TestSavePaymentInfo_Success(t *testing.T) {
 	}
 	svc := NewService(repo, nil, nil, nil, nil)
 
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput(), "")
+	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput(), "", "")
 
 	require.NoError(t, err)
 	require.NotNil(t, info)
@@ -84,7 +84,7 @@ func TestSavePaymentInfo_ValidationError(t *testing.T) {
 	input := validSaveInput()
 	input.FirstName = ""
 
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input, "")
+	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input, "", "")
 
 	assert.Nil(t, info)
 	assert.ErrorIs(t, err, domain.ErrFirstNameRequired)

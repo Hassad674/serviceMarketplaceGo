@@ -11,19 +11,27 @@ import (
 	"marketplace-backend/internal/domain/payment"
 )
 
-func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string) (string, error) {
+func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string, email string) (string, error) {
 	// Step 1: Create an account token with the person/company data
-	accountToken, err := createAccountToken(info, tosIP)
+	accountToken, err := createAccountToken(info, tosIP, email)
 	if err != nil {
 		return "", fmt.Errorf("create account token: %w", err)
 	}
 
 	// Step 2: Create the connected account using the token
 	country := resolveCountryCode(info)
+	mcc := info.ActivitySector
+	if mcc == "" {
+		mcc = "8999"
+	}
 	acctParams := &stripe.AccountParams{
 		Type:         stripe.String(string(stripe.AccountTypeCustom)),
 		Country:      stripe.String(country),
 		AccountToken: stripe.String(accountToken),
+		BusinessProfile: &stripe.AccountBusinessProfileParams{
+			MCC: stripe.String(mcc),
+			URL: stripe.String("https://service-marketplace-go.vercel.app"),
+		},
 		Capabilities: &stripe.AccountCapabilitiesParams{
 			CardPayments: &stripe.AccountCapabilitiesCardPaymentsParams{
 				Requested: stripe.Bool(true),
@@ -51,7 +59,7 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 	return acct.ID, nil
 }
 
-func createAccountToken(info *payment.PaymentInfo, tosIP string) (string, error) {
+func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (string, error) {
 	params := &stripe.TokenParams{
 		Account: &stripe.TokenAccountParams{
 			TOSShownAndAccepted: stripe.Bool(true),
@@ -63,7 +71,8 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string) (string, error)
 	if info.IsBusiness {
 		params.Account.BusinessType = stripe.String("company")
 		params.Account.Company = &stripe.AccountCompanyParams{
-			Name: stripe.String(info.BusinessName),
+			Name:  stripe.String(info.BusinessName),
+			Phone: stripe.String(info.Phone),
 			Address: &stripe.AddressParams{
 				Line1:      stripe.String(info.BusinessAddress),
 				City:       stripe.String(info.BusinessCity),
@@ -77,6 +86,8 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string) (string, error)
 		params.Account.Individual = &stripe.PersonParams{
 			FirstName: stripe.String(info.FirstName),
 			LastName:  stripe.String(info.LastName),
+			Email:     stripe.String(email),
+			Phone:     stripe.String(info.Phone),
 			DOB: &stripe.PersonDOBParams{
 				Day:   stripe.Int64(int64(info.DateOfBirth.Day())),
 				Month: stripe.Int64(int64(info.DateOfBirth.Month())),

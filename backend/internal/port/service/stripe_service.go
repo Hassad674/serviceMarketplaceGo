@@ -10,7 +10,7 @@ import (
 // StripeService abstracts Stripe API operations for Connect Custom.
 type StripeService interface {
 	// CreateConnectedAccount creates a Stripe Custom connected account from payment info.
-	CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string) (accountID string, err error)
+	CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string, email string) (accountID string, err error)
 
 	// GetAccountStatus checks whether a connected account is verified.
 	GetAccountStatus(ctx context.Context, accountID string) (verified bool, err error)

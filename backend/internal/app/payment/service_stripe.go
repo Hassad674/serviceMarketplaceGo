@@ -377,12 +377,12 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 }
 
 // ensureStripeAccount creates a Stripe connected account if conditions are met.
-func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string) {
+func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) {
 	if s.stripe == nil || info.StripeAccountID != "" || !info.IsComplete() || tosIP == "" {
 		return
 	}
 
-	accountID, err := s.stripe.CreateConnectedAccount(ctx, info, tosIP)
+	accountID, err := s.stripe.CreateConnectedAccount(ctx, info, tosIP, email)
 	if err != nil {
 		slog.Error("failed to create stripe connected account", "user_id", info.UserID, "error", err)
 		return

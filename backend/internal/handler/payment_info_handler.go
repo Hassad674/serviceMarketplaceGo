@@ -81,6 +81,8 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 		TaxID:              req.TaxID,
 		VATNumber:          req.VATNumber,
 		RoleInCompany:      req.RoleInCompany,
+		Phone:              req.Phone,
+		ActivitySector:     req.ActivitySector,
 		IBAN:               req.IBAN,
 		BIC:                req.BIC,
 		AccountNumber:      req.AccountNumber,
@@ -90,7 +92,8 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 	}
 
 	tosIP := extractIP(r.RemoteAddr)
-	info, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input, tosIP)
+	email := req.Email
+	info, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input, tosIP, email)
 	if err != nil {
 		handlePaymentInfoError(w, err)
 		return

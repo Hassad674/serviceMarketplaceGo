@@ -11,6 +11,7 @@ import { IdentityVerificationSection } from "./identity-verification-section"
 import { isIbanCountry } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
 import { INITIAL_FORM_DATA } from "../types"
+import { useUser } from "@/shared/hooks/use-user"
 import { usePaymentInfo, useSavePaymentInfo } from "../hooks/use-payment-info"
 import type { PaymentInfoResponse } from "../api/payment-info-api"
 
@@ -67,6 +68,8 @@ function responseToFormData(res: PaymentInfoResponse): PaymentInfoFormData {
     businessCountry: res.business_country,
     taxId: res.tax_id,
     vatNumber: res.vat_number,
+    phone: res.phone ?? "",
+    activitySector: res.activity_sector || "8999",
     bankMode: hasIban ? "iban" : "local",
     iban: res.iban,
     bic: res.bic,
@@ -83,6 +86,7 @@ export function PaymentInfoPage() {
   const [saved, setSaved] = useState(false)
   const [initialized, setInitialized] = useState(false)
 
+  const { data: user } = useUser()
   const { data: existing, isLoading } = usePaymentInfo()
   const saveMutation = useSavePaymentInfo()
 
@@ -120,10 +124,10 @@ export function PaymentInfoPage() {
   }, [])
 
   const handleSave = useCallback(() => {
-    saveMutation.mutate(data, {
+    saveMutation.mutate({ data, email: user?.email }, {
       onSuccess: () => setSaved(true),
     })
-  }, [data, saveMutation])
+  }, [data, user, saveMutation])
 
   if (isLoading) {
     return (
