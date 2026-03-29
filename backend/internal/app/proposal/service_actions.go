@@ -202,6 +202,12 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 	return nil
 }
 
+// GetProposalByID returns a proposal without authorization checks.
+// Used by the handler for ownership verification.
+func (s *Service) GetProposalByID(ctx context.Context, id uuid.UUID) (*domain.Proposal, error) {
+	return s.proposals.GetByID(ctx, id)
+}
+
 func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletionInput) error {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {

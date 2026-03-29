@@ -14,20 +14,27 @@ const TYPING_CLEAR_DELAY = 5_000
 const MAX_RECONNECT_DELAY = 30_000
 
 async function getWSUrl(): Promise<string> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8083"
-  if (apiUrl.includes("localhost")) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
+  // In dev (NEXT_PUBLIC_API_URL is set), connect directly — session cookie is same-origin.
+  if (apiUrl) {
     return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  }
+  // Production: NEXT_PUBLIC_API_URL is empty (client uses proxy for HTTP).
+  // For WS we need the real backend URL. Use NEXT_PUBLIC_WS_URL if set.
+  const wsUrl = process.env.NEXT_PUBLIC_WS_URL || ""
+  if (!wsUrl) {
+    return "/api/v1/ws" // fallback: let the browser resolve relative to current origin
   }
   try {
     const res = await fetch("/api/v1/auth/ws-token", { credentials: "include" })
     if (res.ok) {
       const { token } = await res.json()
-      return apiUrl.replace(/^http/, "ws") + `/api/v1/ws?ws_token=${token}`
+      return `${wsUrl}/api/v1/ws?ws_token=${token}`
     }
   } catch {
     // Fall through
   }
-  return apiUrl.replace(/^http/, "ws") + "/api/v1/ws"
+  return `${wsUrl}/api/v1/ws`
 }
 
 type TypingEntry = { userId: string }

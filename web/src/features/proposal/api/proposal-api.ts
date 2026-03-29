@@ -49,6 +49,10 @@ export function initiatePayment(id: string): Promise<PaymentIntentResponse> {
   return apiClient<PaymentIntentResponse>(`/api/v1/proposals/${id}/pay`, { method: "POST" })
 }
 
+export function confirmPayment(id: string): Promise<void> {
+  return apiClient<void>(`/api/v1/proposals/${id}/confirm-payment`, { method: "POST" })
+}
+
 export function requestCompletion(id: string): Promise<void> {
   return apiClient<void>(`/api/v1/proposals/${id}/request-completion`, { method: "POST" })
 }

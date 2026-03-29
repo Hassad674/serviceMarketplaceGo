@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
 import { cn, formatCurrency } from "@/shared/lib/utils"
-import { getProposal, initiatePayment } from "../api/proposal-api"
+import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-api"
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
@@ -86,7 +86,7 @@ export function PaymentSimulation() {
           stripe={stripePromise}
           options={{ clientSecret: paymentData.client_secret, appearance: { theme: "stripe" } }}
         >
-          <StripePaymentForm onSuccess={() => {
+          <StripePaymentForm proposalId={proposalId} onSuccess={() => {
             setPaid(true)
             setTimeout(() => router.push("/projects"), 2000)
           }} />
@@ -106,7 +106,7 @@ export function PaymentSimulation() {
   )
 }
 
-function StripePaymentForm({ onSuccess }: { onSuccess: () => void }) {
+function StripePaymentForm({ proposalId, onSuccess }: { proposalId: string; onSuccess: () => void }) {
   const t = useTranslations("proposal")
   const stripe = useStripe()
   const elements = useElements()
@@ -131,10 +131,17 @@ function StripePaymentForm({ onSuccess }: { onSuccess: () => void }) {
     if (stripeError) {
       setError(stripeError.message ?? t("paymentError"))
       setSubmitting(false)
-    } else {
-      onSuccess()
+      return
     }
-  }, [stripe, elements, onSuccess, t])
+
+    // Payment succeeded — tell backend to activate the proposal
+    try {
+      await confirmPayment(proposalId)
+    } catch {
+      // Webhook will handle it as fallback
+    }
+    onSuccess()
+  }, [stripe, elements, proposalId, onSuccess, t])
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

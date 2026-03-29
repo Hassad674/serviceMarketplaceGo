@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
-
 	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/postgres"
@@ -100,7 +98,13 @@ func main() {
 	// Messaging adapters
 	messageRepo := postgres.NewConversationRepository(db)
 	presenceSvc := redisadapter.NewPresenceService(redisClient, 45*time.Second)
-	streamBroadcaster := redisadapter.NewStreamBroadcaster(redisClient, uuid.New().String())
+	// Use HOSTNAME env var (set by Railway/Docker) or fallback to a fixed name.
+	// This prevents dead consumer accumulation on redeploys.
+	sourceID := os.Getenv("HOSTNAME")
+	if sourceID == "" {
+		sourceID = "api-main"
+	}
+	streamBroadcaster := redisadapter.NewStreamBroadcaster(redisClient, sourceID)
 	rateLimiter := redisadapter.NewMessagingRateLimiter(redisClient)
 
 	// WebSocket hub

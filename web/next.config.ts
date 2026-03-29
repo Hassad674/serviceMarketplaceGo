@@ -44,13 +44,16 @@ const nextConfig: NextConfig = {
 
   // Proxy API calls through Next.js in production so cookies stay same-origin.
   // Without this, session_id cookie set by Railway won't be sent to Vercel.
+  // Uses API_BACKEND_URL (server-only) for the rewrite destination.
+  // In development, NEXT_PUBLIC_API_URL is set so the client calls directly — no proxy needed.
   async rewrites() {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!apiUrl || apiUrl.includes("localhost")) return [];
+    if (process.env.NEXT_PUBLIC_API_URL) return [];
+    const backendUrl = process.env.API_BACKEND_URL;
+    if (!backendUrl) return [];
     return [
       {
         source: "/api/:path*",
-        destination: `${apiUrl}/api/:path*`,
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },

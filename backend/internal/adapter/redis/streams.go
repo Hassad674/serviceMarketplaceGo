@@ -11,7 +11,10 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 )
 
-const streamKey = "messaging:events"
+const (
+	streamKey     = "messaging:events"
+	consumerGroup = "messaging-consumers"
+)
 
 type StreamEvent struct {
 	Type         string `json:"type"`
@@ -86,14 +89,33 @@ func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recip
 	return nil
 }
 
+// EnsureConsumerGroup creates the consumer group if it does not already exist.
+// Uses MKSTREAM so the stream is created automatically if missing.
+func (b *StreamBroadcaster) EnsureConsumerGroup(ctx context.Context) {
+	err := b.client.XGroupCreateMkStream(ctx, streamKey, consumerGroup, "$").Err()
+	if err != nil {
+		// "BUSYGROUP" means the group already exists — not an error.
+		if err.Error() != "BUSYGROUP Consumer Group name already used" {
+			slog.Error("failed to create consumer group", "error", err)
+		}
+	}
+}
+
+// ackMessage acknowledges a message so it is removed from the pending list.
+func (b *StreamBroadcaster) ackMessage(ctx context.Context, messageID string) {
+	if err := b.client.XAck(ctx, streamKey, consumerGroup, messageID).Err(); err != nil {
+		slog.Error("failed to ack stream message", "error", err, "message_id", messageID)
+	}
+}
+
 type StreamHandler func(event StreamEvent)
 
+// Subscribe reads from the Redis stream using consumer groups with a fixed
+// consumer name (sourceID). This supports horizontal scaling: each instance
+// gets unique messages, and the fixed name prevents dead consumer accumulation
+// across redeploys.
 func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler) {
-	// Use plain XREAD (not consumer groups). For a single backend instance,
-	// consumer groups cause problems: each deploy creates a new consumer name
-	// (random UUID), leaving dead consumers with undelivered pending messages.
-	// XREAD with "$" reads only new messages, which is exactly what we need.
-	lastID := "$"
+	b.EnsureConsumerGroup(ctx)
 
 	for {
 		select {
@@ -102,10 +124,12 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 		default:
 		}
 
-		streams, err := b.client.XRead(ctx, &goredis.XReadArgs{
-			Streams: []string{streamKey, lastID},
-			Count:   10,
-			Block:   5 * time.Second,
+		streams, err := b.client.XReadGroup(ctx, &goredis.XReadGroupArgs{
+			Group:    consumerGroup,
+			Consumer: b.sourceID,
+			Streams:  []string{streamKey, ">"},
+			Count:    10,
+			Block:    5 * time.Second,
 		}).Result()
 
 		if err != nil {
@@ -127,9 +151,8 @@ func (b *StreamBroadcaster) Subscribe(ctx context.Context, handler StreamHandler
 				}
 
 				handler(event)
-				lastID = msg.ID
+				b.ackMessage(ctx, msg.ID)
 			}
 		}
 	}
 }
-

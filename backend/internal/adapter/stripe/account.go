@@ -3,18 +3,27 @@ package stripe
 import (
 	"context"
 	"fmt"
-	"time"
 
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
+	"github.com/stripe/stripe-go/v82/token"
 
 	"marketplace-backend/internal/domain/payment"
 )
 
 func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string) (string, error) {
-	params := &stripe.AccountParams{
-		Type:    stripe.String(string(stripe.AccountTypeCustom)),
-		Country: stripe.String(resolveCountryCode(info)),
+	// Step 1: Create an account token with the person/company data
+	accountToken, err := createAccountToken(info, tosIP)
+	if err != nil {
+		return "", fmt.Errorf("create account token: %w", err)
+	}
+
+	// Step 2: Create the connected account using the token
+	country := resolveCountryCode(info)
+	acctParams := &stripe.AccountParams{
+		Type:         stripe.String(string(stripe.AccountTypeCustom)),
+		Country:      stripe.String(country),
+		AccountToken: stripe.String(accountToken),
 		Capabilities: &stripe.AccountCapabilitiesParams{
 			CardPayments: &stripe.AccountCapabilitiesCardPaymentsParams{
 				Requested: stripe.Bool(true),
@@ -23,27 +32,49 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 				Requested: stripe.Bool(true),
 			},
 		},
-		TOSAcceptance: &stripe.AccountTOSAcceptanceParams{
-			Date: stripe.Int64(time.Now().Unix()),
-			IP:   stripe.String(tosIP),
+	}
+
+	// External bank account via IBAN
+	if info.IBAN != "" {
+		acctParams.AddExtra("external_account[object]", "bank_account")
+		acctParams.AddExtra("external_account[country]", country)
+		acctParams.AddExtra("external_account[currency]", "eur")
+		acctParams.AddExtra("external_account[account_holder_name]", info.AccountHolder)
+		acctParams.AddExtra("external_account[account_number]", info.IBAN)
+	}
+
+	acct, err := account.New(acctParams)
+	if err != nil {
+		return "", fmt.Errorf("create stripe account: %w", err)
+	}
+
+	return acct.ID, nil
+}
+
+func createAccountToken(info *payment.PaymentInfo, tosIP string) (string, error) {
+	params := &stripe.TokenParams{
+		Account: &stripe.TokenAccountParams{
+			TOSShownAndAccepted: stripe.Bool(true),
 		},
 	}
 
+	country := resolveCountryCode(info)
+
 	if info.IsBusiness {
-		params.BusinessType = stripe.String("company")
-		params.Company = &stripe.AccountCompanyParams{
+		params.Account.BusinessType = stripe.String("company")
+		params.Account.Company = &stripe.AccountCompanyParams{
 			Name: stripe.String(info.BusinessName),
 			Address: &stripe.AddressParams{
 				Line1:      stripe.String(info.BusinessAddress),
 				City:       stripe.String(info.BusinessCity),
 				PostalCode: stripe.String(info.BusinessPostalCode),
-				Country:    stripe.String(resolveCountryCode(info)),
+				Country:    stripe.String(country),
 			},
 			TaxID: stripe.String(info.TaxID),
 		}
 	} else {
-		params.BusinessType = stripe.String("individual")
-		params.Individual = &stripe.PersonParams{
+		params.Account.BusinessType = stripe.String("individual")
+		params.Account.Individual = &stripe.PersonParams{
 			FirstName: stripe.String(info.FirstName),
 			LastName:  stripe.String(info.LastName),
 			DOB: &stripe.PersonDOBParams{
@@ -55,26 +86,17 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 				Line1:      stripe.String(info.Address),
 				City:       stripe.String(info.City),
 				PostalCode: stripe.String(info.PostalCode),
-				Country:    stripe.String(resolveCountryCode(info)),
+				Country:    stripe.String(country),
 			},
 		}
 	}
 
-	// External bank account via IBAN
-	if info.IBAN != "" {
-		params.AddExtra("external_account[object]", "bank_account")
-		params.AddExtra("external_account[country]", resolveCountryCode(info))
-		params.AddExtra("external_account[currency]", "eur")
-		params.AddExtra("external_account[account_holder_name]", info.AccountHolder)
-		params.AddExtra("external_account[account_number]", info.IBAN)
-	}
-
-	acct, err := account.New(params)
+	tok, err := token.New(params)
 	if err != nil {
-		return "", fmt.Errorf("create stripe account: %w", err)
+		return "", err
 	}
 
-	return acct.ID, nil
+	return tok.ID, nil
 }
 
 func (s *Service) GetAccountStatus(ctx context.Context, accountID string) (bool, error) {
@@ -93,5 +115,5 @@ func resolveCountryCode(info *payment.PaymentInfo) string {
 	if info.Nationality != "" && len(info.Nationality) == 2 {
 		return info.Nationality
 	}
-	return "FR" // default
+	return "FR"
 }

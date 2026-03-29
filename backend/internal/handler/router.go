@@ -113,6 +113,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/{id}/decline", deps.Proposal.DeclineProposal)
 				r.Post("/{id}/modify", deps.Proposal.ModifyProposal)
 				r.Post("/{id}/pay", deps.Proposal.PayProposal)
+				r.Post("/{id}/confirm-payment", deps.Proposal.ConfirmPayment)
 				r.Post("/{id}/request-completion", deps.Proposal.RequestCompletion)
 				r.Post("/{id}/complete", deps.Proposal.CompleteProposal)
 				r.Post("/{id}/reject-completion", deps.Proposal.RejectCompletion)

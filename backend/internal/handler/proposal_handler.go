@@ -21,6 +21,7 @@ import (
 
 type ProposalHandler struct {
 	proposalSvc *proposalapp.Service
+	paymentSvc  *paymentapp.Service // nil if Stripe not configured
 }
 
 func NewProposalHandler(svc *proposalapp.Service) *ProposalHandler {
@@ -249,6 +250,41 @@ func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
 			ProviderPayout: result.ProviderPayout,
 		},
 	})
+}
+
+// ConfirmPayment is called by the frontend after stripe.confirmPayment() succeeds.
+// It serves as a fallback to the webhook — ensures the proposal transitions to paid/active.
+func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+
+	// Verify the user is the client
+	p, err := h.proposalSvc.GetProposalByID(r.Context(), proposalID)
+	if err != nil {
+		handleProposalError(w, err)
+		return
+	}
+	if p.ClientID != userID {
+		res.Error(w, http.StatusForbidden, "not_authorized", "only the client can confirm payment")
+		return
+	}
+
+	// Confirm payment and activate the proposal
+	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
+		handleProposalError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "active"})
 }
 
 func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Request) {
