@@ -12,7 +12,7 @@ import (
 	"marketplace-backend/internal/domain/call"
 )
 
-const callTTL = 1 * time.Hour
+const callTTL = 2 * time.Minute
 
 type CallStateService struct {
 	client *goredis.Client
