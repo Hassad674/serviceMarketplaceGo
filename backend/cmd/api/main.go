@@ -184,11 +184,13 @@ func main() {
 		slog.Info("stripe payment adapter disabled (not configured)")
 	}
 
-	// Payment info + records feature
+	// Payment info + records + identity documents feature
 	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
 	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
-	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo, paymentRecordRepo, stripeSvc)
+	identityDocRepo := postgres.NewIdentityDocumentRepository(db)
+	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo, paymentRecordRepo, identityDocRepo, stripeSvc, storageSvc)
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
+	identityDocHandler := handler.NewIdentityDocumentHandler(paymentInfoSvc)
 
 	// Push notification service (optional — only when FCM is configured)
 	var pushSvc service.PushService
@@ -275,6 +277,7 @@ func main() {
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
+		IdentityDoc:    identityDocHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

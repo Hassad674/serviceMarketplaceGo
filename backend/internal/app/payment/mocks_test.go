@@ -30,3 +30,7 @@ func (m *mockPaymentInfoRepo) Upsert(ctx context.Context, info *domain.PaymentIn
 func (m *mockPaymentInfoRepo) UpdateStripeFields(_ context.Context, _ uuid.UUID, _ string, _ bool) error {
 	return nil
 }
+
+func (m *mockPaymentInfoRepo) GetByStripeAccountID(_ context.Context, _ string) (*domain.PaymentInfo, error) {
+	return nil, domain.ErrNotFound
+}

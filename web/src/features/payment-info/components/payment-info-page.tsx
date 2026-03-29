@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import { PersonalInfoSection } from "./personal-info-section"
 import { BusinessInfoSection } from "./business-info-section"
 import { BankAccountSection } from "./bank-account-section"
+import { IdentityVerificationSection } from "./identity-verification-section"
 import { isIbanCountry } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
 import { INITIAL_FORM_DATA } from "../types"
@@ -211,6 +212,11 @@ export function PaymentInfoPage() {
         onChange={handleChange}
         onChangeBankMode={handleBankModeChange}
       />
+
+      {/* Identity verification — only when payment info is saved */}
+      {saved && existing?.stripe_account_id && (
+        <IdentityVerificationSection />
+      )}
 
       {/* Save button */}
       <button

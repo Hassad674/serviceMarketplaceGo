@@ -167,6 +167,59 @@ func (r *PaymentInfoRepository) UpdateStripeFields(ctx context.Context, userID u
 	return nil
 }
 
+func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripeAccountID string) (*payment.PaymentInfo, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	p := &payment.PaymentInfo{}
+	var (
+		businessName, businessAddr, businessCity, businessPostal, businessCountry sql.NullString
+		taxID, vatNumber, roleInCompany                                          sql.NullString
+		iban, bic, accountNumber, routingNumber, bankCountry, stripeAccID        sql.NullString
+	)
+
+	err := r.db.QueryRowContext(ctx, `
+		SELECT id, user_id,
+			first_name, last_name, date_of_birth, nationality,
+			address, city, postal_code,
+			is_business, business_name, business_address, business_city,
+			business_postal_code, business_country, tax_id, vat_number, role_in_company,
+			iban, bic, account_number, routing_number, account_holder, bank_country,
+			stripe_account_id, stripe_verified, created_at, updated_at
+		FROM payment_info WHERE stripe_account_id = $1`, stripeAccountID).Scan(
+		&p.ID, &p.UserID,
+		&p.FirstName, &p.LastName, &p.DateOfBirth, &p.Nationality,
+		&p.Address, &p.City, &p.PostalCode,
+		&p.IsBusiness, &businessName, &businessAddr, &businessCity,
+		&businessPostal, &businessCountry, &taxID, &vatNumber, &roleInCompany,
+		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
+		&stripeAccID, &p.StripeVerified, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, payment.ErrNotFound
+		}
+		return nil, fmt.Errorf("get payment info by stripe account: %w", err)
+	}
+
+	p.BusinessName = businessName.String
+	p.BusinessAddress = businessAddr.String
+	p.BusinessCity = businessCity.String
+	p.BusinessPostalCode = businessPostal.String
+	p.BusinessCountry = businessCountry.String
+	p.TaxID = taxID.String
+	p.VATNumber = vatNumber.String
+	p.RoleInCompany = roleInCompany.String
+	p.IBAN = iban.String
+	p.BIC = bic.String
+	p.AccountNumber = accountNumber.String
+	p.RoutingNumber = routingNumber.String
+	p.BankCountry = bankCountry.String
+	p.StripeAccountID = stripeAccID.String
+
+	return p, nil
+}
+
 // nullString converts an empty string to a sql.NullString with Valid=false.
 func nullString(s string) sql.NullString {
 	if s == "" {

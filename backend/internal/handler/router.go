@@ -25,6 +25,7 @@ type RouterDeps struct {
 	Notification   *NotificationHandler
 	Stripe         *StripeHandler
 	Wallet         *WalletHandler
+	IdentityDoc    *IdentityDocumentHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -199,6 +200,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/preferences", deps.Notification.GetPreferences)
 				r.Put("/preferences", deps.Notification.UpdatePreferences)
 				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
+			})
+		}
+
+		// Identity document routes (authenticated)
+		if deps.IdentityDoc != nil {
+			r.Route("/identity-documents", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Post("/upload", deps.IdentityDoc.UploadDocument)
+				r.Get("/", deps.IdentityDoc.ListDocuments)
+				r.Delete("/{id}", deps.IdentityDoc.DeleteDocument)
 			})
 		}
 

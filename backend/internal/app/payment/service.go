@@ -14,13 +14,27 @@ import (
 )
 
 type Service struct {
-	payments repository.PaymentInfoRepository
-	records  repository.PaymentRecordRepository
-	stripe   service.StripeService // nil if Stripe not configured
+	payments  repository.PaymentInfoRepository
+	records   repository.PaymentRecordRepository
+	documents repository.IdentityDocumentRepository
+	stripe    service.StripeService  // nil if Stripe not configured
+	storage   service.StorageService // nil if not configured
 }
 
-func NewService(payments repository.PaymentInfoRepository, records repository.PaymentRecordRepository, stripe service.StripeService) *Service {
-	return &Service{payments: payments, records: records, stripe: stripe}
+func NewService(
+	payments repository.PaymentInfoRepository,
+	records repository.PaymentRecordRepository,
+	documents repository.IdentityDocumentRepository,
+	stripe service.StripeService,
+	storage service.StorageService,
+) *Service {
+	return &Service{
+		payments:  payments,
+		records:   records,
+		documents: documents,
+		stripe:    stripe,
+		storage:   storage,
+	}
 }
 
 // GetPaymentInfo returns the payment info for the user, or nil if not found.
