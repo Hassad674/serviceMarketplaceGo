@@ -26,6 +26,30 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('ApiException.fromResponse', () {
+    test('parses flat error format (error is string)', () {
+      final data = {
+        'error': 'invalid_email',
+        'message': 'Email format is invalid',
+      };
+
+      final exception = ApiException.fromResponse(data, 400);
+
+      expect(exception.statusCode, equals(400));
+      expect(exception.code, equals('invalid_email'));
+      expect(exception.message, equals('Email format is invalid'));
+    });
+
+    test('parses flat error format with missing message', () {
+      final data = {
+        'error': 'server_error',
+      };
+
+      final exception = ApiException.fromResponse(data, 500);
+
+      expect(exception.code, equals('server_error'));
+      expect(exception.message, equals('An error occurred'));
+    });
+
     test('parses standard error response envelope', () {
       final data = {
         'error': {
