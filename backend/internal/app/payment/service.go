@@ -17,6 +17,7 @@ type Service struct {
 	payments  repository.PaymentInfoRepository
 	records   repository.PaymentRecordRepository
 	documents repository.IdentityDocumentRepository
+	persons   repository.BusinessPersonRepository
 	stripe    service.StripeService  // nil if Stripe not configured
 	storage   service.StorageService // nil if not configured
 }
@@ -25,6 +26,7 @@ func NewService(
 	payments repository.PaymentInfoRepository,
 	records repository.PaymentRecordRepository,
 	documents repository.IdentityDocumentRepository,
+	persons repository.BusinessPersonRepository,
 	stripe service.StripeService,
 	storage service.StorageService,
 ) *Service {
@@ -32,6 +34,7 @@ func NewService(
 		payments:  payments,
 		records:   records,
 		documents: documents,
+		persons:   persons,
 		stripe:    stripe,
 		storage:   storage,
 	}
@@ -72,12 +75,32 @@ type SavePaymentInfoInput struct {
 	Phone          string
 	ActivitySector string
 
+	// Business KYC flags
+	IsSelfRepresentative bool
+	IsSelfDirector       bool
+	NoMajorOwners        bool
+	IsSelfExecutive      bool
+	BusinessPersons      []BusinessPersonInput
+
 	IBAN          string
 	BIC           string
 	AccountNumber string
 	RoutingNumber string
 	AccountHolder string
 	BankCountry   string
+}
+
+type BusinessPersonInput struct {
+	Role        string
+	FirstName   string
+	LastName    string
+	DateOfBirth time.Time
+	Email       string
+	Phone       string
+	Address     string
+	City        string
+	PostalCode  string
+	Title       string
 }
 
 // SavePaymentInfo validates and upserts the payment info for the user.
@@ -100,8 +123,12 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		TaxID:              input.TaxID,
 		VATNumber:          input.VATNumber,
 		RoleInCompany:      input.RoleInCompany,
-		Phone:              input.Phone,
-		ActivitySector:     input.ActivitySector,
+		Phone:                input.Phone,
+		ActivitySector:       input.ActivitySector,
+		IsSelfRepresentative: input.IsSelfRepresentative,
+		IsSelfDirector:       input.IsSelfDirector,
+		NoMajorOwners:        input.NoMajorOwners,
+		IsSelfExecutive:      input.IsSelfExecutive,
 		IBAN:               input.IBAN,
 		BIC:                input.BIC,
 		AccountNumber:      input.AccountNumber,
@@ -115,6 +142,29 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 
 	if err := s.payments.Upsert(ctx, info); err != nil {
 		return nil, fmt.Errorf("save payment info: %w", err)
+	}
+
+	// Save business persons (clear and re-create)
+	if info.IsBusiness && s.persons != nil {
+		_ = s.persons.DeleteByUserID(ctx, userID)
+		for _, bp := range input.BusinessPersons {
+			person, pErr := domain.NewBusinessPerson(domain.NewBusinessPersonInput{
+				UserID:      userID,
+				Role:        bp.Role,
+				FirstName:   bp.FirstName,
+				LastName:    bp.LastName,
+				DateOfBirth: bp.DateOfBirth,
+				Email:       bp.Email,
+				Phone:       bp.Phone,
+				Address:     bp.Address,
+				City:        bp.City,
+				PostalCode:  bp.PostalCode,
+				Title:       bp.Title,
+			})
+			if pErr == nil {
+				_ = s.persons.Create(ctx, person)
+			}
+		}
 	}
 
 	// Create Stripe connected account if configured and not already created

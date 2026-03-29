@@ -32,6 +32,12 @@ type PaymentInfo struct {
 	VATNumber       string
 	RoleInCompany   string
 
+	// Business KYC flags (only relevant when IsBusiness)
+	IsSelfRepresentative bool
+	IsSelfDirector       bool
+	NoMajorOwners        bool
+	IsSelfExecutive      bool
+
 	// Contact & KYC
 	Phone          string
 	ActivitySector string // MCC code
@@ -76,6 +82,11 @@ type NewPaymentInfoInput struct {
 	Phone          string
 	ActivitySector string
 
+	IsSelfRepresentative bool
+	IsSelfDirector       bool
+	NoMajorOwners        bool
+	IsSelfExecutive      bool
+
 	IBAN          string
 	BIC           string
 	AccountNumber string
@@ -118,8 +129,12 @@ func NewPaymentInfo(input NewPaymentInfoInput) (*PaymentInfo, error) {
 		TaxID:              strings.TrimSpace(input.TaxID),
 		VATNumber:          strings.TrimSpace(input.VATNumber),
 		RoleInCompany:      strings.TrimSpace(input.RoleInCompany),
-		Phone:              strings.TrimSpace(input.Phone),
-		ActivitySector:     input.ActivitySector,
+		Phone:                strings.TrimSpace(input.Phone),
+		ActivitySector:       input.ActivitySector,
+		IsSelfRepresentative: input.IsSelfRepresentative,
+		IsSelfDirector:       input.IsSelfDirector,
+		NoMajorOwners:        input.NoMajorOwners,
+		IsSelfExecutive:      input.IsSelfExecutive,
 		IBAN:               strings.TrimSpace(input.IBAN),
 		BIC:                strings.TrimSpace(input.BIC),
 		AccountNumber:      strings.TrimSpace(input.AccountNumber),

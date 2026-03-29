@@ -29,6 +29,11 @@ type PaymentInfoResponse struct {
 	Phone          string `json:"phone"`
 	ActivitySector string `json:"activity_sector"`
 
+	IsSelfRepresentative bool `json:"is_self_representative"`
+	IsSelfDirector       bool `json:"is_self_director"`
+	NoMajorOwners        bool `json:"no_major_owners"`
+	IsSelfExecutive      bool `json:"is_self_executive"`
+
 	IBAN          string `json:"iban"`
 	BIC           string `json:"bic"`
 	AccountNumber string `json:"account_number"`
@@ -67,8 +72,12 @@ func NewPaymentInfoResponse(p *payment.PaymentInfo) PaymentInfoResponse {
 		TaxID:              p.TaxID,
 		VATNumber:          p.VATNumber,
 		RoleInCompany:      p.RoleInCompany,
-		Phone:              p.Phone,
-		ActivitySector:     p.ActivitySector,
+		Phone:                p.Phone,
+		ActivitySector:       p.ActivitySector,
+		IsSelfRepresentative: p.IsSelfRepresentative,
+		IsSelfDirector:       p.IsSelfDirector,
+		NoMajorOwners:        p.NoMajorOwners,
+		IsSelfExecutive:      p.IsSelfExecutive,
 		IBAN:               p.IBAN,
 		BIC:                p.BIC,
 		AccountNumber:      p.AccountNumber,

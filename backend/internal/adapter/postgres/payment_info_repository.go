@@ -30,6 +30,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 			is_business, business_name, business_address, business_city,
 			business_postal_code, business_country, tax_id, vat_number, role_in_company,
 			phone, activity_sector,
+			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified,
 			created_at, updated_at
@@ -51,6 +52,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 		&p.IsBusiness, &businessName, &businessAddr, &businessCity,
 		&businessPostal, &businessCountry, &taxID, &vatNumber, &roleInCompany,
 		&phone, &activitySector,
+		&p.IsSelfRepresentative, &p.IsSelfDirector, &p.NoMajorOwners, &p.IsSelfExecutive,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified,
 		&p.CreatedAt, &p.UpdatedAt,
@@ -94,6 +96,7 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			is_business, business_name, business_address, business_city,
 			business_postal_code, business_country, tax_id, vat_number, role_in_company,
 			phone, activity_sector,
+			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			created_at, updated_at
 		) VALUES (
@@ -103,8 +106,9 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			$10, $11, $12, $13,
 			$14, $15, $16, $17, $18,
 			$19, $20,
-			$21, $22, $23, $24, $25, $26,
-			$27, $28
+			$21, $22, $23, $24,
+			$25, $26, $27, $28, $29, $30,
+			$31, $32
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
 			first_name = EXCLUDED.first_name,
@@ -125,6 +129,10 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			role_in_company = EXCLUDED.role_in_company,
 			phone = EXCLUDED.phone,
 			activity_sector = EXCLUDED.activity_sector,
+			is_self_representative = EXCLUDED.is_self_representative,
+			is_self_director = EXCLUDED.is_self_director,
+			no_major_owners = EXCLUDED.no_major_owners,
+			is_self_executive = EXCLUDED.is_self_executive,
 			iban = EXCLUDED.iban,
 			bic = EXCLUDED.bic,
 			account_number = EXCLUDED.account_number,
@@ -141,6 +149,7 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 		nullString(info.BusinessCountry), nullString(info.TaxID),
 		nullString(info.VATNumber), nullString(info.RoleInCompany),
 		nullString(info.Phone), nullString(info.ActivitySector),
+		info.IsSelfRepresentative, info.IsSelfDirector, info.NoMajorOwners, info.IsSelfExecutive,
 		nullString(info.IBAN), nullString(info.BIC),
 		nullString(info.AccountNumber), nullString(info.RoutingNumber),
 		info.AccountHolder, nullString(info.BankCountry),
@@ -185,6 +194,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 			is_business, business_name, business_address, business_city,
 			business_postal_code, business_country, tax_id, vat_number, role_in_company,
 			phone, activity_sector,
+			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified, created_at, updated_at
 		FROM payment_info WHERE stripe_account_id = $1`, stripeAccountID).Scan(
@@ -194,6 +204,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 		&p.IsBusiness, &businessName, &businessAddr, &businessCity,
 		&businessPostal, &businessCountry, &taxID, &vatNumber, &roleInCompany,
 		&phone, &activitySector,
+		&p.IsSelfRepresentative, &p.IsSelfDirector, &p.NoMajorOwners, &p.IsSelfExecutive,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified, &p.CreatedAt, &p.UpdatedAt,
 	)

@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import { PersonalInfoSection } from "./personal-info-section"
 import { BusinessInfoSection } from "./business-info-section"
 import { BankAccountSection } from "./bank-account-section"
+import { BusinessPersonsSection } from "./business-persons-section"
 import { IdentityVerificationSection } from "./identity-verification-section"
 import { isIbanCountry } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
@@ -70,6 +71,11 @@ function responseToFormData(res: PaymentInfoResponse): PaymentInfoFormData {
     vatNumber: res.vat_number,
     phone: res.phone ?? "",
     activitySector: res.activity_sector || "8999",
+    isSelfRepresentative: res.is_self_representative ?? true,
+    isSelfDirector: res.is_self_director ?? true,
+    noMajorOwners: res.no_major_owners ?? true,
+    isSelfExecutive: res.is_self_executive ?? true,
+    businessPersons: [],
     bankMode: hasIban ? "iban" : "local",
     iban: res.iban,
     bic: res.bic,
@@ -117,6 +123,14 @@ export function PaymentInfoPage() {
     setData((prev) => ({ ...prev, isBusiness: !prev.isBusiness }))
     setSaved(false)
   }, [])
+
+  const handleChangeAny = useCallback(
+    (field: keyof PaymentInfoFormData, value: unknown) => {
+      setData((prev) => ({ ...prev, [field]: value }))
+      setSaved(false)
+    },
+    [],
+  )
 
   const handleBankModeChange = useCallback((mode: BankAccountMode) => {
     setData((prev) => ({ ...prev, bankMode: mode }))
@@ -208,7 +222,10 @@ export function PaymentInfoPage() {
       <PersonalInfoSection data={data} onChange={handleChange} />
 
       {data.isBusiness && (
-        <BusinessInfoSection data={data} onChange={handleChange} />
+        <>
+          <BusinessInfoSection data={data} onChange={handleChange} />
+          <BusinessPersonsSection data={data} onChange={handleChangeAny} />
+        </>
       )}
 
       <BankAccountSection

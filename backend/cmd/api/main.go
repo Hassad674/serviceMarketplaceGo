@@ -188,7 +188,8 @@ func main() {
 	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
 	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
 	identityDocRepo := postgres.NewIdentityDocumentRepository(db)
-	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo, paymentRecordRepo, identityDocRepo, stripeSvc, storageSvc)
+	businessPersonRepo := postgres.NewBusinessPersonRepository(db)
+	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo, paymentRecordRepo, identityDocRepo, businessPersonRepo, stripeSvc, storageSvc)
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
 	identityDocHandler := handler.NewIdentityDocumentHandler(paymentInfoSvc)
 

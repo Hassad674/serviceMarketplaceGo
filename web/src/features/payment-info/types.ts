@@ -2,6 +2,19 @@ export type BusinessRole = "owner" | "ceo" | "director" | "partner" | "other"
 
 export type BankAccountMode = "iban" | "local"
 
+export type BusinessPersonData = {
+  role: string
+  firstName: string
+  lastName: string
+  dateOfBirth: string
+  email: string
+  phone: string
+  address: string
+  city: string
+  postalCode: string
+  title: string
+}
+
 export type PaymentInfoFormData = {
   isBusiness: boolean
   firstName: string
@@ -21,6 +34,11 @@ export type PaymentInfoFormData = {
   vatNumber: string
   phone: string
   activitySector: string
+  isSelfRepresentative: boolean
+  isSelfDirector: boolean
+  noMajorOwners: boolean
+  isSelfExecutive: boolean
+  businessPersons: BusinessPersonData[]
   bankMode: BankAccountMode
   iban: string
   bic: string
@@ -49,6 +67,11 @@ export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   vatNumber: "",
   phone: "",
   activitySector: "8999",
+  isSelfRepresentative: true,
+  isSelfDirector: true,
+  noMajorOwners: true,
+  isSelfExecutive: true,
+  businessPersons: [],
   bankMode: "iban",
   iban: "",
   bic: "",

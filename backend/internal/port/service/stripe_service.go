@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"io"
+	"time"
 
 	"marketplace-backend/internal/domain/payment"
 )
@@ -32,6 +33,12 @@ type StripeService interface {
 
 	// UpdateAccountVerification attaches verification documents to a connected account.
 	UpdateAccountVerification(ctx context.Context, accountID string, frontFileID, backFileID string) error
+
+	// CreatePerson creates a person on a connected account.
+	CreatePerson(ctx context.Context, accountID string, input CreatePersonInput) (personID string, err error)
+
+	// UpdateCompanyFlags marks directors/executives/owners as provided.
+	UpdateCompanyFlags(ctx context.Context, accountID string, directorsProvided, executivesProvided, ownersProvided bool) error
 }
 
 type CreatePaymentIntentInput struct {
@@ -47,6 +54,22 @@ type PaymentIntentResult struct {
 	PaymentIntentID string
 	ClientSecret    string
 	AmountTotal     int64
+}
+
+type CreatePersonInput struct {
+	FirstName        string
+	LastName         string
+	Email            string
+	Phone            string
+	DOB              time.Time
+	Address          string
+	City             string
+	PostalCode       string
+	Title            string
+	IsRepresentative bool
+	IsDirector       bool
+	IsOwner          bool
+	IsExecutive      bool
 }
 
 type CreateTransferInput struct {

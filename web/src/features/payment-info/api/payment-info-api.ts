@@ -22,6 +22,10 @@ export type PaymentInfoResponse = {
   role_in_company: string
   phone: string
   activity_sector: string
+  is_self_representative: boolean
+  is_self_director: boolean
+  no_major_owners: boolean
+  is_self_executive: boolean
   iban: string
   bic: string
   account_number: string
@@ -65,6 +69,22 @@ export async function savePaymentInfo(data: PaymentInfoFormData, email?: string)
       role_in_company: data.businessRole,
       phone: data.phone,
       activity_sector: data.activitySector,
+      is_self_representative: data.isSelfRepresentative,
+      is_self_director: data.isSelfDirector,
+      no_major_owners: data.noMajorOwners,
+      is_self_executive: data.isSelfExecutive,
+      business_persons: data.businessPersons.map((p) => ({
+        role: p.role,
+        first_name: p.firstName,
+        last_name: p.lastName,
+        date_of_birth: p.dateOfBirth,
+        email: p.email,
+        phone: p.phone,
+        address: p.address,
+        city: p.city,
+        postal_code: p.postalCode,
+        title: p.title,
+      })),
       iban: data.iban,
       bic: data.bic,
       account_number: data.accountNumber,
