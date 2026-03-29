@@ -185,7 +185,7 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 		Currency:           record.Currency,
 		DestinationAccount: providerInfo.StripeAccountID,
 		TransferGroup:      proposalID.String(),
-		IdempotencyKey:     "transfer_" + proposalID.String(),
+		IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", proposalID, providerInfo.StripeAccountID),
 	})
 	if err != nil {
 		record.MarkTransferFailed()
@@ -201,30 +201,62 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 }
 
 // HandleAccountUpdated syncs Stripe connected account verification status.
+// Called by the webhook handler when account.updated fires.
 func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) error {
-	verified, err := s.stripe.GetAccountStatus(ctx, accountID)
+	// Get verification status + verified file ID from Stripe
+	verStatus, verifiedFileID, err := s.stripe.GetIdentityVerificationStatus(ctx, accountID)
 	if err != nil {
-		return fmt.Errorf("get account status: %w", err)
+		return fmt.Errorf("get verification status: %w", err)
 	}
-	if !verified {
+
+	// Find the user associated with this Stripe account
+	info, err := s.payments.GetByStripeAccountID(ctx, accountID)
+	if err != nil {
+		slog.Warn("webhook: no user for stripe account", "account_id", accountID)
 		return nil
 	}
 
-	// Find the payment info with this stripe account ID and mark verified
-	// For now, we log it. A dedicated query would be more efficient.
-	slog.Info("stripe account verified", "account_id", accountID, "verified", verified)
+	// Update account-level verification
+	if verStatus == "verified" {
+		if err := s.payments.UpdateStripeFields(ctx, info.UserID, accountID, true); err != nil {
+			slog.Error("webhook: failed to mark stripe verified", "user_id", info.UserID, "error", err)
+		}
+	}
+
+	// Update identity document statuses
+	docs, err := s.documents.ListByUserID(ctx, info.UserID)
+	if err != nil {
+		return nil
+	}
+
+	for _, d := range docs {
+		if d.Status != domain.DocStatusPending {
+			continue
+		}
+		switch verStatus {
+		case "verified":
+			if d.StripeFileID == verifiedFileID || verifiedFileID == "" {
+				_ = s.documents.UpdateStatus(ctx, d.ID, string(domain.DocStatusVerified), "")
+				slog.Info("webhook: document verified", "doc_id", d.ID, "user_id", info.UserID)
+			}
+		case "unverified":
+			_ = s.documents.UpdateStatus(ctx, d.ID, string(domain.DocStatusRejected), "verification failed")
+			slog.Info("webhook: document rejected", "doc_id", d.ID, "user_id", info.UserID)
+		}
+	}
+
 	return nil
 }
 
 // WalletOverview holds the provider's wallet state.
 type WalletOverview struct {
-	StripeAccountID string              `json:"stripe_account_id"`
-	ChargesEnabled  bool                `json:"charges_enabled"`
-	PayoutsEnabled  bool                `json:"payouts_enabled"`
-	EscrowAmount    int64               `json:"escrow_amount"`
-	AvailableAmount int64               `json:"available_amount"`
-	TransferredAmount int64             `json:"transferred_amount"`
-	Records         []WalletRecord      `json:"records"`
+	StripeAccountID   string         `json:"stripe_account_id"`
+	ChargesEnabled    bool           `json:"charges_enabled"`
+	PayoutsEnabled    bool           `json:"payouts_enabled"`
+	EscrowAmount      int64          `json:"escrow_amount"`
+	AvailableAmount   int64          `json:"available_amount"`
+	TransferredAmount int64          `json:"transferred_amount"`
+	Records           []WalletRecord `json:"records"`
 }
 
 type WalletRecord struct {
@@ -234,6 +266,7 @@ type WalletRecord struct {
 	ProviderPayout int64  `json:"provider_payout"`
 	PaymentStatus  string `json:"payment_status"`
 	TransferStatus string `json:"transfer_status"`
+	MissionStatus  string `json:"mission_status"`
 	CreatedAt      string `json:"created_at"`
 }
 
@@ -316,7 +349,7 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 			Currency:           r.Currency,
 			DestinationAccount: info.StripeAccountID,
 			TransferGroup:      r.ProposalID.String(),
-			IdempotencyKey:     "transfer_" + r.ProposalID.String(),
+			IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", r.ProposalID, info.StripeAccountID),
 		})
 		if tErr != nil {
 			slog.Error("payout transfer failed", "proposal_id", r.ProposalID, "error", tErr)

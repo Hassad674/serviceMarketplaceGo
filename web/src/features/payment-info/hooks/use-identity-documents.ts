@@ -13,6 +13,8 @@ export function useIdentityDocuments() {
   return useQuery({
     queryKey: IDENTITY_DOCS_KEY,
     queryFn: listIdentityDocuments,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   })
 }
 

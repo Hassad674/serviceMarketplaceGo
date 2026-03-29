@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"path/filepath"
 
@@ -123,6 +122,7 @@ func (s *Service) attachDocumentToAccount(ctx context.Context, userID uuid.UUID,
 }
 
 // ListIdentityDocuments returns all documents for a user.
+// Status updates come exclusively from the Stripe webhook (account.updated).
 func (s *Service) ListIdentityDocuments(ctx context.Context, userID uuid.UUID) ([]*domain.IdentityDocument, error) {
 	docs, err := s.documents.ListByUserID(ctx, userID)
 	if err != nil {
@@ -149,6 +149,3 @@ func (s *Service) DeleteIdentityDocument(ctx context.Context, userID uuid.UUID, 
 func (s *Service) GetDocumentFileURL(key string) string {
 	return s.storage.GetPublicURL(key)
 }
-
-// Ensure unused import is consumed
-var _ = io.EOF

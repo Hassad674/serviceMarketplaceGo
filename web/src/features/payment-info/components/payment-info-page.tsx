@@ -213,10 +213,8 @@ export function PaymentInfoPage() {
         onChangeBankMode={handleBankModeChange}
       />
 
-      {/* Identity verification — only when payment info is saved */}
-      {saved && existing?.stripe_account_id && (
-        <IdentityVerificationSection />
-      )}
+      {/* Identity verification */}
+      <IdentityVerificationSection hasStripeAccount={!!existing?.stripe_account_id} />
 
       {/* Save button */}
       <button

@@ -7,6 +7,7 @@ export type WalletRecord = {
   provider_payout: number
   payment_status: string
   transfer_status: string
+  mission_status: string
   created_at: string
 }
 

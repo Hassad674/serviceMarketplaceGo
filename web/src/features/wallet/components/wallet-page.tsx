@@ -203,9 +203,12 @@ function RecordRow({ record }: { record: WalletRecord }) {
         <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
           Proposition {record.proposal_id.slice(0, 8)}...
         </p>
-        <p className="text-xs text-slate-500">
-          {new Date(record.created_at).toLocaleDateString("fr-FR")}
-        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-slate-500">
+            {new Date(record.created_at).toLocaleDateString("fr-FR")}
+          </span>
+          <MissionBadge status={record.mission_status} />
+        </div>
       </div>
       <div className="text-right">
         <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -218,6 +221,18 @@ function RecordRow({ record }: { record: WalletRecord }) {
       <TransferBadge status={record.transfer_status} />
     </div>
   )
+}
+
+function MissionBadge({ status }: { status: string }) {
+  if (!status) return null
+  const configs: Record<string, { label: string; cls: string }> = {
+    active: { label: "En cours", cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" },
+    completion_requested: { label: "Complétion demandée", cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" },
+    completed: { label: "Terminée", cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400" },
+    paid: { label: "Payée", cls: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400" },
+  }
+  const c = configs[status] ?? { label: status, cls: "bg-slate-50 text-slate-700" }
+  return <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", c.cls)}>{c.label}</span>
 }
 
 function PaymentStatusIcon({ status }: { status: string }) {

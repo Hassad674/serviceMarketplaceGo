@@ -3,20 +3,24 @@ package handler
 import (
 	"net/http"
 
+	"github.com/google/uuid"
+
 	paymentapp "marketplace-backend/internal/app/payment"
+	proposalapp "marketplace-backend/internal/app/proposal"
 	"marketplace-backend/internal/handler/middleware"
 	res "marketplace-backend/pkg/response"
 )
 
 type WalletHandler struct {
-	paymentSvc *paymentapp.Service
+	paymentSvc  *paymentapp.Service
+	proposalSvc *proposalapp.Service
 }
 
-func NewWalletHandler(paymentSvc *paymentapp.Service) *WalletHandler {
-	return &WalletHandler{paymentSvc: paymentSvc}
+func NewWalletHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service) *WalletHandler {
+	return &WalletHandler{paymentSvc: paymentSvc, proposalSvc: proposalSvc}
 }
 
-// GetWallet returns wallet overview: escrow balance, available, transfers history.
+// GetWallet returns wallet overview with proposal statuses.
 func (h *WalletHandler) GetWallet(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -30,10 +34,32 @@ func (h *WalletHandler) GetWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enrich records with proposal status and recompute available vs escrow
+	wallet.EscrowAmount = 0
+	wallet.AvailableAmount = 0
+	for i := range wallet.Records {
+		rec := &wallet.Records[i]
+		proposalID, parseErr := uuid.Parse(rec.ProposalID)
+		if parseErr != nil {
+			continue
+		}
+		p, pErr := h.proposalSvc.GetProposalByID(r.Context(), proposalID)
+		if pErr == nil && p != nil {
+			rec.MissionStatus = string(p.Status)
+		}
+		if rec.PaymentStatus == "succeeded" && rec.TransferStatus == "pending" {
+			if rec.MissionStatus == "completed" {
+				wallet.AvailableAmount += rec.ProviderPayout
+			} else {
+				wallet.EscrowAmount += rec.ProviderPayout
+			}
+		}
+	}
+
 	res.JSON(w, http.StatusOK, wallet)
 }
 
-// RequestPayout triggers a payout from the connected account to the provider's bank.
+// RequestPayout triggers transfers only for completed missions.
 func (h *WalletHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

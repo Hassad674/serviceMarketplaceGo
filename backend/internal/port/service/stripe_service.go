@@ -24,6 +24,9 @@ type StripeService interface {
 	// ConstructWebhookEvent verifies and parses a Stripe webhook event.
 	ConstructWebhookEvent(payload []byte, signature string) (*StripeWebhookEvent, error)
 
+	// GetIdentityVerificationStatus returns the verification status and the verified front file ID.
+	GetIdentityVerificationStatus(ctx context.Context, accountID string) (status string, verifiedFileID string, err error)
+
 	// UploadIdentityFile uploads a file to Stripe for identity verification.
 	UploadIdentityFile(ctx context.Context, filename string, reader io.Reader, purpose string) (fileID string, err error)
 

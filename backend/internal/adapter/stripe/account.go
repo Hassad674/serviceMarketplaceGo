@@ -107,6 +107,23 @@ func (s *Service) GetAccountStatus(ctx context.Context, accountID string) (bool,
 	return acct.ChargesEnabled && acct.PayoutsEnabled, nil
 }
 
+// GetIdentityVerificationStatus returns the verification status and the verified file ID.
+func (s *Service) GetIdentityVerificationStatus(ctx context.Context, accountID string) (status string, verifiedFileID string, err error) {
+	acct, err := account.GetByID(accountID, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("get stripe account: %w", err)
+	}
+	if acct.Individual != nil && acct.Individual.Verification != nil {
+		ver := acct.Individual.Verification
+		frontID := ""
+		if ver.Document != nil && ver.Document.Front != nil {
+			frontID = ver.Document.Front.ID
+		}
+		return string(ver.Status), frontID, nil
+	}
+	return "unverified", "", nil
+}
+
 // resolveCountryCode returns a 2-letter country code from the payment info.
 func resolveCountryCode(info *payment.PaymentInfo) string {
 	if info.BankCountry != "" && len(info.BankCountry) == 2 {
