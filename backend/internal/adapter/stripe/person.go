@@ -7,6 +7,7 @@ import (
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
 	stripeperson "github.com/stripe/stripe-go/v82/person"
+	"github.com/stripe/stripe-go/v82/token"
 
 	portservice "marketplace-backend/internal/port/service"
 )
@@ -71,15 +72,24 @@ func (s *Service) CreatePerson(ctx context.Context, accountID string, input port
 }
 
 func (s *Service) UpdateCompanyFlags(ctx context.Context, accountID string, directorsProvided, executivesProvided, ownersProvided bool) error {
-	params := &stripe.AccountParams{
-		Company: &stripe.AccountCompanyParams{
-			DirectorsProvided:  stripe.Bool(directorsProvided),
-			ExecutivesProvided: stripe.Bool(executivesProvided),
-			OwnersProvided:     stripe.Bool(ownersProvided),
+	// Must use account token for FR platforms
+	tokenParams := &stripe.TokenParams{
+		Account: &stripe.TokenAccountParams{
+			Company: &stripe.AccountCompanyParams{
+				DirectorsProvided:  stripe.Bool(directorsProvided),
+				ExecutivesProvided: stripe.Bool(executivesProvided),
+				OwnersProvided:     stripe.Bool(ownersProvided),
+			},
 		},
 	}
+	tok, err := token.New(tokenParams)
+	if err != nil {
+		return fmt.Errorf("create company flags token: %w", err)
+	}
 
-	_, err := account.Update(accountID, params)
+	_, err = account.Update(accountID, &stripe.AccountParams{
+		AccountToken: stripe.String(tok.ID),
+	})
 	if err != nil {
 		return fmt.Errorf("update company flags: %w", err)
 	}
