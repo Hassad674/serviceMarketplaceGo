@@ -19,6 +19,7 @@ const PROTECTED_PATHS = [
   "/projects",
   "/referral",
   "/settings",
+  "/account",
 ]
 
 /**

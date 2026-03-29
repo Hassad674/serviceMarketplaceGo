@@ -16,7 +16,7 @@ func NewEmailService(apiKey string) *EmailService {
 	client := resend.NewClient(apiKey)
 	return &EmailService{
 		client: client,
-		from:   "Marketplace Service <noreply@marketplace-service.com>",
+		from:   "Marketplace Service <onboarding@resend.dev>",
 	}
 }
 

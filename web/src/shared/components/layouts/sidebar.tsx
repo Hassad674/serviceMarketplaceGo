@@ -16,6 +16,7 @@ import {
   Briefcase,
   CreditCard,
   Wallet,
+  Settings,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
@@ -44,6 +45,7 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
   { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },
   { labelKey: "findReferrers", href: "/search?type=referrer", icon: Search, roles: ["agency", "enterprise"] },
+  { labelKey: "accountSettings", href: "/account", icon: Settings, roles: ["agency", "provider", "enterprise"] },
 ]
 
 // Referrer mode nav — no ?mode=referrer needed; cookie tracks the workspace
@@ -52,6 +54,7 @@ const REFERRER_NAV: NavItem[] = [
   { labelKey: "messages", href: "/messages", icon: MessageSquare, roles: ["provider"] },
   { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
+  { labelKey: "accountSettings", href: "/account", icon: Settings, roles: ["provider"] },
 ]
 
 const ROLE_LABEL_KEYS: Record<string, string> = {

@@ -249,7 +249,7 @@ func main() {
 	}
 
 	// Wallet handler
-	walletHandler := handler.NewWalletHandler(paymentInfoSvc)
+	walletHandler := handler.NewWalletHandler(paymentInfoSvc, proposalSvc)
 
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
