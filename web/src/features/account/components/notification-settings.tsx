@@ -10,7 +10,7 @@ import {
   type NotificationPreference,
 } from "../hooks/use-notification-preferences"
 
-type Channel = "in_app" | "push" | "email"
+type Channel = "push" | "email"
 
 const GROUPS = [
   {
@@ -147,9 +147,6 @@ export function NotificationSettings() {
               {t("notificationType")}
             </span>
             <span className="w-16 text-center text-xs font-medium uppercase tracking-wider text-slate-400">
-              {t("inApp")}
-            </span>
-            <span className="w-16 text-center text-xs font-medium uppercase tracking-wider text-slate-400">
               {t("push")}
             </span>
             <span className="w-16 text-center text-xs font-medium uppercase tracking-wider text-slate-400">
@@ -170,10 +167,6 @@ export function NotificationSettings() {
                     {t(TYPE_LABELS[type] || type)}
                   </span>
                   <div className="flex items-center gap-6 sm:gap-4">
-                    <div className="flex items-center gap-2 sm:w-16 sm:justify-center">
-                      <span className="text-xs text-slate-400 sm:hidden">{t("inApp")}</span>
-                      <Toggle checked={pref.in_app} onChange={() => handleToggle(type, "in_app")} />
-                    </div>
                     <div className="flex items-center gap-2 sm:w-16 sm:justify-center">
                       <span className="text-xs text-slate-400 sm:hidden">{t("push")}</span>
                       <Toggle checked={pref.push} onChange={() => handleToggle(type, "push")} />
