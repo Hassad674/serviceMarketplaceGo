@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import { unreadCountQueryKey } from "./use-unread-count"
 import { unreadNotifCountKey } from "@/features/notification/hooks/use-unread-notification-count"
 import { notificationsQueryKey } from "@/features/notification/hooks/use-notifications"
@@ -109,6 +110,13 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
               data: { count: ((prev?.data?.count ?? 0) + 1) },
             }
           })
+          // Show toast for real-time feedback
+          const payload = frame.payload
+          if (payload?.title) {
+            toast(payload.title, {
+              description: payload.body || undefined,
+            })
+          }
         }
         if (frame.type === "notification_unread_count") {
           queryClient.setQueryData(unreadNotifCountKey(userId), {
