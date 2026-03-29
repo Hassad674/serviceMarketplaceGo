@@ -906,7 +906,7 @@ systemctl poweroff
 
 ## STATISTIQUES A REMPLIR PAR L'AGENT
 
-- **Debut** : [a remplir par l'agent]
+- **Debut** : 2026-03-30 ~23:00
 - **FIN** : [a remplir par l'agent]
 - **Tests ecrits cette nuit** : [nombre]
 - **Fichiers de test crees** : [nombre]
