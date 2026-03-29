@@ -12,19 +12,19 @@ function createMockMQL(query: string): MediaQueryList {
     matches: matchesMap.get(query) ?? false,
     media: query,
     onchange: null,
-    addEventListener: vi.fn((event: string, cb: ChangeListener) => {
-      if (event === "change") {
+    addEventListener: vi.fn(((event: string, cb: EventListenerOrEventListenerObject) => {
+      if (event === "change" && typeof cb === "function") {
         const list = listeners.get(query) ?? []
-        list.push(cb)
+        list.push(cb as unknown as ChangeListener)
         listeners.set(query, list)
       }
-    }),
-    removeEventListener: vi.fn((event: string, cb: ChangeListener) => {
-      if (event === "change") {
+    }) as MediaQueryList["addEventListener"]),
+    removeEventListener: vi.fn(((event: string, cb: EventListenerOrEventListenerObject) => {
+      if (event === "change" && typeof cb === "function") {
         const list = listeners.get(query) ?? []
         listeners.set(query, list.filter((l) => l !== cb))
-      }
-    }),
+        }
+    }) as MediaQueryList["removeEventListener"]),
     addListener: vi.fn(),
     removeListener: vi.fn(),
     dispatchEvent: vi.fn(),
