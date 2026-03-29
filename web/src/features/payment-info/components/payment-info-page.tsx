@@ -218,7 +218,7 @@ export function PaymentInfoPage() {
       />
 
       {/* Identity verification */}
-      <IdentityVerificationSection hasStripeAccount={!!existing?.stripe_account_id} />
+      <IdentityVerificationSection />
 
       {/* Save button */}
       <button

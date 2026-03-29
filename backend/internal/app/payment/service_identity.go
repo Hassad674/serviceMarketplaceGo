@@ -23,15 +23,6 @@ type UploadIdentityDocumentInput struct {
 
 // UploadIdentityDocument handles the full upload flow: R2 + Stripe + DB.
 func (s *Service) UploadIdentityDocument(ctx context.Context, userID uuid.UUID, input UploadIdentityDocumentInput) (*domain.IdentityDocument, error) {
-	// Get payment info for Stripe account ID
-	info, err := s.payments.GetByUserID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("get payment info: %w", err)
-	}
-	if info.StripeAccountID == "" {
-		return nil, domain.ErrStripeAccountNotFound
-	}
-
 	// Generate storage key
 	ext := filepath.Ext(input.Filename)
 	if ext == "" {
@@ -40,19 +31,19 @@ func (s *Service) UploadIdentityDocument(ctx context.Context, userID uuid.UUID, 
 	storageKey := fmt.Sprintf("documents/%s/%s_%s_%s_%s%s",
 		userID, input.Category, input.DocumentType, input.Side, uuid.New().String()[:8], ext)
 
-	// Upload to R2/S3
-	_, err = s.storage.Upload(ctx, storageKey, bytes.NewReader(input.FileData), input.ContentType, int64(len(input.FileData)))
+	// Upload to R2/S3 (always — even without Stripe account)
+	_, err := s.storage.Upload(ctx, storageKey, bytes.NewReader(input.FileData), input.ContentType, int64(len(input.FileData)))
 	if err != nil {
 		return nil, fmt.Errorf("upload to storage: %w", err)
 	}
 
-	// Upload to Stripe
+	// Upload to Stripe only if account exists
 	var stripeFileID string
-	if s.stripe != nil {
+	info, _ := s.payments.GetByUserID(ctx, userID)
+	if s.stripe != nil && info != nil && info.StripeAccountID != "" {
 		stripeFileID, err = s.stripe.UploadIdentityFile(ctx, input.Filename, bytes.NewReader(input.FileData), "identity_document")
 		if err != nil {
 			slog.Error("failed to upload to stripe", "user_id", userID, "error", err)
-			// Continue — R2 upload succeeded, Stripe can be retried
 		}
 	}
 
@@ -84,8 +75,8 @@ func (s *Service) UploadIdentityDocument(ctx context.Context, userID uuid.UUID, 
 		return nil, fmt.Errorf("persist identity document: %w", err)
 	}
 
-	// Try to attach to Stripe account
-	if s.stripe != nil && stripeFileID != "" {
+	// Try to attach to Stripe account if it exists
+	if s.stripe != nil && stripeFileID != "" && info != nil && info.StripeAccountID != "" {
 		s.attachDocumentToAccount(ctx, userID, info.StripeAccountID)
 	}
 

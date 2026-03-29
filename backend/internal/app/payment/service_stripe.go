@@ -1,10 +1,13 @@
 package payment
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 
 	"github.com/google/uuid"
 
@@ -394,6 +397,46 @@ func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentI
 	}
 
 	slog.Info("stripe connected account created", "user_id", info.UserID, "account_id", accountID)
+
+	// Sync any documents uploaded before the account was created
+	s.syncPendingDocuments(ctx, info.UserID, accountID)
+}
+
+// syncPendingDocuments uploads pending documents to Stripe after account creation.
+func (s *Service) syncPendingDocuments(ctx context.Context, userID uuid.UUID, accountID string) {
+	docs, err := s.documents.ListByUserID(ctx, userID)
+	if err != nil || len(docs) == 0 {
+		return
+	}
+
+	for _, d := range docs {
+		if d.StripeFileID != "" {
+			continue
+		}
+		fileURL := s.storage.GetPublicURL(d.FileKey)
+		resp, httpErr := http.Get(fileURL)
+		if httpErr != nil || resp.StatusCode != 200 {
+			slog.Error("sync: failed to download from R2", "doc_id", d.ID, "url", fileURL)
+			if resp != nil {
+				resp.Body.Close()
+			}
+			continue
+		}
+		fileData, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			continue
+		}
+		stripeFileID, uploadErr := s.stripe.UploadIdentityFile(ctx, d.FileKey, bytes.NewReader(fileData), "identity_document")
+		if uploadErr != nil {
+			slog.Error("sync: failed to upload to stripe", "doc_id", d.ID, "error", uploadErr)
+			continue
+		}
+		_ = s.documents.UpdateStripeFileID(ctx, d.ID, stripeFileID)
+		slog.Info("sync: document uploaded to stripe", "doc_id", d.ID, "stripe_file_id", stripeFileID)
+	}
+
+	s.attachDocumentToAccount(ctx, userID, accountID)
 }
 
 // VerifyWebhook delegates webhook verification to the Stripe adapter.

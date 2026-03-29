@@ -25,7 +25,7 @@ const DOC_TYPES = [
 
 type UploadStep = { type: string; side: string; sideIndex: number; totalSides: number }
 
-export function IdentityVerificationSection({ hasStripeAccount }: { hasStripeAccount: boolean }) {
+export function IdentityVerificationSection() {
   const t = useTranslations("paymentInfo")
   const { data: docs, isLoading } = useIdentityDocuments()
   const uploadMutation = useUploadIdentityDocument()
@@ -92,16 +92,8 @@ export function IdentityVerificationSection({ hasStripeAccount }: { hasStripeAcc
 
   return (
     <SectionShell>
-      {/* No Stripe account */}
-      {!hasStripeAccount && (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-500/10 p-3">
-          <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-          <p className="text-sm text-amber-700 dark:text-amber-300">{t("noStripeAccount")}</p>
-        </div>
-      )}
-
       {/* State: no documents uploaded yet */}
-      {hasStripeAccount && status === "none" && (
+      {status === "none" && (
         <button
           type="button"
           onClick={openModal}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -253,11 +254,24 @@ func (s *Service) DeleteMessage(ctx context.Context, input DeleteMessageInput) e
 		return message.ErrCannotDeleteOther
 	}
 
+	// 1-hour deletion window
+	if time.Since(msg.CreatedAt) > time.Hour {
+		return message.ErrDeleteWindowExpired
+	}
+
 	msg.SoftDelete()
 
 	if err := s.messages.UpdateMessage(ctx, msg); err != nil {
 		return fmt.Errorf("update message: %w", err)
 	}
+
+	// Broadcast deletion to other participants
+	participantIDs, _ := s.messages.GetParticipantIDs(ctx, msg.ConversationID)
+	payload, _ := json.Marshal(map[string]string{
+		"message_id":      msg.ID.String(),
+		"conversation_id": msg.ConversationID.String(),
+	})
+	_ = s.broadcaster.BroadcastStatusUpdate(ctx, participantIDs, payload)
 
 	return nil
 }
