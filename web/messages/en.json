@@ -679,6 +679,8 @@
     "directors": "Directors",
     "owners": "Shareholders >25%",
     "executives": "Executives",
+    "representative": "Legal Representative",
+    "personTitle": "Title / Role",
     "addPerson": "Add a person",
     "roleOwner": "Owner",
     "roleCeo": "CEO",

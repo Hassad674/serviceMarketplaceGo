@@ -56,6 +56,18 @@ export function BusinessPersonsSection({ data, onChange }: Props) {
           label={t("iAmRepresentative")}
         />
 
+        {!data.isSelfRepresentative && (
+          <PersonList
+            persons={data.businessPersons.filter((p) => p.role === "representative")}
+            role="representative"
+            label={t("representative")}
+            allPersons={data.businessPersons}
+            onAdd={() => addPerson("representative")}
+            onRemove={removePerson}
+            onUpdate={updatePerson}
+          />
+        )}
+
         {/* 2. Dirigeants */}
         <CheckboxBlock
           checked={data.isSelfDirector}
@@ -157,6 +169,17 @@ function PersonList({ persons, role, label, allPersons, onAdd, onRemove, onUpdat
               <MiniInput label={t("lastName")} value={person.lastName} onChange={(v) => onUpdate(globalIndex, "lastName", v)} />
               <MiniInput label={t("dateOfBirth")} value={person.dateOfBirth} onChange={(v) => onUpdate(globalIndex, "dateOfBirth", v)} type="date" />
               <MiniInput label="Email" value={person.email} onChange={(v) => onUpdate(globalIndex, "email", v)} type="email" />
+              {(role === "representative" || role === "executive" || role === "owner") && (
+                <>
+                  <MiniInput label={t("phone")} value={person.phone} onChange={(v) => onUpdate(globalIndex, "phone", v)} type="tel" />
+                  <MiniInput label={t("address")} value={person.address} onChange={(v) => onUpdate(globalIndex, "address", v)} />
+                  <MiniInput label={t("city")} value={person.city} onChange={(v) => onUpdate(globalIndex, "city", v)} />
+                  <MiniInput label={t("postalCode")} value={person.postalCode} onChange={(v) => onUpdate(globalIndex, "postalCode", v)} />
+                </>
+              )}
+              {(role === "representative" || role === "director") && (
+                <MiniInput label={t("personTitle")} value={person.title} onChange={(v) => onUpdate(globalIndex, "title", v)} placeholder="CEO, Director..." />
+              )}
             </div>
           </div>
         )
@@ -173,8 +196,8 @@ function PersonList({ persons, role, label, allPersons, onAdd, onRemove, onUpdat
   )
 }
 
-function MiniInput({ label, value, onChange, type = "text" }: {
-  label: string; value: string; onChange: (v: string) => void; type?: string
+function MiniInput({ label, value, onChange, type = "text", placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string
 }) {
   return (
     <div>
@@ -183,6 +206,7 @@ function MiniInput({ label, value, onChange, type = "text" }: {
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
         className={cn(
           "h-8 w-full rounded border border-slate-200 bg-white px-2 text-sm",
           "focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 focus:outline-none",
