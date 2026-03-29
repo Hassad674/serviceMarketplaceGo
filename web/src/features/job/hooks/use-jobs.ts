@@ -3,23 +3,32 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createJob, listMyJobs, closeJob } from "../api/job-api"
 import type { CreateJobData } from "../api/job-api"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
+export function jobsQueryKey(uid: string | undefined) {
+  return ["user", uid, "jobs"] as const
+}
+
+/** @deprecated Use jobsQueryKey(uid) instead */
 export const JOBS_QUERY_KEY = ["jobs"]
 
 export function useCreateJob() {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (data: CreateJobData) => createJob(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: jobsQueryKey(uid) })
     },
   })
 }
 
 export function useMyJobs(cursor?: string) {
+  const uid = useCurrentUserId()
+
   return useQuery({
-    queryKey: [...JOBS_QUERY_KEY, "mine", cursor],
+    queryKey: [...jobsQueryKey(uid), "mine", cursor],
     queryFn: () => listMyJobs(cursor),
     staleTime: 30 * 1000,
   })
@@ -27,11 +36,12 @@ export function useMyJobs(cursor?: string) {
 
 export function useCloseJob() {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (id: string) => closeJob(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: JOBS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: jobsQueryKey(uid) })
     },
   })
 }

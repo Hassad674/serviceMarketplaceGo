@@ -9,11 +9,15 @@ import {
   uploadReviewVideo,
   type CreateReviewPayload,
 } from "../api/review-api"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
 const REVIEW_KEYS = {
+  // Public data — no user scoping needed
   byUser: (userId: string) => ["reviews", "user", userId] as const,
   average: (userId: string) => ["reviews", "average", userId] as const,
-  canReview: (proposalId: string) => ["reviews", "can-review", proposalId] as const,
+  // User-specific — scoped to current user
+  canReview: (uid: string | undefined, proposalId: string) =>
+    ["user", uid, "reviews", "can-review", proposalId] as const,
 }
 
 export function useReviewsByUser(userId: string) {
@@ -33,8 +37,10 @@ export function useAverageRating(userId: string) {
 }
 
 export function useCanReview(proposalId: string | undefined) {
+  const uid = useCurrentUserId()
+
   return useQuery({
-    queryKey: REVIEW_KEYS.canReview(proposalId ?? ""),
+    queryKey: REVIEW_KEYS.canReview(uid, proposalId ?? ""),
     queryFn: () => fetchCanReview(proposalId!),
     enabled: !!proposalId,
     staleTime: 30 * 1000,

@@ -60,6 +60,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			// Protected
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/me", deps.Auth.Me)
 				r.Get("/ws-token", deps.Auth.WSToken)
 				r.Post("/logout", deps.Auth.Logout)
@@ -70,6 +71,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Profile routes (authenticated)
 		r.Route("/profile", func(r chi.Router) {
 			r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+			r.Use(middleware.NoCache)
 			r.Get("/", deps.Profile.GetMyProfile)
 			r.Put("/", deps.Profile.UpdateMyProfile)
 		})
@@ -77,6 +79,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Upload routes (authenticated)
 		r.Route("/upload", func(r chi.Router) {
 			r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+			r.Use(middleware.NoCache)
 			r.Post("/photo", deps.Upload.UploadPhoto)
 			r.Post("/video", deps.Upload.UploadVideo)
 			r.Delete("/video", deps.Upload.DeleteVideo)
@@ -93,6 +96,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Messaging != nil {
 			r.Route("/messaging", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Post("/conversations", deps.Messaging.StartConversation)
 				r.Get("/conversations", deps.Messaging.ListConversations)
 				r.Get("/conversations/{id}/messages", deps.Messaging.ListMessages)
@@ -109,6 +113,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Proposal != nil {
 			r.Route("/proposals", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Post("/", deps.Proposal.CreateProposal)
 				r.Get("/{id}", deps.Proposal.GetProposal)
 				r.Post("/{id}/accept", deps.Proposal.AcceptProposal)
@@ -122,6 +127,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 			r.Route("/projects", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/", deps.Proposal.ListActiveProjects)
 			})
 		}
@@ -130,6 +136,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Job != nil {
 			r.Route("/jobs", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Post("/", deps.Job.CreateJob)
 				r.Get("/mine", deps.Job.ListMyJobs)
 				r.Get("/{id}", deps.Job.GetJob)
@@ -147,6 +154,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Authenticated: create reviews and check eligibility
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+					r.Use(middleware.NoCache)
 					r.Post("/", deps.Review.CreateReview)
 					r.Get("/can-review/{proposalId}", deps.Review.CanReview)
 				})
@@ -161,6 +169,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			// Authenticated: manage own social links
 			r.Route("/profile/social-links", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/", deps.SocialLink.ListMySocialLinks)
 				r.Put("/", deps.SocialLink.UpsertSocialLink)
 				r.Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
@@ -171,6 +180,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Call != nil {
 			r.Route("/calls", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Post("/initiate", deps.Call.InitiateCall)
 				r.Post("/{id}/accept", deps.Call.AcceptCall)
 				r.Post("/{id}/decline", deps.Call.DeclineCall)
@@ -182,6 +192,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.PaymentInfo != nil {
 			r.Route("/payment-info", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/", deps.PaymentInfo.GetPaymentInfo)
 				r.Put("/", deps.PaymentInfo.SavePaymentInfo)
 				r.Get("/status", deps.PaymentInfo.GetPaymentInfoStatus)
@@ -192,6 +203,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Notification != nil {
 			r.Route("/notifications", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/", deps.Notification.ListNotifications)
 				r.Get("/unread-count", deps.Notification.GetUnreadCount)
 				r.Post("/{id}/read", deps.Notification.MarkAsRead)
@@ -217,6 +229,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Wallet != nil {
 			r.Route("/wallet", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/", deps.Wallet.GetWallet)
 				r.Post("/payout", deps.Wallet.RequestPayout)
 			})
@@ -226,6 +239,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		if deps.Stripe != nil {
 			r.Route("/stripe", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
 				r.Get("/config", deps.Stripe.GetConfig)
 			})
 			// Webhook: NO auth — Stripe sends directly, verified by signature

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { UNREAD_COUNT_QUERY_KEY } from "./use-unread-count"
-import { UNREAD_NOTIF_COUNT_KEY } from "@/features/notification/hooks/use-unread-notification-count"
-import { NOTIFICATIONS_QUERY_KEY } from "@/features/notification/hooks/use-notifications"
+import { unreadCountQueryKey } from "./use-unread-count"
+import { unreadNotifCountKey } from "@/features/notification/hooks/use-unread-notification-count"
+import { notificationsQueryKey } from "@/features/notification/hooks/use-notifications"
 
 const HEARTBEAT_INTERVAL = 30_000
 const MAX_RECONNECT_DELAY = 30_000
@@ -97,13 +97,13 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
         // Message-specific events are handled by useMessagingWS on the messages page.
         if (frame.type === "unread_count") {
           queryClient.setQueryData(
-            UNREAD_COUNT_QUERY_KEY,
+            unreadCountQueryKey(userId),
             { count: frame.payload.count },
           )
         }
         if (frame.type === "notification") {
-          queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY })
-          queryClient.setQueryData(UNREAD_NOTIF_COUNT_KEY, (old: unknown) => {
+          queryClient.invalidateQueries({ queryKey: notificationsQueryKey(userId) })
+          queryClient.setQueryData(unreadNotifCountKey(userId), (old: unknown) => {
             const prev = old as { data?: { count?: number } } | undefined
             return {
               data: { count: ((prev?.data?.count ?? 0) + 1) },
@@ -111,7 +111,7 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
           })
         }
         if (frame.type === "notification_unread_count") {
-          queryClient.setQueryData(UNREAD_NOTIF_COUNT_KEY, {
+          queryClient.setQueryData(unreadNotifCountKey(userId), {
             data: { count: frame.payload?.count ?? 0 },
           })
         }

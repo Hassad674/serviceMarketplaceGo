@@ -4,13 +4,23 @@ import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-q
 import { listMessages, sendMessage, editMessage, deleteMessage } from "../api/messaging-api"
 import type { FileMessageMetadata, VoiceMessageMetadata } from "../api/messaging-api"
 import type { Message, MessageListResponse } from "../types"
-import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
+import { conversationsQueryKey } from "./use-conversations"
+import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
-export const MESSAGES_QUERY_KEY = "messaging-messages"
+export const MESSAGES_KEY_BASE = "messaging-messages"
+
+export function messagesQueryKey(uid: string | undefined, conversationId: string | null) {
+  return ["user", uid, MESSAGES_KEY_BASE, conversationId] as const
+}
+
+/** @deprecated Use messagesQueryKey(uid, conversationId) instead */
+export const MESSAGES_QUERY_KEY = MESSAGES_KEY_BASE
 
 export function useMessages(conversationId: string | null) {
+  const uid = useCurrentUserId()
+
   return useInfiniteQuery({
-    queryKey: [MESSAGES_QUERY_KEY, conversationId],
+    queryKey: messagesQueryKey(uid, conversationId),
     queryFn: ({ pageParam }) =>
       listMessages(conversationId!, pageParam as string | undefined),
     initialPageParam: undefined as string | undefined,
@@ -23,6 +33,7 @@ export function useMessages(conversationId: string | null) {
 
 export function useSendMessage(conversationId: string | null) {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: ({
@@ -39,7 +50,7 @@ export function useSendMessage(conversationId: string | null) {
     }) => sendMessage(conversationId!, content, type, metadata, replyToId),
 
     onMutate: async ({ content, type = "text", metadata, replyToInfo }) => {
-      const queryKey = [MESSAGES_QUERY_KEY, conversationId]
+      const queryKey = messagesQueryKey(uid, conversationId)
       await queryClient.cancelQueries({ queryKey })
 
       const previous = queryClient.getQueryData<{
@@ -85,7 +96,7 @@ export function useSendMessage(conversationId: string | null) {
     onError: (_err, _vars, context) => {
       if (context?.previous) {
         queryClient.setQueryData(
-          [MESSAGES_QUERY_KEY, conversationId],
+          messagesQueryKey(uid, conversationId),
           context.previous,
         )
       }
@@ -93,7 +104,7 @@ export function useSendMessage(conversationId: string | null) {
 
     onSuccess: (newMessage) => {
       queryClient.setQueryData(
-        [MESSAGES_QUERY_KEY, conversationId],
+        messagesQueryKey(uid, conversationId),
         (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
           if (!old) return old
           const newPages = old.pages.map((page, idx) => {
@@ -108,13 +119,14 @@ export function useSendMessage(conversationId: string | null) {
           return { ...old, pages: newPages }
         },
       )
-      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
     },
   })
 }
 
 export function useEditMessage(conversationId: string | null) {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: ({ messageId, content }: { messageId: string; content: string }) =>
@@ -122,7 +134,7 @@ export function useEditMessage(conversationId: string | null) {
 
     onSuccess: (updatedMessage) => {
       queryClient.setQueryData(
-        [MESSAGES_QUERY_KEY, conversationId],
+        messagesQueryKey(uid, conversationId),
         (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
           if (!old) return old
           return {
@@ -136,20 +148,21 @@ export function useEditMessage(conversationId: string | null) {
           }
         },
       )
-      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
     },
   })
 }
 
 export function useDeleteMessage(conversationId: string | null) {
   const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
 
   return useMutation({
     mutationFn: (messageId: string) => deleteMessage(messageId),
 
     onSuccess: (_data, messageId) => {
       queryClient.setQueryData(
-        [MESSAGES_QUERY_KEY, conversationId],
+        messagesQueryKey(uid, conversationId),
         (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
           if (!old) return old
           return {
@@ -165,7 +178,7 @@ export function useDeleteMessage(conversationId: string | null) {
           }
         },
       )
-      queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
     },
   })
 }

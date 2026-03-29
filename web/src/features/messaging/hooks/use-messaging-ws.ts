@@ -4,10 +4,10 @@ import { useEffect, useRef, useState, useCallback } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse, Conversation, ProposalMessageMetadata } from "../types"
 import { markAsRead } from "../api/messaging-api"
-import { CONVERSATIONS_QUERY_KEY } from "./use-conversations"
-import { MESSAGES_QUERY_KEY } from "./use-messages"
-import { UNREAD_COUNT_QUERY_KEY } from "@/shared/hooks/use-unread-count"
-import { PROPOSAL_QUERY_KEY } from "@/features/proposal/hooks/use-proposals"
+import { conversationsQueryKey } from "./use-conversations"
+import { messagesQueryKey, MESSAGES_KEY_BASE } from "./use-messages"
+import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
+import { proposalQueryKey } from "@/features/proposal/hooks/use-proposals"
 
 const HEARTBEAT_INTERVAL = 30_000
 const TYPING_CLEAR_DELAY = 5_000
@@ -98,7 +98,7 @@ export function useMessagingWS(userId: string | undefined) {
 
   const addMessageToCache = useCallback(
     (message: Message) => {
-      const queryKey = [MESSAGES_QUERY_KEY, message.conversation_id]
+      const queryKey = messagesQueryKey(userId, message.conversation_id)
       queryClient.setQueryData(
         queryKey,
         (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
@@ -117,7 +117,7 @@ export function useMessagingWS(userId: string | undefined) {
       )
       lastSeqMapRef.current[message.conversation_id] = message.seq
     },
-    [queryClient],
+    [queryClient, userId],
   )
 
   // When a proposal status change message arrives (accepted/declined/paid/etc.),
@@ -140,7 +140,7 @@ export function useMessagingWS(userId: string | undefined) {
 
       const newStatus = meta.proposal_status
       const proposalId = meta.proposal_id
-      const queryKey = [MESSAGES_QUERY_KEY, message.conversation_id]
+      const queryKey = messagesQueryKey(userId, message.conversation_id)
 
       queryClient.setQueryData(
         queryKey,
@@ -170,9 +170,9 @@ export function useMessagingWS(userId: string | undefined) {
       )
 
       // Also invalidate the proposal detail query so /projects/{id} refreshes
-      queryClient.invalidateQueries({ queryKey: [...PROPOSAL_QUERY_KEY, proposalId] })
+      queryClient.invalidateQueries({ queryKey: [...proposalQueryKey(userId), proposalId] })
     },
-    [queryClient],
+    [queryClient, userId],
   )
 
   // Use a ref for the frame handler so the WS onmessage callback
@@ -181,6 +181,7 @@ export function useMessagingWS(userId: string | undefined) {
 
   useEffect(() => {
     handleFrameRef.current = (frame: WSServerFrame) => {
+      const uid = userIdRef.current
       switch (frame.type) {
         case "new_message": {
           const incomingMsg = frame.payload
@@ -192,10 +193,8 @@ export function useMessagingWS(userId: string | undefined) {
             activeConversationIdRef.current === incomingMsg.conversation_id
 
           if (isActiveConversation) {
-            // User is viewing this conversation — optimistically keep unread at 0
-            // and mark as read on the server.
             queryClient.setQueryData(
-              CONVERSATIONS_QUERY_KEY,
+              conversationsQueryKey(uid),
               (old: ConversationListResponse | undefined) => {
                 if (!old) return old
                 return {
@@ -210,28 +209,23 @@ export function useMessagingWS(userId: string | undefined) {
             )
             markAsRead(incomingMsg.conversation_id, incomingMsg.seq).catch(() => {})
           } else {
-            // Not viewing this conversation — refetch to get updated unread counts
-            queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+            queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           }
           break
         }
         case "typing": {
           const { conversation_id, user_id } = frame.payload
-          // Skip own typing events
           if (user_id === userIdRef.current) return
 
-          // Clear any existing timer for this conversation
           if (typingTimersRef.current[conversation_id]) {
             clearTimeout(typingTimersRef.current[conversation_id])
           }
 
-          // Set a new timer to clear the typing indicator
           typingTimersRef.current[conversation_id] = setTimeout(
             () => clearTyping(conversation_id),
             TYPING_CLEAR_DELAY,
           )
 
-          // Update the typing state
           setTypingUsers((prev) => ({
             ...prev,
             [conversation_id]: { userId: user_id },
@@ -240,9 +234,8 @@ export function useMessagingWS(userId: string | undefined) {
         }
         case "status_update": {
           const { conversation_id, up_to_seq, status } = frame.payload
-          const statusQueryKey = [MESSAGES_QUERY_KEY, conversation_id]
           queryClient.setQueryData(
-            statusQueryKey,
+            messagesQueryKey(uid, conversation_id),
             (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
               if (!old) return old
               return {
@@ -262,13 +255,12 @@ export function useMessagingWS(userId: string | undefined) {
         }
         case "unread_count": {
           setTotalUnread(frame.payload.count)
-          queryClient.invalidateQueries({ queryKey: UNREAD_COUNT_QUERY_KEY })
+          queryClient.invalidateQueries({ queryKey: unreadCountQueryKey(uid) })
           break
         }
         case "message_edited": {
-          const editedQueryKey = [MESSAGES_QUERY_KEY, frame.payload.conversation_id]
           queryClient.setQueryData(
-            editedQueryKey,
+            messagesQueryKey(uid, frame.payload.conversation_id),
             (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
               if (!old) return old
               return {
@@ -282,14 +274,13 @@ export function useMessagingWS(userId: string | undefined) {
               }
             },
           )
-          queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           break
         }
         case "message_deleted": {
           const { message_id, conversation_id: delConvId } = frame.payload
-          const delQueryKey = [MESSAGES_QUERY_KEY, delConvId]
           queryClient.setQueryData(
-            delQueryKey,
+            messagesQueryKey(uid, delConvId),
             (old: { pages: MessageListResponse[]; pageParams: (string | undefined)[] } | undefined) => {
               if (!old) return old
               return {
@@ -305,13 +296,13 @@ export function useMessagingWS(userId: string | undefined) {
               }
             },
           )
-          queryClient.invalidateQueries({ queryKey: CONVERSATIONS_QUERY_KEY })
+          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           break
         }
         case "presence": {
           const { user_id: presenceUserId, online } = frame.payload
           queryClient.setQueryData(
-            CONVERSATIONS_QUERY_KEY,
+            conversationsQueryKey(uid),
             (old: ConversationListResponse | undefined) => {
               if (!old) return old
               return {

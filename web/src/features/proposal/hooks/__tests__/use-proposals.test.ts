@@ -28,10 +28,16 @@ vi.mock("../../api/proposal-api", () => ({
 
 // Mock the conversations and messages query key exports
 vi.mock("@/features/messaging/hooks/use-conversations", () => ({
+  conversationsQueryKey: (uid: string | undefined) => ["user", uid, "messaging", "conversations"],
   CONVERSATIONS_QUERY_KEY: ["messaging", "conversations"],
 }))
 vi.mock("@/features/messaging/hooks/use-messages", () => ({
+  messagesQueryKey: (uid: string | undefined, conversationId: string | null) => ["user", uid, "messaging-messages", conversationId],
+  MESSAGES_KEY_BASE: "messaging-messages",
   MESSAGES_QUERY_KEY: "messaging-messages",
+}))
+vi.mock("@/shared/hooks/use-current-user-id", () => ({
+  useCurrentUserId: () => "test-user-id",
 }))
 
 import {
@@ -44,7 +50,7 @@ import {
   useCompleteProposal,
   useRejectCompletion,
   useProjects,
-  PROJECTS_QUERY_KEY,
+  projectsQueryKey,
 } from "../use-proposals"
 
 function createWrapper() {
@@ -346,8 +352,8 @@ describe("useRejectCompletion", () => {
   })
 })
 
-describe("PROJECTS_QUERY_KEY", () => {
-  it("is defined as expected", () => {
-    expect(PROJECTS_QUERY_KEY).toEqual(["projects"])
+describe("projectsQueryKey", () => {
+  it("builds user-scoped query key", () => {
+    expect(projectsQueryKey("uid-1")).toEqual(["user", "uid-1", "projects"])
   })
 })
