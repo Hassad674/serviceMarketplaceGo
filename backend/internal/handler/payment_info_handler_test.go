@@ -172,7 +172,7 @@ var _ repository.BusinessPersonRepository = (*mockBusinessPersonRepo)(nil)
 func newTestPaymentService(infoRepo *mockPaymentInfoRepo, recordRepo *mockPaymentRecordRepo) *paymentapp.Service {
 	return paymentapp.NewService(
 		infoRepo, recordRepo, &mockIdentityDocRepo{}, &mockBusinessPersonRepo{},
-		nil, nil, // stripe and storage nil
+		nil, nil, nil, "", // stripe, storage, notifications, frontendURL
 	)
 }
 

@@ -29,6 +29,25 @@ void main() {
         'is_self_director': false,
         'no_major_owners': false,
         'is_self_executive': false,
+        'business_persons': [
+          {
+            'role': 'representative',
+            'first_name': 'Alice',
+            'last_name': 'Rep',
+            'date_of_birth': '1988-03-10',
+            'email': 'alice@test.com',
+            'phone': '+33699887766',
+            'address': '5 Rue Rep',
+            'city': 'Lyon',
+            'postal_code': '69001',
+            'title': 'CEO',
+          },
+          {
+            'role': 'owner',
+            'first_name': 'Bob',
+            'last_name': 'Own',
+          },
+        ],
         'iban': 'FR7612345678901234567890123',
         'bic': 'BNPAFRPP',
         'account_number': '',
@@ -67,6 +86,16 @@ void main() {
       expect(info.isSelfDirector, false);
       expect(info.noMajorOwners, false);
       expect(info.isSelfExecutive, false);
+      expect(info.businessPersons.length, 2);
+      expect(info.businessPersons[0].role, 'representative');
+      expect(info.businessPersons[0].firstName, 'Alice');
+      expect(info.businessPersons[0].lastName, 'Rep');
+      expect(info.businessPersons[0].email, 'alice@test.com');
+      expect(info.businessPersons[0].phone, '+33699887766');
+      expect(info.businessPersons[0].city, 'Lyon');
+      expect(info.businessPersons[1].role, 'owner');
+      expect(info.businessPersons[1].firstName, 'Bob');
+      expect(info.businessPersons[1].email, '');
       expect(info.iban, 'FR7612345678901234567890123');
       expect(info.bic, 'BNPAFRPP');
       expect(info.accountNumber, '');
@@ -113,6 +142,7 @@ void main() {
       expect(info.isSelfDirector, true);
       expect(info.noMajorOwners, true);
       expect(info.isSelfExecutive, true);
+      expect(info.businessPersons, isEmpty);
       expect(info.iban, '');
       expect(info.bic, '');
       expect(info.accountNumber, '');

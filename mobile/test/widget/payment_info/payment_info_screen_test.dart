@@ -139,6 +139,54 @@ PaymentInfo _buildBusinessPaymentInfo() {
   );
 }
 
+PaymentInfo _buildBusinessWithPersons() {
+  return PaymentInfo(
+    id: 'pi-biz-persons',
+    userId: 'user-biz-persons',
+    firstName: 'Marie',
+    lastName: 'Martin',
+    dateOfBirth: '1985-08-20',
+    nationality: 'FR',
+    address: '5 Avenue Foch',
+    city: 'Lyon',
+    postalCode: '69001',
+    phone: '+33611223344',
+    activitySector: '7311',
+    isBusiness: true,
+    businessName: 'Martin Consulting',
+    businessAddress: '10 Rue Commerce',
+    businessCity: 'Lyon',
+    businessPostalCode: '69002',
+    businessCountry: 'FR',
+    taxId: '12345678900014',
+    roleInCompany: 'ceo',
+    isSelfRepresentative: false, // unchecked — has custom representative
+    isSelfDirector: true,
+    noMajorOwners: false, // unchecked — has custom owner
+    isSelfExecutive: true,
+    businessPersons: const [
+      PaymentInfoBusinessPerson(
+        role: 'representative',
+        firstName: 'Alice',
+        lastName: 'RepName',
+        email: 'alice@test.com',
+        phone: '+33699887766',
+      ),
+      PaymentInfoBusinessPerson(
+        role: 'owner',
+        firstName: 'Bob',
+        lastName: 'OwnName',
+        email: 'bob@test.com',
+      ),
+    ],
+    iban: 'FR7698765432101234567890123',
+    accountHolder: 'Martin Consulting',
+    bankCountry: 'FR',
+    createdAt: DateTime(2026, 1, 1),
+    updatedAt: DateTime(2026, 3, 15),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -549,6 +597,53 @@ void main() {
         expect(fieldTexts, contains('10 Rue Commerce'));
         expect(fieldTexts, contains('69002'));
         expect(fieldTexts, contains('12345678900014'));
+      },
+    );
+
+    testWidgets(
+      'business persons are restored when checkboxes are unchecked '
+      '(proves business_persons persistence)',
+      (WidgetTester tester) async {
+        final bizInfo = _buildBusinessWithPersons();
+
+        await tester.pumpWidget(
+          buildTestableScreen(
+            const PaymentInfoScreen(),
+            overrides: _overrides(
+              pi: (ref) => Future.value(bizInfo),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Scroll down to the business persons section
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+
+        // isSelfRepresentative is false → representative section should be
+        // expanded with the "add" button or person form visible
+        // noMajorOwners is false → owner section should show person form
+
+        // The key proof: look for the person's first/last names in the
+        // rendered TextFormFields. The _populateFromEntity should have
+        // restored the businessPersons list, and the UI should render them.
+        final textFields = tester.widgetList<TextFormField>(
+          find.byType(TextFormField),
+        );
+        final fieldTexts = textFields
+            .map((tf) => tf.controller?.text ?? tf.initialValue ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        // Business persons should be restored
+        expect(fieldTexts, contains('Alice'));
+        expect(fieldTexts, contains('RepName'));
+        expect(fieldTexts, contains('Bob'));
+        expect(fieldTexts, contains('OwnName'));
       },
     );
   });

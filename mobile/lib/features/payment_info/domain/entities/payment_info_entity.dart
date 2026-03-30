@@ -24,6 +24,7 @@ class PaymentInfo {
   final bool isSelfDirector;
   final bool noMajorOwners;
   final bool isSelfExecutive;
+  final List<PaymentInfoBusinessPerson> businessPersons;
   final String iban;
   final String bic;
   final String accountNumber;
@@ -60,6 +61,7 @@ class PaymentInfo {
     this.isSelfDirector = true,
     this.noMajorOwners = true,
     this.isSelfExecutive = true,
+    this.businessPersons = const [],
     this.iban = '',
     this.bic = '',
     this.accountNumber = '',
@@ -99,6 +101,11 @@ class PaymentInfo {
       isSelfDirector: json['is_self_director'] as bool? ?? true,
       noMajorOwners: json['no_major_owners'] as bool? ?? true,
       isSelfExecutive: json['is_self_executive'] as bool? ?? true,
+      businessPersons: (json['business_persons'] as List<dynamic>?)
+              ?.map((e) => PaymentInfoBusinessPerson.fromJson(
+                  e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       iban: json['iban'] as String? ?? '',
       bic: json['bic'] as String? ?? '',
       accountNumber: json['account_number'] as String? ?? '',
@@ -109,6 +116,48 @@ class PaymentInfo {
       stripeVerified: json['stripe_verified'] as bool? ?? false,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+}
+
+/// A business person returned from the API (read-only).
+class PaymentInfoBusinessPerson {
+  final String role;
+  final String firstName;
+  final String lastName;
+  final String dateOfBirth;
+  final String email;
+  final String phone;
+  final String address;
+  final String city;
+  final String postalCode;
+  final String title;
+
+  const PaymentInfoBusinessPerson({
+    required this.role,
+    required this.firstName,
+    required this.lastName,
+    this.dateOfBirth = '',
+    this.email = '',
+    this.phone = '',
+    this.address = '',
+    this.city = '',
+    this.postalCode = '',
+    this.title = '',
+  });
+
+  factory PaymentInfoBusinessPerson.fromJson(Map<String, dynamic> json) {
+    return PaymentInfoBusinessPerson(
+      role: json['role'] as String? ?? '',
+      firstName: json['first_name'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? '',
+      dateOfBirth: json['date_of_birth'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      city: json['city'] as String? ?? '',
+      postalCode: json['postal_code'] as String? ?? '',
+      title: json['title'] as String? ?? '',
     );
   }
 }

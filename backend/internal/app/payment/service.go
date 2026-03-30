@@ -47,15 +47,21 @@ func NewService(
 }
 
 // GetPaymentInfo returns the payment info for the user, or nil if not found.
-func (s *Service) GetPaymentInfo(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error) {
+func (s *Service) GetPaymentInfo(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, []*domain.BusinessPerson, error) {
 	info, err := s.payments.GetByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, fmt.Errorf("get payment info: %w", err)
+		return nil, nil, fmt.Errorf("get payment info: %w", err)
 	}
-	return info, nil
+
+	var persons []*domain.BusinessPerson
+	if info.IsBusiness && s.persons != nil {
+		persons, _ = s.persons.ListByUserID(ctx, userID)
+	}
+
+	return info, persons, nil
 }
 
 // SavePaymentInfoInput holds the data needed to create or update payment info.

@@ -31,7 +31,7 @@ func (h *PaymentInfoHandler) GetPaymentInfo(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	info, err := h.paymentService.GetPaymentInfo(r.Context(), userID)
+	info, persons, err := h.paymentService.GetPaymentInfo(r.Context(), userID)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 		return
@@ -42,7 +42,7 @@ func (h *PaymentInfoHandler) GetPaymentInfo(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewPaymentInfoResponse(info))
+	res.JSON(w, http.StatusOK, response.NewPaymentInfoResponse(info, persons))
 }
 
 func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Request) {
@@ -104,7 +104,7 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewPaymentInfoResponse(info))
+	res.JSON(w, http.StatusOK, response.NewPaymentInfoResponse(info, nil))
 }
 
 func mapBusinessPersons(reqs []request.BusinessPersonRequest) []paymentapp.BusinessPersonInput {

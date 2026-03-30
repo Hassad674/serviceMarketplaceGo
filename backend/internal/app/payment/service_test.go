@@ -30,10 +30,11 @@ func TestGetPaymentInfo_NotFound(t *testing.T) {
 	repo := &mockPaymentInfoRepo{}
 	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
 
-	info, err := svc.GetPaymentInfo(context.Background(), uuid.New())
+	info, persons, err := svc.GetPaymentInfo(context.Background(), uuid.New())
 
 	assert.NoError(t, err)
 	assert.Nil(t, info, "should return nil when not found")
+	assert.Nil(t, persons)
 }
 
 func TestGetPaymentInfo_Found(t *testing.T) {
@@ -53,7 +54,7 @@ func TestGetPaymentInfo_Found(t *testing.T) {
 	}
 	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
 
-	info, err := svc.GetPaymentInfo(context.Background(), userID)
+	info, _, err := svc.GetPaymentInfo(context.Background(), userID)
 
 	require.NoError(t, err)
 	assert.Equal(t, "Alice", info.FirstName)

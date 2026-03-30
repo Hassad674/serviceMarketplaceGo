@@ -95,6 +95,20 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       isSelfDirector: info.isSelfDirector,
       noMajorOwners: info.noMajorOwners,
       isSelfExecutive: info.isSelfExecutive,
+      businessPersons: info.businessPersons
+          .map((bp) => BusinessPerson(
+                role: bp.role,
+                firstName: bp.firstName,
+                lastName: bp.lastName,
+                dateOfBirth: bp.dateOfBirth,
+                email: bp.email,
+                phone: bp.phone,
+                address: bp.address,
+                city: bp.city,
+                postalCode: bp.postalCode,
+                title: bp.title,
+              ))
+          .toList(),
       bankMode: hasIban ? BankAccountMode.iban : BankAccountMode.local,
       iban: info.iban,
       bic: info.bic,

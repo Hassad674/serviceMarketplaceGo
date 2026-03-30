@@ -23,7 +23,7 @@ func newTestWalletHandler(
 ) *WalletHandler {
 	paymentSvc := paymentapp.NewService(
 		infoRepo, recordRepo, &mockIdentityDocRepo{}, &mockBusinessPersonRepo{},
-		nil, nil,
+		nil, nil, nil, "",
 	)
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
 		Proposals: &mockProposalRepo{},
