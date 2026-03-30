@@ -2,45 +2,71 @@ import { test, expect, type Page } from "@playwright/test"
 import { registerProvider, registerAgency, STRONG_PASSWORD, uniqueEmail } from "./helpers/auth"
 
 // ---------------------------------------------------------------------------
+// Random name pools — each test picks a unique combo
+// ---------------------------------------------------------------------------
+
+const FIRST_NAMES = [
+  "Luna", "Enzo", "Jade", "Hugo", "Léa", "Louis", "Manon", "Gabriel",
+  "Chloé", "Raphaël", "Inès", "Arthur", "Zoé", "Jules", "Camille", "Théo",
+  "Ambre", "Sacha", "Lina", "Axel", "Mila", "Oscar", "Rose", "Victor",
+]
+
+const LAST_NAMES = [
+  "Moreau", "Laurent", "Durand", "Lefèvre", "Mercier", "Girard", "Bonnet",
+  "Fontaine", "Rousseau", "Chevalier", "Blanchard", "Gauthier", "Perrin",
+  "Robin", "Clément", "Nicolas", "Rivière", "Marchand", "Aubert", "Colin",
+]
+
+const CITIES = ["Paris", "Lyon", "Marseille", "Toulouse", "Bordeaux", "Nantes", "Lille", "Strasbourg"]
+const STREETS = ["Rue de la Paix", "Avenue Foch", "Boulevard Voltaire", "Rue du Commerce", "Allée des Tilleuls"]
+const BIZ_TYPES = ["SARL", "SAS", "EURL", "SA", "SCI"]
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+// ---------------------------------------------------------------------------
 // Test data — override via env or use random defaults
 // ---------------------------------------------------------------------------
 
 function kycData() {
+  const firstName = process.env.KYC_FIRST_NAME || pick(FIRST_NAMES)
+  const lastName = process.env.KYC_LAST_NAME || pick(LAST_NAMES)
   const ts = Date.now()
   return {
-    firstName: process.env.KYC_FIRST_NAME || `Jean${ts}`,
-    lastName: process.env.KYC_LAST_NAME || `Dupont${ts}`,
+    firstName,
+    lastName,
     dob: process.env.KYC_DOB || "1990-05-15",
-    address: process.env.KYC_ADDRESS || `${ts % 100} Rue de la Paix`,
-    city: process.env.KYC_CITY || "Paris",
+    address: process.env.KYC_ADDRESS || `${(ts % 99) + 1} ${pick(STREETS)}`,
+    city: process.env.KYC_CITY || pick(CITIES),
     postalCode: process.env.KYC_POSTAL_CODE || "75001",
     phone: process.env.KYC_PHONE || `+336${String(ts).slice(-8)}`,
     iban: process.env.KYC_IBAN || "FR1420041010050500013M02606",
     bic: process.env.KYC_BIC || "BNPAFRPP",
-    accountHolder: process.env.KYC_ACCOUNT_HOLDER || `Jean Dupont ${ts}`,
+    accountHolder: process.env.KYC_ACCOUNT_HOLDER || `${firstName} ${lastName}`,
   }
 }
 
 function businessKycData() {
-  const ts = Date.now()
   const personal = kycData()
+  const ts = Date.now()
+  const bizType = pick(BIZ_TYPES)
+  const bizName = process.env.KYC_BIZ_NAME || `${bizType} ${pick(LAST_NAMES)} & Co`
   return {
     ...personal,
-    businessName: process.env.KYC_BIZ_NAME || `SARL Test ${ts}`,
-    businessAddress: process.env.KYC_BIZ_ADDRESS || `${ts % 50} Avenue des Champs`,
-    businessCity: process.env.KYC_BIZ_CITY || "Lyon",
+    businessName: bizName,
+    businessAddress: process.env.KYC_BIZ_ADDRESS || `${(ts % 50) + 1} ${pick(STREETS)}`,
+    businessCity: process.env.KYC_BIZ_CITY || pick(CITIES),
     businessPostalCode: process.env.KYC_BIZ_POSTAL || "69001",
     taxId: process.env.KYC_TAX_ID || `${String(ts).slice(-14).padStart(14, "0")}`,
     vatNumber: process.env.KYC_VAT || "FR12345678901",
-    accountHolder: process.env.KYC_ACCOUNT_HOLDER || `SARL Test ${ts}`,
-    // Extra person for unchecked representative
-    repFirstName: "Alice",
-    repLastName: `Rep${ts}`,
-    repEmail: `alice-rep-${ts}@test.com`,
-    // Extra person for unchecked owners
-    ownerFirstName: "Bob",
-    ownerLastName: `Own${ts}`,
-    ownerEmail: `bob-own-${ts}@test.com`,
+    accountHolder: process.env.KYC_ACCOUNT_HOLDER || bizName,
+    repFirstName: pick(FIRST_NAMES),
+    repLastName: pick(LAST_NAMES),
+    repEmail: `rep-${ts}@test.com`,
+    ownerFirstName: pick(FIRST_NAMES),
+    ownerLastName: pick(LAST_NAMES),
+    ownerEmail: `owner-${ts}@test.com`,
   }
 }
 
