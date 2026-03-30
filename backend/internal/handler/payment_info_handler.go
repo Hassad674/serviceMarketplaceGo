@@ -149,6 +149,43 @@ func (h *PaymentInfoHandler) GetPaymentInfoStatus(w http.ResponseWriter, r *http
 	res.JSON(w, http.StatusOK, response.PaymentInfoStatusResponse{Complete: complete})
 }
 
+func (h *PaymentInfoHandler) GetRequirements(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = "fr"
+	}
+
+	reqs, err := h.paymentService.GetRequirements(r.Context(), userID, lang)
+	if err != nil {
+		res.Error(w, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+
+	res.JSON(w, http.StatusOK, reqs)
+}
+
+func (h *PaymentInfoHandler) CreateAccountLink(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	url, err := h.paymentService.CreateAccountLink(r.Context(), userID)
+	if err != nil {
+		res.Error(w, http.StatusInternalServerError, "account_link_error", err.Error())
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"url": url})
+}
+
 // extractIP strips port and brackets from RemoteAddr (e.g. "[::1]:8080" → "127.0.0.1").
 func extractIP(addr string) string {
 	// Handle IPv6 bracket notation "[::1]:port"

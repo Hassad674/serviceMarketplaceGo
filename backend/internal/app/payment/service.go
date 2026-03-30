@@ -14,12 +14,14 @@ import (
 )
 
 type Service struct {
-	payments  repository.PaymentInfoRepository
-	records   repository.PaymentRecordRepository
-	documents repository.IdentityDocumentRepository
-	persons   repository.BusinessPersonRepository
-	stripe    service.StripeService  // nil if Stripe not configured
-	storage   service.StorageService // nil if not configured
+	payments      repository.PaymentInfoRepository
+	records       repository.PaymentRecordRepository
+	documents     repository.IdentityDocumentRepository
+	persons       repository.BusinessPersonRepository
+	stripe        service.StripeService        // nil if Stripe not configured
+	storage       service.StorageService       // nil if not configured
+	notifications service.NotificationSender   // nil if not configured
+	frontendURL   string
 }
 
 func NewService(
@@ -29,14 +31,18 @@ func NewService(
 	persons repository.BusinessPersonRepository,
 	stripe service.StripeService,
 	storage service.StorageService,
+	notifications service.NotificationSender,
+	frontendURL string,
 ) *Service {
 	return &Service{
-		payments:  payments,
-		records:   records,
-		documents: documents,
-		persons:   persons,
-		stripe:    stripe,
-		storage:   storage,
+		payments:      payments,
+		records:       records,
+		documents:     documents,
+		persons:       persons,
+		stripe:        stripe,
+		storage:       storage,
+		notifications: notifications,
+		frontendURL:   frontendURL,
 	}
 }
 

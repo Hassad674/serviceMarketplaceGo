@@ -95,6 +95,20 @@ export async function savePaymentInfo(data: PaymentInfoFormData, email?: string)
   })
 }
 
+export type RequirementsInfo = {
+  has_requirements: boolean
+  currently_due: string[]
+  labels: { code: string; label: string }[]
+}
+
+export function getRequirements(lang: string): Promise<RequirementsInfo> {
+  return apiClient<RequirementsInfo>(`/api/v1/payment-info/requirements?lang=${lang}`)
+}
+
+export function createAccountLink(): Promise<{ url: string }> {
+  return apiClient<{ url: string }>("/api/v1/payment-info/account-link", { method: "POST" })
+}
+
 export async function getPaymentInfoStatus(): Promise<PaymentInfoStatusResponse> {
   return apiClient<PaymentInfoStatusResponse>("/api/v1/payment-info/status")
 }

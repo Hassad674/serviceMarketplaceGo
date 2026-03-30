@@ -6,6 +6,7 @@ import (
 
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
+	"github.com/stripe/stripe-go/v82/accountlink"
 	"github.com/stripe/stripe-go/v82/token"
 
 	"marketplace-backend/internal/domain/payment"
@@ -133,6 +134,34 @@ func (s *Service) GetIdentityVerificationStatus(ctx context.Context, accountID s
 		return string(ver.Status), frontID, nil
 	}
 	return "unverified", "", nil
+}
+
+// GetAccountRequirements returns the currently_due requirements for a connected account.
+func (s *Service) GetAccountRequirements(ctx context.Context, accountID string) ([]string, error) {
+	acct, err := account.GetByID(accountID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get stripe account: %w", err)
+	}
+	return acct.Requirements.CurrentlyDue, nil
+}
+
+// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
+func (s *Service) CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (string, error) {
+	params := &stripe.AccountLinkParams{
+		Account:    stripe.String(accountID),
+		Type:       stripe.String(string(stripe.AccountLinkTypeAccountUpdate)),
+		ReturnURL:  stripe.String(returnURL),
+		RefreshURL: stripe.String(refreshURL),
+		CollectionOptions: &stripe.AccountLinkCollectionOptionsParams{
+			Fields: stripe.String(string(stripe.AccountLinkCollectCurrentlyDue)),
+		},
+	}
+
+	link, err := accountlink.New(params)
+	if err != nil {
+		return "", fmt.Errorf("create account link: %w", err)
+	}
+	return link.URL, nil
 }
 
 // resolveCountryCode returns a 2-letter country code from the payment info.

@@ -196,6 +196,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/", deps.PaymentInfo.GetPaymentInfo)
 				r.Put("/", deps.PaymentInfo.SavePaymentInfo)
 				r.Get("/status", deps.PaymentInfo.GetPaymentInfoStatus)
+				r.Get("/requirements", deps.PaymentInfo.GetRequirements)
+				r.Post("/account-link", deps.PaymentInfo.CreateAccountLink)
 			})
 		}
 

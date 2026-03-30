@@ -9,6 +9,7 @@ import { BusinessInfoSection } from "./business-info-section"
 import { BankAccountSection } from "./bank-account-section"
 import { BusinessPersonsSection } from "./business-persons-section"
 import { IdentityVerificationSection } from "./identity-verification-section"
+import { StripeRequirementsBanner } from "./stripe-requirements-banner"
 import { isIbanCountry } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
 import { INITIAL_FORM_DATA } from "../types"
@@ -217,6 +218,9 @@ export function PaymentInfoPage() {
           {t("isBusiness")}
         </span>
       </div>
+
+      {/* Stripe requirements banner */}
+      {saved && existing?.stripe_account_id && <StripeRequirementsBanner />}
 
       {/* Sections */}
       <PersonalInfoSection data={data} onChange={handleChange} />

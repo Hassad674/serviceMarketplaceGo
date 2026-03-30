@@ -39,6 +39,12 @@ type StripeService interface {
 
 	// UpdateCompanyFlags marks directors/executives/owners as provided.
 	UpdateCompanyFlags(ctx context.Context, accountID string, directorsProvided, executivesProvided, ownersProvided bool) error
+
+	// GetAccountRequirements returns currently_due requirements.
+	GetAccountRequirements(ctx context.Context, accountID string) ([]string, error)
+
+	// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
+	CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (url string, err error)
 }
 
 type CreatePaymentIntentInput struct {

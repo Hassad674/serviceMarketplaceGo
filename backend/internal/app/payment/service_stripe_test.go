@@ -38,6 +38,8 @@ func newTestService(
 		&mockBusinessPersonRepo{},
 		stripe,
 		&mockStorageService{},
+		nil,
+		"",
 	)
 }
 
@@ -558,6 +560,8 @@ func TestVerifyWebhook_StripeNotConfigured(t *testing.T) {
 		&mockBusinessPersonRepo{},
 		nil, // stripe = nil
 		&mockStorageService{},
+		nil,
+		"",
 	)
 
 	_, err := svc.VerifyWebhook([]byte("body"), "sig")
@@ -579,6 +583,8 @@ func TestStripeConfigured_False(t *testing.T) {
 		&mockBusinessPersonRepo{},
 		nil,
 		&mockStorageService{},
+		nil,
+		"",
 	)
 	assert.False(t, svc.StripeConfigured())
 }

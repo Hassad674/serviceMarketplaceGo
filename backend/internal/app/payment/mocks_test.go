@@ -158,6 +158,14 @@ func (m *mockStripeService) UpdateCompanyFlags(_ context.Context, _ string, _, _
 	return nil
 }
 
+func (m *mockStripeService) GetAccountRequirements(_ context.Context, _ string) ([]string, error) {
+	return nil, nil
+}
+
+func (m *mockStripeService) CreateAccountLink(_ context.Context, _, _, _ string) (string, error) {
+	return "", nil
+}
+
 // --- IdentityDocumentRepository mock ---
 
 type mockIdentityDocRepo struct {
