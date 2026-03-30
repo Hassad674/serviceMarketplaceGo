@@ -72,6 +72,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    // Preload call overlay chunk so it's ready when a call starts
+    import("@/features/call/components/call-overlay")
+  }, [])
+
   function toggleCollapse() {
     const next = !collapsed
     setCollapsed(next)
@@ -113,7 +118,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         {(call.state === "active" || call.state === "ringing_outgoing") && (
           <CallOverlay
             state={call.state}
-            callType={call.activeCall?.callType ?? "audio"}
+            callType={call.callType}
             recipientName={recipientNameRef.current}
             duration={call.duration}
             isMuted={call.isMuted}

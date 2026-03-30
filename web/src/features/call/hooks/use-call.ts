@@ -21,6 +21,7 @@ export function useCall() {
   const [duration, setDuration] = useState(0)
   const [viewMode, setViewMode] = useState<CallViewMode>("pip")
   const [room, setRoom] = useState<Room | null>(null)
+  const [callType, setCallType] = useState<CallType>("audio")
 
   const roomRef = useRef<Room | null>(null)
   const ringTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -67,6 +68,7 @@ export function useCall() {
     setDuration(0)
     setViewMode("pip")
     setRoom(null)
+    setCallType("audio")
   }, [clearTimers, disconnectRoom])
 
   const startDurationTimer = useCallback(() => {
@@ -156,6 +158,7 @@ export function useCall() {
   ) => {
     if (stateRef.current !== "idle") return
     setState("ringing_outgoing")
+    setCallType(callType)
 
     try {
       const result = await initiateCall(conversationId, recipientId, callType)
@@ -186,6 +189,7 @@ export function useCall() {
     if (!incomingCall) return
 
     try {
+      setCallType(incomingCall.callType)
       const result = await acceptCallApi(incomingCall.callId)
       setActiveCall({
         callId: incomingCall.callId,
@@ -300,6 +304,7 @@ export function useCall() {
     duration,
     viewMode,
     room,
+    callType,
     startCall,
     acceptIncoming,
     declineIncoming,

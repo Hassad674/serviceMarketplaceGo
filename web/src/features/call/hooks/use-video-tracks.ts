@@ -57,6 +57,22 @@ export function useVideoTracks(room: Room | null, callType: CallType) {
     room.on(RoomEvent.LocalTrackPublished, onLocalTrackPublished)
     room.on(RoomEvent.LocalTrackUnpublished, onLocalTrackUnpublished)
 
+    // Scan for tracks that were published before this effect ran.
+    // This handles the race where connect() resolves and tracks arrive
+    // between React's render and useEffect execution.
+    for (const participant of room.remoteParticipants.values()) {
+      for (const pub of participant.trackPublications.values()) {
+        if (pub.track && pub.track.kind === Track.Kind.Video && pub.isSubscribed) {
+          setRemoteVideoTrack(pub.track as RemoteTrack)
+        }
+      }
+    }
+    for (const pub of room.localParticipant.trackPublications.values()) {
+      if (pub.track && pub.track.kind === Track.Kind.Video) {
+        setLocalVideoTrack(pub.track as LocalTrack)
+      }
+    }
+
     return () => {
       room.off(RoomEvent.TrackSubscribed, onTrackSubscribed)
       room.off(RoomEvent.TrackUnsubscribed, onTrackUnsubscribed)
