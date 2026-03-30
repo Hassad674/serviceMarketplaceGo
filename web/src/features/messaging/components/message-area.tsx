@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
-import { MessageSquare, Phone, PhoneMissed } from "lucide-react"
+import { MessageSquare, Phone, PhoneMissed, Reply, Pencil, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { Message, ProposalMessageMetadata, ReplyToInfo, VoiceMetadata } from "../types"
@@ -386,6 +386,28 @@ function TextMessageBubble({
   const t = useTranslations("messaging")
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleTouchStart = useCallback(() => {
+    longPressRef.current = setTimeout(() => {
+      setShowMobileMenu(true)
+    }, 500)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current)
+      longPressRef.current = null
+    }
+  }, [])
+
+  const handleTouchMove = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current)
+      longPressRef.current = null
+    }
+  }, [])
 
   const handleEditSubmit = useCallback(() => {
     const trimmed = editContent.trim()
@@ -401,6 +423,7 @@ function TextMessageBubble({
   })
 
   return (
+    <>
     <div
       className={cn(
         "group flex items-start gap-1",
@@ -409,11 +432,15 @@ function TextMessageBubble({
     >
       <div
         className={cn(
-          "max-w-[75%] rounded-2xl px-4 py-2.5",
+          "max-w-[75%] rounded-2xl px-4 py-2.5 select-none",
           isOwn
             ? "bg-rose-500 text-white"
             : "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100",
         )}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onContextMenu={(e) => { e.preventDefault(); setShowMobileMenu(true) }}
       >
         {/* Reply preview block */}
         {message.reply_to && (
@@ -478,18 +505,64 @@ function TextMessageBubble({
         </div>
       </div>
 
-      {/* Context menu — Reply on all messages, Edit/Delete on own */}
+      {/* Context menu — desktop only (hidden on touch devices) */}
       {!message.id.startsWith("temp-") && !isEditing && (
-        <MessageContextMenu
-          onReply={() => onReply(message)}
-          onEdit={isOwn ? () => {
-            setEditContent(message.content)
-            setIsEditing(true)
-          } : undefined}
-          onDelete={isOwn ? () => onDelete(message.id) : undefined}
-        />
+        <div className="hidden sm:block">
+          <MessageContextMenu
+            onReply={() => onReply(message)}
+            onEdit={isOwn ? () => {
+              setEditContent(message.content)
+              setIsEditing(true)
+            } : undefined}
+            onDelete={isOwn ? () => onDelete(message.id) : undefined}
+          />
+        </div>
       )}
     </div>
+
+    {/* Mobile long-press menu overlay */}
+    {showMobileMenu && !isEditing && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 sm:hidden"
+        onClick={() => setShowMobileMenu(false)}
+      >
+        <div
+          className="w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => { setShowMobileMenu(false); onReply(message) }}
+            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 active:bg-slate-50 dark:text-slate-300 dark:active:bg-slate-700"
+          >
+            <Reply className="h-4 w-4" strokeWidth={1.5} />
+            {t("reply")}
+          </button>
+          {isOwn && (
+            <button
+              onClick={() => {
+                setShowMobileMenu(false)
+                setEditContent(message.content)
+                setIsEditing(true)
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-700 active:bg-slate-50 dark:text-slate-300 dark:active:bg-slate-700"
+            >
+              <Pencil className="h-4 w-4" strokeWidth={1.5} />
+              {t("editMessage")}
+            </button>
+          )}
+          {isOwn && (
+            <button
+              onClick={() => { setShowMobileMenu(false); onDelete(message.id) }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 active:bg-red-50 dark:text-red-400 dark:active:bg-red-500/10"
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+              {t("deleteMessage")}
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
