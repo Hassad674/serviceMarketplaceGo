@@ -140,6 +140,7 @@ func (w *Worker) processJob(ctx context.Context, job DeliveryJob) error {
 		"notification_id", job.NotificationID,
 		"user_id", job.UserID,
 		"type", job.Type,
+		"attempt", job.Attempt,
 	)
 
 	return nil
