@@ -42,6 +42,7 @@ class IdentityDocumentRepositoryImpl implements IdentityDocumentRepository {
     required String fileName,
   }) async {
     final formData = FormData.fromMap({
+      'category': 'identity',
       'document_type': documentType,
       'side': side,
       'file': await MultipartFile.fromFile(filePath, filename: fileName),

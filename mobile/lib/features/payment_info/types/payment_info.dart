@@ -4,9 +4,10 @@ enum BankAccountMode { iban, local }
 /// Represents the business role of a legal representative.
 enum BusinessRole { owner, ceo, director, partner, other }
 
-/// Represents a business person (director, owner, executive).
+/// Represents a business person (representative, director, owner, executive).
 class BusinessPerson {
   const BusinessPerson({
+    this.role = 'director',
     this.firstName = '',
     this.lastName = '',
     this.dateOfBirth = '',
@@ -15,9 +16,10 @@ class BusinessPerson {
     this.address = '',
     this.city = '',
     this.postalCode = '',
-    this.title = 'director',
+    this.title = '',
   });
 
+  final String role;
   final String firstName;
   final String lastName;
   final String dateOfBirth;
@@ -29,6 +31,7 @@ class BusinessPerson {
   final String title;
 
   BusinessPerson copyWith({
+    String? role,
     String? firstName,
     String? lastName,
     String? dateOfBirth,
@@ -40,6 +43,7 @@ class BusinessPerson {
     String? title,
   }) {
     return BusinessPerson(
+      role: role ?? this.role,
       firstName: firstName ?? this.firstName,
       lastName: lastName ?? this.lastName,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
@@ -54,6 +58,7 @@ class BusinessPerson {
 
   Map<String, dynamic> toJson() {
     return {
+      'role': role,
       'first_name': firstName,
       'last_name': lastName,
       'date_of_birth': dateOfBirth,

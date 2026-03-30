@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -2342,6 +2342,150 @@ abstract class AppLocalizations {
   /// **'Document uploaded successfully'**
   String get identityDocUploaded;
 
+  /// No description provided for @identityDocUpload.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload identity document'**
+  String get identityDocUpload;
+
+  /// No description provided for @identityDocUploadDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a clear photo of your document'**
+  String get identityDocUploadDesc;
+
+  /// No description provided for @identityDocPassport.
+  ///
+  /// In en, this message translates to:
+  /// **'Passport'**
+  String get identityDocPassport;
+
+  /// No description provided for @identityDocIdCard.
+  ///
+  /// In en, this message translates to:
+  /// **'ID Card'**
+  String get identityDocIdCard;
+
+  /// No description provided for @identityDocDrivingLicense.
+  ///
+  /// In en, this message translates to:
+  /// **'Driving License'**
+  String get identityDocDrivingLicense;
+
+  /// No description provided for @identityDocSinglePage.
+  ///
+  /// In en, this message translates to:
+  /// **'Single page upload'**
+  String get identityDocSinglePage;
+
+  /// No description provided for @identityDocFrontAndBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Front and back required'**
+  String get identityDocFrontAndBack;
+
+  /// No description provided for @identityDocFrontSide.
+  ///
+  /// In en, this message translates to:
+  /// **'Front side'**
+  String get identityDocFrontSide;
+
+  /// No description provided for @identityDocBackSide.
+  ///
+  /// In en, this message translates to:
+  /// **'Back side'**
+  String get identityDocBackSide;
+
+  /// No description provided for @identityDocReplace.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace'**
+  String get identityDocReplace;
+
+  /// No description provided for @identityDocSelectType.
+  ///
+  /// In en, this message translates to:
+  /// **'Select document type'**
+  String get identityDocSelectType;
+
+  /// No description provided for @identityDocPendingBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Your document is being reviewed'**
+  String get identityDocPendingBanner;
+
+  /// No description provided for @identityDocVerifiedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Your identity has been verified'**
+  String get identityDocVerifiedBanner;
+
+  /// No description provided for @identityDocRejectedBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Your document was rejected'**
+  String get identityDocRejectedBanner;
+
+  /// No description provided for @paymentInfoAddRepresentative.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a representative'**
+  String get paymentInfoAddRepresentative;
+
+  /// No description provided for @paymentInfoAddDirector.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a director'**
+  String get paymentInfoAddDirector;
+
+  /// No description provided for @paymentInfoAddOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a shareholder'**
+  String get paymentInfoAddOwner;
+
+  /// No description provided for @paymentInfoAddExecutive.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an executive'**
+  String get paymentInfoAddExecutive;
+
+  /// No description provided for @paymentInfoRepresentative.
+  ///
+  /// In en, this message translates to:
+  /// **'Representative'**
+  String get paymentInfoRepresentative;
+
+  /// No description provided for @paymentInfoDirectorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Director'**
+  String get paymentInfoDirectorLabel;
+
+  /// No description provided for @paymentInfoOwnerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Shareholder'**
+  String get paymentInfoOwnerLabel;
+
+  /// No description provided for @paymentInfoExecutiveLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Executive'**
+  String get paymentInfoExecutiveLabel;
+
+  /// No description provided for @paymentInfoPersonTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get paymentInfoPersonTitle;
+
+  /// No description provided for @paymentInfoDateOfBirth.
+  ///
+  /// In en, this message translates to:
+  /// **'Date of birth'**
+  String get paymentInfoDateOfBirth;
+
   /// No description provided for @stripeRequirementsTitle.
   ///
   /// In en, this message translates to:
@@ -2454,8 +2598,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

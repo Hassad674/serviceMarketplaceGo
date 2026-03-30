@@ -1163,6 +1163,80 @@ class AppLocalizationsFr extends AppLocalizations {
   String get identityDocUploaded => 'Document téléversé avec succès';
 
   @override
+  String get identityDocUpload => 'Téléverser un document d\'identité';
+
+  @override
+  String get identityDocUploadDesc =>
+      'Téléversez une photo nette de votre document';
+
+  @override
+  String get identityDocPassport => 'Passeport';
+
+  @override
+  String get identityDocIdCard => 'Carte d\'identité';
+
+  @override
+  String get identityDocDrivingLicense => 'Permis de conduire';
+
+  @override
+  String get identityDocSinglePage => 'Page unique';
+
+  @override
+  String get identityDocFrontAndBack => 'Recto et verso requis';
+
+  @override
+  String get identityDocFrontSide => 'Recto';
+
+  @override
+  String get identityDocBackSide => 'Verso';
+
+  @override
+  String get identityDocReplace => 'Remplacer';
+
+  @override
+  String get identityDocSelectType => 'Choisissez le type de document';
+
+  @override
+  String get identityDocPendingBanner =>
+      'Votre document est en cours de vérification';
+
+  @override
+  String get identityDocVerifiedBanner => 'Votre identité a été vérifiée';
+
+  @override
+  String get identityDocRejectedBanner => 'Votre document a été rejeté';
+
+  @override
+  String get paymentInfoAddRepresentative => 'Ajouter un représentant';
+
+  @override
+  String get paymentInfoAddDirector => 'Ajouter un dirigeant';
+
+  @override
+  String get paymentInfoAddOwner => 'Ajouter un actionnaire';
+
+  @override
+  String get paymentInfoAddExecutive => 'Ajouter un cadre dirigeant';
+
+  @override
+  String get paymentInfoRepresentative => 'Représentant';
+
+  @override
+  String get paymentInfoDirectorLabel => 'Dirigeant';
+
+  @override
+  String get paymentInfoOwnerLabel => 'Actionnaire';
+
+  @override
+  String get paymentInfoExecutiveLabel => 'Cadre dirigeant';
+
+  @override
+  String get paymentInfoPersonTitle => 'Titre';
+
+  @override
+  String get paymentInfoDateOfBirth => 'Date de naissance';
+
+  @override
   String get stripeRequirementsTitle => 'Informations supplémentaires requises';
 
   @override

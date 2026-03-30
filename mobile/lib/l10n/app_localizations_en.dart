@@ -1157,6 +1157,78 @@ class AppLocalizationsEn extends AppLocalizations {
   String get identityDocUploaded => 'Document uploaded successfully';
 
   @override
+  String get identityDocUpload => 'Upload identity document';
+
+  @override
+  String get identityDocUploadDesc => 'Upload a clear photo of your document';
+
+  @override
+  String get identityDocPassport => 'Passport';
+
+  @override
+  String get identityDocIdCard => 'ID Card';
+
+  @override
+  String get identityDocDrivingLicense => 'Driving License';
+
+  @override
+  String get identityDocSinglePage => 'Single page upload';
+
+  @override
+  String get identityDocFrontAndBack => 'Front and back required';
+
+  @override
+  String get identityDocFrontSide => 'Front side';
+
+  @override
+  String get identityDocBackSide => 'Back side';
+
+  @override
+  String get identityDocReplace => 'Replace';
+
+  @override
+  String get identityDocSelectType => 'Select document type';
+
+  @override
+  String get identityDocPendingBanner => 'Your document is being reviewed';
+
+  @override
+  String get identityDocVerifiedBanner => 'Your identity has been verified';
+
+  @override
+  String get identityDocRejectedBanner => 'Your document was rejected';
+
+  @override
+  String get paymentInfoAddRepresentative => 'Add a representative';
+
+  @override
+  String get paymentInfoAddDirector => 'Add a director';
+
+  @override
+  String get paymentInfoAddOwner => 'Add a shareholder';
+
+  @override
+  String get paymentInfoAddExecutive => 'Add an executive';
+
+  @override
+  String get paymentInfoRepresentative => 'Representative';
+
+  @override
+  String get paymentInfoDirectorLabel => 'Director';
+
+  @override
+  String get paymentInfoOwnerLabel => 'Shareholder';
+
+  @override
+  String get paymentInfoExecutiveLabel => 'Executive';
+
+  @override
+  String get paymentInfoPersonTitle => 'Title';
+
+  @override
+  String get paymentInfoDateOfBirth => 'Date of birth';
+
+  @override
   String get stripeRequirementsTitle => 'Additional information required';
 
   @override
