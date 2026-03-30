@@ -230,7 +230,7 @@ class PaymentSectionCard extends StatelessWidget {
 // Styled text field
 // ---------------------------------------------------------------------------
 
-class PaymentFormField extends StatelessWidget {
+class PaymentFormField extends StatefulWidget {
   const PaymentFormField({
     super.key,
     required this.label,
@@ -249,16 +249,44 @@ class PaymentFormField extends StatelessWidget {
   final bool required;
 
   @override
+  State<PaymentFormField> createState() => _PaymentFormFieldState();
+}
+
+class _PaymentFormFieldState extends State<PaymentFormField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(PaymentFormField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update controller when value changes externally (e.g., populate from API)
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
-        initialValue: value,
-        onChanged: onChanged,
-        keyboardType: keyboardType,
+        controller: _controller,
+        onChanged: widget.onChanged,
+        keyboardType: widget.keyboardType,
         decoration: InputDecoration(
-          labelText: required ? '$label *' : label,
-          hintText: placeholder,
+          labelText: widget.required ? '${widget.label} *' : widget.label,
+          hintText: widget.placeholder,
           floatingLabelBehavior: FloatingLabelBehavior.auto,
         ),
       ),
