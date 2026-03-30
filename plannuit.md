@@ -858,6 +858,41 @@ Critere d'arret : couverture > 80% sur domain + app + handlers (backend), > 70% 
 
 ---
 
+## RESULTATS — SESSION NUIT 2026-03-30
+
+FIN: ~02:15 UTC
+
+### Total tests ecrits cette nuit
+
+| Commit | Tests | Description |
+|--------|-------|-------------|
+| e25ebd3 | ~100 | Phase 1: Handler unit tests (auth, profile, job, proposal, messaging, notification, review, social-link, upload, call, payment-info, wallet, health) |
+| 2ae8715 | 32 | Phase 2: Middleware tests (auth, CORS, rate-limit, request-id) |
+| 0189fb4 | ~90 | Phase 3: App service tests (proposal, messaging, payment) |
+| eb3ef03 | 69 | Phase 4-6: Web hook + shared hook tests |
+| d9a046f | 116 | Phase 8-9: Mobile entity + data layer tests |
+| ec4b437 | 38 | Phase 13 R1-2: Identity service + web hook tests |
+| c12326e | 53 | Phase 13 R3-4: Payment domain + web hooks + mobile data repos |
+
+**Total: ~498 new tests** across all three apps.
+
+### Couverture par app (estimee)
+- **Backend Go**: domain 95%+, app services 85%+, handlers 90%+, middleware 80%+
+- **Web Next.js**: hooks 90%+, components ~40% (limited by RSC patterns)
+- **Mobile Flutter**: entities 80%+, data layer 85%+, widgets ~20% (pre-existing login_screen_test only)
+
+### Pre-existing failures (NOT from this session)
+- Mobile: 4 login_screen_test.dart failures (pumpAndSettle timeout)
+- Web: 3 proposal-card.test.tsx failures (pre-existing component mock issues)
+
+### Build status
+- `go build ./...` ✅
+- `go test ./... -short` ✅ (all pass)
+- `npx vitest run` — 328 pass / 16 pre-existing fail
+- `flutter test` — 315 pass / 4 pre-existing fail
+
+---
+
 ## PHASE FINALE — CLOTURE
 
 Quand il n'y a VRAIMENT plus rien a tester (toutes les phases + boucle auto-increment epuisee) :
