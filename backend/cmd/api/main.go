@@ -204,6 +204,10 @@ func main() {
 
 	// Notification feature
 	notifRepo := postgres.NewNotificationRepository(db)
+	notifQueue := redisadapter.NewNotificationJobQueue(redisClient, sourceID)
+	if err := notifQueue.EnsureGroup(context.Background()); err != nil {
+		slog.Error("failed to create notification job group", "error", err)
+	}
 	notifSvc := notifapp.NewService(notifapp.ServiceDeps{
 		Notifications: notifRepo,
 		Presence:      presenceSvc,
@@ -211,7 +215,21 @@ func main() {
 		Push:          pushSvc, // nil if FCM not configured
 		Email:         emailSvc,
 		Users:         userRepo,
+		Queue:         notifQueue,
 	})
+
+	// Start notification delivery worker (processes push + email async)
+	notifWorker := notifapp.NewWorker(notifapp.WorkerDeps{
+		Queue:    notifQueue,
+		Presence: presenceSvc,
+		Push:     pushSvc,
+		Email:    emailSvc,
+		Users:    userRepo,
+		Notifs:   notifRepo,
+	})
+	workerCtx, workerCancel := context.WithCancel(context.Background())
+	defer workerCancel()
+	go notifWorker.Run(workerCtx)
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	slog.Info("notification feature enabled")
 

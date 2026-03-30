@@ -110,6 +110,37 @@ func (m *mockNotificationRepo) DeleteDeviceToken(ctx context.Context, userID uui
 	return nil
 }
 
+// --- mockQueue implements NotificationQueue ---
+
+type mockQueue struct {
+	enqueueFn func(ctx context.Context, job DeliveryJob) error
+	dequeueFn func(ctx context.Context) (*DeliveryJob, string, error)
+	ackFn     func(ctx context.Context, messageID string) error
+	jobs      []DeliveryJob // track enqueued jobs
+}
+
+func (m *mockQueue) Enqueue(ctx context.Context, job DeliveryJob) error {
+	m.jobs = append(m.jobs, job)
+	if m.enqueueFn != nil {
+		return m.enqueueFn(ctx, job)
+	}
+	return nil
+}
+
+func (m *mockQueue) Dequeue(ctx context.Context) (*DeliveryJob, string, error) {
+	if m.dequeueFn != nil {
+		return m.dequeueFn(ctx)
+	}
+	return nil, "", nil
+}
+
+func (m *mockQueue) Ack(ctx context.Context, messageID string) error {
+	if m.ackFn != nil {
+		return m.ackFn(ctx, messageID)
+	}
+	return nil
+}
+
 // --- mockPresenceService implements service.PresenceService ---
 
 type mockPresenceService struct {

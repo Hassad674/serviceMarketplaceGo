@@ -22,6 +22,7 @@ type ServiceDeps struct {
 	Push          service.PushService  // nil if FCM not configured
 	Email         service.EmailService // nil if email not configured
 	Users         repository.UserRepository
+	Queue         NotificationQueue // nil for synchronous fallback
 }
 
 // Service implements the notification use cases.
@@ -32,6 +33,7 @@ type Service struct {
 	push          service.PushService
 	email         service.EmailService
 	users         repository.UserRepository
+	queue         NotificationQueue
 }
 
 // NewService creates a new notification Service.
@@ -43,6 +45,7 @@ func NewService(deps ServiceDeps) *Service {
 		push:          deps.Push,
 		email:         deps.Email,
 		users:         deps.Users,
+		queue:         deps.Queue,
 	}
 }
 
@@ -68,19 +71,22 @@ func (s *Service) Send(ctx context.Context, input service.NotificationInput) err
 	// 2. Load preferences (use defaults if no row exists)
 	prefs := s.getPreferencesForType(ctx, n.UserID, n.Type)
 
-	// 3. In-app channel: broadcast via WebSocket
+	// 3. In-app channel: broadcast via WebSocket (always synchronous)
 	if prefs.InApp {
 		s.broadcastInApp(ctx, n)
 	}
 
-	// 4. Push channel: only if user is offline
-	if prefs.Push {
-		s.sendPushIfOffline(ctx, n)
-	}
-
-	// 5. Email channel: never for new_message type
-	if prefs.Email && n.Type != notif.TypeNewMessage {
-		s.sendEmail(ctx, n)
+	// 4. Async delivery: push + email via worker queue
+	if s.queue != nil {
+		s.enqueueDelivery(ctx, n)
+	} else {
+		// Fallback: synchronous delivery (no queue configured)
+		if prefs.Push {
+			s.sendPushIfOffline(ctx, n)
+		}
+		if prefs.Email && n.Type != notif.TypeNewMessage {
+			s.sendEmail(ctx, n)
+		}
 	}
 
 	return nil
@@ -175,6 +181,27 @@ func (s *Service) UnregisterDevice(ctx context.Context, userID uuid.UUID, token 
 }
 
 // --- Private dispatch helpers ---
+
+func (s *Service) enqueueDelivery(ctx context.Context, n *notif.Notification) {
+	job := DeliveryJob{
+		NotificationID: n.ID.String(),
+		UserID:         n.UserID.String(),
+		Type:           string(n.Type),
+		Title:          n.Title,
+		Body:           n.Body,
+		Data:           n.Data,
+		Attempt:        0,
+		CreatedAt:      n.CreatedAt.Format(time.RFC3339),
+	}
+	if err := s.queue.Enqueue(ctx, job); err != nil {
+		slog.Error("failed to enqueue notification delivery", "error", err, "notification_id", n.ID)
+		// Fallback to synchronous delivery
+		s.sendPushIfOffline(ctx, n)
+		if n.Type != notif.TypeNewMessage {
+			s.sendEmail(ctx, n)
+		}
+	}
+}
 
 func (s *Service) getPreferencesForType(ctx context.Context, userID uuid.UUID, nType notif.NotificationType) *notif.Preferences {
 	saved, err := s.notifications.GetPreferences(ctx, userID)

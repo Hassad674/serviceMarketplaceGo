@@ -3,6 +3,7 @@ package notification
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -364,4 +365,155 @@ func TestService_Send_NoEmailForNewMessage(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.False(t, emailSent, "email must never be sent for new_message type")
+}
+
+func TestService_Send_WithQueue_Enqueues(t *testing.T) {
+	userID := uuid.New()
+	q := &mockQueue{}
+	var pushCalled bool
+
+	svc := NewService(ServiceDeps{
+		Notifications: &mockNotificationRepo{
+			createFn: func(_ context.Context, _ *notif.Notification) error {
+				return nil
+			},
+			getPreferencesFn: func(_ context.Context, _ uuid.UUID) ([]*notif.Preferences, error) {
+				return nil, nil // defaults
+			},
+		},
+		Presence: &mockPresenceService{},
+		Broadcaster: &mockBroadcaster{},
+		Push: &mockPushService{
+			sendPushFn: func(_ context.Context, _ []string, _, _ string, _ map[string]string) error {
+				pushCalled = true
+				return nil
+			},
+		},
+		Email: &mockEmailService{
+			sendNotificationFn: func(_ context.Context, _, _, _ string) error {
+				t.Error("email should not be called directly when queue is set")
+				return nil
+			},
+		},
+		Queue: q,
+	})
+
+	err := svc.Send(context.Background(), service.NotificationInput{
+		UserID: userID,
+		Type:   "proposal_received",
+		Title:  "New Proposal",
+		Body:   "You received a new proposal",
+		Data:   json.RawMessage(`{"proposal_id":"abc"}`),
+	})
+
+	assert.NoError(t, err)
+	assert.Len(t, q.jobs, 1, "should enqueue exactly one delivery job")
+	assert.Equal(t, userID.String(), q.jobs[0].UserID)
+	assert.Equal(t, "proposal_received", q.jobs[0].Type)
+	assert.Equal(t, "New Proposal", q.jobs[0].Title)
+	assert.Equal(t, 0, q.jobs[0].Attempt)
+	assert.False(t, pushCalled, "push should NOT be called directly when queue is set")
+}
+
+func TestService_Send_WithQueue_StillBroadcastsInApp(t *testing.T) {
+	userID := uuid.New()
+	q := &mockQueue{}
+	var broadcasted bool
+
+	svc := NewService(ServiceDeps{
+		Notifications: &mockNotificationRepo{
+			createFn: func(_ context.Context, _ *notif.Notification) error {
+				return nil
+			},
+			getPreferencesFn: func(_ context.Context, _ uuid.UUID) ([]*notif.Preferences, error) {
+				return nil, nil
+			},
+		},
+		Presence: &mockPresenceService{},
+		Broadcaster: &mockBroadcaster{
+			broadcastNotificationFn: func(_ context.Context, id uuid.UUID, _ []byte) error {
+				broadcasted = true
+				assert.Equal(t, userID, id)
+				return nil
+			},
+		},
+		Queue: q,
+	})
+
+	err := svc.Send(context.Background(), service.NotificationInput{
+		UserID: userID,
+		Type:   "proposal_received",
+		Title:  "Test",
+		Body:   "Test body",
+	})
+
+	assert.NoError(t, err)
+	assert.True(t, broadcasted, "WS broadcast must happen synchronously even with queue")
+	assert.Len(t, q.jobs, 1, "delivery job must be enqueued")
+}
+
+func TestService_Send_QueueFallback(t *testing.T) {
+	userID := uuid.New()
+	var pushCalled, emailCalled bool
+
+	q := &mockQueue{
+		enqueueFn: func(_ context.Context, _ DeliveryJob) error {
+			return errors.New("redis down")
+		},
+	}
+
+	svc := NewService(ServiceDeps{
+		Notifications: &mockNotificationRepo{
+			createFn: func(_ context.Context, _ *notif.Notification) error {
+				return nil
+			},
+			getPreferencesFn: func(_ context.Context, _ uuid.UUID) ([]*notif.Preferences, error) {
+				return []*notif.Preferences{{
+					UserID:           userID,
+					NotificationType: notif.TypeProposalReceived,
+					InApp:            true,
+					Push:             true,
+					Email:            true,
+				}}, nil
+			},
+			listDeviceTokensFn: func(_ context.Context, _ uuid.UUID) ([]*notif.DeviceToken, error) {
+				return []*notif.DeviceToken{{Token: "fcm-token"}}, nil
+			},
+		},
+		Presence: &mockPresenceService{
+			isOnlineFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				return false, nil
+			},
+		},
+		Broadcaster: &mockBroadcaster{},
+		Push: &mockPushService{
+			sendPushFn: func(_ context.Context, _ []string, _, _ string, _ map[string]string) error {
+				pushCalled = true
+				return nil
+			},
+		},
+		Email: &mockEmailService{
+			sendNotificationFn: func(_ context.Context, _, _, _ string) error {
+				emailCalled = true
+				return nil
+			},
+		},
+		Users: &mockUserRepo{
+			getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+				return &user.User{ID: id, Email: "user@example.com"}, nil
+			},
+		},
+		Queue: q,
+	})
+
+	err := svc.Send(context.Background(), service.NotificationInput{
+		UserID: userID,
+		Type:   "proposal_received",
+		Title:  "New Proposal",
+		Body:   "Proposal body",
+	})
+
+	assert.NoError(t, err)
+	assert.True(t, pushCalled, "push should be called as sync fallback when enqueue fails")
+	assert.True(t, emailCalled, "email should be called as sync fallback when enqueue fails")
 }
