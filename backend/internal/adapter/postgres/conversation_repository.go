@@ -531,12 +531,13 @@ func (r *ConversationRepository) GetContactIDs(ctx context.Context, userID uuid.
 func scanMessage(row *sql.Row) (*message.Message, error) {
 	msg := &message.Message{}
 	var msgType, status string
+	var metadata []byte
 	var replyID, replySenderID *uuid.UUID
 	var replyContent, replyType *string
 
 	err := row.Scan(
 		&msg.ID, &msg.ConversationID, &msg.SenderID, &msg.Content,
-		&msgType, &msg.Metadata, &msg.ReplyToID, &msg.Seq, &status,
+		&msgType, &metadata, &msg.ReplyToID, &msg.Seq, &status,
 		&msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt, &msg.UpdatedAt,
 		&replyID, &replySenderID, &replyContent, &replyType,
 	)
@@ -544,6 +545,9 @@ func scanMessage(row *sql.Row) (*message.Message, error) {
 		return nil, err
 	}
 
+	if len(metadata) > 0 {
+		msg.Metadata = metadata
+	}
 	msg.Type = message.MessageType(msgType)
 	msg.Status = message.MessageStatus(status)
 	msg.ReplyPreview = buildReplyPreview(replyID, replySenderID, replyContent, replyType)

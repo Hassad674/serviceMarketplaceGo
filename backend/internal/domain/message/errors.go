@@ -12,6 +12,7 @@ var (
 	ErrCannotEditOther      = errors.New("cannot edit another user's message")
 	ErrCannotDeleteOther    = errors.New("cannot delete another user's message")
 	ErrDeleteWindowExpired  = errors.New("messages can only be deleted within 1 hour of sending")
+	ErrEditWindowExpired    = errors.New("messages can only be edited within 1 hour of sending")
 	ErrMessageDeleted       = errors.New("message has been deleted")
 	ErrSelfConversation     = errors.New("cannot create conversation with yourself")
 	ErrRateLimitExceeded    = errors.New("message rate limit exceeded")

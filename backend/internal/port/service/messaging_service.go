@@ -22,6 +22,8 @@ type MessageBroadcaster interface {
 	BroadcastUnreadCount(ctx context.Context, userID uuid.UUID, count int) error
 	BroadcastPresence(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	BroadcastNotification(ctx context.Context, userID uuid.UUID, payload []byte) error
+	BroadcastMessageEdited(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
+	BroadcastMessageDeleted(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 }
 
 type MessagingRateLimiter interface {

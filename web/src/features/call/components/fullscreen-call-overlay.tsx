@@ -50,6 +50,7 @@ export function FullscreenCallOverlay({
 
   const hasRemoteVideo = callType === "video" && remoteVideoTrack
   const hasLocalVideo = callType === "video" && localVideoTrack
+  console.log("[Video] Fullscreen render - hasRemoteVideo:", !!hasRemoteVideo, "hasLocalVideo:", !!hasLocalVideo)
 
   const thumbPos = useDraggable({
     x: typeof window !== "undefined" ? window.innerWidth - 180 : 0,

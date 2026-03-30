@@ -61,6 +61,14 @@ func (b *StreamBroadcaster) BroadcastNotification(ctx context.Context, userID uu
 	return b.publish(ctx, "notification", []uuid.UUID{userID}, payload)
 }
 
+func (b *StreamBroadcaster) BroadcastMessageEdited(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
+	return b.publish(ctx, "message_edited", recipientIDs, payload)
+}
+
+func (b *StreamBroadcaster) BroadcastMessageDeleted(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
+	return b.publish(ctx, "message_deleted", recipientIDs, payload)
+}
+
 func (b *StreamBroadcaster) BroadcastCallEvent(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error {
 	return b.publish(ctx, "call_event", recipientIDs, payload)
 }

@@ -93,6 +93,42 @@ func (s *Service) doBroadcast(ctx context.Context, convID, senderID uuid.UUID, m
 	}
 }
 
+// broadcastMessageEdited sends a WS event with the updated message to all participants.
+func (s *Service) broadcastMessageEdited(ctx context.Context, msg *message.Message) {
+	participantIDs, err := s.messages.GetParticipantIDs(ctx, msg.ConversationID)
+	if err != nil {
+		slog.Error("get participants for edit broadcast", "error", err)
+		return
+	}
+
+	payload, err := json.Marshal(marshalMessageForWS(msg))
+	if err != nil {
+		slog.Error("marshal edited message", "error", err)
+		return
+	}
+
+	_ = s.broadcaster.BroadcastMessageEdited(ctx, participantIDs, payload)
+}
+
+// broadcastMessageDeleted sends a WS event with the message_id and conversation_id to all participants.
+func (s *Service) broadcastMessageDeleted(ctx context.Context, msg *message.Message) {
+	participantIDs, err := s.messages.GetParticipantIDs(ctx, msg.ConversationID)
+	if err != nil {
+		slog.Error("get participants for delete broadcast", "error", err)
+		return
+	}
+
+	payload, err := json.Marshal(map[string]string{
+		"message_id":      msg.ID.String(),
+		"conversation_id": msg.ConversationID.String(),
+	})
+	if err != nil {
+		return
+	}
+
+	_ = s.broadcaster.BroadcastMessageDeleted(ctx, participantIDs, payload)
+}
+
 // marshalMessageForWS converts a domain Message into a JSON-friendly map
 // matching the client-side Message type (snake_case keys).
 func marshalMessageForWS(msg *message.Message) map[string]any {

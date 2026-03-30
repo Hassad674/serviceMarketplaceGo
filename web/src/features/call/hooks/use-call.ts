@@ -85,6 +85,7 @@ export function useCall() {
   }, [])
 
   const connectToRoom = useCallback(async (token: string, callType: CallType = "audio") => {
+    console.log("[Video] connectToRoom called with callType:", callType)
     const wsUrl = process.env.NEXT_PUBLIC_LIVEKIT_URL || ""
     if (!wsUrl) {
       console.warn("[Call] NEXT_PUBLIC_LIVEKIT_URL is not set, skipping room connection")
@@ -99,6 +100,7 @@ export function useCall() {
       newRoom.on(
         RoomEvent.TrackSubscribed,
         (track: RemoteTrack, _pub: RemoteTrackPublication, _participant: RemoteParticipant) => {
+          console.log("[Video] [use-call] TrackSubscribed:", track.kind, track.sid)
           if (track.kind === Track.Kind.Audio) {
             const el = track.attach()
             el.setAttribute("data-livekit-audio", "true")
@@ -122,11 +124,13 @@ export function useCall() {
       //   - Ring timeout (30s) → doHangup()
 
       await newRoom.connect(wsUrl, token)
+      console.log("[Video] Room connected, enabling microphone")
       await newRoom.localParticipant.setMicrophoneEnabled(true)
 
       if (callType === "video") {
         try {
           await newRoom.localParticipant.setCameraEnabled(true)
+          console.log("[Video] Camera enabled successfully")
         } catch (camErr) {
           console.warn("[Call] Camera failed, continuing without video:", camErr)
           setIsCameraOff(true)
@@ -157,6 +161,7 @@ export function useCall() {
     callType: CallType = "audio",
   ) => {
     if (stateRef.current !== "idle") return
+    console.log("[Video] startCall callType:", callType)
     setState("ringing_outgoing")
     setCallType(callType)
 

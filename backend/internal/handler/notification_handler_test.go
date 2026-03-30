@@ -155,6 +155,12 @@ func (m *mockMessageBroadcaster) BroadcastPresence(_ context.Context, _ []uuid.U
 func (m *mockMessageBroadcaster) BroadcastNotification(_ context.Context, _ uuid.UUID, _ []byte) error {
 	return nil
 }
+func (m *mockMessageBroadcaster) BroadcastMessageEdited(_ context.Context, _ []uuid.UUID, _ []byte) error {
+	return nil
+}
+func (m *mockMessageBroadcaster) BroadcastMessageDeleted(_ context.Context, _ []uuid.UUID, _ []byte) error {
+	return nil
+}
 
 type mockPushService struct{}
 

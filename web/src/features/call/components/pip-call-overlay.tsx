@@ -54,6 +54,7 @@ export function PipCallOverlay({
   const isRinging = state === "ringing_outgoing"
   const hasRemoteVideo = callType === "video" && remoteVideoTrack != null
   const hasLocalVideo = callType === "video" && localVideoTrack
+  console.log("[Video] PiP render - hasRemoteVideo:", hasRemoteVideo, "hasLocalVideo:", !!hasLocalVideo, "isRinging:", isRinging)
 
   return (
     <div

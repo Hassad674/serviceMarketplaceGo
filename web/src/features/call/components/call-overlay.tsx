@@ -37,6 +37,7 @@ export function CallOverlay({
   onSetViewMode,
 }: CallOverlayProps) {
   const { remoteVideoTrack, localVideoTrack } = useVideoTracks(room, callType)
+  console.log("[Video] CallOverlay tracks - remote:", !!remoteVideoTrack, "local:", !!localVideoTrack, "callType:", callType)
 
   const switchToFullscreen = useCallback(() => {
     onSetViewMode("fullscreen")

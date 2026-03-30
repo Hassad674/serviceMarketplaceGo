@@ -81,11 +81,11 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   }
 
   void _resetControlsTimer() {
+    // Controls always visible — no auto-hide.
     _hideControlsTimer?.cancel();
-    setState(() => _controlsVisible = true);
-    _hideControlsTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _controlsVisible = false);
-    });
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
   }
 
   String _formatDuration(int seconds) {

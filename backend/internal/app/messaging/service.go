@@ -222,6 +222,9 @@ func (s *Service) EditMessage(ctx context.Context, input EditMessageInput) (*mes
 	if msg.DeletedAt != nil {
 		return nil, message.ErrMessageDeleted
 	}
+	if time.Since(msg.CreatedAt) > time.Hour {
+		return nil, message.ErrEditWindowExpired
+	}
 
 	if input.Content == "" {
 		return nil, message.ErrEmptyContent
@@ -235,6 +238,9 @@ func (s *Service) EditMessage(ctx context.Context, input EditMessageInput) (*mes
 	if err := s.messages.UpdateMessage(ctx, msg); err != nil {
 		return nil, fmt.Errorf("update message: %w", err)
 	}
+
+	// Broadcast edit to other participants
+	s.broadcastMessageEdited(ctx, msg)
 
 	return msg, nil
 }
@@ -265,13 +271,8 @@ func (s *Service) DeleteMessage(ctx context.Context, input DeleteMessageInput) e
 		return fmt.Errorf("update message: %w", err)
 	}
 
-	// Broadcast deletion to other participants
-	participantIDs, _ := s.messages.GetParticipantIDs(ctx, msg.ConversationID)
-	payload, _ := json.Marshal(map[string]string{
-		"message_id":      msg.ID.String(),
-		"conversation_id": msg.ConversationID.String(),
-	})
-	_ = s.broadcaster.BroadcastStatusUpdate(ctx, participantIDs, payload)
+	// Broadcast deletion to all participants
+	s.broadcastMessageDeleted(ctx, msg)
 
 	return nil
 }

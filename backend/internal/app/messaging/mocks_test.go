@@ -305,6 +305,14 @@ func (m *mockBroadcaster) BroadcastNotification(ctx context.Context, userID uuid
 	return nil
 }
 
+func (m *mockBroadcaster) BroadcastMessageEdited(_ context.Context, _ []uuid.UUID, _ []byte) error {
+	return nil
+}
+
+func (m *mockBroadcaster) BroadcastMessageDeleted(_ context.Context, _ []uuid.UUID, _ []byte) error {
+	return nil
+}
+
 // --- mockStorageService ---
 
 type mockStorageService struct {

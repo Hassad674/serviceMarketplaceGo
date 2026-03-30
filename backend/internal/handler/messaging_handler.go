@@ -344,6 +344,8 @@ func handleMessagingError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "cannot_delete_other", err.Error())
 	case errors.Is(err, message.ErrDeleteWindowExpired):
 		res.Error(w, http.StatusForbidden, "delete_window_expired", err.Error())
+	case errors.Is(err, message.ErrEditWindowExpired):
+		res.Error(w, http.StatusForbidden, "edit_window_expired", err.Error())
 	case errors.Is(err, message.ErrMessageDeleted):
 		res.Error(w, http.StatusBadRequest, "message_deleted", err.Error())
 	case errors.Is(err, message.ErrSelfConversation):

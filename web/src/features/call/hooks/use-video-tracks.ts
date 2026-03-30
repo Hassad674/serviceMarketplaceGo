@@ -20,6 +20,7 @@ export function useVideoTracks(room: Room | null, callType: CallType) {
   const localElRef = useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
+    console.log("[Video] useVideoTracks effect running, room:", !!room, "callType:", callType)
     if (!room || callType !== "video") return
 
     function onTrackSubscribed(
@@ -27,6 +28,7 @@ export function useVideoTracks(room: Room | null, callType: CallType) {
       _pub: RemoteTrackPublication,
       _participant: RemoteParticipant,
     ) {
+      console.log("[Video] TrackSubscribed event:", track.kind, track.sid)
       if (track.kind === Track.Kind.Video) {
         setRemoteVideoTrack(track)
       }
@@ -40,6 +42,7 @@ export function useVideoTracks(room: Room | null, callType: CallType) {
     }
 
     function onLocalTrackPublished(pub: LocalTrackPublication) {
+      console.log("[Video] LocalTrackPublished event:", pub.track?.kind, pub.track?.sid)
       if (pub.track && pub.track.kind === Track.Kind.Video) {
         setLocalVideoTrack(pub.track)
       }
@@ -63,15 +66,19 @@ export function useVideoTracks(room: Room | null, callType: CallType) {
     for (const participant of room.remoteParticipants.values()) {
       for (const pub of participant.trackPublications.values()) {
         if (pub.track && pub.track.kind === Track.Kind.Video && pub.isSubscribed) {
+          console.log("[Video] Scan found remote video track:", pub.track.sid)
           setRemoteVideoTrack(pub.track as RemoteTrack)
         }
       }
     }
     for (const pub of room.localParticipant.trackPublications.values()) {
       if (pub.track && pub.track.kind === Track.Kind.Video) {
+        console.log("[Video] Scan found local video track:", pub.track.sid)
         setLocalVideoTrack(pub.track as LocalTrack)
       }
     }
+
+    console.log("[Video] Scan complete - remote participants:", room.remoteParticipants.size, "local pubs:", room.localParticipant.trackPublications.size)
 
     return () => {
       room.off(RoomEvent.TrackSubscribed, onTrackSubscribed)

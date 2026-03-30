@@ -364,9 +364,10 @@ func TestEditMessage_EmptyContent(t *testing.T) {
 	ownerID := uuid.New()
 	msgID := uuid.New()
 	existingMsg := &message.Message{
-		ID:       msgID,
-		SenderID: ownerID,
-		Content:  "original",
+		ID:        msgID,
+		SenderID:  ownerID,
+		Content:   "original",
+		CreatedAt: time.Now(),
 	}
 
 	msgRepo := &mockMessageRepo{
@@ -723,9 +724,10 @@ func TestEditMessage_ContentTooLong(t *testing.T) {
 	ownerID := uuid.New()
 	msgID := uuid.New()
 	existingMsg := &message.Message{
-		ID:       msgID,
-		SenderID: ownerID,
-		Content:  "original",
+		ID:        msgID,
+		SenderID:  ownerID,
+		Content:   "original",
+		CreatedAt: time.Now(),
 	}
 
 	msgRepo := &mockMessageRepo{
