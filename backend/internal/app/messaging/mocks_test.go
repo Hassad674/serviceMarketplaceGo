@@ -162,6 +162,10 @@ func (m *mockMessageRepo) GetContactIDs(ctx context.Context, userID uuid.UUID) (
 	return nil, nil
 }
 
+func (m *mockMessageRepo) SaveMessageHistory(_ context.Context, _, _ uuid.UUID, _, _ string) error {
+	return nil
+}
+
 // --- mockUserRepo ---
 
 type mockUserRepo struct {

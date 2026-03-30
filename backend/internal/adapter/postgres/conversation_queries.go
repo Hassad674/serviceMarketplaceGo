@@ -185,3 +185,7 @@ const queryMarkMessagesAsRead = `
 		AND sender_id != $2
 		AND seq <= $3
 		AND status != 'read'`
+
+const querySaveMessageHistory = `
+	INSERT INTO message_history (id, message_id, content, action, performed_by, created_at)
+	VALUES (gen_random_uuid(), $1, $2, $3, $4, now())`

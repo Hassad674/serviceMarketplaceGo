@@ -233,6 +233,9 @@ func (s *Service) EditMessage(ctx context.Context, input EditMessageInput) (*mes
 		return nil, message.ErrContentTooLong
 	}
 
+	// Save old content before editing
+	_ = s.messages.SaveMessageHistory(ctx, msg.ID, input.UserID, msg.Content, "edited")
+
 	msg.Edit(input.Content)
 
 	if err := s.messages.UpdateMessage(ctx, msg); err != nil {
@@ -264,6 +267,9 @@ func (s *Service) DeleteMessage(ctx context.Context, input DeleteMessageInput) e
 	if time.Since(msg.CreatedAt) > time.Hour {
 		return message.ErrDeleteWindowExpired
 	}
+
+	// Save content before deleting
+	_ = s.messages.SaveMessageHistory(ctx, msg.ID, input.UserID, msg.Content, "deleted")
 
 	msg.SoftDelete()
 

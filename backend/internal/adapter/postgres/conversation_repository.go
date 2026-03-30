@@ -598,3 +598,14 @@ func buildReplyPreview(id, senderID *uuid.UUID, content, msgType *string) *messa
 	}
 	return rp
 }
+
+func (r *ConversationRepository) SaveMessageHistory(ctx context.Context, messageID, performedBy uuid.UUID, content, action string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, querySaveMessageHistory, messageID, content, action, performedBy)
+	if err != nil {
+		return fmt.Errorf("save message history: %w", err)
+	}
+	return nil
+}

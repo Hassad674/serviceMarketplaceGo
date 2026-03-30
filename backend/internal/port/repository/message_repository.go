@@ -52,4 +52,5 @@ type MessageRepository interface {
 	UpdateMessageStatus(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
 	MarkMessagesAsRead(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
 	GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+	SaveMessageHistory(ctx context.Context, messageID, performedBy uuid.UUID, content, action string) error
 }
