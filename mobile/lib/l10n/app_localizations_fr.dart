@@ -1277,4 +1277,58 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get drawerWallet => 'Portefeuille';
+
+  @override
+  String get reportMessage => 'Signaler ce message';
+
+  @override
+  String get reportUser => 'Signaler cet utilisateur';
+
+  @override
+  String get report => 'Signaler';
+
+  @override
+  String get selectReason => 'Quel est le problème ?';
+
+  @override
+  String get reportDescription => 'Détails supplémentaires';
+
+  @override
+  String get reportDescriptionHint => 'Décrivez le problème en détail...';
+
+  @override
+  String get submitReport => 'Envoyer le signalement';
+
+  @override
+  String get reportSubmitting => 'Envoi en cours...';
+
+  @override
+  String get reportSent => 'Signalement envoyé. Notre équipe va l\'examiner.';
+
+  @override
+  String get reportError => 'Échec de l\'envoi du signalement.';
+
+  @override
+  String get reasonHarassment => 'Harcèlement ou intimidation';
+
+  @override
+  String get reasonFraud => 'Fraude ou arnaque';
+
+  @override
+  String get reasonOffPlatformPayment => 'Paiement hors plateforme';
+
+  @override
+  String get reasonSpam => 'Spam';
+
+  @override
+  String get reasonInappropriateContent => 'Contenu inapproprié';
+
+  @override
+  String get reasonFakeProfile => 'Profil faux ou trompeur';
+
+  @override
+  String get reasonUnprofessionalBehavior => 'Comportement non professionnel';
+
+  @override
+  String get reasonOther => 'Autre';
 }

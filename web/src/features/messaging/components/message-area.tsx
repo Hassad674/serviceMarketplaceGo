@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
-import { MessageSquare, Phone, PhoneMissed, Reply, Pencil, Trash2 } from "lucide-react"
+import { MessageSquare, Phone, PhoneMissed, Reply, Pencil, Trash2, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { Message, ProposalMessageMetadata, ReplyToInfo, VoiceMetadata } from "../types"
@@ -27,6 +27,7 @@ interface MessageAreaProps {
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
   onReply: (message: Message) => void
+  onReport?: (messageId: string) => void
   conversationId: string
   onReview?: (proposalId: string, proposalTitle: string) => void
 }
@@ -40,6 +41,7 @@ export function MessageArea({
   onEdit,
   onDelete,
   onReply,
+  onReport,
   conversationId,
   onReview,
 }: MessageAreaProps) {
@@ -138,6 +140,7 @@ export function MessageArea({
             onEdit={onEdit}
             onDelete={onDelete}
             onReply={onReply}
+            onReport={onReport}
             supersededProposalIds={supersededProposalIds}
             onReview={onReview}
           />
@@ -200,6 +203,7 @@ interface MessageBubbleProps {
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
   onReply: (message: Message) => void
+  onReport?: (messageId: string) => void
   supersededProposalIds: Set<string>
   onReview?: (proposalId: string, proposalTitle: string) => void
 }
@@ -233,6 +237,7 @@ function MessageBubble({
   onEdit,
   onDelete,
   onReply,
+  onReport,
   supersededProposalIds,
   onReview,
 }: MessageBubbleProps) {
@@ -366,6 +371,7 @@ function MessageBubble({
       onEdit={onEdit}
       onDelete={onDelete}
       onReply={onReply}
+      onReport={onReport}
     />
   )
 }
@@ -376,12 +382,14 @@ function TextMessageBubble({
   onEdit,
   onDelete,
   onReply,
+  onReport,
 }: {
   message: Message
   isOwn: boolean
   onEdit: (messageId: string, content: string) => void
   onDelete: (messageId: string) => void
   onReply: (message: Message) => void
+  onReport?: (messageId: string) => void
 }) {
   const t = useTranslations("messaging")
   const [isEditing, setIsEditing] = useState(false)
@@ -515,6 +523,7 @@ function TextMessageBubble({
               setIsEditing(true)
             } : undefined}
             onDelete={isOwn ? () => onDelete(message.id) : undefined}
+            onReport={onReport ? () => onReport(message.id) : undefined}
           />
         </div>
       )}
@@ -558,6 +567,18 @@ function TextMessageBubble({
               <Trash2 className="h-4 w-4" strokeWidth={1.5} />
               {t("deleteMessage")}
             </button>
+          )}
+          {onReport && (
+            <>
+              <div className="mx-3 border-t border-slate-200 dark:border-slate-700" />
+              <button
+                onClick={() => { setShowMobileMenu(false); onReport(message.id) }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm text-red-600 active:bg-red-50 dark:text-red-400 dark:active:bg-red-500/10"
+              >
+                <Flag className="h-4 w-4" strokeWidth={1.5} />
+                {t("report")}
+              </button>
+            </>
           )}
         </div>
       </div>

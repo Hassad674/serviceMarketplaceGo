@@ -371,7 +371,8 @@
     "reply": "Reply",
     "replyingTo": "Replying to {name}",
     "cancelReply": "Cancel reply",
-    "fileMessage": "File"
+    "fileMessage": "File",
+    "report": "Report"
   },
   "projects": {
     "title": "Projects",
@@ -567,7 +568,20 @@
     "goToConversation": "Go to conversation",
     "waitingPayment": "Waiting for payment",
     "missionActiveDesc": "Mission in progress",
-    "awaitingCompletion": "Awaiting completion confirmation"
+    "awaitingCompletion": "Awaiting completion confirmation",
+    "billingInfo": "Billing information",
+    "billingInfoHint": "This information will appear on your transaction receipt.",
+    "billingCompanyName": "Name or company name",
+    "billingCompanyPlaceholder": "e.g. Acme Inc.",
+    "billingAddress": "Address",
+    "billingAddressPlaceholder": "123 Main Street",
+    "billingPostalCode": "Postal code",
+    "billingCity": "City",
+    "billingCountry": "Country",
+    "billingTaxId": "Tax ID (optional)",
+    "billingTaxIdPlaceholder": "VAT, TIN, EIN... depending on your country",
+    "billingTaxIdHint": "VAT number, TIN, EIN, or local equivalent.",
+    "billingRequired": "Please fill in the billing information."
   },
   "call": {
     "calling": "Calling...",
@@ -729,5 +743,25 @@
     "removeVideo": "Remove video",
     "videoReview": "Video review",
     "uploadingVideo": "Uploading video..."
+  },
+  "reporting": {
+    "reportMessage": "Report this message",
+    "reportUser": "Report this user",
+    "selectReason": "What's the issue?",
+    "description": "Additional details",
+    "descriptionPlaceholder": "Describe the issue in detail...",
+    "submitReport": "Submit report",
+    "submitting": "Submitting...",
+    "reportSent": "Report submitted. Our team will review it.",
+    "reportError": "Failed to submit report. Please try again.",
+    "report": "Report",
+    "reason_harassment": "Harassment or bullying",
+    "reason_fraud": "Fraud or scam",
+    "reason_off_platform_payment": "Requesting payment outside platform",
+    "reason_spam": "Spam",
+    "reason_inappropriate_content": "Inappropriate content",
+    "reason_fake_profile": "Fake or misleading profile",
+    "reason_unprofessional_behavior": "Unprofessional behavior",
+    "reason_other": "Other"
   }
 }

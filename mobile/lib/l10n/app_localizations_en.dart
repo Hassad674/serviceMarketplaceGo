@@ -1269,4 +1269,58 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get drawerWallet => 'Wallet';
+
+  @override
+  String get reportMessage => 'Report this message';
+
+  @override
+  String get reportUser => 'Report this user';
+
+  @override
+  String get report => 'Report';
+
+  @override
+  String get selectReason => 'What\'s the issue?';
+
+  @override
+  String get reportDescription => 'Additional details';
+
+  @override
+  String get reportDescriptionHint => 'Describe the issue in detail...';
+
+  @override
+  String get submitReport => 'Submit report';
+
+  @override
+  String get reportSubmitting => 'Submitting...';
+
+  @override
+  String get reportSent => 'Report submitted. Our team will review it.';
+
+  @override
+  String get reportError => 'Failed to submit report.';
+
+  @override
+  String get reasonHarassment => 'Harassment or bullying';
+
+  @override
+  String get reasonFraud => 'Fraud or scam';
+
+  @override
+  String get reasonOffPlatformPayment => 'Payment outside platform';
+
+  @override
+  String get reasonSpam => 'Spam';
+
+  @override
+  String get reasonInappropriateContent => 'Inappropriate content';
+
+  @override
+  String get reasonFakeProfile => 'Fake or misleading profile';
+
+  @override
+  String get reasonUnprofessionalBehavior => 'Unprofessional behavior';
+
+  @override
+  String get reasonOther => 'Other';
 }

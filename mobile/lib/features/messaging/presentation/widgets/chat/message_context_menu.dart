@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../../../l10n/app_localizations.dart';
 
-/// Shows a bottom sheet with reply/edit/delete actions for a message.
+/// Shows a bottom sheet with reply/edit/delete/report actions for a message.
 void showMessageContextMenu({
   required BuildContext context,
   required AppLocalizations l10n,
   VoidCallback? onReply,
   VoidCallback? onEdit,
   VoidCallback? onDelete,
+  VoidCallback? onReport,
 }) {
   showModalBottomSheet(
     context: context,
@@ -54,6 +55,25 @@ void showMessageContextMenu({
                 onDelete();
               },
             ),
+          if (onReport != null) ...[
+            const Divider(height: 1),
+            ListTile(
+              leading: Icon(
+                Icons.flag_outlined,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              title: Text(
+                l10n.report,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                onReport();
+              },
+            ),
+          ],
         ],
       ),
     ),

@@ -2569,6 +2569,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Wallet'**
   String get drawerWallet;
+
+  /// No description provided for @reportMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this message'**
+  String get reportMessage;
+
+  /// No description provided for @reportUser.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this user'**
+  String get reportUser;
+
+  /// No description provided for @report.
+  ///
+  /// In en, this message translates to:
+  /// **'Report'**
+  String get report;
+
+  /// No description provided for @selectReason.
+  ///
+  /// In en, this message translates to:
+  /// **'What\'s the issue?'**
+  String get selectReason;
+
+  /// No description provided for @reportDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional details'**
+  String get reportDescription;
+
+  /// No description provided for @reportDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the issue in detail...'**
+  String get reportDescriptionHint;
+
+  /// No description provided for @submitReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit report'**
+  String get submitReport;
+
+  /// No description provided for @reportSubmitting.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitting...'**
+  String get reportSubmitting;
+
+  /// No description provided for @reportSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Report submitted. Our team will review it.'**
+  String get reportSent;
+
+  /// No description provided for @reportError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to submit report.'**
+  String get reportError;
+
+  /// No description provided for @reasonHarassment.
+  ///
+  /// In en, this message translates to:
+  /// **'Harassment or bullying'**
+  String get reasonHarassment;
+
+  /// No description provided for @reasonFraud.
+  ///
+  /// In en, this message translates to:
+  /// **'Fraud or scam'**
+  String get reasonFraud;
+
+  /// No description provided for @reasonOffPlatformPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment outside platform'**
+  String get reasonOffPlatformPayment;
+
+  /// No description provided for @reasonSpam.
+  ///
+  /// In en, this message translates to:
+  /// **'Spam'**
+  String get reasonSpam;
+
+  /// No description provided for @reasonInappropriateContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Inappropriate content'**
+  String get reasonInappropriateContent;
+
+  /// No description provided for @reasonFakeProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Fake or misleading profile'**
+  String get reasonFakeProfile;
+
+  /// No description provided for @reasonUnprofessionalBehavior.
+  ///
+  /// In en, this message translates to:
+  /// **'Unprofessional behavior'**
+  String get reasonUnprofessionalBehavior;
+
+  /// No description provided for @reasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get reasonOther;
 }
 
 class _AppLocalizationsDelegate

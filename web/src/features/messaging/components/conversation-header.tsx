@@ -1,7 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { ArrowLeft, Phone, Video, Wifi, WifiOff, FileText } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { ArrowLeft, Phone, Video, Wifi, WifiOff, FileText, MoreVertical, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -14,6 +15,7 @@ interface ConversationHeaderProps {
   typingUserName?: string
   isConnected: boolean
   onStartCall?: (type: "audio" | "video") => void
+  onReportUser?: () => void
 }
 
 export function ConversationHeader({
@@ -22,11 +24,27 @@ export function ConversationHeader({
   typingUserName,
   isConnected,
   onStartCall,
+  onReportUser,
 }: ConversationHeaderProps) {
   const t = useTranslations("messaging")
   const tProposal = useTranslations("proposal")
   const tCall = useTranslations("call")
+  const tReport = useTranslations("reporting")
   const router = useRouter()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [menuOpen])
 
   const initials = conversation.other_user_name
     .split(" ")
@@ -147,6 +165,48 @@ export function ConversationHeader({
           >
             <Video className="h-4 w-4" strokeWidth={1.5} />
           </button>
+        </div>
+      )}
+
+      {/* More menu (report user) */}
+      {onReportUser && (
+        <div ref={menuRef} className="relative">
+          <button
+            onClick={() => setMenuOpen((prev) => !prev)}
+            className={cn(
+              "rounded-xl p-2 text-gray-400 transition-all duration-200",
+              "hover:bg-gray-100 hover:text-gray-600",
+              "dark:hover:bg-gray-800 dark:hover:text-gray-300",
+            )}
+            aria-label="More options"
+          >
+            <MoreVertical className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+          {menuOpen && (
+            <div
+              className={cn(
+                "absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-lg",
+                "border border-gray-100 bg-white shadow-lg",
+                "dark:border-gray-700 dark:bg-gray-800",
+                "animate-in fade-in slide-in-from-top-1 duration-150",
+              )}
+            >
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  onReportUser()
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-2.5 text-sm text-red-600",
+                  "transition-colors hover:bg-red-50",
+                  "dark:text-red-400 dark:hover:bg-red-500/10",
+                )}
+              >
+                <Flag className="h-4 w-4" strokeWidth={1.5} />
+                {tReport("reportUser")}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

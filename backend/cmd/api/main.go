@@ -26,6 +26,7 @@ import (
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	notifapp "marketplace-backend/internal/app/notification"
+	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler"
@@ -253,6 +254,15 @@ func main() {
 		Notifications: notifSvc,
 	})
 
+	// Report feature
+	reportRepo := postgres.NewReportRepository(db)
+	reportSvc := reportapp.NewService(reportapp.ServiceDeps{
+		Reports:  reportRepo,
+		Users:    userRepo,
+		Messages: messageRepo,
+	})
+	reportHandler := handler.NewReportHandler(reportSvc)
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
@@ -292,6 +302,7 @@ func main() {
 		Proposal:       proposalHandler,
 		Job:            jobHandler,
 		Review:         reviewHandler,
+		Report:         reportHandler,
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
 		PaymentInfo:    paymentInfoHandler,

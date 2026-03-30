@@ -24,6 +24,7 @@ type RouterDeps struct {
 	PaymentInfo    *PaymentInfoHandler
 	Notification   *NotificationHandler
 	Stripe         *StripeHandler
+	Report         *ReportHandler
 	Wallet         *WalletHandler
 	IdentityDoc    *IdentityDocumentHandler
 	WSHandler      http.HandlerFunc
@@ -158,6 +159,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 					r.Post("/", deps.Review.CreateReview)
 					r.Get("/can-review/{proposalId}", deps.Review.CanReview)
 				})
+			})
+		}
+
+		// Report routes (authenticated)
+		if deps.Report != nil {
+			r.Route("/reports", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Report.CreateReport)
+				r.Get("/mine", deps.Report.ListMyReports)
 			})
 		}
 

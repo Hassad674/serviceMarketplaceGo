@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MoreHorizontal, Pencil, Reply, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Reply, Trash2, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
@@ -9,9 +9,10 @@ interface MessageContextMenuProps {
   onReply?: () => void
   onEdit?: () => void
   onDelete?: () => void
+  onReport?: () => void
 }
 
-export function MessageContextMenu({ onReply, onEdit, onDelete }: MessageContextMenuProps) {
+export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: MessageContextMenuProps) {
   const t = useTranslations("messaging")
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -99,6 +100,25 @@ export function MessageContextMenu({ onReply, onEdit, onDelete }: MessageContext
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
               {t("deleteMessage")}
             </button>
+          )}
+          {onReport && (
+            <>
+              <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+              <button
+                onClick={() => {
+                  setOpen(false)
+                  onReport()
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600",
+                  "transition-colors hover:bg-red-50",
+                  "dark:text-red-400 dark:hover:bg-red-500/10",
+                )}
+              >
+                <Flag className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {t("report")}
+              </button>
+            </>
           )}
         </div>
       )}

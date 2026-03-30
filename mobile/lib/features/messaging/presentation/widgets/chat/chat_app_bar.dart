@@ -13,12 +13,14 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.typingUserName,
     this.onStartCall,
     this.onStartVideoCall,
+    this.onReportUser,
   });
 
   final ConversationEntity? conversation;
   final String? typingUserName;
   final VoidCallback? onStartCall;
   final VoidCallback? onStartVideoCall;
+  final VoidCallback? onReportUser;
 
   String get _initials =>
       conversation?.otherUserName.initials ?? '?';
@@ -151,9 +153,34 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
           onPressed: online ? onStartCall : null,
           tooltip: online ? l10n.callStartCall : l10n.callRecipientOffline,
         ),
-        IconButton(
+        PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert, size: 20),
-          onPressed: () {},
+          onSelected: (value) {
+            if (value == 'report_user') {
+              onReportUser?.call();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem<String>(
+              value: 'report_user',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.flag_outlined,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppLocalizations.of(context)!.reportUser,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );

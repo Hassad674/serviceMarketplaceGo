@@ -26,6 +26,7 @@ class MessageBubble extends StatelessWidget {
     this.onReply,
     this.onEdit,
     this.onDelete,
+    this.onReport,
     this.onAcceptProposal,
     this.onDeclineProposal,
     this.onModifyProposal,
@@ -40,6 +41,7 @@ class MessageBubble extends StatelessWidget {
   final VoidCallback? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+  final VoidCallback? onReport;
   final void Function(String proposalId)? onAcceptProposal;
   final void Function(String proposalId)? onDeclineProposal;
   final void Function(String proposalId)? onModifyProposal;
@@ -176,13 +178,14 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: GestureDetector(
-        onLongPress: (onReply != null || onEdit != null || onDelete != null)
+        onLongPress: (onReply != null || onEdit != null || onDelete != null || onReport != null)
             ? () => showMessageContextMenu(
                   context: context,
                   l10n: l10n,
                   onReply: onReply,
                   onEdit: isOwn ? onEdit : null,
                   onDelete: isOwn ? onDelete : null,
+                  onReport: !isOwn ? onReport : null,
                 )
             : null,
         child: Align(

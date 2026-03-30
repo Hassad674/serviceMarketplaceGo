@@ -371,7 +371,8 @@
     "reply": "Répondre",
     "replyingTo": "Réponse à {name}",
     "cancelReply": "Annuler la réponse",
-    "fileMessage": "Fichier"
+    "fileMessage": "Fichier",
+    "report": "Signaler"
   },
   "projects": {
     "title": "Projets",
@@ -567,7 +568,20 @@
     "goToConversation": "Aller à la conversation",
     "waitingPayment": "En attente du paiement",
     "missionActiveDesc": "Mission en cours",
-    "awaitingCompletion": "En attente de confirmation"
+    "awaitingCompletion": "En attente de confirmation",
+    "billingInfo": "Informations de facturation",
+    "billingInfoHint": "Ces informations figureront sur votre reçu de transaction.",
+    "billingCompanyName": "Nom ou raison sociale",
+    "billingCompanyPlaceholder": "ex. Acme SAS",
+    "billingAddress": "Adresse",
+    "billingAddressPlaceholder": "12 rue de la Paix",
+    "billingPostalCode": "Code postal",
+    "billingCity": "Ville",
+    "billingCountry": "Pays",
+    "billingTaxId": "N° d'identification (optionnel)",
+    "billingTaxIdPlaceholder": "SIRET, TVA, TIN... selon votre pays",
+    "billingTaxIdHint": "Numéro de TVA intracommunautaire, SIRET, TIN ou équivalent local.",
+    "billingRequired": "Veuillez remplir les informations de facturation."
   },
   "call": {
     "calling": "Appel en cours...",
@@ -729,5 +743,25 @@
     "removeVideo": "Supprimer la vidéo",
     "videoReview": "Avis vidéo",
     "uploadingVideo": "Envoi de la vidéo..."
+  },
+  "reporting": {
+    "reportMessage": "Signaler ce message",
+    "reportUser": "Signaler cet utilisateur",
+    "selectReason": "Quel est le problème ?",
+    "description": "Détails supplémentaires",
+    "descriptionPlaceholder": "Décrivez le problème en détail...",
+    "submitReport": "Envoyer le signalement",
+    "submitting": "Envoi en cours...",
+    "reportSent": "Signalement envoyé. Notre équipe va l'examiner.",
+    "reportError": "Échec de l'envoi. Veuillez réessayer.",
+    "report": "Signaler",
+    "reason_harassment": "Harcèlement ou intimidation",
+    "reason_fraud": "Fraude ou arnaque",
+    "reason_off_platform_payment": "Demande de paiement hors plateforme",
+    "reason_spam": "Spam",
+    "reason_inappropriate_content": "Contenu inapproprié",
+    "reason_fake_profile": "Profil faux ou trompeur",
+    "reason_unprofessional_behavior": "Comportement non professionnel",
+    "reason_other": "Autre"
   }
 }

@@ -449,5 +449,24 @@
   "walletPayoutRequested": "Demande de virement effectu\u00e9e",
   "walletTransactionHistory": "Historique des transactions",
   "walletNoTransactions": "Aucune transaction",
-  "drawerWallet": "Portefeuille"
+  "drawerWallet": "Portefeuille",
+
+  "reportMessage": "Signaler ce message",
+  "reportUser": "Signaler cet utilisateur",
+  "report": "Signaler",
+  "selectReason": "Quel est le probl\u00e8me ?",
+  "reportDescription": "D\u00e9tails suppl\u00e9mentaires",
+  "reportDescriptionHint": "D\u00e9crivez le probl\u00e8me en d\u00e9tail...",
+  "submitReport": "Envoyer le signalement",
+  "reportSubmitting": "Envoi en cours...",
+  "reportSent": "Signalement envoy\u00e9. Notre \u00e9quipe va l'examiner.",
+  "reportError": "\u00c9chec de l'envoi du signalement.",
+  "reasonHarassment": "Harc\u00e8lement ou intimidation",
+  "reasonFraud": "Fraude ou arnaque",
+  "reasonOffPlatformPayment": "Paiement hors plateforme",
+  "reasonSpam": "Spam",
+  "reasonInappropriateContent": "Contenu inappropri\u00e9",
+  "reasonFakeProfile": "Profil faux ou trompeur",
+  "reasonUnprofessionalBehavior": "Comportement non professionnel",
+  "reasonOther": "Autre"
 }

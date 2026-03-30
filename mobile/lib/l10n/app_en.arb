@@ -454,5 +454,24 @@
   "walletPayoutRequested": "Payout requested successfully",
   "walletTransactionHistory": "Transaction history",
   "walletNoTransactions": "No transactions yet",
-  "drawerWallet": "Wallet"
+  "drawerWallet": "Wallet",
+
+  "reportMessage": "Report this message",
+  "reportUser": "Report this user",
+  "report": "Report",
+  "selectReason": "What's the issue?",
+  "reportDescription": "Additional details",
+  "reportDescriptionHint": "Describe the issue in detail...",
+  "submitReport": "Submit report",
+  "reportSubmitting": "Submitting...",
+  "reportSent": "Report submitted. Our team will review it.",
+  "reportError": "Failed to submit report.",
+  "reasonHarassment": "Harassment or bullying",
+  "reasonFraud": "Fraud or scam",
+  "reasonOffPlatformPayment": "Payment outside platform",
+  "reasonSpam": "Spam",
+  "reasonInappropriateContent": "Inappropriate content",
+  "reasonFakeProfile": "Fake or misleading profile",
+  "reasonUnprofessionalBehavior": "Unprofessional behavior",
+  "reasonOther": "Other"
 }

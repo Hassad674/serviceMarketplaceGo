@@ -19,6 +19,7 @@ import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
 import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
 import { ReviewModal } from "@/features/review/components/review-modal"
+import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { Conversation, ConversationListResponse, Message } from "../types"
 
 export function MessagingPage() {
@@ -36,6 +37,7 @@ export function MessagingPage() {
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
   const [replyTo, setReplyTo] = useState<{ id: string; senderId: string; senderName: string; content: string; type: string } | null>(null)
   const [reviewTarget, setReviewTarget] = useState<{ proposalId: string; proposalTitle: string } | null>(null)
+  const [reportTarget, setReportTarget] = useState<{ type: "message" | "user"; id: string } | null>(null)
 
   const callCtx = useCallContext()
 
@@ -216,6 +218,19 @@ export function MessagingPage() {
     [],
   )
 
+  const handleReportMessage = useCallback(
+    (messageId: string) => {
+      setReportTarget({ type: "message", id: messageId })
+    },
+    [],
+  )
+
+  const handleReportUser = useCallback(() => {
+    if (activeConversation) {
+      setReportTarget({ type: "user", id: activeConversation.other_user_id })
+    }
+  }, [activeConversation])
+
   const typingUserForConversation = activeId ? typingUsers[activeId] : undefined
 
   return (
@@ -259,6 +274,7 @@ export function MessagingPage() {
               typingUserName={typingUserForConversation ? activeConversation.other_user_name : undefined}
               isConnected={isConnected}
               onStartCall={handleStartCall}
+              onReportUser={handleReportUser}
             />
             <MessageArea
               messages={allMessages}
@@ -269,6 +285,7 @@ export function MessagingPage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onReply={handleReply}
+              onReport={handleReportMessage}
               conversationId={activeId ?? ""}
               onReview={handleReview}
             />
@@ -296,6 +313,17 @@ export function MessagingPage() {
           proposalTitle={reviewTarget.proposalTitle}
           isOpen
           onClose={() => setReviewTarget(null)}
+        />
+      )}
+
+      {/* Report dialog — opens from message context menu or header */}
+      {reportTarget && (
+        <ReportDialog
+          open={!!reportTarget}
+          onClose={() => setReportTarget(null)}
+          targetType={reportTarget.type}
+          targetId={reportTarget.id}
+          conversationId={activeId ?? ""}
         />
       )}
     </div>

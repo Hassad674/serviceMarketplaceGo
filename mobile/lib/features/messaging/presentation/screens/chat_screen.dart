@@ -26,6 +26,7 @@ import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
 import '../widgets/chat/empty_chat_state.dart';
 import '../../../review/presentation/widgets/review_bottom_sheet.dart';
+import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../widgets/chat/message_bubble.dart';
 import '../widgets/chat/message_input_bar.dart';
 import '../widgets/chat/typing_indicator_widget.dart';
@@ -559,6 +560,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         typingUserName: typingDisplayName,
         onStartCall: () => _startCall(conversation),
         onStartVideoCall: () => _startVideoCall(conversation),
+        onReportUser: conversation != null
+            ? () => showReportBottomSheet(
+                  context,
+                  ref,
+                  targetType: 'user',
+                  targetId: conversation.otherUserId,
+                  conversationId: widget.conversationId,
+                )
+            : null,
       ),
       body: Column(
         children: [
@@ -597,6 +607,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             : null,
                         onDelete: isOwn && !message.isDeleted
                             ? () => _showDeleteConfirm(message)
+                            : null,
+                        onReport: !isOwn && !message.isDeleted
+                            ? () => showReportBottomSheet(
+                                  context,
+                                  ref,
+                                  targetType: 'message',
+                                  targetId: message.id,
+                                  conversationId: widget.conversationId,
+                                )
                             : null,
                         onAcceptProposal: _handleAcceptProposal,
                         onDeclineProposal: _handleDeclineProposal,
