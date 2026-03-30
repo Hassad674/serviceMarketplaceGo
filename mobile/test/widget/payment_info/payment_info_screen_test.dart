@@ -396,5 +396,160 @@ void main() {
       expect(find.textContaining('Error'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
     });
+
+    // -----------------------------------------------------------------
+    // THE REAL PERSISTENCE PROOF — verify actual field values
+    // -----------------------------------------------------------------
+
+    testWidgets(
+      'TextFormField controllers contain saved values after populate '
+      '(proves TextEditingController + didUpdateWidget fix)',
+      (WidgetTester tester) async {
+        // This test reproduces the exact bug scenario:
+        // 1. Screen builds with empty form data (initial state)
+        // 2. API data arrives → _populateFromEntity runs via postFrameCallback
+        // 3. setState rebuilds → PaymentFormField receives new `value`
+        // 4. didUpdateWidget fires → _controller.text is updated
+        //
+        // Before the fix (StatelessWidget + initialValue):
+        //   initialValue only sets text on FIRST build. After setState,
+        //   TextFormField ignores new initialValue → fields appear empty.
+        //
+        // After the fix (StatefulWidget + TextEditingController):
+        //   didUpdateWidget detects value change → updates controller.text
+        //   → fields display the saved values.
+
+        final savedInfo = _buildSavedPaymentInfo();
+
+        await tester.pumpWidget(
+          buildTestableScreen(
+            const PaymentInfoScreen(),
+            overrides: _overrides(
+              pi: (ref) => Future.value(savedInfo),
+            ),
+          ),
+        );
+
+        // First pump renders loading, second resolves future,
+        // pumpAndSettle waits for postFrameCallback + setState
+        await tester.pumpAndSettle();
+
+        // Find all TextFormField widgets and extract their controller text
+        final textFields = tester.widgetList<TextFormField>(
+          find.byType(TextFormField),
+        );
+        final fieldTexts = textFields
+            .map((tf) => tf.controller?.text ?? tf.initialValue ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        // The saved data values that MUST appear in the form fields
+        expect(fieldTexts, contains('Jean'));
+        expect(fieldTexts, contains('Dupont'));
+        expect(fieldTexts, contains('10 Rue de Rivoli'));
+        expect(fieldTexts, contains('Paris'));
+        expect(fieldTexts, contains('75001'));
+        expect(fieldTexts, contains('+33612345678'));
+        expect(fieldTexts, contains('FR7612345678901234567890123'));
+        expect(fieldTexts, contains('Jean Dupont'));
+      },
+    );
+
+    testWidgets(
+      'field values persist after a simulated rebuild (second setState)',
+      (WidgetTester tester) async {
+        // Simulates what happens when the user toggles isBusiness:
+        // setState triggers a full rebuild, and the personal fields
+        // must STILL contain their values (not reset to empty).
+
+        final savedInfo = _buildSavedPaymentInfo();
+
+        await tester.pumpWidget(
+          buildTestableScreen(
+            const PaymentInfoScreen(),
+            overrides: _overrides(
+              pi: (ref) => Future.value(savedInfo),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Verify values are there
+        final beforeFields = tester.widgetList<TextFormField>(
+          find.byType(TextFormField),
+        );
+        final beforeTexts = beforeFields
+            .map((tf) => tf.controller?.text ?? tf.initialValue ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+        expect(beforeTexts, contains('Jean'));
+        expect(beforeTexts, contains('Dupont'));
+
+        // Toggle business switch → triggers setState → full rebuild
+        final switchFinder = find.byType(Switch);
+        expect(switchFinder, findsOneWidget);
+        await tester.tap(switchFinder);
+        await tester.pumpAndSettle();
+
+        // After rebuild, personal fields must STILL have values
+        final afterFields = tester.widgetList<TextFormField>(
+          find.byType(TextFormField),
+        );
+        final afterTexts = afterFields
+            .map((tf) => tf.controller?.text ?? tf.initialValue ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+        expect(afterTexts, contains('Jean'));
+        expect(afterTexts, contains('Dupont'));
+        expect(afterTexts, contains('10 Rue de Rivoli'));
+        expect(afterTexts, contains('Paris'));
+        expect(afterTexts, contains('75001'));
+      },
+    );
+
+    testWidgets(
+      'business fields contain saved values when isBusiness is true',
+      (WidgetTester tester) async {
+        final bizInfo = _buildBusinessPaymentInfo();
+
+        await tester.pumpWidget(
+          buildTestableScreen(
+            const PaymentInfoScreen(),
+            overrides: _overrides(
+              pi: (ref) => Future.value(bizInfo),
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // Scroll down to see business fields
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -300),
+        );
+        await tester.pumpAndSettle();
+
+        final textFields = tester.widgetList<TextFormField>(
+          find.byType(TextFormField),
+        );
+        final fieldTexts = textFields
+            .map((tf) => tf.controller?.text ?? tf.initialValue ?? '')
+            .where((t) => t.isNotEmpty)
+            .toList();
+
+        // Personal fields
+        expect(fieldTexts, contains('Marie'));
+        expect(fieldTexts, contains('Martin'));
+        expect(fieldTexts, contains('+33611223344'));
+
+        // Business fields
+        expect(fieldTexts, contains('Martin Consulting'));
+        expect(fieldTexts, contains('10 Rue Commerce'));
+        expect(fieldTexts, contains('69002'));
+        expect(fieldTexts, contains('12345678900014'));
+      },
+    );
   });
 }
