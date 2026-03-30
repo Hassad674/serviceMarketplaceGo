@@ -33,6 +33,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   Timer? _hideControlsTimer;
   double _localVideoX = 16;
   double _localVideoY = 16;
+  EventsListener<RoomEvent>? _roomListener;
 
   @override
   void initState() {
@@ -41,12 +42,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       ref.read(callScreenVisibleProvider.notifier).state = true;
     });
     _listenForCallEnd();
-    _listenForRoomEvents();
+    _listenForRoomChanges();
     _resetControlsTimer();
   }
 
   @override
   void dispose() {
+    _roomListener?.dispose();
     _hideControlsTimer?.cancel();
     // Capture the notifier before super.dispose() invalidates ref.
     final notifier = ref.read(callScreenVisibleProvider.notifier);
@@ -62,18 +64,49 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     });
   }
 
-  /// Listen for LiveKit track events to trigger rebuilds when remote
-  /// participants publish or unpublish video tracks.
-  void _listenForRoomEvents() {
-    final room = ref.read(callProvider.notifier).room;
-    if (room == null) return;
+  /// Watch for room availability and set up track event listeners.
+  ///
+  /// Handles the case where the room connects AFTER the screen mounts
+  /// (both for the initiator and the recipient).
+  void _listenForRoomChanges() {
+    // Try immediately (room might already be available).
+    _setupRoomListener();
 
-    final listener = room.createListener();
-    listener
-      ..on<TrackSubscribedEvent>((_) => _triggerRebuild())
+    // Also listen for state changes to catch when room becomes available.
+    ref.listenManual(callProvider, (previous, next) {
+      final room = ref.read(callProvider.notifier).room;
+      if (room != null && _roomListener == null) {
+        _setupRoomListener();
+      }
+    });
+  }
+
+  /// Attach LiveKit track-level event listeners to the room.
+  ///
+  /// Safe to call multiple times -- only sets up once (guarded by
+  /// [_roomListener] being non-null).
+  void _setupRoomListener() {
+    final room = ref.read(callProvider.notifier).room;
+    if (room == null) {
+      debugPrint('[Call] _setupRoomListener: room is null, waiting...');
+      return;
+    }
+    if (_roomListener != null) return;
+
+    debugPrint('[Call] _setupRoomListener: room available, setting up listeners');
+    _roomListener = room.createListener();
+    _roomListener!
+      ..on<TrackSubscribedEvent>((_) {
+        debugPrint('[Call] TrackSubscribed event, triggering rebuild');
+        _triggerRebuild();
+      })
       ..on<TrackUnsubscribedEvent>((_) => _triggerRebuild())
       ..on<TrackMutedEvent>((_) => _triggerRebuild())
-      ..on<TrackUnmutedEvent>((_) => _triggerRebuild());
+      ..on<TrackUnmutedEvent>((_) => _triggerRebuild())
+      ..on<ParticipantConnectedEvent>((_) => _triggerRebuild());
+
+    // Trigger an initial rebuild to pick up any tracks already on the room.
+    _triggerRebuild();
   }
 
   void _triggerRebuild() {
@@ -137,6 +170,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     AppLocalizations l10n,
   ) {
     final remoteTrack = _getRemoteVideoTrack(notifier);
+    debugPrint(
+      '[Call] _buildBackground: isVideo=$isVideo, '
+      'remoteTrack=${remoteTrack != null}',
+    );
 
     if (isVideo && remoteTrack != null) {
       return VideoRendererWidget(track: remoteTrack);
@@ -357,6 +394,10 @@ class _CallScreenState extends ConsumerState<CallScreen> {
     if (participants.isEmpty) return null;
 
     final pubs = participants.first.videoTrackPublications;
+    debugPrint(
+      '[Call] _getRemoteVideoTrack: '
+      'participants=${participants.length}, pubs=${pubs.length}',
+    );
     if (pubs.isEmpty) return null;
     return pubs.first.track as VideoTrack?;
   }
