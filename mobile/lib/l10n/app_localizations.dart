@@ -2245,6 +2245,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Other'**
   String get paymentInfoRoleOther;
+
+  /// No description provided for @paymentInfoPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number'**
+  String get paymentInfoPhone;
+
+  /// No description provided for @paymentInfoActivitySector.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity sector'**
+  String get paymentInfoActivitySector;
+
+  /// No description provided for @paymentInfoBusinessPersons.
+  ///
+  /// In en, this message translates to:
+  /// **'Business representatives'**
+  String get paymentInfoBusinessPersons;
+
+  /// No description provided for @paymentInfoSelfRepresentative.
+  ///
+  /// In en, this message translates to:
+  /// **'I am the legal representative'**
+  String get paymentInfoSelfRepresentative;
+
+  /// No description provided for @paymentInfoSelfDirector.
+  ///
+  /// In en, this message translates to:
+  /// **'The legal representative is the sole director'**
+  String get paymentInfoSelfDirector;
+
+  /// No description provided for @paymentInfoNoMajorOwners.
+  ///
+  /// In en, this message translates to:
+  /// **'No shareholder holds more than 25%'**
+  String get paymentInfoNoMajorOwners;
+
+  /// No description provided for @paymentInfoSelfExecutive.
+  ///
+  /// In en, this message translates to:
+  /// **'The legal representative is the sole executive'**
+  String get paymentInfoSelfExecutive;
+
+  /// No description provided for @paymentInfoAddPerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a person'**
+  String get paymentInfoAddPerson;
+
+  /// No description provided for @paymentInfoPerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Person'**
+  String get paymentInfoPerson;
+
+  /// No description provided for @identityDocTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Identity verification'**
+  String get identityDocTitle;
+
+  /// No description provided for @identityDocSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload a government-issued identity document for verification.'**
+  String get identityDocSubtitle;
+
+  /// No description provided for @identityDocType.
+  ///
+  /// In en, this message translates to:
+  /// **'Document type'**
+  String get identityDocType;
+
+  /// No description provided for @identityDocPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get identityDocPending;
+
+  /// No description provided for @identityDocVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get identityDocVerified;
+
+  /// No description provided for @identityDocRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get identityDocRejected;
+
+  /// No description provided for @identityDocUploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Document uploaded successfully'**
+  String get identityDocUploaded;
+
+  /// No description provided for @stripeRequirementsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional information required'**
+  String get stripeRequirementsTitle;
+
+  /// No description provided for @stripeCompleteOnStripe.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete on Stripe'**
+  String get stripeCompleteOnStripe;
+
+  /// No description provided for @walletTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get walletTitle;
+
+  /// No description provided for @walletStripeAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Stripe account'**
+  String get walletStripeAccount;
+
+  /// No description provided for @walletCharges.
+  ///
+  /// In en, this message translates to:
+  /// **'Charges'**
+  String get walletCharges;
+
+  /// No description provided for @walletPayouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Payouts'**
+  String get walletPayouts;
+
+  /// No description provided for @walletEscrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Escrow'**
+  String get walletEscrow;
+
+  /// No description provided for @walletAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get walletAvailable;
+
+  /// No description provided for @walletTransferred.
+  ///
+  /// In en, this message translates to:
+  /// **'Transferred'**
+  String get walletTransferred;
+
+  /// No description provided for @walletRequestPayout.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get walletRequestPayout;
+
+  /// No description provided for @walletPayoutRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Payout requested successfully'**
+  String get walletPayoutRequested;
+
+  /// No description provided for @walletTransactionHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Transaction history'**
+  String get walletTransactionHistory;
+
+  /// No description provided for @walletNoTransactions.
+  ///
+  /// In en, this message translates to:
+  /// **'No transactions yet'**
+  String get walletNoTransactions;
+
+  /// No description provided for @drawerWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get drawerWallet;
 }
 
 class _AppLocalizationsDelegate

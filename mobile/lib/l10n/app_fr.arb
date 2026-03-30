@@ -390,5 +390,39 @@
   "paymentInfoRoleCeo": "PDG / G\u00e9rant",
   "paymentInfoRoleDirector": "Directeur",
   "paymentInfoRolePartner": "Associ\u00e9",
-  "paymentInfoRoleOther": "Autre"
+  "paymentInfoRoleOther": "Autre",
+
+  "paymentInfoPhone": "Num\u00e9ro de t\u00e9l\u00e9phone",
+  "paymentInfoActivitySector": "Secteur d'activit\u00e9",
+  "paymentInfoBusinessPersons": "Repr\u00e9sentants de l'entreprise",
+  "paymentInfoSelfRepresentative": "Je suis le repr\u00e9sentant l\u00e9gal",
+  "paymentInfoSelfDirector": "Le repr\u00e9sentant l\u00e9gal est le seul dirigeant",
+  "paymentInfoNoMajorOwners": "Aucun actionnaire ne d\u00e9tient plus de 25%",
+  "paymentInfoSelfExecutive": "Le repr\u00e9sentant l\u00e9gal est le seul cadre dirigeant",
+  "paymentInfoAddPerson": "Ajouter une personne",
+  "paymentInfoPerson": "Personne",
+
+  "identityDocTitle": "V\u00e9rification d'identit\u00e9",
+  "identityDocSubtitle": "T\u00e9l\u00e9versez un document d'identit\u00e9 officiel pour la v\u00e9rification.",
+  "identityDocType": "Type de document",
+  "identityDocPending": "En attente",
+  "identityDocVerified": "V\u00e9rifi\u00e9",
+  "identityDocRejected": "Rejet\u00e9",
+  "identityDocUploaded": "Document t\u00e9l\u00e9vers\u00e9 avec succ\u00e8s",
+
+  "stripeRequirementsTitle": "Informations suppl\u00e9mentaires requises",
+  "stripeCompleteOnStripe": "Compl\u00e9ter sur Stripe",
+
+  "walletTitle": "Portefeuille",
+  "walletStripeAccount": "Compte Stripe",
+  "walletCharges": "Paiements",
+  "walletPayouts": "Virements",
+  "walletEscrow": "S\u00e9questre",
+  "walletAvailable": "Disponible",
+  "walletTransferred": "Transf\u00e9r\u00e9",
+  "walletRequestPayout": "Retirer",
+  "walletPayoutRequested": "Demande de virement effectu\u00e9e",
+  "walletTransactionHistory": "Historique des transactions",
+  "walletNoTransactions": "Aucune transaction",
+  "drawerWallet": "Portefeuille"
 }

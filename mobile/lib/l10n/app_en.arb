@@ -395,5 +395,39 @@
   "paymentInfoRoleCeo": "CEO",
   "paymentInfoRoleDirector": "Director",
   "paymentInfoRolePartner": "Partner",
-  "paymentInfoRoleOther": "Other"
+  "paymentInfoRoleOther": "Other",
+
+  "paymentInfoPhone": "Phone number",
+  "paymentInfoActivitySector": "Activity sector",
+  "paymentInfoBusinessPersons": "Business representatives",
+  "paymentInfoSelfRepresentative": "I am the legal representative",
+  "paymentInfoSelfDirector": "The legal representative is the sole director",
+  "paymentInfoNoMajorOwners": "No shareholder holds more than 25%",
+  "paymentInfoSelfExecutive": "The legal representative is the sole executive",
+  "paymentInfoAddPerson": "Add a person",
+  "paymentInfoPerson": "Person",
+
+  "identityDocTitle": "Identity verification",
+  "identityDocSubtitle": "Upload a government-issued identity document for verification.",
+  "identityDocType": "Document type",
+  "identityDocPending": "Pending",
+  "identityDocVerified": "Verified",
+  "identityDocRejected": "Rejected",
+  "identityDocUploaded": "Document uploaded successfully",
+
+  "stripeRequirementsTitle": "Additional information required",
+  "stripeCompleteOnStripe": "Complete on Stripe",
+
+  "walletTitle": "Wallet",
+  "walletStripeAccount": "Stripe account",
+  "walletCharges": "Charges",
+  "walletPayouts": "Payouts",
+  "walletEscrow": "Escrow",
+  "walletAvailable": "Available",
+  "walletTransferred": "Transferred",
+  "walletRequestPayout": "Withdraw",
+  "walletPayoutRequested": "Payout requested successfully",
+  "walletTransactionHistory": "Transaction history",
+  "walletNoTransactions": "No transactions yet",
+  "drawerWallet": "Wallet"
 }

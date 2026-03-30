@@ -69,6 +69,12 @@ const _primaryItems = [
     route: RoutePaths.paymentInfo,
     roles: ['agency', 'provider'],
   ),
+  _DrawerItem(
+    labelKey: 'drawerWallet',
+    icon: Icons.account_balance_wallet_outlined,
+    route: RoutePaths.wallet,
+    roles: ['agency', 'provider'],
+  ),
 ];
 
 // Search / discovery items
@@ -421,6 +427,8 @@ class _DrawerNavTile extends StatelessWidget {
         return l10n.drawerFindReferrers;
       case 'drawerPaymentInfo':
         return l10n.drawerPaymentInfo;
+      case 'drawerWallet':
+        return l10n.drawerWallet;
       case 'drawerNotifications':
         return l10n.drawerNotifications;
       default:

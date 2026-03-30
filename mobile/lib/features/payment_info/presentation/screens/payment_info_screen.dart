@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/router/app_router.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/payment_info_entity.dart';
 import '../../types/payment_info.dart';
 import '../providers/payment_info_provider.dart';
+import '../widgets/business_persons_section.dart';
+import '../widgets/identity_verification_section.dart';
 import '../widgets/payment_info_widgets.dart';
+import '../widgets/stripe_requirements_banner.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -78,6 +81,8 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       address: info.address,
       city: info.city,
       postalCode: info.postalCode,
+      phone: info.phone,
+      activitySector: info.activitySector,
       businessRole: _parseBusinessRole(info.roleInCompany),
       businessName: info.businessName,
       businessAddress: info.businessAddress,
@@ -86,6 +91,10 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       businessCountry: info.businessCountry,
       taxId: info.taxId,
       vatNumber: info.vatNumber,
+      isSelfRepresentative: info.isSelfRepresentative,
+      isSelfDirector: info.isSelfDirector,
+      noMajorOwners: info.noMajorOwners,
+      isSelfExecutive: info.isSelfExecutive,
       bankMode: hasIban ? BankAccountMode.iban : BankAccountMode.local,
       iban: info.iban,
       bic: info.bic,
@@ -128,7 +137,10 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   }
 
   Map<String, dynamic> _formDataToJson() {
-    return {
+    final authState = ref.read(authProvider);
+    final userEmail = authState.user?['email'] as String? ?? '';
+
+    final json = <String, dynamic>{
       'first_name': _data.firstName,
       'last_name': _data.lastName,
       'date_of_birth': _data.dateOfBirth,
@@ -136,6 +148,9 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       'address': _data.address,
       'city': _data.city,
       'postal_code': _data.postalCode,
+      'phone': _data.phone,
+      'activity_sector': _data.activitySector,
+      'email': userEmail,
       'is_business': _data.isBusiness,
       'business_name': _data.businessName,
       'business_address': _data.businessAddress,
@@ -145,6 +160,10 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       'tax_id': _data.taxId,
       'vat_number': _data.vatNumber,
       'role_in_company': _data.businessRole?.name ?? '',
+      'is_self_representative': _data.isSelfRepresentative,
+      'is_self_director': _data.isSelfDirector,
+      'no_major_owners': _data.noMajorOwners,
+      'is_self_executive': _data.isSelfExecutive,
       'iban': _data.iban,
       'bic': _data.bic,
       'account_number': _data.accountNumber,
@@ -152,6 +171,13 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       'account_holder': _data.accountHolder,
       'bank_country': _data.bankCountry,
     };
+
+    if (_data.businessPersons.isNotEmpty) {
+      json['business_persons'] =
+          _data.businessPersons.map((p) => p.toJson()).toList();
+    }
+
+    return json;
   }
 
   @override
@@ -222,6 +248,10 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Stripe requirements banner
+            const StripeRequirementsBanner(),
+            const SizedBox(height: 16),
+
             // Status banner
             PaymentStatusBanner(saved: _saved),
             const SizedBox(height: 16),
@@ -233,8 +263,12 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Personal info
+            // Personal info (includes phone)
             _PersonalInfoSection(data: _data, onUpdate: _update),
+            const SizedBox(height: 16),
+
+            // Activity sector
+            ActivitySectorSection(data: _data, onUpdate: _update),
             const SizedBox(height: 16),
 
             // Business info (animated)
@@ -245,9 +279,18 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
               child: _data.isBusiness
                   ? Padding(
                       padding: const EdgeInsets.only(bottom: 16),
-                      child: _BusinessInfoSection(
-                        data: _data,
-                        onUpdate: _update,
+                      child: Column(
+                        children: [
+                          _BusinessInfoSection(
+                            data: _data,
+                            onUpdate: _update,
+                          ),
+                          const SizedBox(height: 16),
+                          BusinessPersonsSection(
+                            data: _data,
+                            onUpdate: _update,
+                          ),
+                        ],
                       ),
                     )
                   : const SizedBox.shrink(),
@@ -257,39 +300,15 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             _BankAccountSection(data: _data, onUpdate: _update),
             const SizedBox(height: 24),
 
+            // Identity verification
+            const IdentityVerificationSection(),
+            const SizedBox(height: 24),
+
             // Save button
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                onPressed: _isValid && !_saving ? _save : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF43F5E),
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-                  ),
-                ),
-                child: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : Text(
-                        l10n.paymentInfoSave,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-              ),
+            PaymentInfoSaveButton(
+              isValid: _isValid,
+              isSaving: _saving,
+              onSave: _save,
             ),
             const SizedBox(height: 24),
           ],
@@ -365,6 +384,14 @@ class _PersonalInfoSection extends StatelessWidget {
           label: l10n.paymentInfoPostalCode,
           value: data.postalCode,
           onChanged: (v) => onUpdate((d) => d.copyWith(postalCode: v)),
+          required: true,
+        ),
+        PaymentFormField(
+          label: l10n.paymentInfoPhone,
+          value: data.phone,
+          onChanged: (v) => onUpdate((d) => d.copyWith(phone: v)),
+          keyboardType: TextInputType.phone,
+          placeholder: '+33 6 12 34 56 78',
           required: true,
         ),
         if (data.isBusiness)
@@ -522,3 +549,4 @@ class _BankAccountSection extends StatelessWidget {
     );
   }
 }
+

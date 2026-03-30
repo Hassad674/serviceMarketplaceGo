@@ -1104,4 +1104,97 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentInfoRoleOther => 'Other';
+
+  @override
+  String get paymentInfoPhone => 'Phone number';
+
+  @override
+  String get paymentInfoActivitySector => 'Activity sector';
+
+  @override
+  String get paymentInfoBusinessPersons => 'Business representatives';
+
+  @override
+  String get paymentInfoSelfRepresentative => 'I am the legal representative';
+
+  @override
+  String get paymentInfoSelfDirector =>
+      'The legal representative is the sole director';
+
+  @override
+  String get paymentInfoNoMajorOwners => 'No shareholder holds more than 25%';
+
+  @override
+  String get paymentInfoSelfExecutive =>
+      'The legal representative is the sole executive';
+
+  @override
+  String get paymentInfoAddPerson => 'Add a person';
+
+  @override
+  String get paymentInfoPerson => 'Person';
+
+  @override
+  String get identityDocTitle => 'Identity verification';
+
+  @override
+  String get identityDocSubtitle =>
+      'Upload a government-issued identity document for verification.';
+
+  @override
+  String get identityDocType => 'Document type';
+
+  @override
+  String get identityDocPending => 'Pending';
+
+  @override
+  String get identityDocVerified => 'Verified';
+
+  @override
+  String get identityDocRejected => 'Rejected';
+
+  @override
+  String get identityDocUploaded => 'Document uploaded successfully';
+
+  @override
+  String get stripeRequirementsTitle => 'Additional information required';
+
+  @override
+  String get stripeCompleteOnStripe => 'Complete on Stripe';
+
+  @override
+  String get walletTitle => 'Wallet';
+
+  @override
+  String get walletStripeAccount => 'Stripe account';
+
+  @override
+  String get walletCharges => 'Charges';
+
+  @override
+  String get walletPayouts => 'Payouts';
+
+  @override
+  String get walletEscrow => 'Escrow';
+
+  @override
+  String get walletAvailable => 'Available';
+
+  @override
+  String get walletTransferred => 'Transferred';
+
+  @override
+  String get walletRequestPayout => 'Withdraw';
+
+  @override
+  String get walletPayoutRequested => 'Payout requested successfully';
+
+  @override
+  String get walletTransactionHistory => 'Transaction history';
+
+  @override
+  String get walletNoTransactions => 'No transactions yet';
+
+  @override
+  String get drawerWallet => 'Wallet';
 }

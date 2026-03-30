@@ -1109,4 +1109,98 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get paymentInfoRoleOther => 'Autre';
+
+  @override
+  String get paymentInfoPhone => 'Numéro de téléphone';
+
+  @override
+  String get paymentInfoActivitySector => 'Secteur d\'activité';
+
+  @override
+  String get paymentInfoBusinessPersons => 'Représentants de l\'entreprise';
+
+  @override
+  String get paymentInfoSelfRepresentative => 'Je suis le représentant légal';
+
+  @override
+  String get paymentInfoSelfDirector =>
+      'Le représentant légal est le seul dirigeant';
+
+  @override
+  String get paymentInfoNoMajorOwners =>
+      'Aucun actionnaire ne détient plus de 25%';
+
+  @override
+  String get paymentInfoSelfExecutive =>
+      'Le représentant légal est le seul cadre dirigeant';
+
+  @override
+  String get paymentInfoAddPerson => 'Ajouter une personne';
+
+  @override
+  String get paymentInfoPerson => 'Personne';
+
+  @override
+  String get identityDocTitle => 'Vérification d\'identité';
+
+  @override
+  String get identityDocSubtitle =>
+      'Téléversez un document d\'identité officiel pour la vérification.';
+
+  @override
+  String get identityDocType => 'Type de document';
+
+  @override
+  String get identityDocPending => 'En attente';
+
+  @override
+  String get identityDocVerified => 'Vérifié';
+
+  @override
+  String get identityDocRejected => 'Rejeté';
+
+  @override
+  String get identityDocUploaded => 'Document téléversé avec succès';
+
+  @override
+  String get stripeRequirementsTitle => 'Informations supplémentaires requises';
+
+  @override
+  String get stripeCompleteOnStripe => 'Compléter sur Stripe';
+
+  @override
+  String get walletTitle => 'Portefeuille';
+
+  @override
+  String get walletStripeAccount => 'Compte Stripe';
+
+  @override
+  String get walletCharges => 'Paiements';
+
+  @override
+  String get walletPayouts => 'Virements';
+
+  @override
+  String get walletEscrow => 'Séquestre';
+
+  @override
+  String get walletAvailable => 'Disponible';
+
+  @override
+  String get walletTransferred => 'Transféré';
+
+  @override
+  String get walletRequestPayout => 'Retirer';
+
+  @override
+  String get walletPayoutRequested => 'Demande de virement effectuée';
+
+  @override
+  String get walletTransactionHistory => 'Historique des transactions';
+
+  @override
+  String get walletNoTransactions => 'Aucune transaction';
+
+  @override
+  String get drawerWallet => 'Portefeuille';
 }

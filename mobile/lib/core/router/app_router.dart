@@ -28,6 +28,7 @@ import '../../features/notification/presentation/screens/notification_screen.dar
 import '../../features/notification/presentation/widgets/notification_badge.dart';
 import '../../features/payment_info/presentation/screens/payment_info_screen.dart';
 import '../../features/search/presentation/screens/search_screen.dart';
+import '../../features/wallet/presentation/screens/wallet_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_drawer.dart';
 import '../notifications/fcm_service.dart';
@@ -62,6 +63,7 @@ class RoutePaths {
   static const String projectsList = '/projects/list';
   static const String profile = '/profile';
   static const String paymentInfo = '/payment-info';
+  static const String wallet = '/wallet';
   static const String notifications = '/notifications';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
@@ -244,6 +246,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.paymentInfo,
             builder: (context, state) => const PaymentInfoScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.wallet,
+            builder: (context, state) => const WalletScreen(),
           ),
           GoRoute(
             path: RoutePaths.notifications,

@@ -454,6 +454,65 @@ class PaymentNoIbanCheckbox extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Activity sector dropdown
+// ---------------------------------------------------------------------------
+
+/// Activity sector options matching Stripe MCC codes.
+const activitySectorOptions = [
+  ('7372', 'Development & IT', 'D\u00e9veloppement & IT'),
+  ('7333', 'Graphic Design', 'Design graphique'),
+  ('7311', 'Marketing & Advertising', 'Marketing & Publicit\u00e9'),
+  ('7392', 'Consulting', 'Conseil en gestion'),
+  ('7339', 'Administrative', 'Services de secr\u00e9tariat'),
+  ('7221', 'Photography', 'Photographie & Vid\u00e9o'),
+  ('7338', 'Writing', 'R\u00e9daction & Traduction'),
+  ('8299', 'Training', 'Formation & Coaching'),
+  ('8931', 'Accounting', 'Comptabilit\u00e9 & Finance'),
+  ('8911', 'Engineering', 'Architecture & Ing\u00e9nierie'),
+  ('8111', 'Legal', 'Services juridiques'),
+  ('8099', 'Health', 'Sant\u00e9 & Bien-\u00eatre'),
+  ('8999', 'Other', 'Autre service professionnel'),
+];
+
+class PaymentActivitySectorDropdown extends StatelessWidget {
+  const PaymentActivitySectorDropdown({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final locale = Localizations.localeOf(context).languageCode;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        value: value.isEmpty ? '8999' : value,
+        decoration: InputDecoration(
+          labelText: '${l10n.paymentInfoActivitySector} *',
+        ),
+        isExpanded: true,
+        items: activitySectorOptions.map((option) {
+          final label = locale == 'fr' ? option.$3 : option.$2;
+          return DropdownMenuItem(
+            value: option.$1,
+            child: Text(label, overflow: TextOverflow.ellipsis),
+          );
+        }).toList(),
+        onChanged: (v) {
+          if (v != null) onChanged(v);
+        },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // IBAN help text with link
 // ---------------------------------------------------------------------------
 

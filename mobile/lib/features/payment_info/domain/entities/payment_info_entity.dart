@@ -9,6 +9,8 @@ class PaymentInfo {
   final String address;
   final String city;
   final String postalCode;
+  final String phone;
+  final String activitySector;
   final bool isBusiness;
   final String businessName;
   final String businessAddress;
@@ -18,6 +20,10 @@ class PaymentInfo {
   final String taxId;
   final String vatNumber;
   final String roleInCompany;
+  final bool isSelfRepresentative;
+  final bool isSelfDirector;
+  final bool noMajorOwners;
+  final bool isSelfExecutive;
   final String iban;
   final String bic;
   final String accountNumber;
@@ -39,6 +45,8 @@ class PaymentInfo {
     required this.address,
     required this.city,
     required this.postalCode,
+    this.phone = '',
+    this.activitySector = '8999',
     this.isBusiness = false,
     this.businessName = '',
     this.businessAddress = '',
@@ -48,6 +56,10 @@ class PaymentInfo {
     this.taxId = '',
     this.vatNumber = '',
     this.roleInCompany = '',
+    this.isSelfRepresentative = true,
+    this.isSelfDirector = true,
+    this.noMajorOwners = true,
+    this.isSelfExecutive = true,
     this.iban = '',
     this.bic = '',
     this.accountNumber = '',
@@ -71,6 +83,8 @@ class PaymentInfo {
       address: json['address'] as String,
       city: json['city'] as String,
       postalCode: json['postal_code'] as String,
+      phone: json['phone'] as String? ?? '',
+      activitySector: json['activity_sector'] as String? ?? '8999',
       isBusiness: json['is_business'] as bool? ?? false,
       businessName: json['business_name'] as String? ?? '',
       businessAddress: json['business_address'] as String? ?? '',
@@ -80,6 +94,11 @@ class PaymentInfo {
       taxId: json['tax_id'] as String? ?? '',
       vatNumber: json['vat_number'] as String? ?? '',
       roleInCompany: json['role_in_company'] as String? ?? '',
+      isSelfRepresentative:
+          json['is_self_representative'] as bool? ?? true,
+      isSelfDirector: json['is_self_director'] as bool? ?? true,
+      noMajorOwners: json['no_major_owners'] as bool? ?? true,
+      isSelfExecutive: json['is_self_executive'] as bool? ?? true,
       iban: json['iban'] as String? ?? '',
       bic: json['bic'] as String? ?? '',
       accountNumber: json['account_number'] as String? ?? '',
