@@ -135,6 +135,38 @@ async function saveAndVerify(page: Page) {
   ).toBeVisible({ timeout: 30000 })
 }
 
+import path from "path"
+
+/**
+ * Upload a passport document via the identity verification section.
+ * Scrolls to the section, opens the modal, selects Passport, uploads the file.
+ */
+async function uploadPassport(page: Page) {
+  // Scroll to identity verification section
+  const section = page.getByText("Identity Verification").first()
+  await section.scrollIntoViewIfNeeded()
+
+  // Click the upload zone (dashed border button)
+  const uploadZone = page.getByText("Upload document").first()
+  await uploadZone.click()
+
+  // Select Passport in the type selector modal
+  await page.getByText("Passport").click()
+
+  // The upload modal appears with a hidden file input — inject the test file
+  const fileInput = page.locator("input[type='file']")
+  await fileInput.setInputFiles(path.resolve(__dirname, "fixtures/test-passport.png"))
+
+  // Click the "Upload" button inside the modal dialog
+  const modal = page.getByRole("dialog")
+  await modal.getByRole("button", { name: /Upload/i }).click()
+
+  // Wait for the upload to complete — pending status should appear
+  await expect(
+    page.getByText(/pending|verified/i).first(),
+  ).toBeVisible({ timeout: 15000 })
+}
+
 // ---------------------------------------------------------------------------
 // Individual Provider KYC
 // ---------------------------------------------------------------------------
@@ -147,6 +179,9 @@ test.describe("KYC Flow — Individual Provider", () => {
     const data = kycData()
     await fillPersonalAndBank(page, data)
     await saveAndVerify(page)
+
+    // Upload identity document
+    await uploadPassport(page)
 
     // Reload and verify persistence
     await page.reload()
@@ -218,6 +253,9 @@ test.describe("KYC Flow — Business Account", () => {
 
     // Save
     await saveAndVerify(page)
+
+    // Upload identity document
+    await uploadPassport(page)
 
     // Reload and verify business fields persisted
     await page.reload()
