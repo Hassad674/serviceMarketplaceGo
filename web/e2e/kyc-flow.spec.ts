@@ -193,7 +193,9 @@ test.describe("KYC Flow — Individual Provider", () => {
     await expect(ibanInput).toHaveValue(data.iban)
   })
 
-  test("saving twice does not create duplicate Stripe accounts", async ({ page }) => {
+  test("re-save after 30s does not create duplicate Stripe account", async ({ page }) => {
+    test.setTimeout(120_000) // 2 min timeout for this test
+
     await registerProvider(page)
     await navigateToPaymentInfo(page)
 
@@ -201,15 +203,25 @@ test.describe("KYC Flow — Individual Provider", () => {
     await fillPersonalAndBank(page, data)
     await saveAndVerify(page)
 
-    // Modify and save again
-    await fillByLabel(page, "City", "Lyon")
+    // Upload passport
+    await uploadPassport(page)
+
+    // Wait 30s — Stripe account creation + webhooks settle
+    await page.waitForTimeout(30_000)
+
+    // Modify a field and re-save
+    await fillByLabel(page, "City", "Marseille")
     await saveAndVerify(page)
 
-    // Verify update, not duplicate
+    // Reload and verify: update happened, not a new account
     await page.reload()
     await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
     const cityInput = page.locator("label", { hasText: "City" }).first().locator("..").locator("input")
-    await expect(cityInput).toHaveValue("Lyon")
+    await expect(cityInput).toHaveValue("Marseille")
+
+    // First name must still be there (not reset)
+    const firstNameInput = page.locator("label", { hasText: "First name" }).first().locator("..").locator("input")
+    await expect(firstNameInput).toHaveValue(data.firstName)
   })
 })
 
@@ -265,6 +277,56 @@ test.describe("KYC Flow — Business Account", () => {
     await expect(bizNameInput).toHaveValue(data.businessName)
     const taxInput = page.locator("label", { hasText: "Tax ID" }).first().locator("..").locator("input")
     await expect(taxInput).toHaveValue(data.taxId)
+  })
+
+  test("re-save business after 30s does not create duplicate Stripe account", async ({ page }) => {
+    test.setTimeout(120_000)
+
+    await registerAgency(page)
+    await navigateToPaymentInfo(page)
+
+    const data = businessKycData()
+
+    // Toggle business
+    await page.getByRole("switch").click()
+    await expect(page.getByText("Business Information")).toBeVisible({ timeout: 5000 })
+
+    // Fill all fields
+    await fillPersonalAndBank(page, data)
+    const roleSelect = page.locator("select[aria-label='Your role in the company']")
+    if (await roleSelect.isVisible()) {
+      await roleSelect.selectOption("ceo")
+    }
+    await fillByLabel(page, "Business name", data.businessName)
+    await fillByLabel(page, "Business address", data.businessAddress)
+    await fillByLabel(page, "Business city", data.businessCity)
+    await fillByLabel(page, "Business postal code", data.businessPostalCode)
+    await selectByLabel(page, "Country of registration", "FR")
+    await fillByLabel(page, "Tax ID", data.taxId)
+    await fillByLabel(page, "VAT number", data.vatNumber)
+
+    // Save first time
+    await saveAndVerify(page)
+
+    // Upload passport
+    await uploadPassport(page)
+
+    // Wait 30s — Stripe account + webhooks
+    await page.waitForTimeout(30_000)
+
+    // Modify business city and re-save
+    await fillByLabel(page, "Business city", "Bordeaux")
+    await saveAndVerify(page)
+
+    // Reload and verify: business fields updated, not a new account
+    await page.reload()
+    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
+
+    const bizCityInput = page.locator("label", { hasText: "Business city" }).first().locator("..").locator("input")
+    await expect(bizCityInput).toHaveValue("Bordeaux")
+
+    const bizNameInput = page.locator("label", { hasText: "Business name" }).first().locator("..").locator("input")
+    await expect(bizNameInput).toHaveValue(data.businessName)
   })
 
   test("uncheck representative + owners, add persons, save and verify persistence", async ({ page }) => {
