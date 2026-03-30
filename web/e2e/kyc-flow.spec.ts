@@ -15,7 +15,7 @@ function kycData() {
     city: process.env.KYC_CITY || "Paris",
     postalCode: process.env.KYC_POSTAL_CODE || "75001",
     phone: process.env.KYC_PHONE || `+336${String(ts).slice(-8)}`,
-    iban: process.env.KYC_IBAN || "FR7630006000011234567890189",
+    iban: process.env.KYC_IBAN || "FR1420041010050500013M02606",
     bic: process.env.KYC_BIC || "BNPAFRPP",
     accountHolder: process.env.KYC_ACCOUNT_HOLDER || `Jean Dupont ${ts}`,
   }
