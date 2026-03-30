@@ -243,8 +243,11 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 				slog.Info("webhook: document verified", "doc_id", d.ID, "user_id", info.UserID)
 			}
 		case "unverified":
+			// Only reject for individual accounts — company accounts use "pending" instead
 			_ = s.documents.UpdateStatus(ctx, d.ID, string(domain.DocStatusRejected), "verification failed")
 			slog.Info("webhook: document rejected", "doc_id", d.ID, "user_id", info.UserID)
+		case "pending":
+			// Keep as pending — don't change status
 		}
 	}
 

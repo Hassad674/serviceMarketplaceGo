@@ -125,6 +125,8 @@ func (s *Service) GetIdentityVerificationStatus(ctx context.Context, accountID s
 	if err != nil {
 		return "", "", fmt.Errorf("get stripe account: %w", err)
 	}
+
+	// For individual accounts: check individual.verification
 	if acct.Individual != nil && acct.Individual.Verification != nil {
 		ver := acct.Individual.Verification
 		frontID := ""
@@ -133,6 +135,17 @@ func (s *Service) GetIdentityVerificationStatus(ctx context.Context, accountID s
 		}
 		return string(ver.Status), frontID, nil
 	}
+
+	// For company accounts: if charges+payouts enabled, consider verified
+	if acct.ChargesEnabled && acct.PayoutsEnabled {
+		return "verified", "", nil
+	}
+
+	// Company account not yet fully active — don't mark as rejected, keep pending
+	if acct.BusinessType == stripe.AccountBusinessTypeCompany {
+		return "pending", "", nil
+	}
+
 	return "unverified", "", nil
 }
 
