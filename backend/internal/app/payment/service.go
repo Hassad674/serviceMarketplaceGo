@@ -152,6 +152,13 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		return nil, err
 	}
 
+	// Preserve existing Stripe account ID before upserting
+	existing, _ := s.payments.GetByUserID(ctx, userID)
+	if existing != nil && existing.StripeAccountID != "" {
+		info.StripeAccountID = existing.StripeAccountID
+		info.StripeVerified = existing.StripeVerified
+	}
+
 	if err := s.payments.Upsert(ctx, info); err != nil {
 		return nil, fmt.Errorf("save payment info: %w", err)
 	}
@@ -179,7 +186,7 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		}
 	}
 
-	// Create Stripe connected account if configured and not already created
+	// Create Stripe connected account only if one doesn't exist yet
 	s.ensureStripeAccount(ctx, info, tosIP, email)
 
 	return info, nil
