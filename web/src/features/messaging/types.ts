@@ -12,6 +12,8 @@ export type MessageType =
   | "proposal_completed"
   | "proposal_completion_rejected"
   | "evaluation_request"
+  | "call_ended"
+  | "call_missed"
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read"
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
-import { MessageSquare } from "lucide-react"
+import { MessageSquare, Phone, PhoneMissed } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { Message, ProposalMessageMetadata, ReplyToInfo, VoiceMetadata } from "../types"
@@ -308,6 +308,36 @@ function MessageBubble({
         metadata={message.metadata}
         onReview={onReview}
       />
+    )
+  }
+
+  // Call system messages
+  if (message.type === "call_ended" || message.type === "call_missed") {
+    const meta = message.metadata as Record<string, unknown> | null
+    const duration = meta?.duration as number | undefined
+    const isCallMissed = message.type === "call_missed"
+
+    const formatDuration = (secs: number) => {
+      const m = Math.floor(secs / 60)
+      const s = secs % 60
+      return `${m}:${s.toString().padStart(2, "0")}`
+    }
+
+    return (
+      <div className="flex justify-center py-2">
+        <div className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 dark:bg-slate-800">
+          {isCallMissed ? (
+            <PhoneMissed className="h-3.5 w-3.5 text-red-500" />
+          ) : (
+            <Phone className="h-3.5 w-3.5 text-emerald-500" />
+          )}
+          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+            {isCallMissed
+              ? t("callMissed")
+              : `${t("callEnded")} — ${duration ? formatDuration(duration) : "0:00"}`}
+          </span>
+        </div>
+      </div>
     )
   }
 
