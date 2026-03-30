@@ -31,14 +31,7 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   var _data = const PaymentInfoFormData();
   bool _saved = false;
   bool _saving = false;
-  bool _initialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Force refresh payment info on screen mount
-    Future.microtask(() => ref.invalidate(paymentInfoProvider));
-  }
+  bool _populated = false;
 
   void _update(PaymentInfoFormData Function(PaymentInfoFormData) updater) {
     setState(() {
@@ -193,21 +186,17 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     final theme = Theme.of(context);
     final asyncInfo = ref.watch(paymentInfoProvider);
 
-    // Populate form from existing data once
-    asyncInfo.whenData((info) {
-      if (!_initialized && info != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && !_initialized) {
-            setState(() {
-              _populateFromEntity(info);
-              _initialized = true;
-            });
-          }
-        });
-      } else if (!_initialized && !asyncInfo.isLoading) {
-        _initialized = true;
-      }
-    });
+    // Populate form when data arrives (only once per data load)
+    if (!_populated && asyncInfo.hasValue && asyncInfo.value != null) {
+      _populated = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _populateFromEntity(asyncInfo.value!);
+          });
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(

@@ -74,6 +74,7 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
     // Also listen for state changes to catch when room becomes available.
     ref.listenManual(callProvider, (previous, next) {
+      if (!mounted) return;
       final room = ref.read(callProvider.notifier).room;
       if (room != null && _roomListener == null) {
         _setupRoomListener();
@@ -88,16 +89,16 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   void _setupRoomListener() {
     final room = ref.read(callProvider.notifier).room;
     if (room == null) {
-      debugPrint('[Call] _setupRoomListener: room is null, waiting...');
+      print('[Call] _setupRoomListener: room is null, waiting...');
       return;
     }
     if (_roomListener != null) return;
 
-    debugPrint('[Call] _setupRoomListener: room available, setting up listeners');
+    print('[Call] _setupRoomListener: room available, setting up listeners');
     _roomListener = room.createListener();
     _roomListener!
       ..on<TrackSubscribedEvent>((_) {
-        debugPrint('[Call] TrackSubscribed event, triggering rebuild');
+        print('[Call] TrackSubscribed event, triggering rebuild');
         _triggerRebuild();
       })
       ..on<TrackUnsubscribedEvent>((_) => _triggerRebuild())

@@ -82,6 +82,7 @@ class CallNotifier extends StateNotifier<CallState> {
     required String recipientId,
     CallType callType = CallType.audio,
   }) async {
+    print('[Call] initiateCall: callType=$callType');
     if (state.status != CallStatus.idle) return;
 
     final micPermission = await Permission.microphone.request();
@@ -92,7 +93,7 @@ class CallNotifier extends StateNotifier<CallState> {
     if (callType == CallType.video) {
       final camPermission = await Permission.camera.request();
       if (!camPermission.isGranted) {
-        debugPrint('[Call] Camera permission denied, falling back to audio');
+        print('[Call] Camera permission denied, falling back to audio');
         effectiveType = CallType.audio;
       }
     }
@@ -124,7 +125,7 @@ class CallNotifier extends StateNotifier<CallState> {
       await _connectToRoom(result.token, callType: effectiveType);
       _startRingTimeout();
     } catch (e) {
-      debugPrint('[Call] initiateCall error: $e');
+      print('[Call] initiateCall error: $e');
       _cleanup(errorMessage: _parseErrorMessage(e));
     }
   }
@@ -132,6 +133,7 @@ class CallNotifier extends StateNotifier<CallState> {
   /// Accept an incoming call.
   Future<void> acceptCall() async {
     final call = state.call;
+    print('[Call] acceptCall: callType=${call?.callType}');
     if (call == null || state.status != CallStatus.ringingIncoming) return;
 
     final micPermission = await Permission.microphone.request();
@@ -142,7 +144,7 @@ class CallNotifier extends StateNotifier<CallState> {
     if (call.callType == CallType.video) {
       final camPermission = await Permission.camera.request();
       if (!camPermission.isGranted) {
-        debugPrint('[Call] Camera permission denied, accepting as audio');
+        print('[Call] Camera permission denied, accepting as audio');
         effectiveType = CallType.audio;
       }
     }
@@ -162,7 +164,7 @@ class CallNotifier extends StateNotifier<CallState> {
       _startDurationTimer();
       await _connectToRoom(result.token, callType: effectiveType);
     } catch (e) {
-      debugPrint('[Call] acceptCall error: $e');
+      print('[Call] acceptCall error: $e');
       _cleanup();
     }
   }
@@ -221,7 +223,7 @@ class CallNotifier extends StateNotifier<CallState> {
   /// Handle an incoming call event from WebSocket.
   void handleCallEvent(Map<String, dynamic> payload) {
     final event = payload['event'] as String? ?? '';
-    debugPrint('[Call] handleCallEvent: $event');
+    print('[Call] handleCallEvent: $event');
 
     switch (event) {
       case 'call_incoming':
@@ -274,11 +276,12 @@ class CallNotifier extends StateNotifier<CallState> {
       defaultValue: '',
     );
     if (lkUrl.isEmpty) {
-      debugPrint('[Call] LIVEKIT_URL not set — skipping room connection');
+      print('[Call] LIVEKIT_URL not set — skipping room connection');
       return;
     }
 
     final isVideo = callType == CallType.video;
+    print('[Call] _connectToRoom: callType=$callType, isVideo=$isVideo');
     _room = Room(
       roomOptions: RoomOptions(
         adaptiveStream: true,
@@ -294,13 +297,19 @@ class CallNotifier extends StateNotifier<CallState> {
 
     _setupRoomEventListener();
 
-    debugPrint('[Call] Connecting to LiveKit room: $lkUrl');
+    print('[Call] Connecting to LiveKit room: $lkUrl');
     await _room!.connect(lkUrl, token);
     await _room!.localParticipant?.setMicrophoneEnabled(true);
     if (isVideo) {
-      await _room!.localParticipant?.setCameraEnabled(true);
+      print('[Call] Enabling camera...');
+      try {
+        await _room!.localParticipant?.setCameraEnabled(true);
+        print('[Call] Camera enabled successfully');
+      } catch (e) {
+        print('[Call] Camera enable FAILED: $e');
+      }
     }
-    debugPrint('[Call] Connected, mic enabled, camera=${isVideo}');
+    print('[Call] Connected, mic enabled, camera=$isVideo, localVideoTracks=${_room!.localParticipant?.videoTrackPublications.length}');
   }
 
   void _setupRoomEventListener() {
@@ -310,7 +319,7 @@ class CallNotifier extends StateNotifier<CallState> {
     _roomEventListener?.dispose();
     _roomEventListener = _room!.createListener();
     _roomEventListener!.on<RoomDisconnectedEvent>((_) {
-      debugPrint('[Call] Room disconnected event received');
+      print('[Call] Room disconnected event received');
       _cleanup();
     });
   }
