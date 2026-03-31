@@ -287,23 +287,25 @@ var companyLabelOverrides = map[string]string{
 
 // FieldLabelKey returns the i18n label key for a Stripe field path.
 func FieldLabelKey(path string) string {
-	// Handle document upload fields with specific labels
+	// Handle document upload fields with specific labels per document type.
+	// Order matters: check more specific paths before generic ones.
 	if IsDocumentUploadField(path) {
-		docType := DocumentTypeFromPath(path)
-		switch docType {
-		case "proof_of_liveness":
-			return "proofOfLiveness"
-		case "additional_document":
-			return "additionalDocument"
-		case "company_authorization":
-			return "companyAuthorization"
-		case "passport":
-			return "passportDocument"
-		case "bank_account_ownership":
-			return "bankAccountOwnership"
-		default:
-			return "verificationDocument"
+		if strings.Contains(path, "proof_of_liveness") {
+			return "docProofOfLiveness"
 		}
+		if strings.Contains(path, "bank_account_ownership_verification") {
+			return "docBankOwnership"
+		}
+		if strings.Contains(path, "additional_document") {
+			return "docAdditionalDocument"
+		}
+		if strings.HasPrefix(path, "company.") && strings.Contains(path, "verification.document") {
+			return "docCompanyDocument"
+		}
+		if strings.Contains(path, "verification.document") {
+			return "docVerificationDocument"
+		}
+		return "docVerificationDocument"
 	}
 
 	// Check entity-specific overrides first

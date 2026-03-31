@@ -83,6 +83,8 @@ function DocumentUploadField({ field, value, onChange }: DynamicFieldProps) {
   const uploadMutation = useUploadIdentityDocument()
   const [modalOpen, setModalOpen] = useState(false)
   const label = safeTranslate(t, field.label_key)
+  const descKey = field.label_key + "Desc"
+  const description = safeTranslateOptional(t, descKey)
   const isUploaded = value === "uploaded"
 
   const category = field.path.startsWith("company") || field.path.startsWith("documents") ? "company" : "identity"
@@ -102,6 +104,9 @@ function DocumentUploadField({ field, value, onChange }: DynamicFieldProps) {
         {label}
         {field.required && <span className="ml-0.5 text-red-500">*</span>}
       </label>
+      {description && (
+        <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+      )}
 
       {isUploaded ? (
         <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
@@ -281,6 +286,19 @@ function safeTranslate(t: (key: string) => string, key: string): string {
     return result
   } catch {
     return humanizeKey(key)
+  }
+}
+
+/** Translate a key, returning null if the key has no translation. */
+function safeTranslateOptional(t: (key: string) => string, key: string): string | null {
+  try {
+    const result = t(key)
+    if (result.startsWith("paymentInfo.") || result === key) {
+      return null
+    }
+    return result
+  } catch {
+    return null
   }
 }
 
