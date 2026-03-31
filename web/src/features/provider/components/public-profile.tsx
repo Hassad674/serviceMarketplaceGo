@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
 import { ArrowLeft } from "lucide-react"
-import { Link } from "@i18n/navigation"
+import { Link, useRouter } from "@i18n/navigation"
 import { apiClient } from "@/shared/lib/api-client"
 import type { Profile } from "../api/profile-api"
 import { ProfileHeader } from "./profile-header"
@@ -33,6 +33,7 @@ interface PublicProfileProps {
 
 export function PublicProfile({ userId, type }: PublicProfileProps) {
   const t = useTranslations("publicProfile")
+  const router = useRouter()
 
   const { data: profile, isLoading, error } = useQuery({
     queryKey: ["public-profile", userId],
@@ -48,13 +49,13 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
         <p className="text-sm text-destructive">
           {t("profileNotFound")}
         </p>
-        <Link
-          href={TYPE_BACK_LINKS[type]}
+        <button
+          onClick={() => router.back()}
           className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:opacity-80 transition-opacity"
         >
           <ArrowLeft className="h-4 w-4" />
-          {t(TYPE_BACK_LABELS[type])}
-        </Link>
+          {t("back")}
+        </button>
       </div>
     )
   }
@@ -66,13 +67,13 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
 
   return (
     <div className="space-y-6">
-      <Link
-        href={TYPE_BACK_LINKS[type]}
+      <button
+        onClick={() => router.back()}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
-        {t(TYPE_BACK_LABELS[type])}
-      </Link>
+        {t("back")}
+      </button>
 
       <div className="space-y-4">
         <ProfileHeader
