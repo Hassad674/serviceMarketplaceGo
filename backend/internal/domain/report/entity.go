@@ -21,7 +21,6 @@ type Reason string
 const (
 	ReasonHarassment             Reason = "harassment"
 	ReasonFraud                  Reason = "fraud"
-	ReasonOffPlatformPayment     Reason = "off_platform_payment"
 	ReasonSpam                   Reason = "spam"
 	ReasonInappropriateContent   Reason = "inappropriate_content"
 	ReasonFakeProfile            Reason = "fake_profile"
@@ -45,7 +44,6 @@ const MaxDescriptionLength = 2000
 var validMessageReasons = map[Reason]bool{
 	ReasonHarassment:           true,
 	ReasonFraud:                true,
-	ReasonOffPlatformPayment:   true,
 	ReasonSpam:                 true,
 	ReasonInappropriateContent: true,
 	ReasonOther:                true,
@@ -54,7 +52,6 @@ var validMessageReasons = map[Reason]bool{
 var validUserReasons = map[Reason]bool{
 	ReasonHarassment:             true,
 	ReasonFraud:                  true,
-	ReasonOffPlatformPayment:     true,
 	ReasonSpam:                   true,
 	ReasonFakeProfile:            true,
 	ReasonUnprofessionalBehavior: true,

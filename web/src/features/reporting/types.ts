@@ -3,7 +3,6 @@ export type TargetType = "message" | "user"
 export type ReportReason =
   | "harassment"
   | "fraud"
-  | "off_platform_payment"
   | "spam"
   | "inappropriate_content"
   | "fake_profile"
@@ -23,7 +22,6 @@ export type Report = {
 export const MESSAGE_REASONS: ReportReason[] = [
   "harassment",
   "fraud",
-  "off_platform_payment",
   "spam",
   "inappropriate_content",
   "other",
@@ -32,7 +30,6 @@ export const MESSAGE_REASONS: ReportReason[] = [
 export const USER_REASONS: ReportReason[] = [
   "harassment",
   "fraud",
-  "off_platform_payment",
   "spam",
   "fake_profile",
   "unprofessional_behavior",
