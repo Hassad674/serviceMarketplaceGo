@@ -826,6 +826,8 @@
     "requiredSkills": "Compétences requises",
     "watchVideo": "Voir la vidéo",
     "loadMore": "Charger plus",
+    "uploadVideo": "Ajouter une vid\u00e9o",
+    "uploading": "Envoi en cours...",
     "error": "Une erreur est survenue"
   }
 }

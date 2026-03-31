@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { Send, Loader2, X } from "lucide-react"
+import { useState, useRef } from "react"
+import { Send, Loader2, X, Upload, Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useApplyToJob } from "../hooks/use-job-applications"
+import { uploadVideo } from "@/features/provider/api/upload-api"
 
 interface ApplyModalProps {
   open: boolean
@@ -15,19 +16,43 @@ interface ApplyModalProps {
 export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
   const t = useTranslations("opportunity")
   const [message, setMessage] = useState("")
-  const [videoUrl, setVideoUrl] = useState("")
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [videoName, setVideoName] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const applyMutation = useApplyToJob()
 
   if (!open) return null
 
+  async function handleVideoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
+    try {
+      const { url } = await uploadVideo(file)
+      setVideoUrl(url)
+      setVideoName(file.name)
+    } catch {
+      // upload failed silently — user can retry
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  function removeVideo() {
+    setVideoUrl(null)
+    setVideoName(null)
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
+
   async function handleSubmit() {
-    if (!message.trim()) return
     applyMutation.mutate(
-      { jobId, message: message.trim(), videoUrl: videoUrl.trim() || undefined },
+      { jobId, message: message.trim(), videoUrl: videoUrl || undefined },
       {
         onSuccess: () => {
           setMessage("")
-          setVideoUrl("")
+          setVideoUrl(null)
+          setVideoName(null)
           onClose()
         },
       },
@@ -48,9 +73,10 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
         </div>
 
         <div className="space-y-4">
+          {/* Message (optional) */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              {t("yourMessage")} <span className="text-rose-500">*</span>
+              {t("yourMessage")}
             </label>
             <textarea
               value={message}
@@ -67,31 +93,62 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
             <p className="text-xs text-slate-400 mt-1 text-right">{message.length}/5000</p>
           </div>
 
+          {/* Video upload (optional) */}
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
               {t("optionalVideo")}
             </label>
             <input
-              type="url"
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://..."
-              className={cn(
-                "w-full h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-xs",
-                "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 outline-none transition-all",
-                "dark:border-slate-600 dark:bg-slate-700 dark:text-white",
-              )}
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              onChange={handleVideoSelect}
+              className="hidden"
             />
+
+            {!videoUrl && !isUploading && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "w-full rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-600 p-4",
+                  "flex items-center justify-center gap-2 text-sm text-slate-500 transition-colors",
+                  "hover:border-rose-300 hover:text-rose-600 dark:hover:border-rose-500/30",
+                )}
+              >
+                <Upload className="h-4 w-4" />
+                {t("uploadVideo")}
+              </button>
+            )}
+
+            {isUploading && (
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 p-4 text-sm text-slate-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t("uploading")}
+              </div>
+            )}
+
+            {videoUrl && (
+              <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 dark:border-green-500/30 dark:bg-green-500/10 p-3">
+                <Video className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+                <span className="text-sm text-green-700 dark:text-green-300 truncate flex-1">{videoName}</span>
+                <button type="button" onClick={removeVideo} className="shrink-0 text-slate-400 hover:text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
 
+          {/* Error */}
           {applyMutation.isError && (
             <p className="text-sm text-red-500">{applyMutation.error?.message || t("error")}</p>
           )}
 
+          {/* Submit */}
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!message.trim() || applyMutation.isPending}
+            disabled={applyMutation.isPending || isUploading}
             className={cn(
               "w-full flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all",
               "gradient-primary text-white hover:shadow-glow active:scale-[0.98]",

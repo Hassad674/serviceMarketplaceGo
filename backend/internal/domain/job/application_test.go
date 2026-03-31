@@ -25,6 +25,15 @@ func TestNewJobApplication_Valid(t *testing.T) {
 	assert.Nil(t, app.VideoURL)
 }
 
+func TestNewJobApplication_ValidNoMessage(t *testing.T) {
+	input := validApplicationInput()
+	input.Message = ""
+	app, err := NewJobApplication(input)
+	assert.NoError(t, err)
+	assert.NotNil(t, app)
+	assert.Empty(t, app.Message)
+}
+
 func TestNewJobApplication_ValidWithVideo(t *testing.T) {
 	input := validApplicationInput()
 	videoURL := "https://r2.example.com/videos/intro.mp4"
@@ -42,11 +51,6 @@ func TestNewJobApplication_Validation(t *testing.T) {
 		modify  func(*NewApplicationInput)
 		wantErr error
 	}{
-		{
-			name:    "empty message",
-			modify:  func(i *NewApplicationInput) { i.Message = "" },
-			wantErr: ErrEmptyApplicationMessage,
-		},
 		{
 			name: "message too long",
 			modify: func(i *NewApplicationInput) {

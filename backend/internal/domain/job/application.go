@@ -35,9 +35,6 @@ func NewJobApplication(input NewApplicationInput) (*JobApplication, error) {
 	if input.ApplicantID == uuid.Nil {
 		return nil, ErrNotApplicant // applicant ID is required
 	}
-	if input.Message == "" {
-		return nil, ErrEmptyApplicationMessage
-	}
 	if len([]rune(input.Message)) > applicationMessageMaxLength {
 		return nil, ErrApplicationMessageTooLong
 	}

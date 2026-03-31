@@ -826,6 +826,8 @@
     "requiredSkills": "Required skills",
     "watchVideo": "Watch video",
     "loadMore": "Load more",
+    "uploadVideo": "Upload a video",
+    "uploading": "Uploading...",
     "error": "An error occurred"
   }
 }
