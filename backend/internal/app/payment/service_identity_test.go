@@ -32,16 +32,14 @@ func newIdentityTestService(
 	stripe *mockStripeService,
 	storage *mockStorageService,
 ) *Service {
-	return NewService(
-		payments,
-		&mockPaymentRecordRepo{},
-		docs,
-		&mockBusinessPersonRepo{},
-		stripe,
-		storage,
-		nil,
-		"",
-	)
+	return NewService(ServiceDeps{
+		Payments:  payments,
+		Records:   &mockPaymentRecordRepo{},
+		Documents: docs,
+		Persons:   &mockBusinessPersonRepo{},
+		Stripe:    stripe,
+		Storage:   storage,
+	})
 }
 
 // --- UploadIdentityDocument tests ---

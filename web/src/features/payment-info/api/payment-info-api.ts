@@ -1,6 +1,36 @@
 import { apiClient } from "@/shared/lib/api-client"
 import type { PaymentInfoFormData } from "../types"
 
+// --- Country fields types ---
+
+export type FieldSpec = {
+  path: string
+  key: string
+  type: string
+  label_key: string
+  required: boolean
+  is_extra: boolean
+  placeholder?: string
+}
+
+export type FieldSection = {
+  id: string
+  fields: FieldSpec[]
+}
+
+export type CountryFieldsResponse = {
+  country: string
+  business_type: string
+  sections: FieldSection[]
+  documents_required: {
+    individual: boolean
+    company: boolean
+  }
+  person_roles: string[] | null
+}
+
+// --- Payment info types ---
+
 export type PaymentInfoResponse = {
   id: string
   user_id: string
@@ -34,12 +64,20 @@ export type PaymentInfoResponse = {
   bank_country: string
   stripe_account_id: string
   stripe_verified: boolean
+  country: string
+  extra_fields: Record<string, string>
   created_at: string
   updated_at: string
 }
 
 export type PaymentInfoStatusResponse = {
   complete: boolean
+}
+
+export async function getCountryFields(country: string, businessType: string): Promise<CountryFieldsResponse> {
+  return apiClient<CountryFieldsResponse>(
+    `/api/v1/payment-info/country-fields?country=${country}&business_type=${businessType}`,
+  )
 }
 
 export async function getPaymentInfo(): Promise<PaymentInfoResponse | null> {
@@ -91,6 +129,8 @@ export async function savePaymentInfo(data: PaymentInfoFormData, email?: string)
       routing_number: data.routingNumber,
       account_holder: data.accountHolder,
       bank_country: data.bankCountry,
+      country: data.country,
+      extra_fields: data.extraFields,
     },
   })
 }

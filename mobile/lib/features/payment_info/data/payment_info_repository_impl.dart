@@ -1,4 +1,5 @@
 import '../../../core/network/api_client.dart';
+import '../domain/entities/country_field_spec.dart';
 import '../domain/entities/payment_info_entity.dart';
 import '../domain/repositories/payment_info_repository.dart';
 
@@ -29,5 +30,13 @@ class PaymentInfoRepositoryImpl implements PaymentInfoRepository {
     return PaymentInfoStatus.fromJson(
       response.data as Map<String, dynamic>,
     );
+  }
+
+  @override
+  Future<CountryFieldsResponse> getCountryFields(String country, String businessType) async {
+    final response = await _api.get(
+      '/api/v1/payment-info/country-fields?country=$country&business_type=$businessType',
+    );
+    return CountryFieldsResponse.fromJson(response.data as Map<String, dynamic>);
   }
 }

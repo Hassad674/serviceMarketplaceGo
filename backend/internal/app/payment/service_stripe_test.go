@@ -31,16 +31,14 @@ func newTestService(
 	recordRepo *mockPaymentRecordRepo,
 	stripe *mockStripeService,
 ) *Service {
-	return NewService(
-		infoRepo,
-		recordRepo,
-		&mockIdentityDocRepo{},
-		&mockBusinessPersonRepo{},
-		stripe,
-		&mockStorageService{},
-		nil,
-		"",
-	)
+	return NewService(ServiceDeps{
+		Payments:  infoRepo,
+		Records:   recordRepo,
+		Documents: &mockIdentityDocRepo{},
+		Persons:   &mockBusinessPersonRepo{},
+		Stripe:    stripe,
+		Storage:   &mockStorageService{},
+	})
 }
 
 // --- CreatePaymentIntent tests ---
@@ -553,16 +551,13 @@ func TestGetPaymentRecord_NotFound(t *testing.T) {
 // --- VerifyWebhook tests ---
 
 func TestVerifyWebhook_StripeNotConfigured(t *testing.T) {
-	svc := NewService(
-		&mockPaymentInfoRepo{},
-		&mockPaymentRecordRepo{},
-		&mockIdentityDocRepo{},
-		&mockBusinessPersonRepo{},
-		nil, // stripe = nil
-		&mockStorageService{},
-		nil,
-		"",
-	)
+	svc := NewService(ServiceDeps{
+		Payments:  &mockPaymentInfoRepo{},
+		Records:   &mockPaymentRecordRepo{},
+		Documents: &mockIdentityDocRepo{},
+		Persons:   &mockBusinessPersonRepo{},
+		Storage:   &mockStorageService{},
+	})
 
 	_, err := svc.VerifyWebhook([]byte("body"), "sig")
 
@@ -576,16 +571,13 @@ func TestStripeConfigured_True(t *testing.T) {
 }
 
 func TestStripeConfigured_False(t *testing.T) {
-	svc := NewService(
-		&mockPaymentInfoRepo{},
-		&mockPaymentRecordRepo{},
-		&mockIdentityDocRepo{},
-		&mockBusinessPersonRepo{},
-		nil,
-		&mockStorageService{},
-		nil,
-		"",
-	)
+	svc := NewService(ServiceDeps{
+		Payments:  &mockPaymentInfoRepo{},
+		Records:   &mockPaymentRecordRepo{},
+		Documents: &mockIdentityDocRepo{},
+		Persons:   &mockBusinessPersonRepo{},
+		Storage:   &mockStorageService{},
+	})
 	assert.False(t, svc.StripeConfigured())
 }
 

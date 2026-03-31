@@ -94,6 +94,8 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 		RoutingNumber:        req.RoutingNumber,
 		AccountHolder:        req.AccountHolder,
 		BankCountry:          req.BankCountry,
+		Country:              req.Country,
+		ExtraFields:          req.ExtraFields,
 	}
 
 	tosIP := extractIP(r.RemoteAddr)
@@ -131,6 +133,31 @@ func mapBusinessPersons(reqs []request.BusinessPersonRequest) []paymentapp.Busin
 		}
 	}
 	return result
+}
+
+func (h *PaymentInfoHandler) GetCountryFields(w http.ResponseWriter, r *http.Request) {
+	country := r.URL.Query().Get("country")
+	if country == "" || len(country) != 2 {
+		res.Error(w, http.StatusBadRequest, "invalid_country", "country must be a 2-letter ISO code")
+		return
+	}
+
+	businessType := r.URL.Query().Get("business_type")
+	if businessType == "" {
+		businessType = "individual"
+	}
+	if businessType != "individual" && businessType != "company" {
+		res.Error(w, http.StatusBadRequest, "invalid_business_type", "business_type must be individual or company")
+		return
+	}
+
+	fields, err := h.paymentService.GetCountryFields(r.Context(), country, businessType)
+	if err != nil {
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get country fields")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, fields)
 }
 
 func (h *PaymentInfoHandler) GetPaymentInfoStatus(w http.ResponseWriter, r *http.Request) {

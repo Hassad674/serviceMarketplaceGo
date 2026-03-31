@@ -46,6 +46,9 @@ type PaymentInfoResponse struct {
 	StripeAccountID string `json:"stripe_account_id"`
 	StripeVerified  bool   `json:"stripe_verified"`
 
+	Country     string            `json:"country"`
+	ExtraFields map[string]string `json:"extra_fields"`
+
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
@@ -122,6 +125,8 @@ func NewPaymentInfoResponse(p *payment.PaymentInfo, persons []*payment.BusinessP
 		BankCountry:        p.BankCountry,
 		StripeAccountID:    p.StripeAccountID,
 		StripeVerified:     p.StripeVerified,
+		Country:            p.Country,
+		ExtraFields:        p.ExtraFields,
 		CreatedAt:          p.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:          p.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}

@@ -46,6 +46,8 @@ export type PaymentInfoFormData = {
   routingNumber: string
   accountHolder: string
   bankCountry: string
+  country: string
+  extraFields: Record<string, string>
 }
 
 export const INITIAL_FORM_DATA: PaymentInfoFormData = {
@@ -79,4 +81,6 @@ export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   routingNumber: "",
   accountHolder: "",
   bankCountry: "",
+  country: "",
+  extraFields: {},
 }

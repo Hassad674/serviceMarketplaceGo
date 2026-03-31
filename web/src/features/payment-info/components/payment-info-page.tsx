@@ -10,11 +10,14 @@ import { BankAccountSection } from "./bank-account-section"
 import { BusinessPersonsSection } from "./business-persons-section"
 import { IdentityVerificationSection } from "./identity-verification-section"
 import { StripeRequirementsBanner } from "./stripe-requirements-banner"
+import { CountrySelector, detectBrowserCountry } from "./country-selector"
+import { ExtraFieldsSection } from "./extra-fields-section"
 import { isIbanCountry } from "./country-select"
 import type { PaymentInfoFormData, BankAccountMode } from "../types"
 import { INITIAL_FORM_DATA } from "../types"
 import { useUser } from "@/shared/hooks/use-user"
 import { usePaymentInfo, useSavePaymentInfo } from "../hooks/use-payment-info"
+import { useCountryFields } from "../hooks/use-country-fields"
 import type { PaymentInfoResponse } from "../api/payment-info-api"
 
 function isFormValid(data: PaymentInfoFormData): boolean {
@@ -84,6 +87,8 @@ function responseToFormData(res: PaymentInfoResponse): PaymentInfoFormData {
     routingNumber: res.routing_number,
     accountHolder: res.account_holder,
     bankCountry: res.bank_country,
+    country: res.country ?? "",
+    extraFields: res.extra_fields ?? {},
   }
 }
 
@@ -97,11 +102,28 @@ export function PaymentInfoPage() {
   const { data: existing, isLoading } = usePaymentInfo()
   const saveMutation = useSavePaymentInfo()
 
+  const businessType = data.isBusiness ? "company" : "individual"
+  const { data: countryFields } = useCountryFields(data.country, businessType)
+
+  // Extract extra fields that the country requires
+  const extraFieldSpecs = (countryFields?.sections ?? [])
+    .flatMap((s) => s.fields)
+    .filter((f) => f.is_extra)
+
+  const documentsRequired = countryFields?.documents_required ?? { individual: true, company: false }
+  const personRoles = countryFields?.person_roles ?? undefined
+
   useEffect(() => {
     if (initialized || isLoading) return
     if (existing) {
       setData(responseToFormData(existing))
       setSaved(true)
+    } else {
+      // Pre-fill country from browser locale for new users
+      const detected = detectBrowserCountry()
+      if (detected) {
+        setData((prev) => ({ ...prev, country: detected }))
+      }
     }
     setInitialized(true)
   }, [existing, isLoading, initialized])
@@ -132,6 +154,19 @@ export function PaymentInfoPage() {
     },
     [],
   )
+
+  const handleCountryChange = useCallback((country: string) => {
+    setData((prev) => ({ ...prev, country, extraFields: {} }))
+    setSaved(false)
+  }, [])
+
+  const handleExtraFieldChange = useCallback((key: string, value: string) => {
+    setData((prev) => ({
+      ...prev,
+      extraFields: { ...prev.extraFields, [key]: value },
+    }))
+    setSaved(false)
+  }, [])
 
   const handleBankModeChange = useCallback((mode: BankAccountMode) => {
     setData((prev) => ({ ...prev, bankMode: mode }))
@@ -195,6 +230,9 @@ export function PaymentInfoPage() {
         </div>
       )}
 
+      {/* Country selector - FIRST section */}
+      <CountrySelector value={data.country} onChange={handleCountryChange} />
+
       {/* Business toggle */}
       <div className="flex items-center gap-3">
         <button
@@ -225,10 +263,19 @@ export function PaymentInfoPage() {
       {/* Sections */}
       <PersonalInfoSection data={data} onChange={handleChange} />
 
+      {/* Country-specific extra fields */}
+      {extraFieldSpecs.length > 0 && (
+        <ExtraFieldsSection
+          fields={extraFieldSpecs}
+          values={data.extraFields}
+          onChange={handleExtraFieldChange}
+        />
+      )}
+
       {data.isBusiness && (
         <>
           <BusinessInfoSection data={data} onChange={handleChange} />
-          <BusinessPersonsSection data={data} onChange={handleChangeAny} />
+          <BusinessPersonsSection data={data} onChange={handleChangeAny} requiredRoles={personRoles} />
         </>
       )}
 
@@ -238,8 +285,8 @@ export function PaymentInfoPage() {
         onChangeBankMode={handleBankModeChange}
       />
 
-      {/* Identity verification */}
-      <IdentityVerificationSection />
+      {/* Identity verification — only show if required for this country */}
+      {documentsRequired.individual && <IdentityVerificationSection />}
 
       {/* Save button */}
       <button

@@ -47,7 +47,7 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 	if info.IBAN != "" {
 		acctParams.AddExtra("external_account[object]", "bank_account")
 		acctParams.AddExtra("external_account[country]", country)
-		acctParams.AddExtra("external_account[currency]", "eur")
+		acctParams.AddExtra("external_account[currency]", countryToCurrency(country))
 		acctParams.AddExtra("external_account[account_holder_name]", info.AccountHolder)
 		acctParams.AddExtra("external_account[account_number]", info.IBAN)
 	}
@@ -101,6 +101,7 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (
 				Country:    stripe.String(country),
 			},
 		}
+		applyExtraFieldsToIndividual(params.Account.Individual, info.ExtraFields)
 	}
 
 	tok, err := token.New(params)
@@ -177,8 +178,40 @@ func (s *Service) CreateAccountLink(ctx context.Context, accountID, returnURL, r
 	return link.URL, nil
 }
 
+// applyExtraFieldsToIndividual sets country-specific extra fields on the Stripe individual params.
+func applyExtraFieldsToIndividual(p *stripe.PersonParams, extra map[string]string) {
+	if extra == nil {
+		return
+	}
+	if v, ok := extra["id_number"]; ok && v != "" {
+		p.IDNumber = stripe.String(v)
+	}
+	if v, ok := extra["ssn_last_4"]; ok && v != "" {
+		p.SSNLast4 = stripe.String(v)
+	}
+	if v, ok := extra["state"]; ok && v != "" && p.Address != nil {
+		p.Address.State = stripe.String(v)
+	}
+	if v, ok := extra["first_name_kana"]; ok && v != "" {
+		p.FirstNameKana = stripe.String(v)
+	}
+	if v, ok := extra["last_name_kana"]; ok && v != "" {
+		p.LastNameKana = stripe.String(v)
+	}
+	if v, ok := extra["first_name_kanji"]; ok && v != "" {
+		p.FirstNameKanji = stripe.String(v)
+	}
+	if v, ok := extra["last_name_kanji"]; ok && v != "" {
+		p.LastNameKanji = stripe.String(v)
+	}
+}
+
 // resolveCountryCode returns a 2-letter country code from the payment info.
+// Prefers the explicit Country field, then BankCountry, then Nationality.
 func resolveCountryCode(info *payment.PaymentInfo) string {
+	if info.Country != "" && len(info.Country) == 2 {
+		return info.Country
+	}
 	if info.BankCountry != "" && len(info.BankCountry) == 2 {
 		return info.BankCountry
 	}
@@ -186,4 +219,23 @@ func resolveCountryCode(info *payment.PaymentInfo) string {
 		return info.Nationality
 	}
 	return "FR"
+}
+
+// countryToCurrency maps ISO country codes to their default Stripe currencies.
+func countryToCurrency(country string) string {
+	currencies := map[string]string{
+		"FR": "eur", "DE": "eur", "IT": "eur", "ES": "eur", "NL": "eur",
+		"BE": "eur", "AT": "eur", "PT": "eur", "FI": "eur", "IE": "eur",
+		"LU": "eur", "GR": "eur", "SK": "eur", "SI": "eur", "EE": "eur",
+		"LV": "eur", "LT": "eur", "CY": "eur", "MT": "eur",
+		"US": "usd", "GB": "gbp", "JP": "jpy", "BR": "brl", "CA": "cad",
+		"AU": "aud", "NZ": "nzd", "CH": "chf", "SE": "sek", "NO": "nok",
+		"DK": "dkk", "PL": "pln", "CZ": "czk", "HU": "huf", "RO": "ron",
+		"BG": "bgn", "HR": "eur", "SG": "sgd", "HK": "hkd", "MY": "myr",
+		"TH": "thb", "MX": "mxn", "IN": "inr", "AE": "aed",
+	}
+	if cur, ok := currencies[country]; ok {
+		return cur
+	}
+	return "eur"
 }

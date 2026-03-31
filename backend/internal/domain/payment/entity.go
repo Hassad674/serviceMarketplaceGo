@@ -50,6 +50,10 @@ type PaymentInfo struct {
 	AccountHolder string
 	BankCountry   string
 
+	// Country-specific
+	Country     string            // activity country (ISO 2-letter)
+	ExtraFields map[string]string // country-specific fields (JSONB)
+
 	// Stripe Connect (future)
 	StripeAccountID string
 	StripeVerified  bool
@@ -93,6 +97,9 @@ type NewPaymentInfoInput struct {
 	RoutingNumber string
 	AccountHolder string
 	BankCountry   string
+
+	Country     string
+	ExtraFields map[string]string
 }
 
 // NewPaymentInfo validates the input and returns a PaymentInfo entity.
@@ -107,6 +114,15 @@ func NewPaymentInfo(input NewPaymentInfoInput) (*PaymentInfo, error) {
 
 	if err := validateBankDetails(input); err != nil {
 		return nil, err
+	}
+
+	country := strings.TrimSpace(input.Country)
+	if country == "" {
+		country = "FR"
+	}
+	extraFields := input.ExtraFields
+	if extraFields == nil {
+		extraFields = make(map[string]string)
 	}
 
 	now := time.Now()
@@ -141,6 +157,8 @@ func NewPaymentInfo(input NewPaymentInfoInput) (*PaymentInfo, error) {
 		RoutingNumber:      strings.TrimSpace(input.RoutingNumber),
 		AccountHolder:      strings.TrimSpace(input.AccountHolder),
 		BankCountry:        strings.TrimSpace(input.BankCountry),
+		Country:            country,
+		ExtraFields:        extraFields,
 		StripeVerified:     false,
 		CreatedAt:          now,
 		UpdatedAt:          now,

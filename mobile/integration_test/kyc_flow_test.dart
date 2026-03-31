@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:marketplace_mobile/features/auth/presentation/providers/auth_provider.dart';
 import 'package:marketplace_mobile/features/payment_info/domain/entities/identity_document_entity.dart';
+import 'package:marketplace_mobile/features/payment_info/domain/entities/country_field_spec.dart';
 import 'package:marketplace_mobile/features/payment_info/domain/entities/payment_info_entity.dart';
 import 'package:marketplace_mobile/features/payment_info/domain/repositories/payment_info_repository.dart';
 import 'package:marketplace_mobile/features/payment_info/presentation/providers/identity_document_provider.dart';
@@ -73,6 +74,18 @@ class InMemoryPaymentInfoRepository implements PaymentInfoRepository {
   @override
   Future<PaymentInfoStatus> getPaymentInfoStatus() async {
     return PaymentInfoStatus(complete: _stored != null);
+  }
+
+  @override
+  Future<CountryFieldsResponse> getCountryFields(String country, String businessType) async {
+    return const CountryFieldsResponse(
+      country: 'FR',
+      businessType: 'individual',
+      sections: [],
+      individualDocRequired: true,
+      companyDocRequired: false,
+      personRoles: [],
+    );
   }
 }
 

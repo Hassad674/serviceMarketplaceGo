@@ -108,6 +108,8 @@ class PaymentInfoFormData {
     this.routingNumber = '',
     this.accountHolder = '',
     this.bankCountry = '',
+    this.country = '',
+    this.extraFields = const {},
   });
 
   final bool isBusiness;
@@ -140,6 +142,8 @@ class PaymentInfoFormData {
   final String routingNumber;
   final String accountHolder;
   final String bankCountry;
+  final String country;
+  final Map<String, String> extraFields;
 
   PaymentInfoFormData copyWith({
     bool? isBusiness,
@@ -172,6 +176,8 @@ class PaymentInfoFormData {
     String? routingNumber,
     String? accountHolder,
     String? bankCountry,
+    String? country,
+    Map<String, String>? extraFields,
   }) {
     return PaymentInfoFormData(
       isBusiness: isBusiness ?? this.isBusiness,
@@ -205,6 +211,8 @@ class PaymentInfoFormData {
       routingNumber: routingNumber ?? this.routingNumber,
       accountHolder: accountHolder ?? this.accountHolder,
       bankCountry: bankCountry ?? this.bankCountry,
+      country: country ?? this.country,
+      extraFields: extraFields ?? this.extraFields,
     );
   }
 }

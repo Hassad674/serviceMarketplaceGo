@@ -10,9 +10,10 @@ import type { BusinessPersonData } from "../types"
 type Props = {
   data: PaymentInfoFormData
   onChange: (field: keyof PaymentInfoFormData, value: unknown) => void
+  requiredRoles?: string[]
 }
 
-export function BusinessPersonsSection({ data, onChange }: Props) {
+export function BusinessPersonsSection({ data, onChange, requiredRoles }: Props) {
   const t = useTranslations("paymentInfo")
 
   function addPerson(role: string) {
@@ -34,6 +35,9 @@ export function BusinessPersonsSection({ data, onChange }: Props) {
   const directors = data.businessPersons.filter((p) => p.role === "director")
   const owners = data.businessPersons.filter((p) => p.role === "owner")
   const executives = data.businessPersons.filter((p) => p.role === "executive")
+
+  // If requiredRoles is provided, only show roles in the list. Default: show all.
+  const showRole = (role: string) => !requiredRoles || requiredRoles.includes(role)
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
@@ -69,57 +73,69 @@ export function BusinessPersonsSection({ data, onChange }: Props) {
         )}
 
         {/* 2. Dirigeants */}
-        <CheckboxBlock
-          checked={data.isSelfDirector}
-          onChange={(v) => onChange("isSelfDirector", v)}
-          label={t("representativeIsSoleDirector")}
-        />
-        {!data.isSelfDirector && (
-          <PersonList
-            persons={directors}
-            role="director"
-            label={t("directors")}
-            allPersons={data.businessPersons}
-            onAdd={() => addPerson("director")}
-            onRemove={removePerson}
-            onUpdate={updatePerson}
-          />
+        {showRole("director") && (
+          <>
+            <CheckboxBlock
+              checked={data.isSelfDirector}
+              onChange={(v) => onChange("isSelfDirector", v)}
+              label={t("representativeIsSoleDirector")}
+            />
+            {!data.isSelfDirector && (
+              <PersonList
+                persons={directors}
+                role="director"
+                label={t("directors")}
+                allPersons={data.businessPersons}
+                onAdd={() => addPerson("director")}
+                onRemove={removePerson}
+                onUpdate={updatePerson}
+              />
+            )}
+          </>
         )}
 
         {/* 3. Actionnaires >25% */}
-        <CheckboxBlock
-          checked={data.noMajorOwners}
-          onChange={(v) => onChange("noMajorOwners", v)}
-          label={t("noMajorOwners")}
-        />
-        {!data.noMajorOwners && (
-          <PersonList
-            persons={owners}
-            role="owner"
-            label={t("owners")}
-            allPersons={data.businessPersons}
-            onAdd={() => addPerson("owner")}
-            onRemove={removePerson}
-            onUpdate={updatePerson}
-          />
+        {showRole("owner") && (
+          <>
+            <CheckboxBlock
+              checked={data.noMajorOwners}
+              onChange={(v) => onChange("noMajorOwners", v)}
+              label={t("noMajorOwners")}
+            />
+            {!data.noMajorOwners && (
+              <PersonList
+                persons={owners}
+                role="owner"
+                label={t("owners")}
+                allPersons={data.businessPersons}
+                onAdd={() => addPerson("owner")}
+                onRemove={removePerson}
+                onUpdate={updatePerson}
+              />
+            )}
+          </>
         )}
 
         {/* 4. Cadres dirigeants */}
-        <CheckboxBlock
-          checked={data.isSelfExecutive}
-          onChange={(v) => onChange("isSelfExecutive", v)}
-          label={t("representativeIsSoleExecutive")}
-        />
-        {!data.isSelfExecutive && (
-          <PersonList
-            persons={executives}
-            role="executive"
-            label={t("executives")}
-            allPersons={data.businessPersons}
-            onAdd={() => addPerson("executive")}
-            onRemove={removePerson}
-            onUpdate={updatePerson}
-          />
+        {showRole("executive") && (
+          <>
+            <CheckboxBlock
+              checked={data.isSelfExecutive}
+              onChange={(v) => onChange("isSelfExecutive", v)}
+              label={t("representativeIsSoleExecutive")}
+            />
+            {!data.isSelfExecutive && (
+              <PersonList
+                persons={executives}
+                role="executive"
+                label={t("executives")}
+                allPersons={data.businessPersons}
+                onAdd={() => addPerson("executive")}
+                onRemove={removePerson}
+                onUpdate={updatePerson}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

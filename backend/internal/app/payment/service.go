@@ -21,28 +21,34 @@ type Service struct {
 	stripe        service.StripeService        // nil if Stripe not configured
 	storage       service.StorageService       // nil if not configured
 	notifications service.NotificationSender   // nil if not configured
+	countrySpecs  service.CountrySpecService   // nil if not configured
 	frontendURL   string
 }
 
-func NewService(
-	payments repository.PaymentInfoRepository,
-	records repository.PaymentRecordRepository,
-	documents repository.IdentityDocumentRepository,
-	persons repository.BusinessPersonRepository,
-	stripe service.StripeService,
-	storage service.StorageService,
-	notifications service.NotificationSender,
-	frontendURL string,
-) *Service {
+// ServiceDeps groups all dependencies for the payment service.
+type ServiceDeps struct {
+	Payments      repository.PaymentInfoRepository
+	Records       repository.PaymentRecordRepository
+	Documents     repository.IdentityDocumentRepository
+	Persons       repository.BusinessPersonRepository
+	Stripe        service.StripeService
+	Storage       service.StorageService
+	Notifications service.NotificationSender
+	CountrySpecs  service.CountrySpecService
+	FrontendURL   string
+}
+
+func NewService(deps ServiceDeps) *Service {
 	return &Service{
-		payments:      payments,
-		records:       records,
-		documents:     documents,
-		persons:       persons,
-		stripe:        stripe,
-		storage:       storage,
-		notifications: notifications,
-		frontendURL:   frontendURL,
+		payments:      deps.Payments,
+		records:       deps.Records,
+		documents:     deps.Documents,
+		persons:       deps.Persons,
+		stripe:        deps.Stripe,
+		storage:       deps.Storage,
+		notifications: deps.Notifications,
+		countrySpecs:  deps.CountrySpecs,
+		frontendURL:   deps.FrontendURL,
 	}
 }
 
@@ -100,6 +106,9 @@ type SavePaymentInfoInput struct {
 	RoutingNumber string
 	AccountHolder string
 	BankCountry   string
+
+	Country     string
+	ExtraFields map[string]string
 }
 
 type BusinessPersonInput struct {
@@ -147,6 +156,8 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		RoutingNumber:      input.RoutingNumber,
 		AccountHolder:      input.AccountHolder,
 		BankCountry:        input.BankCountry,
+		Country:            input.Country,
+		ExtraFields:        input.ExtraFields,
 	})
 	if err != nil {
 		return nil, err

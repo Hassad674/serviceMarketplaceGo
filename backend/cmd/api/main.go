@@ -238,8 +238,27 @@ func main() {
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	slog.Info("notification feature enabled")
 
+	// Country spec cache (optional — only when Stripe is configured)
+	var countrySpecCache *redisadapter.CountrySpecCache
+	if stripeSvc != nil {
+		countrySpecCache = redisadapter.NewCountrySpecCache(redisClient, stripeSvc)
+		if err := countrySpecCache.WarmCache(context.Background()); err != nil {
+			slog.Warn("failed to warm country spec cache", "error", err)
+		}
+	}
+
 	// Payment info service (depends on notifications)
-	paymentInfoSvc := paymentapp.NewService(paymentInfoRepo, paymentRecordRepo, identityDocRepo, businessPersonRepo, stripeSvc, storageSvc, notifSvc, cfg.FrontendURL)
+	paymentInfoSvc := paymentapp.NewService(paymentapp.ServiceDeps{
+		Payments:      paymentInfoRepo,
+		Records:       paymentRecordRepo,
+		Documents:     identityDocRepo,
+		Persons:       businessPersonRepo,
+		Stripe:        stripeSvc,
+		Storage:       storageSvc,
+		Notifications: notifSvc,
+		CountrySpecs:  countrySpecCache,
+		FrontendURL:   cfg.FrontendURL,
+	})
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
 	identityDocHandler := handler.NewIdentityDocumentHandler(paymentInfoSvc)
 

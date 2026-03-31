@@ -45,6 +45,12 @@ type StripeService interface {
 
 	// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
 	CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (url string, err error)
+
+	// GetCountrySpec retrieves the Stripe field requirements for a specific country.
+	GetCountrySpec(ctx context.Context, country string) (*payment.CountryFieldSpec, error)
+
+	// ListAllCountrySpecs retrieves specs for all Stripe-supported countries.
+	ListAllCountrySpecs(ctx context.Context) ([]*payment.CountryFieldSpec, error)
 }
 
 type CreatePaymentIntentInput struct {

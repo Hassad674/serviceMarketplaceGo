@@ -170,10 +170,12 @@ var _ repository.IdentityDocumentRepository = (*mockIdentityDocRepo)(nil)
 var _ repository.BusinessPersonRepository = (*mockBusinessPersonRepo)(nil)
 
 func newTestPaymentService(infoRepo *mockPaymentInfoRepo, recordRepo *mockPaymentRecordRepo) *paymentapp.Service {
-	return paymentapp.NewService(
-		infoRepo, recordRepo, &mockIdentityDocRepo{}, &mockBusinessPersonRepo{},
-		nil, nil, nil, "", // stripe, storage, notifications, frontendURL
-	)
+	return paymentapp.NewService(paymentapp.ServiceDeps{
+		Payments:  infoRepo,
+		Records:   recordRepo,
+		Documents: &mockIdentityDocRepo{},
+		Persons:   &mockBusinessPersonRepo{},
+	})
 }
 
 func testPaymentInfo(userID uuid.UUID) *payment.PaymentInfo {

@@ -166,6 +166,14 @@ func (m *mockStripeService) CreateAccountLink(_ context.Context, _, _, _ string)
 	return "", nil
 }
 
+func (m *mockStripeService) GetCountrySpec(_ context.Context, _ string) (*domain.CountryFieldSpec, error) {
+	return nil, nil
+}
+
+func (m *mockStripeService) ListAllCountrySpecs(_ context.Context) ([]*domain.CountryFieldSpec, error) {
+	return nil, nil
+}
+
 // --- IdentityDocumentRepository mock ---
 
 type mockIdentityDocRepo struct {

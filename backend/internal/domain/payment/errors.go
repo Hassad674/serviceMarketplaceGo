@@ -36,4 +36,7 @@ var (
 	// Business person errors
 	ErrInvalidPersonRole  = errors.New("invalid person role")
 	ErrPersonNameRequired = errors.New("person first and last name are required")
+
+	// Country errors
+	ErrCountryRequired = errors.New("activity country is required")
 )

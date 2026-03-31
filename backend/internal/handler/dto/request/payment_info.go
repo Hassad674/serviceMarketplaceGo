@@ -35,6 +35,9 @@ type SavePaymentInfoRequest struct {
 	RoutingNumber string `json:"routing_number"`
 	AccountHolder string `json:"account_holder"`
 	BankCountry   string `json:"bank_country"`
+
+	Country     string            `json:"country"`
+	ExtraFields map[string]string `json:"extra_fields"`
 }
 
 type BusinessPersonRequest struct {

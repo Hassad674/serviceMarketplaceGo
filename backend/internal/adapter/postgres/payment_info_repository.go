@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -33,6 +34,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified,
+			country, extra_fields,
 			created_at, updated_at
 		FROM payment_info
 		WHERE user_id = $1`
@@ -43,6 +45,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 		taxID, vatNumber, roleInCompany                                          sql.NullString
 		phone, activitySector                                                    sql.NullString
 		iban, bic, accountNumber, routingNumber, bankCountry, stripeAccID        sql.NullString
+		extraFieldsRaw                                                           []byte
 	)
 
 	err := r.db.QueryRowContext(ctx, query, userID).Scan(
@@ -55,6 +58,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 		&p.IsSelfRepresentative, &p.IsSelfDirector, &p.NoMajorOwners, &p.IsSelfExecutive,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified,
+		&p.Country, &extraFieldsRaw,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -80,6 +84,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 	p.RoutingNumber = routingNumber.String
 	p.BankCountry = bankCountry.String
 	p.StripeAccountID = stripeAccID.String
+	p.ExtraFields = unmarshalExtraFields(extraFieldsRaw)
 
 	return p, nil
 }
@@ -87,6 +92,11 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.PaymentInfo) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
+
+	extraJSON, err := marshalExtraFields(info.ExtraFields)
+	if err != nil {
+		return fmt.Errorf("marshal extra fields: %w", err)
+	}
 
 	query := `
 		INSERT INTO payment_info (
@@ -98,6 +108,7 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			phone, activity_sector,
 			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
+			country, extra_fields,
 			created_at, updated_at
 		) VALUES (
 			$1, $2,
@@ -108,7 +119,8 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			$19, $20,
 			$21, $22, $23, $24,
 			$25, $26, $27, $28, $29, $30,
-			$31, $32
+			$31, $32,
+			$33, $34
 		)
 		ON CONFLICT (user_id) DO UPDATE SET
 			first_name = EXCLUDED.first_name,
@@ -138,9 +150,11 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 			account_number = EXCLUDED.account_number,
 			routing_number = EXCLUDED.routing_number,
 			account_holder = EXCLUDED.account_holder,
-			bank_country = EXCLUDED.bank_country`
+			bank_country = EXCLUDED.bank_country,
+			country = EXCLUDED.country,
+			extra_fields = EXCLUDED.extra_fields`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		info.ID, info.UserID,
 		info.FirstName, info.LastName, info.DateOfBirth, info.Nationality,
 		info.Address, info.City, info.PostalCode,
@@ -153,6 +167,7 @@ func (r *PaymentInfoRepository) Upsert(ctx context.Context, info *payment.Paymen
 		nullString(info.IBAN), nullString(info.BIC),
 		nullString(info.AccountNumber), nullString(info.RoutingNumber),
 		info.AccountHolder, nullString(info.BankCountry),
+		info.Country, extraJSON,
 		info.CreatedAt, info.UpdatedAt,
 	)
 	if err != nil {
@@ -185,6 +200,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 		taxID, vatNumber, roleInCompany                                          sql.NullString
 		phone, activitySector                                                    sql.NullString
 		iban, bic, accountNumber, routingNumber, bankCountry, stripeAccID        sql.NullString
+		extraFieldsRaw                                                           []byte
 	)
 
 	err := r.db.QueryRowContext(ctx, `
@@ -196,7 +212,9 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 			phone, activity_sector,
 			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
-			stripe_account_id, stripe_verified, created_at, updated_at
+			stripe_account_id, stripe_verified,
+			country, extra_fields,
+			created_at, updated_at
 		FROM payment_info WHERE stripe_account_id = $1`, stripeAccountID).Scan(
 		&p.ID, &p.UserID,
 		&p.FirstName, &p.LastName, &p.DateOfBirth, &p.Nationality,
@@ -206,7 +224,9 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 		&phone, &activitySector,
 		&p.IsSelfRepresentative, &p.IsSelfDirector, &p.NoMajorOwners, &p.IsSelfExecutive,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
-		&stripeAccID, &p.StripeVerified, &p.CreatedAt, &p.UpdatedAt,
+		&stripeAccID, &p.StripeVerified,
+		&p.Country, &extraFieldsRaw,
+		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -231,6 +251,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 	p.RoutingNumber = routingNumber.String
 	p.BankCountry = bankCountry.String
 	p.StripeAccountID = stripeAccID.String
+	p.ExtraFields = unmarshalExtraFields(extraFieldsRaw)
 
 	return p, nil
 }
@@ -241,4 +262,24 @@ func nullString(s string) sql.NullString {
 		return sql.NullString{}
 	}
 	return sql.NullString{String: s, Valid: true}
+}
+
+// marshalExtraFields serializes extra fields to JSONB bytes.
+func marshalExtraFields(fields map[string]string) ([]byte, error) {
+	if fields == nil {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(fields)
+}
+
+// unmarshalExtraFields deserializes JSONB bytes to a map.
+func unmarshalExtraFields(raw []byte) map[string]string {
+	if len(raw) == 0 {
+		return make(map[string]string)
+	}
+	var m map[string]string
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return make(map[string]string)
+	}
+	return m
 }

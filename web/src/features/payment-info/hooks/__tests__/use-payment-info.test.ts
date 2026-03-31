@@ -194,6 +194,8 @@ describe("useSavePaymentInfo", () => {
           routingNumber: "",
           accountHolder: "Alice Dupont",
           bankCountry: "FR",
+          country: "FR",
+          extraFields: {},
         },
         email: "alice@example.com",
       })
@@ -245,6 +247,8 @@ describe("useSavePaymentInfo", () => {
           routingNumber: "",
           accountHolder: "Alice Dupont",
           bankCountry: "FR",
+          country: "FR",
+          extraFields: {},
         },
       })
     })

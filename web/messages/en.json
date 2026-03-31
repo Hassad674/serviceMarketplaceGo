@@ -393,7 +393,7 @@
     "emptyState": "No active missions",
     "emptyStateSubtitle": "Your projects will appear here once payment is confirmed.",
     "with": "With",
-    "completionPending": "Completion requested \u2014 Awaiting validation",
+    "completionPending": "Completion requested — Awaiting validation",
     "completed": "Completed"
   },
   "job": {
@@ -716,7 +716,22 @@
     "setupPaymentsTitle": "Set up payments",
     "setupPaymentsDescription": "To receive payments, you need to set up your Stripe account. It only takes a few minutes.",
     "setupPaymentsButton": "Set up my account",
-    "stripeAccountId": "Stripe account"
+    "stripeAccountId": "Stripe account",
+    "activityCountry": "Activity Country",
+    "activityCountryDesc": "Where is your professional activity based?",
+    "selectCountry": "Select a country...",
+    "idNumber": "National ID Number",
+    "ssnLast4": "SSN (last 4 digits)",
+    "stateProvince": "State / Province",
+    "firstNameKana": "First Name (Kana)",
+    "lastNameKana": "Last Name (Kana)",
+    "firstNameKanji": "First Name (Kanji)",
+    "lastNameKanji": "Last Name (Kanji)",
+    "politicalExposure": "Political Exposure",
+    "countrySpecificFields": "Country-Specific Requirements",
+    "countrySpecificFieldsDesc": "Additional fields required for your country.",
+    "businessDocument": "Business Verification Document",
+    "businessDocumentDesc": "Upload a document to verify your business."
   },
   "notifications": {
     "title": "Notifications",
