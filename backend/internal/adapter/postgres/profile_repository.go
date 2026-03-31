@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/profile"
 )
@@ -149,6 +150,52 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string,
 		results = []*profile.PublicProfile{}
 	}
 
+	return results, nil
+}
+
+func (r *ProfileRepository) GetPublicProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if len(userIDs) == 0 {
+		return []*profile.PublicProfile{}, nil
+	}
+
+	query := `
+		SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
+		       COALESCE(p.title, ''), COALESCE(p.photo_url, '')
+		FROM users u
+		LEFT JOIN profiles p ON p.user_id = u.id
+		WHERE u.id = ANY($1)`
+
+	ids := make([]string, len(userIDs))
+	for i, id := range userIDs {
+		ids[i] = id.String()
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("get public profiles by user ids: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*profile.PublicProfile
+	for rows.Next() {
+		pp := &profile.PublicProfile{}
+		if err := rows.Scan(
+			&pp.UserID, &pp.DisplayName, &pp.FirstName, &pp.LastName,
+			&pp.Role, &pp.ReferrerEnabled, &pp.Title, &pp.PhotoURL,
+		); err != nil {
+			return nil, fmt.Errorf("scan public profile: %w", err)
+		}
+		results = append(results, pp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	if results == nil {
+		results = []*profile.PublicProfile{}
+	}
 	return results, nil
 }
 

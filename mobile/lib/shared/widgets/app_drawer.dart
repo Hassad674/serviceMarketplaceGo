@@ -59,6 +59,18 @@ const _primaryItems = [
     roles: ['enterprise', 'agency'],
   ),
   _DrawerItem(
+    labelKey: 'drawerOpportunities',
+    icon: Icons.work_outline,
+    route: RoutePaths.opportunities,
+    roles: ['provider', 'agency'],
+  ),
+  _DrawerItem(
+    labelKey: 'drawerMyApplications',
+    icon: Icons.description_outlined,
+    route: RoutePaths.myApplications,
+    roles: ['provider', 'agency'],
+  ),
+  _DrawerItem(
     labelKey: 'drawerProfile',
     icon: Icons.person_outline,
     route: RoutePaths.profile,
@@ -417,6 +429,10 @@ class _DrawerNavTile extends StatelessWidget {
         return l10n.drawerProjects;
       case 'drawerJobs':
         return l10n.drawerJobs;
+      case 'drawerOpportunities':
+        return 'Opportunit\u00e9s';
+      case 'drawerMyApplications':
+        return 'Mes candidatures';
       case 'drawerProfile':
         return l10n.drawerProfile;
       case 'drawerFindFreelancers':

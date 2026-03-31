@@ -18,4 +18,14 @@ var (
 	ErrInvalidPaymentFrequency = errors.New("invalid payment frequency")
 	ErrInvalidDescriptionType  = errors.New("invalid description type")
 	ErrVideoURLRequired        = errors.New("video URL is required for video description")
+
+	// Job application errors.
+	ErrApplicationNotFound       = errors.New("job application not found")
+	ErrAlreadyApplied            = errors.New("already applied to this job")
+	ErrCannotApplyToOwnJob       = errors.New("cannot apply to your own job")
+	ErrCannotApplyToClosed       = errors.New("cannot apply to a closed job")
+	ErrEmptyApplicationMessage   = errors.New("application message cannot be empty")
+	ErrApplicationMessageTooLong = errors.New("application message exceeds maximum length")
+	ErrNotApplicant              = errors.New("not the applicant of this application")
+	ErrApplicantTypeMismatch     = errors.New("your role does not match the required applicant type")
 )

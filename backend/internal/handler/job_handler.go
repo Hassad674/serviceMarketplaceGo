@@ -139,6 +139,22 @@ func handleJobError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "invalid_description_type", err.Error())
 	case errors.Is(err, jobdomain.ErrVideoURLRequired):
 		res.Error(w, http.StatusBadRequest, "video_url_required", err.Error())
+	case errors.Is(err, jobdomain.ErrApplicationNotFound):
+		res.Error(w, http.StatusNotFound, "application_not_found", err.Error())
+	case errors.Is(err, jobdomain.ErrAlreadyApplied):
+		res.Error(w, http.StatusConflict, "already_applied", err.Error())
+	case errors.Is(err, jobdomain.ErrCannotApplyToOwnJob):
+		res.Error(w, http.StatusForbidden, "cannot_apply_own_job", err.Error())
+	case errors.Is(err, jobdomain.ErrCannotApplyToClosed):
+		res.Error(w, http.StatusBadRequest, "job_closed", err.Error())
+	case errors.Is(err, jobdomain.ErrNotApplicant):
+		res.Error(w, http.StatusForbidden, "not_applicant", err.Error())
+	case errors.Is(err, jobdomain.ErrApplicantTypeMismatch):
+		res.Error(w, http.StatusForbidden, "applicant_type_mismatch", err.Error())
+	case errors.Is(err, jobdomain.ErrEmptyApplicationMessage):
+		res.Error(w, http.StatusBadRequest, "empty_message", err.Error())
+	case errors.Is(err, jobdomain.ErrApplicationMessageTooLong):
+		res.Error(w, http.StatusBadRequest, "message_too_long", err.Error())
 	default:
 		slog.Error("unhandled job error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")

@@ -61,3 +61,56 @@ export type JobListResponse = {
   next_cursor: string
   has_more: boolean
 }
+
+// --- Job Application types ---
+
+export type JobApplicationResponse = {
+  id: string
+  job_id: string
+  applicant_id: string
+  message: string
+  video_url?: string
+  created_at: string
+}
+
+export type PublicProfileSummary = {
+  user_id: string
+  display_name: string
+  first_name: string
+  last_name: string
+  role: string
+  title: string
+  photo_url: string
+  referrer_enabled: boolean
+}
+
+export type ApplicationWithProfile = {
+  application: JobApplicationResponse
+  profile: PublicProfileSummary
+}
+
+export type ApplicationWithJob = {
+  application: JobApplicationResponse
+  job: JobResponse
+}
+
+export type ApplicationListResponse = {
+  data: ApplicationWithProfile[]
+  next_cursor: string
+  has_more: boolean
+}
+
+export type MyApplicationListResponse = {
+  data: ApplicationWithJob[]
+  next_cursor: string
+  has_more: boolean
+}
+
+export type OpenJobListFilters = {
+  skills?: string[]
+  applicant_type?: string
+  budget_type?: string
+  min_budget?: number
+  max_budget?: number
+  search?: string
+}
