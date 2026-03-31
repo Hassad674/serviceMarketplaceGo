@@ -23,10 +23,9 @@ type CountryFieldsResponse struct {
 
 // FieldSection groups related fields under an entity.
 type FieldSection struct {
-	ID        string      `json:"id"`
-	TitleKey  string      `json:"title_key"`
-	CanBeSelf bool        `json:"can_be_self,omitempty"`
-	Fields    []FieldSpec `json:"fields"`
+	ID       string      `json:"id"`
+	TitleKey string      `json:"title_key"`
+	Fields   []FieldSpec `json:"fields"`
 }
 
 // FieldSpec describes a single form field.
@@ -155,13 +154,6 @@ var sectionOrder = []string{
 	"directors", "owners", "executives",
 }
 
-// canBeSelfSections are person sections where a "I am also this person" toggle applies.
-var canBeSelfSections = map[string]bool{
-	"directors":  true,
-	"owners":     true,
-	"executives": true,
-}
-
 // buildSections converts the sectionMap into ordered FieldSections.
 func buildSections(sectionMap map[string][]FieldSpec) []FieldSection {
 	var sections []FieldSection
@@ -169,10 +161,9 @@ func buildSections(sectionMap map[string][]FieldSpec) []FieldSection {
 	for _, id := range sectionOrder {
 		if fields, ok := sectionMap[id]; ok && len(fields) > 0 {
 			sections = append(sections, FieldSection{
-				ID:        id,
-				TitleKey:  domain.SectionTitleKey(id),
-				CanBeSelf: canBeSelfSections[id],
-				Fields:    fields,
+				ID:       id,
+				TitleKey: domain.SectionTitleKey(id),
+				Fields:   fields,
 			})
 			delete(sectionMap, id)
 		}

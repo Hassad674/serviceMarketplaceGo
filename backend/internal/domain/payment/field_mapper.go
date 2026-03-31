@@ -130,13 +130,13 @@ var autoHandledPrefixes = []string{
 	"business_profile.",
 	"external_account",
 	"settings.",
+	"documents.",
 }
 
-// autoHandledContains are substrings that mark a path as auto-handled.
-var autoHandledContains = []string{
-	".verification.document",
-	".verification.additional_document",
-	"proof_of_liveness",
+// autoHandledTerminals are terminal segments that are auto-handled.
+var autoHandledTerminals = []string{
+	"files",
+	"business_cross_border_transaction_classifications",
 }
 
 // IsAutoHandled returns true for paths handled internally.
@@ -146,13 +146,14 @@ func IsAutoHandled(path string) bool {
 			return true
 		}
 	}
-	for _, sub := range autoHandledContains {
-		if strings.Contains(path, sub) {
-			return true
-		}
-	}
 	if strings.HasSuffix(path, "_provided") {
 		return true
+	}
+	terminal := terminalSegment(path)
+	for _, t := range autoHandledTerminals {
+		if terminal == t {
+			return true
+		}
 	}
 	return false
 }
@@ -210,44 +211,40 @@ func FieldInputType(path string) string {
 
 // fieldLabelKeys maps terminal field names to i18n label keys.
 var fieldLabelKeys = map[string]string{
-	"first_name":              "firstName",
-	"last_name":               "lastName",
-	"dob":                     "dateOfBirth",
-	"email":                   "email",
-	"phone":                   "phone",
-	"line1":                   "address",
-	"city":                    "city",
-	"postal_code":             "postalCode",
-	"state":                   "stateProvince",
-	"country":                 "country",
-	"nationality":             "nationality",
-	"name":                    "businessName",
-	"tax_id":                  "taxId",
-	"id_number":               "idNumber",
-	"ssn_last_4":              "ssnLast4",
-	"first_name_kana":         "firstNameKana",
-	"last_name_kana":          "lastNameKana",
-	"first_name_kanji":        "firstNameKanji",
-	"last_name_kanji":         "lastNameKanji",
-	"political_exposure":      "politicalExposure",
-	"town":                    "town",
-	"document":                "document",
-	"additional_document":     "additionalDocument",
-	"proof_of_liveness":       "proofOfLiveness",
-	"id_number_secondary":     "idNumberSecondary",
-	"structure":               "structure",
-	"executive":               "executive",
-	"business_vat_id_number":  "businessVatIdNumber",
-	"full_name_aliases":       "fullNameAliases",
-	"maiden_name":             "maidenName",
-	"gender":                  "gender",
-	"registered_address":      "registeredAddress",
-	"percent_ownership":       "percentOwnership",
+	"first_name":        "firstName",
+	"last_name":         "lastName",
+	"dob":               "dateOfBirth",
+	"email":             "email",
+	"phone":             "phone",
+	"line1":             "address",
+	"line2":             "addressLine2",
+	"city":              "city",
+	"postal_code":       "postalCode",
+	"state":             "stateProvince",
+	"country":           "country",
+	"nationality":       "nationality",
+	"name":              "businessName",
+	"tax_id":            "taxId",
+	"id_number":         "idNumber",
+	"ssn_last_4":        "ssnLast4",
+	"first_name_kana":   "firstNameKana",
+	"last_name_kana":    "lastNameKana",
+	"first_name_kanji":  "firstNameKanji",
+	"last_name_kanji":   "lastNameKanji",
+	"political_exposure": "politicalExposure",
+	"town":              "town",
+	"registration_number":         "registrationNumber",
+	"vat_id":                      "vatId",
+	"vat_registration_status":     "vatRegistrationStatus",
+	"ownership_exemption_reason":  "ownershipExemptionReason",
+	"name_kana":                   "companyNameKana",
+	"name_kanji":                  "companyNameKanji",
 }
 
 // companyLabelOverrides maps company-specific fields to distinct i18n labels.
 var companyLabelOverrides = map[string]string{
 	"company.address.line1":       "businessAddress",
+	"company.address.line2":       "businessAddressLine2",
 	"company.address.city":        "businessCity",
 	"company.address.postal_code": "businessPostalCode",
 	"company.address.state":       "businessState",

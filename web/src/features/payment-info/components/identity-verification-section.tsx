@@ -25,7 +25,11 @@ const DOC_TYPES = [
 
 type UploadStep = { type: string; side: string; sideIndex: number; totalSides: number }
 
-export function IdentityVerificationSection() {
+interface IdentityVerificationSectionProps {
+  category?: "identity" | "company"
+}
+
+export function IdentityVerificationSection({ category = "identity" }: IdentityVerificationSectionProps) {
   const t = useTranslations("paymentInfo")
   const { data: docs, isLoading } = useIdentityDocuments()
   const uploadMutation = useUploadIdentityDocument()
@@ -36,7 +40,7 @@ export function IdentityVerificationSection() {
   const [currentStep, setCurrentStep] = useState<UploadStep | null>(null)
 
   const allDocs = docs ?? []
-  const identityDocs = allDocs.filter((d) => d.category === "identity")
+  const identityDocs = allDocs.filter((d) => d.category === category)
   const status = getOverallStatus(identityDocs)
 
   function openModal() {
@@ -76,13 +80,13 @@ export function IdentityVerificationSection() {
 
     // Upload in background — UI already moved on
     uploadMutation.mutate(
-      { file, category: "identity", documentType: step.type, side: step.side },
+      { file, category, documentType: step.type, side: step.side },
     )
   }
 
   if (isLoading) {
     return (
-      <SectionShell>
+      <SectionShell category={category}>
         <div className="flex justify-center py-4">
           <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
         </div>
@@ -91,7 +95,7 @@ export function IdentityVerificationSection() {
   }
 
   return (
-    <SectionShell>
+    <SectionShell category={category}>
       {/* State: no documents uploaded yet */}
       {status === "none" && (
         <button
@@ -240,8 +244,9 @@ export function IdentityVerificationSection() {
   )
 }
 
-function SectionShell({ children }: { children: React.ReactNode }) {
+function SectionShell({ children, category = "identity" }: { children: React.ReactNode; category?: "identity" | "company" }) {
   const t = useTranslations("paymentInfo")
+  const isCompany = category === "company"
   return (
     <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
       <div className="h-1 bg-gradient-to-r from-rose-500 to-purple-500" />
@@ -252,10 +257,10 @@ function SectionShell({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-              {t("identityVerification")}
+              {isCompany ? t("businessDocument") : t("identityVerification")}
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {t("identityVerificationDesc")}
+              {isCompany ? t("businessDocumentDesc") : t("identityVerificationDesc")}
             </p>
           </div>
         </div>
