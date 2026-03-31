@@ -17,6 +17,10 @@ export type BusinessPersonData = {
 
 export type PaymentInfoFormData = {
   isBusiness: boolean
+  country: string
+  /** Path-keyed values: "individual.first_name" -> "Jean" */
+  values: Record<string, string>
+  // Legacy flat fields kept for save compatibility
   firstName: string
   lastName: string
   dateOfBirth: string
@@ -46,12 +50,13 @@ export type PaymentInfoFormData = {
   routingNumber: string
   accountHolder: string
   bankCountry: string
-  country: string
   extraFields: Record<string, string>
 }
 
 export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   isBusiness: false,
+  country: "",
+  values: {},
   firstName: "",
   lastName: "",
   dateOfBirth: "",
@@ -81,6 +86,31 @@ export const INITIAL_FORM_DATA: PaymentInfoFormData = {
   routingNumber: "",
   accountHolder: "",
   bankCountry: "",
-  country: "",
   extraFields: {},
 }
+
+/** Activity sector options for the MCC dropdown. */
+export const ACTIVITY_SECTORS = [
+  { mcc: "7372", labelKey: "sectorDev" },
+  { mcc: "7333", labelKey: "sectorDesign" },
+  { mcc: "7311", labelKey: "sectorMarketing" },
+  { mcc: "7392", labelKey: "sectorConsulting" },
+  { mcc: "7339", labelKey: "sectorAdmin" },
+  { mcc: "7221", labelKey: "sectorPhoto" },
+  { mcc: "7338", labelKey: "sectorWriting" },
+  { mcc: "8299", labelKey: "sectorTraining" },
+  { mcc: "8931", labelKey: "sectorAccounting" },
+  { mcc: "8911", labelKey: "sectorEngineering" },
+  { mcc: "8111", labelKey: "sectorLegal" },
+  { mcc: "8099", labelKey: "sectorHealth" },
+  { mcc: "8999", labelKey: "sectorOther" },
+] as const
+
+/** Business role options. */
+export const BUSINESS_ROLES: { value: BusinessRole; labelKey: string }[] = [
+  { value: "owner", labelKey: "roleOwner" },
+  { value: "ceo", labelKey: "roleCeo" },
+  { value: "director", labelKey: "roleDirector" },
+  { value: "partner", labelKey: "rolePartner" },
+  { value: "other", labelKey: "roleOther" },
+]

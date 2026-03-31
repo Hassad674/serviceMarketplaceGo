@@ -31,16 +31,22 @@ class FieldSpec {
   }
 }
 
-/// A section of related fields.
+/// A section of related fields grouped by entity.
 class FieldSection {
-  const FieldSection({required this.id, required this.fields});
+  const FieldSection({
+    required this.id,
+    required this.titleKey,
+    required this.fields,
+  });
 
   final String id;
+  final String titleKey;
   final List<FieldSpec> fields;
 
   factory FieldSection.fromJson(Map<String, dynamic> json) {
     return FieldSection(
       id: json['id'] as String? ?? '',
+      titleKey: json['title_key'] as String? ?? '',
       fields: (json['fields'] as List<dynamic>?)
               ?.map((e) => FieldSpec.fromJson(e as Map<String, dynamic>))
               .toList() ??

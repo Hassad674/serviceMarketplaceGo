@@ -109,6 +109,7 @@ class PaymentInfoFormData {
     this.accountHolder = '',
     this.bankCountry = '',
     this.country = '',
+    this.values = const {},
     this.extraFields = const {},
   });
 
@@ -143,6 +144,8 @@ class PaymentInfoFormData {
   final String accountHolder;
   final String bankCountry;
   final String country;
+  /// Path-keyed values: "individual.first_name" -> "Jean"
+  final Map<String, String> values;
   final Map<String, String> extraFields;
 
   PaymentInfoFormData copyWith({
@@ -177,6 +180,7 @@ class PaymentInfoFormData {
     String? accountHolder,
     String? bankCountry,
     String? country,
+    Map<String, String>? values,
     Map<String, String>? extraFields,
   }) {
     return PaymentInfoFormData(
@@ -212,6 +216,7 @@ class PaymentInfoFormData {
       accountHolder: accountHolder ?? this.accountHolder,
       bankCountry: bankCountry ?? this.bankCountry,
       country: country ?? this.country,
+      values: values ?? this.values,
       extraFields: extraFields ?? this.extraFields,
     );
   }

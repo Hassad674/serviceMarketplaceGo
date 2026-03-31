@@ -98,14 +98,13 @@ export function CountrySelector({ value, onChange }: CountrySelectorProps) {
   )
 }
 
-/** Detect country from browser locale. */
-export function detectBrowserCountry(): string {
-  if (typeof navigator === "undefined") return ""
-  const lang = navigator.language || ""
-  // "fr-FR" → "FR", "en-US" → "US", "de" → "DE"
-  const parts = lang.split("-")
-  const candidate = (parts[1] ?? parts[0]).toUpperCase()
-  if (candidate.length === 2 && STRIPE_COUNTRIES.some((c) => c.code === candidate)) {
+/** Detect country from a locale string (next-intl or browser). */
+export function detectCountryFromLocale(locale: string): string {
+  const map: Record<string, string> = {
+    fr: "FR", en: "US", de: "DE", es: "ES", it: "IT", pt: "PT", nl: "NL", ja: "JP",
+  }
+  const candidate = map[locale]
+  if (candidate && STRIPE_COUNTRIES.some((c) => c.code === candidate)) {
     return candidate
   }
   return ""

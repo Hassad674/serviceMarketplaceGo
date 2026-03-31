@@ -3,12 +3,13 @@ package payment
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	domain "marketplace-backend/internal/domain/payment"
 )
 
-// CountryFieldsResponse describes the fields needed for a specific country and business type.
+// CountryFieldsResponse describes the fields needed for a specific country.
 type CountryFieldsResponse struct {
 	Country      string         `json:"country"`
 	BusinessType string         `json:"business_type"`
@@ -20,10 +21,11 @@ type CountryFieldsResponse struct {
 	PersonRoles []string `json:"person_roles"`
 }
 
-// FieldSection groups related fields.
+// FieldSection groups related fields under an entity.
 type FieldSection struct {
-	ID     string      `json:"id"`
-	Fields []FieldSpec `json:"fields"`
+	ID       string      `json:"id"`
+	TitleKey string      `json:"title_key"`
+	Fields   []FieldSpec `json:"fields"`
 }
 
 // FieldSpec describes a single form field.
@@ -37,19 +39,21 @@ type FieldSpec struct {
 	Placeholder string `json:"placeholder,omitempty"`
 }
 
-// autoFields are handled automatically and should not appear in the form.
-var autoFields = map[string]bool{
-	"business_type":              true,
-	"tos_acceptance.date":        true,
-	"tos_acceptance.ip":          true,
-	"external_account":           true,
-	"business_profile.mcc":       true,
-	"business_profile.url":       true,
-	"business_profile.product_description": true,
+// ibanCountries use IBAN format for bank accounts.
+var ibanCountries = map[string]bool{
+	"AT": true, "BE": true, "BG": true, "CH": true, "CY": true,
+	"CZ": true, "DE": true, "DK": true, "EE": true, "ES": true,
+	"FI": true, "FR": true, "GB": true, "GI": true, "GR": true,
+	"HR": true, "HU": true, "IE": true, "IT": true, "LI": true,
+	"LT": true, "LU": true, "LV": true, "MT": true, "NL": true,
+	"NO": true, "PL": true, "PT": true, "RO": true, "SE": true,
+	"SI": true, "SK": true,
 }
 
 // GetCountryFields returns the field requirements for a specific country.
-func (s *Service) GetCountryFields(ctx context.Context, country, businessType string) (*CountryFieldsResponse, error) {
+func (s *Service) GetCountryFields(
+	ctx context.Context, country, businessType string,
+) (*CountryFieldsResponse, error) {
 	if s.countrySpecs == nil {
 		return nil, fmt.Errorf("country spec service not configured")
 	}
@@ -60,51 +64,37 @@ func (s *Service) GetCountryFields(ctx context.Context, country, businessType st
 	}
 
 	fields := pickFieldsByBusinessType(spec, businessType)
-	return buildCountryFieldsResponse(spec, fields, country, businessType), nil
+	return buildResponse(spec, fields, country, businessType), nil
 }
 
-// pickFieldsByBusinessType returns the minimum fields for the given business type.
-func pickFieldsByBusinessType(spec *domain.CountryFieldSpec, businessType string) []string {
+func pickFieldsByBusinessType(
+	spec *domain.CountryFieldSpec, businessType string,
+) []string {
 	if businessType == "company" {
 		return spec.CompanyMinimum
 	}
 	return spec.IndividualMinimum
 }
 
-// buildCountryFieldsResponse creates the response from spec and fields.
-func buildCountryFieldsResponse(spec *domain.CountryFieldSpec, fields []string, country, businessType string) *CountryFieldsResponse {
+// buildResponse creates the response grouped by entity sections.
+func buildResponse(
+	spec *domain.CountryFieldSpec, fields []string,
+	country, businessType string,
+) *CountryFieldsResponse {
 	resp := &CountryFieldsResponse{
 		Country:      country,
 		BusinessType: businessType,
 	}
 
-	sections := map[string][]FieldSpec{
-		"personal": {},
-		"address":  {},
-		"extra":    {},
-		"bank":     {},
-	}
+	sectionMap := make(map[string][]FieldSpec)
+	dobSeen := make(map[string]bool)
 
 	for _, path := range fields {
-		if isAutoField(path) {
-			continue
-		}
-
-		if docType, ok := domain.IsDocumentField(path); ok {
-			setDocumentRequired(resp, docType)
-			continue
-		}
-
-		fieldSpec := mapPathToFieldSpec(path)
-		section := categorizeField(path)
-		sections[section] = append(sections[section], fieldSpec)
+		processField(path, resp, sectionMap, dobSeen)
 	}
 
-	for _, id := range []string{"personal", "address", "extra", "bank"} {
-		if len(sections[id]) > 0 {
-			resp.Sections = append(resp.Sections, FieldSection{ID: id, Fields: sections[id]})
-		}
-	}
+	resp.Sections = buildSections(sectionMap)
+	appendBankSection(resp, country)
 
 	if businessType == "company" {
 		resp.PersonRoles = domain.RequiredPersonRoles(spec.CompanyMinimum)
@@ -113,28 +103,118 @@ func buildCountryFieldsResponse(spec *domain.CountryFieldSpec, fields []string, 
 	return resp
 }
 
-// mapPathToFieldSpec converts a Stripe field path to a FieldSpec.
-func mapPathToFieldSpec(path string) FieldSpec {
-	dbField, isExtra := domain.MapStripeField(path)
-	key := extractKey(path)
-	return FieldSpec{
-		Path:     path,
-		Key:      key,
-		Type:     inferFieldType(key),
-		LabelKey: key,
-		Required: true,
-		IsExtra:  isExtra,
-		Placeholder: placeholderForField(dbField),
+// processField handles a single Stripe field path.
+func processField(
+	path string, resp *CountryFieldsResponse,
+	sectionMap map[string][]FieldSpec, dobSeen map[string]bool,
+) {
+	if domain.IsAutoHandled(path) {
+		return
 	}
+	if docType, ok := domain.IsDocumentField(path); ok {
+		setDocumentRequired(resp, docType)
+		return
+	}
+	// Collapse dob.day/month/year into a single date field per entity
+	if domain.IsDOBComponent(path) {
+		entity := domain.EntityFromPath(path)
+		if dobSeen[entity] {
+			return
+		}
+		dobSeen[entity] = true
+		dobPath := entity + ".dob"
+		_, isExtra := domain.MapStripeField(path)
+		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+			Path:     dobPath,
+			Key:      dobPath,
+			Type:     "date",
+			LabelKey: "dateOfBirth",
+			Required: true,
+			IsExtra:  isExtra,
+		})
+		return
+	}
+
+	entity := domain.EntityFromPath(path)
+	_, isExtra := domain.MapStripeField(path)
+	sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+		Path:        path,
+		Key:         path,
+		Type:        domain.FieldInputType(path),
+		LabelKey:    domain.FieldLabelKey(path),
+		Required:    true,
+		IsExtra:     isExtra,
+		Placeholder: domain.FieldPlaceholder(path),
+	})
 }
 
-func isAutoField(path string) bool {
-	for prefix := range autoFields {
-		if strings.HasPrefix(path, prefix) {
-			return true
+// sectionOrder defines the display order of entity sections.
+var sectionOrder = []string{
+	"individual", "representative", "company",
+	"directors", "owners", "executives",
+}
+
+// buildSections converts the sectionMap into ordered FieldSections.
+func buildSections(sectionMap map[string][]FieldSpec) []FieldSection {
+	var sections []FieldSection
+
+	for _, id := range sectionOrder {
+		if fields, ok := sectionMap[id]; ok && len(fields) > 0 {
+			sections = append(sections, FieldSection{
+				ID:       id,
+				TitleKey: domain.SectionTitleKey(id),
+				Fields:   fields,
+			})
+			delete(sectionMap, id)
 		}
 	}
-	return false
+
+	// Add any remaining unknown sections alphabetically
+	remaining := make([]string, 0, len(sectionMap))
+	for id := range sectionMap {
+		remaining = append(remaining, id)
+	}
+	sort.Strings(remaining)
+	for _, id := range remaining {
+		if len(sectionMap[id]) > 0 {
+			sections = append(sections, FieldSection{
+				ID:       id,
+				TitleKey: domain.SectionTitleKey(id),
+				Fields:   sectionMap[id],
+			})
+		}
+	}
+
+	return sections
+}
+
+// appendBankSection adds the bank account section to the response.
+func appendBankSection(resp *CountryFieldsResponse, country string) {
+	isIBAN := ibanCountries[strings.ToUpper(country)]
+	var bankFields []FieldSpec
+
+	if isIBAN {
+		bankFields = []FieldSpec{
+			{Path: "bank.iban", Key: "bank.iban", Type: "text", LabelKey: "iban", Required: true},
+			{Path: "bank.bic", Key: "bank.bic", Type: "text", LabelKey: "bic", Required: false},
+		}
+	} else {
+		bankFields = []FieldSpec{
+			{Path: "bank.account_number", Key: "bank.account_number", Type: "text", LabelKey: "accountNumber", Required: true},
+			{Path: "bank.routing_number", Key: "bank.routing_number", Type: "text", LabelKey: "routingNumber", Required: true},
+		}
+	}
+
+	bankFields = append(bankFields,
+		FieldSpec{Path: "bank.account_holder", Key: "bank.account_holder", Type: "text", LabelKey: "accountHolder", Required: true},
+		FieldSpec{Path: "bank.bank_country", Key: "bank.bank_country", Type: "select", LabelKey: "bankCountry", Required: true},
+	)
+
+	resp.Sections = append(resp.Sections, FieldSection{
+		ID:       "bank",
+		TitleKey: "bankAccount",
+		Fields:   bankFields,
+	})
 }
 
 func setDocumentRequired(resp *CountryFieldsResponse, docType string) {
@@ -143,46 +223,4 @@ func setDocumentRequired(resp *CountryFieldsResponse, docType string) {
 	} else if docType == "company" {
 		resp.DocumentsRequired.Company = true
 	}
-}
-
-func categorizeField(path string) string {
-	if strings.Contains(path, "address") {
-		return "address"
-	}
-	if strings.Contains(path, "external_account") || strings.Contains(path, "bank") {
-		return "bank"
-	}
-	_, isExtra := domain.MapStripeField(path)
-	if isExtra {
-		return "extra"
-	}
-	return "personal"
-}
-
-func extractKey(path string) string {
-	parts := strings.Split(path, ".")
-	return parts[len(parts)-1]
-}
-
-func inferFieldType(key string) string {
-	switch key {
-	case "dob", "day", "month", "year":
-		return "date"
-	case "political_exposure":
-		return "select"
-	default:
-		return "text"
-	}
-}
-
-func placeholderForField(dbField string) string {
-	placeholders := map[string]string{
-		"id_number":  "National ID number",
-		"ssn_last_4": "Last 4 digits of SSN",
-		"state":      "State / Province",
-	}
-	if p, ok := placeholders[dbField]; ok {
-		return p
-	}
-	return ""
 }

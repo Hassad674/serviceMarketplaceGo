@@ -456,7 +456,6 @@
     "referrerProfile": "Profil de l'apporteur d'affaires",
     "referrerProfileDesc": "Voir les détails de l'apporteur d'affaires",
     "profileNotFound": "Profil introuvable",
-    "back": "Retour",
     "backToAgencies": "Retour aux agences",
     "backToFreelancers": "Retour aux freelances",
     "photoAlt": "Photo de profil",
@@ -732,7 +731,12 @@
     "countrySpecificFields": "Informations specifiques au pays",
     "countrySpecificFieldsDesc": "Champs supplementaires requis pour votre pays.",
     "businessDocument": "Document de verification d'entreprise",
-    "businessDocumentDesc": "Telechargez un document pour verifier votre entreprise."
+    "businessDocumentDesc": "Telechargez un document pour verifier votre entreprise.",
+    "companyInfo": "Informations de l'entreprise",
+    "town": "Ville",
+    "roleTitle": "Titre / Fonction",
+    "email": "Email",
+    "businessState": "Etat / Province du siege"
   },
   "notifications": {
     "title": "Notifications",
@@ -827,8 +831,6 @@
     "requiredSkills": "Compétences requises",
     "watchVideo": "Voir la vidéo",
     "loadMore": "Charger plus",
-    "uploadVideo": "Ajouter une vid\u00e9o",
-    "uploading": "Envoi en cours...",
     "error": "Une erreur est survenue"
   }
 }

@@ -195,6 +195,7 @@ describe("useSavePaymentInfo", () => {
           accountHolder: "Alice Dupont",
           bankCountry: "FR",
           country: "FR",
+          values: {},
           extraFields: {},
         },
         email: "alice@example.com",
@@ -248,6 +249,7 @@ describe("useSavePaymentInfo", () => {
           accountHolder: "Alice Dupont",
           bankCountry: "FR",
           country: "FR",
+          values: {},
           extraFields: {},
         },
       })

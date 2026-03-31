@@ -15,6 +15,7 @@ export type FieldSpec = {
 
 export type FieldSection = {
   id: string
+  title_key: string
   fields: FieldSpec[]
 }
 

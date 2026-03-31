@@ -88,9 +88,15 @@ async function selectByLabel(page: Page, label: string, value: string) {
   await select.selectOption(value)
 }
 
-/** Navigate to payment info page from dashboard. Forces EN locale. */
+/** Navigate to payment info page from dashboard. */
 async function navigateToPaymentInfo(page: Page) {
-  await page.goto("/en/payment-info")
+  const hamburger = page.getByRole("button", { name: "Open menu" })
+  if (await hamburger.isVisible().catch(() => false)) {
+    await hamburger.click()
+    await page.waitForTimeout(350)
+  }
+  await page.getByRole("link", { name: /Payment Info/i }).click()
+  await page.waitForURL("**/payment-info", { timeout: 10000 })
   await expect(
     page.getByText("Payment Information").first(),
   ).toBeVisible({ timeout: 10000 })
@@ -98,14 +104,6 @@ async function navigateToPaymentInfo(page: Page) {
 
 /** Fill the personal info + bank account fields (shared between individual and business). */
 async function fillPersonalAndBank(page: Page, data: ReturnType<typeof kycData>) {
-  // Select FR as activity country (browser may auto-detect US or other)
-  // The country selector is the first <select> on the page
-  const firstSelect = page.locator("select").first()
-  if (await firstSelect.isVisible().catch(() => false)) {
-    await firstSelect.selectOption("FR")
-    await page.waitForTimeout(1000) // wait for country fields to load
-  }
-
   await fillByLabel(page, "First name", data.firstName)
   await fillByLabel(page, "Last name", data.lastName)
   const dobLabel = page.locator("label", { hasText: "Date of birth" }).first()
@@ -129,13 +127,9 @@ async function fillPersonalAndBank(page: Page, data: ReturnType<typeof kycData>)
 
 /** Click save and wait for success banner. */
 async function saveAndVerify(page: Page) {
-  // Scroll to the bottom of the page to reveal the Save button
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
-  await page.waitForTimeout(500)
-  const saveButton = page.getByRole("button", { name: /^Save$/i })
-  await expect(saveButton).toBeVisible({ timeout: 10000 })
-  await expect(saveButton).toBeEnabled({ timeout: 5000 })
-  await saveButton.click({ force: true })
+  const saveButton = page.getByRole("button", { name: /Save/i })
+  await expect(saveButton).toBeEnabled()
+  await saveButton.click()
   await expect(
     page.getByText("Payment information saved"),
   ).toBeVisible({ timeout: 30000 })
@@ -148,11 +142,8 @@ import path from "path"
  * Scrolls to the section, opens the modal, selects Passport, uploads the file.
  */
 async function uploadPassport(page: Page) {
-  // Identity Verification section may be hidden if documents are not in "minimum" for the country
+  // Scroll to identity verification section
   const section = page.getByText("Identity Verification").first()
-  if (!(await section.isVisible().catch(() => false))) {
-    return // documents not required for this country — skip upload
-  }
   await section.scrollIntoViewIfNeeded()
 
   // Click the upload zone (dashed border button)
@@ -240,7 +231,6 @@ test.describe("KYC Flow — Individual Provider", () => {
 
 test.describe("KYC Flow — Business Account", () => {
   test("register agency, fill business KYC with all fields, save and verify", async ({ page }) => {
-    test.setTimeout(60_000)
     await registerAgency(page)
     await navigateToPaymentInfo(page)
 
@@ -250,7 +240,7 @@ test.describe("KYC Flow — Business Account", () => {
     await page.getByRole("switch").click()
 
     // Wait for business sections to appear
-    await expect(page.getByText("Business Information")).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText("Company Information")).toBeVisible({ timeout: 5000 })
 
     // Fill personal (legal rep) info + bank
     await fillPersonalAndBank(page, data)
@@ -299,7 +289,7 @@ test.describe("KYC Flow — Business Account", () => {
 
     // Toggle business
     await page.getByRole("switch").click()
-    await expect(page.getByText("Business Information")).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText("Company Information")).toBeVisible({ timeout: 5000 })
 
     // Fill all fields
     await fillPersonalAndBank(page, data)
@@ -347,7 +337,7 @@ test.describe("KYC Flow — Business Account", () => {
 
     // Toggle business — click the switch button
     await page.getByRole("switch").click()
-    await expect(page.getByText("Business Information")).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText("Company Information")).toBeVisible({ timeout: 5000 })
 
     // Fill base fields
     await fillPersonalAndBank(page, data)
@@ -398,7 +388,7 @@ test.describe("KYC Flow — Business Account", () => {
     await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
 
     // Business toggle should still be on
-    await expect(page.getByText("Business Information")).toBeVisible()
+    await expect(page.getByText("Company Information")).toBeVisible()
 
     // Business name should persist
     const bizNameInput = page.locator("label", { hasText: "Business name" }).first().locator("..").locator("input")

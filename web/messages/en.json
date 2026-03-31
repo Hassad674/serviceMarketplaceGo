@@ -456,7 +456,6 @@
     "referrerProfile": "Referrer Profile",
     "referrerProfileDesc": "View business referrer details",
     "profileNotFound": "Profile not found",
-    "back": "Back",
     "backToAgencies": "Back to agencies",
     "backToFreelancers": "Back to freelancers",
     "photoAlt": "Profile photo",
@@ -732,7 +731,12 @@
     "countrySpecificFields": "Country-Specific Requirements",
     "countrySpecificFieldsDesc": "Additional fields required for your country.",
     "businessDocument": "Business Verification Document",
-    "businessDocumentDesc": "Upload a document to verify your business."
+    "businessDocumentDesc": "Upload a document to verify your business.",
+    "companyInfo": "Company Information",
+    "town": "Town",
+    "roleTitle": "Title / Role",
+    "email": "Email",
+    "businessState": "Business state / province"
   },
   "notifications": {
     "title": "Notifications",
@@ -827,8 +831,6 @@
     "requiredSkills": "Required skills",
     "watchVideo": "Watch video",
     "loadMore": "Load more",
-    "uploadVideo": "Upload a video",
-    "uploading": "Uploading...",
     "error": "An error occurred"
   }
 }
