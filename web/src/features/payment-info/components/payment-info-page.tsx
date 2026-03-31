@@ -39,13 +39,16 @@ export function PaymentInfoPage() {
   const businessType = data.isBusiness ? "company" : "individual"
   const { data: countryFields } = useCountryFields(data.country, businessType)
 
-  const documentsRequired = countryFields?.documents_required ?? { individual: true, company: false }
+  const documentsRequired = countryFields?.documents_required ?? { individual: false, company: false }
   const personRoles = countryFields?.person_roles ?? undefined
 
   // Filter sections: separate bank from entity sections
   const allSections = countryFields?.sections ?? []
   const entitySections = allSections.filter((s) => s.id !== "bank")
   const bankSection = allSections.find((s) => s.id === "bank")
+  const hasDocumentUploadFields = allSections.some((s) =>
+    s.fields.some((f) => f.type === "document_upload"),
+  )
 
   useEffect(() => {
     if (initialized || isLoading) return
@@ -146,9 +149,10 @@ export function PaymentInfoPage() {
         />
       )}
 
-      {/* Identity verification */}
-      {documentsRequired.individual && <IdentityVerificationSection category="identity" />}
-      {documentsRequired.company && <IdentityVerificationSection category="company" />}
+      {/* Identity verification — only show when country is selected and docs are required but NOT inline */}
+      {data.country && documentsRequired.individual && !hasDocumentUploadFields && (
+        <IdentityVerificationSection />
+      )}
 
       {/* Save button */}
       <button
@@ -245,6 +249,8 @@ function BusinessToggle({ checked, onToggle, t }: {
 function isFormValid(data: PaymentInfoFormData, sections: FieldSection[]): boolean {
   for (const section of sections) {
     for (const field of section.fields) {
+      // Skip document upload fields — they are validated separately
+      if (field.type === "document_upload") continue
       if (field.required && !(data.values[field.key] ?? "").trim()) {
         return false
       }

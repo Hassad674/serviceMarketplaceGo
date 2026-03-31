@@ -75,24 +75,47 @@ func MapStripeField(path string) (dbField string, isExtra bool) {
 	return key, true
 }
 
-// documentPrefixes maps Stripe verification paths to document types.
-var documentPrefixes = map[string]string{
-	"individual.verification.document":                "individual",
-	"individual.verification.additional_document":     "individual",
-	"company.verification.document":                   "company",
-	"company.verification.additional_document":        "company",
-	"representative.verification.document":            "individual",
-	"representative.verification.additional_document": "individual",
+// IsDocumentUploadField returns true for any path that represents a file/document
+// upload requirement from Stripe. These should render as upload zones, not text inputs.
+func IsDocumentUploadField(path string) bool {
+	if strings.Contains(path, "verification.document") ||
+		strings.Contains(path, "verification.additional_document") ||
+		strings.Contains(path, "verification.proof_of_liveness") ||
+		strings.Contains(path, "documents.") ||
+		strings.HasSuffix(path, ".files") {
+		return true
+	}
+	return false
 }
 
-// IsDocumentField checks if a Stripe field path is a document upload requirement.
-func IsDocumentField(path string) (docType string, ok bool) {
-	for prefix, dt := range documentPrefixes {
-		if strings.HasPrefix(path, prefix) {
-			return dt, true
-		}
+// DocumentCategoryFromPath returns "individual" or "company" based on the entity
+// prefix of a document upload path.
+func DocumentCategoryFromPath(path string) string {
+	entity := EntityFromPath(path)
+	if entity == "company" || entity == "documents" {
+		return "company"
 	}
-	return "", false
+	return "individual"
+}
+
+// DocumentTypeFromPath derives a document_type label from a Stripe document path.
+func DocumentTypeFromPath(path string) string {
+	if strings.Contains(path, "proof_of_liveness") {
+		return "proof_of_liveness"
+	}
+	if strings.Contains(path, "additional_document") {
+		return "additional_document"
+	}
+	if strings.Contains(path, "company_authorization") {
+		return "company_authorization"
+	}
+	if strings.Contains(path, "passport") {
+		return "passport"
+	}
+	if strings.Contains(path, "bank_account_ownership_verification") {
+		return "bank_account_ownership"
+	}
+	return "document"
 }
 
 // personRolePrefixes maps Stripe field path prefixes to person roles.
@@ -130,13 +153,6 @@ var autoHandledPrefixes = []string{
 	"business_profile.",
 	"external_account",
 	"settings.",
-	"documents.",
-}
-
-// autoHandledTerminals are terminal segments that are auto-handled.
-var autoHandledTerminals = []string{
-	"files",
-	"business_cross_border_transaction_classifications",
 }
 
 // IsAutoHandled returns true for paths handled internally.
@@ -149,12 +165,6 @@ func IsAutoHandled(path string) bool {
 	if strings.HasSuffix(path, "_provided") {
 		return true
 	}
-	terminal := terminalSegment(path)
-	for _, t := range autoHandledTerminals {
-		if terminal == t {
-			return true
-		}
-	}
 	return false
 }
 
@@ -163,6 +173,13 @@ func IsDOBComponent(path string) bool {
 	return strings.HasSuffix(path, ".dob.day") ||
 		strings.HasSuffix(path, ".dob.month") ||
 		strings.HasSuffix(path, ".dob.year")
+}
+
+// IsRegistrationDateComponent returns true for registration_date.day/month/year.
+func IsRegistrationDateComponent(path string) bool {
+	return strings.HasSuffix(path, ".registration_date.day") ||
+		strings.HasSuffix(path, ".registration_date.month") ||
+		strings.HasSuffix(path, ".registration_date.year")
 }
 
 // EntityFromPath extracts the entity prefix from a Stripe path.
@@ -182,6 +199,8 @@ var sectionTitleKeys = map[string]string{
 	"directors":      "directors",
 	"owners":         "owners",
 	"executives":     "executives",
+	"authorizer":     "authorizer",
+	"documents":      "companyDocuments",
 }
 
 // SectionTitleKey maps an entity to its i18n title key.
@@ -194,15 +213,21 @@ func SectionTitleKey(entity string) string {
 
 // FieldInputType returns the input type for a Stripe field path.
 func FieldInputType(path string) string {
+	if IsDocumentUploadField(path) {
+		return "document_upload"
+	}
 	terminal := terminalSegment(path)
 	switch terminal {
 	case "email":
 		return "email"
 	case "phone":
 		return "phone"
-	case "dob":
+	case "dob", "registration_date":
 		return "date"
-	case "nationality", "country", "political_exposure":
+	case "nationality", "country", "political_exposure",
+		"structure", "gender", "vat_registration_status":
+		return "select"
+	case "executive":
 		return "select"
 	default:
 		return "text"
@@ -211,40 +236,48 @@ func FieldInputType(path string) string {
 
 // fieldLabelKeys maps terminal field names to i18n label keys.
 var fieldLabelKeys = map[string]string{
-	"first_name":        "firstName",
-	"last_name":         "lastName",
-	"dob":               "dateOfBirth",
-	"email":             "email",
-	"phone":             "phone",
-	"line1":             "address",
-	"line2":             "addressLine2",
-	"city":              "city",
-	"postal_code":       "postalCode",
-	"state":             "stateProvince",
-	"country":           "country",
-	"nationality":       "nationality",
-	"name":              "businessName",
-	"tax_id":            "taxId",
-	"id_number":         "idNumber",
-	"ssn_last_4":        "ssnLast4",
-	"first_name_kana":   "firstNameKana",
-	"last_name_kana":    "lastNameKana",
-	"first_name_kanji":  "firstNameKanji",
-	"last_name_kanji":   "lastNameKanji",
-	"political_exposure": "politicalExposure",
-	"town":              "town",
-	"registration_number":         "registrationNumber",
-	"vat_id":                      "vatId",
-	"vat_registration_status":     "vatRegistrationStatus",
-	"ownership_exemption_reason":  "ownershipExemptionReason",
-	"name_kana":                   "companyNameKana",
-	"name_kanji":                  "companyNameKanji",
+	"first_name":          "firstName",
+	"last_name":           "lastName",
+	"dob":                 "dateOfBirth",
+	"email":               "email",
+	"phone":               "phone",
+	"line1":               "address",
+	"line2":               "addressLine2",
+	"city":                "city",
+	"postal_code":         "postalCode",
+	"state":               "stateProvince",
+	"country":             "country",
+	"nationality":         "nationality",
+	"name":                "businessName",
+	"tax_id":              "taxId",
+	"id_number":           "idNumber",
+	"id_number_secondary": "idNumberSecondary",
+	"ssn_last_4":          "ssnLast4",
+	"first_name_kana":     "firstNameKana",
+	"last_name_kana":      "lastNameKana",
+	"first_name_kanji":    "firstNameKanji",
+	"last_name_kanji":     "lastNameKanji",
+	"political_exposure":  "politicalExposure",
+	"town":                "town",
+	"full_name_aliases":   "fullNameAliases",
+	"gender":              "gender",
+	"percent_ownership":   "percentOwnership",
+	"structure":           "companyStructure",
+	"registration_number": "registrationNumber",
+	"registration_date":   "registrationDate",
+	"name_kana":           "businessNameKana",
+	"name_kanji":          "businessNameKanji",
+	"vat_id":              "vatId",
+	"executive":           "isExecutive",
+	"business_vat_id_number":         "businessVatIdNumber",
+	"vat_registration_status":        "vatRegistrationStatus",
+	"ownership_exemption_reason":     "ownershipExemptionReason",
+	"business_cross_border_transaction_classifications": "crossBorderClassifications",
 }
 
 // companyLabelOverrides maps company-specific fields to distinct i18n labels.
 var companyLabelOverrides = map[string]string{
 	"company.address.line1":       "businessAddress",
-	"company.address.line2":       "businessAddressLine2",
 	"company.address.city":        "businessCity",
 	"company.address.postal_code": "businessPostalCode",
 	"company.address.state":       "businessState",
@@ -254,16 +287,80 @@ var companyLabelOverrides = map[string]string{
 
 // FieldLabelKey returns the i18n label key for a Stripe field path.
 func FieldLabelKey(path string) string {
+	// Handle document upload fields with specific labels
+	if IsDocumentUploadField(path) {
+		docType := DocumentTypeFromPath(path)
+		switch docType {
+		case "proof_of_liveness":
+			return "proofOfLiveness"
+		case "additional_document":
+			return "additionalDocument"
+		case "company_authorization":
+			return "companyAuthorization"
+		case "passport":
+			return "passportDocument"
+		case "bank_account_ownership":
+			return "bankAccountOwnership"
+		default:
+			return "verificationDocument"
+		}
+	}
+
 	// Check entity-specific overrides first
 	if key, ok := companyLabelOverrides[path]; ok {
 		return key
 	}
+
+	// Handle relationship sub-fields
+	if strings.Contains(path, "relationship.") {
+		terminal := terminalSegment(path)
+		switch terminal {
+		case "title":
+			return "roleTitle"
+		case "percent_ownership":
+			return "percentOwnership"
+		case "executive":
+			return "isExecutive"
+		}
+	}
+
+	// Handle registered_address fields — map to registered address labels
+	if strings.Contains(path, "registered_address.") {
+		terminal := terminalSegment(path)
+		switch terminal {
+		case "line1":
+			return "registeredAddress"
+		case "city":
+			return "registeredCity"
+		case "postal_code":
+			return "registeredPostalCode"
+		case "state":
+			return "registeredState"
+		}
+	}
+
+	// Handle contact_point_verification_address fields
+	if strings.Contains(path, "contact_point_verification_address.") {
+		terminal := terminalSegment(path)
+		switch terminal {
+		case "line1":
+			return "contactAddress"
+		case "line2":
+			return "contactAddressLine2"
+		case "city":
+			return "contactCity"
+		case "postal_code":
+			return "contactPostalCode"
+		case "state":
+			return "contactState"
+		case "town":
+			return "contactTown"
+		}
+	}
+
 	terminal := terminalSegment(path)
 	if key, ok := fieldLabelKeys[terminal]; ok {
 		return key
-	}
-	if terminal == "title" && strings.Contains(path, "relationship") {
-		return "roleTitle"
 	}
 	return terminal
 }

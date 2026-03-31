@@ -87,10 +87,10 @@ func buildResponse(
 	}
 
 	sectionMap := make(map[string][]FieldSpec)
-	dobSeen := make(map[string]bool)
+	seen := make(dateSeen)
 
 	for _, path := range fields {
-		processField(path, resp, sectionMap, dobSeen)
+		processField(path, resp, sectionMap, seen)
 	}
 
 	resp.Sections = buildSections(sectionMap)
@@ -103,34 +103,69 @@ func buildResponse(
 	return resp
 }
 
+// dateSeen tracks which entity+dateType combos have been collapsed already.
+type dateSeen map[string]bool
+
 // processField handles a single Stripe field path.
 func processField(
 	path string, resp *CountryFieldsResponse,
-	sectionMap map[string][]FieldSpec, dobSeen map[string]bool,
+	sectionMap map[string][]FieldSpec, seen dateSeen,
 ) {
 	if domain.IsAutoHandled(path) {
 		return
 	}
-	if docType, ok := domain.IsDocumentField(path); ok {
-		setDocumentRequired(resp, docType)
+
+	// Document upload fields: add as inline upload zones AND mark docs required
+	if domain.IsDocumentUploadField(path) {
+		entity := domain.EntityFromPath(path)
+		category := domain.DocumentCategoryFromPath(path)
+		setDocumentRequired(resp, category)
+		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+			Path:     path,
+			Key:      path,
+			Type:     "document_upload",
+			LabelKey: domain.FieldLabelKey(path),
+			Required: true,
+			IsExtra:  false,
+		})
 		return
 	}
+
 	// Collapse dob.day/month/year into a single date field per entity
 	if domain.IsDOBComponent(path) {
 		entity := domain.EntityFromPath(path)
-		if dobSeen[entity] {
+		key := entity + ".dob"
+		if seen[key] {
 			return
 		}
-		dobSeen[entity] = true
-		dobPath := entity + ".dob"
+		seen[key] = true
 		_, isExtra := domain.MapStripeField(path)
 		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
-			Path:     dobPath,
-			Key:      dobPath,
+			Path:     key,
+			Key:      key,
 			Type:     "date",
 			LabelKey: "dateOfBirth",
 			Required: true,
 			IsExtra:  isExtra,
+		})
+		return
+	}
+
+	// Collapse registration_date.day/month/year into single date field
+	if domain.IsRegistrationDateComponent(path) {
+		entity := domain.EntityFromPath(path)
+		key := entity + ".registration_date"
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+			Path:     key,
+			Key:      key,
+			Type:     "date",
+			LabelKey: "registrationDate",
+			Required: true,
+			IsExtra:  true,
 		})
 		return
 	}
@@ -152,6 +187,7 @@ func processField(
 var sectionOrder = []string{
 	"individual", "representative", "company",
 	"directors", "owners", "executives",
+	"authorizer", "documents",
 }
 
 // buildSections converts the sectionMap into ordered FieldSections.
