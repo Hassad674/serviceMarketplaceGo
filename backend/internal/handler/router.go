@@ -18,6 +18,7 @@ type RouterDeps struct {
 	Messaging      *MessagingHandler
 	Proposal       *ProposalHandler
 	Job            *JobHandler
+	JobApplication *JobApplicationHandler
 	Review         *ReviewHandler
 	Call           *CallHandler
 	SocialLink     *SocialLinkHandler
@@ -138,10 +139,27 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Route("/jobs", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Use(middleware.NoCache)
+
+				// Static routes first (before {id} wildcard)
 				r.Post("/", deps.Job.CreateJob)
 				r.Get("/mine", deps.Job.ListMyJobs)
+
+				if deps.JobApplication != nil {
+					r.Get("/open", deps.JobApplication.ListOpenJobs)
+					r.Get("/applications/mine", deps.JobApplication.ListMyApplications)
+					r.Delete("/applications/{applicationId}", deps.JobApplication.WithdrawApplication)
+				}
+
+				// Parameterized routes
 				r.Get("/{id}", deps.Job.GetJob)
 				r.Post("/{id}/close", deps.Job.CloseJob)
+
+				if deps.JobApplication != nil {
+					r.Post("/{id}/apply", deps.JobApplication.ApplyToJob)
+					r.Get("/{id}/applications", deps.JobApplication.ListJobApplications)
+					r.Get("/{id}/has-applied", deps.JobApplication.HasApplied)
+					r.Post("/{id}/applications/{applicantId}/contact", deps.JobApplication.ContactApplicant)
+				}
 			})
 		}
 

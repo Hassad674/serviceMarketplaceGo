@@ -264,6 +264,10 @@ func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, r
 	return []*profile.PublicProfile{}, nil
 }
 
+func (m *mockProfileRepo) GetPublicProfilesByUserIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
+	return []*profile.PublicProfile{}, nil
+}
+
 // --- mockJobRepo ---
 
 type mockJobRepo struct {
@@ -298,6 +302,10 @@ func (m *mockJobRepo) ListByCreator(ctx context.Context, creatorID uuid.UUID, cu
 	if m.listByCreatorFn != nil {
 		return m.listByCreatorFn(ctx, creatorID, cursor, limit)
 	}
+	return []*job.Job{}, "", nil
+}
+
+func (m *mockJobRepo) ListOpen(_ context.Context, _ repository.JobListFilters, _ string, _ int) ([]*job.Job, string, error) {
 	return []*job.Job{}, "", nil
 }
 

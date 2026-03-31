@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/pkg/cursor"
 )
 
@@ -93,6 +95,71 @@ func (r *JobRepository) ListByCreator(ctx context.Context, creatorID uuid.UUID, 
 	}
 	if err != nil {
 		return nil, "", fmt.Errorf("list jobs by creator: %w", err)
+	}
+	defer rows.Close()
+	return scanJobListWithCursor(rows, limit)
+}
+
+func (r *JobRepository) ListOpen(ctx context.Context, filters repository.JobListFilters, cursorStr string, limit int) ([]*job.Job, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	var b strings.Builder
+	args := []any{}
+	paramIdx := 1
+
+	b.WriteString("SELECT " + jobColumns + " FROM jobs WHERE status = 'open'")
+
+	if filters.ApplicantType != "" {
+		fmt.Fprintf(&b, " AND applicant_type = $%d", paramIdx)
+		args = append(args, filters.ApplicantType)
+		paramIdx++
+	}
+	if filters.BudgetType != "" {
+		fmt.Fprintf(&b, " AND budget_type = $%d", paramIdx)
+		args = append(args, filters.BudgetType)
+		paramIdx++
+	}
+	if filters.MinBudget != nil {
+		fmt.Fprintf(&b, " AND max_budget >= $%d", paramIdx)
+		args = append(args, *filters.MinBudget)
+		paramIdx++
+	}
+	if filters.MaxBudget != nil {
+		fmt.Fprintf(&b, " AND min_budget <= $%d", paramIdx)
+		args = append(args, *filters.MaxBudget)
+		paramIdx++
+	}
+	if filters.Search != "" {
+		fmt.Fprintf(&b, " AND title ILIKE $%d", paramIdx)
+		args = append(args, "%"+filters.Search+"%")
+		paramIdx++
+	}
+	if len(filters.Skills) > 0 {
+		fmt.Fprintf(&b, " AND skills && $%d", paramIdx)
+		args = append(args, pq.Array(filters.Skills))
+		paramIdx++
+	}
+
+	if cursorStr != "" {
+		c, cErr := cursor.Decode(cursorStr)
+		if cErr != nil {
+			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+		}
+		fmt.Fprintf(&b, " AND (created_at, id) < ($%d, $%d)", paramIdx, paramIdx+1)
+		args = append(args, c.CreatedAt, c.ID)
+		paramIdx += 2
+	}
+
+	fmt.Fprintf(&b, " ORDER BY created_at DESC, id DESC LIMIT $%d", paramIdx)
+	args = append(args, limit+1)
+
+	rows, err := r.db.QueryContext(ctx, b.String(), args...)
+	if err != nil {
+		return nil, "", fmt.Errorf("list open jobs: %w", err)
 	}
 	defer rows.Close()
 	return scanJobListWithCursor(rows, limit)

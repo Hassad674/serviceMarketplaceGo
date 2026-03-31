@@ -18,6 +18,10 @@ import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/job/presentation/screens/create_job_screen.dart';
 import '../../features/job/presentation/screens/jobs_screen.dart';
+import '../../features/job/presentation/screens/opportunities_screen.dart';
+import '../../features/job/presentation/screens/opportunity_detail_screen.dart';
+import '../../features/job/presentation/screens/my_applications_screen.dart';
+import '../../features/job/presentation/screens/candidates_screen.dart';
 import '../../features/proposal/domain/entities/proposal_entity.dart';
 import '../../features/proposal/presentation/screens/create_proposal_screen.dart';
 import '../../features/proposal/presentation/screens/payment_simulation_screen.dart';
@@ -69,6 +73,10 @@ class RoutePaths {
   static const String publicProfile = '/profiles';
   static const String chat = '/chat';
   static const String proposalDetail = '/projects/detail';
+  static const String opportunities = '/opportunities';
+  static const String opportunityDetail = '/opportunities/detail';
+  static const String myApplications = '/my-applications';
+  static const String jobCandidates = '/jobs/candidates';
 }
 
 // ---------------------------------------------------------------------------
@@ -238,6 +246,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.jobsCreate,
             builder: (context, state) => const CreateJobScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.opportunities,
+            builder: (context, state) => const OpportunitiesScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.opportunityDetail,
+            builder: (context, state) => OpportunityDetailScreen(jobId: state.extra as String),
+          ),
+          GoRoute(
+            path: RoutePaths.myApplications,
+            builder: (context, state) => const MyApplicationsScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.jobCandidates,
+            builder: (context, state) => CandidatesScreen(jobId: state.extra as String),
           ),
           GoRoute(
             path: RoutePaths.profile,

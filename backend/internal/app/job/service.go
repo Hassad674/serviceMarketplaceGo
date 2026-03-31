@@ -9,20 +9,33 @@ import (
 	domain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 type ServiceDeps struct {
-	Jobs  repository.JobRepository
-	Users repository.UserRepository
+	Jobs         repository.JobRepository
+	Applications repository.JobApplicationRepository
+	Users        repository.UserRepository
+	Profiles     repository.ProfileRepository
+	Messages     service.MessageSender
 }
 
 type Service struct {
-	jobs  repository.JobRepository
-	users repository.UserRepository
+	jobs         repository.JobRepository
+	applications repository.JobApplicationRepository
+	users        repository.UserRepository
+	profiles     repository.ProfileRepository
+	messages     service.MessageSender
 }
 
 func NewService(deps ServiceDeps) *Service {
-	return &Service{jobs: deps.Jobs, users: deps.Users}
+	return &Service{
+		jobs:         deps.Jobs,
+		applications: deps.Applications,
+		users:        deps.Users,
+		profiles:     deps.Profiles,
+		messages:     deps.Messages,
+	}
 }
 
 type CreateJobInput struct {

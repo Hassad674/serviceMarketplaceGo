@@ -1,5 +1,6 @@
 import '../../../core/network/api_client.dart';
 import '../domain/entities/job_entity.dart';
+import '../domain/entities/job_application_entity.dart';
 import '../domain/repositories/job_repository.dart';
 
 class JobRepositoryImpl implements JobRepository {
@@ -48,6 +49,66 @@ class JobRepositoryImpl implements JobRepository {
   @override
   Future<void> closeJob(String id) async {
     await apiClient.post('/api/v1/jobs/$id/close');
+  }
+
+  @override
+  Future<List<JobEntity>> listOpenJobs({String? cursor}) async {
+    final params = cursor != null ? '?cursor=${Uri.encodeComponent(cursor)}' : '';
+    final response = await apiClient.get('/api/v1/jobs/open$params');
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw.containsKey('data')) {
+      return (raw['data'] as List<dynamic>).map((e) => JobEntity.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  @override
+  Future<JobApplicationEntity> applyToJob(String jobId, {required String message, String? videoUrl}) async {
+    final body = <String, dynamic>{'message': message};
+    if (videoUrl != null) body['video_url'] = videoUrl;
+    final response = await apiClient.post('/api/v1/jobs/$jobId/apply', data: body);
+    return JobApplicationEntity.fromJson(_extractData(response.data));
+  }
+
+  @override
+  Future<void> withdrawApplication(String applicationId) async {
+    await apiClient.delete('/api/v1/jobs/applications/$applicationId');
+  }
+
+  @override
+  Future<List<ApplicationWithProfile>> listJobApplications(String jobId, {String? cursor}) async {
+    final params = cursor != null ? '?cursor=${Uri.encodeComponent(cursor)}' : '';
+    final response = await apiClient.get('/api/v1/jobs/$jobId/applications$params');
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw.containsKey('data')) {
+      return (raw['data'] as List<dynamic>).map((e) => ApplicationWithProfile.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  @override
+  Future<List<ApplicationWithJob>> listMyApplications({String? cursor}) async {
+    final params = cursor != null ? '?cursor=${Uri.encodeComponent(cursor)}' : '';
+    final response = await apiClient.get('/api/v1/jobs/applications/mine$params');
+    final raw = response.data;
+    if (raw is Map<String, dynamic> && raw.containsKey('data')) {
+      return (raw['data'] as List<dynamic>).map((e) => ApplicationWithJob.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  @override
+  Future<String> contactApplicant(String jobId, String applicantId) async {
+    final response = await apiClient.post('/api/v1/jobs/$jobId/applications/$applicantId/contact');
+    final data = _extractData(response.data);
+    return data['conversation_id'] as String;
+  }
+
+  @override
+  Future<bool> hasApplied(String jobId) async {
+    final response = await apiClient.get('/api/v1/jobs/$jobId/has-applied');
+    final data = _extractData(response.data);
+    return (data['has_applied'] as bool?) ?? false;
   }
 
   Map<String, dynamic> _extractData(dynamic raw) {

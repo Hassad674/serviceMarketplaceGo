@@ -126,6 +126,10 @@ func (m *mockMessageSender) SendSystemMessage(ctx context.Context, input service
 	return nil
 }
 
+func (m *mockMessageSender) FindOrCreateConversation(_ context.Context, _ service.FindOrCreateConversationInput) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
 // --- mockStorageService ---
 
 type mockStorageService struct {

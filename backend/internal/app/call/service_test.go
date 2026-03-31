@@ -132,6 +132,10 @@ func (m *mockMessageSender) SendSystemMessage(_ context.Context, input service.S
 	return nil
 }
 
+func (m *mockMessageSender) FindOrCreateConversation(_ context.Context, _ service.FindOrCreateConversationInput) (uuid.UUID, error) {
+	return uuid.New(), nil
+}
+
 type mockUserRepo struct {
 	users map[uuid.UUID]*user.User
 }

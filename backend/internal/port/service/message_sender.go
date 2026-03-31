@@ -11,6 +11,7 @@ import (
 // without importing the messaging app package directly.
 type MessageSender interface {
 	SendSystemMessage(ctx context.Context, input SystemMessageInput) error
+	FindOrCreateConversation(ctx context.Context, input FindOrCreateConversationInput) (uuid.UUID, error)
 }
 
 // SystemMessageInput contains the data needed to inject a system message
@@ -21,4 +22,13 @@ type SystemMessageInput struct {
 	Content        string
 	Type           string
 	Metadata       json.RawMessage
+}
+
+// FindOrCreateConversationInput contains the data needed to find or create
+// a conversation between two users and send an initial system message.
+type FindOrCreateConversationInput struct {
+	UserA   uuid.UUID
+	UserB   uuid.UUID
+	Content string
+	Type    string
 }

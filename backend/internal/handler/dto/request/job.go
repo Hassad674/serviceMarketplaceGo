@@ -1,5 +1,10 @@
 package request
 
+type ApplyToJobRequest struct {
+	Message  string  `json:"message"`
+	VideoURL *string `json:"video_url,omitempty"`
+}
+
 type CreateJobRequest struct {
 	Title            string   `json:"title"`
 	Description      string   `json:"description"`

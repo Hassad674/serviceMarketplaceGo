@@ -17,6 +17,7 @@ import {
   CreditCard,
   Wallet,
   Settings,
+  FileText,
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
@@ -39,6 +40,8 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "messages", href: "/messages", icon: MessageSquare, roles: ["agency", "provider", "enterprise"] },
   { labelKey: "projects", href: "/projects", icon: FolderOpen, roles: ["agency", "provider", "enterprise"] },
   { labelKey: "jobs", href: "/jobs", icon: Briefcase, roles: ["enterprise", "agency"] },
+  { labelKey: "opportunities", href: "/opportunities", icon: Briefcase, roles: ["provider", "agency"] },
+  { labelKey: "myApplications", href: "/my-applications", icon: FileText, roles: ["provider", "agency"] },
   { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
   { labelKey: "paymentInfo", href: "/payment-info", icon: CreditCard, roles: ["agency", "provider"] },
   { labelKey: "wallet", href: "/wallet", icon: Wallet, roles: ["agency", "provider"] },

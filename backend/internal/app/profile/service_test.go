@@ -49,6 +49,10 @@ func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, r
 	return nil, nil
 }
 
+func (m *mockProfileRepo) GetPublicProfilesByUserIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
+	return []*profile.PublicProfile{}, nil
+}
+
 // --- helpers ---
 
 func newTestProfileService(repo *mockProfileRepo) *Service {

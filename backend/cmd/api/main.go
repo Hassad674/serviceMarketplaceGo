@@ -143,9 +143,13 @@ func main() {
 
 	// Job feature
 	jobRepo := postgres.NewJobRepository(db)
+	jobAppRepo := postgres.NewJobApplicationRepository(db)
 	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
-		Jobs:  jobRepo,
-		Users: userRepo,
+		Jobs:         jobRepo,
+		Applications: jobAppRepo,
+		Users:        userRepo,
+		Profiles:     profileRepo,
+		Messages:     messagingSvc,
 	})
 
 	// Review feature
@@ -271,6 +275,7 @@ func main() {
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
 	jobHandler := handler.NewJobHandler(jobSvc)
+	jobAppHandler := handler.NewJobApplicationHandler(jobSvc)
 	reviewHandler := handler.NewReviewHandler(reviewSvc)
 
 	// Stripe handler (optional)
@@ -301,6 +306,7 @@ func main() {
 		Messaging:      messagingHandler,
 		Proposal:       proposalHandler,
 		Job:            jobHandler,
+		JobApplication: jobAppHandler,
 		Review:         reviewHandler,
 		Report:         reportHandler,
 		Call:           callHandler,

@@ -1,0 +1,87 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../domain/entities/job_entity.dart';
+
+class OpportunityCard extends StatelessWidget {
+  const OpportunityCard({super.key, required this.job});
+
+  final JobEntity job;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/opportunities/detail', extra: job.id),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      job.title,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text('Ouverte', style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w500)),
+                  ),
+                ],
+              ),
+              if (job.description.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(job.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+              ],
+              if (job.skills.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: job.skills.take(3).map((s) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(12)),
+                    child: Text(s, style: const TextStyle(fontSize: 11, color: Color(0xFFF43F5E), fontWeight: FontWeight.w500)),
+                  )).toList(),
+                ),
+              ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.euro, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text('${job.minBudget}\u20ac - ${job.maxBudget}\u20ac', style: theme.textTheme.bodySmall),
+                  const Spacer(),
+                  const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text(_formatDate(job.createdAt), style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final d = DateTime.parse(dateStr);
+      return '${d.day}/${d.month}/${d.year}';
+    } catch (_) {
+      return dateStr;
+    }
+  }
+}
