@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Briefcase, Plus, Clock, Users, MoreVertical, Trash2, XCircle, Eye } from "lucide-react"
+import { Briefcase, Plus, Clock, Users, MoreVertical, Trash2, XCircle, Pencil } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -120,11 +120,11 @@ function JobCard({ job, onClose, onDelete, isActing }: JobCardProps) {
               >
                 <button
                   type="button"
-                  onClick={() => { setMenuOpen(false); router.push(`/jobs/${job.id}`) }}
+                  onClick={() => { setMenuOpen(false); router.push(`/jobs/${job.id}/edit`) }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
-                  <Eye className="h-4 w-4" />
-                  {t("viewDetail")}
+                  <Pencil className="h-4 w-4" />
+                  {t("editJob")}
                 </button>
                 {isOpen && (
                   <button

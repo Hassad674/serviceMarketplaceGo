@@ -4,7 +4,6 @@ import dynamic from "next/dynamic"
 import { MessageSquare, ChevronUp } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { usePathname } from "next/navigation"
-import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
@@ -21,7 +20,6 @@ const ChatWidgetPanel = dynamic(
 export function ChatWidget() {
   const t = useTranslations("messaging")
   const pathname = usePathname()
-  const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const { data: unreadData } = useUnreadCount()
   const unreadCount = unreadData?.count ?? 0
@@ -30,10 +28,12 @@ export function ChatWidget() {
     isOpen,
     view,
     activeConversationId,
+    pendingRecipient,
     open,
     close,
     selectConversation,
     goBack,
+    resolvePendingConversation,
   } = useChatWidget()
 
   // Hide on /messages pages (any locale prefix)
@@ -93,9 +93,11 @@ export function ChatWidget() {
         <ChatWidgetPanel
           view={view}
           activeConversationId={activeConversationId}
+          pendingRecipient={pendingRecipient}
           onSelectConversation={selectConversation}
           onBack={goBack}
           onClose={close}
+          onPendingConversationResolved={resolvePendingConversation}
         />
       )}
     </>

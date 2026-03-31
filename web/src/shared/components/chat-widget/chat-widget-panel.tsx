@@ -8,25 +8,30 @@ import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
 import { useConversations, conversationsQueryKey } from "@/features/messaging/hooks/use-conversations"
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage } from "@/features/messaging/hooks/use-messages"
 import { useMessagingWS } from "@/features/messaging/hooks/use-messaging-ws"
-import { markAsRead, getPresignedURL } from "@/features/messaging/api/messaging-api"
+import { markAsRead, getPresignedURL, startConversation } from "@/features/messaging/api/messaging-api"
 import type { Conversation, ConversationListResponse } from "@/features/messaging/types"
 import { ChatWidgetConversationList } from "./chat-widget-conversation-list"
 import { ChatWidgetChatView } from "./chat-widget-chat-view"
+import type { PendingRecipient } from "./use-chat-widget"
 
 interface ChatWidgetPanelProps {
   view: "list" | "chat"
   activeConversationId: string | null
+  pendingRecipient: PendingRecipient | null
   onSelectConversation: (id: string) => void
   onBack: () => void
   onClose: () => void
+  onPendingConversationResolved: (conversationId: string) => void
 }
 
 export function ChatWidgetPanel({
   view,
   activeConversationId,
+  pendingRecipient,
   onSelectConversation,
   onBack,
   onClose,
+  onPendingConversationResolved,
 }: ChatWidgetPanelProps) {
   const { data: user } = useUser()
   const queryClient = useQueryClient()
@@ -119,11 +124,23 @@ export function ChatWidgetPanel({
   )
 
   const handleSend = useCallback(
-    (content: string) => {
+    async (content: string) => {
+      // Pending recipient: create conversation with first message
+      if (!activeConversationId && pendingRecipient) {
+        try {
+          const result = await startConversation(pendingRecipient.userId, content)
+          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(user?.id) })
+          queryClient.invalidateQueries({ queryKey: unreadCountQueryKey(user?.id) })
+          onPendingConversationResolved(result.conversation_id)
+        } catch {
+          // silently fail — user can retry
+        }
+        return
+      }
       if (!activeConversationId) return
       sendMessageMut.mutate({ content, type: "text" })
     },
-    [activeConversationId, sendMessageMut],
+    [activeConversationId, pendingRecipient, sendMessageMut, queryClient, user?.id, onPendingConversationResolved],
   )
 
   const handleSendFile = useCallback(
@@ -202,6 +219,7 @@ export function ChatWidgetPanel({
         <ChatWidgetChatView
           conversation={activeConversation ?? null}
           conversationId={activeConversationId}
+          pendingRecipient={pendingRecipient}
           messages={allMessages}
           currentUserId={user?.id ?? ""}
           isLoading={messagesQuery.isLoading}

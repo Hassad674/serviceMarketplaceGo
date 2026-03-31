@@ -10,6 +10,7 @@ import { FileUploadModal } from "@/features/messaging/components/file-upload-mod
 import { useVoiceRecorder } from "@/features/messaging/hooks/use-voice-recorder"
 import { getPresignedURL } from "@/features/messaging/api/messaging-api"
 import type { Conversation, Message } from "@/features/messaging/types"
+import type { PendingRecipient } from "./use-chat-widget"
 
 const TYPING_INTERVAL_MS = 2_000
 
@@ -25,6 +26,7 @@ function voiceExtFromMime(mime: string): string {
 interface ChatWidgetChatViewProps {
   conversation: Conversation | null
   conversationId: string | null
+  pendingRecipient?: PendingRecipient | null
   messages: Message[]
   currentUserId: string
   isLoading: boolean
@@ -45,6 +47,7 @@ interface ChatWidgetChatViewProps {
 export function ChatWidgetChatView({
   conversation,
   conversationId,
+  pendingRecipient,
   messages,
   currentUserId,
   isLoading,
@@ -63,7 +66,7 @@ export function ChatWidgetChatView({
 }: ChatWidgetChatViewProps) {
   const t = useTranslations("messaging")
 
-  if (!conversation) {
+  if (!conversation && !pendingRecipient) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-xs text-gray-400 dark:text-gray-500">
@@ -73,13 +76,16 @@ export function ChatWidgetChatView({
     )
   }
 
+  const headerName = conversation?.other_user_name ?? pendingRecipient?.displayName ?? ""
+  const isOnline = conversation?.online ?? false
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
       <ChatViewHeader
-        name={conversation.other_user_name}
-        online={conversation.online}
-        typingUserName={typingUser ? conversation.other_user_name : undefined}
+        name={headerName}
+        online={isOnline}
+        typingUserName={typingUser ? headerName : undefined}
         onBack={onBack}
         onClose={onClose}
       />
@@ -102,7 +108,7 @@ export function ChatWidgetChatView({
       {/* Full-featured input with file + proposal + voice buttons */}
       <WidgetMessageInput
         conversationId={conversationId}
-        otherUserId={conversation.other_user_id}
+        otherUserId={conversation?.other_user_id ?? pendingRecipient?.userId ?? ""}
         onSend={onSend}
         onSendFile={onSendFile}
         onSendVoice={onSendVoice}
