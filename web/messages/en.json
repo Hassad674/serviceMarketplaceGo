@@ -468,7 +468,8 @@
     "presentationVideo": "Presentation Video",
     "videoNotSupported": "Your browser does not support the video element.",
     "projectHistory": "Project History",
-    "noProjectsYet": "No completed projects yet"
+    "noProjectsYet": "No completed projects yet",
+    "back": "Back"
   },
   "proposal": {
     "createProposal": "Create a proposal",

@@ -468,7 +468,8 @@
     "presentationVideo": "Vidéo de présentation",
     "videoNotSupported": "Votre navigateur ne supporte pas l'élément vidéo.",
     "projectHistory": "Historique des projets",
-    "noProjectsYet": "Aucun projet terminé pour le moment"
+    "noProjectsYet": "Aucun projet terminé pour le moment",
+    "back": "Retour"
   },
   "proposal": {
     "createProposal": "Créer une proposition",
@@ -862,6 +863,7 @@
     "noApplications": "Vous n’avez postulé à aucune offre",
     "noOpportunities": "Aucune opportunité trouvée",
     "sendMessage": "Envoyer un message",
+    "viewProfile": "Voir le profil",
     "myApplications": "Mes candidatures",
     "applied": "Postulé le",
     "contactApplicant": "Contacter",
