@@ -1,5 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
-import type { JobResponse, JobListResponse } from "../types"
+import type { JobResponse, JobWithCountsListResponse } from "../types"
 
 export type CreateJobData = {
   title: string
@@ -27,11 +27,19 @@ export function getJob(id: string): Promise<JobResponse> {
   return apiClient<JobResponse>(`/api/v1/jobs/${id}`)
 }
 
-export function listMyJobs(cursor?: string): Promise<JobListResponse> {
+export function listMyJobs(cursor?: string): Promise<JobWithCountsListResponse> {
   const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
-  return apiClient<JobListResponse>(`/api/v1/jobs/mine${params}`)
+  return apiClient<JobWithCountsListResponse>(`/api/v1/jobs/mine${params}`)
 }
 
 export function closeJob(id: string): Promise<void> {
   return apiClient<void>(`/api/v1/jobs/${id}/close`, { method: "POST" })
+}
+
+export function deleteJob(id: string): Promise<void> {
+  return apiClient<void>(`/api/v1/jobs/${id}`, { method: "DELETE" })
+}
+
+export function markApplicationsViewed(id: string): Promise<void> {
+  return apiClient<void>(`/api/v1/jobs/${id}/mark-viewed`, { method: "POST" })
 }

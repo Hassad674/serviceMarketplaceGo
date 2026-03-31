@@ -100,6 +100,23 @@ func (r *JobRepository) ListByCreator(ctx context.Context, creatorID uuid.UUID, 
 	return scanJobListWithCursor(rows, limit)
 }
 
+func (r *JobRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	result, err := r.db.ExecContext(ctx, "DELETE FROM jobs WHERE id = $1", id)
+	if err != nil {
+		return fmt.Errorf("delete job: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return job.ErrJobNotFound
+	}
+	return nil
+}
+
 func (r *JobRepository) ListOpen(ctx context.Context, filters repository.JobListFilters, cursorStr string, limit int) ([]*job.Job, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

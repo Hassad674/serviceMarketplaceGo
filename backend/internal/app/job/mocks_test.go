@@ -50,6 +50,8 @@ func (m *mockJobRepo) ListByCreator(ctx context.Context, creatorID uuid.UUID, cu
 	return []*domain.Job{}, "", nil
 }
 
+func (m *mockJobRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
+
 func (m *mockJobRepo) ListOpen(ctx context.Context, filters repository.JobListFilters, cursor string, limit int) ([]*domain.Job, string, error) {
 	if m.listOpenFn != nil {
 		return m.listOpenFn(ctx, filters, cursor, limit)

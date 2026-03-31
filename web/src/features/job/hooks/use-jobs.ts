@@ -1,7 +1,7 @@
 "use client"
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createJob, listMyJobs, closeJob } from "../api/job-api"
+import { createJob, listMyJobs, closeJob, deleteJob, markApplicationsViewed } from "../api/job-api"
 import type { CreateJobData } from "../api/job-api"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
@@ -43,5 +43,23 @@ export function useCloseJob() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: jobsQueryKey(uid) })
     },
+  })
+}
+
+export function useDeleteJob() {
+  const queryClient = useQueryClient()
+  const uid = useCurrentUserId()
+
+  return useMutation({
+    mutationFn: (id: string) => deleteJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: jobsQueryKey(uid) })
+    },
+  })
+}
+
+export function useMarkApplicationsViewed() {
+  return useMutation({
+    mutationFn: (id: string) => markApplicationsViewed(id),
   })
 }

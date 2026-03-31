@@ -81,12 +81,48 @@ func (h *JobHandler) ListMyJobs(w http.ResponseWriter, r *http.Request) {
 	}
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
-	jobs, nextCursor, err := h.jobSvc.ListMyJobs(r.Context(), userID, cursorStr, limit)
+	jobs, nextCursor, err := h.jobSvc.ListMyJobsWithCounts(r.Context(), userID, cursorStr, limit)
 	if err != nil {
 		handleJobError(w, err)
 		return
 	}
-	res.JSON(w, http.StatusOK, response.NewJobListResponse(jobs, nextCursor))
+	res.JSON(w, http.StatusOK, response.NewJobWithCountsListResponse(jobs, nextCursor))
+}
+
+func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	jobID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_job_id", "id must be a valid UUID")
+		return
+	}
+	if err := h.jobSvc.DeleteJob(r.Context(), jobID, userID); err != nil {
+		handleJobError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *JobHandler) MarkApplicationsViewed(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	jobID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_job_id", "id must be a valid UUID")
+		return
+	}
+	if err := h.jobSvc.MarkApplicationsViewed(r.Context(), jobID, userID); err != nil {
+		handleJobError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *JobHandler) CloseJob(w http.ResponseWriter, r *http.Request) {

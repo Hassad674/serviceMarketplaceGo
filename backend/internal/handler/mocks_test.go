@@ -309,6 +309,8 @@ func (m *mockJobRepo) ListOpen(_ context.Context, _ repository.JobListFilters, _
 	return []*job.Job{}, "", nil
 }
 
+func (m *mockJobRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
+
 // --- mockStorageService ---
 
 type mockStorageService struct {

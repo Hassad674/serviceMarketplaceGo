@@ -18,6 +18,7 @@ type ServiceDeps struct {
 	Users        repository.UserRepository
 	Profiles     repository.ProfileRepository
 	Messages     service.MessageSender
+	JobViews     repository.JobViewRepository
 }
 
 type Service struct {
@@ -26,6 +27,7 @@ type Service struct {
 	users        repository.UserRepository
 	profiles     repository.ProfileRepository
 	messages     service.MessageSender
+	jobViews     repository.JobViewRepository
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -35,6 +37,7 @@ func NewService(deps ServiceDeps) *Service {
 		users:        deps.Users,
 		profiles:     deps.Profiles,
 		messages:     deps.Messages,
+		jobViews:     deps.JobViews,
 	}
 }
 
@@ -102,12 +105,80 @@ func (s *Service) GetJob(ctx context.Context, jobID uuid.UUID) (*domain.Job, err
 	return j, nil
 }
 
+// JobWithCounts enriches a job with application count info.
+type JobWithCounts struct {
+	Job              *domain.Job
+	TotalApplicants  int
+	NewApplicants    int
+}
+
 func (s *Service) ListMyJobs(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*domain.Job, string, error) {
 	jobs, nextCursor, err := s.jobs.ListByCreator(ctx, userID, cursorStr, limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("list my jobs: %w", err)
 	}
 	return jobs, nextCursor, nil
+}
+
+// ListMyJobsWithCounts returns jobs enriched with application counts.
+func (s *Service) ListMyJobsWithCounts(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]JobWithCounts, string, error) {
+	jobs, nextCursor, err := s.jobs.ListByCreator(ctx, userID, cursorStr, limit)
+	if err != nil {
+		return nil, "", fmt.Errorf("list my jobs: %w", err)
+	}
+	if len(jobs) == 0 || s.jobViews == nil {
+		result := make([]JobWithCounts, len(jobs))
+		for i, j := range jobs {
+			result[i] = JobWithCounts{Job: j}
+		}
+		return result, nextCursor, nil
+	}
+
+	ids := make([]uuid.UUID, len(jobs))
+	for i, j := range jobs {
+		ids[i] = j.ID
+	}
+	counts, err := s.jobViews.GetApplicationCountsBatch(ctx, ids, userID)
+	if err != nil {
+		return nil, "", fmt.Errorf("get application counts: %w", err)
+	}
+
+	result := make([]JobWithCounts, len(jobs))
+	for i, j := range jobs {
+		c := counts[j.ID]
+		result[i] = JobWithCounts{Job: j, TotalApplicants: c.Total, NewApplicants: c.NewCount}
+	}
+	return result, nextCursor, nil
+}
+
+// MarkApplicationsViewed updates the last_viewed_at timestamp for a job.
+func (s *Service) MarkApplicationsViewed(ctx context.Context, jobID, userID uuid.UUID) error {
+	if s.jobViews == nil {
+		return nil
+	}
+	j, err := s.jobs.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("get job: %w", err)
+	}
+	if j.CreatorID != userID {
+		return domain.ErrNotOwner
+	}
+	return s.jobViews.Upsert(ctx, jobID, userID)
+}
+
+// DeleteJob deletes a job and all its applications. Only the creator can delete.
+func (s *Service) DeleteJob(ctx context.Context, jobID, userID uuid.UUID) error {
+	j, err := s.jobs.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("get job: %w", err)
+	}
+	if j.CreatorID != userID {
+		return domain.ErrNotOwner
+	}
+	if err := s.jobs.Delete(ctx, jobID); err != nil {
+		return fmt.Errorf("delete job: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) CloseJob(ctx context.Context, jobID, userID uuid.UUID) error {

@@ -62,6 +62,17 @@ export type JobListResponse = {
   has_more: boolean
 }
 
+export type JobWithCountsResponse = JobResponse & {
+  total_applicants: number
+  new_applicants: number
+}
+
+export type JobWithCountsListResponse = {
+  data: JobWithCountsResponse[]
+  next_cursor: string
+  has_more: boolean
+}
+
 // --- Job Application types ---
 
 export type JobApplicationResponse = {

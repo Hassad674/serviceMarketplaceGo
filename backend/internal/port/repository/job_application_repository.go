@@ -18,3 +18,16 @@ type JobApplicationRepository interface {
 	ListByApplicant(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
 	CountByJob(ctx context.Context, jobID uuid.UUID) (int, error)
 }
+
+// JobViewRepository tracks when users last viewed a job's applications.
+type JobViewRepository interface {
+	Upsert(ctx context.Context, jobID, userID uuid.UUID) error
+	GetApplicationCounts(ctx context.Context, jobID, userID uuid.UUID) (total int, newCount int, err error)
+	GetApplicationCountsBatch(ctx context.Context, jobIDs []uuid.UUID, userID uuid.UUID) (map[uuid.UUID]ApplicationCounts, error)
+}
+
+// ApplicationCounts holds total and new application counts for a job.
+type ApplicationCounts struct {
+	Total    int
+	NewCount int
+}

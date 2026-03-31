@@ -70,6 +70,34 @@ func NewJobResponse(j *job.Job) JobResponse {
 	return resp
 }
 
+type JobWithCountsResponse struct {
+	JobResponse
+	TotalApplicants int `json:"total_applicants"`
+	NewApplicants   int `json:"new_applicants"`
+}
+
+type JobWithCountsListResponse struct {
+	Data       []JobWithCountsResponse `json:"data"`
+	NextCursor string                  `json:"next_cursor"`
+	HasMore    bool                    `json:"has_more"`
+}
+
+func NewJobWithCountsListResponse(jobs []jobapp.JobWithCounts, nextCursor string) JobWithCountsListResponse {
+	data := make([]JobWithCountsResponse, len(jobs))
+	for i, j := range jobs {
+		data[i] = JobWithCountsResponse{
+			JobResponse:     NewJobResponse(j.Job),
+			TotalApplicants: j.TotalApplicants,
+			NewApplicants:   j.NewApplicants,
+		}
+	}
+	return JobWithCountsListResponse{
+		Data:       data,
+		NextCursor: nextCursor,
+		HasMore:    nextCursor != "",
+	}
+}
+
 func NewJobListResponse(jobs []*job.Job, nextCursor string) JobListResponse {
 	data := make([]JobResponse, len(jobs))
 	for i, j := range jobs {
