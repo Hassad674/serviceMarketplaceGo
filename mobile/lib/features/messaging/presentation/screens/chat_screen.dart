@@ -557,6 +557,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     return Scaffold(
       appBar: ChatAppBar(
         conversation: conversation,
+        currentUserRole: authState.user?['role'] as String?,
         typingUserName: typingDisplayName,
         onStartCall: () => _startCall(conversation),
         onStartVideoCall: () => _startVideoCall(conversation),

@@ -11,6 +11,7 @@ import { TypingIndicator } from "./typing-indicator"
 
 interface ConversationHeaderProps {
   conversation: Conversation
+  currentUserRole?: string
   onBack?: () => void
   typingUserName?: string
   isConnected: boolean
@@ -20,6 +21,7 @@ interface ConversationHeaderProps {
 
 export function ConversationHeader({
   conversation,
+  currentUserRole,
   onBack,
   typingUserName,
   isConnected,
@@ -57,11 +59,13 @@ export function ConversationHeader({
     router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
   }
 
+  // Provider/freelancer cannot view agency profile (agency is the client)
+  const canViewProfile = !(currentUserRole === "provider" && conversation.other_user_role === "agency")
+
   const profileHref = (() => {
     const role = conversation.other_user_role
     const id = conversation.other_user_id
     if (role === "agency") return `/agencies/${id}`
-    if (role === "provider") return `/freelancers/${id}`
     return `/freelancers/${id}`
   })()
 
@@ -78,37 +82,28 @@ export function ConversationHeader({
         </button>
       )}
 
-      {/* Avatar — links to public profile */}
-      <Link href={profileHref} className="relative shrink-0">
-        {conversation.other_photo_url ? (
-          <Image
-            src={conversation.other_photo_url}
-            alt={conversation.other_user_name}
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-full object-cover"
-            unoptimized
-          />
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
-            {initials}
-          </div>
-        )}
-        {conversation.online && (
-          <span
-            className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900"
-            aria-label={t("online")}
-          >
-            <span className="sr-only">{t("online")}</span>
-          </span>
-        )}
-      </Link>
-
-      {/* Name and status — links to public profile */}
-      <div className="min-w-0 flex-1">
-        <Link href={profileHref} className="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">
-          {conversation.other_user_name}
+      {/* Avatar */}
+      {canViewProfile ? (
+        <Link href={profileHref} className="relative shrink-0">
+          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_user_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
         </Link>
+      ) : (
+        <div className="relative shrink-0">
+          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_user_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
+        </div>
+      )}
+
+      {/* Name and status */}
+      <div className="min-w-0 flex-1">
+        {canViewProfile ? (
+          <Link href={profileHref} className="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">
+            {conversation.other_user_name}
+          </Link>
+        ) : (
+          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+            {conversation.other_user_name}
+          </p>
+        )}
         {typingUserName ? (
           <TypingIndicator userName={typingUserName} />
         ) : (
@@ -235,5 +230,24 @@ export function ConversationHeader({
         )}
       </div>
     </div>
+  )
+}
+
+function AvatarContent({ photo, name, initials, online, onlineLabel }: { photo: string; name: string; initials: string; online: boolean; onlineLabel: string }) {
+  return (
+    <>
+      {photo ? (
+        <Image src={photo} alt={name} width={40} height={40} className="h-10 w-10 rounded-full object-cover" unoptimized />
+      ) : (
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
+          {initials}
+        </div>
+      )}
+      {online && (
+        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-gray-900" aria-label={onlineLabel}>
+          <span className="sr-only">{onlineLabel}</span>
+        </span>
+      )}
+    </>
   )
 }

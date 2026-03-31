@@ -270,6 +270,7 @@ export function MessagingPage() {
           <>
             <ConversationHeader
               conversation={activeConversation}
+              currentUserRole={user?.role}
               onBack={handleBack}
               typingUserName={typingUserForConversation ? activeConversation.other_user_name : undefined}
               isConnected={isConnected}

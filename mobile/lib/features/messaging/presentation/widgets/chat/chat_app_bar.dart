@@ -11,6 +11,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ChatAppBar({
     super.key,
     required this.conversation,
+    this.currentUserRole,
     this.typingUserName,
     this.onStartCall,
     this.onStartVideoCall,
@@ -18,6 +19,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final ConversationEntity? conversation;
+  final String? currentUserRole;
   final String? typingUserName;
   final VoidCallback? onStartCall;
   final VoidCallback? onStartVideoCall;
@@ -44,16 +46,17 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       subtitle = l10n.messagingOffline;
     }
 
+    // Provider cannot view agency profile (agency is the client)
+    final canViewProfile = !(currentUserRole == 'provider' && conversation?.otherUserRole == 'agency');
+
     return AppBar(
       titleSpacing: 0,
       title: GestureDetector(
-        onTap: () {
+        onTap: canViewProfile ? () {
           final id = conversation?.otherUserId;
-          final role = conversation?.otherUserRole;
           if (id == null) return;
-          final path = role == 'agency' ? '/profiles/$id' : '/profiles/$id';
-          context.push(path);
-        },
+          context.push('/profiles/$id');
+        } : null,
         child: Row(
         children: [
           // Avatar
