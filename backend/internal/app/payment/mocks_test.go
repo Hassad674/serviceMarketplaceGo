@@ -2,22 +2,23 @@ package payment
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/payment"
+	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
 )
 
 // --- PaymentInfoRepository mock ---
 
 type mockPaymentInfoRepo struct {
-	getByUserIDFn        func(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error)
-	upsertFn             func(ctx context.Context, info *domain.PaymentInfo) error
-	updateStripeFieldsFn func(ctx context.Context, userID uuid.UUID, accountID string, verified bool) error
-	getByStripeAccountFn func(ctx context.Context, accountID string) (*domain.PaymentInfo, error)
+	getByUserIDFn            func(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error)
+	upsertFn                 func(ctx context.Context, info *domain.PaymentInfo) error
+	updateStripeFieldsFn     func(ctx context.Context, userID uuid.UUID, accountID string, verified bool) error
+	updateStripeSyncFieldsFn func(ctx context.Context, userID uuid.UUID, input repository.StripeSyncInput) error
+	getByStripeAccountFn     func(ctx context.Context, accountID string) (*domain.PaymentInfo, error)
 }
 
 func (m *mockPaymentInfoRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error) {
@@ -37,6 +38,13 @@ func (m *mockPaymentInfoRepo) Upsert(ctx context.Context, info *domain.PaymentIn
 func (m *mockPaymentInfoRepo) UpdateStripeFields(ctx context.Context, userID uuid.UUID, accountID string, verified bool) error {
 	if m.updateStripeFieldsFn != nil {
 		return m.updateStripeFieldsFn(ctx, userID, accountID, verified)
+	}
+	return nil
+}
+
+func (m *mockPaymentInfoRepo) UpdateStripeSyncFields(ctx context.Context, userID uuid.UUID, input repository.StripeSyncInput) error {
+	if m.updateStripeSyncFieldsFn != nil {
+		return m.updateStripeSyncFieldsFn(ctx, userID, input)
 	}
 	return nil
 }
@@ -96,11 +104,12 @@ func (m *mockPaymentRecordRepo) Update(ctx context.Context, record *domain.Payme
 // --- StripeService mock ---
 
 type mockStripeService struct {
-	createPaymentIntentFn      func(ctx context.Context, input portservice.CreatePaymentIntentInput) (*portservice.PaymentIntentResult, error)
-	createTransferFn           func(ctx context.Context, input portservice.CreateTransferInput) (string, error)
-	getAccountStatusFn         func(ctx context.Context, accountID string) (bool, error)
-	uploadIdentityFileFn       func(ctx context.Context, filename string, data io.Reader, purpose string) (string, error)
-	updateAccountVerificationFn func(ctx context.Context, accountID, frontID, backID string) error
+	createPaymentIntentFn  func(ctx context.Context, input portservice.CreatePaymentIntentInput) (*portservice.PaymentIntentResult, error)
+	createTransferFn       func(ctx context.Context, input portservice.CreateTransferInput) (string, error)
+	getAccountStatusFn     func(ctx context.Context, accountID string) (bool, error)
+	createMinimalAccountFn func(ctx context.Context, country, email string) (string, error)
+	createAccountSessionFn func(ctx context.Context, accountID string) (string, error)
+	getFullAccountFn       func(ctx context.Context, accountID string) (*portservice.StripeAccountInfo, error)
 }
 
 func (m *mockStripeService) CreatePaymentIntent(ctx context.Context, input portservice.CreatePaymentIntentInput) (*portservice.PaymentIntentResult, error) {
@@ -124,135 +133,35 @@ func (m *mockStripeService) GetAccountStatus(ctx context.Context, accountID stri
 	return false, nil
 }
 
-func (m *mockStripeService) CreateConnectedAccount(_ context.Context, _ *domain.PaymentInfo, _, _ string) (string, error) {
-	return "", nil
-}
-
 func (m *mockStripeService) ConstructWebhookEvent(_ []byte, _ string) (*portservice.StripeWebhookEvent, error) {
 	return nil, nil
 }
 
-func (m *mockStripeService) GetIdentityVerificationStatus(_ context.Context, _ string) (string, string, error) {
-	return "", "", nil
-}
-
-func (m *mockStripeService) UploadIdentityFile(ctx context.Context, filename string, data io.Reader, purpose string) (string, error) {
-	if m.uploadIdentityFileFn != nil {
-		return m.uploadIdentityFileFn(ctx, filename, data, purpose)
+func (m *mockStripeService) CreateMinimalAccount(ctx context.Context, country, email string) (string, error) {
+	if m.createMinimalAccountFn != nil {
+		return m.createMinimalAccountFn(ctx, country, email)
 	}
-	return "", nil
+	return "acct_minimal_mock", nil
 }
 
-func (m *mockStripeService) UpdateAccountVerification(ctx context.Context, accountID, frontID, backID string) error {
-	if m.updateAccountVerificationFn != nil {
-		return m.updateAccountVerificationFn(ctx, accountID, frontID, backID)
+func (m *mockStripeService) CreateAccountSession(ctx context.Context, accountID string) (string, error) {
+	if m.createAccountSessionFn != nil {
+		return m.createAccountSessionFn(ctx, accountID)
 	}
-	return nil
+	return "cas_mock_secret", nil
 }
 
-func (m *mockStripeService) CreatePerson(_ context.Context, _ string, _ portservice.CreatePersonInput) (string, error) {
-	return "", nil
-}
-
-func (m *mockStripeService) UpdateCompanyFlags(_ context.Context, _ string, _, _, _ bool) error {
-	return nil
-}
-
-func (m *mockStripeService) GetAccountRequirements(_ context.Context, _ string) ([]string, error) {
-	return nil, nil
-}
-
-func (m *mockStripeService) CreateAccountLink(_ context.Context, _, _, _ string) (string, error) {
-	return "", nil
-}
-
-// --- IdentityDocumentRepository mock ---
-
-type mockIdentityDocRepo struct {
-	createFn              func(ctx context.Context, doc *domain.IdentityDocument) error
-	getByIDFn             func(ctx context.Context, id uuid.UUID) (*domain.IdentityDocument, error)
-	listByUserIDFn        func(ctx context.Context, userID uuid.UUID) ([]*domain.IdentityDocument, error)
-	deleteFn              func(ctx context.Context, id uuid.UUID) error
-	getByUserAndTypeSideFn func(ctx context.Context, userID uuid.UUID, cat, docType, side string) (*domain.IdentityDocument, error)
-}
-
-func (m *mockIdentityDocRepo) Create(ctx context.Context, doc *domain.IdentityDocument) error {
-	if m.createFn != nil {
-		return m.createFn(ctx, doc)
+func (m *mockStripeService) GetFullAccount(ctx context.Context, accountID string) (*portservice.StripeAccountInfo, error) {
+	if m.getFullAccountFn != nil {
+		return m.getFullAccountFn(ctx, accountID)
 	}
-	return nil
+	return &portservice.StripeAccountInfo{}, nil
 }
-
-func (m *mockIdentityDocRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.IdentityDocument, error) {
-	if m.getByIDFn != nil {
-		return m.getByIDFn(ctx, id)
-	}
-	return nil, domain.ErrDocumentNotFound
-}
-
-func (m *mockIdentityDocRepo) ListByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.IdentityDocument, error) {
-	if m.listByUserIDFn != nil {
-		return m.listByUserIDFn(ctx, userID)
-	}
-	return nil, nil
-}
-
-func (m *mockIdentityDocRepo) Delete(ctx context.Context, id uuid.UUID) error {
-	if m.deleteFn != nil {
-		return m.deleteFn(ctx, id)
-	}
-	return nil
-}
-
-func (m *mockIdentityDocRepo) UpdateStatus(_ context.Context, _ uuid.UUID, _, _ string) error {
-	return nil
-}
-
-func (m *mockIdentityDocRepo) UpdateStripeFileID(_ context.Context, _ uuid.UUID, _ string) error {
-	return nil
-}
-
-func (m *mockIdentityDocRepo) GetByUserAndTypeSide(ctx context.Context, userID uuid.UUID, cat, docType, side string) (*domain.IdentityDocument, error) {
-	if m.getByUserAndTypeSideFn != nil {
-		return m.getByUserAndTypeSideFn(ctx, userID, cat, docType, side)
-	}
-	return nil, domain.ErrDocumentNotFound
-}
-
-// --- BusinessPersonRepository mock ---
-
-type mockBusinessPersonRepo struct{}
-
-func (m *mockBusinessPersonRepo) Create(_ context.Context, _ *domain.BusinessPerson) error {
-	return nil
-}
-
-func (m *mockBusinessPersonRepo) ListByUserID(_ context.Context, _ uuid.UUID) ([]*domain.BusinessPerson, error) {
-	return nil, nil
-}
-
-func (m *mockBusinessPersonRepo) DeleteByUserID(_ context.Context, _ uuid.UUID) error { return nil }
 
 // --- StorageService mock ---
 
 type mockStorageService struct {
-	uploadFn      func(ctx context.Context, key string, data io.Reader, contentType string, size int64) (string, error)
-	deleteFn      func(ctx context.Context, key string) error
 	getPublicURLFn func(key string) string
-}
-
-func (m *mockStorageService) Upload(ctx context.Context, key string, data io.Reader, contentType string, size int64) (string, error) {
-	if m.uploadFn != nil {
-		return m.uploadFn(ctx, key, data, contentType, size)
-	}
-	return key, nil
-}
-
-func (m *mockStorageService) Delete(ctx context.Context, key string) error {
-	if m.deleteFn != nil {
-		return m.deleteFn(ctx, key)
-	}
-	return nil
 }
 
 func (m *mockStorageService) GetPublicURL(key string) string {
@@ -264,4 +173,12 @@ func (m *mockStorageService) GetPublicURL(key string) string {
 
 func (m *mockStorageService) GetPresignedUploadURL(_ context.Context, _ string, _ string, _ time.Duration) (string, error) {
 	return "", nil
+}
+
+// --- NotificationSender mock ---
+
+type mockNotificationSender struct{}
+
+func (m *mockNotificationSender) Send(_ context.Context, _ portservice.NotificationInput) error {
+	return nil
 }

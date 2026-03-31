@@ -3,12 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   getPaymentInfo,
-  savePaymentInfo,
   getPaymentInfoStatus,
-  getRequirements,
-  createAccountLink,
+  createAccountSession,
 } from "../api/payment-info-api"
-import type { PaymentInfoFormData } from "../types"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
 function paymentInfoKey(uid: string | undefined) {
@@ -39,12 +36,12 @@ export function usePaymentInfoStatus() {
   })
 }
 
-export function useSavePaymentInfo() {
+export function useCreateAccountSession() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
 
   return useMutation({
-    mutationFn: (input: { data: PaymentInfoFormData; email?: string }) => savePaymentInfo(input.data, input.email),
+    mutationFn: (email: string) => createAccountSession(email),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: paymentInfoKey(uid) })
       queryClient.invalidateQueries({ queryKey: paymentInfoStatusKey(uid) })
@@ -52,18 +49,12 @@ export function useSavePaymentInfo() {
   })
 }
 
-export function useStripeRequirements(lang: string) {
+export function useInvalidatePaymentInfo() {
+  const queryClient = useQueryClient()
   const uid = useCurrentUserId()
-  return useQuery({
-    queryKey: ["user", uid, "stripe-requirements"],
-    queryFn: () => getRequirements(lang),
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
-  })
-}
 
-export function useCreateAccountLink() {
-  return useMutation({
-    mutationFn: createAccountLink,
-  })
+  return () => {
+    queryClient.invalidateQueries({ queryKey: paymentInfoKey(uid) })
+    queryClient.invalidateQueries({ queryKey: paymentInfoStatusKey(uid) })
+  }
 }

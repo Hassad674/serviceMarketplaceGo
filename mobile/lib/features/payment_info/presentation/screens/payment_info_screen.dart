@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_router.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../domain/entities/payment_info_entity.dart';
-import '../../types/payment_info.dart';
 import '../providers/payment_info_provider.dart';
-import '../widgets/business_persons_section.dart';
-import '../widgets/identity_verification_section.dart';
-import '../widgets/payment_info_widgets.dart';
-import '../widgets/stripe_requirements_banner.dart';
 
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
 
-/// Payment information form connected to the backend API.
-///
-/// Accessible to agency and provider roles. Loads existing data on mount,
-/// displays personal info, optional business info, and bank account fields.
+/// Payment info screen that uses Stripe Connect Embedded Components
+/// via a WebView pointing to the hosted onboarding page.
 class PaymentInfoScreen extends ConsumerStatefulWidget {
   const PaymentInfoScreen({super.key});
 
@@ -28,188 +22,27 @@ class PaymentInfoScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
-  var _data = const PaymentInfoFormData();
-  bool _saved = false;
-  bool _saving = false;
-  bool _populated = false;
+  bool _showWebView = false;
 
-  void _update(PaymentInfoFormData Function(PaymentInfoFormData) updater) {
-    setState(() {
-      _data = updater(_data);
-      _saved = false;
-    });
+  void _openOnboarding() {
+    setState(() => _showWebView = true);
   }
 
-  bool get _isValid {
-    final personalOk = _data.firstName.trim().isNotEmpty &&
-        _data.lastName.trim().isNotEmpty &&
-        _data.dateOfBirth.isNotEmpty &&
-        _data.nationality.isNotEmpty &&
-        _data.address.trim().isNotEmpty &&
-        _data.city.trim().isNotEmpty &&
-        _data.postalCode.trim().isNotEmpty;
-    if (!personalOk) return false;
-
-    if (_data.isBusiness) {
-      final bizOk = _data.businessRole != null &&
-          _data.businessName.trim().isNotEmpty &&
-          _data.businessAddress.trim().isNotEmpty &&
-          _data.businessCity.trim().isNotEmpty &&
-          _data.businessPostalCode.trim().isNotEmpty &&
-          _data.businessCountry.isNotEmpty &&
-          _data.taxId.trim().isNotEmpty;
-      if (!bizOk) return false;
-    }
-
-    final bankOk = _data.accountHolder.trim().isNotEmpty &&
-        _data.bankCountry.isNotEmpty &&
-        (_data.bankMode == BankAccountMode.iban
-            ? _data.iban.trim().isNotEmpty
-            : _data.accountNumber.trim().isNotEmpty &&
-                _data.routingNumber.trim().isNotEmpty);
-    return bankOk;
-  }
-
-  void _populateFromEntity(PaymentInfo info) {
-    final hasIban = info.iban.isNotEmpty;
-    _data = PaymentInfoFormData(
-      isBusiness: info.isBusiness,
-      firstName: info.firstName,
-      lastName: info.lastName,
-      dateOfBirth: info.dateOfBirth,
-      nationality: info.nationality,
-      address: info.address,
-      city: info.city,
-      postalCode: info.postalCode,
-      phone: info.phone,
-      activitySector: info.activitySector,
-      businessRole: _parseBusinessRole(info.roleInCompany),
-      businessName: info.businessName,
-      businessAddress: info.businessAddress,
-      businessCity: info.businessCity,
-      businessPostalCode: info.businessPostalCode,
-      businessCountry: info.businessCountry,
-      taxId: info.taxId,
-      vatNumber: info.vatNumber,
-      isSelfRepresentative: info.isSelfRepresentative,
-      isSelfDirector: info.isSelfDirector,
-      noMajorOwners: info.noMajorOwners,
-      isSelfExecutive: info.isSelfExecutive,
-      businessPersons: info.businessPersons
-          .map((bp) => BusinessPerson(
-                role: bp.role,
-                firstName: bp.firstName,
-                lastName: bp.lastName,
-                dateOfBirth: bp.dateOfBirth,
-                email: bp.email,
-                phone: bp.phone,
-                address: bp.address,
-                city: bp.city,
-                postalCode: bp.postalCode,
-                title: bp.title,
-              ))
-          .toList(),
-      bankMode: hasIban ? BankAccountMode.iban : BankAccountMode.local,
-      iban: info.iban,
-      bic: info.bic,
-      accountNumber: info.accountNumber,
-      routingNumber: info.routingNumber,
-      accountHolder: info.accountHolder,
-      bankCountry: info.bankCountry,
-    );
-    _saved = true;
-  }
-
-  BusinessRole? _parseBusinessRole(String value) {
-    const mapping = {
-      'owner': BusinessRole.owner,
-      'ceo': BusinessRole.ceo,
-      'director': BusinessRole.director,
-      'partner': BusinessRole.partner,
-      'other': BusinessRole.other,
-    };
-    return mapping[value.toLowerCase()];
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    try {
-      final repo = ref.read(paymentInfoRepositoryProvider);
-      await repo.savePaymentInfo(_formDataToJson());
-      ref.invalidate(paymentInfoProvider);
-      ref.invalidate(paymentInfoStatusProvider);
-      if (mounted) setState(() => _saved = true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Map<String, dynamic> _formDataToJson() {
-    final authState = ref.read(authProvider);
-    final userEmail = authState.user?['email'] as String? ?? '';
-
-    final json = <String, dynamic>{
-      'first_name': _data.firstName,
-      'last_name': _data.lastName,
-      'date_of_birth': _data.dateOfBirth,
-      'nationality': _data.nationality,
-      'address': _data.address,
-      'city': _data.city,
-      'postal_code': _data.postalCode,
-      'phone': _data.phone,
-      'activity_sector': _data.activitySector,
-      'email': userEmail,
-      'is_business': _data.isBusiness,
-      'business_name': _data.businessName,
-      'business_address': _data.businessAddress,
-      'business_city': _data.businessCity,
-      'business_postal_code': _data.businessPostalCode,
-      'business_country': _data.businessCountry,
-      'tax_id': _data.taxId,
-      'vat_number': _data.vatNumber,
-      'role_in_company': _data.businessRole?.name ?? '',
-      'is_self_representative': _data.isSelfRepresentative,
-      'is_self_director': _data.isSelfDirector,
-      'no_major_owners': _data.noMajorOwners,
-      'is_self_executive': _data.isSelfExecutive,
-      'iban': _data.iban,
-      'bic': _data.bic,
-      'account_number': _data.accountNumber,
-      'routing_number': _data.routingNumber,
-      'account_holder': _data.accountHolder,
-      'bank_country': _data.bankCountry,
-    };
-
-    if (_data.businessPersons.isNotEmpty) {
-      json['business_persons'] =
-          _data.businessPersons.map((p) => p.toJson()).toList();
-    }
-
-    return json;
+  void _onOnboardingComplete() {
+    setState(() => _showWebView = false);
+    ref.invalidate(paymentInfoProvider);
+    ref.invalidate(paymentInfoStatusProvider);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     final asyncInfo = ref.watch(paymentInfoProvider);
 
-    // Populate form when data arrives (only once per data load)
-    if (!_populated && asyncInfo.hasValue && asyncInfo.value != null) {
-      _populated = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _populateFromEntity(asyncInfo.value!);
-          });
-        }
-      });
+    if (_showWebView) {
+      return _OnboardingWebView(
+        onComplete: _onOnboardingComplete,
+      );
     }
 
     return Scaffold(
@@ -222,103 +55,65 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
       ),
       body: asyncInfo.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Error: $error'),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(paymentInfoProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
+        error: (error, _) => _ErrorView(
+          error: error.toString(),
+          onRetry: () => ref.invalidate(paymentInfoProvider),
         ),
-        data: (_) => _buildForm(l10n, theme),
+        data: (info) {
+          if (info != null && info.stripeVerified) {
+            return _VerifiedView(accountId: info.stripeAccountId);
+          }
+
+          if (info != null && info.stripeAccountId.isNotEmpty) {
+            return _PendingView(onContinue: _openOnboarding);
+          }
+
+          return _SetupView(onSetup: _openOnboarding);
+        },
       ),
     );
   }
+}
 
-  Widget _buildForm(AppLocalizations l10n, ThemeData theme) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+// ---------------------------------------------------------------------------
+// Sub-views
+// ---------------------------------------------------------------------------
+
+class _VerifiedView extends StatelessWidget {
+  const _VerifiedView({required this.accountId});
+  final String accountId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Subtitle
+            Icon(Icons.check_circle, size: 64, color: Colors.green[600]),
+            const SizedBox(height: 16),
             Text(
-              l10n.paymentInfoSubtitle,
+              'Account Verified',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Your Stripe account is active. You can receive payments.',
+              textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Stripe requirements banner
-            const StripeRequirementsBanner(),
-            const SizedBox(height: 16),
-
-            // Status banner
-            PaymentStatusBanner(saved: _saved),
-            const SizedBox(height: 16),
-
-            // Business toggle
-            PaymentBusinessToggle(
-              value: _data.isBusiness,
-              onChanged: (v) => _update((d) => d.copyWith(isBusiness: v)),
+            const SizedBox(height: 8),
+            Text(
+              accountId,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              ),
             ),
-            const SizedBox(height: 16),
-
-            // Personal info (includes phone)
-            _PersonalInfoSection(data: _data, onUpdate: _update),
-            const SizedBox(height: 16),
-
-            // Activity sector
-            ActivitySectorSection(data: _data, onUpdate: _update),
-            const SizedBox(height: 16),
-
-            // Business info (animated)
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              alignment: Alignment.topCenter,
-              child: _data.isBusiness
-                  ? Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Column(
-                        children: [
-                          _BusinessInfoSection(
-                            data: _data,
-                            onUpdate: _update,
-                          ),
-                          const SizedBox(height: 16),
-                          BusinessPersonsSection(
-                            data: _data,
-                            onUpdate: _update,
-                          ),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-
-            // Bank account
-            _BankAccountSection(data: _data, onUpdate: _update),
-            const SizedBox(height: 24),
-
-            // Identity verification
-            const IdentityVerificationSection(),
-            const SizedBox(height: 24),
-
-            // Save button
-            PaymentInfoSaveButton(
-              isValid: _isValid,
-              isSaving: _saving,
-              onSave: _save,
-            ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -326,235 +121,176 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Personal info section
-// ---------------------------------------------------------------------------
-
-class _PersonalInfoSection extends StatelessWidget {
-  const _PersonalInfoSection({
-    required this.data,
-    required this.onUpdate,
-  });
-
-  final PaymentInfoFormData data;
-  final FormUpdater onUpdate;
+class _PendingView extends StatelessWidget {
+  const _PendingView({required this.onContinue});
+  final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final sectionTitle = data.isBusiness
-        ? l10n.paymentInfoLegalRep
-        : l10n.paymentInfoPersonalInfo;
-
-    return PaymentSectionCard(
-      title: sectionTitle,
-      children: [
-        PaymentFormField(
-          label: l10n.paymentInfoFirstName,
-          value: data.firstName,
-          onChanged: (v) => onUpdate((d) => d.copyWith(firstName: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoLastName,
-          value: data.lastName,
-          onChanged: (v) => onUpdate((d) => d.copyWith(lastName: v)),
-          required: true,
-        ),
-        PaymentDateField(
-          label: l10n.paymentInfoDob,
-          value: data.dateOfBirth,
-          onChanged: (v) => onUpdate((d) => d.copyWith(dateOfBirth: v)),
-        ),
-        PaymentCountryDropdown(
-          label: l10n.paymentInfoNationality,
-          value: data.nationality,
-          onChanged: (code) {
-            final mode = ibanCountryCodes.contains(code)
-                ? BankAccountMode.iban
-                : BankAccountMode.local;
-            onUpdate((d) => d.copyWith(nationality: code, bankMode: mode));
-          },
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoAddress,
-          value: data.address,
-          onChanged: (v) => onUpdate((d) => d.copyWith(address: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoCity,
-          value: data.city,
-          onChanged: (v) => onUpdate((d) => d.copyWith(city: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoPostalCode,
-          value: data.postalCode,
-          onChanged: (v) => onUpdate((d) => d.copyWith(postalCode: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoPhone,
-          value: data.phone,
-          onChanged: (v) => onUpdate((d) => d.copyWith(phone: v)),
-          keyboardType: TextInputType.phone,
-          placeholder: '+33 6 12 34 56 78',
-          required: true,
-        ),
-        if (data.isBusiness)
-          PaymentRoleDropdown(
-            value: data.businessRole,
-            onChanged: (r) => onUpdate((d) => d.copyWith(businessRole: r)),
-          ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Business info section
-// ---------------------------------------------------------------------------
-
-class _BusinessInfoSection extends StatelessWidget {
-  const _BusinessInfoSection({
-    required this.data,
-    required this.onUpdate,
-  });
-
-  final PaymentInfoFormData data;
-  final FormUpdater onUpdate;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return PaymentSectionCard(
-      title: l10n.paymentInfoBusinessInfo,
-      children: [
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessName,
-          value: data.businessName,
-          onChanged: (v) => onUpdate((d) => d.copyWith(businessName: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessAddress,
-          value: data.businessAddress,
-          onChanged: (v) => onUpdate((d) => d.copyWith(businessAddress: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessCity,
-          value: data.businessCity,
-          onChanged: (v) => onUpdate((d) => d.copyWith(businessCity: v)),
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessPostalCode,
-          value: data.businessPostalCode,
-          onChanged: (v) =>
-              onUpdate((d) => d.copyWith(businessPostalCode: v)),
-          required: true,
-        ),
-        PaymentCountryDropdown(
-          label: l10n.paymentInfoBusinessCountry,
-          value: data.businessCountry,
-          onChanged: (code) =>
-              onUpdate((d) => d.copyWith(businessCountry: code)),
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoTaxId,
-          value: data.taxId,
-          onChanged: (v) => onUpdate((d) => d.copyWith(taxId: v)),
-          placeholder: l10n.paymentInfoTaxIdHint,
-          required: true,
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoVatNumber,
-          value: data.vatNumber,
-          onChanged: (v) => onUpdate((d) => d.copyWith(vatNumber: v)),
-          placeholder: l10n.paymentInfoVatNumberHint,
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Bank account section
-// ---------------------------------------------------------------------------
-
-class _BankAccountSection extends StatelessWidget {
-  const _BankAccountSection({
-    required this.data,
-    required this.onUpdate,
-  });
-
-  final PaymentInfoFormData data;
-  final FormUpdater onUpdate;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final isIban = data.bankMode == BankAccountMode.iban;
-
-    return PaymentSectionCard(
-      title: l10n.paymentInfoBankAccount,
-      children: [
-        if (isIban) ...[
-          PaymentFormField(
-            label: l10n.paymentInfoIban,
-            value: data.iban,
-            onChanged: (v) => onUpdate((d) => d.copyWith(iban: v)),
-            placeholder: l10n.paymentInfoIbanHint,
-            required: true,
-          ),
-          PaymentFormField(
-            label: l10n.paymentInfoBic,
-            value: data.bic,
-            onChanged: (v) => onUpdate((d) => d.copyWith(bic: v)),
-            placeholder: l10n.paymentInfoBicHint,
-          ),
-          PaymentIbanHelpText(helpText: l10n.paymentInfoIbanHelp),
-        ] else ...[
-          PaymentFormField(
-            label: l10n.paymentInfoAccountNumber,
-            value: data.accountNumber,
-            onChanged: (v) => onUpdate((d) => d.copyWith(accountNumber: v)),
-            required: true,
-          ),
-          PaymentFormField(
-            label: l10n.paymentInfoRoutingNumber,
-            value: data.routingNumber,
-            onChanged: (v) => onUpdate((d) => d.copyWith(routingNumber: v)),
-            required: true,
-          ),
-        ],
-        PaymentNoIbanCheckbox(
-          value: !isIban,
-          label: l10n.paymentInfoNoIban,
-          onChanged: (checked) => onUpdate(
-            (d) => d.copyWith(
-              bankMode:
-                  checked ? BankAccountMode.local : BankAccountMode.iban,
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.shield, size: 64, color: Colors.amber[600]),
+            const SizedBox(height: 16),
+            Text(
+              'Verification Pending',
+              style: theme.textTheme.headlineSmall,
             ),
-          ),
+            const SizedBox(height: 8),
+            Text(
+              'Your Stripe account requires additional information.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: onContinue,
+              child: const Text('Complete Verification'),
+            ),
+          ],
         ),
-        PaymentCountryDropdown(
-          label: l10n.paymentInfoBankCountry,
-          value: data.bankCountry,
-          onChanged: (code) =>
-              onUpdate((d) => d.copyWith(bankCountry: code)),
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoAccountHolder,
-          value: data.accountHolder,
-          onChanged: (v) => onUpdate((d) => d.copyWith(accountHolder: v)),
-          required: true,
-        ),
-      ],
+      ),
     );
   }
 }
 
+class _SetupView extends StatelessWidget {
+  const _SetupView({required this.onSetup});
+  final VoidCallback onSetup;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.credit_card, size: 64, color: Colors.pink[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Set Up Payments',
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'To receive payments, set up your Stripe account. '
+              'It only takes a few minutes.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: onSetup,
+              child: const Text('Set Up My Account'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.error, required this.onRetry});
+  final String error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('Error: $error'),
+          const SizedBox(height: 8),
+          ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WebView for Stripe onboarding
+// ---------------------------------------------------------------------------
+
+class _OnboardingWebView extends ConsumerStatefulWidget {
+  const _OnboardingWebView({required this.onComplete});
+  final VoidCallback onComplete;
+
+  @override
+  ConsumerState<_OnboardingWebView> createState() =>
+      _OnboardingWebViewState();
+}
+
+class _OnboardingWebViewState extends ConsumerState<_OnboardingWebView> {
+  late final WebViewController _controller;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  Future<void> _initWebView() async {
+    final storage = ref.read(secureStorageProvider);
+    final token = await storage.getAccessToken();
+
+    // Build the onboarding URL
+    final baseUrl = ApiClient.baseUrl.replaceAll('/api', '');
+    final url = '${baseUrl.replaceAll(':8083', ':3000')}/en/onboarding-embed';
+
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageFinished: (_) {
+          if (mounted) setState(() => _loading = false);
+        },
+      ))
+      ..addJavaScriptChannel(
+        'FlutterChannel',
+        onMessageReceived: (message) {
+          if (message.message == 'onboarding-complete') {
+            widget.onComplete();
+          }
+        },
+      );
+
+    // Set the auth cookie before loading the page
+    if (token != null) {
+      await _controller.runJavaScript('''
+        document.cookie = "access_token=$token; path=/;";
+      ''');
+    }
+
+    await _controller.loadRequest(Uri.parse(url));
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: widget.onComplete,
+        ),
+        title: const Text('Account Setup'),
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_loading)
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+}

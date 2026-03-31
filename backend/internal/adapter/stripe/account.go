@@ -6,33 +6,20 @@ import (
 
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
-	"github.com/stripe/stripe-go/v82/accountlink"
-	"github.com/stripe/stripe-go/v82/token"
 
-	"marketplace-backend/internal/domain/payment"
+	portservice "marketplace-backend/internal/port/service"
 )
 
-func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string, email string) (string, error) {
-	// Step 1: Create an account token with the person/company data
-	accountToken, err := createAccountToken(info, tosIP, email)
-	if err != nil {
-		return "", fmt.Errorf("create account token: %w", err)
+// CreateMinimalAccount creates a minimal Stripe Custom account for embedded onboarding.
+func (s *Service) CreateMinimalAccount(_ context.Context, country, email string) (string, error) {
+	if country == "" {
+		country = "FR"
 	}
 
-	// Step 2: Create the connected account using the token
-	country := resolveCountryCode(info)
-	mcc := info.ActivitySector
-	if mcc == "" {
-		mcc = "8999"
-	}
-	acctParams := &stripe.AccountParams{
-		Type:         stripe.String(string(stripe.AccountTypeCustom)),
-		Country:      stripe.String(country),
-		AccountToken: stripe.String(accountToken),
-		BusinessProfile: &stripe.AccountBusinessProfileParams{
-			MCC: stripe.String(mcc),
-			URL: stripe.String("https://service-marketplace-go.vercel.app"),
-		},
+	params := &stripe.AccountParams{
+		Type:    stripe.String(string(stripe.AccountTypeCustom)),
+		Country: stripe.String(country),
+		Email:   stripe.String(email),
 		Capabilities: &stripe.AccountCapabilitiesParams{
 			CardPayments: &stripe.AccountCapabilitiesCardPaymentsParams{
 				Requested: stripe.Bool(true),
@@ -41,77 +28,21 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 				Requested: stripe.Bool(true),
 			},
 		},
+		BusinessProfile: &stripe.AccountBusinessProfileParams{
+			URL: stripe.String("https://service-marketplace-go.vercel.app"),
+		},
 	}
 
-	// External bank account via IBAN
-	if info.IBAN != "" {
-		acctParams.AddExtra("external_account[object]", "bank_account")
-		acctParams.AddExtra("external_account[country]", country)
-		acctParams.AddExtra("external_account[currency]", "eur")
-		acctParams.AddExtra("external_account[account_holder_name]", info.AccountHolder)
-		acctParams.AddExtra("external_account[account_number]", info.IBAN)
-	}
-
-	acct, err := account.New(acctParams)
+	acct, err := account.New(params)
 	if err != nil {
-		return "", fmt.Errorf("create stripe account: %w", err)
+		return "", fmt.Errorf("create minimal stripe account: %w", err)
 	}
 
 	return acct.ID, nil
 }
 
-func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (string, error) {
-	params := &stripe.TokenParams{
-		Account: &stripe.TokenAccountParams{
-			TOSShownAndAccepted: stripe.Bool(true),
-		},
-	}
-
-	country := resolveCountryCode(info)
-
-	if info.IsBusiness {
-		params.Account.BusinessType = stripe.String("company")
-		params.Account.Company = &stripe.AccountCompanyParams{
-			Name:  stripe.String(info.BusinessName),
-			Phone: stripe.String(info.Phone),
-			Address: &stripe.AddressParams{
-				Line1:      stripe.String(info.BusinessAddress),
-				City:       stripe.String(info.BusinessCity),
-				PostalCode: stripe.String(info.BusinessPostalCode),
-				Country:    stripe.String(country),
-			},
-			TaxID: stripe.String(info.TaxID),
-		}
-	} else {
-		params.Account.BusinessType = stripe.String("individual")
-		params.Account.Individual = &stripe.PersonParams{
-			FirstName: stripe.String(info.FirstName),
-			LastName:  stripe.String(info.LastName),
-			Email:     stripe.String(email),
-			Phone:     stripe.String(info.Phone),
-			DOB: &stripe.PersonDOBParams{
-				Day:   stripe.Int64(int64(info.DateOfBirth.Day())),
-				Month: stripe.Int64(int64(info.DateOfBirth.Month())),
-				Year:  stripe.Int64(int64(info.DateOfBirth.Year())),
-			},
-			Address: &stripe.AddressParams{
-				Line1:      stripe.String(info.Address),
-				City:       stripe.String(info.City),
-				PostalCode: stripe.String(info.PostalCode),
-				Country:    stripe.String(country),
-			},
-		}
-	}
-
-	tok, err := token.New(params)
-	if err != nil {
-		return "", err
-	}
-
-	return tok.ID, nil
-}
-
-func (s *Service) GetAccountStatus(ctx context.Context, accountID string) (bool, error) {
+// GetAccountStatus checks whether a connected account is verified.
+func (s *Service) GetAccountStatus(_ context.Context, accountID string) (bool, error) {
 	acct, err := account.GetByID(accountID, nil)
 	if err != nil {
 		return false, fmt.Errorf("get stripe account: %w", err)
@@ -119,71 +50,48 @@ func (s *Service) GetAccountStatus(ctx context.Context, accountID string) (bool,
 	return acct.ChargesEnabled && acct.PayoutsEnabled, nil
 }
 
-// GetIdentityVerificationStatus returns the verification status and the verified file ID.
-func (s *Service) GetIdentityVerificationStatus(ctx context.Context, accountID string) (status string, verifiedFileID string, err error) {
-	acct, err := account.GetByID(accountID, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("get stripe account: %w", err)
-	}
-
-	// For individual accounts: check individual.verification
-	if acct.Individual != nil && acct.Individual.Verification != nil {
-		ver := acct.Individual.Verification
-		frontID := ""
-		if ver.Document != nil && ver.Document.Front != nil {
-			frontID = ver.Document.Front.ID
-		}
-		return string(ver.Status), frontID, nil
-	}
-
-	// For company accounts: if charges+payouts enabled, consider verified
-	if acct.ChargesEnabled && acct.PayoutsEnabled {
-		return "verified", "", nil
-	}
-
-	// Company account not yet fully active — don't mark as rejected, keep pending
-	if acct.BusinessType == stripe.AccountBusinessTypeCompany {
-		return "pending", "", nil
-	}
-
-	return "unverified", "", nil
-}
-
-// GetAccountRequirements returns the currently_due requirements for a connected account.
-func (s *Service) GetAccountRequirements(ctx context.Context, accountID string) ([]string, error) {
+// GetFullAccount retrieves detailed account info for syncing to the database.
+func (s *Service) GetFullAccount(_ context.Context, accountID string) (*portservice.StripeAccountInfo, error) {
 	acct, err := account.GetByID(accountID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get stripe account: %w", err)
 	}
-	return acct.Requirements.CurrentlyDue, nil
+
+	info := &portservice.StripeAccountInfo{
+		ChargesEnabled: acct.ChargesEnabled,
+		PayoutsEnabled: acct.PayoutsEnabled,
+		Country:        acct.Country,
+		BusinessType:   string(acct.BusinessType),
+	}
+
+	if acct.Requirements != nil {
+		info.CurrentlyDue = acct.Requirements.CurrentlyDue
+	}
+
+	info.DisplayName = resolveDisplayName(acct)
+
+	return info, nil
 }
 
-// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
-func (s *Service) CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (string, error) {
-	params := &stripe.AccountLinkParams{
-		Account:    stripe.String(accountID),
-		Type:       stripe.String(string(stripe.AccountLinkTypeAccountUpdate)),
-		ReturnURL:  stripe.String(returnURL),
-		RefreshURL: stripe.String(refreshURL),
-		CollectionOptions: &stripe.AccountLinkCollectionOptionsParams{
-			Fields: stripe.String(string(stripe.AccountLinkCollectCurrentlyDue)),
-		},
+// resolveDisplayName extracts a human-readable name from the account.
+func resolveDisplayName(acct *stripe.Account) string {
+	if acct.Company != nil && acct.Company.Name != "" {
+		return acct.Company.Name
 	}
-
-	link, err := accountlink.New(params)
-	if err != nil {
-		return "", fmt.Errorf("create account link: %w", err)
+	if acct.Individual != nil {
+		name := ""
+		if acct.Individual.FirstName != "" {
+			name = acct.Individual.FirstName
+		}
+		if acct.Individual.LastName != "" {
+			if name != "" {
+				name += " "
+			}
+			name += acct.Individual.LastName
+		}
+		if name != "" {
+			return name
+		}
 	}
-	return link.URL, nil
-}
-
-// resolveCountryCode returns a 2-letter country code from the payment info.
-func resolveCountryCode(info *payment.PaymentInfo) string {
-	if info.BankCountry != "" && len(info.BankCountry) == 2 {
-		return info.BankCountry
-	}
-	if info.Nationality != "" && len(info.Nationality) == 2 {
-		return info.Nationality
-	}
-	return "FR"
+	return ""
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -16,183 +15,40 @@ import (
 type Service struct {
 	payments      repository.PaymentInfoRepository
 	records       repository.PaymentRecordRepository
-	documents     repository.IdentityDocumentRepository
-	persons       repository.BusinessPersonRepository
-	stripe        service.StripeService        // nil if Stripe not configured
-	storage       service.StorageService       // nil if not configured
-	notifications service.NotificationSender   // nil if not configured
+	stripe        service.StripeService      // nil if Stripe not configured
+	notifications service.NotificationSender // nil if not configured
 	frontendURL   string
 }
 
 func NewService(
 	payments repository.PaymentInfoRepository,
 	records repository.PaymentRecordRepository,
-	documents repository.IdentityDocumentRepository,
-	persons repository.BusinessPersonRepository,
 	stripe service.StripeService,
-	storage service.StorageService,
 	notifications service.NotificationSender,
 	frontendURL string,
 ) *Service {
 	return &Service{
 		payments:      payments,
 		records:       records,
-		documents:     documents,
-		persons:       persons,
 		stripe:        stripe,
-		storage:       storage,
 		notifications: notifications,
 		frontendURL:   frontendURL,
 	}
 }
 
 // GetPaymentInfo returns the payment info for the user, or nil if not found.
-func (s *Service) GetPaymentInfo(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, []*domain.BusinessPerson, error) {
+func (s *Service) GetPaymentInfo(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error) {
 	info, err := s.payments.GetByUserID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			return nil, nil, nil
+			return nil, nil
 		}
-		return nil, nil, fmt.Errorf("get payment info: %w", err)
+		return nil, fmt.Errorf("get payment info: %w", err)
 	}
-
-	var persons []*domain.BusinessPerson
-	if info.IsBusiness && s.persons != nil {
-		persons, _ = s.persons.ListByUserID(ctx, userID)
-	}
-
-	return info, persons, nil
-}
-
-// SavePaymentInfoInput holds the data needed to create or update payment info.
-type SavePaymentInfoInput struct {
-	FirstName   string
-	LastName    string
-	DateOfBirth time.Time
-	Nationality string
-	Address     string
-	City        string
-	PostalCode  string
-
-	IsBusiness         bool
-	BusinessName       string
-	BusinessAddress    string
-	BusinessCity       string
-	BusinessPostalCode string
-	BusinessCountry    string
-	TaxID              string
-	VATNumber          string
-	RoleInCompany      string
-
-	Phone          string
-	ActivitySector string
-
-	// Business KYC flags
-	IsSelfRepresentative bool
-	IsSelfDirector       bool
-	NoMajorOwners        bool
-	IsSelfExecutive      bool
-	BusinessPersons      []BusinessPersonInput
-
-	IBAN          string
-	BIC           string
-	AccountNumber string
-	RoutingNumber string
-	AccountHolder string
-	BankCountry   string
-}
-
-type BusinessPersonInput struct {
-	Role        string
-	FirstName   string
-	LastName    string
-	DateOfBirth time.Time
-	Email       string
-	Phone       string
-	Address     string
-	City        string
-	PostalCode  string
-	Title       string
-}
-
-// SavePaymentInfo validates and upserts the payment info for the user.
-func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput, tosIP string, email string) (*domain.PaymentInfo, error) {
-	info, err := domain.NewPaymentInfo(domain.NewPaymentInfoInput{
-		UserID:             userID,
-		FirstName:          input.FirstName,
-		LastName:           input.LastName,
-		DateOfBirth:        input.DateOfBirth,
-		Nationality:        input.Nationality,
-		Address:            input.Address,
-		City:               input.City,
-		PostalCode:         input.PostalCode,
-		IsBusiness:         input.IsBusiness,
-		BusinessName:       input.BusinessName,
-		BusinessAddress:    input.BusinessAddress,
-		BusinessCity:       input.BusinessCity,
-		BusinessPostalCode: input.BusinessPostalCode,
-		BusinessCountry:    input.BusinessCountry,
-		TaxID:              input.TaxID,
-		VATNumber:          input.VATNumber,
-		RoleInCompany:      input.RoleInCompany,
-		Phone:                input.Phone,
-		ActivitySector:       input.ActivitySector,
-		IsSelfRepresentative: input.IsSelfRepresentative,
-		IsSelfDirector:       input.IsSelfDirector,
-		NoMajorOwners:        input.NoMajorOwners,
-		IsSelfExecutive:      input.IsSelfExecutive,
-		IBAN:               input.IBAN,
-		BIC:                input.BIC,
-		AccountNumber:      input.AccountNumber,
-		RoutingNumber:      input.RoutingNumber,
-		AccountHolder:      input.AccountHolder,
-		BankCountry:        input.BankCountry,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Preserve existing Stripe account ID before upserting
-	existing, _ := s.payments.GetByUserID(ctx, userID)
-	if existing != nil && existing.StripeAccountID != "" {
-		info.StripeAccountID = existing.StripeAccountID
-		info.StripeVerified = existing.StripeVerified
-	}
-
-	if err := s.payments.Upsert(ctx, info); err != nil {
-		return nil, fmt.Errorf("save payment info: %w", err)
-	}
-
-	// Save business persons (clear and re-create)
-	if info.IsBusiness && s.persons != nil {
-		_ = s.persons.DeleteByUserID(ctx, userID)
-		for _, bp := range input.BusinessPersons {
-			person, pErr := domain.NewBusinessPerson(domain.NewBusinessPersonInput{
-				UserID:      userID,
-				Role:        bp.Role,
-				FirstName:   bp.FirstName,
-				LastName:    bp.LastName,
-				DateOfBirth: bp.DateOfBirth,
-				Email:       bp.Email,
-				Phone:       bp.Phone,
-				Address:     bp.Address,
-				City:        bp.City,
-				PostalCode:  bp.PostalCode,
-				Title:       bp.Title,
-			})
-			if pErr == nil {
-				_ = s.persons.Create(ctx, person)
-			}
-		}
-	}
-
-	// Create Stripe connected account only if one doesn't exist yet
-	s.ensureStripeAccount(ctx, info, tosIP, email)
-
 	return info, nil
 }
 
-// IsComplete checks whether the user has complete payment info on file.
+// IsComplete checks whether the user has a verified Stripe account.
 func (s *Service) IsComplete(ctx context.Context, userID uuid.UUID) (bool, error) {
 	info, err := s.payments.GetByUserID(ctx, userID)
 	if err != nil {
@@ -201,5 +57,64 @@ func (s *Service) IsComplete(ctx context.Context, userID uuid.UUID) (bool, error
 		}
 		return false, fmt.Errorf("check payment info completeness: %w", err)
 	}
-	return info.IsComplete(), nil
+	return info.StripeVerified, nil
+}
+
+// AccountSessionResult holds the result of creating an account session.
+type AccountSessionResult struct {
+	ClientSecret    string `json:"client_secret"`
+	StripeAccountID string `json:"stripe_account_id"`
+}
+
+// CreateAccountSession creates a Stripe account session for embedded onboarding.
+// If the user has no Stripe account, it creates a minimal one first.
+func (s *Service) CreateAccountSession(ctx context.Context, userID uuid.UUID, email string) (*AccountSessionResult, error) {
+	if s.stripe == nil {
+		return nil, fmt.Errorf("stripe not configured")
+	}
+
+	info, err := s.payments.GetByUserID(ctx, userID)
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		return nil, fmt.Errorf("get payment info: %w", err)
+	}
+
+	accountID := ""
+	if info != nil {
+		accountID = info.StripeAccountID
+	}
+
+	// Create minimal account if none exists
+	if accountID == "" {
+		accountID, err = s.stripe.CreateMinimalAccount(ctx, "FR", email)
+		if err != nil {
+			return nil, fmt.Errorf("create minimal account: %w", err)
+		}
+		if err := s.ensurePaymentInfoRow(ctx, userID, accountID); err != nil {
+			return nil, fmt.Errorf("persist stripe account: %w", err)
+		}
+	}
+
+	clientSecret, err := s.stripe.CreateAccountSession(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("create account session: %w", err)
+	}
+
+	return &AccountSessionResult{
+		ClientSecret:    clientSecret,
+		StripeAccountID: accountID,
+	}, nil
+}
+
+// ensurePaymentInfoRow creates or updates the payment_info row with the Stripe account ID.
+func (s *Service) ensurePaymentInfoRow(ctx context.Context, userID uuid.UUID, accountID string) error {
+	_, err := s.payments.GetByUserID(ctx, userID)
+	if errors.Is(err, domain.ErrNotFound) {
+		info := domain.NewPaymentInfo(userID)
+		info.StripeAccountID = accountID
+		return s.payments.Upsert(ctx, info)
+	}
+	if err != nil {
+		return err
+	}
+	return s.payments.UpdateStripeFields(ctx, userID, accountID, false)
 }

@@ -1,148 +1,57 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
-import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
+import { useState, useCallback } from "react"
+import { CheckCircle, Loader2, CreditCard, Shield } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
-import { PersonalInfoSection } from "./personal-info-section"
-import { BusinessInfoSection } from "./business-info-section"
-import { BankAccountSection } from "./bank-account-section"
-import { BusinessPersonsSection } from "./business-persons-section"
-import { IdentityVerificationSection } from "./identity-verification-section"
-import { StripeRequirementsBanner } from "./stripe-requirements-banner"
-import { isIbanCountry } from "./country-select"
-import type { PaymentInfoFormData, BankAccountMode } from "../types"
-import { INITIAL_FORM_DATA } from "../types"
+import { ConnectOnboarding } from "./connect-onboarding"
 import { useUser } from "@/shared/hooks/use-user"
-import { usePaymentInfo, useSavePaymentInfo } from "../hooks/use-payment-info"
-import type { PaymentInfoResponse } from "../api/payment-info-api"
-
-function isFormValid(data: PaymentInfoFormData): boolean {
-  const personalComplete =
-    data.firstName.trim() !== "" &&
-    data.lastName.trim() !== "" &&
-    data.dateOfBirth !== "" &&
-    data.nationality !== "" &&
-    data.address.trim() !== "" &&
-    data.city.trim() !== "" &&
-    data.postalCode.trim() !== ""
-
-  if (!personalComplete) return false
-
-  if (data.isBusiness) {
-    const businessComplete =
-      data.businessRole !== "" &&
-      data.businessName.trim() !== "" &&
-      data.businessAddress.trim() !== "" &&
-      data.businessCity.trim() !== "" &&
-      data.businessPostalCode.trim() !== "" &&
-      data.businessCountry !== "" &&
-      data.taxId.trim() !== ""
-    if (!businessComplete) return false
-  }
-
-  const bankComplete =
-    data.accountHolder.trim() !== "" &&
-    data.bankCountry !== "" &&
-    (data.bankMode === "iban"
-      ? data.iban.trim() !== ""
-      : data.accountNumber.trim() !== "" && data.routingNumber.trim() !== "")
-
-  return bankComplete
-}
-
-function responseToFormData(res: PaymentInfoResponse): PaymentInfoFormData {
-  const hasIban = res.iban !== ""
-  return {
-    isBusiness: res.is_business,
-    firstName: res.first_name,
-    lastName: res.last_name,
-    dateOfBirth: res.date_of_birth,
-    nationality: res.nationality,
-    address: res.address,
-    city: res.city,
-    postalCode: res.postal_code,
-    businessRole: res.role_in_company as PaymentInfoFormData["businessRole"],
-    businessName: res.business_name,
-    businessAddress: res.business_address,
-    businessCity: res.business_city,
-    businessPostalCode: res.business_postal_code,
-    businessCountry: res.business_country,
-    taxId: res.tax_id,
-    vatNumber: res.vat_number,
-    phone: res.phone ?? "",
-    activitySector: res.activity_sector || "8999",
-    isSelfRepresentative: res.is_self_representative ?? true,
-    isSelfDirector: res.is_self_director ?? true,
-    noMajorOwners: res.no_major_owners ?? true,
-    isSelfExecutive: res.is_self_executive ?? true,
-    businessPersons: [],
-    bankMode: hasIban ? "iban" : "local",
-    iban: res.iban,
-    bic: res.bic,
-    accountNumber: res.account_number,
-    routingNumber: res.routing_number,
-    accountHolder: res.account_holder,
-    bankCountry: res.bank_country,
-  }
-}
+import {
+  usePaymentInfo,
+  useCreateAccountSession,
+  useInvalidatePaymentInfo,
+} from "../hooks/use-payment-info"
 
 export function PaymentInfoPage() {
   const t = useTranslations("paymentInfo")
-  const [data, setData] = useState<PaymentInfoFormData>(INITIAL_FORM_DATA)
-  const [saved, setSaved] = useState(false)
-  const [initialized, setInitialized] = useState(false)
-
   const { data: user } = useUser()
   const { data: existing, isLoading } = usePaymentInfo()
-  const saveMutation = useSavePaymentInfo()
+  const createSession = useCreateAccountSession()
+  const invalidate = useInvalidatePaymentInfo()
 
-  useEffect(() => {
-    if (initialized || isLoading) return
-    if (existing) {
-      setData(responseToFormData(existing))
-      setSaved(true)
-    }
-    setInitialized(true)
-  }, [existing, isLoading, initialized])
+  const [sessionData, setSessionData] = useState<{
+    clientSecret: string
+    stripeAccountId: string
+  } | null>(null)
 
-  const handleChange = useCallback(
-    (field: keyof PaymentInfoFormData, value: string) => {
-      setData((prev) => {
-        const next = { ...prev, [field]: value }
-        if (field === "nationality") {
-          next.bankMode = isIbanCountry(value) ? "iban" : "local"
-        }
-        return next
-      })
-      setSaved(false)
-    },
-    [],
-  )
-
-  const handleToggleBusiness = useCallback(() => {
-    setData((prev) => ({ ...prev, isBusiness: !prev.isBusiness }))
-    setSaved(false)
-  }, [])
-
-  const handleChangeAny = useCallback(
-    (field: keyof PaymentInfoFormData, value: unknown) => {
-      setData((prev) => ({ ...prev, [field]: value }))
-      setSaved(false)
-    },
-    [],
-  )
-
-  const handleBankModeChange = useCallback((mode: BankAccountMode) => {
-    setData((prev) => ({ ...prev, bankMode: mode }))
-    setSaved(false)
-  }, [])
-
-  const handleSave = useCallback(() => {
-    saveMutation.mutate({ data, email: user?.email }, {
-      onSuccess: () => setSaved(true),
+  const handleSetupPayments = useCallback(() => {
+    if (!user?.email) return
+    createSession.mutate(user.email, {
+      onSuccess: (result) => {
+        setSessionData({
+          clientSecret: result.client_secret,
+          stripeAccountId: result.stripe_account_id,
+        })
+      },
     })
-  }, [data, user, saveMutation])
+  }, [user, createSession])
+
+  const handleRefreshSession = useCallback(() => {
+    if (!user?.email) return
+    createSession.mutate(user.email, {
+      onSuccess: (result) => {
+        setSessionData({
+          clientSecret: result.client_secret,
+          stripeAccountId: result.stripe_account_id,
+        })
+      },
+    })
+  }, [user, createSession])
+
+  const handleOnboardingComplete = useCallback(() => {
+    setSessionData(null)
+    invalidate()
+  }, [invalidate])
 
   if (isLoading) {
     return (
@@ -152,7 +61,11 @@ export function PaymentInfoPage() {
     )
   }
 
-  const valid = isFormValid(data)
+  const isVerified =
+    existing?.stripe_verified === true ||
+    (existing?.stripe_account_id && existing?.stripe_account_id !== "")
+
+  const hasAccount = existing?.stripe_account_id && existing.stripe_account_id !== ""
 
   return (
     <div className="space-y-6">
@@ -166,95 +79,155 @@ export function PaymentInfoPage() {
         </p>
       </div>
 
-      {/* Verification status banner */}
-      {saved ? (
-        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-          <CheckCircle className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            {t("saved")}
-          </p>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-            {t("incomplete")}
-          </p>
-        </div>
+      {/* Verified account status */}
+      {isVerified && existing?.stripe_verified && (
+        <AccountVerifiedCard stripeAccountId={existing.stripe_account_id} />
       )}
 
-      {/* API error banner */}
-      {saveMutation.isError && (
+      {/* Account exists but not fully verified — show onboarding */}
+      {hasAccount && !existing?.stripe_verified && !sessionData && (
+        <AccountPendingCard onContinue={handleRefreshSession} isLoading={createSession.isPending} />
+      )}
+
+      {/* No account — show CTA */}
+      {!hasAccount && !sessionData && (
+        <SetupPaymentsCard onSetup={handleSetupPayments} isLoading={createSession.isPending} />
+      )}
+
+      {/* Error state */}
+      {createSession.isError && (
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
-          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" strokeWidth={1.5} />
           <p className="text-sm font-medium text-red-700 dark:text-red-300">
-            {saveMutation.error instanceof Error
-              ? saveMutation.error.message
+            {createSession.error instanceof Error
+              ? createSession.error.message
               : t("saveError")}
           </p>
         </div>
       )}
 
-      {/* Business toggle */}
-      <div className="flex items-center gap-3">
+      {/* Embedded onboarding component */}
+      {sessionData && (
+        <ConnectOnboarding
+          clientSecret={sessionData.clientSecret}
+          stripeAccountId={sessionData.stripeAccountId}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
+    </div>
+  )
+}
+
+interface AccountVerifiedCardProps {
+  stripeAccountId: string
+}
+
+function AccountVerifiedCard({ stripeAccountId }: AccountVerifiedCardProps) {
+  const t = useTranslations("paymentInfo")
+
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-500/20">
+          <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-200">
+            {t("accountVerified")}
+          </h3>
+          <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+            {t("accountVerifiedDescription")}
+          </p>
+          <p className="mt-2 font-mono text-xs text-emerald-600 dark:text-emerald-400">
+            {stripeAccountId}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface AccountPendingCardProps {
+  onContinue: () => void
+  isLoading: boolean
+}
+
+function AccountPendingCard({ onContinue, isLoading }: AccountPendingCardProps) {
+  const t = useTranslations("paymentInfo")
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 dark:border-amber-500/30 dark:bg-amber-500/10">
+      <div className="flex items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-500/20">
+          <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold text-amber-800 dark:text-amber-200">
+            {t("accountPending")}
+          </h3>
+          <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+            {t("accountPendingDescription")}
+          </p>
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={isLoading}
+            className={cn(
+              "mt-4 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition-all duration-200",
+              isLoading
+                ? "cursor-not-allowed bg-gray-300 dark:bg-gray-700"
+                : "gradient-primary hover:shadow-glow active:scale-[0.98]",
+            )}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              t("continueOnboarding")
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface SetupPaymentsCardProps {
+  onSetup: () => void
+  isLoading: boolean
+}
+
+function SetupPaymentsCard({ onSetup, isLoading }: SetupPaymentsCardProps) {
+  const t = useTranslations("paymentInfo")
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 dark:bg-rose-500/10">
+          <CreditCard className="h-8 w-8 text-rose-500" />
+        </div>
+        <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+          {t("setupPaymentsTitle")}
+        </h3>
+        <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+          {t("setupPaymentsDescription")}
+        </p>
         <button
           type="button"
-          role="switch"
-          aria-checked={data.isBusiness}
-          onClick={handleToggleBusiness}
+          onClick={onSetup}
+          disabled={isLoading}
           className={cn(
-            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
-            data.isBusiness ? "bg-rose-500" : "bg-gray-300 dark:bg-gray-600",
+            "mt-6 rounded-xl px-8 py-3 text-sm font-semibold text-white transition-all duration-200",
+            isLoading
+              ? "cursor-not-allowed bg-gray-300 dark:bg-gray-700"
+              : "gradient-primary hover:shadow-glow active:scale-[0.98]",
           )}
         >
-          <span
-            className={cn(
-              "inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 shadow-sm",
-              data.isBusiness ? "translate-x-6" : "translate-x-1",
-            )}
-          />
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            t("setupPaymentsButton")
+          )}
         </button>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {t("isBusiness")}
-        </span>
       </div>
-
-      {/* Stripe requirements banner */}
-      {saved && existing?.stripe_account_id && <StripeRequirementsBanner />}
-
-      {/* Sections */}
-      <PersonalInfoSection data={data} onChange={handleChange} />
-
-      {data.isBusiness && (
-        <>
-          <BusinessInfoSection data={data} onChange={handleChange} />
-          <BusinessPersonsSection data={data} onChange={handleChangeAny} />
-        </>
-      )}
-
-      <BankAccountSection
-        data={data}
-        onChange={handleChange}
-        onChangeBankMode={handleBankModeChange}
-      />
-
-      {/* Identity verification */}
-      <IdentityVerificationSection />
-
-      {/* Save button */}
-      <button
-        type="button"
-        disabled={!valid || saveMutation.isPending}
-        onClick={handleSave}
-        className={cn(
-          "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-200 sm:w-auto",
-          valid && !saveMutation.isPending
-            ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
-            : "cursor-not-allowed bg-gray-300 dark:bg-gray-700",
-        )}
-      >
-        {saveMutation.isPending ? t("saving") : t("save")}
-      </button>
     </div>
   )
 }

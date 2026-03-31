@@ -1,58 +1,30 @@
 package payment
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/payment"
+	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
 )
 
 // CreatePaymentIntent implements service.PaymentProcessor.
 func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
-	// Check for existing record (idempotency)
 	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
 	if err == nil && existing != nil {
-		// Record exists — re-call Stripe with same idempotency key (returns same PI)
-		pi, piErr := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
-			AmountCentimes: existing.ClientTotalAmount,
-			Currency:       existing.Currency,
-			ProposalID:     input.ProposalID.String(),
-			ClientID:       input.ClientID.String(),
-			ProviderID:     input.ProviderID.String(),
-			TransferGroup:  input.ProposalID.String(),
-		})
-		if piErr != nil {
-			return nil, fmt.Errorf("retrieve existing payment intent: %w", piErr)
-		}
-		// Update record with PI ID if it was missing (race condition recovery)
-		if existing.StripePaymentIntentID == "" {
-			existing.StripePaymentIntentID = pi.PaymentIntentID
-			_ = s.records.Update(ctx, existing)
-		}
-		return &portservice.PaymentIntentOutput{
-			ClientSecret:    pi.ClientSecret,
-			PaymentRecordID: existing.ID,
-			ProposalAmount:  existing.ProposalAmount,
-			StripeFee:       existing.StripeFeeAmount,
-			PlatformFee:     existing.PlatformFeeAmount,
-			ClientTotal:     existing.ClientTotalAmount,
-			ProviderPayout:  existing.ProviderPayout,
-		}, nil
+		return s.retryExistingPaymentIntent(ctx, existing, input)
 	}
 
 	stripeFee := domain.EstimateStripeFee(input.ProposalAmount)
 	record := domain.NewPaymentRecord(input.ProposalID, input.ClientID, input.ProviderID, input.ProposalAmount, stripeFee)
 
 	if err := s.records.Create(ctx, record); err != nil {
-		// Race condition: another request just created it — fetch and return
 		return s.createPaymentIntentFromExisting(ctx, input)
 	}
 
@@ -75,25 +47,10 @@ func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.Pay
 		return nil, fmt.Errorf("update record with PI ID: %w", err)
 	}
 
-	return &portservice.PaymentIntentOutput{
-		ClientSecret:    pi.ClientSecret,
-		PaymentRecordID: record.ID,
-		ProposalAmount:  record.ProposalAmount,
-		StripeFee:       record.StripeFeeAmount,
-		PlatformFee:     record.PlatformFeeAmount,
-		ClientTotal:     record.ClientTotalAmount,
-		ProviderPayout:  record.ProviderPayout,
-	}, nil
+	return paymentIntentOutputFromRecord(pi.ClientSecret, record), nil
 }
 
-// createPaymentIntentFromExisting handles the race condition where another request
-// already created the record. Fetches the existing record and returns the PI.
-func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
-	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
-	if err != nil {
-		return nil, fmt.Errorf("fetch existing record after race: %w", err)
-	}
-
+func (s *Service) retryExistingPaymentIntent(ctx context.Context, existing *domain.PaymentRecord, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
 	pi, err := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
 		AmountCentimes: existing.ClientTotalAmount,
 		Currency:       existing.Currency,
@@ -103,34 +60,43 @@ func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input por
 		TransferGroup:  input.ProposalID.String(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create PI from existing: %w", err)
+		return nil, fmt.Errorf("retrieve existing payment intent: %w", err)
 	}
-
 	if existing.StripePaymentIntentID == "" {
 		existing.StripePaymentIntentID = pi.PaymentIntentID
 		_ = s.records.Update(ctx, existing)
 	}
+	return paymentIntentOutputFromRecord(pi.ClientSecret, existing), nil
+}
 
+func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
+	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch existing record after race: %w", err)
+	}
+	return s.retryExistingPaymentIntent(ctx, existing, input)
+}
+
+func paymentIntentOutputFromRecord(clientSecret string, r *domain.PaymentRecord) *portservice.PaymentIntentOutput {
 	return &portservice.PaymentIntentOutput{
-		ClientSecret:    pi.ClientSecret,
-		PaymentRecordID: existing.ID,
-		ProposalAmount:  existing.ProposalAmount,
-		StripeFee:       existing.StripeFeeAmount,
-		PlatformFee:     existing.PlatformFeeAmount,
-		ClientTotal:     existing.ClientTotalAmount,
-		ProviderPayout:  existing.ProviderPayout,
-	}, nil
+		ClientSecret:    clientSecret,
+		PaymentRecordID: r.ID,
+		ProposalAmount:  r.ProposalAmount,
+		StripeFee:       r.StripeFeeAmount,
+		PlatformFee:     r.PlatformFeeAmount,
+		ClientTotal:     r.ClientTotalAmount,
+		ProviderPayout:  r.ProviderPayout,
+	}
 }
 
 // MarkPaymentSucceeded marks the payment record as succeeded by proposal ID.
-// Called by the confirm-payment handler as a fallback to the webhook.
 func (s *Service) MarkPaymentSucceeded(ctx context.Context, proposalID uuid.UUID) error {
 	record, err := s.records.GetByProposalID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("find payment record: %w", err)
 	}
 	if record.Status == domain.RecordStatusSucceeded {
-		return nil // already succeeded
+		return nil
 	}
 	if err := record.MarkPaid(); err != nil {
 		return fmt.Errorf("mark paid: %w", err)
@@ -144,20 +110,15 @@ func (s *Service) HandlePaymentSucceeded(ctx context.Context, paymentIntentID st
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("find payment record: %w", err)
 	}
-
-	// Idempotency: already succeeded
 	if record.Status == domain.RecordStatusSucceeded {
 		return record.ProposalID, nil
 	}
-
 	if err := record.MarkPaid(); err != nil {
 		return uuid.Nil, fmt.Errorf("mark paid: %w", err)
 	}
-
 	if err := s.records.Update(ctx, record); err != nil {
 		return uuid.Nil, fmt.Errorf("update payment record: %w", err)
 	}
-
 	return record.ProposalID, nil
 }
 
@@ -167,7 +128,6 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 	if err != nil {
 		return fmt.Errorf("find payment record: %w", err)
 	}
-
 	if record.Status != domain.RecordStatusSucceeded {
 		return domain.ErrPaymentNotSucceeded
 	}
@@ -199,62 +159,40 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 	if err := record.MarkTransferred(transferID); err != nil {
 		return fmt.Errorf("mark transferred: %w", err)
 	}
-
 	return s.records.Update(ctx, record)
 }
 
-// HandleAccountUpdated syncs Stripe connected account verification status.
+// HandleAccountUpdated syncs Stripe connected account status.
 // Called by the webhook handler when account.updated fires.
 func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) error {
-	// Get verification status + verified file ID from Stripe
-	verStatus, verifiedFileID, err := s.stripe.GetIdentityVerificationStatus(ctx, accountID)
+	acctInfo, err := s.stripe.GetFullAccount(ctx, accountID)
 	if err != nil {
-		return fmt.Errorf("get verification status: %w", err)
+		return fmt.Errorf("get full account: %w", err)
 	}
 
-	// Find the user associated with this Stripe account
 	info, err := s.payments.GetByStripeAccountID(ctx, accountID)
 	if err != nil {
 		slog.Warn("webhook: no user for stripe account", "account_id", accountID)
 		return nil
 	}
 
-	// Update account-level verification
-	if verStatus == "verified" {
-		if err := s.payments.UpdateStripeFields(ctx, info.UserID, accountID, true); err != nil {
-			slog.Error("webhook: failed to mark stripe verified", "user_id", info.UserID, "error", err)
-		}
+	verified := acctInfo.ChargesEnabled && acctInfo.PayoutsEnabled
+	syncInput := repository.StripeSyncInput{
+		ChargesEnabled: acctInfo.ChargesEnabled,
+		PayoutsEnabled: acctInfo.PayoutsEnabled,
+		StripeVerified: verified,
+		BusinessType:   acctInfo.BusinessType,
+		Country:        acctInfo.Country,
+		DisplayName:    acctInfo.DisplayName,
 	}
 
-	// Update identity document statuses
-	docs, err := s.documents.ListByUserID(ctx, info.UserID)
-	if err != nil {
-		return nil
+	if err := s.payments.UpdateStripeSyncFields(ctx, info.UserID, syncInput); err != nil {
+		slog.Error("webhook: failed to sync stripe fields", "user_id", info.UserID, "error", err)
 	}
 
-	for _, d := range docs {
-		if d.Status != domain.DocStatusPending {
-			continue
-		}
-		switch verStatus {
-		case "verified":
-			if d.StripeFileID == verifiedFileID || verifiedFileID == "" {
-				_ = s.documents.UpdateStatus(ctx, d.ID, string(domain.DocStatusVerified), "")
-				slog.Info("webhook: document verified", "doc_id", d.ID, "user_id", info.UserID)
-			}
-		case "unverified":
-			// Only reject for individual accounts — company accounts use "pending" instead
-			_ = s.documents.UpdateStatus(ctx, d.ID, string(domain.DocStatusRejected), "verification failed")
-			slog.Info("webhook: document rejected", "doc_id", d.ID, "user_id", info.UserID)
-		case "pending":
-			// Keep as pending — don't change status
-		}
-	}
-
-	// Check for new requirements and notify
-	due, reqErr := s.stripe.GetAccountRequirements(ctx, accountID)
-	if reqErr == nil && len(due) > 0 {
-		s.NotifyNewRequirements(ctx, info.UserID, due)
+	// Notify user if there are pending requirements
+	if len(acctInfo.CurrentlyDue) > 0 {
+		s.notifyNewRequirements(ctx, info.UserID, acctInfo.CurrentlyDue)
 	}
 
 	return nil
@@ -293,7 +231,6 @@ func (s *Service) GetWalletOverview(ctx context.Context, userID uuid.UUID) (*Wal
 		StripeAccountID: info.StripeAccountID,
 	}
 
-	// Check Stripe account status
 	if s.stripe != nil && info.StripeAccountID != "" {
 		verified, _ := s.stripe.GetAccountStatus(ctx, info.StripeAccountID)
 		wallet.ChargesEnabled = verified
@@ -325,7 +262,6 @@ func (s *Service) GetWalletOverview(ctx context.Context, userID uuid.UUID) (*Wal
 	}
 
 	wallet.AvailableAmount = wallet.EscrowAmount
-
 	return wallet, nil
 }
 
@@ -344,7 +280,6 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 		return nil, domain.ErrStripeAccountNotFound
 	}
 
-	// Find all succeeded payments with pending transfers
 	records, err := s.records.ListByProviderID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list records: %w", err)
@@ -355,7 +290,6 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 		if r.Status != domain.RecordStatusSucceeded || r.TransferStatus != domain.TransferPending {
 			continue
 		}
-
 		transferID, tErr := s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
 			Amount:             r.ProviderPayout,
 			Currency:           r.Currency,
@@ -369,7 +303,6 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 			_ = s.records.Update(ctx, r)
 			continue
 		}
-
 		if err := r.MarkTransferred(transferID); err != nil {
 			slog.Error("mark transferred", "error", err)
 			continue
@@ -386,131 +319,6 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 		Status:  "transferred",
 		Message: fmt.Sprintf("Transferred %d centimes to your account", transferred),
 	}, nil
-}
-
-// ensureStripeAccount creates a Stripe connected account if conditions are met.
-func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) {
-	if s.stripe == nil || info.StripeAccountID != "" || !info.IsComplete() || tosIP == "" {
-		return
-	}
-
-	accountID, err := s.stripe.CreateConnectedAccount(ctx, info, tosIP, email)
-	if err != nil {
-		slog.Error("failed to create stripe connected account", "user_id", info.UserID, "error", err)
-		return
-	}
-
-	info.SetStripeAccount(accountID)
-	if err := s.payments.UpdateStripeFields(ctx, info.UserID, accountID, false); err != nil {
-		slog.Error("failed to persist stripe account id", "user_id", info.UserID, "error", err)
-	}
-
-	slog.Info("stripe connected account created", "user_id", info.UserID, "account_id", accountID)
-
-	// Create Stripe persons for business accounts
-	if info.IsBusiness {
-		s.createStripePersons(ctx, info, accountID, email)
-	}
-
-	// Sync any documents uploaded before the account was created
-	s.syncPendingDocuments(ctx, info.UserID, accountID)
-}
-
-// createStripePersons creates the required Stripe persons for a company account.
-func (s *Service) createStripePersons(ctx context.Context, info *domain.PaymentInfo, accountID, email string) {
-	// Representative person (always required for company)
-	repInput := portservice.CreatePersonInput{
-		FirstName:        info.FirstName,
-		LastName:         info.LastName,
-		Email:            email,
-		Phone:            info.Phone,
-		DOB:              info.DateOfBirth,
-		Address:          info.Address,
-		City:             info.City,
-		PostalCode:       info.PostalCode,
-		Title:            info.RoleInCompany,
-		IsRepresentative: true,
-		IsDirector:       info.IsSelfDirector,
-		IsExecutive:      info.IsSelfExecutive,
-		IsOwner:          !info.NoMajorOwners && info.IsSelfRepresentative,
-	}
-
-	if _, err := s.stripe.CreatePerson(ctx, accountID, repInput); err != nil {
-		slog.Error("failed to create representative person", "error", err)
-	}
-
-	// Additional persons from business_persons table
-	persons, _ := s.persons.ListByUserID(ctx, info.UserID)
-	for _, p := range persons {
-		input := portservice.CreatePersonInput{
-			FirstName: p.FirstName,
-			LastName:  p.LastName,
-			Email:     p.Email,
-			Phone:     p.Phone,
-			DOB:       p.DateOfBirth,
-			Address:   p.Address,
-			City:      p.City,
-			PostalCode: p.PostalCode,
-			Title:     p.Title,
-		}
-		switch p.Role {
-		case domain.RoleDirector:
-			input.IsDirector = true
-		case domain.RoleOwner:
-			input.IsOwner = true
-		case domain.RoleExecutive:
-			input.IsExecutive = true
-		}
-
-		personID, err := s.stripe.CreatePerson(ctx, accountID, input)
-		if err != nil {
-			slog.Error("failed to create business person", "role", p.Role, "error", err)
-			continue
-		}
-		p.StripePersonID = personID
-	}
-
-	// Mark all provided
-	if err := s.stripe.UpdateCompanyFlags(ctx, accountID, true, true, true); err != nil {
-		slog.Error("failed to update company flags", "error", err)
-	}
-}
-
-// syncPendingDocuments uploads pending documents to Stripe after account creation.
-func (s *Service) syncPendingDocuments(ctx context.Context, userID uuid.UUID, accountID string) {
-	docs, err := s.documents.ListByUserID(ctx, userID)
-	if err != nil || len(docs) == 0 {
-		return
-	}
-
-	for _, d := range docs {
-		if d.StripeFileID != "" {
-			continue
-		}
-		fileURL := s.storage.GetPublicURL(d.FileKey)
-		resp, httpErr := http.Get(fileURL)
-		if httpErr != nil || resp.StatusCode != 200 {
-			slog.Error("sync: failed to download from R2", "doc_id", d.ID, "url", fileURL)
-			if resp != nil {
-				resp.Body.Close()
-			}
-			continue
-		}
-		fileData, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
-		if readErr != nil {
-			continue
-		}
-		stripeFileID, uploadErr := s.stripe.UploadIdentityFile(ctx, d.FileKey, bytes.NewReader(fileData), "identity_document")
-		if uploadErr != nil {
-			slog.Error("sync: failed to upload to stripe", "doc_id", d.ID, "error", uploadErr)
-			continue
-		}
-		_ = s.documents.UpdateStripeFileID(ctx, d.ID, stripeFileID)
-		slog.Info("sync: document uploaded to stripe", "doc_id", d.ID, "stripe_file_id", stripeFileID)
-	}
-
-	s.attachDocumentToAccount(ctx, userID, accountID)
 }
 
 // VerifyWebhook delegates webhook verification to the Stripe adapter.
@@ -536,4 +344,26 @@ func (s *Service) GetPaymentRecord(ctx context.Context, proposalID uuid.UUID) (*
 		return nil, fmt.Errorf("get payment record: %w", err)
 	}
 	return record, nil
+}
+
+// notifyNewRequirements sends a notification when Stripe requires new information.
+func (s *Service) notifyNewRequirements(ctx context.Context, userID uuid.UUID, requirements []string) {
+	if s.notifications == nil || len(requirements) == 0 {
+		return
+	}
+
+	data, _ := json.Marshal(map[string]string{
+		"type": "stripe_requirements",
+		"url":  "/payment-info",
+	})
+
+	if err := s.notifications.Send(ctx, portservice.NotificationInput{
+		UserID: userID,
+		Type:   "stripe_requirements",
+		Title:  "Action requise — Stripe",
+		Body:   "Stripe demande des informations complémentaires pour activer votre compte.",
+		Data:   data,
+	}); err != nil {
+		slog.Error("failed to send stripe requirements notification", "user_id", userID, "error", err)
+	}
 }

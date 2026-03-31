@@ -3,7 +3,6 @@ package payment
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -12,36 +11,22 @@ import (
 	domain "marketplace-backend/internal/domain/payment"
 )
 
-func validSaveInput() SavePaymentInfoInput {
-	return SavePaymentInfoInput{
-		FirstName:     "Alice",
-		LastName:      "Dupont",
-		DateOfBirth:   time.Date(1990, 5, 15, 0, 0, 0, 0, time.UTC),
-		Nationality:   "FR",
-		Address:       "10 rue de la Paix",
-		City:          "Paris",
-		PostalCode:    "75001",
-		AccountHolder: "Alice Dupont",
-		IBAN:          "FR7630001007941234567890185",
-	}
-}
-
 func TestGetPaymentInfo_NotFound(t *testing.T) {
 	repo := &mockPaymentInfoRepo{}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
+	svc := NewService(repo, nil, nil, nil, "")
 
-	info, persons, err := svc.GetPaymentInfo(context.Background(), uuid.New())
+	info, err := svc.GetPaymentInfo(context.Background(), uuid.New())
 
 	assert.NoError(t, err)
 	assert.Nil(t, info, "should return nil when not found")
-	assert.Nil(t, persons)
 }
 
 func TestGetPaymentInfo_Found(t *testing.T) {
 	userID := uuid.New()
 	expected := &domain.PaymentInfo{
-		UserID:    userID,
-		FirstName: "Alice",
+		UserID:          userID,
+		StripeAccountID: "acct_test",
+		StripeVerified:  true,
 	}
 
 	repo := &mockPaymentInfoRepo{
@@ -52,48 +37,18 @@ func TestGetPaymentInfo_Found(t *testing.T) {
 			return nil, domain.ErrNotFound
 		},
 	}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
+	svc := NewService(repo, nil, nil, nil, "")
 
-	info, _, err := svc.GetPaymentInfo(context.Background(), userID)
-
-	require.NoError(t, err)
-	assert.Equal(t, "Alice", info.FirstName)
-}
-
-func TestSavePaymentInfo_Success(t *testing.T) {
-	var persisted *domain.PaymentInfo
-	repo := &mockPaymentInfoRepo{
-		upsertFn: func(_ context.Context, info *domain.PaymentInfo) error {
-			persisted = info
-			return nil
-		},
-	}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
-
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput(), "", "")
+	info, err := svc.GetPaymentInfo(context.Background(), userID)
 
 	require.NoError(t, err)
-	require.NotNil(t, info)
-	assert.NotNil(t, persisted, "upsert should have been called")
-	assert.Equal(t, "Alice", info.FirstName)
-}
-
-func TestSavePaymentInfo_ValidationError(t *testing.T) {
-	repo := &mockPaymentInfoRepo{}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
-
-	input := validSaveInput()
-	input.FirstName = ""
-
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input, "", "")
-
-	assert.Nil(t, info)
-	assert.ErrorIs(t, err, domain.ErrFirstNameRequired)
+	assert.Equal(t, "acct_test", info.StripeAccountID)
+	assert.True(t, info.StripeVerified)
 }
 
 func TestIsComplete_NotFound(t *testing.T) {
 	repo := &mockPaymentInfoRepo{}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
+	svc := NewService(repo, nil, nil, nil, "")
 
 	complete, err := svc.IsComplete(context.Background(), uuid.New())
 
@@ -101,24 +56,16 @@ func TestIsComplete_NotFound(t *testing.T) {
 	assert.False(t, complete)
 }
 
-func TestIsComplete_Complete(t *testing.T) {
+func TestIsComplete_Verified(t *testing.T) {
 	userID := uuid.New()
 	repo := &mockPaymentInfoRepo{
 		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*domain.PaymentInfo, error) {
 			return &domain.PaymentInfo{
-				FirstName:     "Alice",
-				LastName:      "Dupont",
-				DateOfBirth:   time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-				Nationality:   "FR",
-				Address:       "10 rue",
-				City:          "Paris",
-				PostalCode:    "75001",
-				AccountHolder: "Alice Dupont",
-				IBAN:          "FR76...",
+				StripeVerified: true,
 			}, nil
 		},
 	}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
+	svc := NewService(repo, nil, nil, nil, "")
 
 	complete, err := svc.IsComplete(context.Background(), userID)
 
@@ -126,20 +73,78 @@ func TestIsComplete_Complete(t *testing.T) {
 	assert.True(t, complete)
 }
 
-func TestIsComplete_Incomplete(t *testing.T) {
+func TestIsComplete_NotVerified(t *testing.T) {
 	userID := uuid.New()
 	repo := &mockPaymentInfoRepo{
 		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*domain.PaymentInfo, error) {
 			return &domain.PaymentInfo{
-				FirstName: "Alice",
-				// Missing other required fields
+				StripeVerified: false,
 			}, nil
 		},
 	}
-	svc := NewService(repo, nil, nil, nil, nil, nil, nil, "")
+	svc := NewService(repo, nil, nil, nil, "")
 
 	complete, err := svc.IsComplete(context.Background(), userID)
 
 	assert.NoError(t, err)
 	assert.False(t, complete)
+}
+
+func TestCreateAccountSession_NoStripe(t *testing.T) {
+	repo := &mockPaymentInfoRepo{}
+	svc := NewService(repo, nil, nil, nil, "")
+
+	result, err := svc.CreateAccountSession(context.Background(), uuid.New(), "test@example.com")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "stripe not configured")
+}
+
+func TestCreateAccountSession_NewAccount(t *testing.T) {
+	userID := uuid.New()
+	repo := &mockPaymentInfoRepo{
+		upsertFn: func(_ context.Context, _ *domain.PaymentInfo) error {
+			return nil
+		},
+	}
+	stripeMock := &mockStripeService{
+		createMinimalAccountFn: func(_ context.Context, _, _ string) (string, error) {
+			return "acct_new", nil
+		},
+		createAccountSessionFn: func(_ context.Context, _ string) (string, error) {
+			return "cas_secret_123", nil
+		},
+	}
+	svc := NewService(repo, nil, stripeMock, nil, "")
+
+	result, err := svc.CreateAccountSession(context.Background(), userID, "test@example.com")
+
+	require.NoError(t, err)
+	assert.Equal(t, "cas_secret_123", result.ClientSecret)
+	assert.Equal(t, "acct_new", result.StripeAccountID)
+}
+
+func TestCreateAccountSession_ExistingAccount(t *testing.T) {
+	userID := uuid.New()
+	repo := &mockPaymentInfoRepo{
+		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*domain.PaymentInfo, error) {
+			return &domain.PaymentInfo{
+				StripeAccountID: "acct_existing",
+			}, nil
+		},
+	}
+	stripeMock := &mockStripeService{
+		createAccountSessionFn: func(_ context.Context, accountID string) (string, error) {
+			assert.Equal(t, "acct_existing", accountID)
+			return "cas_secret_456", nil
+		},
+	}
+	svc := NewService(repo, nil, stripeMock, nil, "")
+
+	result, err := svc.CreateAccountSession(context.Background(), userID, "test@example.com")
+
+	require.NoError(t, err)
+	assert.Equal(t, "cas_secret_456", result.ClientSecret)
+	assert.Equal(t, "acct_existing", result.StripeAccountID)
 }

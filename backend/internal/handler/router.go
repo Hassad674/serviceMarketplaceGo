@@ -26,7 +26,6 @@ type RouterDeps struct {
 	Stripe         *StripeHandler
 	Report         *ReportHandler
 	Wallet         *WalletHandler
-	IdentityDoc    *IdentityDocumentHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -205,10 +204,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.PaymentInfo.GetPaymentInfo)
-				r.Put("/", deps.PaymentInfo.SavePaymentInfo)
 				r.Get("/status", deps.PaymentInfo.GetPaymentInfoStatus)
-				r.Get("/requirements", deps.PaymentInfo.GetRequirements)
-				r.Post("/account-link", deps.PaymentInfo.CreateAccountLink)
+				r.Post("/account-session", deps.PaymentInfo.CreateAccountSession)
 			})
 		}
 
@@ -225,16 +222,6 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/preferences", deps.Notification.GetPreferences)
 				r.Put("/preferences", deps.Notification.UpdatePreferences)
 				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
-			})
-		}
-
-		// Identity document routes (authenticated)
-		if deps.IdentityDoc != nil {
-			r.Route("/identity-documents", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
-				r.Post("/upload", deps.IdentityDoc.UploadDocument)
-				r.Get("/", deps.IdentityDoc.ListDocuments)
-				r.Delete("/{id}", deps.IdentityDoc.DeleteDocument)
 			})
 		}
 

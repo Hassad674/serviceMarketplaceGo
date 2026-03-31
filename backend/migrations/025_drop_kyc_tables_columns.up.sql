@@ -1,0 +1,32 @@
+DROP TABLE IF EXISTS identity_documents;
+DROP TABLE IF EXISTS business_persons;
+
+ALTER TABLE payment_info
+  DROP COLUMN IF EXISTS first_name,
+  DROP COLUMN IF EXISTS last_name,
+  DROP COLUMN IF EXISTS date_of_birth,
+  DROP COLUMN IF EXISTS nationality,
+  DROP COLUMN IF EXISTS address,
+  DROP COLUMN IF EXISTS city,
+  DROP COLUMN IF EXISTS postal_code,
+  DROP COLUMN IF EXISTS is_business,
+  DROP COLUMN IF EXISTS business_name,
+  DROP COLUMN IF EXISTS business_address,
+  DROP COLUMN IF EXISTS business_city,
+  DROP COLUMN IF EXISTS business_postal_code,
+  DROP COLUMN IF EXISTS business_country,
+  DROP COLUMN IF EXISTS tax_id,
+  DROP COLUMN IF EXISTS vat_number,
+  DROP COLUMN IF EXISTS role_in_company,
+  DROP COLUMN IF EXISTS phone,
+  DROP COLUMN IF EXISTS activity_sector,
+  DROP COLUMN IF EXISTS is_self_representative,
+  DROP COLUMN IF EXISTS is_self_director,
+  DROP COLUMN IF EXISTS no_major_owners,
+  DROP COLUMN IF EXISTS is_self_executive,
+  DROP COLUMN IF EXISTS iban,
+  DROP COLUMN IF EXISTS bic,
+  DROP COLUMN IF EXISTS account_number,
+  DROP COLUMN IF EXISTS routing_number,
+  DROP COLUMN IF EXISTS account_holder,
+  DROP COLUMN IF EXISTS bank_country;
