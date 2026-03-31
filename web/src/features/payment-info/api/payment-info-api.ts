@@ -16,6 +16,7 @@ export type FieldSpec = {
 export type FieldSection = {
   id: string
   title_key: string
+  can_be_self?: boolean
   fields: FieldSpec[]
 }
 

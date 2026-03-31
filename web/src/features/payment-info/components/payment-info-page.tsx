@@ -241,8 +241,22 @@ function BusinessToggle({ checked, onToggle, t }: {
 
 // --- Data mapping helpers ---
 
+/** Self-checkbox key map for validation: skip fields when section is self-handled. */
+const SELF_KEY_MAP: Record<string, string> = {
+  directors: "_self_director",
+  owners: "_self_owner",
+  executives: "_self_executive",
+}
+
 function isFormValid(data: PaymentInfoFormData, sections: FieldSection[]): boolean {
   for (const section of sections) {
+    // Skip validation for self-handled person sections
+    if (section.can_be_self) {
+      const selfKey = SELF_KEY_MAP[section.id]
+      if (selfKey && data.values[selfKey] !== "false") {
+        continue
+      }
+    }
     for (const field of section.fields) {
       if (field.required && !(data.values[field.key] ?? "").trim()) {
         return false
@@ -288,6 +302,11 @@ function responseToFormData(res: PaymentInfoResponse, locale: string): PaymentIn
   // Activity sector and business role
   values["activity_sector"] = res.activity_sector || "8999"
   if (res.role_in_company) values["business_role"] = res.role_in_company
+
+  // Self-checkbox states from saved flags
+  values["_self_director"] = (res.is_self_director ?? true) ? "true" : "false"
+  values["_self_owner"] = (res.no_major_owners ?? true) ? "true" : "false"
+  values["_self_executive"] = (res.is_self_executive ?? true) ? "true" : "false"
 
   // Extra fields — map them with their original key
   if (res.extra_fields) {
@@ -361,6 +380,11 @@ function valuesToFlatData(
     }
   }
 
+  // Map self-checkbox states to save request fields
+  const isSelfDirector = v["_self_director"] !== "false"
+  const noMajorOwners = v["_self_owner"] !== "false"
+  const isSelfExecutive = v["_self_executive"] !== "false"
+
   return {
     ...data,
     firstName: v[`${prefix}.first_name`] ?? data.firstName,
@@ -379,6 +403,9 @@ function valuesToFlatData(
     taxId: v["company.tax_id"] ?? data.taxId,
     activitySector: v["activity_sector"] ?? data.activitySector,
     businessRole: (v["business_role"] ?? data.businessRole) as PaymentInfoFormData["businessRole"],
+    isSelfDirector,
+    noMajorOwners,
+    isSelfExecutive,
     iban: v["bank.iban"] ?? data.iban,
     bic: v["bank.bic"] ?? data.bic,
     accountNumber: v["bank.account_number"] ?? data.accountNumber,

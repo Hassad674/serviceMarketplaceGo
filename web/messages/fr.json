@@ -739,7 +739,22 @@
     "town": "Ville",
     "roleTitle": "Titre / Fonction",
     "email": "Email",
-    "businessState": "Etat / Province du siege"
+    "businessState": "Etat / Province du siege",
+    "document": "Piece d'identite",
+    "additionalDocument": "Document supplementaire",
+    "proofOfLiveness": "Preuve d'identite en direct",
+    "idNumberSecondary": "Numero d'identite secondaire",
+    "structure": "Structure juridique",
+    "executive": "Cadre dirigeant",
+    "businessVatIdNumber": "Numero de TVA",
+    "fullNameAliases": "Autres noms",
+    "maidenName": "Nom de jeune fille",
+    "gender": "Genre",
+    "registeredAddress": "Adresse enregistree",
+    "percentOwnership": "Pourcentage de detention",
+    "representativeIsAlsoDirector": "Le representant est le seul dirigeant",
+    "representativeIsAlsoOwner": "Aucun actionnaire ne detient plus de 25%",
+    "representativeIsAlsoExecutive": "Le representant est le seul cadre dirigeant"
   },
   "notifications": {
     "title": "Notifications",

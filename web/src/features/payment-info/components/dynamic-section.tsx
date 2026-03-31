@@ -5,6 +5,13 @@ import { cn } from "@/shared/lib/utils"
 import { CountrySelect } from "./country-select"
 import type { FieldSection, FieldSpec } from "../api/payment-info-api"
 
+/** Maps section IDs to self-checkbox value keys and i18n label keys. */
+const SELF_CHECKBOX_MAP: Record<string, { valueKey: string; labelKey: string }> = {
+  directors: { valueKey: "_self_director", labelKey: "representativeIsAlsoDirector" },
+  owners: { valueKey: "_self_owner", labelKey: "representativeIsAlsoOwner" },
+  executives: { valueKey: "_self_executive", labelKey: "representativeIsAlsoExecutive" },
+}
+
 interface DynamicSectionProps {
   section: FieldSection
   values: Record<string, string>
@@ -13,23 +20,50 @@ interface DynamicSectionProps {
 
 export function DynamicSection({ section, values, onChange }: DynamicSectionProps) {
   const t = useTranslations("paymentInfo")
+  const selfConfig = section.can_be_self ? SELF_CHECKBOX_MAP[section.id] : undefined
+  const isSelf = selfConfig ? values[selfConfig.valueKey] !== "false" : false
 
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
         {t(section.title_key)}
       </h2>
-      <div className="grid gap-4 sm:grid-cols-2">
-        {section.fields.map((field) => (
-          <DynamicField
-            key={field.key}
-            field={field}
-            value={values[field.key] ?? ""}
-            onChange={(v) => onChange(field.key, v)}
-          />
-        ))}
-      </div>
+      {selfConfig && (
+        <SelfCheckbox
+          checked={isSelf}
+          label={t(selfConfig.labelKey)}
+          onChange={(checked) => onChange(selfConfig.valueKey, checked ? "true" : "false")}
+        />
+      )}
+      {(!selfConfig || !isSelf) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {section.fields.map((field) => (
+            <DynamicField
+              key={field.key}
+              field={field}
+              value={values[field.key] ?? ""}
+              onChange={(v) => onChange(field.key, v)}
+            />
+          ))}
+        </div>
+      )}
     </section>
+  )
+}
+
+function SelfCheckbox({ checked, label, onChange }: {
+  checked: boolean; label: string; onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="mb-4 flex cursor-pointer items-center gap-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-gray-300 text-rose-500 focus:ring-rose-500"
+      />
+      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
+    </label>
   )
 }
 

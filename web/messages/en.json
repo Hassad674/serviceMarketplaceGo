@@ -739,7 +739,22 @@
     "town": "Town",
     "roleTitle": "Title / Role",
     "email": "Email",
-    "businessState": "Business state / province"
+    "businessState": "Business state / province",
+    "document": "Identity document",
+    "additionalDocument": "Additional document",
+    "proofOfLiveness": "Proof of liveness",
+    "idNumberSecondary": "Secondary ID number",
+    "structure": "Business structure",
+    "executive": "Executive",
+    "businessVatIdNumber": "VAT ID number",
+    "fullNameAliases": "Name aliases",
+    "maidenName": "Maiden name",
+    "gender": "Gender",
+    "registeredAddress": "Registered address",
+    "percentOwnership": "Ownership percentage",
+    "representativeIsAlsoDirector": "The representative is the sole director",
+    "representativeIsAlsoOwner": "No shareholder holds more than 25%",
+    "representativeIsAlsoExecutive": "The representative is the sole executive"
   },
   "notifications": {
     "title": "Notifications",

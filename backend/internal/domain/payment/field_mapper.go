@@ -132,10 +132,22 @@ var autoHandledPrefixes = []string{
 	"settings.",
 }
 
+// autoHandledContains are substrings that mark a path as auto-handled.
+var autoHandledContains = []string{
+	".verification.document",
+	".verification.additional_document",
+	"proof_of_liveness",
+}
+
 // IsAutoHandled returns true for paths handled internally.
 func IsAutoHandled(path string) bool {
 	for _, prefix := range autoHandledPrefixes {
 		if path == prefix || strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	for _, sub := range autoHandledContains {
+		if strings.Contains(path, sub) {
 			return true
 		}
 	}
@@ -198,27 +210,39 @@ func FieldInputType(path string) string {
 
 // fieldLabelKeys maps terminal field names to i18n label keys.
 var fieldLabelKeys = map[string]string{
-	"first_name":        "firstName",
-	"last_name":         "lastName",
-	"dob":               "dateOfBirth",
-	"email":             "email",
-	"phone":             "phone",
-	"line1":             "address",
-	"city":              "city",
-	"postal_code":       "postalCode",
-	"state":             "stateProvince",
-	"country":           "country",
-	"nationality":       "nationality",
-	"name":              "businessName",
-	"tax_id":            "taxId",
-	"id_number":         "idNumber",
-	"ssn_last_4":        "ssnLast4",
-	"first_name_kana":   "firstNameKana",
-	"last_name_kana":    "lastNameKana",
-	"first_name_kanji":  "firstNameKanji",
-	"last_name_kanji":   "lastNameKanji",
-	"political_exposure": "politicalExposure",
-	"town":              "town",
+	"first_name":              "firstName",
+	"last_name":               "lastName",
+	"dob":                     "dateOfBirth",
+	"email":                   "email",
+	"phone":                   "phone",
+	"line1":                   "address",
+	"city":                    "city",
+	"postal_code":             "postalCode",
+	"state":                   "stateProvince",
+	"country":                 "country",
+	"nationality":             "nationality",
+	"name":                    "businessName",
+	"tax_id":                  "taxId",
+	"id_number":               "idNumber",
+	"ssn_last_4":              "ssnLast4",
+	"first_name_kana":         "firstNameKana",
+	"last_name_kana":          "lastNameKana",
+	"first_name_kanji":        "firstNameKanji",
+	"last_name_kanji":         "lastNameKanji",
+	"political_exposure":      "politicalExposure",
+	"town":                    "town",
+	"document":                "document",
+	"additional_document":     "additionalDocument",
+	"proof_of_liveness":       "proofOfLiveness",
+	"id_number_secondary":     "idNumberSecondary",
+	"structure":               "structure",
+	"executive":               "executive",
+	"business_vat_id_number":  "businessVatIdNumber",
+	"full_name_aliases":       "fullNameAliases",
+	"maiden_name":             "maidenName",
+	"gender":                  "gender",
+	"registered_address":      "registeredAddress",
+	"percent_ownership":       "percentOwnership",
 }
 
 // companyLabelOverrides maps company-specific fields to distinct i18n labels.
