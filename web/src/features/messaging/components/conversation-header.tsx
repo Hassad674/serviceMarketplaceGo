@@ -4,7 +4,7 @@ import Image from "next/image"
 import { useState, useRef, useEffect } from "react"
 import { ArrowLeft, Phone, Video, Wifi, WifiOff, FileText, MoreVertical, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useRouter } from "@i18n/navigation"
+import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "../types"
 import { TypingIndicator } from "./typing-indicator"
@@ -57,6 +57,14 @@ export function ConversationHeader({
     router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
   }
 
+  const profileHref = (() => {
+    const role = conversation.other_user_role
+    const id = conversation.other_user_id
+    if (role === "agency") return `/agencies/${id}`
+    if (role === "provider") return `/freelancers/${id}`
+    return `/freelancers/${id}`
+  })()
+
   return (
     <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
       {/* Back button (mobile only) */}
@@ -70,8 +78,8 @@ export function ConversationHeader({
         </button>
       )}
 
-      {/* Avatar */}
-      <div className="relative shrink-0">
+      {/* Avatar — links to public profile */}
+      <Link href={profileHref} className="relative shrink-0">
         {conversation.other_photo_url ? (
           <Image
             src={conversation.other_photo_url}
@@ -94,13 +102,13 @@ export function ConversationHeader({
             <span className="sr-only">{t("online")}</span>
           </span>
         )}
-      </div>
+      </Link>
 
-      {/* Name and status */}
+      {/* Name and status — links to public profile */}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+        <Link href={profileHref} className="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">
           {conversation.other_user_name}
-        </p>
+        </Link>
         {typingUserName ? (
           <TypingIndicator userName={typingUserName} />
         ) : (

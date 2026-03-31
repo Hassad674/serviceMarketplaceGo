@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../core/utils/extensions.dart';
@@ -45,7 +46,15 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       titleSpacing: 0,
-      title: Row(
+      title: GestureDetector(
+        onTap: () {
+          final id = conversation?.otherUserId;
+          final role = conversation?.otherUserRole;
+          if (id == null) return;
+          final path = role == 'agency' ? '/profiles/$id' : '/profiles/$id';
+          context.push(path);
+        },
+        child: Row(
         children: [
           // Avatar
           Stack(
@@ -127,6 +136,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
         ],
+      ),
       ),
       actions: [
         IconButton(
