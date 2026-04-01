@@ -28,7 +28,10 @@ function localeToCountry(locale: string): string {
 export function PaymentInfoPage() {
   const t = useTranslations("paymentInfo")
   const locale = useLocale()
-  const [data, setData] = useState<PaymentInfoFormData>(INITIAL_FORM_DATA)
+  const [data, setData] = useState<PaymentInfoFormData>({
+    ...INITIAL_FORM_DATA,
+    country: localeToCountry(locale),
+  })
   const [saved, setSaved] = useState(false)
   const [initialized, setInitialized] = useState(false)
 
