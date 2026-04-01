@@ -83,6 +83,7 @@ class _JobListView extends StatelessWidget {
       itemBuilder: (context, index) => _JobCard(
         job: jobs[index],
         onClose: () => onClose(jobs[index].id),
+        onTap: () => context.push(RoutePaths.jobDetail, extra: jobs[index].id),
       ),
     );
   }
@@ -93,10 +94,15 @@ class _JobListView extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _JobCard extends StatelessWidget {
-  const _JobCard({required this.job, required this.onClose});
+  const _JobCard({
+    required this.job,
+    required this.onClose,
+    required this.onTap,
+  });
 
   final JobEntity job;
   final VoidCallback onClose;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +110,9 @@ class _JobCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
 
-    return Container(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -188,6 +196,7 @@ class _JobCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/widgets/video_player_widget.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/apply_bottom_sheet.dart';
@@ -33,6 +34,12 @@ class OpportunityDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Video player
+                if (job.videoUrl != null && job.videoUrl!.isNotEmpty) ...[
+                  VideoPlayerWidget(videoUrl: job.videoUrl!),
+                  const SizedBox(height: 16),
+                ],
+
                 // Budget
                 Card(
                   child: Padding(

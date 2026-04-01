@@ -1,6 +1,9 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/repositories/job_repository.dart';
@@ -37,6 +40,10 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
   bool _budgetExpanded = false;
   bool _submitting = false;
 
+  // Video upload state
+  bool _isUploadingVideo = false;
+  String? _videoName;
+
   @override
   void initState() {
     super.initState();
@@ -63,6 +70,49 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
 
   void _onApplicantTypeChanged(ApplicantType type) {
     setState(() => _formData.applicantType = type);
+  }
+
+  // Description type callback
+  void _onDescriptionTypeChanged(DescriptionType type) {
+    setState(() => _formData.descriptionType = type);
+  }
+
+  // Video picker
+  Future<void> _pickVideo() async {
+    final picker = ImagePicker();
+    final file = await picker.pickVideo(source: ImageSource.gallery);
+    if (file == null) return;
+
+    setState(() {
+      _isUploadingVideo = true;
+      _videoName = file.name;
+    });
+
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: file.name),
+      });
+      final response = await apiClient.upload(
+        '/api/v1/upload/video',
+        data: formData,
+      );
+      final url = response.data?['url'] as String?;
+      if (url != null) {
+        setState(() => _formData.videoUrl = url);
+      }
+    } catch (e) {
+      debugPrint('[CreateJobScreen] video upload error: $e');
+    } finally {
+      if (mounted) setState(() => _isUploadingVideo = false);
+    }
+  }
+
+  void _removeVideo() {
+    setState(() {
+      _formData.videoUrl = '';
+      _videoName = null;
+    });
   }
 
   // Section 2 callbacks
@@ -96,6 +146,12 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
       ApplicantType.agencies => 'agencies',
     };
 
+    final descriptionTypeStr = switch (_formData.descriptionType) {
+      DescriptionType.text => 'text',
+      DescriptionType.video => 'video',
+      DescriptionType.both => 'both',
+    };
+
     final result = await createJobAction(
       ref,
       CreateJobData(
@@ -106,6 +162,8 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
         budgetType: budgetTypeStr,
         minBudget: minBudget,
         maxBudget: maxBudget,
+        descriptionType: descriptionTypeStr,
+        videoUrl: _formData.videoUrl.isNotEmpty ? _formData.videoUrl : null,
       ),
     );
 
@@ -183,6 +241,18 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Section: Description type + video upload
+              _DescriptionTypeSection(
+                descriptionType: _formData.descriptionType,
+                onDescriptionTypeChanged: _onDescriptionTypeChanged,
+                videoUrl: _formData.videoUrl,
+                videoName: _videoName,
+                isUploading: _isUploadingVideo,
+                onPickVideo: _pickVideo,
+                onRemoveVideo: _removeVideo,
+              ),
+              const SizedBox(height: 16),
+
               // Section 2: Budget
               BudgetSection(
                 budgetType: _formData.budgetType,
@@ -234,3 +304,163 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Description type selector + video upload
+// ---------------------------------------------------------------------------
+
+class _DescriptionTypeSection extends StatelessWidget {
+  const _DescriptionTypeSection({
+    required this.descriptionType,
+    required this.onDescriptionTypeChanged,
+    required this.videoUrl,
+    required this.videoName,
+    required this.isUploading,
+    required this.onPickVideo,
+    required this.onRemoveVideo,
+  });
+
+  final DescriptionType descriptionType;
+  final ValueChanged<DescriptionType> onDescriptionTypeChanged;
+  final String videoUrl;
+  final String? videoName;
+  final bool isUploading;
+  final VoidCallback onPickVideo;
+  final VoidCallback onRemoveVideo;
+
+  bool get _showVideoUpload =>
+      descriptionType == DescriptionType.video ||
+      descriptionType == DescriptionType.both;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final appColors = theme.extension<AppColors>();
+    final primary = theme.colorScheme.primary;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+                child: Icon(Icons.videocam_outlined, color: primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                l10n.jobDescriptionType,
+                style: theme.textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Segmented button for description type
+          SegmentedButton<DescriptionType>(
+            segments: [
+              ButtonSegment(
+                value: DescriptionType.text,
+                label: Text(l10n.jobDescriptionTypeText),
+                icon: const Icon(Icons.text_fields, size: 18),
+              ),
+              ButtonSegment(
+                value: DescriptionType.video,
+                label: Text(l10n.jobDescriptionTypeVideo),
+                icon: const Icon(Icons.videocam, size: 18),
+              ),
+              ButtonSegment(
+                value: DescriptionType.both,
+                label: Text(l10n.jobDescriptionTypeBoth),
+                icon: const Icon(Icons.dashboard, size: 18),
+              ),
+            ],
+            selected: {descriptionType},
+            onSelectionChanged: (set) => onDescriptionTypeChanged(set.first),
+            style: SegmentedButton.styleFrom(
+              selectedBackgroundColor: primary.withValues(alpha: 0.12),
+              selectedForegroundColor: primary,
+            ),
+          ),
+
+          // Video upload area
+          if (_showVideoUpload) ...[
+            const SizedBox(height: 16),
+            if (videoUrl.isEmpty && !isUploading)
+              OutlinedButton.icon(
+                onPressed: onPickVideo,
+                icon: const Icon(Icons.videocam_outlined),
+                label: Text(l10n.jobAddVideo),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+              ),
+            if (isUploading)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(l10n.jobVideoUploading),
+                  ],
+                ),
+              ),
+            if (videoUrl.isNotEmpty && !isUploading)
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle,
+                      color: Colors.green,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        videoName ?? l10n.jobVideoUploaded,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: onRemoveVideo,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

@@ -36,6 +36,8 @@ abstract class JobRepository {
   Future<JobEntity> getJob(String id);
   Future<List<JobEntity>> listMyJobs();
   Future<void> closeJob(String id);
+  Future<void> reopenJob(String id);
+  Future<void> deleteJob(String id);
 
   // Job applications
   Future<List<JobEntity>> listOpenJobs({String? cursor});

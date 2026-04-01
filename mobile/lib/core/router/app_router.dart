@@ -22,6 +22,7 @@ import '../../features/job/presentation/screens/opportunities_screen.dart';
 import '../../features/job/presentation/screens/opportunity_detail_screen.dart';
 import '../../features/job/presentation/screens/my_applications_screen.dart';
 import '../../features/job/presentation/screens/candidates_screen.dart';
+import '../../features/job/presentation/screens/job_detail_screen.dart';
 import '../../features/proposal/domain/entities/proposal_entity.dart';
 import '../../features/proposal/presentation/screens/create_proposal_screen.dart';
 import '../../features/proposal/presentation/screens/payment_simulation_screen.dart';
@@ -77,6 +78,7 @@ class RoutePaths {
   static const String opportunityDetail = '/opportunities/detail';
   static const String myApplications = '/my-applications';
   static const String jobCandidates = '/jobs/candidates';
+  static const String jobDetail = '/jobs/detail';
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +264,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.jobCandidates,
             builder: (context, state) => CandidatesScreen(jobId: state.extra as String),
+          ),
+          GoRoute(
+            path: RoutePaths.jobDetail,
+            builder: (context, state) => JobDetailScreen(jobId: state.extra as String),
           ),
           GoRoute(
             path: RoutePaths.profile,

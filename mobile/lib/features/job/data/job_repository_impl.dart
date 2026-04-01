@@ -52,6 +52,16 @@ class JobRepositoryImpl implements JobRepository {
   }
 
   @override
+  Future<void> reopenJob(String id) async {
+    await apiClient.post('/api/v1/jobs/$id/reopen');
+  }
+
+  @override
+  Future<void> deleteJob(String id) async {
+    await apiClient.delete('/api/v1/jobs/$id');
+  }
+
+  @override
   Future<List<JobEntity>> listOpenJobs({String? cursor}) async {
     final params = cursor != null ? '?cursor=${Uri.encodeComponent(cursor)}' : '';
     final response = await apiClient.get('/api/v1/jobs/open$params');

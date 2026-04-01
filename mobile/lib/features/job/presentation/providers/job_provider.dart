@@ -48,6 +48,32 @@ Future<bool> closeJobAction(WidgetRef ref, String id) async {
   }
 }
 
+/// Helper to reopen a closed job.
+Future<bool> reopenJobAction(WidgetRef ref, String id) async {
+  try {
+    final repo = ref.read(jobRepositoryProvider);
+    await repo.reopenJob(id);
+    ref.invalidate(myJobsProvider);
+    return true;
+  } catch (e) {
+    debugPrint('[JobProvider] reopenJob error: $e');
+    return false;
+  }
+}
+
+/// Helper to delete a job.
+Future<bool> deleteJobAction(WidgetRef ref, String id) async {
+  try {
+    final repo = ref.read(jobRepositoryProvider);
+    await repo.deleteJob(id);
+    ref.invalidate(myJobsProvider);
+    return true;
+  } catch (e) {
+    debugPrint('[JobProvider] deleteJob error: $e');
+    return false;
+  }
+}
+
 // --- Job Application Providers ---
 
 /// Fetches all open jobs for browsing.
