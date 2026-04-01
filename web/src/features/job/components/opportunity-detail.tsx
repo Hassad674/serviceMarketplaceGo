@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, Briefcase, Calendar, Clock, Users, Video } from "lucide-react"
+import { ArrowLeft, Briefcase, Calendar, Clock, Users } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -93,12 +93,26 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
         )}
       </div>
 
+      {/* Video */}
+      {job.video_url && (
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3">{t("watchVideo")}</h2>
+          <div className="aspect-video max-h-[360px] overflow-hidden rounded-xl bg-black">
+            <video
+              src={job.video_url}
+              controls
+              className="h-full w-full object-contain"
+              aria-label={job.title}
+            >
+              <track kind="captions" />
+            </video>
+          </div>
+        </div>
+      )}
+
       {/* Description */}
       <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
         <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3">{t("description")}</h2>
-        {job.video_url && (
-          <div className="mb-4 flex items-center gap-2 text-sm text-rose-600"><Video className="h-4 w-4" /><a href={job.video_url} target="_blank" rel="noopener noreferrer" className="underline">{t("watchVideo")}</a></div>
-        )}
         <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{job.description}</p>
       </div>
 

@@ -5,6 +5,7 @@ import { X, Building2, FileText, Video } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
+import { UploadModal } from "@/shared/components/upload-modal"
 import type { JobFormData, DescriptionType } from "../types"
 import { ApplicantTypeSelector } from "./applicant-type-selector"
 
@@ -18,9 +19,13 @@ const TITLE_MAX_LENGTH = 100
 const MAX_TAGS = 5
 const DESC_OPTIONS: DescriptionType[] = ["text", "video", "both"]
 
+const VIDEO_MAX_SIZE = 100 * 1024 * 1024 // 100 MB
+
 export function JobDetailsSection({ formData, updateField, hideApplicantType = false }: JobDetailsSectionProps) {
   const t = useTranslations("job")
+  const tUpload = useTranslations("upload")
   const { data: user } = useUser()
+  const [videoModalOpen, setVideoModalOpen] = useState(false)
 
   const showTextarea = formData.descriptionType === "text" || formData.descriptionType === "both"
   const showVideo = formData.descriptionType === "video" || formData.descriptionType === "both"
@@ -81,20 +86,36 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
           <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{t("videoDescription")}</label>
           {formData.videoUrl ? (
             <div className="space-y-3">
-              <video src={formData.videoUrl} controls className="w-full max-h-64 rounded-xl border border-gray-200 dark:border-gray-700" />
+              <div className="aspect-video max-h-[300px] overflow-hidden rounded-xl bg-black">
+                <video src={formData.videoUrl} controls className="h-full w-full object-contain" aria-label={t("videoDescription")}>
+                  <track kind="captions" />
+                </video>
+              </div>
               <button type="button" onClick={() => updateField("videoUrl", "")} className={cn("w-full rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm font-medium", "text-gray-600 dark:text-gray-400 transition-all duration-200", "hover:border-rose-300 dark:hover:border-rose-500 hover:text-rose-600 dark:hover:text-rose-400")}>{t("removeVideo")}</button>
             </div>
           ) : (
-            <div className={cn("flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed", "border-gray-300 dark:border-gray-600 p-8", "transition-all duration-200", "hover:border-rose-400 dark:hover:border-rose-500")}>
+            <div
+              onClick={() => setVideoModalOpen(true)}
+              className={cn("flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer", "border-gray-300 dark:border-gray-600 p-8", "transition-all duration-200", "hover:border-rose-400 dark:hover:border-rose-500")}
+            >
               <Video className="h-8 w-8 text-gray-400 dark:text-gray-500" />
               <p className="text-sm text-gray-500 dark:text-gray-400">{t("videoUploadHint")}</p>
-              <label className={cn("cursor-pointer rounded-xl px-5 py-2.5 text-sm font-medium", "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300", "transition-all duration-200", "hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400")}>
+              <span className={cn("rounded-xl px-5 py-2.5 text-sm font-medium", "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300", "transition-all duration-200", "hover:bg-rose-50 dark:hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400")}>
                 {t("videoUploadButton")}
-                <input type="file" accept="video/mp4,video/webm,video/quicktime" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) updateField("videoUrl", URL.createObjectURL(file)); }} />
-              </label>
+              </span>
               <p className="text-xs text-gray-400 dark:text-gray-500">MP4, WebM, MOV — 100 MB max</p>
             </div>
           )}
+          <UploadModal
+            open={videoModalOpen}
+            onClose={() => setVideoModalOpen(false)}
+            onUpload={async (file) => { updateField("videoUrl", URL.createObjectURL(file)); setVideoModalOpen(false) }}
+            accept="video/mp4,video/webm,video/quicktime"
+            maxSize={VIDEO_MAX_SIZE}
+            title={tUpload("addVideo")}
+            description={tUpload("videoFormats")}
+            uploading={false}
+          />
         </div>
       )}
 

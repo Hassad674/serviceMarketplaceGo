@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, Briefcase, Calendar, Users, Clock, Video, Pencil } from "lucide-react"
+import { ArrowLeft, Briefcase, Calendar, Users, Clock, Pencil } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter, Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -62,14 +62,26 @@ export default function JobDetailPage() {
             <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{new Date(job.created_at).toLocaleDateString("fr-FR")}</span>
           </div>
         </div>
-        <span className={cn(
-          "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
-          job.status === "open"
-            ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
-            : "bg-gray-100 text-gray-500",
-        )}>
-          {job.status === "open" ? t("statusOpen") : t("statusClosed")}
-        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/jobs/${jobId}/edit`}
+            className={cn(
+              "flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all",
+              "border border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700",
+            )}
+          >
+            <Pencil className="h-4 w-4" />
+            {t("editJob")}
+          </Link>
+          <span className={cn(
+            "rounded-full px-3 py-1 text-xs font-semibold",
+            job.status === "open"
+              ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300"
+              : "bg-gray-100 text-gray-500",
+          )}>
+            {job.status === "open" ? t("statusOpen") : t("statusClosed")}
+          </span>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -94,12 +106,26 @@ export default function JobDetailPage() {
       {/* Tab content */}
       {activeTab === "details" && (
         <div className="space-y-5">
+          {/* Video */}
+          {job.video_url && (
+            <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3">{tOpp("watchVideo")}</h2>
+              <div className="aspect-video max-h-[360px] overflow-hidden rounded-xl bg-black">
+                <video
+                  src={job.video_url}
+                  controls
+                  className="h-full w-full object-contain"
+                  aria-label={job.title}
+                >
+                  <track kind="captions" />
+                </video>
+              </div>
+            </div>
+          )}
+
           {/* Description */}
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
             <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3">{tOpp("description")}</h2>
-            {job.video_url && (
-              <div className="mb-4 flex items-center gap-2 text-sm text-rose-600"><Video className="h-4 w-4" /><a href={job.video_url} target="_blank" rel="noopener noreferrer" className="underline">{tOpp("watchVideo")}</a></div>
-            )}
             <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{job.description}</p>
           </div>
 
