@@ -9,6 +9,7 @@ import { useUser } from "@/shared/hooks/use-user"
 import type { JobFormData } from "../types"
 import { createDefaultJobFormData } from "../types"
 import { useCreateJob } from "../hooks/use-jobs"
+import { uploadVideo } from "@/features/provider/api/upload-api"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
 
@@ -67,7 +68,9 @@ export function CreateJobForm() {
     return null
   }
 
-  function handleSubmit() {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit() {
     setError(null)
     const validationError = validate()
     if (validationError) {
@@ -75,34 +78,48 @@ export function CreateJobForm() {
       return
     }
 
-    const minBudget = parseInt(formData.minBudget, 10)
-    const maxBudget = parseInt(formData.maxBudget, 10)
-    const durationWeeks = parseInt(formData.durationWeeks, 10)
+    setIsSubmitting(true)
+    try {
+      // Upload video file if present
+      let videoUrl: string | undefined
+      if (formData.videoFile) {
+        const result = await uploadVideo(formData.videoFile)
+        videoUrl = result.url
+      }
 
-    createJob.mutate(
-      {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
-        skills: formData.skills,
-        applicant_type: formData.applicantType,
-        budget_type: formData.budgetType,
-        min_budget: minBudget,
-        max_budget: maxBudget,
-        payment_frequency:
-          formData.budgetType === "long_term"
-            ? formData.paymentFrequency
-            : undefined,
-        duration_weeks:
-          formData.budgetType === "long_term" && !formData.isIndefinite && durationWeeks > 0
-            ? durationWeeks
-            : undefined,
-        is_indefinite:
-          formData.budgetType === "long_term" ? formData.isIndefinite : false,
-        description_type: formData.descriptionType,
-        video_url: formData.videoUrl || undefined,
-      },
-      { onSuccess: () => router.push("/jobs") },
-    )
+      const minBudget = parseInt(formData.minBudget, 10)
+      const maxBudget = parseInt(formData.maxBudget, 10)
+      const durationWeeks = parseInt(formData.durationWeeks, 10)
+
+      createJob.mutate(
+        {
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          skills: formData.skills,
+          applicant_type: formData.applicantType,
+          budget_type: formData.budgetType,
+          min_budget: minBudget,
+          max_budget: maxBudget,
+          payment_frequency:
+            formData.budgetType === "long_term"
+              ? formData.paymentFrequency
+              : undefined,
+          duration_weeks:
+            formData.budgetType === "long_term" && !formData.isIndefinite && durationWeeks > 0
+              ? durationWeeks
+              : undefined,
+          is_indefinite:
+            formData.budgetType === "long_term" ? formData.isIndefinite : false,
+          description_type: formData.descriptionType,
+          video_url: videoUrl,
+        },
+        { onSuccess: () => router.push("/jobs") },
+      )
+    } catch {
+      setError(t("errorVideoUpload"))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const isDetailsComplete = formData.title.trim() !== "" && (
@@ -132,7 +149,7 @@ export function CreateJobForm() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={createJob.isPending}
+            disabled={createJob.isPending || isSubmitting}
             className={cn(
               "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
               "gradient-primary transition-all duration-200",
@@ -140,7 +157,7 @@ export function CreateJobForm() {
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            {createJob.isPending ? "..." : t("publish")}
+            {(createJob.isPending || isSubmitting) ? "..." : t("publish")}
           </button>
         </div>
       </div>
@@ -180,7 +197,7 @@ export function CreateJobForm() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={createJob.isPending}
+              disabled={createJob.isPending || isSubmitting}
               className={cn(
                 "rounded-xl px-6 py-2.5 text-sm font-semibold text-white",
                 "gradient-primary transition-all duration-200",
@@ -188,7 +205,7 @@ export function CreateJobForm() {
                 "disabled:opacity-50 disabled:cursor-not-allowed",
               )}
             >
-              {createJob.isPending ? "..." : t("publish")}
+              {(createJob.isPending || isSubmitting) ? "..." : t("publish")}
             </button>
           </div>
         </AccordionSection>

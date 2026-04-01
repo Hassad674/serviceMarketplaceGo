@@ -432,6 +432,7 @@
     "errorDescriptionRequired": "Description is required",
     "errorBudgetRequired": "Budget must be a positive number",
     "errorMinExceedsMax": "Minimum budget cannot exceed maximum",
+    "errorVideoUpload": "Video upload failed, please try again",
     "paymentFrequency": "Payment frequency",
     "paymentWeekly": "Weekly",
     "paymentMonthly": "Monthly",
@@ -884,6 +885,8 @@
     "description": "Description",
     "requiredSkills": "Required skills",
     "watchVideo": "Watch video",
+    "uploadVideo": "Add a video",
+    "uploading": "Uploading...",
     "loadMore": "Load more",
     "error": "An error occurred"
   }

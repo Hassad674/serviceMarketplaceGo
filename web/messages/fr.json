@@ -432,6 +432,7 @@
     "errorDescriptionRequired": "La description est obligatoire",
     "errorBudgetRequired": "Le budget doit être un nombre positif",
     "errorMinExceedsMax": "Le budget minimum ne peut pas dépasser le maximum",
+    "errorVideoUpload": "Échec de l'envoi de la vidéo, veuillez réessayer",
     "paymentFrequency": "Fréquence de paiement",
     "paymentWeekly": "Hebdomadaire",
     "paymentMonthly": "Mensuel",
@@ -885,6 +886,8 @@
     "description": "Description",
     "requiredSkills": "Compétences requises",
     "watchVideo": "Voir la vidéo",
+    "uploadVideo": "Ajouter une vidéo",
+    "uploading": "Envoi en cours...",
     "loadMore": "Charger plus",
     "error": "Une erreur est survenue"
   }

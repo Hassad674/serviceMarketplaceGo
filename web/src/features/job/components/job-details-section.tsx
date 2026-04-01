@@ -91,7 +91,7 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
                   <track kind="captions" />
                 </video>
               </div>
-              <button type="button" onClick={() => updateField("videoUrl", "")} className={cn("w-full rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm font-medium", "text-gray-600 dark:text-gray-400 transition-all duration-200", "hover:border-rose-300 dark:hover:border-rose-500 hover:text-rose-600 dark:hover:text-rose-400")}>{t("removeVideo")}</button>
+              <button type="button" onClick={() => { updateField("videoUrl", ""); updateField("videoFile", null) }} className={cn("w-full rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm font-medium", "text-gray-600 dark:text-gray-400 transition-all duration-200", "hover:border-rose-300 dark:hover:border-rose-500 hover:text-rose-600 dark:hover:text-rose-400")}>{t("removeVideo")}</button>
             </div>
           ) : (
             <div
@@ -109,7 +109,7 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
           <UploadModal
             open={videoModalOpen}
             onClose={() => setVideoModalOpen(false)}
-            onUpload={async (file) => { updateField("videoUrl", URL.createObjectURL(file)); setVideoModalOpen(false) }}
+            onUpload={async (file) => { updateField("videoFile", file); updateField("videoUrl", URL.createObjectURL(file)); setVideoModalOpen(false) }}
             accept="video/mp4,video/webm,video/quicktime"
             maxSize={VIDEO_MAX_SIZE}
             title={tUpload("addVideo")}

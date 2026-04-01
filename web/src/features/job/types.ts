@@ -16,6 +16,7 @@ export type JobFormData = {
   isIndefinite: boolean
   descriptionType: DescriptionType
   videoUrl: string
+  videoFile: File | null
 }
 
 export function createDefaultJobFormData(): JobFormData {
@@ -32,6 +33,7 @@ export function createDefaultJobFormData(): JobFormData {
     isIndefinite: false,
     descriptionType: "text",
     videoUrl: "",
+    videoFile: null,
   }
 }
 
