@@ -195,6 +195,20 @@ func (s *Service) CloseJob(ctx context.Context, jobID, userID uuid.UUID) error {
 	return nil
 }
 
+func (s *Service) ReopenJob(ctx context.Context, jobID, userID uuid.UUID) error {
+	j, err := s.jobs.GetByID(ctx, jobID)
+	if err != nil {
+		return fmt.Errorf("get job: %w", err)
+	}
+	if err := j.Reopen(userID); err != nil {
+		return err
+	}
+	if err := s.jobs.Update(ctx, j); err != nil {
+		return fmt.Errorf("update job: %w", err)
+	}
+	return nil
+}
+
 func canCreateJob(role user.Role) bool {
 	return role == user.RoleEnterprise || role == user.RoleAgency
 }

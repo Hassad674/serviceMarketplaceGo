@@ -14,6 +14,7 @@ var (
 	ErrMinExceedsMax           = errors.New("minimum budget cannot exceed maximum budget")
 	ErrNotOwner                = errors.New("not the owner of this job")
 	ErrAlreadyClosed           = errors.New("job is already closed")
+	ErrAlreadyOpen             = errors.New("job is already open")
 	ErrUnauthorizedRole        = errors.New("only enterprises and agencies can create jobs")
 	ErrInvalidPaymentFrequency = errors.New("invalid payment frequency")
 	ErrInvalidDescriptionType  = errors.New("invalid description type")

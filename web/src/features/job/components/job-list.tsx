@@ -1,17 +1,18 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Briefcase, Plus, Clock, Users, MoreVertical, Trash2, XCircle, Pencil } from "lucide-react"
+import { Briefcase, Plus, Clock, Users, MoreVertical, Trash2, XCircle, Pencil, RotateCcw } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
-import { useMyJobs, useCloseJob, useDeleteJob } from "../hooks/use-jobs"
+import { useMyJobs, useCloseJob, useReopenJob, useDeleteJob } from "../hooks/use-jobs"
 import type { JobWithCountsResponse } from "../types"
 
 export function JobList() {
   const t = useTranslations("job")
   const { data, isLoading, error } = useMyJobs()
   const closeJob = useCloseJob()
+  const reopenJob = useReopenJob()
   const deleteJob = useDeleteJob()
 
   if (isLoading) return <JobListSkeleton />
@@ -33,8 +34,9 @@ export function JobList() {
           key={job.id}
           job={job}
           onClose={(id) => closeJob.mutate(id)}
+          onReopen={(id) => reopenJob.mutate(id)}
           onDelete={(id) => { if (confirm(t("deleteConfirmJob"))) deleteJob.mutate(id) }}
-          isActing={closeJob.isPending || deleteJob.isPending}
+          isActing={closeJob.isPending || reopenJob.isPending || deleteJob.isPending}
         />
       ))}
     </div>
@@ -44,11 +46,12 @@ export function JobList() {
 type JobCardProps = {
   job: JobWithCountsResponse
   onClose: (id: string) => void
+  onReopen: (id: string) => void
   onDelete: (id: string) => void
   isActing: boolean
 }
 
-function JobCard({ job, onClose, onDelete, isActing }: JobCardProps) {
+function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
   const t = useTranslations("job")
   const router = useRouter()
   const isOpen = job.status === "open"
@@ -126,7 +129,7 @@ function JobCard({ job, onClose, onDelete, isActing }: JobCardProps) {
                   <Pencil className="h-4 w-4" />
                   {t("editJob")}
                 </button>
-                {isOpen && (
+                {isOpen ? (
                   <button
                     type="button"
                     onClick={() => { setMenuOpen(false); onClose(job.id) }}
@@ -135,6 +138,16 @@ function JobCard({ job, onClose, onDelete, isActing }: JobCardProps) {
                   >
                     <XCircle className="h-4 w-4" />
                     {t("closeJob")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); onReopen(job.id) }}
+                    disabled={isActing}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    {t("reopenJob")}
                   </button>
                 )}
                 <button

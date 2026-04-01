@@ -153,6 +153,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Parameterized routes
 				r.Get("/{id}", deps.Job.GetJob)
 				r.Post("/{id}/close", deps.Job.CloseJob)
+				r.Post("/{id}/reopen", deps.Job.ReopenJob)
 				r.Delete("/{id}", deps.Job.DeleteJob)
 				r.Post("/{id}/mark-viewed", deps.Job.MarkApplicationsViewed)
 

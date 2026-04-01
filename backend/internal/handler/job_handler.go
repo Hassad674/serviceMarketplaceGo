@@ -143,6 +143,24 @@ func (h *JobHandler) CloseJob(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, map[string]string{"status": "closed"})
 }
 
+func (h *JobHandler) ReopenJob(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	jobID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_job_id", "id must be a valid UUID")
+		return
+	}
+	if err := h.jobSvc.ReopenJob(r.Context(), jobID, userID); err != nil {
+		handleJobError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, map[string]string{"status": "open"})
+}
+
 func handleJobError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, jobdomain.ErrJobNotFound):
@@ -151,6 +169,8 @@ func handleJobError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "not_owner", err.Error())
 	case errors.Is(err, jobdomain.ErrAlreadyClosed):
 		res.Error(w, http.StatusConflict, "already_closed", err.Error())
+	case errors.Is(err, jobdomain.ErrAlreadyOpen):
+		res.Error(w, http.StatusConflict, "already_open", err.Error())
 	case errors.Is(err, jobdomain.ErrUnauthorizedRole):
 		res.Error(w, http.StatusForbidden, "unauthorized_role", err.Error())
 	case errors.Is(err, jobdomain.ErrEmptyTitle):

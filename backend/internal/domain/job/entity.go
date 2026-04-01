@@ -198,3 +198,16 @@ func (j *Job) Close(userID uuid.UUID) error {
 	j.UpdatedAt = now
 	return nil
 }
+
+func (j *Job) Reopen(userID uuid.UUID) error {
+	if j.CreatorID != userID {
+		return ErrNotOwner
+	}
+	if j.Status != StatusClosed {
+		return ErrAlreadyOpen
+	}
+	j.Status = StatusOpen
+	j.ClosedAt = nil
+	j.UpdatedAt = time.Now()
+	return nil
+}

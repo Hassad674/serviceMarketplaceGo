@@ -422,6 +422,8 @@
     "statusOpen": "Ouverte",
     "statusClosed": "Fermée",
     "closeJob": "Fermer",
+    "reopenJob": "Rouvrir",
+    "editJob": "Éditer",
     "deleteJob": "Supprimer",
     "deleteConfirmJob": "Êtes-vous sûr de vouloir supprimer cette offre ? Toutes les candidatures seront supprimées.",
     "viewDetail": "Voir le détail",

@@ -36,6 +36,10 @@ export function closeJob(id: string): Promise<void> {
   return apiClient<void>(`/api/v1/jobs/${id}/close`, { method: "POST" })
 }
 
+export function reopenJob(id: string): Promise<void> {
+  return apiClient<void>(`/api/v1/jobs/${id}/reopen`, { method: "POST" })
+}
+
 export function deleteJob(id: string): Promise<void> {
   return apiClient<void>(`/api/v1/jobs/${id}`, { method: "DELETE" })
 }
