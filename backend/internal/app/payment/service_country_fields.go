@@ -106,6 +106,14 @@ func buildResponse(
 // dateSeen tracks which entity+dateType combos have been collapsed already.
 type dateSeen map[string]bool
 
+// personEntities are entities handled by BusinessPersonsSection on the frontend.
+// Their fields are excluded from dynamic sections — only person_roles is returned.
+var personEntities = map[string]bool{
+	"directors":  true,
+	"owners":     true,
+	"executives": true,
+}
+
 // processField handles a single Stripe field path.
 func processField(
 	path string, resp *CountryFieldsResponse,
@@ -115,9 +123,15 @@ func processField(
 		return
 	}
 
+	// Skip person entity fields — handled by BusinessPersonsSection on frontend.
+	// These entities contribute only to PersonRoles (computed separately).
+	entity := domain.EntityFromPath(path)
+	if personEntities[entity] {
+		return
+	}
+
 	// Document upload fields: add as inline upload zones AND mark docs required
 	if domain.IsDocumentUploadField(path) {
-		entity := domain.EntityFromPath(path)
 		category := domain.DocumentCategoryFromPath(path)
 		setDocumentRequired(resp, category)
 		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
@@ -133,7 +147,6 @@ func processField(
 
 	// Collapse dob.day/month/year into a single date field per entity
 	if domain.IsDOBComponent(path) {
-		entity := domain.EntityFromPath(path)
 		key := entity + ".dob"
 		if seen[key] {
 			return
@@ -153,7 +166,6 @@ func processField(
 
 	// Collapse registration_date.day/month/year into single date field
 	if domain.IsRegistrationDateComponent(path) {
-		entity := domain.EntityFromPath(path)
 		key := entity + ".registration_date"
 		if seen[key] {
 			return
@@ -170,7 +182,6 @@ func processField(
 		return
 	}
 
-	entity := domain.EntityFromPath(path)
 	_, isExtra := domain.MapStripeField(path)
 	sectionMap[entity] = append(sectionMap[entity], FieldSpec{
 		Path:        path,
@@ -184,9 +195,10 @@ func processField(
 }
 
 // sectionOrder defines the display order of entity sections.
+// Note: directors, owners, executives are excluded — handled by
+// BusinessPersonsSection on the frontend using person_roles.
 var sectionOrder = []string{
 	"individual", "representative", "company",
-	"directors", "owners", "executives",
 	"authorizer", "documents",
 }
 

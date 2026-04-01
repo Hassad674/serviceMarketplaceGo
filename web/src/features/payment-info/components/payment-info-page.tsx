@@ -135,8 +135,8 @@ export function PaymentInfoPage() {
         />
       ))}
 
-      {/* Business persons — only for company type with person roles */}
-      {data.isBusiness && (
+      {/* Business persons — only when country selected + business mode + roles beyond representative */}
+      {data.country && data.isBusiness && hasPersonRoles(personRoles) && (
         <BusinessPersonsSection data={data} onChange={handleChangeAny} requiredRoles={personRoles} />
       )}
 
@@ -245,6 +245,12 @@ function BusinessToggle({ checked, onToggle, t }: {
 }
 
 // --- Data mapping helpers ---
+
+/** Returns true when personRoles contains at least one role beyond "representative". */
+function hasPersonRoles(roles?: string[]): boolean {
+  if (!roles || roles.length === 0) return false
+  return roles.some((r) => r !== "representative")
+}
 
 function isFormValid(data: PaymentInfoFormData, sections: FieldSection[]): boolean {
   for (const section of sections) {
