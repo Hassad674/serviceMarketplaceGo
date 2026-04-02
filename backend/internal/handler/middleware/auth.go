@@ -18,6 +18,7 @@ func Auth(tokenService service.TokenService, sessionService service.SessionServi
 				if err == nil {
 					ctx := context.WithValue(r.Context(), ContextKeyUserID, session.UserID)
 					ctx = context.WithValue(ctx, ContextKeyRole, session.Role)
+					ctx = context.WithValue(ctx, ContextKeyIsAdmin, session.IsAdmin)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -32,6 +33,7 @@ func Auth(tokenService service.TokenService, sessionService service.SessionServi
 					if err == nil {
 						ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
 						ctx = context.WithValue(ctx, ContextKeyRole, claims.Role)
+						ctx = context.WithValue(ctx, ContextKeyIsAdmin, claims.IsAdmin)
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}

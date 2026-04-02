@@ -18,6 +18,7 @@ class JobDetailsSection extends StatelessWidget {
     required this.onApplicantTypeChanged,
     required this.isExpanded,
     required this.onExpansionChanged,
+    this.showDescription = true,
   });
 
   final TextEditingController titleController;
@@ -29,6 +30,7 @@ class JobDetailsSection extends StatelessWidget {
   final ValueChanged<ApplicantType> onApplicantTypeChanged;
   final bool isExpanded;
   final ValueChanged<bool> onExpansionChanged;
+  final bool showDescription;
 
   @override
   Widget build(BuildContext context) {
@@ -63,23 +65,26 @@ class JobDetailsSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // Description
-        TextFormField(
-          controller: descriptionController,
-          decoration: InputDecoration(
-            labelText: l10n.jobDescription,
-            alignLabelWithHint: true,
+        // Description (hidden when description type is video-only)
+        if (showDescription) ...[
+          TextFormField(
+            controller: descriptionController,
+            decoration: InputDecoration(
+              labelText: l10n.jobDescription,
+              alignLabelWithHint: true,
+            ),
+            maxLines: 5,
+            textInputAction: TextInputAction.newline,
+            validator: (value) {
+              if (!showDescription) return null;
+              if (value == null || value.trim().isEmpty) {
+                return l10n.fieldRequired;
+              }
+              return null;
+            },
           ),
-          maxLines: 5,
-          textInputAction: TextInputAction.newline,
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return l10n.fieldRequired;
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 20),
+          const SizedBox(height: 20),
+        ],
 
         // Skills
         _ChipInput(

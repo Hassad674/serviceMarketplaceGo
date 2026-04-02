@@ -35,6 +35,23 @@ Future<JobEntity?> createJobAction(
   }
 }
 
+/// Helper to update an existing job. Returns the updated entity or null on error.
+Future<JobEntity?> updateJobAction(
+  WidgetRef ref,
+  String id,
+  CreateJobData data,
+) async {
+  try {
+    final repo = ref.read(jobRepositoryProvider);
+    final job = await repo.updateJob(id, data);
+    ref.invalidate(myJobsProvider);
+    return job;
+  } catch (e) {
+    debugPrint('[JobProvider] updateJob error: $e');
+    return null;
+  }
+}
+
 /// Helper to close a job.
 Future<bool> closeJobAction(WidgetRef ref, String id) async {
   try {

@@ -24,16 +24,18 @@ func NewSessionService(client *goredis.Client, ttl time.Duration) *SessionServic
 type sessionData struct {
 	UserID    string    `json:"user_id"`
 	Role      string    `json:"role"`
+	IsAdmin   bool      `json:"is_admin"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func (s *SessionService) Create(ctx context.Context, userID uuid.UUID, role string) (*service.Session, error) {
+func (s *SessionService) Create(ctx context.Context, userID uuid.UUID, role string, isAdmin bool) (*service.Session, error) {
 	id := uuid.New().String()
 	now := time.Now()
 
 	data, err := json.Marshal(sessionData{
 		UserID:    userID.String(),
 		Role:      role,
+		IsAdmin:   isAdmin,
 		CreatedAt: now,
 	})
 	if err != nil {
@@ -48,6 +50,7 @@ func (s *SessionService) Create(ctx context.Context, userID uuid.UUID, role stri
 		ID:        id,
 		UserID:    userID,
 		Role:      role,
+		IsAdmin:   isAdmin,
 		CreatedAt: now,
 	}, nil
 }
@@ -75,6 +78,7 @@ func (s *SessionService) Get(ctx context.Context, sessionID string) (*service.Se
 		ID:        sessionID,
 		UserID:    userID,
 		Role:      data.Role,
+		IsAdmin:   data.IsAdmin,
 		CreatedAt: data.CreatedAt,
 	}, nil
 }

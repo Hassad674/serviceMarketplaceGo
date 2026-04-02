@@ -25,17 +25,19 @@ func NewJWTService(secret string, accessExpiry, refreshExpiry time.Duration) *JW
 }
 
 type customClaims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role,omitempty"`
-	Type   string `json:"type"`
+	UserID  string `json:"user_id"`
+	Role    string `json:"role,omitempty"`
+	IsAdmin bool   `json:"is_admin,omitempty"`
+	Type    string `json:"type"`
 	jwt.RegisteredClaims
 }
 
-func (s *JWTService) GenerateAccessToken(userID uuid.UUID, role string) (string, error) {
+func (s *JWTService) GenerateAccessToken(userID uuid.UUID, role string, isAdmin bool) (string, error) {
 	claims := customClaims{
-		UserID: userID.String(),
-		Role:   role,
-		Type:   "access",
+		UserID:  userID.String(),
+		Role:    role,
+		IsAdmin: isAdmin,
+		Type:    "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -98,6 +100,7 @@ func (s *JWTService) validateToken(tokenString string, expectedType string) (*se
 	return &service.TokenClaims{
 		UserID:    userID,
 		Role:      claims.Role,
+		IsAdmin:   claims.IsAdmin,
 		ExpiresAt: claims.ExpiresAt.Time,
 	}, nil
 }

@@ -277,6 +277,7 @@
   "jobAddVideo": "Ajouter une vid\u00e9o",
   "jobVideoUploading": "Envoi de la vid\u00e9o...",
   "jobVideoUploaded": "Vid\u00e9o envoy\u00e9e",
+  "jobUpdateSuccess": "Offre mise \u00e0 jour avec succ\u00e8s",
 
   "proposalPropose": "Envoyer une proposition",
   "proposalCreate": "Cr\u00e9er une proposition",

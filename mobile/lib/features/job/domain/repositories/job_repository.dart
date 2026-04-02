@@ -33,6 +33,7 @@ class CreateJobData {
 
 abstract class JobRepository {
   Future<JobEntity> createJob(CreateJobData data);
+  Future<JobEntity> updateJob(String id, CreateJobData data);
   Future<JobEntity> getJob(String id);
   Future<List<JobEntity>> listMyJobs();
   Future<void> closeJob(String id);

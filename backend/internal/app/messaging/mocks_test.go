@@ -219,6 +219,14 @@ func (m *mockUserRepo) ExistsByEmail(ctx context.Context, email string) (bool, e
 	return false, nil
 }
 
+func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
+	return 0, nil
+}
+
 // --- mockPresenceService ---
 
 type mockPresenceService struct {

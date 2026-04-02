@@ -6,18 +6,28 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/widgets/video_player_widget.dart';
+import '../../domain/entities/job_entity.dart';
 import '../../domain/repositories/job_repository.dart';
 import '../../types/job.dart';
 import '../providers/job_provider.dart';
 import '../widgets/budget_section.dart';
 import '../widgets/job_details_section.dart';
 
-/// Full-page scrollable form for creating a new job posting.
+/// Full-page scrollable form for creating or editing a job posting.
 ///
-/// Composed of two expandable sections. Tapping "Publish" calls the
-/// backend API to persist the job, then pops back to the jobs list.
+/// Composed of two expandable sections. When [jobId] is provided, the form
+/// loads the existing job and pre-fills all fields (edit mode). Otherwise it
+/// starts blank (create mode). Tapping the submit button calls the appropriate
+/// backend API, then pops back to the previous screen.
 class CreateJobScreen extends ConsumerStatefulWidget {
-  const CreateJobScreen({super.key});
+  const CreateJobScreen({super.key, this.jobId});
+
+  /// When non-null the screen operates in edit mode: fetches the job,
+  /// pre-fills all controllers, and calls updateJob on submit.
+  final String? jobId;
+
+  bool get isEditMode => jobId != null;
 
   @override
   ConsumerState<CreateJobScreen> createState() => _CreateJobScreenState();
@@ -40,14 +50,69 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
   bool _budgetExpanded = false;
   bool _submitting = false;
 
+  // Loading state for edit mode
+  bool _loadingJob = false;
+
   // Video upload state
   bool _isUploadingVideo = false;
   String? _videoName;
+
+  bool get _isEditMode => widget.jobId != null;
 
   @override
   void initState() {
     super.initState();
     _formData = JobFormData();
+    if (_isEditMode) {
+      _loadExistingJob();
+    }
+  }
+
+  /// Fetches the existing job and pre-fills all form fields.
+  Future<void> _loadExistingJob() async {
+    setState(() => _loadingJob = true);
+    try {
+      final repo = ref.read(jobRepositoryProvider);
+      final job = await repo.getJob(widget.jobId!);
+      if (!mounted) return;
+      _prefillFromJob(job);
+    } catch (e) {
+      debugPrint('[CreateJobScreen] loadExistingJob error: $e');
+    } finally {
+      if (mounted) setState(() => _loadingJob = false);
+    }
+  }
+
+  void _prefillFromJob(JobEntity job) {
+    _titleController.text = job.title;
+    _descriptionController.text = job.description;
+    _minBudgetController.text = job.minBudget.toString();
+    _maxBudgetController.text = job.maxBudget.toString();
+
+    _formData.skills
+      ..clear()
+      ..addAll(job.skills);
+
+    _formData.applicantType = switch (job.applicantType) {
+      'freelancers' => ApplicantType.freelancers,
+      'agencies' => ApplicantType.agencies,
+      _ => ApplicantType.all,
+    };
+
+    _formData.budgetType = switch (job.budgetType) {
+      'long_term' => BudgetType.longTerm,
+      _ => BudgetType.oneShot,
+    };
+
+    _formData.descriptionType = switch (job.descriptionType) {
+      'video' => DescriptionType.video,
+      'both' => DescriptionType.both,
+      _ => DescriptionType.text,
+    };
+
+    _formData.videoUrl = job.videoUrl ?? '';
+
+    setState(() {});
   }
 
   @override
@@ -152,25 +217,35 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
       DescriptionType.both => 'both',
     };
 
-    final result = await createJobAction(
-      ref,
-      CreateJobData(
-        title: _formData.title,
-        description: _formData.description,
-        skills: _formData.skills,
-        applicantType: applicantTypeStr,
-        budgetType: budgetTypeStr,
-        minBudget: minBudget,
-        maxBudget: maxBudget,
-        descriptionType: descriptionTypeStr,
-        videoUrl: _formData.videoUrl.isNotEmpty ? _formData.videoUrl : null,
-      ),
+    final jobData = CreateJobData(
+      title: _formData.title,
+      description: _formData.description,
+      skills: _formData.skills,
+      applicantType: applicantTypeStr,
+      budgetType: budgetTypeStr,
+      minBudget: minBudget,
+      maxBudget: maxBudget,
+      descriptionType: descriptionTypeStr,
+      videoUrl: _formData.videoUrl.isNotEmpty ? _formData.videoUrl : null,
     );
+
+    final JobEntity? result;
+    if (_isEditMode) {
+      result = await updateJobAction(ref, widget.jobId!, jobData);
+    } else {
+      result = await createJobAction(ref, jobData);
+    }
 
     if (!mounted) return;
     setState(() => _submitting = false);
 
     if (result != null) {
+      if (_isEditMode) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.jobUpdateSuccess)),
+        );
+      }
       Navigator.of(context).pop();
     } else {
       final l10n = AppLocalizations.of(context)!;
@@ -191,12 +266,12 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(l10n.jobCreateJob),
+        title: Text(_isEditMode ? l10n.jobEditJob : l10n.jobCreateJob),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: FilledButton(
-              onPressed: _submitting ? null : _onSubmit,
+              onPressed: (_submitting || _loadingJob) ? null : _onSubmit,
               style: FilledButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: Colors.white,
@@ -214,12 +289,14 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : Text(l10n.jobPublish),
+                  : Text(_isEditMode ? l10n.jobSave : l10n.jobPublish),
             ),
           ),
         ],
       ),
-      body: SafeArea(
+      body: _loadingJob
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
@@ -238,6 +315,7 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
                 onExpansionChanged: (expanded) {
                   setState(() => _detailsExpanded = expanded);
                 },
+                showDescription: _formData.descriptionType != DescriptionType.video,
               ),
               const SizedBox(height: 16),
 
@@ -266,7 +344,7 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Publish button (bottom)
+              // Submit button (bottom)
               ElevatedButton(
                 onPressed: _submitting ? null : _onSubmit,
                 style: ElevatedButton.styleFrom(
@@ -287,7 +365,7 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : Text(l10n.jobPublish),
+                    : Text(_isEditMode ? l10n.jobSave : l10n.jobPublish),
               ),
               const SizedBox(height: 8),
 
@@ -426,37 +504,18 @@ class _DescriptionTypeSection extends StatelessWidget {
                   ],
                 ),
               ),
-            if (videoUrl.isNotEmpty && !isUploading)
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.check_circle,
-                      color: Colors.green,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        videoName ?? l10n.jobVideoUploaded,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 18),
-                      onPressed: onRemoveVideo,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
+            if (videoUrl.isNotEmpty && !isUploading) ...[
+              VideoPlayerWidget(videoUrl: videoUrl),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: onRemoveVideo,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                label: Text(videoName ?? l10n.jobVideoUploaded),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
                 ),
               ),
+            ],
           ],
         ],
       ),

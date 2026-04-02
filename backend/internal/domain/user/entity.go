@@ -26,6 +26,14 @@ func (r Role) String() string {
 	return string(r)
 }
 
+type UserStatus string
+
+const (
+	StatusActive    UserStatus = "active"
+	StatusSuspended UserStatus = "suspended"
+	StatusBanned    UserStatus = "banned"
+)
+
 type User struct {
 	ID              uuid.UUID
 	Email           string
@@ -35,8 +43,14 @@ type User struct {
 	DisplayName     string
 	Role            Role
 	ReferrerEnabled bool
-	IsAdmin         bool
-	OrganizationID  *uuid.UUID
+	IsAdmin             bool
+	Status              UserStatus
+	SuspendedAt         *time.Time
+	SuspensionReason    string
+	SuspensionExpiresAt *time.Time
+	BannedAt            *time.Time
+	BanReason           string
+	OrganizationID      *uuid.UUID
 	LinkedInID      *string
 	GoogleID        *string
 	EmailVerified   bool
@@ -60,6 +74,7 @@ func NewUser(email string, hashedPassword string, firstName, lastName, displayNa
 		LastName:       lastName,
 		DisplayName:    displayName,
 		Role:           role,
+		Status:         StatusActive,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}, nil
@@ -79,4 +94,50 @@ func (u *User) DisableReferrer() {
 
 func (u *User) CanBeReferrer() bool {
 	return u.Role == RoleProvider
+}
+
+func (u *User) Suspend(reason string, expiresAt *time.Time) {
+	now := time.Now()
+	u.Status = StatusSuspended
+	u.SuspendedAt = &now
+	u.SuspensionReason = reason
+	u.SuspensionExpiresAt = expiresAt
+	u.UpdatedAt = now
+}
+
+func (u *User) Unsuspend() {
+	u.Status = StatusActive
+	u.SuspendedAt = nil
+	u.SuspensionReason = ""
+	u.SuspensionExpiresAt = nil
+	u.UpdatedAt = time.Now()
+}
+
+func (u *User) Ban(reason string) {
+	now := time.Now()
+	u.Status = StatusBanned
+	u.BannedAt = &now
+	u.BanReason = reason
+	u.UpdatedAt = now
+}
+
+func (u *User) Unban() {
+	u.Status = StatusActive
+	u.BannedAt = nil
+	u.BanReason = ""
+	u.UpdatedAt = time.Now()
+}
+
+func (u *User) IsSuspended() bool {
+	if u.Status != StatusSuspended {
+		return false
+	}
+	if u.SuspensionExpiresAt != nil && u.SuspensionExpiresAt.Before(time.Now()) {
+		return false
+	}
+	return true
+}
+
+func (u *User) IsBanned() bool {
+	return u.Status == StatusBanned
 }

@@ -12,6 +12,7 @@ type contextKey string
 const (
 	ContextKeyUserID    contextKey = "user_id"
 	ContextKeyRole      contextKey = "role"
+	ContextKeyIsAdmin   contextKey = "is_admin"
 	ContextKeyRequestID contextKey = "request_id"
 )
 
@@ -47,4 +48,11 @@ func GetRole(ctx context.Context) string {
 		return role
 	}
 	return ""
+}
+
+func GetIsAdmin(ctx context.Context) bool {
+	if isAdmin, ok := ctx.Value(ContextKeyIsAdmin).(bool); ok {
+		return isAdmin
+	}
+	return false
 }

@@ -97,7 +97,7 @@ class _JobDetailBody extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               tooltip: l10n.jobEditJob,
-              onPressed: () => context.push(RoutePaths.jobsCreate),
+              onPressed: () => context.push(RoutePaths.jobEdit, extra: jobId),
             ),
             _JobPopupMenu(
               job: job,

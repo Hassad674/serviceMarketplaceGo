@@ -31,6 +31,28 @@ class JobRepositoryImpl implements JobRepository {
   }
 
   @override
+  Future<JobEntity> updateJob(String id, CreateJobData data) async {
+    final body = <String, dynamic>{
+      'title': data.title,
+      'description': data.description,
+      'skills': data.skills,
+      'applicant_type': data.applicantType,
+      'budget_type': data.budgetType,
+      'min_budget': data.minBudget,
+      'max_budget': data.maxBudget,
+      'is_indefinite': data.isIndefinite,
+      'description_type': data.descriptionType,
+    };
+    if (data.paymentFrequency != null) body['payment_frequency'] = data.paymentFrequency;
+    if (data.durationWeeks != null) body['duration_weeks'] = data.durationWeeks;
+    if (data.videoUrl != null) body['video_url'] = data.videoUrl;
+
+    final response = await apiClient.put('/api/v1/jobs/$id', data: body);
+    final json = _extractData(response.data);
+    return JobEntity.fromJson(json);
+  }
+
+  @override
   Future<JobEntity> getJob(String id) async {
     final response = await apiClient.get('/api/v1/jobs/$id');
     return JobEntity.fromJson(_extractData(response.data));

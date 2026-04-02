@@ -23,6 +23,13 @@ export function createJob(data: CreateJobData): Promise<JobResponse> {
   })
 }
 
+export function updateJob(id: string, data: CreateJobData): Promise<JobResponse> {
+  return apiClient<JobResponse>(`/api/v1/jobs/${id}`, {
+    method: "PUT",
+    body: data,
+  })
+}
+
 export function getJob(id: string): Promise<JobResponse> {
   return apiClient<JobResponse>(`/api/v1/jobs/${id}`)
 }

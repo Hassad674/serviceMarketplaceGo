@@ -776,6 +776,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get jobVideoUploaded => 'Vidéo envoyée';
 
   @override
+  String get jobUpdateSuccess => 'Offre mise à jour avec succès';
+
+  @override
   String get proposalPropose => 'Envoyer une proposition';
 
   @override

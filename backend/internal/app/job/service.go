@@ -195,6 +195,57 @@ func (s *Service) CloseJob(ctx context.Context, jobID, userID uuid.UUID) error {
 	return nil
 }
 
+type UpdateJobInput struct {
+	JobID            uuid.UUID
+	UserID           uuid.UUID
+	Title            string
+	Description      string
+	Skills           []string
+	ApplicantType    string
+	BudgetType       string
+	MinBudget        int
+	MaxBudget        int
+	PaymentFrequency *string
+	DurationWeeks    *int
+	IsIndefinite     bool
+	DescriptionType  string
+	VideoURL         *string
+}
+
+func (s *Service) UpdateJob(ctx context.Context, input UpdateJobInput) (*domain.Job, error) {
+	j, err := s.jobs.GetByID(ctx, input.JobID)
+	if err != nil {
+		return nil, fmt.Errorf("get job: %w", err)
+	}
+	updateInput := domain.UpdateJobInput{
+		Title:         input.Title,
+		Description:   input.Description,
+		Skills:        input.Skills,
+		ApplicantType: domain.ApplicantType(input.ApplicantType),
+		BudgetType:    domain.BudgetType(input.BudgetType),
+		MinBudget:     input.MinBudget,
+		MaxBudget:     input.MaxBudget,
+		IsIndefinite:  input.IsIndefinite,
+		VideoURL:      input.VideoURL,
+	}
+	if input.PaymentFrequency != nil {
+		f := domain.PaymentFrequency(*input.PaymentFrequency)
+		updateInput.PaymentFrequency = &f
+	}
+	if input.DescriptionType != "" {
+		updateInput.DescriptionType = domain.DescriptionType(input.DescriptionType)
+	}
+	updateInput.DurationWeeks = input.DurationWeeks
+
+	if err := j.Update(input.UserID, updateInput); err != nil {
+		return nil, err
+	}
+	if err := s.jobs.Update(ctx, j); err != nil {
+		return nil, fmt.Errorf("update job: %w", err)
+	}
+	return j, nil
+}
+
 func (s *Service) ReopenJob(ctx context.Context, jobID, userID uuid.UUID) error {
 	j, err := s.jobs.GetByID(ctx, jobID)
 	if err != nil {

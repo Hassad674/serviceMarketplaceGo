@@ -276,7 +276,7 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 	}
 
 	// Web mode: create session, set cookies, return user only
-	session, err := h.sessionSvc.Create(r.Context(), output.User.ID, output.User.Role.String())
+	session, err := h.sessionSvc.Create(r.Context(), output.User.ID, output.User.Role.String(), output.User.IsAdmin)
 	if err != nil {
 		slog.Error("failed to create session", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to create session")

@@ -452,7 +452,9 @@
     "videoUploadHint": "Téléchargez une vidéo pour décrire votre projet",
     "videoUploadButton": "Choisir une vidéo",
     "videoPreview": "Aperçu vidéo",
-    "removeVideo": "Supprimer la vidéo"
+    "removeVideo": "Supprimer la vidéo",
+    "editJobTitle": "Éditer l'offre",
+    "save": "Enregistrer"
   },
   "publicProfile": {
     "agencyProfile": "Profil de l'agence",

@@ -11,4 +11,6 @@ var (
 	ErrInvalidRole        = errors.New("invalid role: must be agency, enterprise, or provider")
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrForbidden          = errors.New("forbidden")
+	ErrAccountSuspended   = errors.New("account is suspended")
+	ErrAccountBanned      = errors.New("account is banned")
 )

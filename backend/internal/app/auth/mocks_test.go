@@ -10,6 +10,9 @@ import (
 	"marketplace-backend/internal/port/service"
 )
 
+// ensure mockUserRepo implements the full interface
+var _ repository.UserRepository = (*mockUserRepo)(nil)
+
 // --- mockUserRepo ---
 
 type mockUserRepo struct {
@@ -19,6 +22,8 @@ type mockUserRepo struct {
 	updateFn        func(ctx context.Context, u *user.User) error
 	deleteFn        func(ctx context.Context, id uuid.UUID) error
 	existsByEmailFn func(ctx context.Context, email string) (bool, error)
+	listAdminFn     func(ctx context.Context, filters repository.AdminUserFilters) ([]*user.User, string, error)
+	countAdminFn    func(ctx context.Context, filters repository.AdminUserFilters) (int, error)
 }
 
 func (m *mockUserRepo) Create(ctx context.Context, u *user.User) error {
@@ -61,6 +66,20 @@ func (m *mockUserRepo) ExistsByEmail(ctx context.Context, email string) (bool, e
 		return m.existsByEmailFn(ctx, email)
 	}
 	return false, nil
+}
+
+func (m *mockUserRepo) ListAdmin(ctx context.Context, filters repository.AdminUserFilters) ([]*user.User, string, error) {
+	if m.listAdminFn != nil {
+		return m.listAdminFn(ctx, filters)
+	}
+	return []*user.User{}, "", nil
+}
+
+func (m *mockUserRepo) CountAdmin(ctx context.Context, filters repository.AdminUserFilters) (int, error) {
+	if m.countAdminFn != nil {
+		return m.countAdminFn(ctx, filters)
+	}
+	return 0, nil
 }
 
 // --- mockPasswordResetRepo ---
@@ -127,15 +146,15 @@ func (m *mockHasher) Compare(hashed, password string) error {
 // --- mockTokenService ---
 
 type mockTokenService struct {
-	generateAccessFn   func(userID uuid.UUID, role string) (string, error)
+	generateAccessFn   func(userID uuid.UUID, role string, isAdmin bool) (string, error)
 	generateRefreshFn  func(userID uuid.UUID) (string, error)
 	validateAccessFn   func(token string) (*service.TokenClaims, error)
 	validateRefreshFn  func(token string) (*service.TokenClaims, error)
 }
 
-func (m *mockTokenService) GenerateAccessToken(userID uuid.UUID, role string) (string, error) {
+func (m *mockTokenService) GenerateAccessToken(userID uuid.UUID, role string, isAdmin bool) (string, error) {
 	if m.generateAccessFn != nil {
-		return m.generateAccessFn(userID, role)
+		return m.generateAccessFn(userID, role, isAdmin)
 	}
 	return "access_token_" + userID.String(), nil
 }

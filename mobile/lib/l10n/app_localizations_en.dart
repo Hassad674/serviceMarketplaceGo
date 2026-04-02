@@ -775,6 +775,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jobVideoUploaded => 'Video uploaded';
 
   @override
+  String get jobUpdateSuccess => 'Job updated successfully';
+
+  @override
   String get proposalPropose => 'Send a proposal';
 
   @override

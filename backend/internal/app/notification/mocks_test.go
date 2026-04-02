@@ -7,6 +7,7 @@ import (
 
 	notif "marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/port/repository"
 )
 
 // --- mockNotificationRepo implements repository.NotificationRepository ---
@@ -304,4 +305,12 @@ func (m *mockUserRepo) ExistsByEmail(ctx context.Context, email string) (bool, e
 		return m.existsByEmailFn(ctx, email)
 	}
 	return false, nil
+}
+
+func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
+	return 0, nil
 }

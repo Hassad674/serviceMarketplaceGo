@@ -79,6 +79,7 @@ class RoutePaths {
   static const String myApplications = '/my-applications';
   static const String jobCandidates = '/jobs/candidates';
   static const String jobDetail = '/jobs/detail';
+  static const String jobEdit = '/jobs/edit';
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +269,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.jobDetail,
             builder: (context, state) => JobDetailScreen(jobId: state.extra as String),
+          ),
+          GoRoute(
+            path: RoutePaths.jobEdit,
+            builder: (context, state) => CreateJobScreen(jobId: state.extra as String),
           ),
           GoRoute(
             path: RoutePaths.profile,

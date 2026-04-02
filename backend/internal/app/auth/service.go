@@ -101,7 +101,7 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String())
+	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -133,7 +133,7 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 		return nil, user.ErrInvalidCredentials
 	}
 
-	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String())
+	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -161,7 +161,7 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, user.ErrUnauthorized
 	}
 
-	newAccessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String())
+	newAccessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}

@@ -43,7 +43,13 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         autoPlay: widget.autoPlay,
         looping: false,
         aspectRatio: _videoController.value.aspectRatio,
-        showControlsOnInitialize: false,
+        showControlsOnInitialize: true,
+        placeholder: Container(
+          color: Colors.black,
+          child: const Center(
+            child: Icon(Icons.play_circle_fill, color: Colors.white70, size: 64),
+          ),
+        ),
         materialProgressColors: ChewieProgressColors(
           playedColor: const Color(0xFFF43F5E),
           handleColor: const Color(0xFFF43F5E),

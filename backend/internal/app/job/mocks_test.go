@@ -179,3 +179,11 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	}
 	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test"}, nil
 }
+
+func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
+	return 0, nil
+}

@@ -89,6 +89,45 @@ func (h *JobHandler) ListMyJobs(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewJobWithCountsListResponse(jobs, nextCursor))
 }
 
+func (h *JobHandler) UpdateJob(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	jobID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_job_id", "id must be a valid UUID")
+		return
+	}
+	var req request.CreateJobRequest
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+	j, err := h.jobSvc.UpdateJob(r.Context(), jobapp.UpdateJobInput{
+		JobID:            jobID,
+		UserID:           userID,
+		Title:            req.Title,
+		Description:      req.Description,
+		Skills:           req.Skills,
+		ApplicantType:    req.ApplicantType,
+		BudgetType:       req.BudgetType,
+		MinBudget:        req.MinBudget,
+		MaxBudget:        req.MaxBudget,
+		PaymentFrequency: req.PaymentFrequency,
+		DurationWeeks:    req.DurationWeeks,
+		IsIndefinite:     req.IsIndefinite,
+		DescriptionType:  req.DescriptionType,
+		VideoURL:         req.VideoURL,
+	})
+	if err != nil {
+		handleJobError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, response.NewJobResponse(j))
+}
+
 func (h *JobHandler) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

@@ -282,6 +282,7 @@
   "jobAddVideo": "Add a video",
   "jobVideoUploading": "Uploading video...",
   "jobVideoUploaded": "Video uploaded",
+  "jobUpdateSuccess": "Job updated successfully",
 
   "proposalPropose": "Send a proposal",
   "proposalCreate": "Create a proposal",

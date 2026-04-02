@@ -19,7 +19,7 @@ func TestJWTService_GenerateAccessToken_ReturnsNonEmpty(t *testing.T) {
 	svc := newTestJWTService()
 	userID := uuid.New()
 
-	token, err := svc.GenerateAccessToken(userID, "agency")
+	token, err := svc.GenerateAccessToken(userID, "agency", false)
 
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
@@ -38,10 +38,10 @@ func TestJWTService_GenerateRefreshToken_ReturnsNonEmpty(t *testing.T) {
 func TestJWTService_GenerateAccessToken_DifferentUsersProduceDifferentTokens(t *testing.T) {
 	svc := newTestJWTService()
 
-	token1, err := svc.GenerateAccessToken(uuid.New(), "agency")
+	token1, err := svc.GenerateAccessToken(uuid.New(), "agency", false)
 	require.NoError(t, err)
 
-	token2, err := svc.GenerateAccessToken(uuid.New(), "provider")
+	token2, err := svc.GenerateAccessToken(uuid.New(), "provider", false)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, token1, token2)
@@ -52,7 +52,7 @@ func TestJWTService_ValidateAccessToken_ValidToken(t *testing.T) {
 	userID := uuid.New()
 	role := "enterprise"
 
-	token, err := svc.GenerateAccessToken(userID, role)
+	token, err := svc.GenerateAccessToken(userID, role, false)
 	require.NoError(t, err)
 
 	claims, err := svc.ValidateAccessToken(token)
@@ -70,7 +70,7 @@ func TestJWTService_ValidateAccessToken_ExpiredToken(t *testing.T) {
 	svc := NewJWTService(testSecret, -1*time.Second, 7*24*time.Hour)
 	userID := uuid.New()
 
-	token, err := svc.GenerateAccessToken(userID, "agency")
+	token, err := svc.GenerateAccessToken(userID, "agency", false)
 	require.NoError(t, err)
 
 	claims, err := svc.ValidateAccessToken(token)
@@ -84,7 +84,7 @@ func TestJWTService_ValidateAccessToken_WrongSecret(t *testing.T) {
 	svc1 := NewJWTService("secret-one-for-signing-tokens!!", 15*time.Minute, 7*24*time.Hour)
 	svc2 := NewJWTService("secret-two-different-from-one!!", 15*time.Minute, 7*24*time.Hour)
 
-	token, err := svc1.GenerateAccessToken(uuid.New(), "agency")
+	token, err := svc1.GenerateAccessToken(uuid.New(), "agency", false)
 	require.NoError(t, err)
 
 	claims, err := svc2.ValidateAccessToken(token)
@@ -115,7 +115,7 @@ func TestJWTService_ValidateRefreshToken_WithAccessToken_ReturnsError(t *testing
 	svc := newTestJWTService()
 	userID := uuid.New()
 
-	accessToken, err := svc.GenerateAccessToken(userID, "agency")
+	accessToken, err := svc.GenerateAccessToken(userID, "agency", false)
 	require.NoError(t, err)
 
 	// Trying to validate an access token as a refresh token should fail
@@ -186,7 +186,7 @@ func TestJWTService_AccessToken_ContainsCorrectUserIDAndRole(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			userID := uuid.New()
 
-			token, err := svc.GenerateAccessToken(userID, tt.role)
+			token, err := svc.GenerateAccessToken(userID, tt.role, false)
 			require.NoError(t, err)
 
 			claims, err := svc.ValidateAccessToken(token)
@@ -204,7 +204,7 @@ func TestJWTService_AccessToken_ExpiresWithinExpectedWindow(t *testing.T) {
 	userID := uuid.New()
 
 	beforeGenerate := time.Now().Truncate(time.Second)
-	token, err := svc.GenerateAccessToken(userID, "agency")
+	token, err := svc.GenerateAccessToken(userID, "agency", false)
 	require.NoError(t, err)
 
 	claims, err := svc.ValidateAccessToken(token)

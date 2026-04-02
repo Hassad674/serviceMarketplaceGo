@@ -236,7 +236,7 @@ func TestAuthService_Register_TokenGenerationFailure(t *testing.T) {
 		},
 	}
 	tokens := &mockTokenService{
-		generateAccessFn: func(_ uuid.UUID, _ string) (string, error) {
+		generateAccessFn: func(_ uuid.UUID, _ string, _ bool) (string, error) {
 			return "", fmt.Errorf("token generation failed")
 		},
 	}
@@ -411,7 +411,7 @@ func TestAuthService_Login_TokenGenerationFailure(t *testing.T) {
 		},
 	}
 	tokens := &mockTokenService{
-		generateAccessFn: func(_ uuid.UUID, _ string) (string, error) {
+		generateAccessFn: func(_ uuid.UUID, _ string, _ bool) (string, error) {
 			return "", fmt.Errorf("signing key unavailable")
 		},
 	}
@@ -453,7 +453,7 @@ func TestAuthService_RefreshToken_Success(t *testing.T) {
 				ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 			}, nil
 		},
-		generateAccessFn: func(userID uuid.UUID, role string) (string, error) {
+		generateAccessFn: func(userID uuid.UUID, role string, isAdmin bool) (string, error) {
 			return "new_access_token", nil
 		},
 		generateRefreshFn: func(userID uuid.UUID) (string, error) {

@@ -1592,6 +1592,12 @@ abstract class AppLocalizations {
   /// **'Video uploaded'**
   String get jobVideoUploaded;
 
+  /// No description provided for @jobUpdateSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Job updated successfully'**
+  String get jobUpdateSuccess;
+
   /// No description provided for @proposalPropose.
   ///
   /// In en, this message translates to:

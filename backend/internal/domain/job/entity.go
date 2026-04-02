@@ -199,6 +199,59 @@ func (j *Job) Close(userID uuid.UUID) error {
 	return nil
 }
 
+type UpdateJobInput struct {
+	Title            string
+	Description      string
+	Skills           []string
+	ApplicantType    ApplicantType
+	BudgetType       BudgetType
+	MinBudget        int
+	MaxBudget        int
+	PaymentFrequency *PaymentFrequency
+	DurationWeeks    *int
+	IsIndefinite     bool
+	DescriptionType  DescriptionType
+	VideoURL         *string
+}
+
+func (j *Job) Update(userID uuid.UUID, input UpdateJobInput) error {
+	if j.CreatorID != userID {
+		return ErrNotOwner
+	}
+	newInput := NewJobInput{
+		CreatorID:        j.CreatorID,
+		Title:            input.Title,
+		Description:      input.Description,
+		Skills:           input.Skills,
+		ApplicantType:    input.ApplicantType,
+		BudgetType:       input.BudgetType,
+		MinBudget:        input.MinBudget,
+		MaxBudget:        input.MaxBudget,
+		PaymentFrequency: input.PaymentFrequency,
+		DurationWeeks:    input.DurationWeeks,
+		IsIndefinite:     input.IsIndefinite,
+		DescriptionType:  input.DescriptionType,
+		VideoURL:         input.VideoURL,
+	}
+	if err := validateJobInput(newInput); err != nil {
+		return err
+	}
+	j.Title = input.Title
+	j.Description = input.Description
+	j.Skills = input.Skills
+	j.ApplicantType = input.ApplicantType
+	j.BudgetType = input.BudgetType
+	j.MinBudget = input.MinBudget
+	j.MaxBudget = input.MaxBudget
+	j.PaymentFrequency = input.PaymentFrequency
+	j.DurationWeeks = input.DurationWeeks
+	j.IsIndefinite = input.IsIndefinite
+	j.DescriptionType = input.DescriptionType
+	j.VideoURL = input.VideoURL
+	j.UpdatedAt = time.Now()
+	return nil
+}
+
 func (j *Job) Reopen(userID uuid.UUID) error {
 	if j.CreatorID != userID {
 		return ErrNotOwner

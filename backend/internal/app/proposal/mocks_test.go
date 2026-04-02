@@ -10,6 +10,7 @@ import (
 
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -109,6 +110,14 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 		return m.getByIDFn(ctx, id)
 	}
 	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test User"}, nil
+}
+
+func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
+	return 0, nil
 }
 
 // --- mockMessageSender ---

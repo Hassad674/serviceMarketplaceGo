@@ -11,6 +11,7 @@ import (
 
 	calldomain "marketplace-backend/internal/domain/call"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -162,6 +163,14 @@ func (m *mockUserRepo) Update(_ context.Context, _ *user.User) error  { return n
 func (m *mockUserRepo) Delete(_ context.Context, _ uuid.UUID) error   { return nil }
 func (m *mockUserRepo) ExistsByEmail(_ context.Context, _ string) (bool, error) {
 	return false, nil
+}
+
+func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
+	return 0, nil
 }
 
 // --- Helper ---
