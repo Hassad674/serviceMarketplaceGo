@@ -60,6 +60,34 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 	return acct.ID, nil
 }
 
+// UpdateConnectedAccount updates an existing Stripe account with new data via Account Token.
+func (s *Service) UpdateConnectedAccount(_ context.Context, accountID string, info *payment.PaymentInfo, tosIP string, email string) error {
+	tok, err := createAccountToken(info, tosIP, email)
+	if err != nil {
+		return fmt.Errorf("create account token for update: %w", err)
+	}
+
+	params := &stripe.AccountParams{
+		AccountToken: stripe.String(tok),
+	}
+
+	// Update MCC if set
+	mcc := info.ActivitySector
+	if mcc == "" {
+		mcc = "8999"
+	}
+	params.BusinessProfile = &stripe.AccountBusinessProfileParams{
+		MCC: stripe.String(mcc),
+	}
+
+	_, err = account.Update(accountID, params)
+	if err != nil {
+		return fmt.Errorf("update stripe account: %w", err)
+	}
+
+	return nil
+}
+
 func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (string, error) {
 	params := &stripe.TokenParams{
 		Account: &stripe.TokenAccountParams{

@@ -197,8 +197,12 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		}
 	}
 
-	// Create Stripe connected account only if one doesn't exist yet
-	s.ensureStripeAccount(ctx, info, tosIP, email)
+	// Create or update Stripe connected account
+	if info.StripeAccountID != "" {
+		s.updateStripeAccount(ctx, info, tosIP, email)
+	} else {
+		s.ensureStripeAccount(ctx, info, tosIP, email)
+	}
 
 	return info, nil
 }
