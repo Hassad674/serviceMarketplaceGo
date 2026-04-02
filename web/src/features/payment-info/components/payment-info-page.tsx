@@ -224,25 +224,28 @@ function BusinessToggle({ checked, onToggle, t }: {
   checked: boolean; onToggle: () => void; t: (key: string) => string
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={onToggle}
-        className={cn(
-          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
-          checked ? "bg-rose-500" : "bg-gray-300 dark:bg-gray-600",
-        )}
-      >
-        <span
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={onToggle}
           className={cn(
-            "inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 shadow-sm",
-            checked ? "translate-x-6" : "translate-x-1",
+            "relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200",
+            checked ? "bg-rose-500" : "bg-gray-300 dark:bg-gray-600",
           )}
-        />
-      </button>
-      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("isBusiness")}</span>
+        >
+          <span
+            className={cn(
+              "inline-block h-4 w-4 rounded-full bg-white transition-transform duration-200 shadow-sm",
+              checked ? "translate-x-6" : "translate-x-1",
+            )}
+          />
+        </button>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t("isBusiness")}</span>
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400 ml-14">{t("isBusinessDesc")}</p>
     </div>
   )
 }

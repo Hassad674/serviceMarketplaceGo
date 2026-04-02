@@ -622,7 +622,8 @@
   "paymentInfo": {
     "title": "Payment Information",
     "subtitle": "Complete your information to receive payments for your projects.",
-    "isBusiness": "I operate as a registered business",
+    "isBusiness": "I represent a registered business",
+    "isBusinessDesc": "Enable if your activity is operated through a registered company. Leave disabled if you operate under a sole proprietorship (freelance, independent).",
     "personalInfo": "Personal Information",
     "legalRepresentative": "Legal Representative",
     "businessInfo": "Business Information",

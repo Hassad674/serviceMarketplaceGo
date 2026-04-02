@@ -622,7 +622,8 @@
   "paymentInfo": {
     "title": "Informations de paiement",
     "subtitle": "Complétez vos informations pour recevoir les paiements de vos missions.",
-    "isBusiness": "J'exerce en tant qu'entreprise enregistrée",
+    "isBusiness": "Je représente une entreprise",
+    "isBusinessDesc": "Activez si votre activité est exercée par une société enregistrée. Laissez désactivé si vous possédez un statut juridique en nom propre (freelance, indépendant).",
     "personalInfo": "Informations personnelles",
     "legalRepresentative": "Représentant légal",
     "businessInfo": "Informations de l'entreprise",
