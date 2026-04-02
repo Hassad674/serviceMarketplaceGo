@@ -306,6 +306,59 @@ async function fillPersonalFields(page: Page, country: CountryTestData, person: 
   }
 }
 
+/**
+ * Fill ALL remaining empty fields on the page — catch-all for exotic countries.
+ * Runs after specific field helpers to pick up anything they missed.
+ */
+async function fillAllRemainingFields(page: Page, country: CountryTestData) {
+  // Scroll through the entire page to make all elements "visible"
+  await page.evaluate(() => {
+    const main = document.querySelector("main")
+    if (main) main.scrollTop = main.scrollHeight
+    window.scrollTo(0, document.body.scrollHeight)
+  })
+  await page.waitForTimeout(500)
+  await page.evaluate(() => {
+    const main = document.querySelector("main")
+    if (main) main.scrollTop = 0
+    window.scrollTo(0, 0)
+  })
+  await page.waitForTimeout(500)
+
+  // Fill ALL text/email/tel inputs on the page (not just visible)
+  const allInputs = page.locator("input")
+  const inputCount = await allInputs.count()
+  for (let i = 0; i < inputCount; i++) {
+    const input = allInputs.nth(i)
+    const type = await input.getAttribute("type").catch(() => "text") ?? "text"
+    const hidden = await input.getAttribute("hidden").catch(() => null)
+    if (hidden !== null) continue
+    if (["text", "email", "tel", "number", ""].includes(type)) {
+      const val = await input.inputValue().catch(() => "SKIP")
+      if (val === "") {
+        await input.scrollIntoViewIfNeeded().catch(() => {})
+        if (type === "email") await input.fill("test@example.com").catch(() => {})
+        else if (type === "tel") await input.fill(country.phone).catch(() => {})
+        else await input.fill("Test123").catch(() => {})
+      }
+    }
+  }
+
+  // Fill ALL empty selects
+  const allSelects = page.locator("select")
+  const selectCount = await allSelects.count()
+  for (let i = 0; i < selectCount; i++) {
+    const sel = allSelects.nth(i)
+    const val = await sel.inputValue().catch(() => "SKIP")
+    if (val === "") {
+      await sel.scrollIntoViewIfNeeded().catch(() => {})
+      await sel.selectOption(country.code).catch(async () => {
+        await sel.selectOption({ index: 1 }).catch(() => {})
+      })
+    }
+  }
+}
+
 async function fillBankFields(page: Page, country: CountryTestData, accountHolder: string) {
   if (country.bankType === "iban") {
     await fillByLabel(page, "IBAN", country.iban!)
@@ -564,6 +617,7 @@ test.describe("KYC Flow — SG", () => {
 
     await fillPersonalFields(page, country, person)
     await fillBankFields(page, country, person.accountHolder)
+    await fillAllRemainingFields(page, country)
     await uploadDocuments(page)
     await saveAndVerify(page)
 
@@ -588,6 +642,7 @@ test.describe("KYC Flow — SG", () => {
     await fillPersonalFields(page, country, person)
     const bizName = await fillBusinessFields(page, country)
     await fillBankFields(page, country, bizName)
+    await fillAllRemainingFields(page, country)
     await uploadDocuments(page)
     await saveAndVerify(page)
 
@@ -634,6 +689,7 @@ test.describe("KYC Flow — IN", () => {
     await fillPersonalFields(page, country, person)
     const bizName = await fillBusinessFields(page, country)
     await fillBankFields(page, country, bizName)
+    await fillAllRemainingFields(page, country)
     await uploadDocuments(page)
     await saveAndVerify(page)
 
