@@ -43,13 +43,22 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 		},
 	}
 
-	// External bank account via IBAN
+	// External bank account
 	if info.IBAN != "" {
+		// IBAN-based (EU, UK, etc.)
 		acctParams.AddExtra("external_account[object]", "bank_account")
 		acctParams.AddExtra("external_account[country]", country)
 		acctParams.AddExtra("external_account[currency]", countryToCurrency(country))
 		acctParams.AddExtra("external_account[account_holder_name]", info.AccountHolder)
 		acctParams.AddExtra("external_account[account_number]", info.IBAN)
+	} else if info.AccountNumber != "" && info.RoutingNumber != "" {
+		// Local bank (US, SG, IN, AU, CA, etc.)
+		acctParams.AddExtra("external_account[object]", "bank_account")
+		acctParams.AddExtra("external_account[country]", country)
+		acctParams.AddExtra("external_account[currency]", countryToCurrency(country))
+		acctParams.AddExtra("external_account[account_holder_name]", info.AccountHolder)
+		acctParams.AddExtra("external_account[account_number]", info.AccountNumber)
+		acctParams.AddExtra("external_account[routing_number]", info.RoutingNumber)
 	}
 
 	acct, err := account.New(acctParams)
@@ -99,15 +108,20 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (
 
 	if info.IsBusiness {
 		params.Account.BusinessType = stripe.String("company")
+		companyAddr := &stripe.AddressParams{
+			Line1:      stripe.String(info.BusinessAddress),
+			City:       stripe.String(info.BusinessCity),
+			PostalCode: stripe.String(info.BusinessPostalCode),
+			Country:    stripe.String(country),
+		}
+		// Add state for countries that require it (US, AU, IN, etc.)
+		if v := getExtraField(info.ExtraFields, "company.address.state", "business_state"); v != "" {
+			companyAddr.State = stripe.String(v)
+		}
 		params.Account.Company = &stripe.AccountCompanyParams{
-			Name:  stripe.String(info.BusinessName),
-			Phone: stripe.String(info.Phone),
-			Address: &stripe.AddressParams{
-				Line1:      stripe.String(info.BusinessAddress),
-				City:       stripe.String(info.BusinessCity),
-				PostalCode: stripe.String(info.BusinessPostalCode),
-				Country:    stripe.String(country),
-			},
+			Name:    stripe.String(info.BusinessName),
+			Phone:   stripe.String(info.Phone),
+			Address: companyAddr,
 			TaxID: stripe.String(info.TaxID),
 		}
 	} else {
@@ -207,31 +221,51 @@ func (s *Service) CreateAccountLink(ctx context.Context, accountID, returnURL, r
 }
 
 // applyExtraFieldsToIndividual sets country-specific extra fields on the Stripe individual params.
+// Extra fields may be stored with short keys ("state") or full Stripe paths ("individual.address.state").
 func applyExtraFieldsToIndividual(p *stripe.PersonParams, extra map[string]string) {
 	if extra == nil {
 		return
 	}
-	if v, ok := extra["id_number"]; ok && v != "" {
+	get := func(keys ...string) string {
+		for _, k := range keys {
+			if v, ok := extra[k]; ok && v != "" {
+				return v
+			}
+		}
+		return ""
+	}
+
+	if v := get("id_number", "individual.id_number"); v != "" {
 		p.IDNumber = stripe.String(v)
 	}
-	if v, ok := extra["ssn_last_4"]; ok && v != "" {
+	if v := get("ssn_last_4", "individual.ssn_last_4"); v != "" {
 		p.SSNLast4 = stripe.String(v)
 	}
-	if v, ok := extra["state"]; ok && v != "" && p.Address != nil {
+	if v := get("state", "individual.address.state"); v != "" && p.Address != nil {
 		p.Address.State = stripe.String(v)
 	}
-	if v, ok := extra["first_name_kana"]; ok && v != "" {
+	if v := get("first_name_kana", "individual.first_name_kana"); v != "" {
 		p.FirstNameKana = stripe.String(v)
 	}
-	if v, ok := extra["last_name_kana"]; ok && v != "" {
+	if v := get("last_name_kana", "individual.last_name_kana"); v != "" {
 		p.LastNameKana = stripe.String(v)
 	}
-	if v, ok := extra["first_name_kanji"]; ok && v != "" {
+	if v := get("first_name_kanji", "individual.first_name_kanji"); v != "" {
 		p.FirstNameKanji = stripe.String(v)
 	}
-	if v, ok := extra["last_name_kanji"]; ok && v != "" {
+	if v := get("last_name_kanji", "individual.last_name_kanji"); v != "" {
 		p.LastNameKanji = stripe.String(v)
 	}
+}
+
+// getExtraField looks up a value in extra_fields by multiple possible keys.
+func getExtraField(extra map[string]string, keys ...string) string {
+	for _, k := range keys {
+		if v, ok := extra[k]; ok && v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // resolveCountryCode returns a 2-letter country code from the payment info.
