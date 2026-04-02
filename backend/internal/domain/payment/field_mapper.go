@@ -115,6 +115,9 @@ func DocumentTypeFromPath(path string) string {
 	if strings.Contains(path, "bank_account_ownership_verification") {
 		return "bank_account_ownership"
 	}
+	if strings.Contains(path, "proof_of_registration") {
+		return "proof_of_registration"
+	}
 	return "document"
 }
 
@@ -153,6 +156,7 @@ var autoHandledPrefixes = []string{
 	"business_profile.",
 	"external_account",
 	"settings.",
+	"company.ownership_declaration.",
 }
 
 // IsAutoHandled returns true for paths handled internally.
@@ -295,6 +299,9 @@ func FieldLabelKey(path string) string {
 		}
 		if strings.Contains(path, "bank_account_ownership_verification") {
 			return "docBankOwnership"
+		}
+		if strings.Contains(path, "proof_of_registration") {
+			return "docProofOfRegistration"
 		}
 		if strings.Contains(path, "additional_document") {
 			return "docAdditionalDocument"

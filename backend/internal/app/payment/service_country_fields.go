@@ -71,9 +71,28 @@ func pickFieldsByBusinessType(
 	spec *domain.CountryFieldSpec, businessType string,
 ) []string {
 	if businessType == "company" {
-		return spec.CompanyMinimum
+		return mergeFields(spec.CompanyMinimum, spec.CompanyAdditional)
 	}
-	return spec.IndividualMinimum
+	return mergeFields(spec.IndividualMinimum, spec.IndividualAdditional)
+}
+
+// mergeFields combines minimum and additional field lists, deduplicating entries.
+func mergeFields(minimum, additional []string) []string {
+	seen := make(map[string]bool, len(minimum))
+	merged := make([]string, 0, len(minimum)+len(additional))
+	for _, f := range minimum {
+		if !seen[f] {
+			seen[f] = true
+			merged = append(merged, f)
+		}
+	}
+	for _, f := range additional {
+		if !seen[f] {
+			seen[f] = true
+			merged = append(merged, f)
+		}
+	}
+	return merged
 }
 
 // buildResponse creates the response grouped by entity sections.
@@ -97,7 +116,7 @@ func buildResponse(
 	appendBankSection(resp, country)
 
 	if businessType == "company" {
-		resp.PersonRoles = domain.RequiredPersonRoles(spec.CompanyMinimum)
+		resp.PersonRoles = domain.RequiredPersonRoles(fields)
 	}
 
 	return resp

@@ -452,9 +452,7 @@
     "videoUploadHint": "Upload a video to describe your project",
     "videoUploadButton": "Choose a video",
     "videoPreview": "Video preview",
-    "removeVideo": "Remove video",
-    "editJobTitle": "Edit Job",
-    "save": "Save"
+    "removeVideo": "Remove video"
   },
   "publicProfile": {
     "agencyProfile": "Agency Profile",
@@ -763,6 +761,8 @@
     "docBankOwnershipDesc": "Bank statement, voided check, or screenshot showing your name and account details",
     "docCompanyDocument": "Business registration document",
     "docCompanyDocumentDesc": "Certificate of incorporation, articles of organization, or official equivalent for your country",
+    "docProofOfRegistration": "Proof of business registration",
+    "docProofOfRegistrationDesc": "Certificate of registration, incorporation document, or official proof from your country's business registry",
     "fullNameAliases": "Full Name Aliases",
     "percentOwnership": "Ownership Percentage",
     "companyStructure": "Company Structure",

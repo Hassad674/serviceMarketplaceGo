@@ -452,9 +452,7 @@
     "videoUploadHint": "Téléchargez une vidéo pour décrire votre projet",
     "videoUploadButton": "Choisir une vidéo",
     "videoPreview": "Aperçu vidéo",
-    "removeVideo": "Supprimer la vidéo",
-    "editJobTitle": "Éditer l'offre",
-    "save": "Enregistrer"
+    "removeVideo": "Supprimer la vidéo"
   },
   "publicProfile": {
     "agencyProfile": "Profil de l'agence",
@@ -763,6 +761,8 @@
     "docBankOwnershipDesc": "RIB, relevé bancaire ou capture d'écran montrant votre nom et IBAN",
     "docCompanyDocument": "Document d'immatriculation de l'entreprise",
     "docCompanyDocumentDesc": "KBIS, extrait K, certificat d'incorporation ou équivalent officiel de votre pays",
+    "docProofOfRegistration": "Preuve d'enregistrement de l'entreprise",
+    "docProofOfRegistrationDesc": "Certificat d'enregistrement, document d'incorporation ou preuve officielle du registre des entreprises de votre pays",
     "fullNameAliases": "Alias de nom complet",
     "percentOwnership": "Pourcentage de propriété",
     "companyStructure": "Structure de l'entreprise",
