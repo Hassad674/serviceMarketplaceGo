@@ -471,4 +471,103 @@ void main() {
       },
     );
   });
+
+  // =========================================================================
+  // Anti-Duplicate -- US Individual (re-save persistence)
+  // =========================================================================
+
+  group('KYC anti-duplicate - US Individual Provider', () {
+    testWidgets(
+      'US individual: re-save with modified city persists update correctly',
+      (WidgetTester tester) async {
+        final repo = InMemoryPaymentInfoRepository();
+
+        // First save — original data
+        await repo.savePaymentInfo(_usIndividualData());
+
+        await tester.pumpWidget(buildKycApp(repo: repo, role: 'provider'));
+        await tester.pumpAndSettle();
+
+        // Verify initial save is shown
+        expect(find.text('Payment information saved'), findsOneWidget);
+        expect(find.text('John'), findsWidgets);
+        expect(find.text('San Francisco'), findsWidgets);
+
+        // Second save — modify city to Los Angeles (simulates re-save)
+        final updatedData = _usIndividualData();
+        updatedData['city'] = 'Los Angeles';
+        await repo.savePaymentInfo(updatedData);
+
+        // Rebuild the widget with the same repo to verify persistence
+        await tester.pumpWidget(buildKycApp(repo: repo, role: 'provider'));
+        await tester.pumpAndSettle();
+
+        // Verify updated city is displayed
+        expect(find.text('Payment information saved'), findsOneWidget);
+        expect(find.text('Los Angeles'), findsWidgets);
+
+        // Verify original first name persisted (not reset)
+        expect(find.text('John'), findsWidgets);
+        expect(find.text('Smith'), findsWidgets);
+      },
+    );
+  });
+
+  // =========================================================================
+  // Anti-Duplicate -- US Business (re-save persistence)
+  // =========================================================================
+
+  group('KYC anti-duplicate - US Business Agency', () {
+    testWidgets(
+      'US business: re-save with modified business name persists update correctly',
+      (WidgetTester tester) async {
+        final repo = InMemoryPaymentInfoRepository();
+
+        // First save — original business data
+        await repo.savePaymentInfo(_usBusinessData());
+
+        await tester.pumpWidget(buildKycApp(repo: repo, role: 'agency'));
+        await tester.pumpAndSettle();
+
+        // Verify initial save is shown
+        expect(find.text('Payment information saved'), findsOneWidget);
+        expect(find.text('John'), findsWidgets);
+
+        // Scroll to verify original business name
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Smith Consulting LLC'), findsWidgets);
+
+        // Second save — modify business name (simulates re-save)
+        final updatedData = _usBusinessData();
+        updatedData['business_name'] = 'Updated Corp LLC';
+        updatedData['account_holder'] = 'Updated Corp LLC';
+        await repo.savePaymentInfo(updatedData);
+
+        // Rebuild the widget with the same repo to verify persistence
+        await tester.pumpWidget(buildKycApp(repo: repo, role: 'agency'));
+        await tester.pumpAndSettle();
+
+        // Verify saved banner still shows
+        expect(find.text('Payment information saved'), findsOneWidget);
+
+        // Verify original representative name persisted
+        expect(find.text('John'), findsWidgets);
+        expect(find.text('Smith'), findsWidgets);
+
+        // Scroll to verify updated business name
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Updated Corp LLC'), findsWidgets);
+      },
+    );
+  });
 }
