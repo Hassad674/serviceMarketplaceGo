@@ -56,6 +56,8 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
     return <SelectField field={field} value={value} onChange={onChange} label={label} />
   }
 
+  const isIban = field.key.includes("iban") || field.path.includes("iban")
+
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -74,6 +76,14 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
           "dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500",
         )}
       />
+      {isIban && (
+        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+          {t("ibanHelp")}{" "}
+          <a href="https://www.iban.com" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">
+            iban.com
+          </a>
+        </p>
+      )}
     </div>
   )
 }
