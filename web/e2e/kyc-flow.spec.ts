@@ -1,3 +1,4 @@
+import path from "node:path"
 import { test, expect, type Page } from "@playwright/test"
 import { registerProvider, registerAgency } from "./helpers/auth"
 
@@ -89,6 +90,61 @@ async function selectByLabel(page: Page, label: string, value: string) {
   const select = labelEl.locator("..").locator("select").first()
   await select.scrollIntoViewIfNeeded()
   await select.selectOption(value)
+}
+
+/**
+ * Upload a document for each visible document upload zone on the page.
+ *
+ * Document zones are identified by a label like "Official identity document"
+ * followed by a dashed-border button containing "Click to upload" text.
+ * Clicking that button opens an UploadModal (portaled to body). Inside the
+ * modal we set the file on the hidden <input type="file"> and click Upload.
+ * We then wait for the zone to switch to a green "Document uploaded" badge.
+ */
+async function uploadDocuments(page: Page, expectedCount?: number) {
+  const fixturePath = path.resolve(__dirname, "fixtures", "test-passport.png")
+
+  // Document upload zones are <button> elements inside the form
+  // with the "Click to upload" text rendered by DocumentUploadField.
+  const uploadButtons = page.locator("button", { hasText: "Click to upload" })
+  const count = await uploadButtons.count()
+
+  // Sanity check: if caller specifies expected count, verify it
+  if (expectedCount !== undefined && count !== expectedCount) {
+    throw new Error(`Expected ${expectedCount} document upload zones but found ${count}`)
+  }
+
+  for (let i = 0; i < count; i++) {
+    // Re-query each time because the DOM mutates after each upload
+    // (the uploaded zone switches from button to a green badge div)
+    const btn = page.locator("button", { hasText: "Click to upload" }).first()
+    await btn.scrollIntoViewIfNeeded()
+    await btn.click()
+
+    // Wait for the upload modal to appear (portaled to body)
+    const modal = page.locator("div[role='dialog']")
+    await expect(modal).toBeVisible({ timeout: 5000 })
+
+    // Set the file on the hidden file input inside the modal
+    const fileInput = modal.locator("input[type='file']")
+    await fileInput.setInputFiles(fixturePath)
+
+    // Wait for file preview to appear (the file name or preview image)
+    await expect(modal.locator("text=test-passport.png")).toBeVisible({ timeout: 5000 })
+
+    // Click the Upload button inside the modal (the action button, not the close/cancel)
+    const uploadBtn = modal.locator("button", { hasText: "Upload" }).last()
+    await uploadBtn.click()
+
+    // Wait for the modal to close
+    await expect(modal).toBeHidden({ timeout: 15000 })
+
+    // Wait for the "Document uploaded" green badge to appear for this document
+    // Each successful upload converts the button to a green badge with this text
+    await expect(
+      page.getByText("Document uploaded").nth(i),
+    ).toBeVisible({ timeout: 15000 })
+  }
 }
 
 /** Get the input near a label for assertions. */
@@ -259,13 +315,17 @@ async function saveAndVerify(page: Page) {
 
 test.describe("KYC Flow — FR Individual Provider", () => {
   test("register, select France, fill individual fields, save, verify persistence", async ({ page }) => {
-    test.setTimeout(90_000)
+    test.setTimeout(120_000)
     await registerProvider(page)
     await navigateToPaymentInfo(page)
     await selectFrance(page)
 
     const data = kycData()
     await fillFrPersonalAndBank(page, data)
+
+    // Upload required identity documents (2 zones for FR individual)
+    await uploadDocuments(page, 2)
+
     await saveAndVerify(page)
 
     // Reload and verify all fields persist
@@ -284,7 +344,7 @@ test.describe("KYC Flow — FR Individual Provider", () => {
 
 test.describe("KYC Flow — FR Business Account", () => {
   test("register agency, toggle business, fill all FR fields, save and verify", async ({ page }) => {
-    test.setTimeout(90_000)
+    test.setTimeout(120_000)
     await registerAgency(page)
     await navigateToPaymentInfo(page)
     await selectFrance(page)
@@ -321,6 +381,9 @@ test.describe("KYC Flow — FR Business Account", () => {
       const executiveCheckbox = page.locator("label").filter({ hasText: "The representative is the sole executive" }).locator("input[type='checkbox']")
       await expect(executiveCheckbox).toBeChecked()
     }
+
+    // Upload required documents (3 zones for FR business: company + rep identity + rep additional)
+    await uploadDocuments(page, 3)
 
     await saveAndVerify(page)
 
