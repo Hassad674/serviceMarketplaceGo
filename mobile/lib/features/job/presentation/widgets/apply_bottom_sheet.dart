@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../providers/job_provider.dart';
@@ -45,7 +46,10 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
     setState(() { _isUploading = true; _videoName = file.name; });
     try {
       final apiClient = ref.read(apiClientProvider);
-      final response = await apiClient.upload('/api/v1/upload/video', File(file.path), file.name);
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: file.name),
+      });
+      final response = await apiClient.upload('/api/v1/upload/video', data: formData);
       final url = response.data?['url'] as String?;
       if (url != null) setState(() => _videoUrl = url);
     } catch (e) {

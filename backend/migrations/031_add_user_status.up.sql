@@ -1,0 +1,8 @@
+ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE users ADD COLUMN suspended_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN suspension_reason TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN suspension_expires_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN banned_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN ban_reason TEXT NOT NULL DEFAULT '';
+
+CREATE INDEX idx_users_status ON users(status);
