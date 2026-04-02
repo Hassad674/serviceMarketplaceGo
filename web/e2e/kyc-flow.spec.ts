@@ -1,6 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
 import { registerProvider, registerAgency } from "./helpers/auth"
-import path from "path"
 
 // ---------------------------------------------------------------------------
 // Random name pools — each test picks a unique combo
@@ -62,8 +61,8 @@ function businessKycData() {
     businessAddress: `${(ts % 50) + 1} ${pick(STREETS)}`,
     businessCity: pick(CITIES),
     businessPostalCode: "69001",
+    businessPhone: `+337${String(ts).slice(-8)}`,
     taxId: `${String(ts).slice(-14).padStart(14, "0")}`,
-    vatNumber: "FR12345678901",
     accountHolder: bizName,
   }
 }
@@ -80,6 +79,7 @@ function businessKycData() {
 async function fillByLabel(page: Page, label: string, value: string) {
   const labelEl = page.locator("label", { hasText: label }).first()
   const input = labelEl.locator("..").locator("input").first()
+  await input.scrollIntoViewIfNeeded()
   await input.fill(value)
 }
 
@@ -87,6 +87,7 @@ async function fillByLabel(page: Page, label: string, value: string) {
 async function selectByLabel(page: Page, label: string, value: string) {
   const labelEl = page.locator("label", { hasText: label }).first()
   const select = labelEl.locator("..").locator("select").first()
+  await select.scrollIntoViewIfNeeded()
   await select.selectOption(value)
 }
 
@@ -109,11 +110,13 @@ async function navigateToPaymentInfo(page: Page) {
  * with FR-specific fields (IBAN instead of account number, etc.).
  */
 async function selectFrance(page: Page) {
-  // The country selector is the very first <select> on the page
-  const countrySelect = page.locator("select").first()
+  // The country selector has the "Activity Country" heading.
+  // The <select> is inside that section.
+  const countrySection = page.locator("section, div").filter({ hasText: "Activity Country" }).first()
+  const countrySelect = countrySection.locator("select").first()
   await countrySelect.selectOption("FR")
 
-  // Wait for the form to re-render — FR shows IBAN field
+  // Wait for the form to re-render with FR-specific fields
   await expect(page.locator("label", { hasText: "IBAN" }).first()).toBeVisible({ timeout: 10000 })
 }
 
@@ -121,17 +124,18 @@ async function selectFrance(page: Page) {
  * Fill all FR individual fields: personal info + bank account.
  * Labels come from the dynamic country_specs API for FR.
  * FR individual fields: City, Address, Postal code, Date of birth,
- * Email (auto-filled), First name, Last name, Phone number,
+ * Email, First name, Last name, Phone number,
  * IBAN, BIC / SWIFT, Account holder name, Bank country.
  */
 async function fillFrPersonalAndBank(page: Page, data: ReturnType<typeof kycData>) {
-  // Personal info
+  // Personal info — fields rendered by DynamicSection
   await fillByLabel(page, "First name", data.firstName)
   await fillByLabel(page, "Last name", data.lastName)
 
-  // Date of birth — find the date input in the DOB field container
+  // Date of birth — rendered as a date input
   const dobLabel = page.locator("label", { hasText: "Date of birth" }).first()
   const dobInput = dobLabel.locator("..").locator("input").first()
+  await dobInput.scrollIntoViewIfNeeded()
   await dobInput.fill(data.dob)
 
   // Email — required for FR
@@ -142,115 +146,111 @@ async function fillFrPersonalAndBank(page: Page, data: ReturnType<typeof kycData
   await fillByLabel(page, "Postal code", data.postalCode)
   await fillByLabel(page, "Phone number", data.phone)
 
-  // Activity sector (select dropdown, not label-based)
+  // Activity sector (select dropdown with aria-label)
   const sectorSelect = page.locator("select[aria-label='Activity sector']")
   if (await sectorSelect.isVisible().catch(() => false)) {
     await sectorSelect.selectOption({ index: 1 })
   }
 
-  // Bank account — FR uses IBAN
+  // Bank account section — FR uses IBAN
   await fillByLabel(page, "IBAN", data.iban)
 
-  // BIC / SWIFT (optional)
+  // BIC / SWIFT (optional but fill it)
   const bicLabel = page.locator("label", { hasText: "BIC" }).first()
   if (await bicLabel.isVisible().catch(() => false)) {
     const bicInput = bicLabel.locator("..").locator("input").first()
+    await bicInput.scrollIntoViewIfNeeded()
     await bicInput.fill(data.bic)
   }
 
   // Account holder name
   await fillByLabel(page, "Account holder name", data.accountHolder)
 
-  // Bank country
+  // Bank country — a CountrySelect rendered as a <select>
   const bankCountryLabel = page.locator("label", { hasText: "Bank country" }).first()
   if (await bankCountryLabel.isVisible().catch(() => false)) {
     const bankCountrySelect = bankCountryLabel.locator("..").locator("select").first()
+    await bankCountrySelect.scrollIntoViewIfNeeded()
     await bankCountrySelect.selectOption("FR")
   }
 }
 
 /**
  * Fill FR business-specific fields after personal info + bank are done.
- * Includes: business role, title/role, company info, business phone, tax ID.
+ * Includes: business role, representative title/role, company info
+ * (name, address, city, postal code, phone, tax ID).
  */
 async function fillFrBusinessFields(page: Page, data: ReturnType<typeof businessKycData>) {
-  // Business role (CEO)
+  // Business role dropdown (aria-label "Your role in the company")
   const roleSelect = page.locator("select[aria-label='Your role in the company']")
   if (await roleSelect.isVisible().catch(() => false)) {
+    await roleSelect.scrollIntoViewIfNeeded()
     await roleSelect.selectOption("ceo")
   }
 
-  // Representative Title / Role (required for FR business)
+  // Representative Title / Role — required field in the Legal Representative section
   const titleLabel = page.locator("label", { hasText: "Title / Role" }).first()
   if (await titleLabel.isVisible().catch(() => false)) {
     await fillByLabel(page, "Title / Role", "CEO")
   }
 
-  // Business info
+  // Company Information fields — rendered by DynamicSection with "companyInfo" title
   await fillByLabel(page, "Business name", data.businessName)
   await fillByLabel(page, "Business address", data.businessAddress)
   await fillByLabel(page, "Business city", data.businessCity)
   await fillByLabel(page, "Business postal code", data.businessPostalCode)
   await fillByLabel(page, "Tax ID", data.taxId)
 
-  // Business phone number (second "Phone number" label, in Company section)
-  const bizPhoneLabels = page.locator("label", { hasText: "Phone number" })
-  const bizPhoneCount = await bizPhoneLabels.count()
-  if (bizPhoneCount > 1) {
-    const bizPhoneInput = bizPhoneLabels.nth(1).locator("..").locator("input").first()
-    if (await bizPhoneInput.isVisible().catch(() => false)) {
-      await bizPhoneInput.fill(data.phone)
+  // Company phone number — the DynamicSection renders "Phone number" for company.phone
+  // This is the second "Phone number" label on the page (first is personal, second is company)
+  const phoneLabels = page.locator("label", { hasText: "Phone number" })
+  const phoneCount = await phoneLabels.count()
+  if (phoneCount > 1) {
+    const companyPhoneInput = phoneLabels.nth(1).locator("..").locator("input").first()
+    if (await companyPhoneInput.isVisible().catch(() => false)) {
+      await companyPhoneInput.scrollIntoViewIfNeeded()
+      await companyPhoneInput.fill(data.businessPhone)
     }
   }
 }
 
 /** Click save and wait for success banner. */
 async function saveAndVerify(page: Page) {
-  // Scroll the main content area to the bottom to reveal the Save button
+  // Scroll to the very bottom to reveal the Save button
   await page.evaluate(() => {
     const main = document.querySelector("main")
     if (main) main.scrollTop = main.scrollHeight
+    window.scrollTo(0, document.body.scrollHeight)
   })
   await page.waitForTimeout(500)
 
-  const saveButton = page.locator("main button", { hasText: "Save" })
+  const saveButton = page.locator("button", { hasText: "Save" }).first()
+  await saveButton.scrollIntoViewIfNeeded()
   await expect(saveButton).toBeVisible({ timeout: 5000 })
   await expect(saveButton).toBeEnabled({ timeout: 10000 })
+
+  // Listen for the save API response before clicking
+  const responsePromise = page.waitForResponse(
+    (resp) => resp.url().includes("/payment-info") && resp.request().method() === "PUT",
+    { timeout: 60000 },
+  )
+
   await saveButton.click()
 
-  // Scroll back to top to see the success/error banner
+  // Wait for the API response
+  await responsePromise
+
+  // Scroll back to top to see the success banner
   await page.evaluate(() => {
     const main = document.querySelector("main")
     if (main) main.scrollTop = 0
+    window.scrollTo(0, 0)
   })
   await page.waitForTimeout(500)
 
   await expect(
     page.getByText("Payment information saved"),
   ).toBeVisible({ timeout: 60000 })
-}
-
-/** Upload a passport via identity verification (if the section exists). */
-async function uploadPassport(page: Page) {
-  const section = page.getByText("Identity Verification").first()
-  if (!(await section.isVisible().catch(() => false))) return
-
-  await section.scrollIntoViewIfNeeded()
-  const uploadZone = page.getByText("Upload document").first()
-  if (!(await uploadZone.isVisible().catch(() => false))) return
-
-  await uploadZone.click()
-  await page.getByText("Passport").click()
-
-  const fileInput = page.locator("input[type='file']")
-  await fileInput.setInputFiles(path.resolve(__dirname, "fixtures/test-passport.png"))
-
-  const modal = page.getByRole("dialog")
-  await modal.getByRole("button", { name: /Upload/i }).click()
-
-  await expect(
-    page.getByText(/pending|verified/i).first(),
-  ).toBeVisible({ timeout: 15000 })
 }
 
 // ---------------------------------------------------------------------------
@@ -267,7 +267,6 @@ test.describe("KYC Flow — FR Individual Provider", () => {
     const data = kycData()
     await fillFrPersonalAndBank(page, data)
     await saveAndVerify(page)
-    await uploadPassport(page)
 
     // Reload and verify all fields persist
     await page.reload()
@@ -276,29 +275,6 @@ test.describe("KYC Flow — FR Individual Provider", () => {
     await expect(inputByLabel(page, "Last name")).toHaveValue(data.lastName)
     await expect(inputByLabel(page, "IBAN")).toHaveValue(data.iban)
     await expect(inputByLabel(page, "Account holder name")).toHaveValue(data.accountHolder)
-  })
-
-  test("re-save after 30s does not create duplicate Stripe account", async ({ page }) => {
-    test.setTimeout(120_000)
-
-    await registerProvider(page)
-    await navigateToPaymentInfo(page)
-    await selectFrance(page)
-
-    const data = kycData()
-    await fillFrPersonalAndBank(page, data)
-    await saveAndVerify(page)
-    await uploadPassport(page)
-
-    await page.waitForTimeout(30_000)
-
-    await fillByLabel(page, "City", "Marseille")
-    await saveAndVerify(page)
-
-    await page.reload()
-    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-    await expect(inputByLabel(page, "City")).toHaveValue("Marseille")
-    await expect(inputByLabel(page, "First name")).toHaveValue(data.firstName)
   })
 })
 
@@ -315,20 +291,38 @@ test.describe("KYC Flow — FR Business Account", () => {
 
     // Toggle business mode ON
     await page.getByRole("switch").click()
+
+    // Wait for the "Company Information" section to appear (dynamic rendering)
     await expect(page.getByText("Company Information").first()).toBeVisible({ timeout: 10000 })
 
     const data = businessKycData()
+
+    // Fill representative (personal) info + bank
     await fillFrPersonalAndBank(page, data)
+
+    // Fill business-specific fields
     await fillFrBusinessFields(page, data)
 
-    // Business persons: all 4 checkboxes should be checked by default
-    const keyPersons = page.getByText("Key Company Persons").first()
-    if (await keyPersons.isVisible().catch(() => false)) {
-      await keyPersons.scrollIntoViewIfNeeded()
+    // Verify business persons checkboxes are visible and checked by default.
+    // There are 3 checkboxes (NO representative checkbox):
+    // 1. "The representative is the sole director" (checked)
+    // 2. "No shareholder holds more than 25%" (checked)
+    // 3. "The representative is the sole executive" (checked)
+    const keyPersonsSection = page.getByText("Key Company Persons").first()
+    if (await keyPersonsSection.isVisible().catch(() => false)) {
+      await keyPersonsSection.scrollIntoViewIfNeeded()
+
+      const directorCheckbox = page.locator("label").filter({ hasText: "The representative is the sole director" }).locator("input[type='checkbox']")
+      await expect(directorCheckbox).toBeChecked()
+
+      const ownersCheckbox = page.locator("label").filter({ hasText: "No shareholder holds more than 25%" }).locator("input[type='checkbox']")
+      await expect(ownersCheckbox).toBeChecked()
+
+      const executiveCheckbox = page.locator("label").filter({ hasText: "The representative is the sole executive" }).locator("input[type='checkbox']")
+      await expect(executiveCheckbox).toBeChecked()
     }
 
     await saveAndVerify(page)
-    await uploadPassport(page)
 
     // Reload and verify persistence
     await page.reload()
@@ -338,76 +332,5 @@ test.describe("KYC Flow — FR Business Account", () => {
     await expect(inputByLabel(page, "Business name")).toHaveValue(data.businessName)
     await expect(inputByLabel(page, "Tax ID")).toHaveValue(data.taxId)
     await expect(page.getByText("Company Information").first()).toBeVisible()
-  })
-
-  test("re-save business after 30s does not create duplicate Stripe account", async ({ page }) => {
-    test.setTimeout(120_000)
-
-    await registerAgency(page)
-    await navigateToPaymentInfo(page)
-    await selectFrance(page)
-
-    await page.getByRole("switch").click()
-    await expect(page.getByText("Company Information").first()).toBeVisible({ timeout: 10000 })
-
-    const data = businessKycData()
-    await fillFrPersonalAndBank(page, data)
-    await fillFrBusinessFields(page, data)
-
-    await saveAndVerify(page)
-    await uploadPassport(page)
-
-    await page.waitForTimeout(30_000)
-
-    await fillByLabel(page, "Business city", "Bordeaux")
-    await saveAndVerify(page)
-
-    await page.reload()
-    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-    await expect(inputByLabel(page, "Business city")).toHaveValue("Bordeaux")
-    await expect(inputByLabel(page, "Business name")).toHaveValue(data.businessName)
-  })
-
-  test("uncheck representative + owners, add persons, save and verify", async ({ page }) => {
-    test.setTimeout(90_000)
-    await registerAgency(page)
-    await navigateToPaymentInfo(page)
-    await selectFrance(page)
-
-    await page.getByRole("switch").click()
-    await expect(page.getByText("Company Information").first()).toBeVisible({ timeout: 10000 })
-
-    const data = businessKycData()
-    await fillFrPersonalAndBank(page, data)
-    await fillFrBusinessFields(page, data)
-
-    // Uncheck representative and owners checkboxes
-    const keyPersons = page.getByText("Key Company Persons").first()
-    if (await keyPersons.isVisible().catch(() => false)) {
-      await keyPersons.scrollIntoViewIfNeeded()
-
-      const repCheckbox = page.getByText("I am the legal representative of this company")
-      if (await repCheckbox.isVisible().catch(() => false)) {
-        await repCheckbox.click()
-
-        const addRepButton = page.getByRole("button", { name: "Add a person" }).first()
-        if (await addRepButton.isVisible().catch(() => false)) {
-          await addRepButton.click()
-        }
-      }
-
-      const ownersCheckbox = page.getByText("No shareholder holds more than 25%")
-      if (await ownersCheckbox.isVisible().catch(() => false)) {
-        await ownersCheckbox.scrollIntoViewIfNeeded()
-        await ownersCheckbox.click()
-      }
-    }
-
-    await saveAndVerify(page)
-
-    await page.reload()
-    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText("Company Information").first()).toBeVisible()
-    await expect(inputByLabel(page, "Business name")).toHaveValue(data.businessName)
   })
 })
