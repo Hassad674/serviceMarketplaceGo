@@ -1484,6 +1484,114 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get jobClose;
 
+  /// No description provided for @jobReopen.
+  ///
+  /// In en, this message translates to:
+  /// **'Reopen'**
+  String get jobReopen;
+
+  /// No description provided for @jobDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get jobDelete;
+
+  /// No description provided for @jobDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this job? This action cannot be undone.'**
+  String get jobDeleteConfirm;
+
+  /// No description provided for @jobDeleteSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Job deleted successfully'**
+  String get jobDeleteSuccess;
+
+  /// No description provided for @jobReopenSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Job reopened successfully'**
+  String get jobReopenSuccess;
+
+  /// No description provided for @jobOfferDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer details'**
+  String get jobOfferDetails;
+
+  /// No description provided for @jobCandidates.
+  ///
+  /// In en, this message translates to:
+  /// **'Candidates'**
+  String get jobCandidates;
+
+  /// No description provided for @jobNoCandidates.
+  ///
+  /// In en, this message translates to:
+  /// **'No candidates yet'**
+  String get jobNoCandidates;
+
+  /// No description provided for @jobNoCandidatesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Applications will appear here when candidates apply.'**
+  String get jobNoCandidatesDesc;
+
+  /// No description provided for @jobEditJob.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit job'**
+  String get jobEditJob;
+
+  /// No description provided for @jobPostedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Posted on'**
+  String get jobPostedOn;
+
+  /// No description provided for @jobDescriptionTypeText.
+  ///
+  /// In en, this message translates to:
+  /// **'Text'**
+  String get jobDescriptionTypeText;
+
+  /// No description provided for @jobDescriptionTypeVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Video'**
+  String get jobDescriptionTypeVideo;
+
+  /// No description provided for @jobDescriptionTypeBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Both'**
+  String get jobDescriptionTypeBoth;
+
+  /// No description provided for @jobDescriptionType.
+  ///
+  /// In en, this message translates to:
+  /// **'Description type'**
+  String get jobDescriptionType;
+
+  /// No description provided for @jobAddVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a video'**
+  String get jobAddVideo;
+
+  /// No description provided for @jobVideoUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading video...'**
+  String get jobVideoUploading;
+
+  /// No description provided for @jobVideoUploaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Video uploaded'**
+  String get jobVideoUploaded;
+
   /// No description provided for @proposalPropose.
   ///
   /// In en, this message translates to:

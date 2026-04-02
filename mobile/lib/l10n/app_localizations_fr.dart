@@ -720,6 +720,62 @@ class AppLocalizationsFr extends AppLocalizations {
   String get jobClose => 'Fermer';
 
   @override
+  String get jobReopen => 'Rouvrir';
+
+  @override
+  String get jobDelete => 'Supprimer';
+
+  @override
+  String get jobDeleteConfirm =>
+      'Êtes-vous sûr de vouloir supprimer cette offre ? Cette action est irréversible.';
+
+  @override
+  String get jobDeleteSuccess => 'Offre supprimée avec succès';
+
+  @override
+  String get jobReopenSuccess => 'Offre rouverte avec succès';
+
+  @override
+  String get jobOfferDetails => 'Détails de l\'offre';
+
+  @override
+  String get jobCandidates => 'Candidatures';
+
+  @override
+  String get jobNoCandidates => 'Aucune candidature';
+
+  @override
+  String get jobNoCandidatesDesc =>
+      'Les candidatures apparaîtront ici lorsque des candidats postuleront.';
+
+  @override
+  String get jobEditJob => 'Modifier l\'offre';
+
+  @override
+  String get jobPostedOn => 'Publiée le';
+
+  @override
+  String get jobDescriptionTypeText => 'Texte';
+
+  @override
+  String get jobDescriptionTypeVideo => 'Vidéo';
+
+  @override
+  String get jobDescriptionTypeBoth => 'Les deux';
+
+  @override
+  String get jobDescriptionType => 'Type de description';
+
+  @override
+  String get jobAddVideo => 'Ajouter une vidéo';
+
+  @override
+  String get jobVideoUploading => 'Envoi de la vidéo...';
+
+  @override
+  String get jobVideoUploaded => 'Vidéo envoyée';
+
+  @override
   String get proposalPropose => 'Envoyer une proposition';
 
   @override

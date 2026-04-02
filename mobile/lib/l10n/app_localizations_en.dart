@@ -719,6 +719,62 @@ class AppLocalizationsEn extends AppLocalizations {
   String get jobClose => 'Close';
 
   @override
+  String get jobReopen => 'Reopen';
+
+  @override
+  String get jobDelete => 'Delete';
+
+  @override
+  String get jobDeleteConfirm =>
+      'Are you sure you want to delete this job? This action cannot be undone.';
+
+  @override
+  String get jobDeleteSuccess => 'Job deleted successfully';
+
+  @override
+  String get jobReopenSuccess => 'Job reopened successfully';
+
+  @override
+  String get jobOfferDetails => 'Offer details';
+
+  @override
+  String get jobCandidates => 'Candidates';
+
+  @override
+  String get jobNoCandidates => 'No candidates yet';
+
+  @override
+  String get jobNoCandidatesDesc =>
+      'Applications will appear here when candidates apply.';
+
+  @override
+  String get jobEditJob => 'Edit job';
+
+  @override
+  String get jobPostedOn => 'Posted on';
+
+  @override
+  String get jobDescriptionTypeText => 'Text';
+
+  @override
+  String get jobDescriptionTypeVideo => 'Video';
+
+  @override
+  String get jobDescriptionTypeBoth => 'Both';
+
+  @override
+  String get jobDescriptionType => 'Description type';
+
+  @override
+  String get jobAddVideo => 'Add a video';
+
+  @override
+  String get jobVideoUploading => 'Uploading video...';
+
+  @override
+  String get jobVideoUploaded => 'Video uploaded';
+
+  @override
   String get proposalPropose => 'Send a proposal';
 
   @override
