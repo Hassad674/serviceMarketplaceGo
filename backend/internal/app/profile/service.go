@@ -18,12 +18,12 @@ func NewService(profiles repository.ProfileRepository) *Service {
 	return &Service{profiles: profiles}
 }
 
-func (s *Service) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
-	results, err := s.profiles.SearchPublic(ctx, roleFilter, referrerOnly, limit)
+func (s *Service) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
+	results, nextCursor, err := s.profiles.SearchPublic(ctx, roleFilter, referrerOnly, cursor, limit)
 	if err != nil {
-		return nil, fmt.Errorf("search public profiles: %w", err)
+		return nil, "", fmt.Errorf("search public profiles: %w", err)
 	}
-	return results, nil
+	return results, nextCursor, nil
 }
 
 func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*profile.Profile, error) {

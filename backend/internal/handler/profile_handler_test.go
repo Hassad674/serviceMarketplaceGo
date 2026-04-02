@@ -197,15 +197,16 @@ func TestProfileHandler_SearchProfiles(t *testing.T) {
 		setupMock  func(*mockProfileRepo)
 		wantStatus int
 		wantLen    int
+		wantMore   bool
 	}{
 		{
 			name:  "returns results",
 			query: "?type=freelancer",
 			setupMock: func(r *mockProfileRepo) {
-				r.searchPublicFn = func(_ context.Context, _ string, _ bool, _ int) ([]*profile.PublicProfile, error) {
+				r.searchPublicFn = func(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
 					return []*profile.PublicProfile{{
 						UserID: uuid.New(), DisplayName: "Jane", Role: "provider",
-					}}, nil
+					}}, "", nil
 				}
 			},
 			wantStatus: http.StatusOK,
@@ -221,9 +222,9 @@ func TestProfileHandler_SearchProfiles(t *testing.T) {
 			name:  "custom limit",
 			query: "?limit=5",
 			setupMock: func(r *mockProfileRepo) {
-				r.searchPublicFn = func(_ context.Context, _ string, _ bool, limit int) ([]*profile.PublicProfile, error) {
+				r.searchPublicFn = func(_ context.Context, _ string, _ bool, _ string, limit int) ([]*profile.PublicProfile, string, error) {
 					require.Equal(t, 5, limit)
-					return []*profile.PublicProfile{}, nil
+					return []*profile.PublicProfile{}, "", nil
 				}
 			},
 			wantStatus: http.StatusOK,
@@ -245,9 +246,12 @@ func TestProfileHandler_SearchProfiles(t *testing.T) {
 			h.SearchProfiles(rec, req)
 			assert.Equal(t, tc.wantStatus, rec.Code)
 
-			var resp []any
+			var resp map[string]any
 			require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
-			assert.Len(t, resp, tc.wantLen)
+			data, ok := resp["data"].([]any)
+			require.True(t, ok, "response should contain data array")
+			assert.Len(t, data, tc.wantLen)
+			assert.Equal(t, tc.wantMore, resp["has_more"])
 		})
 	}
 }

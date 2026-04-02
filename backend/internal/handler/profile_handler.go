@@ -105,13 +105,19 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	profiles, err := h.profileService.SearchPublic(r.Context(), roleFilter, referrerOnly, limit)
+	cursor := r.URL.Query().Get("cursor")
+
+	profiles, nextCursor, err := h.profileService.SearchPublic(r.Context(), roleFilter, referrerOnly, cursor, limit)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewPublicProfileSummaryList(profiles))
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        response.NewPublicProfileSummaryList(profiles),
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+	})
 }
 
 func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {

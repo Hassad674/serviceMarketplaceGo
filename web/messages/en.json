@@ -304,7 +304,9 @@
     "noResults": "No profiles found",
     "noResultsDesc": "Try adjusting your search criteria",
     "noTitle": "No title",
-    "errorLoading": "Failed to load profiles. Please try again."
+    "errorLoading": "Failed to load profiles. Please try again.",
+    "loadMore": "Load more",
+    "loading": "Loading..."
   },
   "messaging": {
     "title": "Messages",

@@ -304,7 +304,9 @@
     "noResults": "Aucun profil trouvé",
     "noResultsDesc": "Essayez de modifier vos critères de recherche",
     "noTitle": "Sans titre",
-    "errorLoading": "Échec du chargement des profils. Veuillez réessayer."
+    "errorLoading": "Échec du chargement des profils. Veuillez réessayer.",
+    "loadMore": "Voir plus",
+    "loading": "Chargement..."
   },
   "messaging": {
     "title": "Messages",

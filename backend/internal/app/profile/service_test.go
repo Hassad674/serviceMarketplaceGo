@@ -18,7 +18,7 @@ type mockProfileRepo struct {
 	getByUserIDFn   func(ctx context.Context, userID uuid.UUID) (*profile.Profile, error)
 	updateFn        func(ctx context.Context, p *profile.Profile) error
 	createFn        func(ctx context.Context, p *profile.Profile) error
-	searchPublicFn  func(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error)
+	searchPublicFn  func(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -42,11 +42,11 @@ func (m *mockProfileRepo) Update(ctx context.Context, p *profile.Profile) error 
 	return nil
 }
 
-func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
+func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
 	if m.searchPublicFn != nil {
-		return m.searchPublicFn(ctx, roleFilter, referrerOnly, limit)
+		return m.searchPublicFn(ctx, roleFilter, referrerOnly, cursor, limit)
 	}
-	return nil, nil
+	return nil, "", nil
 }
 
 func (m *mockProfileRepo) GetPublicProfilesByUserIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
@@ -278,34 +278,35 @@ func TestProfileService_SearchPublic_Success(t *testing.T) {
 	}
 
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
-			return expected, nil
+		searchPublicFn: func(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
+			return expected, "", nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	results, err := svc.SearchPublic(context.Background(), "", false, 20)
+	results, nextCursor, err := svc.SearchPublic(context.Background(), "", false, "", 20)
 
 	require.NoError(t, err)
 	require.Len(t, results, 2)
 	assert.Equal(t, "John Doe", results[0].DisplayName)
 	assert.Equal(t, "Jane Agency", results[1].DisplayName)
+	assert.Empty(t, nextCursor)
 }
 
 func TestProfileService_SearchPublic_WithRoleFilter(t *testing.T) {
 	var capturedRole string
 
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, roleFilter string, _ bool, _ int) ([]*profile.PublicProfile, error) {
+		searchPublicFn: func(_ context.Context, roleFilter string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
 			capturedRole = roleFilter
-			return []*profile.PublicProfile{}, nil
+			return []*profile.PublicProfile{}, "", nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	_, err := svc.SearchPublic(context.Background(), "provider", false, 20)
+	_, _, err := svc.SearchPublic(context.Background(), "provider", false, "", 20)
 
 	require.NoError(t, err)
 	assert.Equal(t, "provider", capturedRole)
@@ -315,15 +316,15 @@ func TestProfileService_SearchPublic_ReferrerOnly(t *testing.T) {
 	var capturedReferrerOnly bool
 
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, _ string, referrerOnly bool, _ int) ([]*profile.PublicProfile, error) {
+		searchPublicFn: func(_ context.Context, _ string, referrerOnly bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
 			capturedReferrerOnly = referrerOnly
-			return []*profile.PublicProfile{}, nil
+			return []*profile.PublicProfile{}, "", nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	_, err := svc.SearchPublic(context.Background(), "", true, 20)
+	_, _, err := svc.SearchPublic(context.Background(), "", true, "", 20)
 
 	require.NoError(t, err)
 	assert.True(t, capturedReferrerOnly)
@@ -331,48 +332,50 @@ func TestProfileService_SearchPublic_ReferrerOnly(t *testing.T) {
 
 func TestProfileService_SearchPublic_EmptyResult(t *testing.T) {
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, _ string, _ bool, _ int) ([]*profile.PublicProfile, error) {
-			return []*profile.PublicProfile{}, nil
+		searchPublicFn: func(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
+			return []*profile.PublicProfile{}, "", nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	results, err := svc.SearchPublic(context.Background(), "", false, 20)
+	results, nextCursor, err := svc.SearchPublic(context.Background(), "", false, "", 20)
 
 	require.NoError(t, err)
 	assert.Empty(t, results)
+	assert.Empty(t, nextCursor)
 }
 
 func TestProfileService_SearchPublic_RepositoryFailure(t *testing.T) {
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, _ string, _ bool, _ int) ([]*profile.PublicProfile, error) {
-			return nil, fmt.Errorf("database timeout")
+		searchPublicFn: func(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
+			return nil, "", fmt.Errorf("database timeout")
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	results, err := svc.SearchPublic(context.Background(), "", false, 20)
+	results, nextCursor, err := svc.SearchPublic(context.Background(), "", false, "", 20)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "search public profiles")
 	assert.Nil(t, results)
+	assert.Empty(t, nextCursor)
 }
 
 func TestProfileService_SearchPublic_LimitPassthrough(t *testing.T) {
 	var capturedLimit int
 
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, _ string, _ bool, limit int) ([]*profile.PublicProfile, error) {
+		searchPublicFn: func(_ context.Context, _ string, _ bool, _ string, limit int) ([]*profile.PublicProfile, string, error) {
 			capturedLimit = limit
-			return []*profile.PublicProfile{}, nil
+			return []*profile.PublicProfile{}, "", nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	_, err := svc.SearchPublic(context.Background(), "", false, 50)
+	_, _, err := svc.SearchPublic(context.Background(), "", false, "", 50)
 
 	require.NoError(t, err)
 	assert.Equal(t, 50, capturedLimit)

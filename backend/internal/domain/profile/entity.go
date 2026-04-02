@@ -37,4 +37,5 @@ type PublicProfile struct {
 	Title           string
 	PhotoURL        string
 	ReferrerEnabled bool
+	CreatedAt       time.Time
 }

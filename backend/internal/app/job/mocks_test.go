@@ -129,8 +129,8 @@ type mockProfileRepo struct {
 func (m *mockProfileRepo) Create(_ context.Context, _ *profile.Profile) error               { return nil }
 func (m *mockProfileRepo) GetByUserID(_ context.Context, _ uuid.UUID) (*profile.Profile, error) { return nil, nil }
 func (m *mockProfileRepo) Update(_ context.Context, _ *profile.Profile) error               { return nil }
-func (m *mockProfileRepo) SearchPublic(_ context.Context, _ string, _ bool, _ int) ([]*profile.PublicProfile, error) {
-	return nil, nil
+func (m *mockProfileRepo) SearchPublic(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
+	return nil, "", nil
 }
 
 func (m *mockProfileRepo) GetPublicProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error) {

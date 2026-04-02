@@ -1,8 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { Search, Users } from "lucide-react"
-import { cn } from "@/shared/lib/utils"
+import { Users } from "lucide-react"
 import { useSearchProfiles } from "../hooks/use-search"
 import { ProviderCard } from "./provider-card"
 import type { SearchType } from "../api/search-api"
@@ -19,7 +18,16 @@ interface SearchPageProps {
 
 export function SearchPage({ type }: SearchPageProps) {
   const t = useTranslations("search")
-  const { data: profiles, isLoading, error } = useSearchProfiles(type)
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSearchProfiles(type)
+
+  const profiles = data?.pages.flatMap((page) => page.data) ?? []
 
   return (
     <div className="space-y-6">
@@ -43,7 +51,7 @@ export function SearchPage({ type }: SearchPageProps) {
       )}
 
       {/* Results grid */}
-      {profiles && profiles.length > 0 && (
+      {profiles.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {profiles.map((profile) => (
             <ProviderCard key={profile.user_id} profile={profile} type={type} />
@@ -51,8 +59,21 @@ export function SearchPage({ type }: SearchPageProps) {
         </div>
       )}
 
+      {/* Load more button */}
+      {hasNextPage && (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+          >
+            {isFetchingNextPage ? t("loading") : t("loadMore")}
+          </button>
+        </div>
+      )}
+
       {/* Empty state */}
-      {profiles && profiles.length === 0 && (
+      {!isLoading && profiles.length === 0 && !error && (
         <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-12 text-center">
           <Users className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
           <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">

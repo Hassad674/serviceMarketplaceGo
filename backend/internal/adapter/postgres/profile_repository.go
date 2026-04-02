@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/profile"
+	"marketplace-backend/pkg/cursor"
 )
 
 type ProfileRepository struct {
@@ -106,7 +107,7 @@ func (r *ProfileRepository) queryByUserID(ctx context.Context, userID uuid.UUID)
 	return p, nil
 }
 
-func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
+func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, cursorStr string, limit int) ([]*profile.PublicProfile, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -114,19 +115,39 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string,
 		limit = 20
 	}
 
-	query := `
-		SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
-		       COALESCE(p.title, ''), COALESCE(p.photo_url, '')
-		FROM users u
-		LEFT JOIN profiles p ON p.user_id = u.id
-		WHERE ($1 = '' OR u.role = $1)
-		AND ($2 = false OR (u.role = 'provider' AND u.referrer_enabled = true))
-		ORDER BY u.created_at DESC
-		LIMIT $3`
+	var rows *sql.Rows
+	var err error
 
-	rows, err := r.db.QueryContext(ctx, query, roleFilter, referrerOnly, limit)
+	if cursorStr == "" {
+		query := `
+			SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
+			       COALESCE(p.title, ''), COALESCE(p.photo_url, ''), u.created_at
+			FROM users u
+			LEFT JOIN profiles p ON p.user_id = u.id
+			WHERE ($1 = '' OR u.role = $1)
+			AND ($2 = false OR (u.role = 'provider' AND u.referrer_enabled = true))
+			ORDER BY u.created_at DESC, u.id DESC
+			LIMIT $3`
+		rows, err = r.db.QueryContext(ctx, query, roleFilter, referrerOnly, limit+1)
+	} else {
+		c, decErr := cursor.Decode(cursorStr)
+		if decErr != nil {
+			return nil, "", fmt.Errorf("decode cursor: %w", decErr)
+		}
+		query := `
+			SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
+			       COALESCE(p.title, ''), COALESCE(p.photo_url, ''), u.created_at
+			FROM users u
+			LEFT JOIN profiles p ON p.user_id = u.id
+			WHERE ($1 = '' OR u.role = $1)
+			AND ($2 = false OR (u.role = 'provider' AND u.referrer_enabled = true))
+			AND (u.created_at, u.id) < ($3, $4)
+			ORDER BY u.created_at DESC, u.id DESC
+			LIMIT $5`
+		rows, err = r.db.QueryContext(ctx, query, roleFilter, referrerOnly, c.CreatedAt, c.ID, limit+1)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to search profiles: %w", err)
+		return nil, "", fmt.Errorf("failed to search profiles: %w", err)
 	}
 	defer rows.Close()
 
@@ -136,21 +157,29 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string,
 		if err := rows.Scan(
 			&pp.UserID, &pp.DisplayName, &pp.FirstName, &pp.LastName,
 			&pp.Role, &pp.ReferrerEnabled, &pp.Title, &pp.PhotoURL,
+			&pp.CreatedAt,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan public profile: %w", err)
+			return nil, "", fmt.Errorf("failed to scan public profile: %w", err)
 		}
 		results = append(results, pp)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
+		return nil, "", fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	var nextCursor string
+	if len(results) > limit {
+		last := results[limit-1]
+		nextCursor = cursor.Encode(last.CreatedAt, last.UserID)
+		results = results[:limit]
 	}
 
 	if results == nil {
 		results = []*profile.PublicProfile{}
 	}
 
-	return results, nil
+	return results, nextCursor, nil
 }
 
 func (r *ProfileRepository) GetPublicProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error) {

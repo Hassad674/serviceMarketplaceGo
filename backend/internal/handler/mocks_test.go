@@ -249,7 +249,7 @@ type mockProfileRepo struct {
 	createFn       func(ctx context.Context, p *profile.Profile) error
 	getByUserIDFn  func(ctx context.Context, userID uuid.UUID) (*profile.Profile, error)
 	updateFn       func(ctx context.Context, p *profile.Profile) error
-	searchPublicFn func(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error)
+	searchPublicFn func(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -273,11 +273,11 @@ func (m *mockProfileRepo) Update(ctx context.Context, p *profile.Profile) error 
 	return nil
 }
 
-func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, limit int) ([]*profile.PublicProfile, error) {
+func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
 	if m.searchPublicFn != nil {
-		return m.searchPublicFn(ctx, roleFilter, referrerOnly, limit)
+		return m.searchPublicFn(ctx, roleFilter, referrerOnly, cursor, limit)
 	}
-	return []*profile.PublicProfile{}, nil
+	return []*profile.PublicProfile{}, "", nil
 }
 
 func (m *mockProfileRepo) GetPublicProfilesByUserIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
