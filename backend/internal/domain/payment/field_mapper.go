@@ -157,6 +157,7 @@ var autoHandledPrefixes = []string{
 	"external_account",
 	"settings.",
 	"company.ownership_declaration.",
+	"company.directorship_declaration.",
 }
 
 // IsAutoHandled returns true for paths handled internally.
