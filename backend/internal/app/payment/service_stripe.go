@@ -388,6 +388,19 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 	}, nil
 }
 
+// updateStripeAccount updates an existing Stripe account with new payment info.
+func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) {
+	if s.stripe == nil || info.StripeAccountID == "" || tosIP == "" {
+		return
+	}
+
+	if err := s.stripe.UpdateConnectedAccount(ctx, info.StripeAccountID, info, tosIP, email); err != nil {
+		slog.Error("failed to update stripe account", "user_id", info.UserID, "account_id", info.StripeAccountID, "error", err)
+	} else {
+		slog.Info("stripe account updated", "user_id", info.UserID, "account_id", info.StripeAccountID)
+	}
+}
+
 // ensureStripeAccount creates a Stripe connected account if conditions are met.
 func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) {
 	if s.stripe == nil || info.StripeAccountID != "" || !info.IsComplete() || tosIP == "" {
