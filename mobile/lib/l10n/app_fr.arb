@@ -488,5 +488,6 @@
   "reasonInappropriateContent": "Contenu inappropri\u00e9",
   "reasonFakeProfile": "Profil faux ou trompeur",
   "reasonUnprofessionalBehavior": "Comportement non professionnel",
-  "reasonOther": "Autre"
+  "reasonOther": "Autre",
+  "loadMore": "Voir plus"
 }

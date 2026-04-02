@@ -1386,4 +1386,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get reasonOther => 'Other';
+
+  @override
+  String get loadMore => 'Load more';
 }

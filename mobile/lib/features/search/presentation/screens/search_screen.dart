@@ -10,8 +10,7 @@ import '../widgets/shimmer_provider_card.dart';
 /// Screen displaying search results for a specific profile type.
 ///
 /// Accepts a [type] parameter: `freelancer`, `agency`, or `referrer`.
-/// Fetches matching public profiles from the API and displays them
-/// in a responsive list (1 column on phone, 2 on tablet).
+/// Fetches matching public profiles from the API with cursor-based pagination.
 class SearchScreen extends ConsumerWidget {
   const SearchScreen({super.key, required this.type});
 
@@ -19,20 +18,25 @@ class SearchScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final searchAsync = ref.watch(searchProvider(type));
+    final state = ref.watch(searchProvider(type));
+    final notifier = ref.read(searchProvider(type).notifier);
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(title: Text(_screenTitle(l10n))),
-      body: searchAsync.when(
-        loading: () => const ShimmerProviderList(),
-        error: (error, stack) => _ErrorState(
-          onRetry: () => ref.invalidate(searchProvider(type)),
-        ),
-        data: (profiles) => profiles.isEmpty
-            ? const _EmptyState()
-            : _ProfileList(profiles: profiles),
-      ),
+      body: state.isLoading
+          ? const ShimmerProviderList()
+          : state.error != null && state.profiles.isEmpty
+              ? _ErrorState(onRetry: () => notifier.load())
+              : state.profiles.isEmpty
+                  ? const _EmptyState()
+                  : _ProfileList(
+                      profiles: state.profiles,
+                      hasMore: state.hasMore,
+                      isLoadingMore: state.isLoadingMore,
+                      onLoadMore: () => notifier.loadMore(),
+                      onRefresh: () => notifier.load(),
+                    ),
     );
   }
 
@@ -51,44 +55,72 @@ class SearchScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Profile list — responsive layout
+// Profile list — responsive layout with load more
 // ---------------------------------------------------------------------------
 
 class _ProfileList extends StatelessWidget {
-  const _ProfileList({required this.profiles});
+  const _ProfileList({
+    required this.profiles,
+    required this.hasMore,
+    required this.isLoadingMore,
+    required this.onLoadMore,
+    required this.onRefresh,
+  });
 
   final List<Map<String, dynamic>> profiles;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback onLoadMore;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Use 2-column grid on tablets (width >= 600)
-        if (constraints.maxWidth >= 600) {
-          return GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              mainAxisExtent: 72,
-            ),
-            itemCount: profiles.length,
-            itemBuilder: (context, index) => ProviderCard(
-              profile: profiles[index],
+    final theme = Theme.of(context);
+    // Total items = profiles + optional load-more button
+    final itemCount = profiles.length + (hasMore ? 1 : 0);
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: itemCount,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index < profiles.length) {
+            return ProviderCard(profile: profiles[index]);
+          }
+
+          // Load more button
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+              child: isLoadingMore
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : TextButton(
+                      onPressed: onLoadMore,
+                      style: TextButton.styleFrom(
+                        foregroundColor: theme.colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                      child: Text(
+                        AppLocalizations.of(context)!.loadMore,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
             ),
           );
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: profiles.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => ProviderCard(
-            profile: profiles[index],
-          ),
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -126,10 +158,7 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              l10n.noProfilesFound,
-              style: theme.textTheme.titleMedium,
-            ),
+            Text(l10n.noProfilesFound, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
               l10n.searchTryAgain,
@@ -180,10 +209,7 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              l10n.somethingWentWrong,
-              style: theme.textTheme.titleMedium,
-            ),
+            Text(l10n.somethingWentWrong, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
             Text(
               l10n.couldNotLoadProfiles,
