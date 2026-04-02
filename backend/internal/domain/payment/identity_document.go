@@ -11,16 +11,22 @@ type DocumentCategory string
 const (
 	CategoryIdentity DocumentCategory = "identity"
 	CategoryBusiness DocumentCategory = "business"
+	CategoryCompany  DocumentCategory = "company"
 )
 
 type DocumentType string
 
 const (
-	TypePassport       DocumentType = "passport"
-	TypeIDCard         DocumentType = "id_card"
-	TypeDrivingLicense DocumentType = "driving_license"
-	TypeKBIS           DocumentType = "kbis"
-	TypeRegistration   DocumentType = "registration"
+	TypePassport             DocumentType = "passport"
+	TypeIDCard               DocumentType = "id_card"
+	TypeDrivingLicense       DocumentType = "driving_license"
+	TypeKBIS                 DocumentType = "kbis"
+	TypeRegistration         DocumentType = "registration"
+	TypeDocument             DocumentType = "document"
+	TypeAdditionalDocument   DocumentType = "additional_document"
+	TypeProofOfLiveness      DocumentType = "proof_of_liveness"
+	TypeCompanyAuthorization DocumentType = "company_authorization"
+	TypeBankOwnership        DocumentType = "bank_account_ownership"
 )
 
 type DocumentSide string
@@ -124,12 +130,14 @@ func RequiresBothSides(docType DocumentType) bool {
 }
 
 func isValidCategory(c DocumentCategory) bool {
-	return c == CategoryIdentity || c == CategoryBusiness
+	return c == CategoryIdentity || c == CategoryBusiness || c == CategoryCompany
 }
 
 func isValidDocumentType(t DocumentType) bool {
 	switch t {
-	case TypePassport, TypeIDCard, TypeDrivingLicense, TypeKBIS, TypeRegistration:
+	case TypePassport, TypeIDCard, TypeDrivingLicense, TypeKBIS, TypeRegistration,
+		TypeDocument, TypeAdditionalDocument, TypeProofOfLiveness,
+		TypeCompanyAuthorization, TypeBankOwnership:
 		return true
 	}
 	return false
@@ -137,7 +145,9 @@ func isValidDocumentType(t DocumentType) bool {
 
 func isValidSideForType(t DocumentType, s DocumentSide) bool {
 	switch t {
-	case TypePassport, TypeKBIS, TypeRegistration:
+	case TypePassport, TypeKBIS, TypeRegistration,
+		TypeDocument, TypeAdditionalDocument, TypeProofOfLiveness,
+		TypeCompanyAuthorization, TypeBankOwnership:
 		return s == SideSingle
 	case TypeIDCard, TypeDrivingLicense:
 		return s == SideFront || s == SideBack
