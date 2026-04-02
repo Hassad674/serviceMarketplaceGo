@@ -16,6 +16,13 @@ import 'package:marketplace_mobile/core/storage/secure_storage.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const _testIban = 'FR1420041010050500013M02606';
+const _testBic = 'BNPAFRPP';
+
+// ---------------------------------------------------------------------------
 // Mock repository that simulates server persistence in-memory
 // ---------------------------------------------------------------------------
 
@@ -24,7 +31,6 @@ class InMemoryPaymentInfoRepository implements PaymentInfoRepository {
 
   @override
   Future<PaymentInfo?> getPaymentInfo() async {
-    // Simulate network delay
     await Future<void>.delayed(const Duration(milliseconds: 50));
     return _stored;
   }
@@ -77,7 +83,10 @@ class InMemoryPaymentInfoRepository implements PaymentInfoRepository {
   }
 
   @override
-  Future<CountryFieldsResponse> getCountryFields(String country, String businessType) async {
+  Future<CountryFieldsResponse> getCountryFields(
+    String country,
+    String businessType,
+  ) async {
     return const CountryFieldsResponse(
       country: 'FR',
       businessType: 'individual',
@@ -90,48 +99,51 @@ class InMemoryPaymentInfoRepository implements PaymentInfoRepository {
 }
 
 // ---------------------------------------------------------------------------
-// Fake implementations
+// Fake implementations — parameterized by role
 // ---------------------------------------------------------------------------
 
 class FakeApiClient extends ApiClient {
-  FakeApiClient() : super(storage: FakeStorage());
+  FakeApiClient({String role = 'provider'})
+      : super(storage: FakeStorage(role: role));
 }
 
 class FakeStorage extends Fake implements SecureStorageService {
+  FakeStorage({this.role = 'provider'});
+  final String role;
+
   @override
   Future<String?> getAccessToken() async => 'fake-token';
-
   @override
   Future<String?> getRefreshToken() async => null;
-
   @override
   Future<bool> hasTokens() async => true;
-
   @override
   Future<void> saveTokens(String access, String refresh) async {}
-
   @override
   Future<void> clearTokens() async {}
-
   @override
   Future<void> clearAll() async {}
-
   @override
   Future<void> saveUser(Map<String, dynamic> user) async {}
-
   @override
   Future<Map<String, dynamic>?> getUser() async =>
-      {'email': 'test@example.com', 'role': 'provider'};
+      {'email': 'test@example.com', 'role': role};
 }
 
 class FakeAuthNotifier extends AuthNotifier {
-  FakeAuthNotifier()
-      : super(apiClient: FakeApiClient(), storage: FakeStorage());
+  FakeAuthNotifier({String role = 'provider'})
+      : _role = role,
+        super(
+          apiClient: FakeApiClient(role: role),
+          storage: FakeStorage(role: role),
+        );
+
+  final String _role;
 
   @override
-  AuthState get state => const AuthState(
+  AuthState get state => AuthState(
         status: AuthStatus.authenticated,
-        user: {'email': 'test@example.com', 'role': 'provider'},
+        user: {'email': 'test@example.com', 'role': _role},
       );
 }
 
@@ -141,6 +153,7 @@ class FakeAuthNotifier extends AuthNotifier {
 
 Widget _buildApp({
   required InMemoryPaymentInfoRepository repo,
+  String role = 'provider',
   Key? screenKey,
 }) {
   return ProviderScope(
@@ -152,8 +165,10 @@ Widget _buildApp({
       identityDocumentsProvider.overrideWith(
         (ref) => Future.value(<IdentityDocument>[]),
       ),
-      apiClientProvider.overrideWithValue(FakeApiClient()),
-      authProvider.overrideWith((ref) => FakeAuthNotifier()),
+      apiClientProvider.overrideWithValue(FakeApiClient(role: role)),
+      authProvider.overrideWith(
+        (ref) => FakeAuthNotifier(role: role),
+      ),
     ],
     child: MaterialApp(
       localizationsDelegates: const [
@@ -170,23 +185,112 @@ Widget _buildApp({
 }
 
 // ---------------------------------------------------------------------------
-// Integration test
+// Helper to enter text in a field identified by its label
+// ---------------------------------------------------------------------------
+
+Future<void> _enterField(
+  WidgetTester tester,
+  String label,
+  String value,
+) async {
+  final finder = find.ancestor(
+    of: find.text(label),
+    matching: find.byType(TextFormField),
+  );
+  if (finder.evaluate().isNotEmpty) {
+    await tester.enterText(finder.first, value);
+    await tester.pump();
+  }
+}
+
+/// FR individual payment info data for pre-populating the mock repository.
+Map<String, dynamic> _frIndividualData() => {
+      'first_name': 'Pierre',
+      'last_name': 'Martin',
+      'date_of_birth': '1990-05-15',
+      'nationality': 'FR',
+      'address': '42 Rue Lafayette',
+      'city': 'Paris',
+      'postal_code': '75009',
+      'phone': '+33600112233',
+      'activity_sector': '7372',
+      'email': 'test@example.com',
+      'is_business': false,
+      'iban': _testIban,
+      'bic': _testBic,
+      'account_number': '',
+      'routing_number': '',
+      'account_holder': 'Pierre Martin',
+      'bank_country': 'FR',
+      'business_name': '',
+      'business_address': '',
+      'business_city': '',
+      'business_postal_code': '',
+      'business_country': '',
+      'tax_id': '',
+      'vat_number': '',
+      'role_in_company': '',
+      'is_self_representative': true,
+      'is_self_director': true,
+      'no_major_owners': true,
+      'is_self_executive': true,
+    };
+
+/// FR business payment info data for pre-populating the mock repository.
+Map<String, dynamic> _frBusinessData() => {
+      'first_name': 'Marie',
+      'last_name': 'Dupont',
+      'date_of_birth': '1985-03-20',
+      'nationality': 'FR',
+      'address': '10 Avenue Foch',
+      'city': 'Lyon',
+      'postal_code': '69001',
+      'phone': '+33600998877',
+      'activity_sector': '7372',
+      'email': 'test@example.com',
+      'is_business': true,
+      'iban': _testIban,
+      'bic': _testBic,
+      'account_number': '',
+      'routing_number': '',
+      'account_holder': 'SAS Dupont & Co',
+      'bank_country': 'FR',
+      'business_name': 'SAS Dupont & Co',
+      'business_address': '10 Avenue Foch',
+      'business_city': 'Lyon',
+      'business_postal_code': '69001',
+      'business_country': 'FR',
+      'tax_id': '12345678901234',
+      'vat_number': 'FR12345678901',
+      'role_in_company': 'ceo',
+      'is_self_representative': true,
+      'is_self_director': true,
+      'no_major_owners': true,
+      'is_self_executive': true,
+    };
+
+// ---------------------------------------------------------------------------
+// Integration tests
 // ---------------------------------------------------------------------------
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  group('KYC flow - full payment info lifecycle', () {
+  // -------------------------------------------------------------------------
+  // Test 3 — FR Individual (Provider)
+  // -------------------------------------------------------------------------
+
+  group('KYC flow - FR Individual Provider', () {
     testWidgets(
-      'fill personal info, fill bank info, save, verify data persists',
+      'fill personal info + bank with FR IBAN, save, verify persistence',
       (WidgetTester tester) async {
         final repo = InMemoryPaymentInfoRepository();
 
-        // 1. Open payment info screen (starts empty)
-        await tester.pumpWidget(_buildApp(repo: repo));
+        // 1. Open payment info screen as a provider (starts empty)
+        await tester.pumpWidget(_buildApp(repo: repo, role: 'provider'));
         await tester.pumpAndSettle();
 
-        // Verify empty state
+        // Verify empty state prompt
         expect(
           find.text(
             'Complete your payment information to receive payments',
@@ -194,8 +298,7 @@ void main() {
           findsOneWidget,
         );
 
-        // 2. Fill personal info fields
-        // Find text fields by their label and enter data
+        // 2. Fill personal info fields (FR individual)
         await _enterField(tester, 'First name *', 'Pierre');
         await _enterField(tester, 'Last name *', 'Martin');
         await _enterField(tester, 'Address *', '42 Rue Lafayette');
@@ -210,63 +313,24 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // 4. Fill bank info
-        await _enterField(tester, 'IBAN *', 'FR7612345678901234567890189');
+        // 4. Fill bank info with Stripe FR test IBAN
+        await _enterField(tester, 'IBAN *', _testIban);
+        await _enterField(tester, 'BIC', _testBic);
         await _enterField(tester, 'Account holder name *', 'Pierre Martin');
 
         // 5. Verify the save button exists
-        final saveButton = find.text('Save');
-        expect(saveButton, findsOneWidget);
+        expect(find.text('Save'), findsOneWidget);
 
-        // 6. Verify data was stored in the in-memory repository
-        // (The form is not yet valid because date of birth and nationality
-        //  are not easily settable via text input in integration tests,
-        //  but we can verify the repository received data if we save.)
-        //
-        // For this integration test, we focus on verifying that the screen
-        // correctly shows and persists data by checking the in-memory state.
+        // 6. Pre-populate the repository (simulates a complete save with
+        //    fields that cannot be set via text entry in integration tests:
+        //    date of birth, nationality, activity sector)
+        await repo.savePaymentInfo(_frIndividualData());
 
-        // Since we cannot easily trigger date picker and dropdowns in
-        // integration tests, let's verify the persistence flow by
-        // pre-populating the repo and reopening the screen.
-
-        // Simulate a previously saved state
-        await repo.savePaymentInfo({
-          'first_name': 'Pierre',
-          'last_name': 'Martin',
-          'date_of_birth': '1990-05-15',
-          'nationality': 'FR',
-          'address': '42 Rue Lafayette',
-          'city': 'Paris',
-          'postal_code': '75009',
-          'phone': '+33600112233',
-          'activity_sector': '8999',
-          'email': 'test@example.com',
-          'is_business': false,
-          'iban': 'FR7612345678901234567890189',
-          'bic': '',
-          'account_number': '',
-          'routing_number': '',
-          'account_holder': 'Pierre Martin',
-          'bank_country': 'FR',
-          'business_name': '',
-          'business_address': '',
-          'business_city': '',
-          'business_postal_code': '',
-          'business_country': '',
-          'tax_id': '',
-          'vat_number': '',
-          'role_in_company': '',
-          'is_self_representative': true,
-          'is_self_director': true,
-          'no_major_owners': true,
-          'is_self_executive': true,
-        });
-
-        // 7. Reopen the screen (simulate navigation away and back)
-        // This is THE CRITICAL BUG TEST: data must persist on remount
+        // 7. Reopen the screen to verify persistence
         final newKey = UniqueKey();
-        await tester.pumpWidget(_buildApp(repo: repo, screenKey: newKey));
+        await tester.pumpWidget(
+          _buildApp(repo: repo, role: 'provider', screenKey: newKey),
+        );
         await tester.pumpAndSettle();
 
         // 8. Verify saved data is displayed
@@ -276,24 +340,95 @@ void main() {
       },
     );
   });
-}
 
-// ---------------------------------------------------------------------------
-// Helper to enter text in a field identified by its label
-// ---------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Test 4 — FR Business (Agency)
+  // -------------------------------------------------------------------------
 
-Future<void> _enterField(
-  WidgetTester tester,
-  String label,
-  String value,
-) async {
-  final finder = find.ancestor(
-    of: find.text(label),
-    matching: find.byType(TextFormField),
-  );
+  group('KYC flow - FR Business Agency', () {
+    testWidgets(
+      'fill business + personal info, save, verify persistence',
+      (WidgetTester tester) async {
+        final repo = InMemoryPaymentInfoRepository();
 
-  if (finder.evaluate().isNotEmpty) {
-    await tester.enterText(finder.first, value);
-    await tester.pump();
-  }
+        // 1. Open payment info screen as an agency
+        await tester.pumpWidget(_buildApp(repo: repo, role: 'agency'));
+        await tester.pumpAndSettle();
+
+        // Verify empty state
+        expect(
+          find.text(
+            'Complete your payment information to receive payments',
+          ),
+          findsOneWidget,
+        );
+
+        // 2. Fill personal/representative info
+        await _enterField(tester, 'First name *', 'Marie');
+        await _enterField(tester, 'Last name *', 'Dupont');
+        await _enterField(tester, 'Address *', '10 Avenue Foch');
+        await _enterField(tester, 'City *', 'Lyon');
+        await _enterField(tester, 'Postal code *', '69001');
+        await _enterField(tester, 'Phone number *', '+33600998877');
+
+        // 3. Scroll to bank section
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -800),
+        );
+        await tester.pumpAndSettle();
+
+        // 4. Fill bank info with FR test IBAN
+        await _enterField(tester, 'IBAN *', _testIban);
+        await _enterField(tester, 'BIC', _testBic);
+        await _enterField(
+          tester,
+          'Account holder name *',
+          'SAS Dupont & Co',
+        );
+
+        // 5. Scroll further to reach business fields
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+
+        // 6. Fill business fields
+        await _enterField(tester, 'Business name *', 'SAS Dupont & Co');
+        await _enterField(tester, 'Business address *', '10 Avenue Foch');
+        await _enterField(tester, 'Business city *', 'Lyon');
+        await _enterField(tester, 'Business postal code *', '69001');
+        await _enterField(tester, 'Tax ID *', '12345678901234');
+
+        // 7. Verify the save button exists
+        expect(find.text('Save'), findsOneWidget);
+
+        // 8. Pre-populate the repository with complete business data
+        await repo.savePaymentInfo(_frBusinessData());
+
+        // 9. Reopen the screen to verify business data persists
+        final newKey = UniqueKey();
+        await tester.pumpWidget(
+          _buildApp(repo: repo, role: 'agency', screenKey: newKey),
+        );
+        await tester.pumpAndSettle();
+
+        // 10. Verify saved data is displayed
+        expect(find.text('Payment information saved'), findsOneWidget);
+        expect(find.text('Marie'), findsWidgets);
+        expect(find.text('Dupont'), findsWidgets);
+
+        // Scroll down to verify business fields are populated
+        await tester.drag(
+          find.byType(SingleChildScrollView),
+          const Offset(0, -600),
+        );
+        await tester.pumpAndSettle();
+
+        // The business name should be visible on screen
+        expect(find.text('SAS Dupont & Co'), findsWidgets);
+      },
+    );
+  });
 }

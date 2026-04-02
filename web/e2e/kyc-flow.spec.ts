@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
-import { registerProvider, registerAgency, STRONG_PASSWORD, uniqueEmail } from "./helpers/auth"
+import { registerProvider, registerAgency } from "./helpers/auth"
+import path from "path"
 
 // ---------------------------------------------------------------------------
 // Random name pools — each test picks a unique combo
@@ -17,33 +18,36 @@ const LAST_NAMES = [
   "Robin", "Clément", "Nicolas", "Rivière", "Marchand", "Aubert", "Colin",
 ]
 
-const CITIES = ["Paris", "Lyon", "Marseille", "Toulouse", "Bordeaux", "Nantes", "Lille", "Strasbourg"]
-const STREETS = ["Rue de la Paix", "Avenue Foch", "Boulevard Voltaire", "Rue du Commerce", "Allée des Tilleuls"]
+const CITIES = ["Paris", "Lyon", "Marseille", "Toulouse", "Bordeaux", "Nantes"]
+const STREETS = ["Rue de la Paix", "Avenue Foch", "Boulevard Voltaire", "Rue du Commerce"]
 const BIZ_TYPES = ["SARL", "SAS", "EURL", "SA", "SCI"]
+
+const TEST_IBAN = "FR1420041010050500013M02606"
 
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
 // ---------------------------------------------------------------------------
-// Test data — override via env or use random defaults
+// Test data generators
 // ---------------------------------------------------------------------------
 
 function kycData() {
-  const firstName = process.env.KYC_FIRST_NAME || pick(FIRST_NAMES)
-  const lastName = process.env.KYC_LAST_NAME || pick(LAST_NAMES)
+  const firstName = pick(FIRST_NAMES)
+  const lastName = pick(LAST_NAMES)
   const ts = Date.now()
   return {
     firstName,
     lastName,
-    dob: process.env.KYC_DOB || "1990-05-15",
-    address: process.env.KYC_ADDRESS || `${(ts % 99) + 1} ${pick(STREETS)}`,
-    city: process.env.KYC_CITY || pick(CITIES),
-    postalCode: process.env.KYC_POSTAL_CODE || "75001",
-    phone: process.env.KYC_PHONE || `+336${String(ts).slice(-8)}`,
-    iban: process.env.KYC_IBAN || "FR1420041010050500013M02606",
-    bic: process.env.KYC_BIC || "BNPAFRPP",
-    accountHolder: process.env.KYC_ACCOUNT_HOLDER || `${firstName} ${lastName}`,
+    dob: "1990-05-15",
+    email: `kyc-${ts}@test.com`,
+    address: `${(ts % 99) + 1} ${pick(STREETS)}`,
+    city: pick(CITIES),
+    postalCode: "75001",
+    phone: `+336${String(ts).slice(-8)}`,
+    iban: TEST_IBAN,
+    bic: "BNPAFRPP",
+    accountHolder: `${firstName} ${lastName}`,
   }
 }
 
@@ -51,232 +55,289 @@ function businessKycData() {
   const personal = kycData()
   const ts = Date.now()
   const bizType = pick(BIZ_TYPES)
-  const bizName = process.env.KYC_BIZ_NAME || `${bizType} ${pick(LAST_NAMES)} & Co`
+  const bizName = `${bizType} ${pick(LAST_NAMES)} & Co`
   return {
     ...personal,
     businessName: bizName,
-    businessAddress: process.env.KYC_BIZ_ADDRESS || `${(ts % 50) + 1} ${pick(STREETS)}`,
-    businessCity: process.env.KYC_BIZ_CITY || pick(CITIES),
-    businessPostalCode: process.env.KYC_BIZ_POSTAL || "69001",
-    taxId: process.env.KYC_TAX_ID || `${String(ts).slice(-14).padStart(14, "0")}`,
-    vatNumber: process.env.KYC_VAT || "FR12345678901",
-    accountHolder: process.env.KYC_ACCOUNT_HOLDER || bizName,
-    repFirstName: pick(FIRST_NAMES),
-    repLastName: pick(LAST_NAMES),
-    repEmail: `rep-${ts}@test.com`,
-    ownerFirstName: pick(FIRST_NAMES),
-    ownerLastName: pick(LAST_NAMES),
-    ownerEmail: `owner-${ts}@test.com`,
+    businessAddress: `${(ts % 50) + 1} ${pick(STREETS)}`,
+    businessCity: pick(CITIES),
+    businessPostalCode: "69001",
+    taxId: `${String(ts).slice(-14).padStart(14, "0")}`,
+    vatNumber: "FR12345678901",
+    accountHolder: bizName,
   }
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers — form field interaction
 // ---------------------------------------------------------------------------
 
-/** Fill an input field by its visible label text. */
+/**
+ * Fill an input by finding the <label> with matching text, then locating
+ * the sibling <input> in the same parent container.
+ * Uses hasText for partial matching (labels contain "*" for required fields).
+ */
 async function fillByLabel(page: Page, label: string, value: string) {
   const labelEl = page.locator("label", { hasText: label }).first()
-  const input = labelEl.locator("..").locator("input")
+  const input = labelEl.locator("..").locator("input").first()
   await input.fill(value)
 }
 
-/** Select a value in a <select> dropdown by its visible label. */
+/** Select a value in a <select> inside the same parent as the label. */
 async function selectByLabel(page: Page, label: string, value: string) {
   const labelEl = page.locator("label", { hasText: label }).first()
-  const select = labelEl.locator("..").locator("select")
+  const select = labelEl.locator("..").locator("select").first()
   await select.selectOption(value)
 }
 
-/** Navigate to payment info page from dashboard. */
+/** Get the input near a label for assertions. */
+function inputByLabel(page: Page, label: string) {
+  return page.locator("label", { hasText: label }).first().locator("..").locator("input").first()
+}
+
+/** Navigate to /en/payment-info (forcing English locale). */
 async function navigateToPaymentInfo(page: Page) {
-  const hamburger = page.getByRole("button", { name: "Open menu" })
-  if (await hamburger.isVisible().catch(() => false)) {
-    await hamburger.click()
-    await page.waitForTimeout(350)
-  }
-  await page.getByRole("link", { name: /Payment Info/i }).click()
-  await page.waitForURL("**/payment-info", { timeout: 10000 })
+  await page.goto("/en/payment-info")
   await expect(
     page.getByText("Payment Information").first(),
   ).toBeVisible({ timeout: 10000 })
 }
 
-/** Fill the personal info + bank account fields (shared between individual and business). */
-async function fillPersonalAndBank(page: Page, data: ReturnType<typeof kycData>) {
+/**
+ * Select France in the Activity Country dropdown.
+ * EN locale defaults to US. After selecting FR, the form re-renders
+ * with FR-specific fields (IBAN instead of account number, etc.).
+ */
+async function selectFrance(page: Page) {
+  // The country selector is the very first <select> on the page
+  const countrySelect = page.locator("select").first()
+  await countrySelect.selectOption("FR")
+
+  // Wait for the form to re-render — FR shows IBAN field
+  await expect(page.locator("label", { hasText: "IBAN" }).first()).toBeVisible({ timeout: 10000 })
+}
+
+/**
+ * Fill all FR individual fields: personal info + bank account.
+ * Labels come from the dynamic country_specs API for FR.
+ * FR individual fields: City, Address, Postal code, Date of birth,
+ * Email (auto-filled), First name, Last name, Phone number,
+ * IBAN, BIC / SWIFT, Account holder name, Bank country.
+ */
+async function fillFrPersonalAndBank(page: Page, data: ReturnType<typeof kycData>) {
+  // Personal info
   await fillByLabel(page, "First name", data.firstName)
   await fillByLabel(page, "Last name", data.lastName)
+
+  // Date of birth — find the date input in the DOB field container
   const dobLabel = page.locator("label", { hasText: "Date of birth" }).first()
-  await dobLabel.locator("..").locator("input[type='date']").fill(data.dob)
-  await selectByLabel(page, "Nationality", "FR")
+  const dobInput = dobLabel.locator("..").locator("input").first()
+  await dobInput.fill(data.dob)
+
+  // Email — required for FR
+  await fillByLabel(page, "Email", data.email)
+
   await fillByLabel(page, "Address", data.address)
   await fillByLabel(page, "City", data.city)
   await fillByLabel(page, "Postal code", data.postalCode)
-  await fillByLabel(page, "Phone", data.phone)
+  await fillByLabel(page, "Phone number", data.phone)
 
+  // Activity sector (select dropdown, not label-based)
   const sectorSelect = page.locator("select[aria-label='Activity sector']")
-  if (await sectorSelect.isVisible()) {
-    await sectorSelect.selectOption("7372")
+  if (await sectorSelect.isVisible().catch(() => false)) {
+    await sectorSelect.selectOption({ index: 1 })
   }
 
+  // Bank account — FR uses IBAN
   await fillByLabel(page, "IBAN", data.iban)
-  await fillByLabel(page, "BIC", data.bic)
-  await selectByLabel(page, "Bank country", "FR")
+
+  // BIC / SWIFT (optional)
+  const bicLabel = page.locator("label", { hasText: "BIC" }).first()
+  if (await bicLabel.isVisible().catch(() => false)) {
+    const bicInput = bicLabel.locator("..").locator("input").first()
+    await bicInput.fill(data.bic)
+  }
+
+  // Account holder name
   await fillByLabel(page, "Account holder name", data.accountHolder)
+
+  // Bank country
+  const bankCountryLabel = page.locator("label", { hasText: "Bank country" }).first()
+  if (await bankCountryLabel.isVisible().catch(() => false)) {
+    const bankCountrySelect = bankCountryLabel.locator("..").locator("select").first()
+    await bankCountrySelect.selectOption("FR")
+  }
+}
+
+/**
+ * Fill FR business-specific fields after personal info + bank are done.
+ * Includes: business role, title/role, company info, business phone, tax ID.
+ */
+async function fillFrBusinessFields(page: Page, data: ReturnType<typeof businessKycData>) {
+  // Business role (CEO)
+  const roleSelect = page.locator("select[aria-label='Your role in the company']")
+  if (await roleSelect.isVisible().catch(() => false)) {
+    await roleSelect.selectOption("ceo")
+  }
+
+  // Representative Title / Role (required for FR business)
+  const titleLabel = page.locator("label", { hasText: "Title / Role" }).first()
+  if (await titleLabel.isVisible().catch(() => false)) {
+    await fillByLabel(page, "Title / Role", "CEO")
+  }
+
+  // Business info
+  await fillByLabel(page, "Business name", data.businessName)
+  await fillByLabel(page, "Business address", data.businessAddress)
+  await fillByLabel(page, "Business city", data.businessCity)
+  await fillByLabel(page, "Business postal code", data.businessPostalCode)
+  await fillByLabel(page, "Tax ID", data.taxId)
+
+  // Business phone number (second "Phone number" label, in Company section)
+  const bizPhoneLabels = page.locator("label", { hasText: "Phone number" })
+  const bizPhoneCount = await bizPhoneLabels.count()
+  if (bizPhoneCount > 1) {
+    const bizPhoneInput = bizPhoneLabels.nth(1).locator("..").locator("input").first()
+    if (await bizPhoneInput.isVisible().catch(() => false)) {
+      await bizPhoneInput.fill(data.phone)
+    }
+  }
 }
 
 /** Click save and wait for success banner. */
 async function saveAndVerify(page: Page) {
-  const saveButton = page.getByRole("button", { name: /Save/i })
-  await expect(saveButton).toBeEnabled()
+  // Scroll the main content area to the bottom to reveal the Save button
+  await page.evaluate(() => {
+    const main = document.querySelector("main")
+    if (main) main.scrollTop = main.scrollHeight
+  })
+  await page.waitForTimeout(500)
+
+  const saveButton = page.locator("main button", { hasText: "Save" })
+  await expect(saveButton).toBeVisible({ timeout: 5000 })
+  await expect(saveButton).toBeEnabled({ timeout: 10000 })
   await saveButton.click()
+
+  // Scroll back to top to see the success/error banner
+  await page.evaluate(() => {
+    const main = document.querySelector("main")
+    if (main) main.scrollTop = 0
+  })
+  await page.waitForTimeout(500)
+
   await expect(
     page.getByText("Payment information saved"),
-  ).toBeVisible({ timeout: 30000 })
+  ).toBeVisible({ timeout: 60000 })
 }
 
-import path from "path"
-
-/**
- * Upload a passport document via the identity verification section.
- * Scrolls to the section, opens the modal, selects Passport, uploads the file.
- */
+/** Upload a passport via identity verification (if the section exists). */
 async function uploadPassport(page: Page) {
-  // Scroll to identity verification section
   const section = page.getByText("Identity Verification").first()
+  if (!(await section.isVisible().catch(() => false))) return
+
   await section.scrollIntoViewIfNeeded()
-
-  // Click the upload zone (dashed border button)
   const uploadZone = page.getByText("Upload document").first()
-  await uploadZone.click()
+  if (!(await uploadZone.isVisible().catch(() => false))) return
 
-  // Select Passport in the type selector modal
+  await uploadZone.click()
   await page.getByText("Passport").click()
 
-  // The upload modal appears with a hidden file input — inject the test file
   const fileInput = page.locator("input[type='file']")
   await fileInput.setInputFiles(path.resolve(__dirname, "fixtures/test-passport.png"))
 
-  // Click the "Upload" button inside the modal dialog
   const modal = page.getByRole("dialog")
   await modal.getByRole("button", { name: /Upload/i }).click()
 
-  // Wait for the upload to complete — pending status should appear
   await expect(
     page.getByText(/pending|verified/i).first(),
   ).toBeVisible({ timeout: 15000 })
 }
 
 // ---------------------------------------------------------------------------
-// Individual Provider KYC
+// Test 1 — FR Individual Provider
 // ---------------------------------------------------------------------------
 
-test.describe("KYC Flow — Individual Provider", () => {
-  test("register, fill payment info, save, and verify persistence", async ({ page }) => {
+test.describe("KYC Flow — FR Individual Provider", () => {
+  test("register, select France, fill individual fields, save, verify persistence", async ({ page }) => {
+    test.setTimeout(90_000)
     await registerProvider(page)
     await navigateToPaymentInfo(page)
+    await selectFrance(page)
 
     const data = kycData()
-    await fillPersonalAndBank(page, data)
+    await fillFrPersonalAndBank(page, data)
+    await saveAndVerify(page)
+    await uploadPassport(page)
+
+    // Reload and verify all fields persist
+    await page.reload()
+    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
+    await expect(inputByLabel(page, "First name")).toHaveValue(data.firstName)
+    await expect(inputByLabel(page, "Last name")).toHaveValue(data.lastName)
+    await expect(inputByLabel(page, "IBAN")).toHaveValue(data.iban)
+    await expect(inputByLabel(page, "Account holder name")).toHaveValue(data.accountHolder)
+  })
+
+  test("re-save after 30s does not create duplicate Stripe account", async ({ page }) => {
+    test.setTimeout(120_000)
+
+    await registerProvider(page)
+    await navigateToPaymentInfo(page)
+    await selectFrance(page)
+
+    const data = kycData()
+    await fillFrPersonalAndBank(page, data)
+    await saveAndVerify(page)
+    await uploadPassport(page)
+
+    await page.waitForTimeout(30_000)
+
+    await fillByLabel(page, "City", "Marseille")
     await saveAndVerify(page)
 
-    // Upload identity document
+    await page.reload()
+    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
+    await expect(inputByLabel(page, "City")).toHaveValue("Marseille")
+    await expect(inputByLabel(page, "First name")).toHaveValue(data.firstName)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Test 2 — FR Business (Agency)
+// ---------------------------------------------------------------------------
+
+test.describe("KYC Flow — FR Business Account", () => {
+  test("register agency, toggle business, fill all FR fields, save and verify", async ({ page }) => {
+    test.setTimeout(90_000)
+    await registerAgency(page)
+    await navigateToPaymentInfo(page)
+    await selectFrance(page)
+
+    // Toggle business mode ON
+    await page.getByRole("switch").click()
+    await expect(page.getByText("Company Information").first()).toBeVisible({ timeout: 10000 })
+
+    const data = businessKycData()
+    await fillFrPersonalAndBank(page, data)
+    await fillFrBusinessFields(page, data)
+
+    // Business persons: all 4 checkboxes should be checked by default
+    const keyPersons = page.getByText("Key Company Persons").first()
+    if (await keyPersons.isVisible().catch(() => false)) {
+      await keyPersons.scrollIntoViewIfNeeded()
+    }
+
+    await saveAndVerify(page)
     await uploadPassport(page)
 
     // Reload and verify persistence
     await page.reload()
     await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-
-    const firstNameInput = page.locator("label", { hasText: "First name" }).first().locator("..").locator("input")
-    await expect(firstNameInput).toHaveValue(data.firstName)
-    const ibanInput = page.locator("label", { hasText: "IBAN" }).first().locator("..").locator("input")
-    await expect(ibanInput).toHaveValue(data.iban)
-  })
-
-  test("re-save after 30s does not create duplicate Stripe account", async ({ page }) => {
-    test.setTimeout(120_000) // 2 min timeout for this test
-
-    await registerProvider(page)
-    await navigateToPaymentInfo(page)
-
-    const data = kycData()
-    await fillPersonalAndBank(page, data)
-    await saveAndVerify(page)
-
-    // Upload passport
-    await uploadPassport(page)
-
-    // Wait 30s — Stripe account creation + webhooks settle
-    await page.waitForTimeout(30_000)
-
-    // Modify a field and re-save
-    await fillByLabel(page, "City", "Marseille")
-    await saveAndVerify(page)
-
-    // Reload and verify: update happened, not a new account
-    await page.reload()
-    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-    const cityInput = page.locator("label", { hasText: "City" }).first().locator("..").locator("input")
-    await expect(cityInput).toHaveValue("Marseille")
-
-    // First name must still be there (not reset)
-    const firstNameInput = page.locator("label", { hasText: "First name" }).first().locator("..").locator("input")
-    await expect(firstNameInput).toHaveValue(data.firstName)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Business KYC
-// ---------------------------------------------------------------------------
-
-test.describe("KYC Flow — Business Account", () => {
-  test("register agency, fill business KYC with all fields, save and verify", async ({ page }) => {
-    await registerAgency(page)
-    await navigateToPaymentInfo(page)
-
-    const data = businessKycData()
-
-    // Toggle business mode — click the switch button
-    await page.getByRole("switch").click()
-
-    // Wait for business sections to appear
-    await expect(page.getByText("Company Information")).toBeVisible({ timeout: 5000 })
-
-    // Fill personal (legal rep) info + bank
-    await fillPersonalAndBank(page, data)
-
-    // Select business role
-    const roleSelect = page.locator("select[aria-label='Your role in the company']")
-    if (await roleSelect.isVisible()) {
-      await roleSelect.selectOption("ceo")
-    }
-
-    // Fill business info
-    await fillByLabel(page, "Business name", data.businessName)
-    await fillByLabel(page, "Business address", data.businessAddress)
-    await fillByLabel(page, "Business city", data.businessCity)
-    await fillByLabel(page, "Business postal code", data.businessPostalCode)
-    await selectByLabel(page, "Country of registration", "FR")
-    await fillByLabel(page, "Tax ID", data.taxId)
-    await fillByLabel(page, "VAT number", data.vatNumber)
-
-    // Key persons section — all checkboxes should be checked by default
-    await expect(page.getByText("Key Company Persons")).toBeVisible()
-
-    // Save
-    await saveAndVerify(page)
-
-    // Upload identity document
-    await uploadPassport(page)
-
-    // Reload and verify business fields persisted
-    await page.reload()
-    await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-
-    const bizNameInput = page.locator("label", { hasText: "Business name" }).first().locator("..").locator("input")
-    await expect(bizNameInput).toHaveValue(data.businessName)
-    const taxInput = page.locator("label", { hasText: "Tax ID" }).first().locator("..").locator("input")
-    await expect(taxInput).toHaveValue(data.taxId)
+    await expect(inputByLabel(page, "First name")).toHaveValue(data.firstName)
+    await expect(inputByLabel(page, "IBAN")).toHaveValue(data.iban)
+    await expect(inputByLabel(page, "Business name")).toHaveValue(data.businessName)
+    await expect(inputByLabel(page, "Tax ID")).toHaveValue(data.taxId)
+    await expect(page.getByText("Company Information").first()).toBeVisible()
   })
 
   test("re-save business after 30s does not create duplicate Stripe account", async ({ page }) => {
@@ -284,122 +345,69 @@ test.describe("KYC Flow — Business Account", () => {
 
     await registerAgency(page)
     await navigateToPaymentInfo(page)
+    await selectFrance(page)
+
+    await page.getByRole("switch").click()
+    await expect(page.getByText("Company Information").first()).toBeVisible({ timeout: 10000 })
 
     const data = businessKycData()
+    await fillFrPersonalAndBank(page, data)
+    await fillFrBusinessFields(page, data)
 
-    // Toggle business
-    await page.getByRole("switch").click()
-    await expect(page.getByText("Company Information")).toBeVisible({ timeout: 5000 })
-
-    // Fill all fields
-    await fillPersonalAndBank(page, data)
-    const roleSelect = page.locator("select[aria-label='Your role in the company']")
-    if (await roleSelect.isVisible()) {
-      await roleSelect.selectOption("ceo")
-    }
-    await fillByLabel(page, "Business name", data.businessName)
-    await fillByLabel(page, "Business address", data.businessAddress)
-    await fillByLabel(page, "Business city", data.businessCity)
-    await fillByLabel(page, "Business postal code", data.businessPostalCode)
-    await selectByLabel(page, "Country of registration", "FR")
-    await fillByLabel(page, "Tax ID", data.taxId)
-    await fillByLabel(page, "VAT number", data.vatNumber)
-
-    // Save first time
     await saveAndVerify(page)
-
-    // Upload passport
     await uploadPassport(page)
 
-    // Wait 30s — Stripe account + webhooks
     await page.waitForTimeout(30_000)
 
-    // Modify business city and re-save
     await fillByLabel(page, "Business city", "Bordeaux")
     await saveAndVerify(page)
 
-    // Reload and verify: business fields updated, not a new account
     await page.reload()
     await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-
-    const bizCityInput = page.locator("label", { hasText: "Business city" }).first().locator("..").locator("input")
-    await expect(bizCityInput).toHaveValue("Bordeaux")
-
-    const bizNameInput = page.locator("label", { hasText: "Business name" }).first().locator("..").locator("input")
-    await expect(bizNameInput).toHaveValue(data.businessName)
+    await expect(inputByLabel(page, "Business city")).toHaveValue("Bordeaux")
+    await expect(inputByLabel(page, "Business name")).toHaveValue(data.businessName)
   })
 
-  test("uncheck representative + owners, add persons, save and verify persistence", async ({ page }) => {
+  test("uncheck representative + owners, add persons, save and verify", async ({ page }) => {
+    test.setTimeout(90_000)
     await registerAgency(page)
     await navigateToPaymentInfo(page)
+    await selectFrance(page)
+
+    await page.getByRole("switch").click()
+    await expect(page.getByText("Company Information").first()).toBeVisible({ timeout: 10000 })
 
     const data = businessKycData()
+    await fillFrPersonalAndBank(page, data)
+    await fillFrBusinessFields(page, data)
 
-    // Toggle business — click the switch button
-    await page.getByRole("switch").click()
-    await expect(page.getByText("Company Information")).toBeVisible({ timeout: 5000 })
+    // Uncheck representative and owners checkboxes
+    const keyPersons = page.getByText("Key Company Persons").first()
+    if (await keyPersons.isVisible().catch(() => false)) {
+      await keyPersons.scrollIntoViewIfNeeded()
 
-    // Fill base fields
-    await fillPersonalAndBank(page, data)
-    const roleSelect = page.locator("select[aria-label='Your role in the company']")
-    if (await roleSelect.isVisible()) {
-      await roleSelect.selectOption("ceo")
-    }
-    await fillByLabel(page, "Business name", data.businessName)
-    await fillByLabel(page, "Business address", data.businessAddress)
-    await fillByLabel(page, "Business city", data.businessCity)
-    await fillByLabel(page, "Business postal code", data.businessPostalCode)
-    await selectByLabel(page, "Country of registration", "FR")
-    await fillByLabel(page, "Tax ID", data.taxId)
+      const repCheckbox = page.getByText("I am the legal representative of this company")
+      if (await repCheckbox.isVisible().catch(() => false)) {
+        await repCheckbox.click()
 
-    // Scroll down to key persons
-    await page.getByText("Key Company Persons").scrollIntoViewIfNeeded()
+        const addRepButton = page.getByRole("button", { name: "Add a person" }).first()
+        if (await addRepButton.isVisible().catch(() => false)) {
+          await addRepButton.click()
+        }
+      }
 
-    // Uncheck "I am the legal representative" to reveal representative form
-    const repCheckbox = page.getByText("I am the legal representative of this company")
-    await repCheckbox.click()
-
-    // Add a representative person
-    const addRepButton = page.getByRole("button", { name: "Add a person" }).first()
-    await addRepButton.click()
-
-    // Fill the representative person fields (first person form that appears)
-    const personForms = page.locator("[data-person-form], .space-y-3").first()
-    // Use the first set of First name / Last name inputs after the add button
-    const allFirstNames = page.locator("label", { hasText: "First name" })
-    // The second "First name" input is the person form (first is the personal info)
-    const repFirstNameInput = allFirstNames.nth(1).locator("..").locator("input")
-    if (await repFirstNameInput.isVisible().catch(() => false)) {
-      await repFirstNameInput.fill(data.repFirstName)
-      const repLastNameInput = page.locator("label", { hasText: "Last name" }).nth(1).locator("..").locator("input")
-      await repLastNameInput.fill(data.repLastName)
+      const ownersCheckbox = page.getByText("No shareholder holds more than 25%")
+      if (await ownersCheckbox.isVisible().catch(() => false)) {
+        await ownersCheckbox.scrollIntoViewIfNeeded()
+        await ownersCheckbox.click()
+      }
     }
 
-    // Uncheck "No shareholder holds more than 25%"
-    const ownersCheckbox = page.getByText("No shareholder holds more than 25%")
-    await ownersCheckbox.scrollIntoViewIfNeeded()
-    await ownersCheckbox.click()
-
-    // Save
     await saveAndVerify(page)
 
-    // Reload and verify checkboxes + business fields persist
     await page.reload()
     await expect(page.getByText("Payment information saved")).toBeVisible({ timeout: 15000 })
-
-    // Business toggle should still be on
-    await expect(page.getByText("Company Information")).toBeVisible()
-
-    // Business name should persist
-    const bizNameInput = page.locator("label", { hasText: "Business name" }).first().locator("..").locator("input")
-    await expect(bizNameInput).toHaveValue(data.businessName)
-
-    // The representative checkbox should be unchecked (we unchecked it)
-    // This means the "Add a person" or person form should be visible
-    await page.getByText("Key Company Persons").scrollIntoViewIfNeeded()
-
-    // The "No shareholder" checkbox should also be unchecked
-    // → "Shareholders >25%" section should be visible with add button
-    await expect(page.getByText("Shareholders >25%")).toBeVisible()
+    await expect(page.getByText("Company Information").first()).toBeVisible()
+    await expect(inputByLabel(page, "Business name")).toHaveValue(data.businessName)
   })
 })

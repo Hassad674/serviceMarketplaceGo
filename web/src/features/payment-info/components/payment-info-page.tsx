@@ -385,7 +385,7 @@ function valuesToFlatData(
     firstName: v[`${prefix}.first_name`] ?? data.firstName,
     lastName: v[`${prefix}.last_name`] ?? data.lastName,
     dateOfBirth: v[`${prefix}.dob`] ?? data.dateOfBirth,
-    nationality: v[`${prefix}.nationality`] ?? data.nationality,
+    nationality: v[`${prefix}.nationality`] ?? (data.nationality || data.country),
     address: v[`${prefix}.address.line1`] ?? data.address,
     city: v[`${prefix}.address.city`] ?? data.city,
     postalCode: v[`${prefix}.address.postal_code`] ?? data.postalCode,
