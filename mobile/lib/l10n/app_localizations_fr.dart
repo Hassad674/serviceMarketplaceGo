@@ -1047,6 +1047,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'J\'exerce en tant qu\'entreprise enregistrée';
 
   @override
+  String get paymentInfoIsBusinessDesc =>
+      'Activez si votre activité est exercée par une société enregistrée. Laissez désactivé si vous possédez un statut juridique en nom propre (freelance, indépendant).';
+
+  @override
   String get paymentInfoPersonalInfo => 'Informations personnelles';
 
   @override

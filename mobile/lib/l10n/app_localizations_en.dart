@@ -1043,6 +1043,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get paymentInfoIsBusiness => 'I operate as a registered business';
 
   @override
+  String get paymentInfoIsBusinessDesc =>
+      'Enable if your activity is operated through a registered company. Leave disabled if you operate under a sole proprietorship (freelance, independent).';
+
+  @override
   String get paymentInfoPersonalInfo => 'Personal Information';
 
   @override
