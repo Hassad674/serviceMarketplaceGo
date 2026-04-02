@@ -429,6 +429,16 @@ func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentI
 	s.syncPendingDocuments(ctx, info.UserID, accountID)
 }
 
+// getExtra looks up a value in extra_fields by multiple possible keys.
+func getExtra(extra map[string]string, keys ...string) string {
+	for _, k := range keys {
+		if v, ok := extra[k]; ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // createStripePersons creates the required Stripe persons for a company account.
 func (s *Service) createStripePersons(ctx context.Context, info *domain.PaymentInfo, accountID, email string) {
 	// Representative person (always required for company)
@@ -441,7 +451,11 @@ func (s *Service) createStripePersons(ctx context.Context, info *domain.PaymentI
 		Address:          info.Address,
 		City:             info.City,
 		PostalCode:       info.PostalCode,
+		State:            getExtra(info.ExtraFields, "representative.address.state", "state"),
+		Country:          info.Country,
 		Title:            info.RoleInCompany,
+		IDNumber:         getExtra(info.ExtraFields, "representative.id_number", "individual.id_number", "id_number"),
+		SSNLast4:         getExtra(info.ExtraFields, "representative.ssn_last_4", "individual.ssn_last_4", "ssn_last_4"),
 		IsRepresentative: true,
 		IsDirector:       info.IsSelfDirector,
 		IsExecutive:      info.IsSelfExecutive,

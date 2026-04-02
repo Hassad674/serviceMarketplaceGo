@@ -80,7 +80,11 @@ type CreatePersonInput struct {
 	Address          string
 	City             string
 	PostalCode       string
+	State            string
+	Country          string
 	Title            string
+	IDNumber         string
+	SSNLast4         string
 	IsRepresentative bool
 	IsDirector       bool
 	IsOwner          bool

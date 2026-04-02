@@ -61,6 +61,19 @@ func (s *Service) CreatePerson(ctx context.Context, accountID string, input port
 			City:       stripe.String(input.City),
 			PostalCode: stripe.String(input.PostalCode),
 		}
+		if input.State != "" {
+			params.Address.State = stripe.String(input.State)
+		}
+		if input.Country != "" {
+			params.Address.Country = stripe.String(input.Country)
+		}
+	}
+
+	if input.IDNumber != "" {
+		params.IDNumber = stripe.String(input.IDNumber)
+	}
+	if input.SSNLast4 != "" {
+		params.SSNLast4 = stripe.String(input.SSNLast4)
 	}
 
 	p, err := stripeperson.New(params)

@@ -318,8 +318,7 @@ async function fillBusinessFields(page: Page): Promise<string> {
 
   const taxLabel = page.locator("label", { hasText: "Tax ID" }).first()
   if (await taxLabel.isVisible().catch(() => false)) {
-    const taxIdValue = String(ts).slice(-14).padStart(14, "0")
-    await fillByLabel(page, "Tax ID", taxIdValue)
+    await fillByLabel(page, "Tax ID", "000000000")
   }
 
   const phoneLabels = page.locator("label", { hasText: "Phone number" })
