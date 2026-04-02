@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
@@ -14,6 +15,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasApplied = ref.watch(hasAppliedProvider(jobId));
+    final l10n = AppLocalizations.of(context)!;
 
     return FutureBuilder<JobEntity>(
       future: ref.read(jobRepositoryProvider).getJob(jobId),
@@ -22,7 +24,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
           return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasError || !snapshot.hasData) {
-          return Scaffold(appBar: AppBar(), body: const Center(child: Text('Offre introuvable')));
+          return Scaffold(appBar: AppBar(), body: Center(child: Text(l10n.jobNotFound)));
         }
         final job = snapshot.data!;
         final alreadyApplied = hasApplied.valueOrNull ?? false;
@@ -56,7 +58,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             Text(
-                              job.budgetType == 'one_shot' ? 'Projet ponctuel' : 'Collaboration long terme',
+                              job.budgetType == 'one_shot' ? l10n.budgetTypeOneShot : l10n.budgetTypeLongTerm,
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
@@ -68,7 +70,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 // Skills
                 if (job.skills.isNotEmpty) ...[
-                  Text('Comp\u00e9tences requises', style: Theme.of(context).textTheme.titleSmall),
+                  Text(l10n.requiredSkills, style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -78,7 +80,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
                 // Description
-                Text('Description', style: Theme.of(context).textTheme.titleSmall),
+                Text(l10n.jobDescription, style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 Text(job.description, style: Theme.of(context).textTheme.bodyMedium),
               ],
@@ -93,7 +95,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
                   backgroundColor: alreadyApplied ? Colors.grey : const Color(0xFFF43F5E),
                   minimumSize: const Size.fromHeight(48),
                 ),
-                child: Text(alreadyApplied ? 'D\u00e9j\u00e0 postul\u00e9' : 'Postuler'),
+                child: Text(alreadyApplied ? l10n.alreadyApplied : l10n.applyAction),
               ),
             ),
           ),

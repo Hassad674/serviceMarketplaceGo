@@ -2803,6 +2803,186 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load more'**
   String get loadMore;
+
+  /// No description provided for @candidateDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Application'**
+  String get candidateDetail;
+
+  /// No description provided for @applicationMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Application message'**
+  String get applicationMessage;
+
+  /// No description provided for @applicationVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Presentation video'**
+  String get applicationVideo;
+
+  /// No description provided for @opportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'Opportunities'**
+  String get opportunities;
+
+  /// No description provided for @noOpportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'No opportunities at the moment'**
+  String get noOpportunities;
+
+  /// No description provided for @jobNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Job not found'**
+  String get jobNotFound;
+
+  /// No description provided for @budgetTypeOneShot.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time project'**
+  String get budgetTypeOneShot;
+
+  /// No description provided for @budgetTypeLongTerm.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-term collaboration'**
+  String get budgetTypeLongTerm;
+
+  /// No description provided for @myApplications.
+  ///
+  /// In en, this message translates to:
+  /// **'My applications'**
+  String get myApplications;
+
+  /// No description provided for @noApplications.
+  ///
+  /// In en, this message translates to:
+  /// **'You haven\'t applied to any job yet'**
+  String get noApplications;
+
+  /// No description provided for @withdrawApplicationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw application?'**
+  String get withdrawApplicationTitle;
+
+  /// No description provided for @withdrawAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw'**
+  String get withdrawAction;
+
+  /// No description provided for @applications.
+  ///
+  /// In en, this message translates to:
+  /// **'Applications'**
+  String get applications;
+
+  /// No description provided for @noApplicationsYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No applications yet'**
+  String get noApplicationsYet;
+
+  /// No description provided for @applyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get applyAction;
+
+  /// No description provided for @alreadyApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Already applied'**
+  String get alreadyApplied;
+
+  /// No description provided for @applyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get applyTitle;
+
+  /// No description provided for @applyMessageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Your message (optional)'**
+  String get applyMessageLabel;
+
+  /// No description provided for @applyMessageHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Why are you the right candidate?'**
+  String get applyMessageHint;
+
+  /// No description provided for @applyAddVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a video'**
+  String get applyAddVideo;
+
+  /// No description provided for @applyUploading.
+  ///
+  /// In en, this message translates to:
+  /// **'Uploading...'**
+  String get applyUploading;
+
+  /// No description provided for @applyRemoveVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove video'**
+  String get applyRemoveVideo;
+
+  /// No description provided for @applySubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Send my application'**
+  String get applySubmit;
+
+  /// No description provided for @applicationSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Application sent!'**
+  String get applicationSent;
+
+  /// No description provided for @applicationSendError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send application'**
+  String get applicationSendError;
+
+  /// No description provided for @videoUploadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Video upload failed. Please try again.'**
+  String get videoUploadFailed;
+
+  /// No description provided for @jobTotalApplicants.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} applicants'**
+  String jobTotalApplicants(int count);
+
+  /// No description provided for @jobNewApplicants.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new'**
+  String jobNewApplicants(int count);
+
+  /// No description provided for @candidateOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{current} of {total}'**
+  String candidateOf(int current, int total);
+
+  /// No description provided for @uploadProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String uploadProgress(int percent);
 }
 
 class _AppLocalizationsDelegate

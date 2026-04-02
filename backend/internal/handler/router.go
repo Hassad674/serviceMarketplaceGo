@@ -28,6 +28,7 @@ type RouterDeps struct {
 	Report         *ReportHandler
 	Wallet         *WalletHandler
 	IdentityDoc    *IdentityDocumentHandler
+	Admin          *AdminHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -285,6 +286,21 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// WebSocket (auth handled inside the handler)
 		if deps.WSHandler != nil {
 			r.Get("/ws", deps.WSHandler)
+		}
+
+		// Admin routes (authenticated + admin only)
+		if deps.Admin != nil {
+			r.Route("/admin", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.RequireAdmin())
+				r.Use(middleware.NoCache)
+				r.Get("/users", deps.Admin.ListUsers)
+				r.Get("/users/{id}", deps.Admin.GetUser)
+				r.Post("/users/{id}/suspend", deps.Admin.SuspendUser)
+				r.Post("/users/{id}/unsuspend", deps.Admin.UnsuspendUser)
+				r.Post("/users/{id}/ban", deps.Admin.BanUser)
+				r.Post("/users/{id}/unban", deps.Admin.UnbanUser)
+			})
 		}
 
 		// Test routes (debug — backend & DB connectivity)

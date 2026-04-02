@@ -1,8 +1,8 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8083"
 
 export async function adminApi<T>(
   path: string,
-  options: { method?: string; body?: unknown } = {},
+  options: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<T> {
   const token = localStorage.getItem("admin_token")
 
@@ -11,6 +11,7 @@ export async function adminApi<T>(
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
     },
     ...(options.body ? { body: JSON.stringify(options.body) } : {}),
   })

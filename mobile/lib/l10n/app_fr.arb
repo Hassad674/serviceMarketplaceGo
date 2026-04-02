@@ -489,5 +489,59 @@
   "reasonFakeProfile": "Profil faux ou trompeur",
   "reasonUnprofessionalBehavior": "Comportement non professionnel",
   "reasonOther": "Autre",
-  "loadMore": "Voir plus"
+  "loadMore": "Voir plus",
+
+  "candidateDetail": "Candidature",
+  "applicationMessage": "Message de candidature",
+  "applicationVideo": "Vidéo de présentation",
+
+  "opportunities": "Opportunités",
+  "noOpportunities": "Aucune opportunité pour le moment",
+  "jobNotFound": "Offre introuvable",
+  "budgetTypeOneShot": "Projet ponctuel",
+  "budgetTypeLongTerm": "Collaboration long terme",
+  "myApplications": "Mes candidatures",
+  "noApplications": "Vous n'avez postulé à aucune offre",
+  "withdrawApplicationTitle": "Retirer la candidature ?",
+  "withdrawAction": "Retirer",
+  "applications": "Candidatures",
+  "noApplicationsYet": "Aucune candidature pour le moment",
+  "applyAction": "Postuler",
+  "alreadyApplied": "Déjà postulé",
+  "applyTitle": "Postuler",
+  "applyMessageLabel": "Votre message (optionnel)",
+  "applyMessageHint": "Pourquoi êtes-vous le bon candidat ?",
+  "applyAddVideo": "Ajouter une vidéo",
+  "applyUploading": "Envoi en cours...",
+  "applyRemoveVideo": "Supprimer la vidéo",
+  "applySubmit": "Envoyer ma candidature",
+  "applicationSent": "Candidature envoyée !",
+  "applicationSendError": "Erreur lors de l'envoi",
+  "videoUploadFailed": "Échec de l'envoi de la vidéo. Veuillez réessayer.",
+
+  "jobTotalApplicants": "{count} candidats",
+  "@jobTotalApplicants": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "jobNewApplicants": "{count} nouveaux",
+  "@jobNewApplicants": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "candidateOf": "{current} sur {total}",
+  "@candidateOf": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "uploadProgress": "{percent}%",
+  "@uploadProgress": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  }
 }

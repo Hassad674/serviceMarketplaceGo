@@ -494,5 +494,59 @@
   "reasonFakeProfile": "Fake or misleading profile",
   "reasonUnprofessionalBehavior": "Unprofessional behavior",
   "reasonOther": "Other",
-  "loadMore": "Load more"
+  "loadMore": "Load more",
+
+  "candidateDetail": "Application",
+  "applicationMessage": "Application message",
+  "applicationVideo": "Presentation video",
+
+  "opportunities": "Opportunities",
+  "noOpportunities": "No opportunities at the moment",
+  "jobNotFound": "Job not found",
+  "budgetTypeOneShot": "One-time project",
+  "budgetTypeLongTerm": "Long-term collaboration",
+  "myApplications": "My applications",
+  "noApplications": "You haven't applied to any job yet",
+  "withdrawApplicationTitle": "Withdraw application?",
+  "withdrawAction": "Withdraw",
+  "applications": "Applications",
+  "noApplicationsYet": "No applications yet",
+  "applyAction": "Apply",
+  "alreadyApplied": "Already applied",
+  "applyTitle": "Apply",
+  "applyMessageLabel": "Your message (optional)",
+  "applyMessageHint": "Why are you the right candidate?",
+  "applyAddVideo": "Add a video",
+  "applyUploading": "Uploading...",
+  "applyRemoveVideo": "Remove video",
+  "applySubmit": "Send my application",
+  "applicationSent": "Application sent!",
+  "applicationSendError": "Failed to send application",
+  "videoUploadFailed": "Video upload failed. Please try again.",
+
+  "jobTotalApplicants": "{count} applicants",
+  "@jobTotalApplicants": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "jobNewApplicants": "{count} new",
+  "@jobNewApplicants": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "candidateOf": "{current} of {total}",
+  "@candidateOf": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "uploadProgress": "{percent}%",
+  "@uploadProgress": {
+    "placeholders": {
+      "percent": {"type": "int"}
+    }
+  }
 }

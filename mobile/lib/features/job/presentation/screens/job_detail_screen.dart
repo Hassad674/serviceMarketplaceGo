@@ -10,10 +10,7 @@ import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/candidate_card.dart';
 
-/// Detail screen for a job the current user owns.
-///
-/// Two tabs: offer details and candidates list.
-/// AppBar actions: edit, close/reopen, delete.
+/// Detail screen for a job the current user owns (two tabs: details + candidates).
 class JobDetailScreen extends ConsumerStatefulWidget {
   const JobDetailScreen({super.key, required this.jobId});
 
@@ -50,9 +47,10 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           );
         }
         if (snapshot.hasError || !snapshot.hasData) {
+          final l10n = AppLocalizations.of(context)!;
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: Text('Job not found')),
+            body: Center(child: Text(l10n.jobNotFound)),
           );
         }
         return _JobDetailBody(
@@ -65,11 +63,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main body with tabs
-// ---------------------------------------------------------------------------
-
-class _JobDetailBody extends ConsumerWidget {
+class _JobDetailBody extends ConsumerStatefulWidget {
   const _JobDetailBody({
     required this.job,
     required this.jobId,
@@ -81,51 +75,77 @@ class _JobDetailBody extends ConsumerWidget {
   final VoidCallback onRefresh;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_JobDetailBody> createState() => _JobDetailBodyState();
+}
+
+class _JobDetailBodyState extends ConsumerState<_JobDetailBody>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  bool _markedViewed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.index == 1 && !_markedViewed) {
+      _markedViewed = true;
+      markApplicationsViewedAction(ref, widget.jobId);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(
-            job.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.edit_outlined),
-              tooltip: l10n.jobEditJob,
-              onPressed: () => context.push(RoutePaths.jobEdit, extra: jobId),
-            ),
-            _JobPopupMenu(
-              job: job,
-              jobId: jobId,
-              onRefresh: onRefresh,
-            ),
-          ],
-          bottom: TabBar(
-            tabs: [
-              Tab(text: l10n.jobOfferDetails),
-              Tab(text: l10n.jobCandidates),
-            ],
-          ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.job.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        body: TabBarView(
-          children: [
-            _DetailsTab(job: job),
-            _CandidatesTab(jobId: jobId),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: l10n.jobEditJob,
+            onPressed: () =>
+                context.push(RoutePaths.jobEdit, extra: widget.jobId),
+          ),
+          _JobPopupMenu(
+            job: widget.job,
+            jobId: widget.jobId,
+            onRefresh: widget.onRefresh,
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: l10n.jobOfferDetails),
+            Tab(text: l10n.jobCandidates),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _DetailsTab(job: widget.job),
+          _CandidatesTab(jobId: widget.jobId),
+        ],
       ),
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Popup menu with close/reopen + delete
-// ---------------------------------------------------------------------------
 
 class _JobPopupMenu extends ConsumerWidget {
   const _JobPopupMenu({
@@ -260,10 +280,6 @@ class _JobPopupMenu extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Details tab
-// ---------------------------------------------------------------------------
-
 class _DetailsTab extends StatelessWidget {
   const _DetailsTab({required this.job});
 
@@ -345,10 +361,6 @@ class _DetailsTab extends StatelessWidget {
   bool get _hasVideo =>
       job.videoUrl != null && job.videoUrl!.isNotEmpty;
 }
-
-// ---------------------------------------------------------------------------
-// Job header card with status, date, applicant type
-// ---------------------------------------------------------------------------
 
 class _JobHeaderCard extends StatelessWidget {
   const _JobHeaderCard({required this.job});
@@ -459,10 +471,6 @@ class _JobHeaderCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Budget card
-// ---------------------------------------------------------------------------
-
 class _BudgetCard extends StatelessWidget {
   const _BudgetCard({required this.job});
 
@@ -472,9 +480,10 @@ class _BudgetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
     final budgetLabel = job.budgetType == 'one_shot'
-        ? 'Projet ponctuel'
-        : 'Collaboration long terme';
+        ? l10n.budgetTypeOneShot
+        : l10n.budgetTypeLongTerm;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -524,13 +533,8 @@ class _BudgetCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Candidates tab (reuses CandidateCard from candidates_screen)
-// ---------------------------------------------------------------------------
-
 class _CandidatesTab extends ConsumerWidget {
   const _CandidatesTab({required this.jobId});
-
   final String jobId;
 
   @override
@@ -543,36 +547,30 @@ class _CandidatesTab extends ConsumerWidget {
       onRefresh: () async => ref.invalidate(jobApplicationsProvider(jobId)),
       child: candidates.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('${l10n.unexpectedError}: $e')),
+        error: (e, _) => Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+            const SizedBox(height: 12),
+            Text(l10n.somethingWentWrong, style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => ref.invalidate(jobApplicationsProvider(jobId)),
+              child: Text(l10n.retry),
+            ),
+          ]),
+        ),
         data: (items) {
           if (items.isEmpty) {
-            return ListView(
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.25,
-                ),
-                Icon(
-                  Icons.people_outline,
-                  size: 48,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.jobNoCandidates,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.jobNoCandidatesDesc,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            );
+            return ListView(children: [
+              SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+              Icon(Icons.people_outline, size: 48, color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+              const SizedBox(height: 12),
+              Text(l10n.jobNoCandidates, textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(l10n.jobNoCandidatesDesc, textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              ),
+            ]);
           }
           return ListView.separated(
             padding: const EdgeInsets.all(16),
@@ -581,9 +579,8 @@ class _CandidatesTab extends ConsumerWidget {
             itemBuilder: (context, index) => CandidateCard(
               item: items[index],
               jobId: jobId,
-              onContact: (conversationId) {
-                context.push('/chat/$conversationId');
-              },
+              candidates: items,
+              candidateIndex: index,
             ),
           );
         },

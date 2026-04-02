@@ -1,9 +1,14 @@
 "use client"
 
-import { Users, Loader2 } from "lucide-react"
+import { useCallback, useMemo } from "react"
+import { Users } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useSearchParams } from "next/navigation"
+import { useRouter, usePathname } from "@i18n/navigation"
 import { useJobApplications } from "../hooks/use-job-applications"
 import { CandidateCard } from "./candidate-card"
+import { CandidateDetailPanel } from "./candidate-detail-panel"
+import type { ApplicationWithProfile } from "../types"
 
 interface CandidatesListProps {
   jobId: string
@@ -12,6 +17,33 @@ interface CandidatesListProps {
 export function CandidatesList({ jobId }: CandidatesListProps) {
   const t = useTranslations("opportunity")
   const { data, isLoading } = useJobApplications(jobId)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const selectedId = searchParams.get("candidate")
+  const candidates = useMemo(() => data?.data ?? [], [data?.data])
+
+  const selectedCandidate = useMemo<ApplicationWithProfile | null>(() => {
+    if (!selectedId || candidates.length === 0) return null
+    return candidates.find((c) => c.application.id === selectedId) ?? null
+  }, [selectedId, candidates])
+
+  const handleSelect = useCallback(
+    (applicationId: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("candidate", applicationId)
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [searchParams, router, pathname],
+  )
+
+  const handleClose = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("candidate")
+    const qs = params.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }, [searchParams, router, pathname])
 
   if (isLoading) {
     return (
@@ -33,13 +65,28 @@ export function CandidatesList({ jobId }: CandidatesListProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-slate-500 dark:text-slate-400">
-        {t("applicantCount", { count: data.data.length })}
-      </p>
-      {data.data.map((item) => (
-        <CandidateCard key={item.application.id} item={item} jobId={jobId} />
-      ))}
-    </div>
+    <>
+      <div className="space-y-3">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {t("applicantCount", { count: data.data.length })}
+        </p>
+        {data.data.map((item) => (
+          <CandidateCard
+            key={item.application.id}
+            item={item}
+            isSelected={item.application.id === selectedId}
+            onClick={() => handleSelect(item.application.id)}
+          />
+        ))}
+      </div>
+
+      <CandidateDetailPanel
+        candidate={selectedCandidate}
+        candidates={candidates}
+        onClose={handleClose}
+        onNavigate={handleSelect}
+        jobId={jobId}
+      />
+    </>
   )
 }

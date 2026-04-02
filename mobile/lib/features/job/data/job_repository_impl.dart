@@ -143,6 +143,11 @@ class JobRepositoryImpl implements JobRepository {
     return (data['has_applied'] as bool?) ?? false;
   }
 
+  @override
+  Future<void> markApplicationsViewed(String jobId) async {
+    await apiClient.post('/api/v1/jobs/$jobId/mark-viewed');
+  }
+
   Map<String, dynamic> _extractData(dynamic raw) {
     if (raw is Map<String, dynamic>) {
       if (raw.containsKey('data') && raw['data'] is Map<String, dynamic>) return raw['data'] as Map<String, dynamic>;

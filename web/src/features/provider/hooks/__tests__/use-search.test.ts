@@ -28,104 +28,128 @@ describe("useSearchProfiles", () => {
   })
 
   it("calls searchProfiles API with freelancer type", async () => {
-    mockSearchProfiles.mockResolvedValue([])
+    mockSearchProfiles.mockResolvedValue({
+      data: [],
+      next_cursor: "",
+      has_more: false,
+    })
 
     const { result } = renderHook(() => useSearchProfiles("freelancer"), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockSearchProfiles).toHaveBeenCalledWith("freelancer")
+    expect(mockSearchProfiles).toHaveBeenCalledWith("freelancer", undefined)
   })
 
   it("returns search results from API", async () => {
-    mockSearchProfiles.mockResolvedValue([
-      {
-        user_id: "user-1",
-        display_name: "Alice Dupont",
-        first_name: "Alice",
-        last_name: "Dupont",
-        role: "provider",
-        title: "Full-Stack Developer",
-        photo_url: "https://storage.example.com/photos/alice.jpg",
-        referrer_enabled: false,
-      },
-      {
-        user_id: "user-2",
-        display_name: "Bob Martin",
-        first_name: "Bob",
-        last_name: "Martin",
-        role: "provider",
-        title: "UX Designer",
-        photo_url: "",
-        referrer_enabled: true,
-      },
-    ])
+    mockSearchProfiles.mockResolvedValue({
+      data: [
+        {
+          user_id: "user-1",
+          display_name: "Alice Dupont",
+          first_name: "Alice",
+          last_name: "Dupont",
+          role: "provider",
+          title: "Full-Stack Developer",
+          photo_url: "https://storage.example.com/photos/alice.jpg",
+          referrer_enabled: false,
+        },
+        {
+          user_id: "user-2",
+          display_name: "Bob Martin",
+          first_name: "Bob",
+          last_name: "Martin",
+          role: "provider",
+          title: "UX Designer",
+          photo_url: "",
+          referrer_enabled: true,
+        },
+      ],
+      next_cursor: "",
+      has_more: false,
+    })
 
     const { result } = renderHook(() => useSearchProfiles("freelancer"), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toHaveLength(2)
-    expect(result.current.data?.[0].display_name).toBe("Alice Dupont")
-    expect(result.current.data?.[1].title).toBe("UX Designer")
+    const profiles = result.current.data?.pages.flatMap((p) => p.data) ?? []
+    expect(profiles).toHaveLength(2)
+    expect(profiles[0].display_name).toBe("Alice Dupont")
+    expect(profiles[1].title).toBe("UX Designer")
   })
 
   it("searches with agency type", async () => {
-    mockSearchProfiles.mockResolvedValue([
-      {
-        user_id: "agency-1",
-        display_name: "Tech Agency",
-        first_name: "",
-        last_name: "",
-        role: "agency",
-        title: "Digital Agency",
-        photo_url: "",
-        referrer_enabled: false,
-      },
-    ])
+    mockSearchProfiles.mockResolvedValue({
+      data: [
+        {
+          user_id: "agency-1",
+          display_name: "Tech Agency",
+          first_name: "",
+          last_name: "",
+          role: "agency",
+          title: "Digital Agency",
+          photo_url: "",
+          referrer_enabled: false,
+        },
+      ],
+      next_cursor: "",
+      has_more: false,
+    })
 
     const { result } = renderHook(() => useSearchProfiles("agency"), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockSearchProfiles).toHaveBeenCalledWith("agency")
-    expect(result.current.data?.[0].role).toBe("agency")
+    expect(mockSearchProfiles).toHaveBeenCalledWith("agency", undefined)
+    const profiles = result.current.data?.pages.flatMap((p) => p.data) ?? []
+    expect(profiles[0].role).toBe("agency")
   })
 
   it("searches with referrer type", async () => {
-    mockSearchProfiles.mockResolvedValue([
-      {
-        user_id: "ref-1",
-        display_name: "Claire Referrer",
-        first_name: "Claire",
-        last_name: "Referrer",
-        role: "provider",
-        title: "Business Consultant",
-        photo_url: "",
-        referrer_enabled: true,
-      },
-    ])
+    mockSearchProfiles.mockResolvedValue({
+      data: [
+        {
+          user_id: "ref-1",
+          display_name: "Claire Referrer",
+          first_name: "Claire",
+          last_name: "Referrer",
+          role: "provider",
+          title: "Business Consultant",
+          photo_url: "",
+          referrer_enabled: true,
+        },
+      ],
+      next_cursor: "",
+      has_more: false,
+    })
 
     const { result } = renderHook(() => useSearchProfiles("referrer"), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockSearchProfiles).toHaveBeenCalledWith("referrer")
-    expect(result.current.data?.[0].referrer_enabled).toBe(true)
+    expect(mockSearchProfiles).toHaveBeenCalledWith("referrer", undefined)
+    const profiles = result.current.data?.pages.flatMap((p) => p.data) ?? []
+    expect(profiles[0].referrer_enabled).toBe(true)
   })
 
   it("returns empty array when no profiles match", async () => {
-    mockSearchProfiles.mockResolvedValue([])
+    mockSearchProfiles.mockResolvedValue({
+      data: [],
+      next_cursor: "",
+      has_more: false,
+    })
 
     const { result } = renderHook(() => useSearchProfiles("agency"), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toHaveLength(0)
+    const profiles = result.current.data?.pages.flatMap((p) => p.data) ?? []
+    expect(profiles).toHaveLength(0)
   })
 })

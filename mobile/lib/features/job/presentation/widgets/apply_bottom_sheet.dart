@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/widgets/video_player_widget.dart';
 import '../providers/job_provider.dart';
 
 void showApplyBottomSheet(BuildContext context, WidgetRef ref, String jobId) {
@@ -29,11 +30,23 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
   final _messageController = TextEditingController();
   bool _isSubmitting = false;
   String? _videoUrl;
-  String? _videoName;
   bool _isUploading = false;
+  double _uploadProgress = 0;
+  int _messageLength = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageController.addListener(_onMessageChanged);
+  }
+
+  void _onMessageChanged() {
+    setState(() => _messageLength = _messageController.text.length);
+  }
 
   @override
   void dispose() {
+    _messageController.removeListener(_onMessageChanged);
     _messageController.dispose();
     super.dispose();
   }
@@ -43,24 +56,41 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
     final file = await picker.pickVideo(source: ImageSource.gallery);
     if (file == null) return;
 
-    setState(() { _isUploading = true; _videoName = file.name; });
+    setState(() {
+      _isUploading = true;
+      _uploadProgress = 0;
+    });
     try {
       final apiClient = ref.read(apiClientProvider);
       final formData = FormData.fromMap({
         'file': await MultipartFile.fromFile(file.path, filename: file.name),
       });
-      final response = await apiClient.upload('/api/v1/upload/video', data: formData);
+      final response = await apiClient.upload(
+        '/api/v1/upload/video',
+        data: formData,
+        onSendProgress: (sent, total) {
+          if (mounted && total > 0) {
+            setState(() => _uploadProgress = sent / total);
+          }
+        },
+      );
       final url = response.data?['url'] as String?;
       if (url != null) setState(() => _videoUrl = url);
     } catch (e) {
       debugPrint('[ApplyBottomSheet] video upload error: $e');
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.videoUploadFailed), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isUploading = false);
     }
   }
 
   void _removeVideo() {
-    setState(() { _videoUrl = null; _videoName = null; });
+    setState(() => _videoUrl = null);
   }
 
   Future<void> _submit() async {
@@ -76,19 +106,22 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
     if (!mounted) return;
     Navigator.pop(context);
 
+    final l10n = AppLocalizations.of(context)!;
     if (result != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Candidature envoy\u00e9e !'), backgroundColor: Color(0xFFF43F5E)),
+        SnackBar(content: Text(l10n.applicationSent), backgroundColor: const Color(0xFFF43F5E)),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de l\u2019envoi'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.applicationSendError), backgroundColor: Colors.red),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Padding(
       padding: EdgeInsets.only(
         left: 20, right: 20, top: 20,
@@ -102,7 +135,7 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
             child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
           ),
           const SizedBox(height: 16),
-          Text('Postuler', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(l10n.applyTitle, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
 
           // Message (optional)
@@ -110,11 +143,23 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
             controller: _messageController,
             maxLines: 5,
             maxLength: 5000,
-            decoration: const InputDecoration(
-              labelText: 'Votre message (optionnel)',
-              hintText: 'Pourquoi \u00eates-vous le bon candidat ?',
-              border: OutlineInputBorder(),
+            buildCounter: (context, {required currentLength, required isFocused, required maxLength}) => null,
+            decoration: InputDecoration(
+              labelText: l10n.applyMessageLabel,
+              hintText: l10n.applyMessageHint,
+              border: const OutlineInputBorder(),
               alignLabelWithHint: true,
+            ),
+          ),
+          // Character counter
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '$_messageLength/5000',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -124,30 +169,71 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
             OutlinedButton.icon(
               onPressed: _pickVideo,
               icon: const Icon(Icons.videocam_outlined),
-              label: const Text('Ajouter une vid\u00e9o'),
+              label: Text(l10n.applyAddVideo),
               style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
             ),
           if (_isUploading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 8), Text('Envoi en cours...')],
-              ),
-            ),
-          if (_videoUrl != null)
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
-              child: Row(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_videoName ?? 'Vid\u00e9o', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))),
-                  IconButton(icon: const Icon(Icons.close, size: 18), onPressed: _removeVideo, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(l10n.applyUploading),
+                      Text(
+                        l10n.uploadProgress(
+                          (_uploadProgress * 100).round(),
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: _uploadProgress,
+                      minHeight: 6,
+                      backgroundColor:
+                          const Color(0xFFF43F5E).withValues(alpha: 0.12),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFFF43F5E),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
+          if (_videoUrl != null) ...[
+            // Video player preview
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 200,
+                width: double.infinity,
+                child: VideoPlayerWidget(videoUrl: _videoUrl!),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Remove video button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _removeVideo,
+                icon: Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
+                label: Text(
+                  l10n.applyRemoveVideo,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.5)),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
 
           // Submit
@@ -158,7 +244,7 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF43F5E)),
               child: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Envoyer ma candidature'),
+                  : Text(l10n.applySubmit),
             ),
           ),
         ],

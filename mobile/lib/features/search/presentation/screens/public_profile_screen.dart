@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
@@ -203,33 +204,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     );
   }
 
-  Future<void> _onSendMessage() async {
-    setState(() => _isSendingMessage = true);
-
-    try {
-      final repo = ref.read(messagingRepositoryProvider);
-      final result = await repo.startConversation(
-        recipientId: widget.profileUserId,
-        content: '',
-      );
-      if (mounted) {
-        context.push('/chat/${result.conversationId}');
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              AppLocalizations.of(context)!.somethingWentWrong,
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSendingMessage = false);
-      }
-    }
+  void _onSendMessage() {
+    context.push(
+      '${RoutePaths.newChat}/${widget.profileUserId}',
+      extra: {'name': _resolveDisplayName()},
+    );
   }
 
   String _resolveDisplayName() {
