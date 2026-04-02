@@ -266,6 +266,44 @@ async function fillPersonalFields(page: Page, country: CountryTestData, person: 
   if (await sectorSelect.isVisible().catch(() => false)) {
     await sectorSelect.selectOption({ index: 1 })
   }
+
+  // Nationality select — pick the country itself
+  const natLabel = page.locator("label", { hasText: "Nationality" }).first()
+  if (await natLabel.isVisible().catch(() => false)) {
+    const natSelect = natLabel.locator("..").locator("select").first()
+    if (await natSelect.isVisible().catch(() => false)) {
+      await natSelect.scrollIntoViewIfNeeded()
+      await natSelect.selectOption(country.code)
+    }
+  }
+
+  // Catch-all: fill any remaining empty text/email/tel inputs with generic data
+  const allInputs = page.locator("section input[type='text'], section input[type='email'], section input[type='tel'], section input:not([type])")
+  const inputCount = await allInputs.count()
+  for (let i = 0; i < inputCount; i++) {
+    const input = allInputs.nth(i)
+    if (await input.isVisible().catch(() => false)) {
+      const val = await input.inputValue().catch(() => "")
+      if (val === "") {
+        await input.scrollIntoViewIfNeeded()
+        await input.fill("Test123")
+      }
+    }
+  }
+
+  // Catch-all: select first non-empty option on any unselected selects
+  const allSelects = page.locator("section select")
+  const selectCount = await allSelects.count()
+  for (let i = 0; i < selectCount; i++) {
+    const sel = allSelects.nth(i)
+    if (await sel.isVisible().catch(() => false)) {
+      const val = await sel.inputValue().catch(() => "")
+      if (val === "") {
+        await sel.scrollIntoViewIfNeeded()
+        await sel.selectOption({ index: 1 }).catch(() => {})
+      }
+    }
+  }
 }
 
 async function fillBankFields(page: Page, country: CountryTestData, accountHolder: string) {
@@ -340,6 +378,34 @@ async function fillBusinessFields(page: Page, country: CountryTestData) {
     if (await companyPhoneInput.isVisible().catch(() => false)) {
       await companyPhoneInput.scrollIntoViewIfNeeded()
       await companyPhoneInput.fill(country.phone)
+    }
+  }
+
+  // Catch-all for business sections: fill any empty inputs
+  const allBizInputs = page.locator("input[type='text'], input[type='email'], input[type='tel'], input:not([type])")
+  const bizInputCount = await allBizInputs.count()
+  for (let i = 0; i < bizInputCount; i++) {
+    const input = allBizInputs.nth(i)
+    if (await input.isVisible().catch(() => false)) {
+      const val = await input.inputValue().catch(() => "")
+      if (val === "") {
+        await input.scrollIntoViewIfNeeded()
+        await input.fill("Test123")
+      }
+    }
+  }
+
+  // Catch-all: select first option on any empty selects
+  const allBizSelects = page.locator("select")
+  const bizSelectCount = await allBizSelects.count()
+  for (let i = 0; i < bizSelectCount; i++) {
+    const sel = allBizSelects.nth(i)
+    if (await sel.isVisible().catch(() => false)) {
+      const val = await sel.inputValue().catch(() => "")
+      if (val === "") {
+        await sel.scrollIntoViewIfNeeded()
+        await sel.selectOption({ index: 1 }).catch(() => {})
+      }
     }
   }
 
