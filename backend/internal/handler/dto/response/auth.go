@@ -12,6 +12,7 @@ type UserResponse struct {
 	DisplayName     string `json:"display_name"`
 	Role            string `json:"role"`
 	ReferrerEnabled bool   `json:"referrer_enabled"`
+	IsAdmin         bool   `json:"is_admin"`
 	EmailVerified   bool   `json:"email_verified"`
 	CreatedAt       string `json:"created_at"`
 }
@@ -31,6 +32,7 @@ func NewUserResponse(u *user.User) UserResponse {
 		DisplayName:     u.DisplayName,
 		Role:            u.Role.String(),
 		ReferrerEnabled: u.ReferrerEnabled,
+		IsAdmin:         u.IsAdmin,
 		EmailVerified:   u.EmailVerified,
 		CreatedAt:       u.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}

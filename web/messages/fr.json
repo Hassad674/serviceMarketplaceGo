@@ -894,6 +894,11 @@
     "uploadVideo": "Ajouter une vidéo",
     "uploading": "Envoi en cours...",
     "loadMore": "Charger plus",
-    "error": "Une erreur est survenue"
+    "error": "Une erreur est survenue",
+    "candidateDetails": "Détails du candidat",
+    "applicationMessage": "Message de candidature",
+    "applicationVideo": "Vidéo de présentation",
+    "previousCandidate": "Précédent",
+    "nextCandidate": "Suivant"
   }
 }

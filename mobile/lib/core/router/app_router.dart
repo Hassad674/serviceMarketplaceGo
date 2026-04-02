@@ -15,12 +15,15 @@ import '../../features/messaging/data/messaging_ws_service.dart';
 import '../../features/messaging/presentation/providers/messaging_provider.dart';
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
+import '../../features/messaging/presentation/screens/new_chat_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/job/presentation/screens/create_job_screen.dart';
 import '../../features/job/presentation/screens/jobs_screen.dart';
 import '../../features/job/presentation/screens/opportunities_screen.dart';
 import '../../features/job/presentation/screens/opportunity_detail_screen.dart';
 import '../../features/job/presentation/screens/my_applications_screen.dart';
+import '../../features/job/domain/entities/job_application_entity.dart';
+import '../../features/job/presentation/screens/candidate_detail_screen.dart';
 import '../../features/job/presentation/screens/candidates_screen.dart';
 import '../../features/job/presentation/screens/job_detail_screen.dart';
 import '../../features/proposal/domain/entities/proposal_entity.dart';
@@ -73,6 +76,7 @@ class RoutePaths {
   static const String search = '/search';
   static const String publicProfile = '/profiles';
   static const String chat = '/chat';
+  static const String newChat = '/new-chat';
   static const String proposalDetail = '/projects/detail';
   static const String opportunities = '/opportunities';
   static const String opportunityDetail = '/opportunities/detail';
@@ -80,6 +84,7 @@ class RoutePaths {
   static const String jobCandidates = '/jobs/candidates';
   static const String jobDetail = '/jobs/detail';
   static const String jobEdit = '/jobs/edit';
+  static const String candidateDetail = '/candidates/detail';
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +189,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ChatScreen(
           conversationId: state.pathParameters['id'] ?? '',
         ),
+      ),
+
+      // --- New chat route (lazy conversation — no conversation until first message) ---
+      GoRoute(
+        path: '${RoutePaths.newChat}/:recipientId',
+        builder: (context, state) {
+          final extras = state.extra as Map<String, String>? ?? {};
+          return NewChatScreen(
+            recipientId: state.pathParameters['recipientId'] ?? '',
+            recipientName: extras['name'] ?? '',
+          );
+        },
+      ),
+
+      // --- Candidate detail (full-screen, no bottom nav) ---
+      GoRoute(
+        path: RoutePaths.candidateDetail,
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>;
+          return CandidateDetailScreen(
+            item: extras['item'] as ApplicationWithProfile,
+            jobId: extras['jobId'] as String,
+            candidates: extras['candidates'] as List<ApplicationWithProfile>?,
+            candidateIndex: extras['candidateIndex'] as int?,
+          );
+        },
       ),
 
       // --- Proposal creation / modification (full-screen, no bottom nav) ---

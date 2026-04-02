@@ -893,6 +893,12 @@
     "uploadVideo": "Add a video",
     "uploading": "Uploading...",
     "loadMore": "Load more",
-    "error": "An error occurred"
+    "error": "An error occurred",
+    "viewProfile": "View profile",
+    "candidateDetails": "Candidate details",
+    "applicationMessage": "Application message",
+    "applicationVideo": "Presentation video",
+    "previousCandidate": "Previous",
+    "nextCandidate": "Next"
   }
 }

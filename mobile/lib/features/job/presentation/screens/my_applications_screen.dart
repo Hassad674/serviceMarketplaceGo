@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 
+import '../../../../core/theme/app_theme.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/job_provider.dart';
 
 class MyApplicationsScreen extends ConsumerWidget {
@@ -9,22 +12,25 @@ class MyApplicationsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final applications = ref.watch(myApplicationsProvider);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mes candidatures')),
+      appBar: AppBar(title: Text(l10n.myApplications)),
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(myApplicationsProvider),
         child: applications.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => const _ApplicationSkeleton(),
           error: (e, _) => Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Erreur: $e'),
+                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
                 const SizedBox(height: 12),
-                FilledButton(
+                Text(l10n.somethingWentWrong, style: const TextStyle(color: Colors.grey)),
+                const SizedBox(height: 8),
+                TextButton(
                   onPressed: () => ref.invalidate(myApplicationsProvider),
-                  child: const Text('R\u00e9essayer'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),
@@ -36,10 +42,10 @@ class MyApplicationsScreen extends ConsumerWidget {
                   SizedBox(height: MediaQuery.of(context).size.height * 0.3),
                   const Icon(Icons.description_outlined, size: 48, color: Colors.grey),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Vous n\u2019avez postul\u00e9 \u00e0 aucune offre',
+                  Text(
+                    l10n.noApplications,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey),
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ],
               );
@@ -64,10 +70,10 @@ class MyApplicationsScreen extends ConsumerWidget {
                         final confirmed = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('Retirer la candidature ?'),
+                            title: Text(l10n.withdrawApplicationTitle),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
-                              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Retirer', style: TextStyle(color: Colors.red))),
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
+                              TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text(l10n.withdrawAction, style: const TextStyle(color: Colors.red))),
                             ],
                           ),
                         );
@@ -81,6 +87,66 @@ class MyApplicationsScreen extends ConsumerWidget {
               },
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton shimmer loader
+// ---------------------------------------------------------------------------
+
+class _ApplicationSkeleton extends StatelessWidget {
+  const _ApplicationSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade200,
+      highlightColor: Colors.grey.shade50,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 3,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, __) => Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 180,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                width: 140,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

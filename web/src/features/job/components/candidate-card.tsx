@@ -10,7 +10,8 @@ import type { ApplicationWithProfile } from "../types"
 
 interface CandidateCardProps {
   item: ApplicationWithProfile
-  jobId: string
+  isSelected?: boolean
+  onClick?: () => void
 }
 
 const ROLE_COLORS: Record<string, string> = {
@@ -18,7 +19,7 @@ const ROLE_COLORS: Record<string, string> = {
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
 }
 
-export function CandidateCard({ item, jobId }: CandidateCardProps) {
+export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps) {
   const t = useTranslations("opportunity")
   const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
@@ -27,67 +28,103 @@ export function CandidateCard({ item, jobId }: CandidateCardProps) {
   const initials = (profile.first_name?.[0] ?? "") + (profile.last_name?.[0] ?? "")
   const displayName = profile.display_name || `${profile.first_name} ${profile.last_name}`
 
-  function handleSendMessage() {
+  function handleSendMessage(e: React.MouseEvent) {
+    e.stopPropagation()
     if (isDesktop) {
-      // Desktop: open chat widget with this user (lazy conversation)
       openChatWithUser(application.applicant_id, displayName)
     } else {
-      // Mobile: navigate to messaging page with recipient param
       router.push(`/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`)
     }
   }
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
-      <div className="flex items-start gap-3">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick?.() }}
+      className={cn(
+        "rounded-2xl border bg-white p-4 shadow-sm transition-all duration-200 ease-out",
+        "dark:bg-slate-800/80",
+        "hover:shadow-md hover:-translate-y-0.5",
+        isSelected
+          ? "border-rose-200 ring-2 ring-rose-500/10 dark:border-rose-500/30 dark:ring-rose-500/10"
+          : "border-slate-100 hover:border-slate-200 dark:border-slate-700 dark:hover:border-slate-600",
+        onClick && "cursor-pointer",
+      )}
+    >
+      {/* Top row: avatar + info + action buttons */}
+      <div className="flex items-center gap-3">
         {/* Avatar */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-400">
-          {initials || "?"}
-        </div>
+        {profile.photo_url ? (
+          <img
+            src={profile.photo_url}
+            alt={displayName}
+            className="h-10 w-10 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-400">
+            {initials || "?"}
+          </div>
+        )}
 
+        {/* Name + role */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
               {displayName}
             </p>
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", ROLE_COLORS[profile.role] ?? "bg-slate-100 text-slate-600")}>
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0", ROLE_COLORS[profile.role] ?? "bg-slate-100 text-slate-600")}>
               {profile.role}
             </span>
+            {application.video_url && (
+              <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400 shrink-0">
+                <svg className="h-2.5 w-2.5" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                  <path d="M4.5 2.5v7l5-3.5-5-3.5z" />
+                </svg>
+                Video
+              </span>
+            )}
           </div>
           {profile.title && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{profile.title}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{profile.title}</p>
           )}
-          {application.message && (
-            <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-3">{application.message}</p>
-          )}
-          <p className="text-xs text-slate-400 mt-2">{new Date(application.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}</p>
         </div>
 
-        {/* Actions */}
-        <div className="shrink-0 flex flex-col gap-2">
+        {/* Action buttons — top right */}
+        <div className="shrink-0 flex items-center gap-1.5">
           <Link
             href={`/freelancers/${application.applicant_id}`}
+            onClick={(e) => e.stopPropagation()}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-              "border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700",
+              "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all",
+              "border border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700",
             )}
           >
-            <User className="h-3.5 w-3.5" />
+            <User className="h-3 w-3" />
             {t("viewProfile")}
           </Link>
           <button
             type="button"
             onClick={handleSendMessage}
             className={cn(
-              "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-              "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20",
+              "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all",
+              "bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20",
             )}
           >
-            <Send className="h-3.5 w-3.5" />
+            <Send className="h-3 w-3" />
             {t("sendMessage")}
           </button>
         </div>
       </div>
+
+      {/* Message preview + date */}
+      {application.message && (
+        <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mt-2.5 ml-[52px]">{application.message}</p>
+      )}
+      <p className="text-xs text-slate-400 mt-1.5 ml-[52px]">
+        {new Date(application.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+      </p>
     </div>
   )
 }

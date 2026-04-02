@@ -129,11 +129,15 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
             )}
 
             {videoUrl && (
-              <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 dark:border-green-500/30 dark:bg-green-500/10 p-3">
-                <Video className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
-                <span className="text-sm text-green-700 dark:text-green-300 truncate flex-1">{videoName}</span>
-                <button type="button" onClick={removeVideo} className="shrink-0 text-slate-400 hover:text-red-500">
-                  <Trash2 className="h-4 w-4" />
+              <div className="space-y-2">
+                <div className="aspect-video max-h-[200px] overflow-hidden rounded-lg bg-black">
+                  <video src={videoUrl} controls className="h-full w-full object-contain">
+                    <track kind="captions" />
+                  </video>
+                </div>
+                <button type="button" onClick={removeVideo} className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600">
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {videoName}
                 </button>
               </div>
             )}

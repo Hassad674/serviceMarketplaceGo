@@ -54,6 +54,17 @@ export function ChatWidgetPanel({
     (c: Conversation) => c.id === activeConversationId,
   )
 
+  // If pendingRecipient matches an existing conversation, open it directly
+  useEffect(() => {
+    if (!pendingRecipient || activeConversationId) return
+    const existing = conversations.find(
+      (c: Conversation) => c.other_user_id === pendingRecipient.userId,
+    )
+    if (existing) {
+      onPendingConversationResolved(existing.id)
+    }
+  }, [pendingRecipient, conversations, activeConversationId, onPendingConversationResolved])
+
   // Keep the WS hook aware of active conversation
   useEffect(() => {
     setActiveConversationId(activeConversationId)

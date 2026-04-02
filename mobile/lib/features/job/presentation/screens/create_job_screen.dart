@@ -55,6 +55,7 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
 
   // Video upload state
   bool _isUploadingVideo = false;
+  double _uploadProgress = 0;
   String? _videoName;
 
   bool get _isEditMode => widget.jobId != null;
@@ -150,6 +151,7 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
 
     setState(() {
       _isUploadingVideo = true;
+      _uploadProgress = 0;
       _videoName = file.name;
     });
 
@@ -161,6 +163,11 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
       final response = await apiClient.upload(
         '/api/v1/upload/video',
         data: formData,
+        onSendProgress: (sent, total) {
+          if (mounted && total > 0) {
+            setState(() => _uploadProgress = sent / total);
+          }
+        },
       );
       final url = response.data?['url'] as String?;
       if (url != null) {
@@ -168,6 +175,12 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
       }
     } catch (e) {
       debugPrint('[CreateJobScreen] video upload error: $e');
+      if (mounted) {
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.videoUploadFailed), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isUploadingVideo = false);
     }
@@ -323,9 +336,11 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
               _DescriptionTypeSection(
                 descriptionType: _formData.descriptionType,
                 onDescriptionTypeChanged: _onDescriptionTypeChanged,
+                descriptionController: _descriptionController,
                 videoUrl: _formData.videoUrl,
                 videoName: _videoName,
                 isUploading: _isUploadingVideo,
+                uploadProgress: _uploadProgress,
                 onPickVideo: _pickVideo,
                 onRemoveVideo: _removeVideo,
               ),
@@ -391,23 +406,31 @@ class _DescriptionTypeSection extends StatelessWidget {
   const _DescriptionTypeSection({
     required this.descriptionType,
     required this.onDescriptionTypeChanged,
+    required this.descriptionController,
     required this.videoUrl,
     required this.videoName,
     required this.isUploading,
+    required this.uploadProgress,
     required this.onPickVideo,
     required this.onRemoveVideo,
   });
 
   final DescriptionType descriptionType;
   final ValueChanged<DescriptionType> onDescriptionTypeChanged;
+  final TextEditingController descriptionController;
   final String videoUrl;
   final String? videoName;
   final bool isUploading;
+  final double uploadProgress;
   final VoidCallback onPickVideo;
   final VoidCallback onRemoveVideo;
 
   bool get _showVideoUpload =>
       descriptionType == DescriptionType.video ||
+      descriptionType == DescriptionType.both;
+
+  bool get _showTextDescription =>
+      descriptionType == DescriptionType.text ||
       descriptionType == DescriptionType.both;
 
   @override
@@ -476,6 +499,20 @@ class _DescriptionTypeSection extends StatelessWidget {
             ),
           ),
 
+          // Text description field
+          if (_showTextDescription) ...[
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: descriptionController,
+              decoration: InputDecoration(
+                labelText: l10n.jobDescription,
+                alignLabelWithHint: true,
+              ),
+              maxLines: 5,
+              textInputAction: TextInputAction.newline,
+            ),
+          ],
+
           // Video upload area
           if (_showVideoUpload) ...[
             const SizedBox(height: 16),
@@ -491,16 +528,33 @@ class _DescriptionTypeSection extends StatelessWidget {
             if (isUploading)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Column(
                   children: [
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(l10n.jobVideoUploading),
+                        Text(
+                          l10n.uploadProgress(
+                            (uploadProgress * 100).round(),
+                          ),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(l10n.jobVideoUploading),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: uploadProgress,
+                        minHeight: 6,
+                        backgroundColor: primary.withValues(alpha: 0.12),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(primary),
+                      ),
+                    ),
                   ],
                 ),
               ),

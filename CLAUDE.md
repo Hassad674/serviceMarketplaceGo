@@ -566,6 +566,25 @@ cd admin && npm run dev
 
 ---
 
+## Parallel work process (agents)
+
+### Flow
+1. **Main is protected** — never code directly on main. Main must always compile.
+2. **Each task = one agent in a worktree** with its own branch (`feat/xxx`, `fix/xxx`).
+3. **Agents work in isolation** — each worktree is a separate copy of the repo. Agents cannot interfere with each other.
+4. **When an agent finishes**: verify compilation (`go build ./...` + `npx tsc --noEmit`), then merge into main and push.
+5. **Multiple agents in parallel** — assign different files/features to each. If two agents would touch the same file, run them sequentially.
+6. **Revert**: each task is a separate commit on main. If a commit breaks something → `git revert <commit>` without affecting other work.
+7. **Golden rule**: never merge work that doesn't compile. Verify before every merge.
+
+### Naming conventions
+- Feature branches: `feat/<feature-name>`
+- Bug fix branches: `fix/<description>`
+- Work in progress (incomplete): `wip/<feature-name>`
+- Branches are pushed to GitHub as backup. Worktrees are temporary — commits are permanent.
+
+---
+
 ## Autonomous work process
 
 ### Test tools

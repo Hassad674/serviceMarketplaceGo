@@ -18,14 +18,15 @@ import (
 	s3adapter "marketplace-backend/internal/adapter/s3"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	"marketplace-backend/internal/adapter/ws"
+	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	jobapp "marketplace-backend/internal/app/job"
 	"marketplace-backend/internal/app/messaging"
+	notifapp "marketplace-backend/internal/app/notification"
 	paymentapp "marketplace-backend/internal/app/payment"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
-	notifapp "marketplace-backend/internal/app/notification"
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
@@ -288,6 +289,10 @@ func main() {
 	})
 	reportHandler := handler.NewReportHandler(reportSvc)
 
+	// Admin feature
+	adminSvc := adminapp.NewService(userRepo)
+	adminHandler := handler.NewAdminHandler(adminSvc)
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
@@ -337,6 +342,7 @@ func main() {
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
 		IdentityDoc:    identityDocHandler,
+		Admin:          adminHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

@@ -59,6 +59,24 @@ function createProfile(
   }
 }
 
+function mockInfiniteResult(
+  profiles: PublicProfileSummary[],
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    data: {
+      pages: [{ data: profiles, next_cursor: "", has_more: false }],
+      pageParams: [undefined],
+    },
+    isLoading: false,
+    error: null,
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    ...overrides,
+  }
+}
+
 function renderSearchPage(type: "freelancer" | "agency" | "referrer") {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -69,11 +87,12 @@ function renderSearchPage(type: "freelancer" | "agency" | "referrer") {
 
 describe("SearchPage", () => {
   it("shows loading skeleton when data is loading", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(
+      mockInfiniteResult([], {
+        data: undefined,
+        isLoading: true,
+      }),
+    )
 
     renderSearchPage("freelancer")
 
@@ -83,11 +102,7 @@ describe("SearchPage", () => {
   })
 
   it("shows empty state when no results", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
 
     renderSearchPage("freelancer")
 
@@ -113,11 +128,7 @@ describe("SearchPage", () => {
       }),
     ]
 
-    mockUseSearchProfiles.mockReturnValue({
-      data: profiles,
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult(profiles))
 
     renderSearchPage("freelancer")
 
@@ -128,11 +139,7 @@ describe("SearchPage", () => {
   })
 
   it("displays correct title for freelancer type", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
 
     renderSearchPage("freelancer")
 
@@ -142,11 +149,7 @@ describe("SearchPage", () => {
   })
 
   it("displays correct title for agency type", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
 
     renderSearchPage("agency")
 
@@ -156,11 +159,7 @@ describe("SearchPage", () => {
   })
 
   it("displays correct title for referrer type", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
 
     renderSearchPage("referrer")
 
@@ -170,11 +169,12 @@ describe("SearchPage", () => {
   })
 
   it("shows error message when loading fails", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      error: new Error("Network error"),
-    })
+    mockUseSearchProfiles.mockReturnValue(
+      mockInfiniteResult([], {
+        data: undefined,
+        error: new Error("Network error"),
+      }),
+    )
 
     renderSearchPage("freelancer")
 
@@ -184,11 +184,7 @@ describe("SearchPage", () => {
   })
 
   it("passes correct type to useSearchProfiles hook", () => {
-    mockUseSearchProfiles.mockReturnValue({
-      data: [],
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
 
     renderSearchPage("agency")
 
@@ -202,15 +198,27 @@ describe("SearchPage", () => {
       createProfile({ user_id: "3", first_name: "C", last_name: "Three" }),
     ]
 
-    mockUseSearchProfiles.mockReturnValue({
-      data: profiles,
-      isLoading: false,
-      error: null,
-    })
+    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult(profiles))
 
     renderSearchPage("freelancer")
 
     const links = screen.getAllByRole("link")
     expect(links).toHaveLength(3)
+  })
+
+  it("shows load more button when hasNextPage is true", () => {
+    const profiles = [
+      createProfile({ user_id: "1", first_name: "A", last_name: "One" }),
+    ]
+
+    mockUseSearchProfiles.mockReturnValue(
+      mockInfiniteResult(profiles, { hasNextPage: true }),
+    )
+
+    renderSearchPage("freelancer")
+
+    expect(
+      screen.getByRole("button", { name: messages.search.loadMore }),
+    ).toBeInTheDocument()
   })
 })

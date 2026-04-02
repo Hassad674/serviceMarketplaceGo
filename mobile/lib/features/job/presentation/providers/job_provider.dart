@@ -150,6 +150,17 @@ Future<bool> withdrawApplicationAction(WidgetRef ref, String applicationId) asyn
   }
 }
 
+/// Mark all applications for a job as viewed (resets new applicant count).
+Future<void> markApplicationsViewedAction(WidgetRef ref, String jobId) async {
+  try {
+    final repo = ref.read(jobRepositoryProvider);
+    await repo.markApplicationsViewed(jobId);
+    ref.invalidate(myJobsProvider);
+  } catch (e) {
+    debugPrint('[JobProvider] markApplicationsViewed error: $e');
+  }
+}
+
 /// Contact an applicant (creates conversation). Returns conversation ID or null.
 Future<String?> contactApplicantAction(WidgetRef ref, String jobId, String applicantId) async {
   try {

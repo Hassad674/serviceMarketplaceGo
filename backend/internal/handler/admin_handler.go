@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -55,8 +57,7 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 // GetUser handles GET /api/v1/admin/users/{id}.
 func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := uuid.Parse(idStr)
+	id, err := parseAdminUserID(r)
 	if err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
 		return
@@ -71,6 +72,109 @@ func (h *AdminHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, map[string]any{
 		"data": response.NewAdminUserResponse(u),
 	})
+}
+
+// SuspendUser handles POST /api/v1/admin/users/{id}/suspend.
+func (h *AdminHandler) SuspendUser(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	var body struct {
+		Reason    string  `json:"reason"`
+		ExpiresAt *string `json:"expires_at"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
+		return
+	}
+	if body.Reason == "" {
+		res.Error(w, http.StatusBadRequest, "validation_error", "reason is required")
+		return
+	}
+
+	var expiresAt *time.Time
+	if body.ExpiresAt != nil {
+		t, err := time.Parse(time.RFC3339, *body.ExpiresAt)
+		if err != nil {
+			res.Error(w, http.StatusBadRequest, "validation_error", "expires_at must be RFC3339 format")
+			return
+		}
+		expiresAt = &t
+	}
+
+	if err := h.svc.SuspendUser(r.Context(), id, body.Reason, expiresAt); err != nil {
+		handleAdminError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"message": "user suspended"})
+}
+
+// UnsuspendUser handles POST /api/v1/admin/users/{id}/unsuspend.
+func (h *AdminHandler) UnsuspendUser(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	if err := h.svc.UnsuspendUser(r.Context(), id); err != nil {
+		handleAdminError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"message": "user unsuspended"})
+}
+
+// BanUser handles POST /api/v1/admin/users/{id}/ban.
+func (h *AdminHandler) BanUser(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
+		return
+	}
+	if body.Reason == "" {
+		res.Error(w, http.StatusBadRequest, "validation_error", "reason is required")
+		return
+	}
+
+	if err := h.svc.BanUser(r.Context(), id, body.Reason); err != nil {
+		handleAdminError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"message": "user banned"})
+}
+
+// UnbanUser handles POST /api/v1/admin/users/{id}/unban.
+func (h *AdminHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	if err := h.svc.UnbanUser(r.Context(), id); err != nil {
+		handleAdminError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"message": "user unbanned"})
+}
+
+func parseAdminUserID(r *http.Request) (uuid.UUID, error) {
+	return uuid.Parse(chi.URLParam(r, "id"))
 }
 
 func handleAdminError(w http.ResponseWriter, err error) {

@@ -18,6 +18,8 @@ class JobEntity {
     this.isIndefinite = false,
     this.descriptionType = 'text',
     this.videoUrl,
+    this.totalApplicants = 0,
+    this.newApplicants = 0,
   });
 
   final String id;
@@ -38,6 +40,8 @@ class JobEntity {
   final bool isIndefinite;
   final String descriptionType;
   final String? videoUrl;
+  final int totalApplicants;
+  final int newApplicants;
 
   bool get isOpen => status == 'open';
 
@@ -61,6 +65,8 @@ class JobEntity {
       isIndefinite: (json['is_indefinite'] as bool?) ?? false,
       descriptionType: (json['description_type'] as String?) ?? 'text',
       videoUrl: json['video_url'] as String?,
+      totalApplicants: (json['total_applicants'] as int?) ?? 0,
+      newApplicants: (json['new_applicants'] as int?) ?? 0,
     );
   }
 }

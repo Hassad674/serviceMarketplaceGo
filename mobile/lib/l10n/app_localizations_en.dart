@@ -1389,4 +1389,102 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get loadMore => 'Load more';
+
+  @override
+  String get candidateDetail => 'Application';
+
+  @override
+  String get applicationMessage => 'Application message';
+
+  @override
+  String get applicationVideo => 'Presentation video';
+
+  @override
+  String get opportunities => 'Opportunities';
+
+  @override
+  String get noOpportunities => 'No opportunities at the moment';
+
+  @override
+  String get jobNotFound => 'Job not found';
+
+  @override
+  String get budgetTypeOneShot => 'One-time project';
+
+  @override
+  String get budgetTypeLongTerm => 'Long-term collaboration';
+
+  @override
+  String get myApplications => 'My applications';
+
+  @override
+  String get noApplications => 'You haven\'t applied to any job yet';
+
+  @override
+  String get withdrawApplicationTitle => 'Withdraw application?';
+
+  @override
+  String get withdrawAction => 'Withdraw';
+
+  @override
+  String get applications => 'Applications';
+
+  @override
+  String get noApplicationsYet => 'No applications yet';
+
+  @override
+  String get applyAction => 'Apply';
+
+  @override
+  String get alreadyApplied => 'Already applied';
+
+  @override
+  String get applyTitle => 'Apply';
+
+  @override
+  String get applyMessageLabel => 'Your message (optional)';
+
+  @override
+  String get applyMessageHint => 'Why are you the right candidate?';
+
+  @override
+  String get applyAddVideo => 'Add a video';
+
+  @override
+  String get applyUploading => 'Uploading...';
+
+  @override
+  String get applyRemoveVideo => 'Remove video';
+
+  @override
+  String get applySubmit => 'Send my application';
+
+  @override
+  String get applicationSent => 'Application sent!';
+
+  @override
+  String get applicationSendError => 'Failed to send application';
+
+  @override
+  String get videoUploadFailed => 'Video upload failed. Please try again.';
+
+  @override
+  String jobTotalApplicants(int count) {
+    return '$count applicants';
+  }
+
+  @override
+  String jobNewApplicants(int count) {
+    return '$count new';
+  }
+
+  @override
+  String candidateOf(int current, int total) {
+    return '$current of $total';
+  }
+
+  @override
+  String uploadProgress(int percent) {
+    return '$percent%';
+  }
 }

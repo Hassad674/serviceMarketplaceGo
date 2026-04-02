@@ -48,4 +48,5 @@ abstract class JobRepository {
   Future<List<ApplicationWithJob>> listMyApplications({String? cursor});
   Future<String> contactApplicant(String jobId, String applicantId);
   Future<bool> hasApplied(String jobId);
+  Future<void> markApplicationsViewed(String jobId);
 }

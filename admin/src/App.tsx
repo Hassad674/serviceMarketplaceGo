@@ -5,6 +5,7 @@ import AdminLayout from "@/components/layouts/admin-layout.tsx"
 import LoginPage from "@/pages/Login.tsx"
 import DashboardPage from "@/pages/Dashboard.tsx"
 import UsersPage from "@/pages/Users.tsx"
+import UserDetailPage from "@/pages/UserDetail.tsx"
 import ProvidersPage from "@/pages/Providers.tsx"
 import EnterprisesPage from "@/pages/Enterprises.tsx"
 import MissionsPage from "@/pages/Missions.tsx"
@@ -30,6 +31,7 @@ export default function App() {
             <Route element={<AdminLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/providers" element={<ProvidersPage />} />
               <Route path="/enterprises" element={<EnterprisesPage />} />
               <Route path="/missions" element={<MissionsPage />} />
