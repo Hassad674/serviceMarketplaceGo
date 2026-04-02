@@ -370,6 +370,7 @@
   "paymentInfoTitle": "Informations de paiement",
   "paymentInfoSubtitle": "Compl\u00e9tez vos informations pour recevoir les paiements de vos missions.",
   "paymentInfoIsBusiness": "J'exerce en tant qu'entreprise enregistr\u00e9e",
+  "paymentInfoIsBusinessDesc": "Activez si votre activit\u00e9 est exerc\u00e9e par une soci\u00e9t\u00e9 enregistr\u00e9e. Laissez d\u00e9sactiv\u00e9 si vous poss\u00e9dez un statut juridique en nom propre (freelance, ind\u00e9pendant).",
   "paymentInfoPersonalInfo": "Informations personnelles",
   "paymentInfoLegalRep": "Repr\u00e9sentant l\u00e9gal",
   "paymentInfoBusinessInfo": "Informations de l'entreprise",

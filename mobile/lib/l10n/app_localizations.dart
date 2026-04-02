@@ -2120,6 +2120,12 @@ abstract class AppLocalizations {
   /// **'I operate as a registered business'**
   String get paymentInfoIsBusiness;
 
+  /// No description provided for @paymentInfoIsBusinessDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable if your activity is operated through a registered company. Leave disabled if you operate under a sole proprietorship (freelance, independent).'**
+  String get paymentInfoIsBusinessDesc;
+
   /// No description provided for @paymentInfoPersonalInfo.
   ///
   /// In en, this message translates to:

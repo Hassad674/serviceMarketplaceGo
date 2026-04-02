@@ -159,19 +159,33 @@ class PaymentBusinessToggle extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Switch.adaptive(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: const Color(0xFFF43F5E),
+        Row(
+          children: [
+            Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeTrackColor: const Color(0xFFF43F5E),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l10n.paymentInfoIsBusiness,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
+        Padding(
+          padding: const EdgeInsets.only(left: 8, top: 4),
           child: Text(
-            l10n.paymentInfoIsBusiness,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w500,
+            l10n.paymentInfoIsBusinessDesc,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ),

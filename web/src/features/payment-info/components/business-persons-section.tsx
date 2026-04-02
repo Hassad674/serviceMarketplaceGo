@@ -53,26 +53,7 @@ export function BusinessPersonsSection({ data, onChange, requiredRoles }: Props)
           </div>
         </div>
 
-        {/* 1. Représentant légal */}
-        <CheckboxBlock
-          checked={data.isSelfRepresentative}
-          onChange={(v) => onChange("isSelfRepresentative", v)}
-          label={t("iAmRepresentative")}
-        />
-
-        {!data.isSelfRepresentative && (
-          <PersonList
-            persons={data.businessPersons.filter((p) => p.role === "representative")}
-            role="representative"
-            label={t("representative")}
-            allPersons={data.businessPersons}
-            onAdd={() => addPerson("representative")}
-            onRemove={removePerson}
-            onUpdate={updatePerson}
-          />
-        )}
-
-        {/* 2. Dirigeants */}
+        {/* Dirigeants */}
         {showRole("director") && (
           <>
             <CheckboxBlock
