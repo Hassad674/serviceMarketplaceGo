@@ -140,6 +140,7 @@ export function PaymentInfoPage() {
           values={data.values}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
+          countryCode={data.country}
         />
       ))}
 
@@ -155,6 +156,7 @@ export function PaymentInfoPage() {
           values={data.values}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
+          countryCode={data.country}
         />
       )}
 
@@ -166,6 +168,7 @@ export function PaymentInfoPage() {
           values={data.values}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
+          countryCode={data.country}
         />
       ))}
 

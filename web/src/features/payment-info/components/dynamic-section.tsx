@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Upload, CheckCircle2, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { CountrySelect } from "./country-select"
 import { UploadModal } from "@/shared/components/upload-modal"
 import { useUploadIdentityDocument } from "../hooks/use-identity-documents"
+import { isStateField, getStatesForCountry, hasStates } from "../lib/country-states"
+import type { StateOption } from "../lib/country-states"
 import type { FieldSection, FieldSpec } from "../api/payment-info-api"
 
 interface DynamicSectionProps {
@@ -14,9 +16,10 @@ interface DynamicSectionProps {
   values: Record<string, string>
   onChange: (key: string, value: string) => void
   fieldErrors?: Record<string, string>
+  countryCode?: string
 }
 
-export function DynamicSection({ section, values, onChange, fieldErrors }: DynamicSectionProps) {
+export function DynamicSection({ section, values, onChange, fieldErrors, countryCode }: DynamicSectionProps) {
   const t = useTranslations("paymentInfo")
 
   return (
@@ -32,6 +35,7 @@ export function DynamicSection({ section, values, onChange, fieldErrors }: Dynam
             value={values[field.key] ?? ""}
             onChange={(v) => onChange(field.key, v)}
             error={fieldErrors?.[field.key]}
+            countryCode={countryCode}
           />
         ))}
       </div>
@@ -44,9 +48,10 @@ interface DynamicFieldProps {
   value: string
   onChange: (value: string) => void
   error?: string
+  countryCode?: string
 }
 
-function DynamicField({ field, value, onChange, error }: DynamicFieldProps) {
+function DynamicField({ field, value, onChange, error, countryCode }: DynamicFieldProps) {
   const t = useTranslations("paymentInfo")
 
   if (field.type === "document_upload") {
@@ -54,6 +59,20 @@ function DynamicField({ field, value, onChange, error }: DynamicFieldProps) {
   }
 
   const label = safeTranslate(t, field.label_key)
+
+  // Render state/province fields as a dropdown when the country has known states
+  if (isStateField(field.label_key, field.path) && countryCode && hasStates(countryCode)) {
+    return (
+      <StateSelectField
+        field={field}
+        value={value}
+        onChange={onChange}
+        label={label}
+        error={error}
+        countryCode={countryCode}
+      />
+    )
+  }
 
   if (field.type === "select") {
     return <SelectField field={field} value={value} onChange={onChange} label={label} error={error} />
@@ -188,6 +207,62 @@ function DocumentUploadField({ field, value, onChange, error }: DynamicFieldProp
         title={label}
         description={t("documentUploadFormats")}
       />
+    </div>
+  )
+}
+
+function StateSelectField({ field, value, onChange, label, error, countryCode }: DynamicFieldProps & { label: string; countryCode: string }) {
+  const [states, setStates] = useState<StateOption[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getStatesForCountry(countryCode).then((result) => {
+      if (!cancelled) {
+        setStates(result)
+        setLoading(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [countryCode])
+
+  const hasError = !!error
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+        {label}
+        {field.required && <span className="ml-0.5 text-red-500">*</span>}
+      </label>
+      {loading ? (
+        <div className="flex h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 dark:border-gray-700 dark:bg-gray-800">
+          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+          <span className="ml-2 text-sm text-gray-400">Loading...</span>
+        </div>
+      ) : (
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={hasError}
+          className={cn(
+            "h-10 w-full rounded-lg border bg-white px-3 text-sm shadow-xs transition-all duration-200",
+            "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
+            "dark:border-gray-600 dark:bg-gray-800 dark:text-white",
+            hasError
+              ? "border-red-500 ring-4 ring-red-500/10 dark:border-red-500"
+              : "border-gray-200 dark:border-gray-700",
+          )}
+        >
+          <option value="">--</option>
+          {states.map((s) => (
+            <option key={s.code} value={s.code}>{s.name}</option>
+          ))}
+        </select>
+      )}
+      {hasError && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>
+      )}
     </div>
   )
 }
