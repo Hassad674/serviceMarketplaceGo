@@ -4,10 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../domain/entities/payment_info_entity.dart';
+import '../../domain/entities/country_field_spec.dart';
+import 'package:marketplace_mobile/features/payment_info/lib/form_data_mapper.dart';
 import '../../types/payment_info.dart';
+import '../providers/country_fields_provider.dart';
 import '../providers/payment_info_provider.dart';
 import '../widgets/business_persons_section.dart';
+import '../widgets/country_selector_section.dart';
+import '../widgets/dynamic_section.dart';
+import '../widgets/extra_fields_section.dart';
 import '../widgets/identity_verification_section.dart';
 import '../widgets/payment_info_widgets.dart';
 import '../widgets/stripe_requirements_banner.dart';
@@ -19,7 +24,7 @@ import '../widgets/stripe_requirements_banner.dart';
 /// Payment information form connected to the backend API.
 ///
 /// Accessible to agency and provider roles. Loads existing data on mount,
-/// displays personal info, optional business info, and bank account fields.
+/// renders dynamic sections based on the selected country.
 class PaymentInfoScreen extends ConsumerStatefulWidget {
   const PaymentInfoScreen({super.key});
 
@@ -34,109 +39,45 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   bool _populated = false;
   String? _stripeError;
 
-  void _update(PaymentInfoFormData Function(PaymentInfoFormData) updater) {
+  void _onValueChanged(String key, String value) {
     setState(() {
-      _data = updater(_data);
+      _data = _data.copyWith(
+        values: {..._data.values, key: value},
+      );
       _saved = false;
     });
   }
 
-  bool get _isValid {
-    final personalOk = _data.firstName.trim().isNotEmpty &&
-        _data.lastName.trim().isNotEmpty &&
-        _data.dateOfBirth.isNotEmpty &&
-        _data.nationality.isNotEmpty &&
-        _data.address.trim().isNotEmpty &&
-        _data.city.trim().isNotEmpty &&
-        _data.postalCode.trim().isNotEmpty;
-    if (!personalOk) return false;
-
-    if (_data.isBusiness) {
-      final bizOk = _data.businessRole != null &&
-          _data.businessName.trim().isNotEmpty &&
-          _data.businessAddress.trim().isNotEmpty &&
-          _data.businessCity.trim().isNotEmpty &&
-          _data.businessPostalCode.trim().isNotEmpty &&
-          _data.businessCountry.isNotEmpty &&
-          _data.taxId.trim().isNotEmpty;
-      if (!bizOk) return false;
-    }
-
-    final bankOk = _data.accountHolder.trim().isNotEmpty &&
-        _data.bankCountry.isNotEmpty &&
-        (_data.bankMode == BankAccountMode.iban
-            ? _data.iban.trim().isNotEmpty
-            : _data.accountNumber.trim().isNotEmpty &&
-                _data.routingNumber.trim().isNotEmpty);
-    return bankOk;
+  void _onCountryChanged(String country) {
+    setState(() {
+      _data = _data.copyWith(country: country, values: {}, extraFields: {});
+      _saved = false;
+    });
   }
 
-  void _populateFromEntity(PaymentInfo info) {
-    final hasIban = info.iban.isNotEmpty;
-    _data = PaymentInfoFormData(
-      isBusiness: info.isBusiness,
-      firstName: info.firstName,
-      lastName: info.lastName,
-      dateOfBirth: info.dateOfBirth,
-      nationality: info.nationality,
-      address: info.address,
-      city: info.city,
-      postalCode: info.postalCode,
-      phone: info.phone,
-      activitySector: info.activitySector,
-      businessRole: _parseBusinessRole(info.roleInCompany),
-      businessName: info.businessName,
-      businessAddress: info.businessAddress,
-      businessCity: info.businessCity,
-      businessPostalCode: info.businessPostalCode,
-      businessCountry: info.businessCountry,
-      taxId: info.taxId,
-      vatNumber: info.vatNumber,
-      isSelfRepresentative: info.isSelfRepresentative,
-      isSelfDirector: info.isSelfDirector,
-      noMajorOwners: info.noMajorOwners,
-      isSelfExecutive: info.isSelfExecutive,
-      businessPersons: info.businessPersons
-          .map((bp) => BusinessPerson(
-                role: bp.role,
-                firstName: bp.firstName,
-                lastName: bp.lastName,
-                dateOfBirth: bp.dateOfBirth,
-                email: bp.email,
-                phone: bp.phone,
-                address: bp.address,
-                city: bp.city,
-                postalCode: bp.postalCode,
-                title: bp.title,
-              ))
-          .toList(),
-      bankMode: hasIban ? BankAccountMode.iban : BankAccountMode.local,
-      iban: info.iban,
-      bic: info.bic,
-      accountNumber: info.accountNumber,
-      routingNumber: info.routingNumber,
-      accountHolder: info.accountHolder,
-      bankCountry: info.bankCountry,
-    );
-    _saved = true;
+  void _onBusinessToggled(bool isBusiness) {
+    setState(() {
+      _data = _data.copyWith(isBusiness: isBusiness, values: {});
+      _saved = false;
+    });
   }
 
-  BusinessRole? _parseBusinessRole(String value) {
-    const mapping = {
-      'owner': BusinessRole.owner,
-      'ceo': BusinessRole.ceo,
-      'director': BusinessRole.director,
-      'partner': BusinessRole.partner,
-      'other': BusinessRole.other,
-    };
-    return mapping[value.toLowerCase()];
+  void _onFormDataChanged(PaymentInfoFormData Function(PaymentInfoFormData) fn) {
+    setState(() {
+      _data = fn(_data);
+      _saved = false;
+    });
   }
 
-  Future<void> _save() async {
+  Future<void> _save(List<FieldSection>? sections) async {
     setState(() => _saving = true);
     try {
+      final authState = ref.read(authProvider);
+      final email = authState.user?['email'] as String? ?? '';
+      final json = valuesToFlatData(_data, sections, email: email);
+
       final repo = ref.read(paymentInfoRepositoryProvider);
-      final savedInfo = await repo.savePaymentInfo(_formDataToJson());
+      final savedInfo = await repo.savePaymentInfo(json);
       ref.invalidate(paymentInfoProvider);
       ref.invalidate(paymentInfoStatusProvider);
       if (mounted) {
@@ -158,63 +99,17 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     }
   }
 
-  Map<String, dynamic> _formDataToJson() {
-    final authState = ref.read(authProvider);
-    final userEmail = authState.user?['email'] as String? ?? '';
-
-    final json = <String, dynamic>{
-      'first_name': _data.firstName,
-      'last_name': _data.lastName,
-      'date_of_birth': _data.dateOfBirth,
-      'nationality': _data.nationality,
-      'address': _data.address,
-      'city': _data.city,
-      'postal_code': _data.postalCode,
-      'phone': _data.phone,
-      'activity_sector': _data.activitySector,
-      'email': userEmail,
-      'is_business': _data.isBusiness,
-      'business_name': _data.businessName,
-      'business_address': _data.businessAddress,
-      'business_city': _data.businessCity,
-      'business_postal_code': _data.businessPostalCode,
-      'business_country': _data.businessCountry,
-      'tax_id': _data.taxId,
-      'vat_number': _data.vatNumber,
-      'role_in_company': _data.businessRole?.name ?? '',
-      'is_self_representative': _data.isSelfRepresentative,
-      'is_self_director': _data.isSelfDirector,
-      'no_major_owners': _data.noMajorOwners,
-      'is_self_executive': _data.isSelfExecutive,
-      'iban': _data.iban,
-      'bic': _data.bic,
-      'account_number': _data.accountNumber,
-      'routing_number': _data.routingNumber,
-      'account_holder': _data.accountHolder,
-      'bank_country': _data.bankCountry,
-    };
-
-    if (_data.businessPersons.isNotEmpty) {
-      json['business_persons'] =
-          _data.businessPersons.map((p) => p.toJson()).toList();
-    }
-
-    return json;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final asyncInfo = ref.watch(paymentInfoProvider);
 
-    // Populate form when data arrives (only once per data load).
-    // Set fields synchronously so the current build frame renders the
-    // populated values immediately — avoids an extra frame roundtrip
-    // via addPostFrameCallback that integration tests can miss.
+    // Populate form when data arrives (only once).
     if (!_populated && asyncInfo.hasValue && asyncInfo.value != null) {
       _populated = true;
-      _populateFromEntity(asyncInfo.value!);
+      _data = responseToFormData(asyncInfo.value!);
+      _saved = true;
     }
 
     return Scaffold(
@@ -246,10 +141,31 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   }
 
   Widget _buildForm(AppLocalizations l10n, ThemeData theme) {
+    final businessType = _data.isBusiness ? 'company' : 'individual';
+    final hasCountry = _data.country.length == 2;
+
+    // Fetch dynamic sections for the selected country
+    final asyncFields = hasCountry
+        ? ref.watch(countryFieldsProvider(
+            CountryFieldsKey(_data.country, businessType)))
+        : null;
+
+    final countryFields = asyncFields?.valueOrNull;
+    final allSections = countryFields?.sections ?? <FieldSection>[];
+    final entitySections =
+        allSections.where((s) => s.id != 'bank').toList();
+    final bankSection =
+        allSections.where((s) => s.id == 'bank').firstOrNull;
+    final extraFields = countryFields?.extraFields ?? <FieldSpec>[];
+    final personRoles = countryFields?.personRoles ?? <String>[];
+    final docsRequired = countryFields?.individualDocRequired ?? false;
+
     // Build field errors from Stripe requirements
     final asyncReqs = ref.watch(stripeRequirementsProvider);
     final reqs = asyncReqs.valueOrNull;
     final fieldErrors = buildFieldErrors(reqs);
+
+    final valid = hasCountry && isFormValid(_data, allSections);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -267,10 +183,10 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             const SizedBox(height: 16),
 
             // Stripe requirements banner
-            const StripeRequirementsBanner(),
-            const SizedBox(height: 16),
+            if (_saved) const StripeRequirementsBanner(),
+            if (_saved) const SizedBox(height: 16),
 
-            // Status banner
+            // Status banner + stripe error
             PaymentStatusBanner(saved: _saved),
             if (_stripeError != null) ...[
               const SizedBox(height: 8),
@@ -278,68 +194,96 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             ],
             const SizedBox(height: 16),
 
+            // Country selector
+            CountrySelectorSection(
+              value: _data.country,
+              onChanged: _onCountryChanged,
+            ),
+            const SizedBox(height: 16),
+
             // Business toggle
             PaymentBusinessToggle(
               value: _data.isBusiness,
-              onChanged: (v) => _update((d) => d.copyWith(isBusiness: v)),
+              onChanged: _onBusinessToggled,
             ),
             const SizedBox(height: 16),
 
-            // Personal info (includes phone)
-            _PersonalInfoSection(
-              data: _data,
-              onUpdate: _update,
-              fieldErrors: fieldErrors,
-            ),
+            // Activity sector (always visible, not from country specs)
+            ActivitySectorSection(data: _data, onUpdate: _onFormDataChanged),
             const SizedBox(height: 16),
 
-            // Activity sector
-            ActivitySectorSection(data: _data, onUpdate: _update),
-            const SizedBox(height: 16),
+            // Dynamic sections or placeholder
+            if (!hasCountry)
+              _Placeholder(text: 'Select your country to see required fields')
+            else if (asyncFields != null && asyncFields.isLoading)
+              const Center(child: Padding(
+                padding: EdgeInsets.all(24),
+                child: CircularProgressIndicator(),
+              ))
+            else ...[
+              // Entity sections (personal info, company, etc.)
+              ...entitySections.map((section) => Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: DynamicSection(
+                      section: section,
+                      values: _data.values,
+                      onChanged: _onValueChanged,
+                      fieldErrors: fieldErrors,
+                      countryCode: _data.country,
+                    ),
+                  )),
 
-            // Business info (animated)
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              alignment: Alignment.topCenter,
-              child: _data.isBusiness
-                  ? Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Column(
-                        children: [
-                          _BusinessInfoSection(
-                            data: _data,
-                            onUpdate: _update,
-                            fieldErrors: fieldErrors,
-                          ),
-                          const SizedBox(height: 16),
-                          BusinessPersonsSection(
-                            data: _data,
-                            onUpdate: _update,
-                          ),
-                        ],
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
+              // Business persons (when business + roles beyond representative)
+              if (_data.isBusiness &&
+                  personRoles.any((r) => r != 'representative'))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: BusinessPersonsSection(
+                    data: _data,
+                    onUpdate: _onFormDataChanged,
+                  ),
+                ),
 
-            // Bank account
-            _BankAccountSection(
-              data: _data,
-              onUpdate: _update,
-              fieldErrors: fieldErrors,
-            ),
-            const SizedBox(height: 24),
+              // Bank section
+              if (bankSection != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: DynamicSection(
+                    section: bankSection,
+                    values: _data.values,
+                    onChanged: _onValueChanged,
+                    fieldErrors: fieldErrors,
+                    countryCode: _data.country,
+                  ),
+                ),
 
-            // Identity verification
-            const IdentityVerificationSection(),
-            const SizedBox(height: 24),
+              // Extra fields (country-specific)
+              if (extraFields.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ExtraFieldsSection(
+                    fields: extraFields,
+                    values: _data.values,
+                    onChanged: _onValueChanged,
+                    fieldErrors: fieldErrors,
+                    countryCode: _data.country,
+                  ),
+                ),
+
+              // Identity verification
+              if (docsRequired) ...[
+                const IdentityVerificationSection(),
+                const SizedBox(height: 8),
+              ],
+            ],
+
+            const SizedBox(height: 8),
 
             // Save button
             PaymentInfoSaveButton(
-              isValid: _isValid,
+              isValid: valid,
               isSaving: _saving,
-              onSave: _save,
+              onSave: () => _save(allSections),
             ),
             const SizedBox(height: 24),
           ],
@@ -350,270 +294,38 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Personal info section
+// Small helper widgets
 // ---------------------------------------------------------------------------
 
-class _PersonalInfoSection extends StatelessWidget {
-  const _PersonalInfoSection({
-    required this.data,
-    required this.onUpdate,
-    this.fieldErrors = const {},
-  });
-
-  final PaymentInfoFormData data;
-  final FormUpdater onUpdate;
-  final Map<String, String> fieldErrors;
+class _Placeholder extends StatelessWidget {
+  const _Placeholder({required this.text});
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final sectionTitle = data.isBusiness
-        ? l10n.paymentInfoLegalRep
-        : l10n.paymentInfoPersonalInfo;
-
-    return PaymentSectionCard(
-      title: sectionTitle,
-      children: [
-        PaymentFormField(
-          label: l10n.paymentInfoFirstName,
-          value: data.firstName,
-          onChanged: (v) => onUpdate((d) => d.copyWith(firstName: v)),
-          required: true,
-          errorText: fieldErrors['firstName'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoLastName,
-          value: data.lastName,
-          onChanged: (v) => onUpdate((d) => d.copyWith(lastName: v)),
-          required: true,
-          errorText: fieldErrors['lastName'],
-        ),
-        PaymentDateField(
-          label: l10n.paymentInfoDob,
-          value: data.dateOfBirth,
-          onChanged: (v) => onUpdate((d) => d.copyWith(dateOfBirth: v)),
-        ),
-        PaymentCountryDropdown(
-          label: l10n.paymentInfoNationality,
-          value: data.nationality,
-          onChanged: (code) {
-            final mode = ibanCountryCodes.contains(code)
-                ? BankAccountMode.iban
-                : BankAccountMode.local;
-            onUpdate((d) => d.copyWith(nationality: code, bankMode: mode));
-          },
-          errorText: fieldErrors['nationality'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoAddress,
-          value: data.address,
-          onChanged: (v) => onUpdate((d) => d.copyWith(address: v)),
-          required: true,
-          errorText: fieldErrors['address'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoCity,
-          value: data.city,
-          onChanged: (v) => onUpdate((d) => d.copyWith(city: v)),
-          required: true,
-          errorText: fieldErrors['city'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoPostalCode,
-          value: data.postalCode,
-          onChanged: (v) => onUpdate((d) => d.copyWith(postalCode: v)),
-          required: true,
-          errorText: fieldErrors['postalCode'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoPhone,
-          value: data.phone,
-          onChanged: (v) => onUpdate((d) => d.copyWith(phone: v)),
-          keyboardType: TextInputType.phone,
-          placeholder: '+33 6 12 34 56 78',
-          required: true,
-          errorText: fieldErrors['phone'],
-        ),
-        if (data.isBusiness)
-          PaymentRoleDropdown(
-            value: data.businessRole,
-            onChanged: (r) => onUpdate((d) => d.copyWith(businessRole: r)),
-          ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Business info section
-// ---------------------------------------------------------------------------
-
-class _BusinessInfoSection extends StatelessWidget {
-  const _BusinessInfoSection({
-    required this.data,
-    required this.onUpdate,
-    this.fieldErrors = const {},
-  });
-
-  final PaymentInfoFormData data;
-  final FormUpdater onUpdate;
-  final Map<String, String> fieldErrors;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    return PaymentSectionCard(
-      title: l10n.paymentInfoBusinessInfo,
-      children: [
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessName,
-          value: data.businessName,
-          onChanged: (v) => onUpdate((d) => d.copyWith(businessName: v)),
-          required: true,
-          errorText: fieldErrors['businessName'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessAddress,
-          value: data.businessAddress,
-          onChanged: (v) => onUpdate((d) => d.copyWith(businessAddress: v)),
-          required: true,
-          errorText: fieldErrors['businessAddress'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessCity,
-          value: data.businessCity,
-          onChanged: (v) => onUpdate((d) => d.copyWith(businessCity: v)),
-          required: true,
-          errorText: fieldErrors['businessCity'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoBusinessPostalCode,
-          value: data.businessPostalCode,
-          onChanged: (v) =>
-              onUpdate((d) => d.copyWith(businessPostalCode: v)),
-          required: true,
-          errorText: fieldErrors['businessPostalCode'],
-        ),
-        PaymentCountryDropdown(
-          label: l10n.paymentInfoBusinessCountry,
-          value: data.businessCountry,
-          onChanged: (code) =>
-              onUpdate((d) => d.copyWith(businessCountry: code)),
-          errorText: fieldErrors['businessCountry'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoTaxId,
-          value: data.taxId,
-          onChanged: (v) => onUpdate((d) => d.copyWith(taxId: v)),
-          placeholder: l10n.paymentInfoTaxIdHint,
-          required: true,
-          errorText: fieldErrors['taxId'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoVatNumber,
-          value: data.vatNumber,
-          onChanged: (v) => onUpdate((d) => d.copyWith(vatNumber: v)),
-          placeholder: l10n.paymentInfoVatNumberHint,
-          errorText: fieldErrors['vatNumber'],
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Bank account section
-// ---------------------------------------------------------------------------
-
-class _BankAccountSection extends StatelessWidget {
-  const _BankAccountSection({
-    required this.data,
-    required this.onUpdate,
-    this.fieldErrors = const {},
-  });
-
-  final PaymentInfoFormData data;
-  final FormUpdater onUpdate;
-  final Map<String, String> fieldErrors;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final isIban = data.bankMode == BankAccountMode.iban;
-
-    return PaymentSectionCard(
-      title: l10n.paymentInfoBankAccount,
-      children: [
-        if (isIban) ...[
-          PaymentFormField(
-            label: l10n.paymentInfoIban,
-            value: data.iban,
-            onChanged: (v) => onUpdate((d) => d.copyWith(iban: v)),
-            placeholder: l10n.paymentInfoIbanHint,
-            required: true,
-            errorText: fieldErrors['iban'],
-          ),
-          PaymentFormField(
-            label: l10n.paymentInfoBic,
-            value: data.bic,
-            onChanged: (v) => onUpdate((d) => d.copyWith(bic: v)),
-            placeholder: l10n.paymentInfoBicHint,
-            errorText: fieldErrors['bic'],
-          ),
-          PaymentIbanHelpText(helpText: l10n.paymentInfoIbanHelp),
-        ] else ...[
-          PaymentFormField(
-            label: l10n.paymentInfoAccountNumber,
-            value: data.accountNumber,
-            onChanged: (v) => onUpdate((d) => d.copyWith(accountNumber: v)),
-            required: true,
-            errorText: fieldErrors['accountNumber'],
-          ),
-          PaymentFormField(
-            label: l10n.paymentInfoRoutingNumber,
-            value: data.routingNumber,
-            onChanged: (v) => onUpdate((d) => d.copyWith(routingNumber: v)),
-            required: true,
-            errorText: fieldErrors['routingNumber'],
-          ),
-        ],
-        PaymentNoIbanCheckbox(
-          value: !isIban,
-          label: l10n.paymentInfoNoIban,
-          onChanged: (checked) => onUpdate(
-            (d) => d.copyWith(
-              bankMode:
-                  checked ? BankAccountMode.local : BankAccountMode.iban,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.5),
             ),
-          ),
-        ),
-        PaymentCountryDropdown(
-          label: l10n.paymentInfoBankCountry,
-          value: data.bankCountry,
-          onChanged: (code) =>
-              onUpdate((d) => d.copyWith(bankCountry: code)),
-          errorText: fieldErrors['bankCountry'],
-        ),
-        PaymentFormField(
-          label: l10n.paymentInfoAccountHolder,
-          value: data.accountHolder,
-          onChanged: (v) => onUpdate((d) => d.copyWith(accountHolder: v)),
-          required: true,
-          errorText: fieldErrors['accountHolder'],
-        ),
-      ],
+      ),
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Stripe error banner
-// ---------------------------------------------------------------------------
 
 class _StripeErrorBanner extends StatelessWidget {
   const _StripeErrorBanner({required this.message});
-
   final String message;
 
   @override
@@ -661,4 +373,3 @@ class _StripeErrorBanner extends StatelessWidget {
     );
   }
 }
-

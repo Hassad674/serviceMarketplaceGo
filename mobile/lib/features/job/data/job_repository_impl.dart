@@ -148,6 +148,13 @@ class JobRepositoryImpl implements JobRepository {
     await apiClient.post('/api/v1/jobs/$jobId/mark-viewed');
   }
 
+  @override
+  Future<int> getCredits() async {
+    final response = await apiClient.get('/api/v1/jobs/credits');
+    final data = _extractData(response.data);
+    return (data['credits'] as int?) ?? 0;
+  }
+
   Map<String, dynamic> _extractData(dynamic raw) {
     if (raw is Map<String, dynamic>) {
       if (raw.containsKey('data') && raw['data'] is Map<String, dynamic>) return raw['data'] as Map<String, dynamic>;

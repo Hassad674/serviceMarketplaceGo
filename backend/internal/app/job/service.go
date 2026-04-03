@@ -19,6 +19,7 @@ type ServiceDeps struct {
 	Profiles     repository.ProfileRepository
 	Messages     service.MessageSender
 	JobViews     repository.JobViewRepository
+	Credits      repository.JobCreditRepository
 }
 
 type Service struct {
@@ -28,6 +29,7 @@ type Service struct {
 	profiles     repository.ProfileRepository
 	messages     service.MessageSender
 	jobViews     repository.JobViewRepository
+	credits      repository.JobCreditRepository
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -38,6 +40,7 @@ func NewService(deps ServiceDeps) *Service {
 		profiles:     deps.Profiles,
 		messages:     deps.Messages,
 		jobViews:     deps.JobViews,
+		credits:      deps.Credits,
 	}
 }
 
@@ -258,6 +261,18 @@ func (s *Service) ReopenJob(ctx context.Context, jobID, userID uuid.UUID) error 
 		return fmt.Errorf("update job: %w", err)
 	}
 	return nil
+}
+
+// GetCredits returns the current application credit balance for the user.
+func (s *Service) GetCredits(ctx context.Context, userID uuid.UUID) (int, error) {
+	if s.credits == nil {
+		return domain.WeeklyQuota, nil
+	}
+	credits, err := s.credits.GetOrCreate(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("get credits: %w", err)
+	}
+	return credits, nil
 }
 
 func canCreateJob(role user.Role) bool {

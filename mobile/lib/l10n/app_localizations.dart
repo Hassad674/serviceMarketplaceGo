@@ -3025,6 +3025,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{percent}%'**
   String uploadProgress(int percent);
+
+  /// No description provided for @creditsRemaining.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} credits remaining'**
+  String creditsRemaining(int count);
+
+  /// No description provided for @noCreditsLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'You have no application credits left'**
+  String get noCreditsLeft;
+
+  /// No description provided for @creditsHowItWorks.
+  ///
+  /// In en, this message translates to:
+  /// **'How do credits work?'**
+  String get creditsHowItWorks;
+
+  /// No description provided for @creditsExplanation1.
+  ///
+  /// In en, this message translates to:
+  /// **'Each application costs 1 credit'**
+  String get creditsExplanation1;
+
+  /// No description provided for @creditsExplanation2.
+  ///
+  /// In en, this message translates to:
+  /// **'You receive 10 credits every Monday if your balance is below 10'**
+  String get creditsExplanation2;
+
+  /// No description provided for @creditsExplanation3.
+  ///
+  /// In en, this message translates to:
+  /// **'Each signed mission earns you 5 bonus credits'**
+  String get creditsExplanation3;
+
+  /// No description provided for @creditsExplanation4.
+  ///
+  /// In en, this message translates to:
+  /// **'Your balance can go up to 50 credits maximum'**
+  String get creditsExplanation4;
+
+  /// No description provided for @noCreditsCannotApply.
+  ///
+  /// In en, this message translates to:
+  /// **'You need credits to apply to this opportunity'**
+  String get noCreditsCannotApply;
 }
 
 class _AppLocalizationsDelegate

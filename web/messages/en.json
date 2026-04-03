@@ -906,6 +906,14 @@
     "applicationMessage": "Application message",
     "applicationVideo": "Presentation video",
     "previousCandidate": "Previous",
-    "nextCandidate": "Next"
+    "nextCandidate": "Next",
+    "creditsRemaining": "{count} credits remaining",
+    "noCreditsLeft": "You have no application credits left",
+    "creditsHowItWorks": "How do credits work?",
+    "creditsExplanation1": "Each application costs 1 credit",
+    "creditsExplanation2": "You receive 10 credits every Monday if your balance is below 10",
+    "creditsExplanation3": "Each signed mission earns you 5 bonus credits",
+    "creditsExplanation4": "Your balance can go up to 50 credits maximum",
+    "close": "Close"
   }
 }

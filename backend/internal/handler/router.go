@@ -147,6 +147,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 				if deps.JobApplication != nil {
 					r.Get("/open", deps.JobApplication.ListOpenJobs)
+					r.Get("/credits", deps.JobApplication.GetCredits)
 					r.Get("/applications/mine", deps.JobApplication.ListMyApplications)
 					r.Delete("/applications/{applicationId}", deps.JobApplication.WithdrawApplication)
 				}

@@ -49,4 +49,7 @@ abstract class JobRepository {
   Future<String> contactApplicant(String jobId, String applicantId);
   Future<bool> hasApplied(String jobId);
   Future<void> markApplicationsViewed(String jobId);
+
+  // Credits
+  Future<int> getCredits();
 }

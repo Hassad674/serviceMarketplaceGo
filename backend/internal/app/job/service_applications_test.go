@@ -195,3 +195,109 @@ func TestHasApplied_False(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, applied)
 }
+
+// --- Credit integration tests ---
+
+func newTestApplyServiceWithCredits(cr *mockJobCreditRepo) (*Service, *mockJobRepo, *mockJobApplicationRepo, *mockUserRepo) {
+	jr := &mockJobRepo{}
+	ar := &mockJobApplicationRepo{}
+	ur := &mockUserRepo{}
+	svc := NewService(ServiceDeps{
+		Jobs:         jr,
+		Applications: ar,
+		Users:        ur,
+		Credits:      cr,
+	})
+	return svc, jr, ar, ur
+}
+
+func TestApplyToJob_NoCreditsLeft(t *testing.T) {
+	cr := &mockJobCreditRepo{
+		getOrCreateFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 0, nil // zero credits
+		},
+	}
+	svc, jr, _, ur := newTestApplyServiceWithCredits(cr)
+	creatorID := uuid.New()
+	applicantID := uuid.New()
+	j := openJob(creatorID)
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		return &user.User{ID: id, Role: user.RoleProvider}, nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: applicantID, Message: "I want this job",
+	})
+	assert.ErrorIs(t, err, domain.ErrNoCreditsLeft)
+}
+
+func TestApplyToJob_CreditsDecremented(t *testing.T) {
+	var decremented bool
+	cr := &mockJobCreditRepo{
+		getOrCreateFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 5, nil // has credits
+		},
+		decrementFn: func(_ context.Context, _ uuid.UUID) error {
+			decremented = true
+			return nil
+		},
+	}
+	svc, jr, _, ur := newTestApplyServiceWithCredits(cr)
+	creatorID := uuid.New()
+	applicantID := uuid.New()
+	j := openJob(creatorID)
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		return &user.User{ID: id, Role: user.RoleProvider}, nil
+	}
+
+	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: applicantID, Message: "I want this job",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, app)
+	assert.True(t, decremented, "credits should have been decremented after apply")
+}
+
+func TestApplyToJob_NilCreditsRepo(t *testing.T) {
+	// When credits repo is nil, apply should work without credit checks.
+	svc, jr, _, ur, _, _ := newTestApplyService()
+	creatorID := uuid.New()
+	applicantID := uuid.New()
+	j := openJob(creatorID)
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		return &user.User{ID: id, Role: user.RoleProvider}, nil
+	}
+
+	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: applicantID, Message: "test",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, app)
+}
+
+func TestGetCredits_WithRepo(t *testing.T) {
+	cr := &mockJobCreditRepo{
+		getOrCreateFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 7, nil
+		},
+	}
+	svc, _, _, _ := newTestApplyServiceWithCredits(cr)
+
+	credits, err := svc.GetCredits(context.Background(), uuid.New())
+	assert.NoError(t, err)
+	assert.Equal(t, 7, credits)
+}
+
+func TestGetCredits_NilRepo(t *testing.T) {
+	svc, _, _, _, _, _ := newTestApplyService()
+
+	credits, err := svc.GetCredits(context.Background(), uuid.New())
+	assert.NoError(t, err)
+	assert.Equal(t, domain.WeeklyQuota, credits)
+}

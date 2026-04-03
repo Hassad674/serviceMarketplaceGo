@@ -97,15 +97,17 @@ func (s *Service) UpdateConnectedAccount(_ context.Context, accountID string, in
 		return fmt.Errorf("update stripe account: %w", err)
 	}
 
-	// Update external bank account
+	// Update external bank account — return error so it surfaces to the user
 	if err := s.updateExternalAccount(accountID, info); err != nil {
-		slog.Warn("failed to update external account", "account_id", accountID, "error", err)
+		return fmt.Errorf("update external account: %w", err)
 	}
 
 	return nil
 }
 
 // updateExternalAccount replaces the bank account on a Stripe connected account.
+// Stripe does not allow modifying an existing bank account number, so we create
+// the new one first (as default), then delete the old one.
 func (s *Service) updateExternalAccount(accountID string, info *payment.PaymentInfo) error {
 	country := resolveCountryCode(info)
 	currency := countryToCurrency(country)
@@ -122,28 +124,30 @@ func (s *Service) updateExternalAccount(accountID string, info *payment.PaymentI
 		return nil // no bank details to update
 	}
 
-	// Delete existing external accounts first
+	// Fetch current account to compare and collect old bank account IDs
 	acct, err := account.GetByID(accountID, &stripe.AccountParams{})
 	if err != nil {
 		return fmt.Errorf("get account: %w", err)
 	}
 
-	for _, ea := range acct.ExternalAccounts.Data {
-		delParams := &stripe.BankAccountParams{
-			Account: stripe.String(accountID),
-		}
-		_, err := bankaccount.Del(ea.ID, delParams)
-		if err != nil {
-			slog.Warn("failed to delete old external account", "id", ea.ID, "error", err)
-		}
+	// Skip if bank details haven't changed
+	if !bankDetailsChanged(acct, info) {
+		return nil
 	}
 
-	// Create new external account
+	// Collect old external account IDs before creating the new one
+	var oldIDs []string
+	for _, ea := range acct.ExternalAccounts.Data {
+		oldIDs = append(oldIDs, ea.ID)
+	}
+
+	// Step 1: Create new bank account (becomes default automatically)
 	newParams := &stripe.BankAccountParams{
 		Account:           stripe.String(accountID),
 		AccountHolderName: stripe.String(info.AccountHolder),
 		Country:           stripe.String(country),
 		Currency:          stripe.String(currency),
+		DefaultForCurrency: stripe.Bool(true),
 	}
 
 	if info.IBAN != "" {
@@ -158,7 +162,49 @@ func (s *Service) updateExternalAccount(accountID string, info *payment.PaymentI
 		return fmt.Errorf("create external account: %w", err)
 	}
 
+	// Step 2: Delete old bank accounts (no longer default, safe to remove)
+	for _, oldID := range oldIDs {
+		delParams := &stripe.BankAccountParams{
+			Account: stripe.String(accountID),
+		}
+		if _, err := bankaccount.Del(oldID, delParams); err != nil {
+			slog.Warn("failed to delete old external account", "id", oldID, "error", err)
+		}
+	}
+
 	return nil
+}
+
+// bankDetailsChanged checks if the user's bank info differs from the current Stripe account.
+func bankDetailsChanged(acct *stripe.Account, info *payment.PaymentInfo) bool {
+	if acct.ExternalAccounts == nil || len(acct.ExternalAccounts.Data) == 0 {
+		return true // no existing bank account → always create
+	}
+	ea := acct.ExternalAccounts.Data[0]
+	if ea.BankAccount == nil {
+		return true
+	}
+	// Stripe masks the full number; Last4 is all we can compare
+	newLast4 := last4(info)
+	if newLast4 != "" && ea.BankAccount.Last4 != newLast4 {
+		return true
+	}
+	if info.RoutingNumber != "" && ea.BankAccount.RoutingNumber != info.RoutingNumber {
+		return true
+	}
+	return false
+}
+
+// last4 returns the last 4 characters of the IBAN or account number.
+func last4(info *payment.PaymentInfo) string {
+	num := info.IBAN
+	if num == "" {
+		num = info.AccountNumber
+	}
+	if len(num) >= 4 {
+		return num[len(num)-4:]
+	}
+	return num
 }
 
 func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (string, error) {

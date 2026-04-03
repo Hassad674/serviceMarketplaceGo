@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -55,6 +56,17 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 		return nil, domain.ErrApplicantTypeMismatch
 	}
 
+	// Check application credits before proceeding.
+	if s.credits != nil {
+		credits, credErr := s.credits.GetOrCreate(ctx, input.ApplicantID)
+		if credErr != nil {
+			return nil, fmt.Errorf("check credits: %w", credErr)
+		}
+		if credits <= 0 {
+			return nil, domain.ErrNoCreditsLeft
+		}
+	}
+
 	_, err = s.applications.GetByJobAndApplicant(ctx, input.JobID, input.ApplicantID)
 	if err == nil {
 		return nil, domain.ErrAlreadyApplied
@@ -76,6 +88,15 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 	if err := s.applications.Create(ctx, app); err != nil {
 		return nil, fmt.Errorf("persist application: %w", err)
 	}
+
+	// Decrement credit after successful application.
+	if s.credits != nil {
+		if decErr := s.credits.Decrement(ctx, input.ApplicantID); decErr != nil {
+			// Log but do not fail the application — the app was already created.
+			slog.Warn("failed to decrement credits", "user_id", input.ApplicantID, "error", decErr)
+		}
+	}
+
 	return app, nil
 }
 

@@ -187,3 +187,40 @@ func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilter
 func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
 	return 0, nil
 }
+
+// --- mockJobCreditRepo ---
+
+type mockJobCreditRepo struct {
+	getOrCreateFn func(ctx context.Context, userID uuid.UUID) (int, error)
+	decrementFn   func(ctx context.Context, userID uuid.UUID) error
+	addBonusFn    func(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error
+	resetWeeklyFn func(ctx context.Context, minCredits int) error
+}
+
+func (m *mockJobCreditRepo) GetOrCreate(ctx context.Context, userID uuid.UUID) (int, error) {
+	if m.getOrCreateFn != nil {
+		return m.getOrCreateFn(ctx, userID)
+	}
+	return domain.WeeklyQuota, nil
+}
+
+func (m *mockJobCreditRepo) Decrement(ctx context.Context, userID uuid.UUID) error {
+	if m.decrementFn != nil {
+		return m.decrementFn(ctx, userID)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) AddBonus(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error {
+	if m.addBonusFn != nil {
+		return m.addBonusFn(ctx, userID, amount, maxTokens)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) ResetWeekly(ctx context.Context, minCredits int) error {
+	if m.resetWeeklyFn != nil {
+		return m.resetWeeklyFn(ctx, minCredits)
+	}
+	return nil
+}

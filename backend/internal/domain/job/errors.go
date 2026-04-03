@@ -29,4 +29,5 @@ var (
 	ErrApplicationMessageTooLong = errors.New("application message exceeds maximum length")
 	ErrNotApplicant              = errors.New("not the applicant of this application")
 	ErrApplicantTypeMismatch     = errors.New("your role does not match the required applicant type")
+	ErrNoCreditsLeft             = errors.New("no application credits remaining")
 )

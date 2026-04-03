@@ -15,6 +15,7 @@ class OpportunitiesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final openJobs = ref.watch(openJobsProvider);
+    final credits = ref.watch(creditsProvider);
     final l10n = AppLocalizations.of(context)!;
     final authState = ref.watch(authProvider);
     final userRole = authState.user?['role'] as String?;
@@ -22,7 +23,10 @@ class OpportunitiesScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.opportunities)),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(openJobsProvider),
+        onRefresh: () async {
+          ref.invalidate(openJobsProvider);
+          ref.invalidate(creditsProvider);
+        },
         child: openJobs.when(
           loading: () => const _OpportunitySkeleton(),
           error: (e, _) => Center(
@@ -41,9 +45,6 @@ class OpportunitiesScreen extends ConsumerWidget {
             ),
           ),
           data: (jobs) {
-            // Filter jobs by user role: only show jobs matching the user's
-            // applicant type (or those open to "all").
-            // Filter: remove own jobs + jobs incompatible with role
             final userId = authState.user?['id'] as String?;
             final filtered = _filterByRole(
               jobs.where((j) => j.creatorId != userId).toList(),
@@ -53,7 +54,8 @@ class OpportunitiesScreen extends ConsumerWidget {
             if (filtered.isEmpty) {
               return ListView(
                 children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                  _CreditsHeader(credits: credits, l10n: l10n),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.2),
                   const Icon(Icons.work_off_outlined, size: 48, color: Colors.grey),
                   const SizedBox(height: 12),
                   Text(
@@ -64,7 +66,6 @@ class OpportunitiesScreen extends ConsumerWidget {
                 ],
               );
             }
-            // Get applied job IDs to show "already applied" badge
             final myApps = ref.watch(myApplicationsProvider);
             final appliedJobIds = <String>{};
             myApps.whenData((apps) {
@@ -72,14 +73,25 @@ class OpportunitiesScreen extends ConsumerWidget {
                 appliedJobIds.add(app.application.jobId);
               }
             });
-            return ListView.separated(
+            return ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => OpportunityCard(
-                job: filtered[index],
-                hasApplied: appliedJobIds.contains(filtered[index].id),
-              ),
+              itemCount: filtered.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _CreditsHeader(credits: credits, l10n: l10n),
+                  );
+                }
+                final jobIndex = index - 1;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: jobIndex < filtered.length - 1 ? 12 : 0),
+                  child: OpportunityCard(
+                    job: filtered[jobIndex],
+                    hasApplied: appliedJobIds.contains(filtered[jobIndex].id),
+                  ),
+                );
+              },
             );
           },
         ),
@@ -108,6 +120,207 @@ class OpportunitiesScreen extends ConsumerWidget {
       default:
         return jobs;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Credits header + explanation modal
+// ---------------------------------------------------------------------------
+
+class _CreditsHeader extends StatelessWidget {
+  const _CreditsHeader({required this.credits, required this.l10n});
+
+  final AsyncValue<int> credits;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final creditCount = credits.valueOrNull ?? 0;
+    final isLoading = credits.isLoading;
+    final hasNoCredits = !isLoading && creditCount == 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: hasNoCredits
+                ? const Color(0xFFFEF2F2)
+                : const Color(0xFFFFF1F2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: hasNoCredits
+                  ? const Color(0xFFFECACA)
+                  : const Color(0xFFFDA4AF),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.confirmation_number_outlined,
+                color: hasNoCredits
+                    ? const Color(0xFFEF4444)
+                    : const Color(0xFFF43F5E),
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: isLoading
+                    ? Text(
+                        '...',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      )
+                    : Text(
+                        l10n.creditsRemaining(creditCount),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: hasNoCredits
+                              ? const Color(0xFFEF4444)
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
+              ),
+              IconButton(
+                onPressed: () => _showCreditsExplanation(context),
+                icon: const Icon(Icons.help_outline, size: 20),
+                color: const Color(0xFFF43F5E),
+                tooltip: l10n.creditsHowItWorks,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+            ],
+          ),
+        ),
+        if (hasNoCredits) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFEF4444)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.noCreditsLeft,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFFEF4444),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showCreditsExplanation(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  l10n.creditsHowItWorks,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _ExplanationRow(
+                  icon: Icons.touch_app_outlined,
+                  text: l10n.creditsExplanation1,
+                ),
+                const SizedBox(height: 12),
+                _ExplanationRow(
+                  icon: Icons.calendar_today_outlined,
+                  text: l10n.creditsExplanation2,
+                ),
+                const SizedBox(height: 12),
+                _ExplanationRow(
+                  icon: Icons.star_outline,
+                  text: l10n.creditsExplanation3,
+                ),
+                const SizedBox(height: 12),
+                _ExplanationRow(
+                  icon: Icons.inventory_2_outlined,
+                  text: l10n.creditsExplanation4,
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFF43F5E),
+                    ),
+                    child: Text(l10n.cancel),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ExplanationRow extends StatelessWidget {
+  const _ExplanationRow({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFFF43F5E)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 

@@ -182,6 +182,22 @@ func (h *JobApplicationHandler) ListOpenJobs(w http.ResponseWriter, r *http.Requ
 	res.JSON(w, http.StatusOK, response.NewJobListResponse(jobs, nextCursor))
 }
 
+func (h *JobApplicationHandler) GetCredits(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	credits, err := h.jobSvc.GetCredits(r.Context(), userID)
+	if err != nil {
+		handleJobError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, response.CreditsResponse{Credits: credits})
+}
+
 func (h *JobApplicationHandler) HasApplied(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

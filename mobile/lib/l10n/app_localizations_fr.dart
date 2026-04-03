@@ -1524,4 +1524,34 @@ class AppLocalizationsFr extends AppLocalizations {
   String uploadProgress(int percent) {
     return '$percent%';
   }
+
+  @override
+  String creditsRemaining(int count) {
+    return '$count crédits restants';
+  }
+
+  @override
+  String get noCreditsLeft => 'Vous n\'avez plus de crédits de candidature';
+
+  @override
+  String get creditsHowItWorks => 'Comment fonctionnent les crédits ?';
+
+  @override
+  String get creditsExplanation1 => 'Chaque candidature coûte 1 crédit';
+
+  @override
+  String get creditsExplanation2 =>
+      'Vous recevez 10 crédits chaque lundi si votre solde est inférieur à 10';
+
+  @override
+  String get creditsExplanation3 =>
+      'Chaque mission signée vous rapporte 5 crédits bonus';
+
+  @override
+  String get creditsExplanation4 =>
+      'Votre solde peut aller jusqu\'à 50 crédits maximum';
+
+  @override
+  String get noCreditsCannotApply =>
+      'Vous avez besoin de crédits pour postuler à cette opportunité';
 }

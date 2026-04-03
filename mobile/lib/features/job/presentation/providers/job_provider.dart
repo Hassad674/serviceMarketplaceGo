@@ -92,6 +92,13 @@ Future<bool> deleteJobAction(WidgetRef ref, String id) async {
   }
 }
 
+// --- Credits ---
+
+/// Fetches the current user's application credit balance.
+final creditsProvider = FutureProvider<int>((ref) {
+  return ref.read(jobRepositoryProvider).getCredits();
+});
+
 // --- Job Application Providers ---
 
 /// Fetches all open jobs for browsing.
@@ -139,6 +146,7 @@ Future<ApplyResult> applyToJobAction(
     ref.invalidate(openJobsProvider);
     ref.invalidate(myApplicationsProvider);
     ref.invalidate(hasAppliedProvider(jobId));
+    ref.invalidate(creditsProvider);
     return ApplyResult(application: app);
   } on DioException catch (e) {
     debugPrint('[JobProvider] applyToJob error: $e');

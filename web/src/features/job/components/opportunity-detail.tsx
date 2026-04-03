@@ -1,11 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowLeft, Briefcase, Calendar, Clock, Users } from "lucide-react"
+import { ArrowLeft, Briefcase, Calendar, Clock, Users, Ticket } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useHasApplied } from "../hooks/use-job-applications"
+import { useCredits } from "../hooks/use-jobs"
 import { ApplyModal } from "./apply-modal"
 import type { JobResponse } from "../types"
 import { getJob } from "../api/job-api"
@@ -26,6 +27,8 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
   })
   const { data: appliedData } = useHasApplied(jobId)
   const hasAlreadyApplied = appliedData?.has_applied ?? false
+  const { data: creditsData } = useCredits()
+  const noCredits = creditsData?.credits === 0
 
   if (isLoading) {
     return (
@@ -56,19 +59,27 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
             <span className="flex items-center gap-1"><Users className="h-4 w-4" />{job.applicant_type === "all" ? t("allTypes") : job.applicant_type === "freelancers" ? t("freelancersOnly") : t("agenciesOnly")}</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowApplyModal(true)}
-          disabled={hasAlreadyApplied}
-          className={cn(
-            "shrink-0 rounded-xl px-6 py-2.5 text-sm font-medium transition-all",
-            hasAlreadyApplied
-              ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-700"
-              : "gradient-primary text-white hover:shadow-glow active:scale-[0.98]",
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowApplyModal(true)}
+            disabled={hasAlreadyApplied || noCredits}
+            className={cn(
+              "rounded-xl px-6 py-2.5 text-sm font-medium transition-all",
+              hasAlreadyApplied || noCredits
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-700"
+                : "gradient-primary text-white hover:shadow-glow active:scale-[0.98]",
+            )}
+          >
+            {hasAlreadyApplied ? t("alreadyApplied") : t("apply")}
+          </button>
+          {noCredits && !hasAlreadyApplied && (
+            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+              <Ticket className="h-3 w-3" />
+              {t("noCreditsLeft")}
+            </span>
           )}
-        >
-          {hasAlreadyApplied ? t("alreadyApplied") : t("apply")}
-        </button>
+        </div>
       </div>
 
       {/* Budget card */}

@@ -34,6 +34,8 @@ class PaymentInfo {
   final String stripeAccountId;
   final bool stripeVerified;
   final String stripeError;
+  final String country;
+  final Map<String, String> extraFields;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -72,6 +74,8 @@ class PaymentInfo {
     this.stripeAccountId = '',
     this.stripeVerified = false,
     this.stripeError = '',
+    this.country = '',
+    this.extraFields = const {},
     required this.createdAt,
     required this.updatedAt,
   });
@@ -117,6 +121,10 @@ class PaymentInfo {
       stripeAccountId: json['stripe_account_id'] as String? ?? '',
       stripeVerified: json['stripe_verified'] as bool? ?? false,
       stripeError: json['stripe_error'] as String? ?? '',
+      country: json['country'] as String? ?? '',
+      extraFields: (json['extra_fields'] as Map<String, dynamic>?)
+              ?.map((k, v) => MapEntry(k, v as String)) ??
+          const {},
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

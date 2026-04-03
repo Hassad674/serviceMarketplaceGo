@@ -146,6 +146,7 @@ func main() {
 	jobRepo := postgres.NewJobRepository(db)
 	jobAppRepo := postgres.NewJobApplicationRepository(db)
 	jobViewRepo := postgres.NewJobViewRepository(db)
+	jobCreditRepo := postgres.NewJobCreditRepository(db)
 	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
 		Jobs:         jobRepo,
 		Applications: jobAppRepo,
@@ -153,6 +154,7 @@ func main() {
 		Profiles:     profileRepo,
 		Messages:     messagingSvc,
 		JobViews:     jobViewRepo,
+		Credits:      jobCreditRepo,
 	})
 
 	// Review feature

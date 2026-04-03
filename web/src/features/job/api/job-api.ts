@@ -54,3 +54,7 @@ export function deleteJob(id: string): Promise<void> {
 export function markApplicationsViewed(id: string): Promise<void> {
   return apiClient<void>(`/api/v1/jobs/${id}/mark-viewed`, { method: "POST" })
 }
+
+export function getCredits(): Promise<{ credits: number }> {
+  return apiClient<{ credits: number }>("/api/v1/jobs/credits")
+}

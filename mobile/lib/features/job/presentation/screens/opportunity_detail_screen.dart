@@ -15,6 +15,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hasApplied = ref.watch(hasAppliedProvider(jobId));
+    final credits = ref.watch(creditsProvider);
     final l10n = AppLocalizations.of(context)!;
 
     return FutureBuilder<JobEntity>(
@@ -28,6 +29,9 @@ class OpportunityDetailScreen extends ConsumerWidget {
         }
         final job = snapshot.data!;
         final alreadyApplied = hasApplied.valueOrNull ?? false;
+        final creditCount = credits.valueOrNull ?? 0;
+        final noCredits = !credits.isLoading && creditCount == 0;
+        final isDisabled = alreadyApplied || noCredits;
 
         return Scaffold(
           appBar: AppBar(title: Text(job.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
@@ -117,13 +121,28 @@ class OpportunityDetailScreen extends ConsumerWidget {
           bottomNavigationBar: SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: FilledButton(
-                onPressed: alreadyApplied ? null : () => showApplyBottomSheet(context, ref, jobId),
-                style: FilledButton.styleFrom(
-                  backgroundColor: alreadyApplied ? Colors.grey : const Color(0xFFF43F5E),
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: Text(alreadyApplied ? l10n.alreadyApplied : l10n.applyAction),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (noCredits && !alreadyApplied) ...[
+                    Text(
+                      l10n.noCreditsCannotApply,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFFEF4444),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  FilledButton(
+                    onPressed: isDisabled ? null : () => showApplyBottomSheet(context, ref, jobId),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: isDisabled ? Colors.grey : const Color(0xFFF43F5E),
+                      minimumSize: const Size.fromHeight(48),
+                    ),
+                    child: Text(alreadyApplied ? l10n.alreadyApplied : l10n.applyAction),
+                  ),
+                ],
               ),
             ),
           ),

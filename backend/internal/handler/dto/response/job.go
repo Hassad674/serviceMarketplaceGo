@@ -147,6 +147,10 @@ type HasAppliedResponse struct {
 	HasApplied bool `json:"has_applied"`
 }
 
+type CreditsResponse struct {
+	Credits int `json:"credits"`
+}
+
 type ContactApplicantResponse struct {
 	ConversationID string `json:"conversation_id"`
 }

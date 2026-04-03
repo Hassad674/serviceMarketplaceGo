@@ -250,6 +250,8 @@ func handleJobError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "empty_message", err.Error())
 	case errors.Is(err, jobdomain.ErrApplicationMessageTooLong):
 		res.Error(w, http.StatusBadRequest, "message_too_long", err.Error())
+	case errors.Is(err, jobdomain.ErrNoCreditsLeft):
+		res.Error(w, http.StatusTooManyRequests, "no_credits_left", err.Error())
 	default:
 		slog.Error("unhandled job error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")

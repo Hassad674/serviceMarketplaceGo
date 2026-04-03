@@ -1515,4 +1515,34 @@ class AppLocalizationsEn extends AppLocalizations {
   String uploadProgress(int percent) {
     return '$percent%';
   }
+
+  @override
+  String creditsRemaining(int count) {
+    return '$count credits remaining';
+  }
+
+  @override
+  String get noCreditsLeft => 'You have no application credits left';
+
+  @override
+  String get creditsHowItWorks => 'How do credits work?';
+
+  @override
+  String get creditsExplanation1 => 'Each application costs 1 credit';
+
+  @override
+  String get creditsExplanation2 =>
+      'You receive 10 credits every Monday if your balance is below 10';
+
+  @override
+  String get creditsExplanation3 =>
+      'Each signed mission earns you 5 bonus credits';
+
+  @override
+  String get creditsExplanation4 =>
+      'Your balance can go up to 50 credits maximum';
+
+  @override
+  String get noCreditsCannotApply =>
+      'You need credits to apply to this opportunity';
 }
