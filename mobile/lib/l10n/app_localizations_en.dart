@@ -1532,7 +1532,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get creditsExplanation2 =>
-      'You receive 10 credits every Monday if your balance is below 10';
+      'Every Monday, your balance is reset to 10 credits if it\'s below 10';
 
   @override
   String get creditsExplanation3 =>

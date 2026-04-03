@@ -21,7 +21,7 @@ export function DataTable<T>({ columns, data, onRowClick, className }: DataTable
   })
 
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-border bg-card", className)}>
+    <div className={cn("overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm", className)}>
       <table className="w-full">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -43,7 +43,7 @@ export function DataTable<T>({ columns, data, onRowClick, className }: DataTable
           {table.getRowModel().rows.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                Aucun résultat
+                Aucun r&eacute;sultat
               </td>
             </tr>
           ) : (
@@ -52,7 +52,7 @@ export function DataTable<T>({ columns, data, onRowClick, className }: DataTable
                 key={row.id}
                 onClick={() => onRowClick?.(row.original)}
                 className={cn(
-                  "transition-colors hover:bg-muted/50",
+                  "transition-colors duration-150 hover:bg-muted/50",
                   onRowClick && "cursor-pointer",
                 )}
               >

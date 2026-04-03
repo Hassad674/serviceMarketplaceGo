@@ -1541,7 +1541,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get creditsExplanation2 =>
-      'Vous recevez 10 crédits chaque lundi si votre solde est inférieur à 10';
+      'Chaque lundi, votre solde est remis à 10 crédits s\'il est inférieur à 10';
 
   @override
   String get creditsExplanation3 =>

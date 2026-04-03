@@ -911,7 +911,7 @@
     "noCreditsLeft": "Vous n'avez plus de crédits de candidature",
     "creditsHowItWorks": "Comment fonctionnent les crédits ?",
     "creditsExplanation1": "Chaque candidature coûte 1 crédit",
-    "creditsExplanation2": "Vous recevez 10 crédits chaque lundi si votre solde est inférieur à 10",
+    "creditsExplanation2": "Chaque lundi, votre solde est remis à 10 crédits s'il est inférieur à 10",
     "creditsExplanation3": "Chaque mission signée vous rapporte 5 crédits bonus",
     "creditsExplanation4": "Votre solde peut aller jusqu'à 50 crédits maximum",
     "close": "Fermer"
