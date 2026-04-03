@@ -68,8 +68,9 @@ async function fetchCreditsViaAPI(cookie: string): Promise<number> {
 // ---------------------------------------------------------------------------
 
 test.describe("Application credits system", () => {
-  test.beforeEach(async ({ page }) => {
-    await clearAuth(page)
+  test.beforeEach(async ({ page, context }) => {
+    await context.clearCookies()
+    await page.goto("/")
   })
 
   test("new provider starts with 10 credits", async ({ page }) => {
@@ -97,7 +98,8 @@ test.describe("Application credits system", () => {
     }
 
     // Step 2: Register a provider (clears enterprise session)
-    await clearAuth(page)
+    await context.clearCookies()
+    await page.goto("/")
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
 
@@ -159,7 +161,8 @@ test.describe("Application credits system", () => {
     expect(jobIds).toHaveLength(TOTAL_JOBS)
 
     // Step 2: Register a provider
-    await clearAuth(page)
+    await context.clearCookies()
+    await page.goto("/")
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
 
@@ -233,7 +236,8 @@ test.describe("Application credits system", () => {
     }
 
     // Register a provider and exhaust all 10 credits via API
-    await clearAuth(page)
+    await context.clearCookies()
+    await page.goto("/")
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
 
@@ -284,7 +288,8 @@ test.describe("Application credits system", () => {
     const jobId = await createJobViaAPI(enterpriseCookie, 1)
 
     // Register a provider
-    await clearAuth(page)
+    await context.clearCookies()
+    await page.goto("/")
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
 
