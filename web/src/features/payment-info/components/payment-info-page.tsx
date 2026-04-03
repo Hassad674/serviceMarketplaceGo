@@ -33,6 +33,7 @@ export function PaymentInfoPage() {
     country: localeToCountry(locale),
   })
   const [saved, setSaved] = useState(false)
+  const [stripeError, setStripeError] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
 
   const { data: user } = useUser()
@@ -95,7 +96,10 @@ export function PaymentInfoPage() {
   const handleSave = useCallback(() => {
     const merged = valuesToFlatData(data, countryFields?.sections)
     saveMutation.mutate({ data: merged, email: user?.email }, {
-      onSuccess: () => setSaved(true),
+      onSuccess: (response) => {
+        setSaved(true)
+        setStripeError(response.stripe_error ?? null)
+      },
     })
   }, [data, user, saveMutation, countryFields])
 
@@ -112,7 +116,7 @@ export function PaymentInfoPage() {
   return (
     <div className="space-y-6">
       <PageHeader t={t} />
-      <StatusBanner saved={saved} saveMutation={saveMutation} t={t} />
+      <StatusBanner saved={saved} saveMutation={saveMutation} stripeError={stripeError} t={t} />
 
       {/* Country selector */}
       <CountrySelector value={data.country} onChange={handleCountryChange} />
@@ -210,9 +214,10 @@ function PageHeader({ t }: { t: (key: string) => string }) {
   )
 }
 
-function StatusBanner({ saved, saveMutation, t }: {
+function StatusBanner({ saved, saveMutation, stripeError, t }: {
   saved: boolean
   saveMutation: { isError: boolean; error: Error | null }
+  stripeError: string | null
   t: (key: string) => string
 }) {
   return (
@@ -226,6 +231,15 @@ function StatusBanner({ saved, saveMutation, t }: {
         <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" strokeWidth={1.5} />
           <p className="text-sm font-medium text-amber-700 dark:text-amber-300">{t("incomplete")}</p>
+        </div>
+      )}
+      {stripeError && (
+        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" strokeWidth={1.5} />
+          <div>
+            <p className="text-sm font-semibold text-red-700 dark:text-red-300">{t("stripeErrorTitle")}</p>
+            <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{stripeError}</p>
+          </div>
         </div>
       )}
       {saveMutation.isError && (

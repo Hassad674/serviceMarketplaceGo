@@ -2,8 +2,10 @@ package payment
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -125,7 +127,8 @@ type BusinessPersonInput struct {
 }
 
 // SavePaymentInfo validates and upserts the payment info for the user.
-func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput, tosIP string, email string) (*domain.PaymentInfo, error) {
+// Returns the saved info, an optional Stripe error message (empty if no error), and any hard error.
+func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input SavePaymentInfoInput, tosIP string, email string) (*domain.PaymentInfo, string, error) {
 	info, err := domain.NewPaymentInfo(domain.NewPaymentInfoInput{
 		UserID:             userID,
 		FirstName:          input.FirstName,
@@ -160,7 +163,7 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		ExtraFields:        input.ExtraFields,
 	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// Preserve existing Stripe account ID before upserting
@@ -171,7 +174,7 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 	}
 
 	if err := s.payments.Upsert(ctx, info); err != nil {
-		return nil, fmt.Errorf("save payment info: %w", err)
+		return nil, "", fmt.Errorf("save payment info: %w", err)
 	}
 
 	// Save business persons (clear and re-create)
@@ -197,14 +200,39 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		}
 	}
 
-	// Create or update Stripe connected account
+	// Create or update Stripe connected account — surface errors to caller
+	var stripeError string
 	if info.StripeAccountID != "" {
-		s.updateStripeAccount(ctx, info, tosIP, email)
+		if stripeErr := s.updateStripeAccount(ctx, info, tosIP, email); stripeErr != nil {
+			stripeError = extractStripeMessage(stripeErr)
+		}
 	} else {
-		s.ensureStripeAccount(ctx, info, tosIP, email)
+		if stripeErr := s.ensureStripeAccount(ctx, info, tosIP, email); stripeErr != nil {
+			stripeError = extractStripeMessage(stripeErr)
+		}
 	}
 
-	return info, nil
+	return info, stripeError, nil
+}
+
+// extractStripeMessage extracts a human-readable message from a Stripe error.
+// Stripe errors often contain JSON with a "message" field embedded in the Go error string.
+func extractStripeMessage(err error) string {
+	errStr := err.Error()
+
+	// Try to find JSON object in the error string and extract "message"
+	if idx := strings.Index(errStr, "{"); idx >= 0 {
+		jsonPart := errStr[idx:]
+		var parsed struct {
+			Message string `json:"message"`
+		}
+		if jsonErr := json.Unmarshal([]byte(jsonPart), &parsed); jsonErr == nil && parsed.Message != "" {
+			return parsed.Message
+		}
+	}
+
+	// Fallback: return the full error string
+	return errStr
 }
 
 // IsComplete checks whether the user has complete payment info on file.

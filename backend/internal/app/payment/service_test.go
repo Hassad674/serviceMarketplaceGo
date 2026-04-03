@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -70,10 +71,11 @@ func TestSavePaymentInfo_Success(t *testing.T) {
 	}
 	svc := NewService(ServiceDeps{Payments: repo})
 
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput(), "", "")
+	info, stripeErr, err := svc.SavePaymentInfo(context.Background(), uuid.New(), validSaveInput(), "", "")
 
 	require.NoError(t, err)
 	require.NotNil(t, info)
+	assert.Empty(t, stripeErr, "no stripe error expected without stripe service")
 	assert.NotNil(t, persisted, "upsert should have been called")
 	assert.Equal(t, "Alice", info.FirstName)
 }
@@ -85,10 +87,47 @@ func TestSavePaymentInfo_ValidationError(t *testing.T) {
 	input := validSaveInput()
 	input.FirstName = ""
 
-	info, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input, "", "")
+	info, stripeErr, err := svc.SavePaymentInfo(context.Background(), uuid.New(), input, "", "")
 
 	assert.Nil(t, info)
+	assert.Empty(t, stripeErr)
 	assert.ErrorIs(t, err, domain.ErrFirstNameRequired)
+}
+
+func TestExtractStripeMessage(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "stripe json error with message",
+			err:  fmt.Errorf(`create stripe account: {"status":400,"message":"You must use a test bank account number.","type":"invalid_request_error"}`),
+			want: "You must use a test bank account number.",
+		},
+		{
+			name: "plain error without json",
+			err:  fmt.Errorf("connection refused"),
+			want: "connection refused",
+		},
+		{
+			name: "json without message field",
+			err:  fmt.Errorf(`stripe error: {"status":500,"type":"api_error"}`),
+			want: `stripe error: {"status":500,"type":"api_error"}`,
+		},
+		{
+			name: "nested json with message",
+			err:  fmt.Errorf(`update account: {"message":"The IBAN you provided is invalid."}`),
+			want: "The IBAN you provided is invalid.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractStripeMessage(tt.err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestIsComplete_NotFound(t *testing.T) {

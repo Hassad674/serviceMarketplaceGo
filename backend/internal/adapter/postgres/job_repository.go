@@ -62,7 +62,24 @@ func (r *JobRepository) GetByID(ctx context.Context, id uuid.UUID) (*job.Job, er
 func (r *JobRepository) Update(ctx context.Context, j *job.Job) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
-	result, err := r.db.ExecContext(ctx, queryUpdateJob, j.ID, string(j.Status), j.ClosedAt, j.UpdatedAt)
+	result, err := r.db.ExecContext(ctx, queryUpdateJob,
+		j.ID,
+		j.Title,
+		j.Description,
+		pq.Array(j.Skills),
+		string(j.ApplicantType),
+		string(j.BudgetType),
+		j.MinBudget,
+		j.MaxBudget,
+		j.PaymentFrequency,
+		j.DurationWeeks,
+		j.IsIndefinite,
+		string(j.DescriptionType),
+		j.VideoURL,
+		string(j.Status),
+		j.ClosedAt,
+		j.UpdatedAt,
+	)
 	if err != nil {
 		return fmt.Errorf("update job: %w", err)
 	}

@@ -32,6 +32,7 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   bool _saved = false;
   bool _saving = false;
   bool _populated = false;
+  String? _stripeError;
 
   void _update(PaymentInfoFormData Function(PaymentInfoFormData) updater) {
     setState(() {
@@ -135,10 +136,17 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     setState(() => _saving = true);
     try {
       final repo = ref.read(paymentInfoRepositoryProvider);
-      await repo.savePaymentInfo(_formDataToJson());
+      final savedInfo = await repo.savePaymentInfo(_formDataToJson());
       ref.invalidate(paymentInfoProvider);
       ref.invalidate(paymentInfoStatusProvider);
-      if (mounted) setState(() => _saved = true);
+      if (mounted) {
+        setState(() {
+          _saved = true;
+          _stripeError = savedInfo.stripeError.isNotEmpty
+              ? savedInfo.stripeError
+              : null;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -264,6 +272,10 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
 
             // Status banner
             PaymentStatusBanner(saved: _saved),
+            if (_stripeError != null) ...[
+              const SizedBox(height: 8),
+              _StripeErrorBanner(message: _stripeError!),
+            ],
             const SizedBox(height: 16),
 
             // Business toggle
@@ -591,6 +603,61 @@ class _BankAccountSection extends StatelessWidget {
           errorText: fieldErrors['accountHolder'],
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Stripe error banner
+// ---------------------------------------------------------------------------
+
+class _StripeErrorBanner extends StatelessWidget {
+  const _StripeErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: theme.colorScheme.error.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded,
+              size: 20, color: theme.colorScheme.error),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Stripe error',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.error,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  message,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

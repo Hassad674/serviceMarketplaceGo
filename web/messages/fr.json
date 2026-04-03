@@ -663,6 +663,8 @@
     "saving": "Enregistrement...",
     "saved": "Informations de paiement enregistrées",
     "saveError": "Échec de l'enregistrement. Veuillez réessayer.",
+    "stripeErrorTitle": "Erreur Stripe",
+    "stripeErrorDesc": "Vos données ont été enregistrées mais Stripe n'a pas pu les traiter. Corrigez le problème et enregistrez à nouveau.",
     "incomplete": "Complétez vos informations de paiement pour recevoir vos paiements",
     "identityVerification": "Vérification d'identité",
     "identityVerificationDesc": "Téléchargez votre document d'identité pour vérifier votre compte.",

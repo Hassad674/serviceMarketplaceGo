@@ -663,6 +663,8 @@
     "saving": "Saving...",
     "saved": "Payment information saved",
     "saveError": "Failed to save payment information. Please try again.",
+    "stripeErrorTitle": "Stripe error",
+    "stripeErrorDesc": "Your data was saved but Stripe could not process it. Please fix the issue and save again.",
     "incomplete": "Complete your payment information to receive payments",
     "identityVerification": "Identity Verification",
     "identityVerificationDesc": "Upload your identity document to verify your account.",

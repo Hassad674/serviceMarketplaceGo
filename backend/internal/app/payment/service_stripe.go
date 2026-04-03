@@ -389,28 +389,32 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 }
 
 // updateStripeAccount updates an existing Stripe account with new payment info.
-func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) {
+// Returns an error if Stripe rejects the data so the caller can surface it.
+func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) error {
 	if s.stripe == nil || info.StripeAccountID == "" || tosIP == "" {
-		return
+		return nil
 	}
 
 	if err := s.stripe.UpdateConnectedAccount(ctx, info.StripeAccountID, info, tosIP, email); err != nil {
 		slog.Error("failed to update stripe account", "user_id", info.UserID, "account_id", info.StripeAccountID, "error", err)
-	} else {
-		slog.Info("stripe account updated", "user_id", info.UserID, "account_id", info.StripeAccountID)
+		return err
 	}
+
+	slog.Info("stripe account updated", "user_id", info.UserID, "account_id", info.StripeAccountID)
+	return nil
 }
 
 // ensureStripeAccount creates a Stripe connected account if conditions are met.
-func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) {
+// Returns an error if Stripe rejects the data so the caller can surface it.
+func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentInfo, tosIP string, email string) error {
 	if s.stripe == nil || info.StripeAccountID != "" || !info.IsComplete() || tosIP == "" {
-		return
+		return nil
 	}
 
 	accountID, err := s.stripe.CreateConnectedAccount(ctx, info, tosIP, email)
 	if err != nil {
 		slog.Error("failed to create stripe connected account", "user_id", info.UserID, "error", err)
-		return
+		return err
 	}
 
 	info.SetStripeAccount(accountID)
@@ -427,6 +431,8 @@ func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentI
 
 	// Sync any documents uploaded before the account was created
 	s.syncPendingDocuments(ctx, info.UserID, accountID)
+
+	return nil
 }
 
 // getExtra looks up a value in extra_fields by multiple possible keys.

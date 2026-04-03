@@ -33,6 +33,7 @@ class PaymentInfo {
   final String bankCountry;
   final String stripeAccountId;
   final bool stripeVerified;
+  final String stripeError;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -70,6 +71,7 @@ class PaymentInfo {
     this.bankCountry = '',
     this.stripeAccountId = '',
     this.stripeVerified = false,
+    this.stripeError = '',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -114,6 +116,7 @@ class PaymentInfo {
       bankCountry: json['bank_country'] as String? ?? '',
       stripeAccountId: json['stripe_account_id'] as String? ?? '',
       stripeVerified: json['stripe_verified'] as bool? ?? false,
+      stripeError: json['stripe_error'] as String? ?? '',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );

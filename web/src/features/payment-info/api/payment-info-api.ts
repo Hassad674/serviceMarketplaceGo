@@ -66,6 +66,7 @@ export type PaymentInfoResponse = {
   bank_country: string
   stripe_account_id: string
   stripe_verified: boolean
+  stripe_error?: string
   country: string
   extra_fields: Record<string, string>
   created_at: string

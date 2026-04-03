@@ -100,13 +100,15 @@ func (h *PaymentInfoHandler) SavePaymentInfo(w http.ResponseWriter, r *http.Requ
 
 	tosIP := extractIP(r.RemoteAddr)
 	email := req.Email
-	info, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input, tosIP, email)
+	info, stripeErr, err := h.paymentService.SavePaymentInfo(r.Context(), userID, input, tosIP, email)
 	if err != nil {
 		handlePaymentInfoError(w, err)
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewPaymentInfoResponse(info, nil))
+	resp := response.NewPaymentInfoResponse(info, nil)
+	resp.StripeError = stripeErr
+	res.JSON(w, http.StatusOK, resp)
 }
 
 func mapBusinessPersons(reqs []request.BusinessPersonRequest) []paymentapp.BusinessPersonInput {

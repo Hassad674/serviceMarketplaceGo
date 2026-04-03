@@ -28,9 +28,21 @@ const queryGetJobByID = `
 
 const queryUpdateJob = `
 	UPDATE jobs
-	SET status = $2,
-		closed_at = $3,
-		updated_at = $4
+	SET title = $2,
+		description = $3,
+		skills = $4,
+		applicant_type = $5,
+		budget_type = $6,
+		min_budget = $7,
+		max_budget = $8,
+		payment_frequency = $9,
+		duration_weeks = $10,
+		is_indefinite = $11,
+		description_type = $12,
+		video_url = $13,
+		status = $14,
+		closed_at = $15,
+		updated_at = $16
 	WHERE id = $1`
 
 const queryListJobsByCreatorFirst = `

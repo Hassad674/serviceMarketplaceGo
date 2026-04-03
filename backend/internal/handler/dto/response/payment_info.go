@@ -45,6 +45,7 @@ type PaymentInfoResponse struct {
 
 	StripeAccountID string `json:"stripe_account_id"`
 	StripeVerified  bool   `json:"stripe_verified"`
+	StripeError     string `json:"stripe_error,omitempty"`
 
 	Country     string            `json:"country"`
 	ExtraFields map[string]string `json:"extra_fields"`
