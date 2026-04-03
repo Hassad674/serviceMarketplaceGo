@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -118,7 +119,15 @@ final hasAppliedProvider = FutureProvider.family<bool, String>((ref, jobId) asyn
 });
 
 /// Apply to a job. Returns the application entity or null on error.
-Future<JobApplicationEntity?> applyToJobAction(
+/// Result of applying to a job. Contains either the application or an error code.
+class ApplyResult {
+  final JobApplicationEntity? application;
+  final int? statusCode;
+  bool get success => application != null;
+  const ApplyResult({this.application, this.statusCode});
+}
+
+Future<ApplyResult> applyToJobAction(
   WidgetRef ref,
   String jobId, {
   required String message,
@@ -130,10 +139,13 @@ Future<JobApplicationEntity?> applyToJobAction(
     ref.invalidate(openJobsProvider);
     ref.invalidate(myApplicationsProvider);
     ref.invalidate(hasAppliedProvider(jobId));
-    return app;
+    return ApplyResult(application: app);
+  } on DioException catch (e) {
+    debugPrint('[JobProvider] applyToJob error: $e');
+    return ApplyResult(statusCode: e.response?.statusCode);
   } catch (e) {
     debugPrint('[JobProvider] applyToJob error: $e');
-    return null;
+    return ApplyResult();
   }
 }
 

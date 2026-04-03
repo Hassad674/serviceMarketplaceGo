@@ -11,6 +11,7 @@ import 'package:marketplace_mobile/features/payment_info/domain/entities/payment
 import 'package:marketplace_mobile/features/payment_info/presentation/providers/identity_document_provider.dart';
 import 'package:marketplace_mobile/features/payment_info/presentation/providers/payment_info_provider.dart';
 import 'package:marketplace_mobile/features/payment_info/presentation/screens/payment_info_screen.dart';
+import 'package:marketplace_mobile/features/payment_info/presentation/widgets/stripe_requirements_banner.dart';
 
 import 'test_helpers.dart';
 
@@ -73,6 +74,11 @@ List<Override> _overrides({
     authProvider.overrideWith((ref) => _FakeAuthNotifier()),
     identityDocumentsProvider.overrideWith(
       (ref) => Future.value(<IdentityDocument>[]),
+    ),
+    stripeRequirementsProvider.overrideWith(
+      (ref) => Future.value(
+        const StripeRequirements(hasRequirements: false, sections: []),
+      ),
     ),
     paymentInfoProvider.overrideWith(pi),
   ];

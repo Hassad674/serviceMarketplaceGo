@@ -29,7 +29,10 @@ class OpportunityCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       job.title,
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -46,24 +49,12 @@ class OpportunityCard extends StatelessWidget {
                         l10n.alreadyApplied,
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                       ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        l10n.jobStatusOpen,
-                        style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w500),
-                      ),
                     ),
                 ],
               ),
               if (job.description.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(job.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                Text(job.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
               if (job.skills.isNotEmpty) ...[
                 const SizedBox(height: 8),
@@ -82,11 +73,11 @@ class OpportunityCard extends StatelessWidget {
                 children: [
                   const Icon(Icons.euro, size: 14, color: Colors.grey),
                   const SizedBox(width: 4),
-                  Text('${job.minBudget}\u20ac - ${job.maxBudget}\u20ac', style: theme.textTheme.bodySmall),
+                  Text('${job.minBudget}\u20ac - ${job.maxBudget}\u20ac', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface)),
                   const Spacer(),
                   const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
                   const SizedBox(width: 4),
-                  Text(_formatDate(job.createdAt), style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                  Text(_formatDate(job.createdAt), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 ],
               ),
             ],

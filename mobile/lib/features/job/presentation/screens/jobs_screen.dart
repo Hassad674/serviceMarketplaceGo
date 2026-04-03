@@ -109,6 +109,7 @@ class _JobCard extends ConsumerWidget {
                     job.title,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -143,7 +144,13 @@ class _JobCard extends ConsumerWidget {
                 runSpacing: 4,
                 children: job.skills
                     .map((s) => Chip(
-                          label: Text(s, style: const TextStyle(fontSize: 11)),
+                          label: Text(
+                            s,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
                           visualDensity: VisualDensity.compact,

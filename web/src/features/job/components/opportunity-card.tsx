@@ -8,9 +8,10 @@ import type { JobResponse } from "../types"
 
 interface OpportunityCardProps {
   job: JobResponse
+  hasApplied?: boolean
 }
 
-export function OpportunityCard({ job }: OpportunityCardProps) {
+export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProps) {
   const t = useTranslations("opportunity")
 
   const budgetLabel =
@@ -30,13 +31,15 @@ export function OpportunityCard({ job }: OpportunityCardProps) {
           <h3 className="text-base font-semibold text-slate-900 dark:text-white line-clamp-2">
             {job.title}
           </h3>
-          <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
-            {t("open")}
-          </span>
+          {hasApplied && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+              {t("alreadyApplied")}
+            </span>
+          )}
         </div>
 
         {job.description && (
-          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-3">
+          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-3 break-words overflow-wrap-anywhere">
             {job.description}
           </p>
         )}

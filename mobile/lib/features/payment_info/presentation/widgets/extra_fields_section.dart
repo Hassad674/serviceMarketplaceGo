@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/country_field_spec.dart';
+import 'package:marketplace_mobile/features/payment_info/lib/country_states.dart';
 
 /// Label map for known extra field keys.
 const _fieldLabels = <String, String>{
@@ -15,17 +16,24 @@ const _fieldLabels = <String, String>{
 };
 
 /// Renders country-specific extra fields dynamically.
+///
+/// Supports state dropdown for countries with known state lists,
+/// error display from Stripe requirements, and political exposure select.
 class ExtraFieldsSection extends StatelessWidget {
   const ExtraFieldsSection({
     super.key,
     required this.fields,
     required this.values,
     required this.onChanged,
+    this.fieldErrors = const {},
+    this.countryCode = '',
   });
 
   final List<FieldSpec> fields;
   final Map<String, String> values;
   final void Function(String key, String value) onChanged;
+  final Map<String, String> fieldErrors;
+  final String countryCode;
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +70,8 @@ class ExtraFieldsSection extends StatelessWidget {
                       Text(
                         'Additional fields required for your country.',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
                         ),
                       ),
                     ],
@@ -81,27 +90,21 @@ class ExtraFieldsSection extends StatelessWidget {
   Widget _buildField(FieldSpec field) {
     final label = _fieldLabels[field.key] ?? field.key;
     final value = values[field.key] ?? '';
+    final errorText = fieldErrors[field.key];
 
-    if (field.key == 'political_exposure') {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: DropdownButtonFormField<String>(
-          initialValue: value.isEmpty ? null : value,
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'none', child: Text('None')),
-            DropdownMenuItem(value: 'existing', child: Text('Existing')),
-          ],
-          onChanged: (v) {
-            if (v != null) onChanged(field.key, v);
-          },
-        ),
-      );
+    // State dropdown for countries with known states
+    if (isStateField(field.labelKey, field.path) &&
+        countryCode.isNotEmpty &&
+        hasStates(countryCode)) {
+      return _buildStateDropdown(field, label, value, errorText);
     }
 
+    // Political exposure dropdown
+    if (field.key == 'political_exposure') {
+      return _buildPoliticalExposureDropdown(label, value, field, errorText);
+    }
+
+    // Default text field
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextFormField(
@@ -110,8 +113,64 @@ class ExtraFieldsSection extends StatelessWidget {
           labelText: label,
           hintText: field.placeholder ?? '',
           border: const OutlineInputBorder(),
+          errorText: errorText,
         ),
         onChanged: (v) => onChanged(field.key, v),
+      ),
+    );
+  }
+
+  Widget _buildStateDropdown(
+    FieldSpec field,
+    String label,
+    String value,
+    String? errorText,
+  ) {
+    final states = getStatesForCountry(countryCode);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        initialValue: value.isEmpty ? null : value,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          errorText: errorText,
+        ),
+        items: states
+            .map((s) => DropdownMenuItem(
+                  value: s.code,
+                  child: Text(s.name),
+                ),)
+            .toList(),
+        onChanged: (v) {
+          if (v != null) onChanged(field.key, v);
+        },
+      ),
+    );
+  }
+
+  Widget _buildPoliticalExposureDropdown(
+    String label,
+    String value,
+    FieldSpec field,
+    String? errorText,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String>(
+        initialValue: value.isEmpty ? null : value,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          errorText: errorText,
+        ),
+        items: const [
+          DropdownMenuItem(value: 'none', child: Text('None')),
+          DropdownMenuItem(value: 'existing', child: Text('Existing')),
+        ],
+        onChanged: (v) {
+          if (v != null) onChanged(field.key, v);
+        },
       ),
     );
   }

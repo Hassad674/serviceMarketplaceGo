@@ -241,6 +241,11 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   }
 
   Widget _buildForm(AppLocalizations l10n, ThemeData theme) {
+    // Build field errors from Stripe requirements
+    final asyncReqs = ref.watch(stripeRequirementsProvider);
+    final reqs = asyncReqs.valueOrNull;
+    final fieldErrors = buildFieldErrors(reqs);
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -272,7 +277,11 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             const SizedBox(height: 16),
 
             // Personal info (includes phone)
-            _PersonalInfoSection(data: _data, onUpdate: _update),
+            _PersonalInfoSection(
+              data: _data,
+              onUpdate: _update,
+              fieldErrors: fieldErrors,
+            ),
             const SizedBox(height: 16),
 
             // Activity sector
@@ -292,6 +301,7 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
                           _BusinessInfoSection(
                             data: _data,
                             onUpdate: _update,
+                            fieldErrors: fieldErrors,
                           ),
                           const SizedBox(height: 16),
                           BusinessPersonsSection(
@@ -305,7 +315,11 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             ),
 
             // Bank account
-            _BankAccountSection(data: _data, onUpdate: _update),
+            _BankAccountSection(
+              data: _data,
+              onUpdate: _update,
+              fieldErrors: fieldErrors,
+            ),
             const SizedBox(height: 24),
 
             // Identity verification
@@ -334,10 +348,12 @@ class _PersonalInfoSection extends StatelessWidget {
   const _PersonalInfoSection({
     required this.data,
     required this.onUpdate,
+    this.fieldErrors = const {},
   });
 
   final PaymentInfoFormData data;
   final FormUpdater onUpdate;
+  final Map<String, String> fieldErrors;
 
   @override
   Widget build(BuildContext context) {
@@ -354,12 +370,14 @@ class _PersonalInfoSection extends StatelessWidget {
           value: data.firstName,
           onChanged: (v) => onUpdate((d) => d.copyWith(firstName: v)),
           required: true,
+          errorText: fieldErrors['firstName'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoLastName,
           value: data.lastName,
           onChanged: (v) => onUpdate((d) => d.copyWith(lastName: v)),
           required: true,
+          errorText: fieldErrors['lastName'],
         ),
         PaymentDateField(
           label: l10n.paymentInfoDob,
@@ -375,24 +393,28 @@ class _PersonalInfoSection extends StatelessWidget {
                 : BankAccountMode.local;
             onUpdate((d) => d.copyWith(nationality: code, bankMode: mode));
           },
+          errorText: fieldErrors['nationality'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoAddress,
           value: data.address,
           onChanged: (v) => onUpdate((d) => d.copyWith(address: v)),
           required: true,
+          errorText: fieldErrors['address'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoCity,
           value: data.city,
           onChanged: (v) => onUpdate((d) => d.copyWith(city: v)),
           required: true,
+          errorText: fieldErrors['city'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoPostalCode,
           value: data.postalCode,
           onChanged: (v) => onUpdate((d) => d.copyWith(postalCode: v)),
           required: true,
+          errorText: fieldErrors['postalCode'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoPhone,
@@ -401,6 +423,7 @@ class _PersonalInfoSection extends StatelessWidget {
           keyboardType: TextInputType.phone,
           placeholder: '+33 6 12 34 56 78',
           required: true,
+          errorText: fieldErrors['phone'],
         ),
         if (data.isBusiness)
           PaymentRoleDropdown(
@@ -420,10 +443,12 @@ class _BusinessInfoSection extends StatelessWidget {
   const _BusinessInfoSection({
     required this.data,
     required this.onUpdate,
+    this.fieldErrors = const {},
   });
 
   final PaymentInfoFormData data;
   final FormUpdater onUpdate;
+  final Map<String, String> fieldErrors;
 
   @override
   Widget build(BuildContext context) {
@@ -437,18 +462,21 @@ class _BusinessInfoSection extends StatelessWidget {
           value: data.businessName,
           onChanged: (v) => onUpdate((d) => d.copyWith(businessName: v)),
           required: true,
+          errorText: fieldErrors['businessName'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoBusinessAddress,
           value: data.businessAddress,
           onChanged: (v) => onUpdate((d) => d.copyWith(businessAddress: v)),
           required: true,
+          errorText: fieldErrors['businessAddress'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoBusinessCity,
           value: data.businessCity,
           onChanged: (v) => onUpdate((d) => d.copyWith(businessCity: v)),
           required: true,
+          errorText: fieldErrors['businessCity'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoBusinessPostalCode,
@@ -456,12 +484,14 @@ class _BusinessInfoSection extends StatelessWidget {
           onChanged: (v) =>
               onUpdate((d) => d.copyWith(businessPostalCode: v)),
           required: true,
+          errorText: fieldErrors['businessPostalCode'],
         ),
         PaymentCountryDropdown(
           label: l10n.paymentInfoBusinessCountry,
           value: data.businessCountry,
           onChanged: (code) =>
               onUpdate((d) => d.copyWith(businessCountry: code)),
+          errorText: fieldErrors['businessCountry'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoTaxId,
@@ -469,12 +499,14 @@ class _BusinessInfoSection extends StatelessWidget {
           onChanged: (v) => onUpdate((d) => d.copyWith(taxId: v)),
           placeholder: l10n.paymentInfoTaxIdHint,
           required: true,
+          errorText: fieldErrors['taxId'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoVatNumber,
           value: data.vatNumber,
           onChanged: (v) => onUpdate((d) => d.copyWith(vatNumber: v)),
           placeholder: l10n.paymentInfoVatNumberHint,
+          errorText: fieldErrors['vatNumber'],
         ),
       ],
     );
@@ -489,10 +521,12 @@ class _BankAccountSection extends StatelessWidget {
   const _BankAccountSection({
     required this.data,
     required this.onUpdate,
+    this.fieldErrors = const {},
   });
 
   final PaymentInfoFormData data;
   final FormUpdater onUpdate;
+  final Map<String, String> fieldErrors;
 
   @override
   Widget build(BuildContext context) {
@@ -509,12 +543,14 @@ class _BankAccountSection extends StatelessWidget {
             onChanged: (v) => onUpdate((d) => d.copyWith(iban: v)),
             placeholder: l10n.paymentInfoIbanHint,
             required: true,
+            errorText: fieldErrors['iban'],
           ),
           PaymentFormField(
             label: l10n.paymentInfoBic,
             value: data.bic,
             onChanged: (v) => onUpdate((d) => d.copyWith(bic: v)),
             placeholder: l10n.paymentInfoBicHint,
+            errorText: fieldErrors['bic'],
           ),
           PaymentIbanHelpText(helpText: l10n.paymentInfoIbanHelp),
         ] else ...[
@@ -523,12 +559,14 @@ class _BankAccountSection extends StatelessWidget {
             value: data.accountNumber,
             onChanged: (v) => onUpdate((d) => d.copyWith(accountNumber: v)),
             required: true,
+            errorText: fieldErrors['accountNumber'],
           ),
           PaymentFormField(
             label: l10n.paymentInfoRoutingNumber,
             value: data.routingNumber,
             onChanged: (v) => onUpdate((d) => d.copyWith(routingNumber: v)),
             required: true,
+            errorText: fieldErrors['routingNumber'],
           ),
         ],
         PaymentNoIbanCheckbox(
@@ -546,12 +584,14 @@ class _BankAccountSection extends StatelessWidget {
           value: data.bankCountry,
           onChanged: (code) =>
               onUpdate((d) => d.copyWith(bankCountry: code)),
+          errorText: fieldErrors['bankCountry'],
         ),
         PaymentFormField(
           label: l10n.paymentInfoAccountHolder,
           value: data.accountHolder,
           onChanged: (v) => onUpdate((d) => d.copyWith(accountHolder: v)),
           required: true,
+          errorText: fieldErrors['accountHolder'],
         ),
       ],
     );

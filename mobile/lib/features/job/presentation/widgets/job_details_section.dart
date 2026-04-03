@@ -19,6 +19,7 @@ class JobDetailsSection extends StatelessWidget {
     required this.isExpanded,
     required this.onExpansionChanged,
     this.showDescription = true,
+    this.hideApplicantType = false,
   });
 
   final TextEditingController titleController;
@@ -31,6 +32,7 @@ class JobDetailsSection extends StatelessWidget {
   final bool isExpanded;
   final ValueChanged<bool> onExpansionChanged;
   final bool showDescription;
+  final bool hideApplicantType;
 
   @override
   Widget build(BuildContext context) {
@@ -95,13 +97,15 @@ class JobDetailsSection extends StatelessWidget {
           onAdded: onSkillAdded,
           onRemoved: onSkillRemoved,
         ),
-        const SizedBox(height: 20),
+        if (!hideApplicantType) ...[
+          const SizedBox(height: 20),
 
-        // Applicant type
-        ApplicantTypeSelector(
-          selected: applicantType,
-          onChanged: onApplicantTypeChanged,
-        ),
+          // Applicant type
+          ApplicantTypeSelector(
+            selected: applicantType,
+            onChanged: onApplicantTypeChanged,
+          ),
+        ],
       ],
     );
   }
