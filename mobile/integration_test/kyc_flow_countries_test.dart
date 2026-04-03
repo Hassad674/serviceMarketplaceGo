@@ -498,8 +498,11 @@ void main() {
         updatedData['city'] = 'Los Angeles';
         await repo.savePaymentInfo(updatedData);
 
-        // Rebuild the widget with the same repo to verify persistence
-        await tester.pumpWidget(buildKycApp(repo: repo, role: 'provider'));
+        // Rebuild the widget with a new key to force fresh State
+        final newKey = UniqueKey();
+        await tester.pumpWidget(
+          buildKycApp(repo: repo, role: 'provider', screenKey: newKey),
+        );
         await tester.pumpAndSettle();
 
         // Verify updated city is displayed
@@ -548,8 +551,11 @@ void main() {
         updatedData['account_holder'] = 'Updated Corp LLC';
         await repo.savePaymentInfo(updatedData);
 
-        // Rebuild the widget with the same repo to verify persistence
-        await tester.pumpWidget(buildKycApp(repo: repo, role: 'agency'));
+        // Rebuild the widget with a new key to force fresh State
+        final newKey = UniqueKey();
+        await tester.pumpWidget(
+          buildKycApp(repo: repo, role: 'agency', screenKey: newKey),
+        );
         await tester.pumpAndSettle();
 
         // Verify saved banner still shows

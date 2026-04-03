@@ -156,7 +156,13 @@ Widget buildKycApp({
   String role = 'provider',
   Key? screenKey,
 }) {
+  // Always use a unique key on ProviderScope to force a fresh
+  // ProviderContainer when pumpWidget replaces the widget tree.
+  // Without this, Flutter reuses the element by type-matching and
+  // the old ProviderContainer (with stale cached provider results)
+  // survives across pumpWidget calls.
   return ProviderScope(
+    key: UniqueKey(),
     overrides: [
       paymentInfoRepositoryProvider.overrideWithValue(repo),
       paymentInfoProvider.overrideWith(
