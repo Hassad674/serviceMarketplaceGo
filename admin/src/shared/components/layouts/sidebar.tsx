@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom"
-import { LayoutDashboard, Users, LogOut } from "lucide-react"
+import { LayoutDashboard, Users, MessageSquare, LogOut } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { useAuth } from "@/shared/hooks/use-auth"
 
 const navigation = [
   { to: "/", label: "Tableau de bord", icon: LayoutDashboard },
   { to: "/users", label: "Utilisateurs", icon: Users },
+  { to: "/conversations", label: "Conversations", icon: MessageSquare },
 ]
 
 export function Sidebar() {

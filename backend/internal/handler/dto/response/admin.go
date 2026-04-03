@@ -1,8 +1,10 @@
 package response
 
 import (
+	"encoding/json"
 	"time"
 
+	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/domain/user"
 )
 
@@ -93,4 +95,85 @@ func NewAdminUserResponse(u *user.User) AdminUserResponse {
 		r.BannedAt = &s
 	}
 	return r
+}
+
+// AdminConversationResponse is the JSON response for admin conversation listing.
+type AdminConversationResponse struct {
+	ID            string                             `json:"id"`
+	Participants  []AdminConversationParticipantResp  `json:"participants"`
+	MessageCount  int                                `json:"message_count"`
+	LastMessage   *string                            `json:"last_message"`
+	LastMessageAt *string                            `json:"last_message_at"`
+	CreatedAt     string                             `json:"created_at"`
+}
+
+// AdminConversationParticipantResp is a lightweight participant in a conversation.
+type AdminConversationParticipantResp struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Role        string `json:"role"`
+}
+
+// NewAdminConversationResponse converts an admin conversation to its JSON response.
+func NewAdminConversationResponse(c adminapp.AdminConversation) AdminConversationResponse {
+	participants := make([]AdminConversationParticipantResp, 0, len(c.Participants))
+	for _, p := range c.Participants {
+		participants = append(participants, AdminConversationParticipantResp{
+			ID:          p.ID.String(),
+			DisplayName: p.DisplayName,
+			Email:       p.Email,
+			Role:        p.Role,
+		})
+	}
+
+	resp := AdminConversationResponse{
+		ID:           c.ID.String(),
+		Participants: participants,
+		MessageCount: c.MessageCount,
+		LastMessage:  c.LastMessage,
+		CreatedAt:    c.CreatedAt.Format(time.RFC3339),
+	}
+	if c.LastMessageAt != nil {
+		s := c.LastMessageAt.Format(time.RFC3339)
+		resp.LastMessageAt = &s
+	}
+	return resp
+}
+
+// AdminMessageResponse is the JSON response for admin message viewing.
+type AdminMessageResponse struct {
+	ID             string           `json:"id"`
+	ConversationID string           `json:"conversation_id"`
+	SenderID       string           `json:"sender_id"`
+	SenderName     string           `json:"sender_name"`
+	SenderRole     string           `json:"sender_role"`
+	Content        string           `json:"content"`
+	Type           string           `json:"type"`
+	Metadata       *json.RawMessage `json:"metadata,omitempty"`
+	ReplyToID      *string          `json:"reply_to_id,omitempty"`
+	CreatedAt      string           `json:"created_at"`
+}
+
+// NewAdminMessageResponse converts an admin message to its JSON response.
+func NewAdminMessageResponse(m adminapp.AdminMessage) AdminMessageResponse {
+	resp := AdminMessageResponse{
+		ID:             m.ID.String(),
+		ConversationID: m.ConversationID.String(),
+		SenderID:       m.SenderID.String(),
+		SenderName:     m.SenderName,
+		SenderRole:     m.SenderRole,
+		Content:        m.Content,
+		Type:           m.Type,
+		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+	}
+	if m.ReplyToID != nil {
+		s := m.ReplyToID.String()
+		resp.ReplyToID = &s
+	}
+	if len(m.Metadata) > 0 {
+		raw := json.RawMessage(m.Metadata)
+		resp.Metadata = &raw
+	}
+	return resp
 }

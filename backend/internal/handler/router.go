@@ -303,6 +303,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/users/{id}/ban", deps.Admin.BanUser)
 				r.Post("/users/{id}/unban", deps.Admin.UnbanUser)
 
+				// Conversation moderation endpoints
+				r.Get("/conversations", deps.Admin.ListConversations)
+				r.Get("/conversations/{id}", deps.Admin.GetConversation)
+				r.Get("/conversations/{id}/messages", deps.Admin.GetConversationMessages)
+
 				// Job credit admin endpoints
 				if deps.JobApplication != nil {
 					r.Post("/credits/reset", deps.JobApplication.ResetCredits)

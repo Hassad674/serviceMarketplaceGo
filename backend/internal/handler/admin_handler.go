@@ -201,6 +201,81 @@ func (h *AdminHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, map[string]any{"message": "user unbanned"})
 }
 
+// ListConversations handles GET /api/v1/admin/conversations.
+func (h *AdminHandler) ListConversations(w http.ResponseWriter, r *http.Request) {
+	cursorStr := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	conversations, nextCursor, total, err := h.svc.ListConversations(r.Context(), cursorStr, limit)
+	if err != nil {
+		slog.Error("admin list conversations", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list conversations")
+		return
+	}
+
+	items := make([]response.AdminConversationResponse, 0, len(conversations))
+	for _, c := range conversations {
+		items = append(items, response.NewAdminConversationResponse(c))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        items,
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+		"total":       total,
+	})
+}
+
+// GetConversation handles GET /api/v1/admin/conversations/{id}.
+func (h *AdminHandler) GetConversation(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	conv, err := h.svc.GetConversation(r.Context(), id)
+	if err != nil {
+		slog.Error("admin get conversation", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get conversation")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data": response.NewAdminConversationResponse(*conv),
+	})
+}
+
+// GetConversationMessages handles GET /api/v1/admin/conversations/{id}/messages.
+func (h *AdminHandler) GetConversationMessages(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	cursorStr := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 50)
+
+	messages, nextCursor, err := h.svc.GetConversationMessages(r.Context(), id, cursorStr, limit)
+	if err != nil {
+		slog.Error("admin get conversation messages", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get messages")
+		return
+	}
+
+	items := make([]response.AdminMessageResponse, 0, len(messages))
+	for _, m := range messages {
+		items = append(items, response.NewAdminMessageResponse(m))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        items,
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+	})
+}
+
 func parseAdminUserID(r *http.Request) (uuid.UUID, error) {
 	return uuid.Parse(chi.URLParam(r, "id"))
 }
