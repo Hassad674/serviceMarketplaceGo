@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -11,12 +12,108 @@ import (
 	"marketplace-backend/internal/port/repository"
 )
 
-type Service struct {
-	users repository.UserRepository
+// DashboardStats holds aggregated statistics for the admin dashboard.
+type DashboardStats struct {
+	TotalUsers      int
+	UsersByRole     map[string]int
+	ActiveUsers     int
+	SuspendedUsers  int
+	BannedUsers     int
+	TotalProposals  int
+	ActiveProposals int
+	TotalJobs       int
+	OpenJobs        int
+	RecentSignups   []*user.User
 }
 
-func NewService(users repository.UserRepository) *Service {
-	return &Service{users: users}
+type Service struct {
+	users repository.UserRepository
+	db    *sql.DB
+}
+
+func NewService(users repository.UserRepository, db *sql.DB) *Service {
+	return &Service{users: users, db: db}
+}
+
+func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
+	roleCount, err := s.users.CountByRole(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: count by role: %w", err)
+	}
+
+	statusCount, err := s.users.CountByStatus(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: count by status: %w", err)
+	}
+
+	recent, err := s.users.RecentSignups(ctx, 10)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: recent signups: %w", err)
+	}
+
+	totalProposals, activeProposals, err := s.countProposals(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: proposals: %w", err)
+	}
+
+	totalJobs, openJobs, err := s.countJobs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: jobs: %w", err)
+	}
+
+	totalUsers := 0
+	for _, c := range roleCount {
+		totalUsers += c
+	}
+
+	return &DashboardStats{
+		TotalUsers:      totalUsers,
+		UsersByRole:     roleCount,
+		ActiveUsers:     statusCount["active"],
+		SuspendedUsers:  statusCount["suspended"],
+		BannedUsers:     statusCount["banned"],
+		TotalProposals:  totalProposals,
+		ActiveProposals: activeProposals,
+		TotalJobs:       totalJobs,
+		OpenJobs:        openJobs,
+		RecentSignups:   recent,
+	}, nil
+}
+
+func (s *Service) countProposals(ctx context.Context) (total int, active int, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM proposals").Scan(&total)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count total proposals: %w", err)
+	}
+
+	err = s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM proposals WHERE status IN ('paid', 'active', 'completion_requested')",
+	).Scan(&active)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count active proposals: %w", err)
+	}
+	return total, active, nil
+}
+
+func (s *Service) countJobs(ctx context.Context) (total int, open int, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM jobs").Scan(&total)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count total jobs: %w", err)
+	}
+
+	err = s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM jobs WHERE status = 'open'",
+	).Scan(&open)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count open jobs: %w", err)
+	}
+	return total, open, nil
 }
 
 func (s *Service) ListUsers(ctx context.Context, filters repository.AdminUserFilters) ([]*user.User, string, int, error) {

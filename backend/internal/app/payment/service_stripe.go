@@ -3,6 +3,7 @@ package payment
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -206,11 +207,14 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 // HandleAccountUpdated syncs Stripe connected account verification status.
 // Called by the webhook handler when account.updated fires.
 func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) error {
-	// Get verification status + verified file ID from Stripe
-	verStatus, verifiedFileID, err := s.stripe.GetIdentityVerificationStatus(ctx, accountID)
+	// Get full account status in one API call (verification + charges + payouts)
+	fullStatus, err := s.stripe.GetAccountFullStatus(ctx, accountID)
 	if err != nil {
-		return fmt.Errorf("get verification status: %w", err)
+		return fmt.Errorf("get account full status: %w", err)
 	}
+
+	verStatus := fullStatus.VerificationStatus
+	verifiedFileID := fullStatus.VerifiedFileID
 
 	// Find the user associated with this Stripe account
 	info, err := s.payments.GetByStripeAccountID(ctx, accountID)
@@ -224,6 +228,16 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 		if err := s.payments.UpdateStripeFields(ctx, info.UserID, accountID, true); err != nil {
 			slog.Error("webhook: failed to mark stripe verified", "user_id", info.UserID, "error", err)
 		}
+	}
+
+	// Detect account status changes and notify
+	chargesChanged := info.ChargesEnabled != fullStatus.ChargesEnabled
+	payoutsChanged := info.PayoutsEnabled != fullStatus.PayoutsEnabled
+	if chargesChanged || payoutsChanged {
+		if err := s.payments.UpdateAccountStatus(ctx, info.UserID, fullStatus.ChargesEnabled, fullStatus.PayoutsEnabled); err != nil {
+			slog.Error("webhook: failed to update account status", "user_id", info.UserID, "error", err)
+		}
+		s.notifyAccountStatusChange(ctx, info.UserID, fullStatus.ChargesEnabled, fullStatus.PayoutsEnabled)
 	}
 
 	// Update identity document statuses
@@ -243,7 +257,6 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 				slog.Info("webhook: document verified", "doc_id", d.ID, "user_id", info.UserID)
 			}
 		case "unverified":
-			// Only reject for individual accounts — company accounts use "pending" instead
 			_ = s.documents.UpdateStatus(ctx, d.ID, string(domain.DocStatusRejected), "verification failed")
 			slog.Info("webhook: document rejected", "doc_id", d.ID, "user_id", info.UserID)
 		case "pending":
@@ -252,12 +265,47 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 	}
 
 	// Check for new requirements and notify
-	due, reqErr := s.stripe.GetAccountRequirements(ctx, accountID)
-	if reqErr == nil && len(due) > 0 {
-		s.NotifyNewRequirements(ctx, info.UserID, due)
+	reqs, reqErr := s.stripe.GetAccountRequirements(ctx, accountID)
+	if reqErr == nil {
+		s.NotifyNewRequirements(ctx, info.UserID, reqs)
 	}
 
 	return nil
+}
+
+// notifyAccountStatusChange sends a notification when Stripe account charges/payouts status changes.
+func (s *Service) notifyAccountStatusChange(ctx context.Context, userID uuid.UUID, charges, payouts bool) {
+	if s.notifications == nil {
+		return
+	}
+
+	var title, body string
+	switch {
+	case charges && payouts:
+		title = "Compte Stripe activ\u00e9"
+		body = "Votre compte est maintenant actif. Vous pouvez recevoir des paiements."
+	case !payouts:
+		title = "Virements suspendus \u2014 Stripe"
+		body = "Les virements vers votre compte ont \u00e9t\u00e9 suspendus. V\u00e9rifiez vos informations."
+	case !charges:
+		title = "Paiements suspendus \u2014 Stripe"
+		body = "Votre capacit\u00e9 \u00e0 recevoir des paiements a \u00e9t\u00e9 suspendue par Stripe."
+	}
+
+	data, _ := json.Marshal(map[string]string{
+		"type": "stripe_account_status",
+		"url":  "/payment-info",
+	})
+
+	if err := s.notifications.Send(ctx, portservice.NotificationInput{
+		UserID: userID,
+		Type:   "stripe_account_status",
+		Title:  title,
+		Body:   body,
+		Data:   data,
+	}); err != nil {
+		slog.Error("failed to send account status notification", "user_id", userID, "error", err)
+	}
 }
 
 // WalletOverview holds the provider's wallet state.

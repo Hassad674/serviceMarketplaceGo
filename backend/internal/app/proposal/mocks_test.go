@@ -120,6 +120,18 @@ func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilte
 	return 0, nil
 }
 
+func (m *mockUserRepo) CountByRole(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) CountByStatus(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*user.User, error) {
+	return nil, nil
+}
+
 // --- mockMessageSender ---
 
 type mockMessageSender struct {

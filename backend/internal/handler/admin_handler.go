@@ -25,6 +25,34 @@ func NewAdminHandler(svc *adminapp.Service) *AdminHandler {
 	return &AdminHandler{svc: svc}
 }
 
+// GetDashboardStats handles GET /api/v1/admin/dashboard/stats.
+func (h *AdminHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.svc.GetDashboardStats(r.Context())
+	if err != nil {
+		slog.Error("admin dashboard stats", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get dashboard stats")
+		return
+	}
+
+	recentSignups := make([]response.RecentSignupResponse, 0, len(stats.RecentSignups))
+	for _, u := range stats.RecentSignups {
+		recentSignups = append(recentSignups, response.NewRecentSignupResponse(u))
+	}
+
+	res.JSON(w, http.StatusOK, response.DashboardStatsResponse{
+		TotalUsers:      stats.TotalUsers,
+		UsersByRole:     stats.UsersByRole,
+		ActiveUsers:     stats.ActiveUsers,
+		SuspendedUsers:  stats.SuspendedUsers,
+		BannedUsers:     stats.BannedUsers,
+		TotalProposals:  stats.TotalProposals,
+		ActiveProposals: stats.ActiveProposals,
+		TotalJobs:       stats.TotalJobs,
+		OpenJobs:        stats.OpenJobs,
+		RecentSignups:   recentSignups,
+	})
+}
+
 // ListUsers handles GET /api/v1/admin/users.
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	filters := repository.AdminUserFilters{

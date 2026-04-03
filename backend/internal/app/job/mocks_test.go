@@ -188,6 +188,18 @@ func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilte
 	return 0, nil
 }
 
+func (m *mockUserRepo) CountByRole(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) CountByStatus(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*user.User, error) {
+	return nil, nil
+}
+
 // --- mockJobCreditRepo ---
 
 type mockJobCreditRepo struct {
@@ -217,6 +229,8 @@ func (m *mockJobCreditRepo) AddBonus(ctx context.Context, userID uuid.UUID, amou
 	}
 	return nil
 }
+
+func (m *mockJobCreditRepo) ResetForUser(_ context.Context, _ uuid.UUID, _ int) error { return nil }
 
 func (m *mockJobCreditRepo) ResetWeekly(ctx context.Context, minCredits int) error {
 	if m.resetWeeklyFn != nil {

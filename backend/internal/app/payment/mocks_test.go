@@ -14,10 +14,11 @@ import (
 // --- PaymentInfoRepository mock ---
 
 type mockPaymentInfoRepo struct {
-	getByUserIDFn        func(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error)
-	upsertFn             func(ctx context.Context, info *domain.PaymentInfo) error
-	updateStripeFieldsFn func(ctx context.Context, userID uuid.UUID, accountID string, verified bool) error
-	getByStripeAccountFn func(ctx context.Context, accountID string) (*domain.PaymentInfo, error)
+	getByUserIDFn          func(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error)
+	upsertFn               func(ctx context.Context, info *domain.PaymentInfo) error
+	updateStripeFieldsFn   func(ctx context.Context, userID uuid.UUID, accountID string, verified bool) error
+	getByStripeAccountFn   func(ctx context.Context, accountID string) (*domain.PaymentInfo, error)
+	updateAccountStatusFn  func(ctx context.Context, userID uuid.UUID, chargesEnabled, payoutsEnabled bool) error
 }
 
 func (m *mockPaymentInfoRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*domain.PaymentInfo, error) {
@@ -46,6 +47,13 @@ func (m *mockPaymentInfoRepo) GetByStripeAccountID(ctx context.Context, accountI
 		return m.getByStripeAccountFn(ctx, accountID)
 	}
 	return nil, domain.ErrNotFound
+}
+
+func (m *mockPaymentInfoRepo) UpdateAccountStatus(ctx context.Context, userID uuid.UUID, chargesEnabled, payoutsEnabled bool) error {
+	if m.updateAccountStatusFn != nil {
+		return m.updateAccountStatusFn(ctx, userID, chargesEnabled, payoutsEnabled)
+	}
+	return nil
 }
 
 // --- PaymentRecordRepository mock ---
@@ -136,6 +144,10 @@ func (m *mockStripeService) GetIdentityVerificationStatus(_ context.Context, _ s
 	return "", "", nil
 }
 
+func (m *mockStripeService) GetAccountFullStatus(_ context.Context, _ string) (*portservice.AccountFullStatus, error) {
+	return &portservice.AccountFullStatus{}, nil
+}
+
 func (m *mockStripeService) UploadIdentityFile(ctx context.Context, filename string, data io.Reader, purpose string) (string, error) {
 	if m.uploadIdentityFileFn != nil {
 		return m.uploadIdentityFileFn(ctx, filename, data, purpose)
@@ -158,8 +170,8 @@ func (m *mockStripeService) UpdateCompanyFlags(_ context.Context, _ string, _, _
 	return nil
 }
 
-func (m *mockStripeService) GetAccountRequirements(_ context.Context, _ string) ([]string, error) {
-	return nil, nil
+func (m *mockStripeService) GetAccountRequirements(_ context.Context, _ string) (*domain.AccountRequirements, error) {
+	return &domain.AccountRequirements{}, nil
 }
 
 func (m *mockStripeService) CreateAccountLink(_ context.Context, _, _, _ string) (string, error) {

@@ -58,6 +58,10 @@ func (m *mockPaymentInfoRepo) GetByStripeAccountID(ctx context.Context, stripeAc
 	return nil, payment.ErrNotFound
 }
 
+func (m *mockPaymentInfoRepo) UpdateAccountStatus(_ context.Context, _ uuid.UUID, _, _ bool) error {
+	return nil
+}
+
 type mockPaymentRecordRepo struct {
 	createFn               func(ctx context.Context, record *payment.PaymentRecord) error
 	getByProposalIDFn      func(ctx context.Context, proposalID uuid.UUID) (*payment.PaymentRecord, error)

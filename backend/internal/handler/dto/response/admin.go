@@ -6,6 +6,43 @@ import (
 	"marketplace-backend/internal/domain/user"
 )
 
+// DashboardStatsResponse is the JSON response for GET /api/v1/admin/dashboard/stats.
+type DashboardStatsResponse struct {
+	TotalUsers      int                    `json:"total_users"`
+	UsersByRole     map[string]int         `json:"users_by_role"`
+	ActiveUsers     int                    `json:"active_users"`
+	SuspendedUsers  int                    `json:"suspended_users"`
+	BannedUsers     int                    `json:"banned_users"`
+	TotalProposals  int                    `json:"total_proposals"`
+	ActiveProposals int                    `json:"active_proposals"`
+	TotalJobs       int                    `json:"total_jobs"`
+	OpenJobs        int                    `json:"open_jobs"`
+	RecentSignups   []RecentSignupResponse `json:"recent_signups"`
+}
+
+// RecentSignupResponse is a lightweight user representation for recent signups.
+type RecentSignupResponse struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+	Role        string `json:"role"`
+	CreatedAt   string `json:"created_at"`
+}
+
+func NewRecentSignupResponse(u *user.User) RecentSignupResponse {
+	displayName := u.DisplayName
+	if displayName == "" {
+		displayName = u.FirstName + " " + u.LastName
+	}
+	return RecentSignupResponse{
+		ID:          u.ID.String(),
+		DisplayName: displayName,
+		Email:       u.Email,
+		Role:        string(u.Role),
+		CreatedAt:   u.CreatedAt.Format(time.RFC3339),
+	}
+}
+
 type AdminUserResponse struct {
 	ID                  string  `json:"id"`
 	Email               string  `json:"email"`

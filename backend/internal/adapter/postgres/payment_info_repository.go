@@ -34,6 +34,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified,
+			charges_enabled, payouts_enabled,
 			country, extra_fields,
 			created_at, updated_at
 		FROM payment_info
@@ -58,6 +59,7 @@ func (r *PaymentInfoRepository) GetByUserID(ctx context.Context, userID uuid.UUI
 		&p.IsSelfRepresentative, &p.IsSelfDirector, &p.NoMajorOwners, &p.IsSelfExecutive,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified,
+		&p.ChargesEnabled, &p.PayoutsEnabled,
 		&p.Country, &extraFieldsRaw,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
@@ -213,6 +215,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 			is_self_representative, is_self_director, no_major_owners, is_self_executive,
 			iban, bic, account_number, routing_number, account_holder, bank_country,
 			stripe_account_id, stripe_verified,
+			charges_enabled, payouts_enabled,
 			country, extra_fields,
 			created_at, updated_at
 		FROM payment_info WHERE stripe_account_id = $1`, stripeAccountID).Scan(
@@ -225,6 +228,7 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 		&p.IsSelfRepresentative, &p.IsSelfDirector, &p.NoMajorOwners, &p.IsSelfExecutive,
 		&iban, &bic, &accountNumber, &routingNumber, &p.AccountHolder, &bankCountry,
 		&stripeAccID, &p.StripeVerified,
+		&p.ChargesEnabled, &p.PayoutsEnabled,
 		&p.Country, &extraFieldsRaw,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
@@ -254,6 +258,19 @@ func (r *PaymentInfoRepository) GetByStripeAccountID(ctx context.Context, stripe
 	p.ExtraFields = unmarshalExtraFields(extraFieldsRaw)
 
 	return p, nil
+}
+
+func (r *PaymentInfoRepository) UpdateAccountStatus(ctx context.Context, userID uuid.UUID, chargesEnabled, payoutsEnabled bool) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE payment_info SET charges_enabled = $1, payouts_enabled = $2 WHERE user_id = $3`,
+		chargesEnabled, payoutsEnabled, userID)
+	if err != nil {
+		return fmt.Errorf("update account status: %w", err)
+	}
+	return nil
 }
 
 // nullString converts an empty string to a sql.NullString with Valid=false.

@@ -86,6 +86,23 @@ func (r *JobCreditRepository) AddBonus(ctx context.Context, userID uuid.UUID, am
 	return nil
 }
 
+// ResetForUser resets a single user's credits if below minCredits. Used by admin for testing.
+func (r *JobCreditRepository) ResetForUser(ctx context.Context, userID uuid.UUID, minCredits int) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE application_credits
+		 SET credits = $2, last_reset_at = now(), updated_at = now()
+		 WHERE user_id = $1 AND credits < $2`,
+		userID, minCredits,
+	)
+	if err != nil {
+		return fmt.Errorf("reset credits for user: %w", err)
+	}
+	return nil
+}
+
 // ResetWeekly resets all users below minCredits to minCredits. Run by cron.
 func (r *JobCreditRepository) ResetWeekly(ctx context.Context, minCredits int) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)

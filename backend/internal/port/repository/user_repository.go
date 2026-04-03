@@ -24,4 +24,7 @@ type UserRepository interface {
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ListAdmin(ctx context.Context, filters AdminUserFilters) ([]*user.User, string, error)
 	CountAdmin(ctx context.Context, filters AdminUserFilters) (int, error)
+	CountByRole(ctx context.Context) (map[string]int, error)
+	CountByStatus(ctx context.Context) (map[string]int, error)
+	RecentSignups(ctx context.Context, limit int) ([]*user.User, error)
 }

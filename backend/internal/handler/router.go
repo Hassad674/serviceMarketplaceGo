@@ -295,6 +295,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Use(middleware.RequireAdmin())
 				r.Use(middleware.NoCache)
+				r.Get("/dashboard/stats", deps.Admin.GetDashboardStats)
 				r.Get("/users", deps.Admin.ListUsers)
 				r.Get("/users/{id}", deps.Admin.GetUser)
 				r.Post("/users/{id}/suspend", deps.Admin.SuspendUser)
@@ -305,6 +306,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Job credit admin endpoints
 				if deps.JobApplication != nil {
 					r.Post("/credits/reset", deps.JobApplication.ResetCredits)
+					r.Post("/credits/reset/{userId}", deps.JobApplication.ResetCreditsForUser)
 				}
 			})
 		}

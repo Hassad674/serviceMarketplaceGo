@@ -11,6 +11,7 @@ export type FieldSpec = {
   required: boolean
   is_extra: boolean
   placeholder?: string
+  urgency?: string
 }
 
 export type FieldSection = {
@@ -141,6 +142,8 @@ export async function savePaymentInfo(data: PaymentInfoFormData, email?: string)
 export type RequirementsResponse = {
   has_requirements: boolean
   sections: FieldSection[]
+  current_deadline?: number
+  pending_verification?: string[]
 }
 
 export function getRequirements(): Promise<RequirementsResponse> {

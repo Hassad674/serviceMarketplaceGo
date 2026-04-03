@@ -37,6 +37,7 @@ type FieldSpec struct {
 	Required    bool   `json:"required"`
 	IsExtra     bool   `json:"is_extra"`
 	Placeholder string `json:"placeholder,omitempty"`
+	Urgency     string `json:"urgency,omitempty"`
 }
 
 // ibanCountries use IBAN format for bank accounts.

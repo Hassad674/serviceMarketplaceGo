@@ -301,3 +301,87 @@ func (r *UserRepository) CountAdmin(ctx context.Context, filters repository.Admi
 
 	return count, nil
 }
+
+func (r *UserRepository) CountByRole(ctx context.Context) (map[string]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, "SELECT role, COUNT(*) FROM users GROUP BY role")
+	if err != nil {
+		return nil, fmt.Errorf("count users by role: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var role string
+		var count int
+		if err := rows.Scan(&role, &count); err != nil {
+			return nil, fmt.Errorf("scan role count: %w", err)
+		}
+		result[role] = count
+	}
+	return result, rows.Err()
+}
+
+func (r *UserRepository) CountByStatus(ctx context.Context) (map[string]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, "SELECT status, COUNT(*) FROM users GROUP BY status")
+	if err != nil {
+		return nil, fmt.Errorf("count users by status: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scan status count: %w", err)
+		}
+		result[status] = count
+	}
+	return result, rows.Err()
+}
+
+func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `
+		SELECT id, email, hashed_password, first_name, last_name, display_name,
+		       role, referrer_enabled, is_admin, status,
+		       suspended_at, suspension_reason, suspension_expires_at,
+		       banned_at, ban_reason, organization_id, linkedin_id, google_id,
+		       email_verified, created_at, updated_at
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT $1`
+
+	rows, err := r.db.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("recent signups: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*user.User
+	for rows.Next() {
+		u := &user.User{}
+		var role, status string
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
+			&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
+			&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt,
+			&u.BannedAt, &u.BanReason, &u.OrganizationID, &u.LinkedInID, &u.GoogleID,
+			&u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan recent signup: %w", err)
+		}
+		u.Role = user.Role(role)
+		u.Status = user.UserStatus(status)
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}

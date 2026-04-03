@@ -146,6 +146,10 @@ func (m *mockMessageRepo) GetContactIDs(ctx context.Context, userID uuid.UUID) (
 	return []uuid.UUID{}, nil
 }
 
+func (m *mockMessageRepo) SaveMessageHistory(_ context.Context, _, _ uuid.UUID, _, _ string) error {
+	return nil
+}
+
 // mockPresenceService and mockMessageBroadcaster are defined in
 // notification_handler_test.go and shared across this package's tests.
 

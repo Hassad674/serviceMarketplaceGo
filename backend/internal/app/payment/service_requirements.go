@@ -15,8 +15,10 @@ import (
 
 // RequirementsInfo holds formatted field sections for Stripe requirements.
 type RequirementsInfo struct {
-	HasRequirements bool           `json:"has_requirements"`
-	Sections        []FieldSection `json:"sections"`
+	HasRequirements     bool           `json:"has_requirements"`
+	Sections            []FieldSection `json:"sections"`
+	CurrentDeadline     *int64         `json:"current_deadline,omitempty"`
+	PendingVerification []string       `json:"pending_verification,omitempty"`
 }
 
 // GetRequirements returns Stripe requirements as formatted FieldSections.
@@ -32,29 +34,58 @@ func (s *Service) GetRequirements(ctx context.Context, userID uuid.UUID) (*Requi
 		return &RequirementsInfo{}, nil
 	}
 
-	due, err := s.stripe.GetAccountRequirements(ctx, info.StripeAccountID)
+	reqs, err := s.stripe.GetAccountRequirements(ctx, info.StripeAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("get requirements: %w", err)
 	}
 
-	if len(due) == 0 {
+	if len(reqs.CurrentlyDue) == 0 && len(reqs.EventuallyDue) == 0 && len(reqs.PastDue) == 0 {
 		return &RequirementsInfo{Sections: []FieldSection{}}, nil
 	}
 
-	sections := buildRequirementSections(due, info.Country)
-	return &RequirementsInfo{
+	sections := buildRequirementSections(reqs, info.Country)
+	result := &RequirementsInfo{
 		HasRequirements: len(sections) > 0,
 		Sections:        sections,
-	}, nil
+	}
+	if reqs.CurrentDeadline != 0 {
+		result.CurrentDeadline = &reqs.CurrentDeadline
+	}
+	if len(reqs.PendingVerification) > 0 {
+		result.PendingVerification = reqs.PendingVerification
+	}
+	return result, nil
 }
 
-// buildRequirementSections converts Stripe currently_due paths into FieldSections.
-func buildRequirementSections(due []string, country string) []FieldSection {
+// urgencyPriority defines the priority of each urgency level (higher = more urgent).
+var urgencyPriority = map[string]int{
+	"past_due":       3,
+	"currently_due":  2,
+	"eventually_due": 1,
+}
+
+// buildRequirementSections converts Stripe requirement paths into FieldSections
+// with urgency tagging and deduplication (highest urgency wins).
+func buildRequirementSections(reqs *domain.AccountRequirements, country string) []FieldSection {
+	// fieldUrgency tracks the highest urgency seen for each unique field path.
+	fieldUrgency := make(map[string]string)
+	tagUrgency := func(paths []string, urgency string) {
+		for _, path := range paths {
+			existing, ok := fieldUrgency[path]
+			if !ok || urgencyPriority[urgency] > urgencyPriority[existing] {
+				fieldUrgency[path] = urgency
+			}
+		}
+	}
+	tagUrgency(reqs.EventuallyDue, "eventually_due")
+	tagUrgency(reqs.CurrentlyDue, "currently_due")
+	tagUrgency(reqs.PastDue, "past_due")
+
 	sectionMap := make(map[string][]FieldSpec)
 	seen := make(dateSeen)
 	hasBankRequirement := false
 
-	for _, path := range due {
+	for path, urgency := range fieldUrgency {
 		if isExternalAccountPath(path) {
 			hasBankRequirement = true
 			continue
@@ -62,7 +93,7 @@ func buildRequirementSections(due []string, country string) []FieldSection {
 		if domain.IsAutoHandled(path) {
 			continue
 		}
-		processRequirementField(path, sectionMap, seen)
+		processRequirementFieldWithUrgency(path, urgency, sectionMap, seen)
 	}
 
 	sections := buildSections(sectionMap)
@@ -74,11 +105,10 @@ func buildRequirementSections(due []string, country string) []FieldSection {
 	return sections
 }
 
-// processRequirementField handles a single Stripe requirement path.
-// Unlike processField for country_fields, this does not skip person entities
-// and does not need to set DocumentsRequired on a response struct.
-func processRequirementField(
-	path string, sectionMap map[string][]FieldSpec, seen dateSeen,
+// processRequirementFieldWithUrgency handles a single Stripe requirement path
+// and tags the resulting FieldSpec with the given urgency level.
+func processRequirementFieldWithUrgency(
+	path, urgency string, sectionMap map[string][]FieldSpec, seen dateSeen,
 ) {
 	entity := domain.EntityFromPath(path)
 
@@ -91,6 +121,7 @@ func processRequirementField(
 			LabelKey: domain.FieldLabelKey(path),
 			Required: true,
 			IsExtra:  false,
+			Urgency:  urgency,
 		})
 		return
 	}
@@ -110,6 +141,7 @@ func processRequirementField(
 			LabelKey: "dateOfBirth",
 			Required: true,
 			IsExtra:  isExtra,
+			Urgency:  urgency,
 		})
 		return
 	}
@@ -128,6 +160,7 @@ func processRequirementField(
 			LabelKey: "registrationDate",
 			Required: true,
 			IsExtra:  true,
+			Urgency:  urgency,
 		})
 		return
 	}
@@ -141,6 +174,7 @@ func processRequirementField(
 		Required:    true,
 		IsExtra:     isExtra,
 		Placeholder: domain.FieldPlaceholder(path),
+		Urgency:     urgency,
 	})
 }
 
@@ -196,8 +230,11 @@ func (s *Service) CreateAccountLink(ctx context.Context, userID uuid.UUID) (stri
 }
 
 // NotifyNewRequirements sends a notification when Stripe requires new information.
-func (s *Service) NotifyNewRequirements(ctx context.Context, userID uuid.UUID, requirements []string) {
-	if s.notifications == nil || len(requirements) == 0 {
+func (s *Service) NotifyNewRequirements(ctx context.Context, userID uuid.UUID, reqs *domain.AccountRequirements) {
+	if s.notifications == nil {
+		return
+	}
+	if len(reqs.CurrentlyDue) == 0 && len(reqs.EventuallyDue) == 0 && len(reqs.PastDue) == 0 {
 		return
 	}
 

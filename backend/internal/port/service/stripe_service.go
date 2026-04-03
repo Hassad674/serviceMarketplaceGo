@@ -28,6 +28,9 @@ type StripeService interface {
 	// GetIdentityVerificationStatus returns the verification status and the verified front file ID.
 	GetIdentityVerificationStatus(ctx context.Context, accountID string) (status string, verifiedFileID string, err error)
 
+	// GetAccountFullStatus returns verification status, charges_enabled, and payouts_enabled in one call.
+	GetAccountFullStatus(ctx context.Context, accountID string) (*AccountFullStatus, error)
+
 	// UploadIdentityFile uploads a file to Stripe for identity verification.
 	UploadIdentityFile(ctx context.Context, filename string, reader io.Reader, purpose string) (fileID string, err error)
 
@@ -40,8 +43,8 @@ type StripeService interface {
 	// UpdateCompanyFlags marks directors/executives/owners as provided.
 	UpdateCompanyFlags(ctx context.Context, accountID string, directorsProvided, executivesProvided, ownersProvided bool) error
 
-	// GetAccountRequirements returns currently_due requirements.
-	GetAccountRequirements(ctx context.Context, accountID string) ([]string, error)
+	// GetAccountRequirements returns the full account requirements (currently_due, eventually_due, past_due, etc.).
+	GetAccountRequirements(ctx context.Context, accountID string) (*payment.AccountRequirements, error)
 
 	// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
 	CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (url string, err error)
@@ -103,4 +106,12 @@ type StripeWebhookEvent struct {
 	Type            string
 	PaymentIntentID string
 	AccountID       string
+}
+
+// AccountFullStatus combines verification and account status from a single Stripe API call.
+type AccountFullStatus struct {
+	VerificationStatus string
+	VerifiedFileID     string
+	ChargesEnabled     bool
+	PayoutsEnabled     bool
 }

@@ -54,9 +54,11 @@ type PaymentInfo struct {
 	Country     string            // activity country (ISO 2-letter)
 	ExtraFields map[string]string // country-specific fields (JSONB)
 
-	// Stripe Connect (future)
+	// Stripe Connect
 	StripeAccountID string
 	StripeVerified  bool
+	ChargesEnabled  bool
+	PayoutsEnabled  bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
