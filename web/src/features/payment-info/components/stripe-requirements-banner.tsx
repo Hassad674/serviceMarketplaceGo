@@ -11,7 +11,7 @@ export function StripeRequirementsBanner() {
 
   if (!reqs?.has_requirements) return null
 
-  const fieldNames = collectFieldNames(reqs.sections, t)
+  const fieldNames = collectFieldNames(reqs.sections ?? [], t)
 
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">

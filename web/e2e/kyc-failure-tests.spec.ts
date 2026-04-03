@@ -321,7 +321,17 @@ async function fillRemainingSelects(page: Page) {
  * The `account.updated` webhook fires when done.
  */
 async function waitForStripeProcessingAndReload(page: Page) {
-  await page.waitForTimeout(15000)
+  // Poll: reload every 10s until "Action required" appears, max 60s
+  for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(10000)
+    await page.reload()
+    await page.waitForTimeout(2000)
+    const banner = page.getByText("Action required").first()
+    if (await banner.isVisible().catch(() => false)) {
+      return // Requirements are showing
+    }
+  }
+  // Final reload attempt
   await page.reload()
   await expect(
     page.getByText("Payment Information").first(),
@@ -389,7 +399,7 @@ async function expectErrorMessage(page: Page) {
 
 test.describe("KYC Failure — SSN/ID Number (US Individual)", () => {
   test("SSN 111111111 triggers verification failure, requirements banner shown", async ({ page }) => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
 
     // Register and navigate
     await registerProvider(page)
@@ -424,7 +434,7 @@ test.describe("KYC Failure — SSN/ID Number (US Individual)", () => {
 
 test.describe("KYC Failure — Address Mismatch (US Individual)", () => {
   test("address_no_match triggers verification failure, requirements banner shown", async ({ page }) => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
 
     await registerProvider(page)
     await navigateToPaymentInfo(page)
@@ -458,7 +468,7 @@ test.describe("KYC Failure — Address Mismatch (US Individual)", () => {
 
 test.describe("KYC Failure — Tax ID (US Business)", () => {
   test("tax_id 111111111 triggers verification failure, requirements banner shown", async ({ page }) => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
 
     await registerAgency(page)
     await navigateToPaymentInfo(page)
@@ -497,7 +507,7 @@ test.describe("KYC Failure — Tax ID (US Business)", () => {
 
 test.describe("KYC Failure — Enforce Future Requirements", () => {
   test("enforce_future_requirements email triggers extra fields in form", async ({ page }) => {
-    test.setTimeout(120_000)
+    test.setTimeout(180_000)
 
     // Register with special email suffix that triggers Stripe to promote
     // eventually_due fields to currently_due immediately

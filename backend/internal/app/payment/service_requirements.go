@@ -38,7 +38,7 @@ func (s *Service) GetRequirements(ctx context.Context, userID uuid.UUID) (*Requi
 	}
 
 	if len(due) == 0 {
-		return &RequirementsInfo{}, nil
+		return &RequirementsInfo{Sections: []FieldSection{}}, nil
 	}
 
 	sections := buildRequirementSections(due, info.Country)
