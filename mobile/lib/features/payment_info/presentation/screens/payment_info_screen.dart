@@ -200,16 +200,13 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     final theme = Theme.of(context);
     final asyncInfo = ref.watch(paymentInfoProvider);
 
-    // Populate form when data arrives (only once per data load)
+    // Populate form when data arrives (only once per data load).
+    // Set fields synchronously so the current build frame renders the
+    // populated values immediately — avoids an extra frame roundtrip
+    // via addPostFrameCallback that integration tests can miss.
     if (!_populated && asyncInfo.hasValue && asyncInfo.value != null) {
       _populated = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _populateFromEntity(asyncInfo.value!);
-          });
-        }
-      });
+      _populateFromEntity(asyncInfo.value!);
     }
 
     return Scaffold(
