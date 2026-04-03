@@ -16,3 +16,40 @@ export function listUsers(filters: UserFilters): Promise<AdminUserListResponse> 
 export function getUser(id: string): Promise<AdminUserResponse> {
   return adminApi<AdminUserResponse>(`/api/v1/admin/users/${id}`)
 }
+
+export type SuspendUserPayload = {
+  reason: string
+  expires_at?: string
+}
+
+export type BanUserPayload = {
+  reason: string
+}
+
+export function suspendUser(id: string, payload: SuspendUserPayload): Promise<void> {
+  return adminApi(`/api/v1/admin/users/${id}/suspend`, {
+    method: "POST",
+    body: payload,
+  })
+}
+
+export function unsuspendUser(id: string): Promise<void> {
+  return adminApi(`/api/v1/admin/users/${id}/unsuspend`, {
+    method: "POST",
+    body: {},
+  })
+}
+
+export function banUser(id: string, payload: BanUserPayload): Promise<void> {
+  return adminApi(`/api/v1/admin/users/${id}/ban`, {
+    method: "POST",
+    body: payload,
+  })
+}
+
+export function unbanUser(id: string): Promise<void> {
+  return adminApi(`/api/v1/admin/users/${id}/unban`, {
+    method: "POST",
+    body: {},
+  })
+}

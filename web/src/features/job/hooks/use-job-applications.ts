@@ -48,6 +48,7 @@ export function useApplyToJob() {
       queryClient.invalidateQueries({ queryKey: hasAppliedKey(uid, variables.jobId) })
       queryClient.invalidateQueries({ queryKey: ["jobs", "open"] })
       queryClient.invalidateQueries({ queryKey: ["user", uid, "applications"] })
+      queryClient.invalidateQueries({ queryKey: ["credits"] })
     },
   })
 }

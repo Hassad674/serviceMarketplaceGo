@@ -25,15 +25,14 @@ export function Dialog({ open, onClose, children, className }: DialogProps) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-fade-in"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose()
       }}
     >
       <div
         className={cn(
-          "w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg",
-          "animate-in fade-in-0 zoom-in-95",
+          "w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg animate-scale-in",
           className,
         )}
         role="dialog"

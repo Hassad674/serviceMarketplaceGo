@@ -2,11 +2,11 @@ import { forwardRef, type ButtonHTMLAttributes } from "react"
 import { cn } from "@/shared/lib/utils"
 
 const variants = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary/90",
+  primary: "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-glow active:scale-[0.98]",
   secondary: "bg-muted text-foreground hover:bg-muted/80",
   outline: "border border-border bg-background text-foreground hover:bg-muted",
   ghost: "text-foreground hover:bg-muted",
-  destructive: "bg-destructive text-white hover:bg-destructive/90",
+  destructive: "bg-destructive text-white hover:bg-destructive/90 active:scale-[0.98]",
 } as const
 
 const sizes = {
@@ -25,7 +25,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all duration-200 ease-out",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         "disabled:pointer-events-none disabled:opacity-50",
         variants[variant],

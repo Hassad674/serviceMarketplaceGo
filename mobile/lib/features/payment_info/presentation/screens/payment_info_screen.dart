@@ -38,6 +38,7 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
   bool _saving = false;
   bool _populated = false;
   String? _stripeError;
+  String? _lastUserId;
 
   void _onValueChanged(String key, String value) {
     setState(() {
@@ -69,11 +70,9 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     });
   }
 
-  Future<void> _save(List<FieldSection>? sections) async {
+  Future<void> _save(List<FieldSection>? sections, String email) async {
     setState(() => _saving = true);
     try {
-      final authState = ref.read(authProvider);
-      final email = authState.user?['email'] as String? ?? '';
       final json = valuesToFlatData(_data, sections, email: email);
 
       final repo = ref.read(paymentInfoRepositoryProvider);
@@ -105,12 +104,37 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     final theme = Theme.of(context);
     final asyncInfo = ref.watch(paymentInfoProvider);
 
-    // Populate form when data arrives (only once).
+    final authState = ref.watch(authProvider);
+    final userEmail = authState.user?['email'] as String? ?? '';
+
+    // Reset form when user changes (logout → new account)
+    final currentUserId = userEmail;
+    if (_lastUserId != null && _lastUserId != currentUserId) {
+      _populated = false;
+      _data = const PaymentInfoFormData();
+      _saved = false;
+      _stripeError = null;
+    }
+    _lastUserId = currentUserId;
+
+    // Populate form when data arrives (only once per user).
     if (!_populated && asyncInfo.hasValue && asyncInfo.value != null) {
       _populated = true;
       _data = responseToFormData(asyncInfo.value!);
+      // Pre-fill email from auth user (not stored in entity)
+      if (_data.values['individual.email']?.isEmpty ?? true) {
+        _data = _data.copyWith(
+          values: {..._data.values, 'individual.email': userEmail},
+        );
+      }
       _saved = true;
     }
+
+    // Show stripe error from loaded entity (if any)
+    final loadedStripeError =
+        asyncInfo.valueOrNull?.stripeError ?? '';
+    final effectiveStripeError = _stripeError ??
+        (loadedStripeError.isNotEmpty ? loadedStripeError : null);
 
     return Scaffold(
       appBar: AppBar(
@@ -135,12 +159,12 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             ],
           ),
         ),
-        data: (_) => _buildForm(l10n, theme),
+        data: (_) => _buildForm(l10n, theme, effectiveStripeError, userEmail),
       ),
     );
   }
 
-  Widget _buildForm(AppLocalizations l10n, ThemeData theme) {
+  Widget _buildForm(AppLocalizations l10n, ThemeData theme, String? stripeErr, String userEmail) {
     final businessType = _data.isBusiness ? 'company' : 'individual';
     final hasCountry = _data.country.length == 2;
 
@@ -188,9 +212,9 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
 
             // Status banner + stripe error
             PaymentStatusBanner(saved: _saved),
-            if (_stripeError != null) ...[
+            if (stripeErr != null) ...[
               const SizedBox(height: 8),
-              _StripeErrorBanner(message: _stripeError!),
+              _StripeErrorBanner(message: stripeErr),
             ],
             const SizedBox(height: 16),
 
@@ -283,7 +307,7 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
             PaymentInfoSaveButton(
               isValid: valid,
               isSaving: _saving,
-              onSave: () => _save(allSections),
+              onSave: () => _save(allSections, userEmail),
             ),
             const SizedBox(height: 24),
           ],

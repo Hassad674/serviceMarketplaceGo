@@ -3053,7 +3053,7 @@ abstract class AppLocalizations {
   /// No description provided for @creditsExplanation2.
   ///
   /// In en, this message translates to:
-  /// **'You receive 10 credits every Monday if your balance is below 10'**
+  /// **'Every Monday, your balance is reset to 10 credits if it\'s below 10'**
   String get creditsExplanation2;
 
   /// No description provided for @creditsExplanation3.

@@ -130,6 +130,7 @@ class ExtraFieldsSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DropdownButtonFormField<String>(
+        isExpanded: true,
         value: value.isEmpty ? null : value,
         decoration: InputDecoration(
           labelText: label,

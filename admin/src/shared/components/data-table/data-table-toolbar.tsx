@@ -25,7 +25,7 @@ export function DataTableToolbar({
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-3 text-sm transition-all duration-200 ease-out placeholder:text-muted-foreground focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-500/20"
         />
       </div>
       {children}

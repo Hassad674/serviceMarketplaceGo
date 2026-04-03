@@ -7,7 +7,7 @@ import {
 } from "react"
 import { adminApi } from "@/shared/lib/api-client"
 
-interface AuthState {
+type AuthState = {
   token: string | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
@@ -16,9 +16,9 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-interface LoginResponse {
-  token: string
-  user: { id: string; email: string; is_admin: boolean }
+type LoginResponse = {
+  access_token: string
+  user: { id: string; email: string; is_admin?: boolean }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,14 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await adminApi<LoginResponse>("/api/v1/auth/login", {
       method: "POST",
       body: { email, password },
+      headers: { "X-Auth-Mode": "token" },
     })
 
     if (!data.user.is_admin) {
-      throw new Error("Accès réservé aux administrateurs")
+      throw new Error("Acces reserve aux administrateurs")
     }
 
-    localStorage.setItem("admin_token", data.token)
-    setToken(data.token)
+    localStorage.setItem("admin_token", data.access_token)
+    setToken(data.access_token)
   }, [])
 
   const logout = useCallback(() => {

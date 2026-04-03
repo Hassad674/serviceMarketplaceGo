@@ -8,7 +8,9 @@ import '../types/payment_info.dart';
 /// Mirrors the web's `responseToFormData` function.
 PaymentInfoFormData responseToFormData(PaymentInfo info) {
   final isBusiness = info.isBusiness;
-  final prefix = isBusiness ? 'representative' : 'individual';
+  // Always use 'individual' prefix because the country-fields API returns
+  // keys like 'individual.first_name' even for company accounts.
+  const prefix = 'individual';
   final hasIban = info.iban.isNotEmpty;
 
   final values = <String, String>{};
@@ -136,7 +138,8 @@ Map<String, dynamic> valuesToFlatData(
   required String email,
 }) {
   final v = data.values;
-  final prefix = data.isBusiness ? 'representative' : 'individual';
+  // Always use 'individual' prefix — matches the country-fields API keys.
+  const prefix = 'individual';
 
   // Collect extra fields from sections
   final extraFields = <String, String>{...data.extraFields};

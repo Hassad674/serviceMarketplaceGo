@@ -221,8 +221,12 @@ class _StateDropdown extends StatelessWidget {
           border: const OutlineInputBorder(),
           errorText: errorText,
         ),
+        isExpanded: true,
         items: states
-            .map((s) => DropdownMenuItem(value: s.code, child: Text(s.name)))
+            .map((s) => DropdownMenuItem(
+                  value: s.code,
+                  child: Text(s.name, softWrap: true),
+                ))
             .toList(),
         onChanged: (v) {
           if (v != null) onChanged(v);

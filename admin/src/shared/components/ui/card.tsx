@@ -5,7 +5,7 @@ type DivProps = React.HTMLAttributes<HTMLDivElement>
 export function Card({ className, ...props }: DivProps) {
   return (
     <div
-      className={cn("rounded-xl border border-border bg-card shadow-sm", className)}
+      className={cn("rounded-xl border border-gray-100 bg-white shadow-sm", className)}
       {...props}
     />
   )
