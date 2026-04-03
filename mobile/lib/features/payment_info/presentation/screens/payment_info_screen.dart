@@ -212,10 +212,6 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
 
             // Status banner + stripe error
             PaymentStatusBanner(saved: _saved),
-            if (stripeErr != null) ...[
-              const SizedBox(height: 8),
-              _StripeErrorBanner(message: stripeErr),
-            ],
             const SizedBox(height: 16),
 
             // Country selector
@@ -301,7 +297,11 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
               ],
             ],
 
-            const SizedBox(height: 8),
+            // Stripe error just above save
+            if (stripeErr != null) ...[
+              _StripeErrorBanner(message: stripeErr),
+              const SizedBox(height: 12),
+            ],
 
             // Save button
             PaymentInfoSaveButton(

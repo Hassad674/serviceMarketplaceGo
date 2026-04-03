@@ -275,6 +275,14 @@ func (s *Service) GetCredits(ctx context.Context, userID uuid.UUID) (int, error)
 	return credits, nil
 }
 
+// ResetWeeklyCredits resets all users below the weekly quota back to the quota.
+func (s *Service) ResetWeeklyCredits(ctx context.Context) error {
+	if s.credits == nil {
+		return nil
+	}
+	return s.credits.ResetWeekly(ctx, domain.WeeklyQuota)
+}
+
 func canCreateJob(role user.Role) bool {
 	return role == user.RoleEnterprise || role == user.RoleAgency
 }

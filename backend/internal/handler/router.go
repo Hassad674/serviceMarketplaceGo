@@ -301,6 +301,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/users/{id}/unsuspend", deps.Admin.UnsuspendUser)
 				r.Post("/users/{id}/ban", deps.Admin.BanUser)
 				r.Post("/users/{id}/unban", deps.Admin.UnbanUser)
+
+				// Job credit admin endpoints
+				if deps.JobApplication != nil {
+					r.Post("/credits/reset", deps.JobApplication.ResetCredits)
+				}
 			})
 		}
 

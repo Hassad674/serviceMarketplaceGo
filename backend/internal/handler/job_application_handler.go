@@ -198,6 +198,14 @@ func (h *JobApplicationHandler) GetCredits(w http.ResponseWriter, r *http.Reques
 	res.JSON(w, http.StatusOK, response.CreditsResponse{Credits: credits})
 }
 
+func (h *JobApplicationHandler) ResetCredits(w http.ResponseWriter, r *http.Request) {
+	if err := h.jobSvc.ResetWeeklyCredits(r.Context()); err != nil {
+		res.Error(w, http.StatusInternalServerError, "reset_failed", err.Error())
+		return
+	}
+	res.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (h *JobApplicationHandler) HasApplied(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
