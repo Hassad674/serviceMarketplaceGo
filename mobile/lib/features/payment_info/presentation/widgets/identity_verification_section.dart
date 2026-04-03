@@ -317,6 +317,7 @@ class _IdentityVerificationSectionState
                 icon: Icons.menu_book_outlined,
                 label: l10n.identityDocPassport,
                 subtitle: l10n.identityDocSinglePage,
+                description: l10n.identityDocPassportDesc,
                 onTap: () {
                   Navigator.pop(ctx);
                   _startUploadFlow('passport');
@@ -326,6 +327,7 @@ class _IdentityVerificationSectionState
                 icon: Icons.badge_outlined,
                 label: l10n.identityDocIdCard,
                 subtitle: l10n.identityDocFrontAndBack,
+                description: l10n.identityDocPassportDesc,
                 onTap: () {
                   Navigator.pop(ctx);
                   _startUploadFlow('id_card');
@@ -335,6 +337,7 @@ class _IdentityVerificationSectionState
                 icon: Icons.directions_car_outlined,
                 label: l10n.identityDocDrivingLicense,
                 subtitle: l10n.identityDocFrontAndBack,
+                description: l10n.identityDocPassportDesc,
                 onTap: () {
                   Navigator.pop(ctx);
                   _startUploadFlow('driving_license');
@@ -503,11 +506,13 @@ class _TypeOption extends StatelessWidget {
     required this.label,
     required this.subtitle,
     required this.onTap,
+    this.description,
   });
 
   final IconData icon;
   final String label;
   final String subtitle;
+  final String? description;
   final VoidCallback onTap;
 
   @override
@@ -552,6 +557,17 @@ class _TypeOption extends StatelessWidget {
                             .withValues(alpha: 0.5),
                       ),
                     ),
+                    if (description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        description!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.4),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -6,33 +6,33 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
-// Stripe requirements data
+// Stripe requirements data (public for use by the form screen)
 // ---------------------------------------------------------------------------
 
-class _RequirementField {
+class RequirementField {
   final String key;
   final String labelKey;
 
-  const _RequirementField({required this.key, required this.labelKey});
+  const RequirementField({required this.key, required this.labelKey});
 }
 
-class _RequirementSection {
+class RequirementSection {
   final String id;
   final String titleKey;
-  final List<_RequirementField> fields;
+  final List<RequirementField> fields;
 
-  const _RequirementSection({
+  const RequirementSection({
     required this.id,
     required this.titleKey,
     required this.fields,
   });
 }
 
-class _StripeRequirements {
+class StripeRequirements {
   final bool hasRequirements;
-  final List<_RequirementSection> sections;
+  final List<RequirementSection> sections;
 
-  const _StripeRequirements({
+  const StripeRequirements({
     required this.hasRequirements,
     required this.sections,
   });
@@ -43,13 +43,13 @@ class _StripeRequirements {
 // ---------------------------------------------------------------------------
 
 final stripeRequirementsProvider =
-    FutureProvider<_StripeRequirements>((ref) async {
+    FutureProvider<StripeRequirements>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
     final response = await api.get('/api/v1/payment-info/requirements');
     final data = response.data as Map<String, dynamic>?;
     if (data == null) {
-      return const _StripeRequirements(
+      return const StripeRequirements(
         hasRequirements: false,
         sections: [],
       );
@@ -61,24 +61,24 @@ final stripeRequirementsProvider =
       final rawFields = sMap['fields'] as List<dynamic>? ?? [];
       final fields = rawFields.map((f) {
         final fMap = f as Map<String, dynamic>;
-        return _RequirementField(
+        return RequirementField(
           key: fMap['key'] as String? ?? '',
           labelKey: fMap['label_key'] as String? ?? '',
         );
       }).toList();
-      return _RequirementSection(
+      return RequirementSection(
         id: sMap['id'] as String? ?? '',
         titleKey: sMap['title_key'] as String? ?? '',
         fields: fields,
       );
     }).toList();
 
-    return _StripeRequirements(
+    return StripeRequirements(
       hasRequirements: hasReq,
       sections: sections,
     );
   } catch (_) {
-    return const _StripeRequirements(
+    return const StripeRequirements(
       hasRequirements: false,
       sections: [],
     );
@@ -114,7 +114,7 @@ class StripeRequirementsBanner extends ConsumerWidget {
   Widget _buildBanner(
     BuildContext context,
     AppLocalizations l10n,
-    _StripeRequirements reqs,
+    StripeRequirements reqs,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fieldNames = _collectFieldNames(reqs.sections);
@@ -195,7 +195,7 @@ class StripeRequirementsBanner extends ConsumerWidget {
   }
 
   /// Collect human-readable field names from requirement sections.
-  List<String> _collectFieldNames(List<_RequirementSection> sections) {
+  List<String> _collectFieldNames(List<RequirementSection> sections) {
     final names = <String>[];
     for (final section in sections) {
       for (final field in section.fields) {
@@ -223,4 +223,18 @@ class StripeRequirementsBanner extends ConsumerWidget {
         .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
   }
+}
+
+/// Builds a map of field key -> error message from Stripe requirements.
+///
+/// Used by the payment info screen to highlight fields that need attention.
+Map<String, String> buildFieldErrors(StripeRequirements? reqs) {
+  if (reqs == null || !reqs.hasRequirements) return const {};
+  final errors = <String, String>{};
+  for (final section in reqs.sections) {
+    for (final field in section.fields) {
+      errors[field.key] = 'This field is required by Stripe';
+    }
+  }
+  return errors;
 }

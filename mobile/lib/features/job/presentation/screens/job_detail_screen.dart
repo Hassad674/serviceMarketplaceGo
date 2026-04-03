@@ -316,6 +316,7 @@ class _DetailsTab extends StatelessWidget {
               l10n.jobSkills,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -324,7 +325,13 @@ class _DetailsTab extends StatelessWidget {
               runSpacing: 4,
               children: job.skills
                   .map((s) => Chip(
-                        label: Text(s, style: const TextStyle(fontSize: 12)),
+                        label: Text(
+                          s,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
                         backgroundColor: theme.colorScheme.primary
                             .withValues(alpha: 0.08),
                         side: BorderSide.none,
@@ -342,6 +349,7 @@ class _DetailsTab extends StatelessWidget {
             l10n.jobDescription,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -517,6 +525,7 @@ class _BudgetCard extends StatelessWidget {
                 '${job.minBudget}\u20ac - ${job.maxBudget}\u20ac',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               Text(

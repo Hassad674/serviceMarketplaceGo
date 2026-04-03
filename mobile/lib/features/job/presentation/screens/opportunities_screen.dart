@@ -4,6 +4,8 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/opportunity_card.dart';
 
@@ -14,6 +16,8 @@ class OpportunitiesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final openJobs = ref.watch(openJobsProvider);
     final l10n = AppLocalizations.of(context)!;
+    final authState = ref.watch(authProvider);
+    final userRole = authState.user?['role'] as String?;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.opportunities)),
@@ -37,7 +41,16 @@ class OpportunitiesScreen extends ConsumerWidget {
             ),
           ),
           data: (jobs) {
-            if (jobs.isEmpty) {
+            // Filter jobs by user role: only show jobs matching the user's
+            // applicant type (or those open to "all").
+            // Filter: remove own jobs + jobs incompatible with role
+            final userId = authState.user?['id'] as String?;
+            final filtered = _filterByRole(
+              jobs.where((j) => j.creatorId != userId).toList(),
+              userRole,
+            );
+
+            if (filtered.isEmpty) {
               return ListView(
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.3),
@@ -61,17 +74,40 @@ class OpportunitiesScreen extends ConsumerWidget {
             });
             return ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: jobs.length,
+              itemCount: filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) => OpportunityCard(
-                job: jobs[index],
-                hasApplied: appliedJobIds.contains(jobs[index].id),
+                job: filtered[index],
+                hasApplied: appliedJobIds.contains(filtered[index].id),
               ),
             );
           },
         ),
       ),
     );
+  }
+
+  /// Returns only jobs whose [applicantType] is compatible with [userRole].
+  ///
+  /// - provider  -> sees jobs with applicantType "freelancers" or "all"
+  /// - agency    -> sees jobs with applicantType "agencies" or "all"
+  /// - enterprise / null -> sees all jobs (no filtering)
+  List<JobEntity> _filterByRole(List<JobEntity> jobs, String? userRole) {
+    if (userRole == null) return jobs;
+    switch (userRole) {
+      case 'provider':
+        return jobs
+            .where((j) =>
+                j.applicantType == 'freelancers' || j.applicantType == 'all')
+            .toList();
+      case 'agency':
+        return jobs
+            .where((j) =>
+                j.applicantType == 'agencies' || j.applicantType == 'all')
+            .toList();
+      default:
+        return jobs;
+    }
   }
 }
 

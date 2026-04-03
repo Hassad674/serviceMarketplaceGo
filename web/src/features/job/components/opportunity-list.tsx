@@ -4,9 +4,10 @@ import { useState } from "react"
 import { Search, Briefcase, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
-import { useOpenJobs } from "../hooks/use-job-applications"
+import { useOpenJobs, useMyApplications } from "../hooks/use-job-applications"
+import { useUser } from "@/shared/hooks/use-user"
 import { OpportunityCard } from "./opportunity-card"
-import type { OpenJobListFilters } from "../types"
+import type { OpenJobListFilters, JobResponse } from "../types"
 
 export function OpportunityList() {
   const t = useTranslations("opportunity")
@@ -14,8 +15,23 @@ export function OpportunityList() {
   const [search, setSearch] = useState("")
   const [cursor, setCursor] = useState<string | undefined>()
 
+  const { data: user } = useUser()
+  const { data: myAppsData } = useMyApplications()
+  const appliedJobIds = new Set(myAppsData?.data.map((a) => a.application.job_id) ?? [])
   const activeFilters = { ...filters, search: search || undefined }
   const { data, isLoading, error } = useOpenJobs(activeFilters, cursor)
+
+  // Filter out own jobs + jobs incompatible with user's role
+  function filterJobs(jobs: JobResponse[]): JobResponse[] {
+    return jobs.filter((job) => {
+      // Never show own jobs
+      if (user?.id && job.creator_id === user.id) return false
+      // Filter by role compatibility
+      if (user?.role === "provider") return job.applicant_type === "freelancers" || job.applicant_type === "all"
+      if (user?.role === "agency") return job.applicant_type === "agencies" || job.applicant_type === "all"
+      return true
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -84,7 +100,7 @@ export function OpportunityList() {
       )}
 
       {/* Empty */}
-      {data && data.data.length === 0 && (
+      {data && filterJobs(data.data).length === 0 && (
         <div className="text-center py-12">
           <Briefcase className="mx-auto h-10 w-10 text-slate-300 mb-3" />
           <p className="text-sm text-slate-500 dark:text-slate-400">{t("noOpportunities")}</p>
@@ -92,11 +108,11 @@ export function OpportunityList() {
       )}
 
       {/* Results */}
-      {data && data.data.length > 0 && (
+      {data && filterJobs(data.data).length > 0 && (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
-            {data.data.map((job) => (
-              <OpportunityCard key={job.id} job={job} />
+            {filterJobs(data.data).map((job) => (
+              <OpportunityCard key={job.id} job={job} hasApplied={appliedJobIds.has(job.id)} />
             ))}
           </div>
 

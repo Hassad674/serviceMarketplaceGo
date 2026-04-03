@@ -449,6 +449,12 @@
   "identityDocVerifiedBanner": "Your identity has been verified",
   "identityDocRejectedBanner": "Your document was rejected",
 
+  "identityDocPassportDesc": "Valid passport, national ID card, or driver's license",
+  "identityDocProofOfAddressDesc": "Utility bill (less than 3 months old), bank statement, or certificate of residence",
+  "identityDocBusinessRegDesc": "Certificate of incorporation, articles of organization, or official equivalent for your country",
+  "identityDocProofOfLivenessDesc": "Live photo of your face to confirm your identity",
+  "identityDocProofOfRegistrationDesc": "Certificate of registration, incorporation document, or official proof from your country's business registry",
+
   "paymentInfoAddRepresentative": "Add a representative",
   "paymentInfoAddDirector": "Add a director",
   "paymentInfoAddOwner": "Add a shareholder",

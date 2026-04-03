@@ -253,6 +253,7 @@ class PaymentFormField extends StatefulWidget {
     this.keyboardType,
     this.placeholder,
     this.required = false,
+    this.errorText,
   });
 
   final String label;
@@ -261,6 +262,7 @@ class PaymentFormField extends StatefulWidget {
   final TextInputType? keyboardType;
   final String? placeholder;
   final bool required;
+  final String? errorText;
 
   @override
   State<PaymentFormField> createState() => _PaymentFormFieldState();
@@ -302,6 +304,7 @@ class _PaymentFormFieldState extends State<PaymentFormField> {
           labelText: widget.required ? '${widget.label} *' : widget.label,
           hintText: widget.placeholder,
           floatingLabelBehavior: FloatingLabelBehavior.auto,
+          errorText: widget.errorText,
         ),
       ),
     );
@@ -369,11 +372,13 @@ class PaymentCountryDropdown extends StatelessWidget {
     this.label,
     required this.value,
     required this.onChanged,
+    this.errorText,
   });
 
   final String? label;
   final String value;
   final ValueChanged<String> onChanged;
+  final String? errorText;
 
   @override
   Widget build(BuildContext context) {
@@ -386,6 +391,7 @@ class PaymentCountryDropdown extends StatelessWidget {
         initialValue: value.isEmpty ? null : value,
         decoration: InputDecoration(
           labelText: '$displayLabel *',
+          errorText: errorText,
         ),
         items: countries
             .map(

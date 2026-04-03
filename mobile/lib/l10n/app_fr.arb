@@ -444,6 +444,12 @@
   "identityDocVerifiedBanner": "Votre identit\u00e9 a \u00e9t\u00e9 v\u00e9rifi\u00e9e",
   "identityDocRejectedBanner": "Votre document a \u00e9t\u00e9 rejet\u00e9",
 
+  "identityDocPassportDesc": "Passeport, carte d'identit\u00e9 nationale ou permis de conduire en cours de validit\u00e9",
+  "identityDocProofOfAddressDesc": "Facture de moins de 3 mois (\u00e9lectricit\u00e9, eau, internet), relev\u00e9 bancaire ou attestation de r\u00e9sidence",
+  "identityDocBusinessRegDesc": "KBIS, extrait K, certificat d'incorporation ou \u00e9quivalent officiel de votre pays",
+  "identityDocProofOfLivenessDesc": "Photo de votre visage prise en direct pour confirmer votre identit\u00e9",
+  "identityDocProofOfRegistrationDesc": "Certificat d'enregistrement, document d'incorporation ou preuve officielle du registre des entreprises de votre pays",
+
   "paymentInfoAddRepresentative": "Ajouter un repr\u00e9sentant",
   "paymentInfoAddDirector": "Ajouter un dirigeant",
   "paymentInfoAddOwner": "Ajouter un actionnaire",

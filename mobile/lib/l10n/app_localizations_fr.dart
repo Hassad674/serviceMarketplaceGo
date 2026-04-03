@@ -1270,6 +1270,26 @@ class AppLocalizationsFr extends AppLocalizations {
   String get identityDocRejectedBanner => 'Votre document a été rejeté';
 
   @override
+  String get identityDocPassportDesc =>
+      'Passeport, carte d\'identité nationale ou permis de conduire en cours de validité';
+
+  @override
+  String get identityDocProofOfAddressDesc =>
+      'Facture de moins de 3 mois (électricité, eau, internet), relevé bancaire ou attestation de résidence';
+
+  @override
+  String get identityDocBusinessRegDesc =>
+      'KBIS, extrait K, certificat d\'incorporation ou équivalent officiel de votre pays';
+
+  @override
+  String get identityDocProofOfLivenessDesc =>
+      'Photo de votre visage prise en direct pour confirmer votre identité';
+
+  @override
+  String get identityDocProofOfRegistrationDesc =>
+      'Certificat d\'enregistrement, document d\'incorporation ou preuve officielle du registre des entreprises de votre pays';
+
+  @override
   String get paymentInfoAddRepresentative => 'Ajouter un représentant';
 
   @override
@@ -1303,7 +1323,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get stripeRequirementsTitle => 'Informations supplémentaires requises';
 
   @override
-  String get stripeRequirementsDesc => 'Veuillez fournir les informations suivantes pour maintenir votre compte actif.';
+  String get stripeRequirementsDesc =>
+      'Veuillez fournir les informations suivantes pour maintenir votre compte actif.';
 
   @override
   String get stripeCompleteOnStripe => 'Compléter sur Stripe';

@@ -55,11 +55,16 @@ class OpportunityDetailScreen extends ConsumerWidget {
                           children: [
                             Text(
                               '${job.minBudget}\u20ac - ${job.maxBudget}\u20ac',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
                             ),
                             Text(
                               job.budgetType == 'one_shot' ? l10n.budgetTypeOneShot : l10n.budgetTypeLongTerm,
-                              style: Theme.of(context).textTheme.bodySmall,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ],
                         ),
@@ -70,19 +75,42 @@ class OpportunityDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 // Skills
                 if (job.skills.isNotEmpty) ...[
-                  Text(l10n.requiredSkills, style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    l10n.requiredSkills,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 4,
-                    children: job.skills.map((s) => Chip(label: Text(s), backgroundColor: const Color(0xFFFFF1F2))).toList(),
+                    children: job.skills.map((s) => Chip(
+                      label: Text(
+                        s,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      backgroundColor: const Color(0xFFFFF1F2),
+                    )).toList(),
                   ),
                   const SizedBox(height: 16),
                 ],
                 // Description
-                Text(l10n.jobDescription, style: Theme.of(context).textTheme.titleSmall),
+                Text(
+                  l10n.jobDescription,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                Text(job.description, style: Theme.of(context).textTheme.bodyMedium),
+                Text(
+                  job.description,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
               ],
             ),
           ),

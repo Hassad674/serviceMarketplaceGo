@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -2546,6 +2546,36 @@ abstract class AppLocalizations {
   /// **'Your document was rejected'**
   String get identityDocRejectedBanner;
 
+  /// No description provided for @identityDocPassportDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid passport, national ID card, or driver\'s license'**
+  String get identityDocPassportDesc;
+
+  /// No description provided for @identityDocProofOfAddressDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Utility bill (less than 3 months old), bank statement, or certificate of residence'**
+  String get identityDocProofOfAddressDesc;
+
+  /// No description provided for @identityDocBusinessRegDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Certificate of incorporation, articles of organization, or official equivalent for your country'**
+  String get identityDocBusinessRegDesc;
+
+  /// No description provided for @identityDocProofOfLivenessDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Live photo of your face to confirm your identity'**
+  String get identityDocProofOfLivenessDesc;
+
+  /// No description provided for @identityDocProofOfRegistrationDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Certificate of registration, incorporation document, or official proof from your country\'s business registry'**
+  String get identityDocProofOfRegistrationDesc;
+
   /// No description provided for @paymentInfoAddRepresentative.
   ///
   /// In en, this message translates to:
@@ -3018,8 +3048,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

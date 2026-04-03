@@ -107,13 +107,18 @@ class _ApplyFormState extends ConsumerState<_ApplyForm> {
     Navigator.pop(context);
 
     final l10n = AppLocalizations.of(context)!;
-    if (result != null) {
+    if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.applicationSent), backgroundColor: const Color(0xFFF43F5E)),
       );
     } else {
+      final msg = switch (result.statusCode) {
+        403 => l10n.applicantTypeMismatch,
+        409 => l10n.alreadyApplied,
+        _ => l10n.applicationSendError,
+      };
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.applicationSendError), backgroundColor: Colors.red),
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
     }
   }

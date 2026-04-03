@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
@@ -61,12 +62,24 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
   bool get _isEditMode => widget.jobId != null;
 
   @override
+  bool get _isAgency {
+    final authState = ref.read(authProvider);
+    return authState.user?['role'] == 'agency';
+  }
+
+  @override
   void initState() {
     super.initState();
     _formData = JobFormData();
     if (_isEditMode) {
       _loadExistingJob();
     }
+    // Agency can only hire freelancers
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isAgency) {
+        setState(() => _formData.applicantType = ApplicantType.freelancers);
+      }
+    });
   }
 
   /// Fetches the existing job and pre-fills all form fields.
@@ -328,7 +341,8 @@ class _CreateJobScreenState extends ConsumerState<CreateJobScreen> {
                 onExpansionChanged: (expanded) {
                   setState(() => _detailsExpanded = expanded);
                 },
-                showDescription: _formData.descriptionType != DescriptionType.video,
+                showDescription: false,
+                hideApplicantType: _isAgency,
               ),
               const SizedBox(height: 16),
 
