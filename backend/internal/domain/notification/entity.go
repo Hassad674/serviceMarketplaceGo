@@ -22,6 +22,8 @@ const (
 	TypeReviewReceived      NotificationType = "review_received"
 	TypeNewMessage          NotificationType = "new_message"
 	TypeSystemAnnouncement  NotificationType = "system_announcement"
+	TypeStripeRequirements  NotificationType = "stripe_requirements"
+	TypeStripeAccountStatus NotificationType = "stripe_account_status"
 )
 
 var validTypes = map[NotificationType]bool{
@@ -35,6 +37,8 @@ var validTypes = map[NotificationType]bool{
 	TypeReviewReceived:      true,
 	TypeNewMessage:          true,
 	TypeSystemAnnouncement:  true,
+	TypeStripeRequirements:  true,
+	TypeStripeAccountStatus: true,
 }
 
 // IsValid checks if the notification type is recognised.
@@ -112,7 +116,7 @@ func DefaultPreferences(userID uuid.UUID, nType NotificationType) *Preferences {
 	switch nType {
 	case TypeProposalReceived, TypeProposalAccepted, TypeProposalDeclined,
 		TypeProposalPaid, TypeCompletionRequested, TypeProposalCompleted,
-		TypeSystemAnnouncement:
+		TypeSystemAnnouncement, TypeStripeRequirements, TypeStripeAccountStatus:
 		emailDefault = true
 	}
 	return &Preferences{
