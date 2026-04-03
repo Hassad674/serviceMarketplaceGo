@@ -461,6 +461,7 @@
   "paymentInfoDateOfBirth": "Date of birth",
 
   "stripeRequirementsTitle": "Additional information required",
+  "stripeRequirementsDesc": "Please provide the following information to keep your account active.",
   "stripeCompleteOnStripe": "Complete on Stripe",
 
   "walletTitle": "Wallet",

@@ -126,7 +126,7 @@ export default function JobDetailPage() {
           {/* Description */}
           <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
             <h2 className="text-base font-semibold text-slate-900 dark:text-white mb-3">{tOpp("description")}</h2>
-            <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{job.description}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words overflow-wrap-anywhere">{job.description}</p>
           </div>
 
           {/* Skills */}

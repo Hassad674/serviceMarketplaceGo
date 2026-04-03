@@ -51,11 +51,22 @@ class OpportunitiesScreen extends ConsumerWidget {
                 ],
               );
             }
+            // Get applied job IDs to show "already applied" badge
+            final myApps = ref.watch(myApplicationsProvider);
+            final appliedJobIds = <String>{};
+            myApps.whenData((apps) {
+              for (final app in apps) {
+                appliedJobIds.add(app.application.jobId);
+              }
+            });
             return ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: jobs.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) => OpportunityCard(job: jobs[index]),
+              itemBuilder: (context, index) => OpportunityCard(
+                job: jobs[index],
+                hasApplied: appliedJobIds.contains(jobs[index].id),
+              ),
             );
           },
         ),

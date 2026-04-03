@@ -1303,6 +1303,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get stripeRequirementsTitle => 'Informations supplémentaires requises';
 
   @override
+  String get stripeRequirementsDesc => 'Veuillez fournir les informations suivantes pour maintenir votre compte actif.';
+
+  @override
   String get stripeCompleteOnStripe => 'Compléter sur Stripe';
 
   @override

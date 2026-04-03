@@ -1295,6 +1295,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stripeRequirementsTitle => 'Additional information required';
 
   @override
+  String get stripeRequirementsDesc => 'Please provide the following information to keep your account active.';
+
+  @override
   String get stripeCompleteOnStripe => 'Complete on Stripe';
 
   @override

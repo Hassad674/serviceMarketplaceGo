@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/network/api_client.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -10,13 +9,32 @@ import '../../../../l10n/app_localizations.dart';
 // Stripe requirements data
 // ---------------------------------------------------------------------------
 
+class _RequirementField {
+  final String key;
+  final String labelKey;
+
+  const _RequirementField({required this.key, required this.labelKey});
+}
+
+class _RequirementSection {
+  final String id;
+  final String titleKey;
+  final List<_RequirementField> fields;
+
+  const _RequirementSection({
+    required this.id,
+    required this.titleKey,
+    required this.fields,
+  });
+}
+
 class _StripeRequirements {
   final bool hasRequirements;
-  final List<String> requirements;
+  final List<_RequirementSection> sections;
 
   const _StripeRequirements({
     required this.hasRequirements,
-    required this.requirements,
+    required this.sections,
   });
 }
 
@@ -24,34 +42,45 @@ class _StripeRequirements {
 // Provider
 // ---------------------------------------------------------------------------
 
-final _stripeRequirementsProvider =
-    FutureProvider.family<_StripeRequirements, String>((ref, lang) async {
+final stripeRequirementsProvider =
+    FutureProvider<_StripeRequirements>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
-    final response = await api.get(
-      '/api/v1/payment-info/requirements',
-      queryParameters: {'lang': lang},
-    );
+    final response = await api.get('/api/v1/payment-info/requirements');
     final data = response.data as Map<String, dynamic>?;
     if (data == null) {
       return const _StripeRequirements(
         hasRequirements: false,
-        requirements: [],
+        sections: [],
       );
     }
     final hasReq = data['has_requirements'] as bool? ?? false;
-    final reqList = (data['requirements'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
-        [];
+    final rawSections = data['sections'] as List<dynamic>? ?? [];
+    final sections = rawSections.map((s) {
+      final sMap = s as Map<String, dynamic>;
+      final rawFields = sMap['fields'] as List<dynamic>? ?? [];
+      final fields = rawFields.map((f) {
+        final fMap = f as Map<String, dynamic>;
+        return _RequirementField(
+          key: fMap['key'] as String? ?? '',
+          labelKey: fMap['label_key'] as String? ?? '',
+        );
+      }).toList();
+      return _RequirementSection(
+        id: sMap['id'] as String? ?? '',
+        titleKey: sMap['title_key'] as String? ?? '',
+        fields: fields,
+      );
+    }).toList();
+
     return _StripeRequirements(
       hasRequirements: hasReq,
-      requirements: reqList,
+      sections: sections,
     );
   } catch (_) {
     return const _StripeRequirements(
       hasRequirements: false,
-      requirements: [],
+      sections: [],
     );
   }
 });
@@ -60,53 +89,17 @@ final _stripeRequirementsProvider =
 // Widget
 // ---------------------------------------------------------------------------
 
-/// Banner that shows pending Stripe requirements with an Account Link button.
+/// Banner that shows pending Stripe requirements with a list of missing fields.
 ///
 /// Calls GET /api/v1/payment-info/requirements to check for pending items.
-/// When requirements exist, shows an amber banner with a button to open
-/// Stripe's Account Link in an external browser.
-class StripeRequirementsBanner extends ConsumerStatefulWidget {
+/// When requirements exist, shows an amber banner listing the required fields.
+class StripeRequirementsBanner extends ConsumerWidget {
   const StripeRequirementsBanner({super.key});
 
   @override
-  ConsumerState<StripeRequirementsBanner> createState() =>
-      _StripeRequirementsBannerState();
-}
-
-class _StripeRequirementsBannerState
-    extends ConsumerState<StripeRequirementsBanner> {
-  bool _opening = false;
-
-  Future<void> _openAccountLink() async {
-    setState(() => _opening = true);
-    try {
-      final api = ref.read(apiClientProvider);
-      final response =
-          await api.post('/api/v1/payment-info/account-link');
-      final data = response.data as Map<String, dynamic>?;
-      final url = data?['url'] as String?;
-      if (url != null && url.isNotEmpty) {
-        await launchUrl(
-          Uri.parse(url),
-          mode: LaunchMode.externalApplication,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to open Stripe: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _opening = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final lang = Localizations.localeOf(context).languageCode;
-    final asyncReqs = ref.watch(_stripeRequirementsProvider(lang));
+    final asyncReqs = ref.watch(stripeRequirementsProvider);
 
     return asyncReqs.when(
       loading: () => const SizedBox.shrink(),
@@ -124,6 +117,7 @@ class _StripeRequirementsBannerState
     _StripeRequirements reqs,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fieldNames = _collectFieldNames(reqs.sections);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -165,13 +159,26 @@ class _StripeRequirementsBannerState
               ),
             ],
           ),
-          if (reqs.requirements.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(
+              l10n.stripeRequirementsDesc,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? const Color(0xFFFBBF24).withValues(alpha: 0.8)
+                    : const Color(0xFF92400E).withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          if (fieldNames.isNotEmpty) ...[
             const SizedBox(height: 8),
-            ...reqs.requirements.map(
-              (r) => Padding(
+            ...fieldNames.map(
+              (name) => Padding(
                 padding: const EdgeInsets.only(left: 28, bottom: 2),
                 child: Text(
-                  '\u2022 $r',
+                  '\u2022 $name',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -182,41 +189,38 @@ class _StripeRequirementsBannerState
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _opening ? null : _openAccountLink,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppTheme.radiusMd),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              child: _opening
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      l10n.stripeCompleteOnStripe,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-            ),
-          ),
         ],
       ),
     );
+  }
+
+  /// Collect human-readable field names from requirement sections.
+  List<String> _collectFieldNames(List<_RequirementSection> sections) {
+    final names = <String>[];
+    for (final section in sections) {
+      for (final field in section.fields) {
+        names.add(_humanizeKey(field.labelKey));
+      }
+    }
+    return names;
+  }
+
+  /// Convert a camelCase key to a readable label.
+  String _humanizeKey(String key) {
+    if (key.isEmpty) return key;
+    // Insert space before capitals, replace underscores
+    final spaced = key
+        .replaceAllMapped(
+          RegExp(r'([A-Z])'),
+          (m) => ' ${m.group(0)}',
+        )
+        .replaceAll('_', ' ')
+        .trim();
+    // Capitalize first letter of each word
+    return spaced
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
   }
 }

@@ -6,7 +6,6 @@ import {
   savePaymentInfo,
   getPaymentInfoStatus,
   getRequirements,
-  createAccountLink,
 } from "../api/payment-info-api"
 import type { PaymentInfoFormData } from "../types"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
@@ -52,18 +51,12 @@ export function useSavePaymentInfo() {
   })
 }
 
-export function useStripeRequirements(lang: string) {
+export function useStripeRequirements() {
   const uid = useCurrentUserId()
   return useQuery({
     queryKey: ["user", uid, "stripe-requirements"],
-    queryFn: () => getRequirements(lang),
+    queryFn: () => getRequirements(),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
-  })
-}
-
-export function useCreateAccountLink() {
-  return useMutation({
-    mutationFn: createAccountLink,
   })
 }

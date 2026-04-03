@@ -183,12 +183,7 @@ func (h *PaymentInfoHandler) GetRequirements(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	lang := r.URL.Query().Get("lang")
-	if lang == "" {
-		lang = "fr"
-	}
-
-	reqs, err := h.paymentService.GetRequirements(r.Context(), userID, lang)
+	reqs, err := h.paymentService.GetRequirements(r.Context(), userID)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return

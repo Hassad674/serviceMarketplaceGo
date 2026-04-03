@@ -2612,6 +2612,12 @@ abstract class AppLocalizations {
   /// **'Additional information required'**
   String get stripeRequirementsTitle;
 
+  /// No description provided for @stripeRequirementsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Please provide the following information to keep your account active.'**
+  String get stripeRequirementsDesc;
+
   /// No description provided for @stripeCompleteOnStripe.
   ///
   /// In en, this message translates to:

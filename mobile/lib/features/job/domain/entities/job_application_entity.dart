@@ -22,7 +22,7 @@ class JobApplicationEntity {
       id: json['id'] as String,
       jobId: json['job_id'] as String,
       applicantId: json['applicant_id'] as String,
-      message: json['message'] as String,
+      message: (json['message'] as String?) ?? '',
       videoUrl: json['video_url'] as String?,
       createdAt: json['created_at'] as String,
     );

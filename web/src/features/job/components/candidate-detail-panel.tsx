@@ -241,7 +241,7 @@ export function CandidateDetailPanel({
                 {t("applicationMessage")}
               </h3>
               <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 p-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap break-words overflow-wrap-anywhere leading-relaxed">
                   {application.message}
                 </p>
               </div>

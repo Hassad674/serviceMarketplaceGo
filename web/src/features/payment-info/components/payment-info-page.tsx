@@ -13,9 +13,9 @@ import { CountrySelector } from "./country-selector"
 import type { PaymentInfoFormData } from "../types"
 import { INITIAL_FORM_DATA, BUSINESS_ROLES } from "../types"
 import { useUser } from "@/shared/hooks/use-user"
-import { usePaymentInfo, useSavePaymentInfo } from "../hooks/use-payment-info"
+import { usePaymentInfo, useSavePaymentInfo, useStripeRequirements } from "../hooks/use-payment-info"
 import { useCountryFields } from "../hooks/use-country-fields"
-import type { PaymentInfoResponse, FieldSection } from "../api/payment-info-api"
+import type { PaymentInfoResponse, FieldSection, RequirementsResponse } from "../api/payment-info-api"
 
 /** Map locale to default country code. */
 function localeToCountry(locale: string): string {
@@ -38,6 +38,7 @@ export function PaymentInfoPage() {
   const { data: user } = useUser()
   const { data: existing, isLoading } = usePaymentInfo()
   const saveMutation = useSavePaymentInfo()
+  const { data: requirements } = useStripeRequirements()
 
   const businessType = data.isBusiness ? "company" : "individual"
   const { data: countryFields } = useCountryFields(data.country, businessType)
@@ -52,6 +53,9 @@ export function PaymentInfoPage() {
   const hasDocumentUploadFields = allSections.some((s) =>
     s.fields.some((f) => f.type === "document_upload"),
   )
+
+  // Build field errors from requirements
+  const { fieldErrors, extraSections } = buildRequirementErrors(requirements, allSections, t)
 
   useEffect(() => {
     if (initialized || isLoading) return
@@ -135,6 +139,7 @@ export function PaymentInfoPage() {
           section={section}
           values={data.values}
           onChange={handleValueChange}
+          fieldErrors={fieldErrors}
         />
       ))}
 
@@ -149,8 +154,20 @@ export function PaymentInfoPage() {
           section={bankSection}
           values={data.values}
           onChange={handleValueChange}
+          fieldErrors={fieldErrors}
         />
       )}
+
+      {/* Extra requirement sections not in the current form */}
+      {extraSections.map((section) => (
+        <DynamicSection
+          key={`req-${section.id}`}
+          section={section}
+          values={data.values}
+          onChange={handleValueChange}
+          fieldErrors={fieldErrors}
+        />
+      ))}
 
       {/* Identity verification — only show when country is selected and docs are required but NOT inline */}
       {data.country && documentsRequired.individual && !hasDocumentUploadFields && (
@@ -358,6 +375,45 @@ function responseToFormData(res: PaymentInfoResponse, locale: string): PaymentIn
 function localeToCountryFallback(locale: string): string {
   const map: Record<string, string> = { fr: "FR", en: "US", de: "DE", es: "ES" }
   return map[locale] ?? "FR"
+}
+
+/** Build field errors map and extra sections from requirements. */
+function buildRequirementErrors(
+  requirements: RequirementsResponse | undefined,
+  formSections: FieldSection[],
+  t: (key: string) => string,
+): { fieldErrors: Record<string, string>; extraSections: FieldSection[] } {
+  if (!requirements?.has_requirements || !requirements.sections?.length) {
+    return { fieldErrors: {}, extraSections: [] }
+  }
+
+  const formFieldKeys = new Set<string>()
+  for (const section of formSections) {
+    for (const field of section.fields) {
+      formFieldKeys.add(field.key)
+    }
+  }
+
+  const fieldErrors: Record<string, string> = {}
+  const extraSections: FieldSection[] = []
+
+  for (const reqSection of requirements.sections) {
+    const extraFields: typeof reqSection.fields = []
+    for (const field of reqSection.fields) {
+      const errorMsg = t("fieldMissing")
+      if (formFieldKeys.has(field.key)) {
+        fieldErrors[field.key] = errorMsg
+      } else {
+        extraFields.push(field)
+        fieldErrors[field.key] = errorMsg
+      }
+    }
+    if (extraFields.length > 0) {
+      extraSections.push({ ...reqSection, fields: extraFields })
+    }
+  }
+
+  return { fieldErrors, extraSections }
 }
 
 /** Convert path-keyed values back to the flat save format. */

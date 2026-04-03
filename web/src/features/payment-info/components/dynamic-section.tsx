@@ -13,9 +13,10 @@ interface DynamicSectionProps {
   section: FieldSection
   values: Record<string, string>
   onChange: (key: string, value: string) => void
+  fieldErrors?: Record<string, string>
 }
 
-export function DynamicSection({ section, values, onChange }: DynamicSectionProps) {
+export function DynamicSection({ section, values, onChange, fieldErrors }: DynamicSectionProps) {
   const t = useTranslations("paymentInfo")
 
   return (
@@ -30,6 +31,7 @@ export function DynamicSection({ section, values, onChange }: DynamicSectionProp
             field={field}
             value={values[field.key] ?? ""}
             onChange={(v) => onChange(field.key, v)}
+            error={fieldErrors?.[field.key]}
           />
         ))}
       </div>
@@ -41,22 +43,24 @@ interface DynamicFieldProps {
   field: FieldSpec
   value: string
   onChange: (value: string) => void
+  error?: string
 }
 
-function DynamicField({ field, value, onChange }: DynamicFieldProps) {
+function DynamicField({ field, value, onChange, error }: DynamicFieldProps) {
   const t = useTranslations("paymentInfo")
 
   if (field.type === "document_upload") {
-    return <DocumentUploadField field={field} value={value} onChange={onChange} />
+    return <DocumentUploadField field={field} value={value} onChange={onChange} error={error} />
   }
 
   const label = safeTranslate(t, field.label_key)
 
   if (field.type === "select") {
-    return <SelectField field={field} value={value} onChange={onChange} label={label} />
+    return <SelectField field={field} value={value} onChange={onChange} label={label} error={error} />
   }
 
   const isIban = field.key.includes("iban") || field.path.includes("iban")
+  const hasError = !!error
 
   return (
     <div>
@@ -69,14 +73,21 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder ?? ""}
+        aria-invalid={hasError}
         className={cn(
-          "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-xs transition-all duration-200",
+          "h-10 w-full rounded-lg border bg-white px-3 text-sm shadow-xs transition-all duration-200",
           "placeholder:text-gray-400",
-          "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-          "dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500",
+          "focus:outline-none",
+          "dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500",
+          hasError
+            ? "border-red-500 ring-4 ring-red-500/10 dark:border-red-500"
+            : "border-gray-200 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-gray-700",
         )}
       />
-      {isIban && (
+      {hasError && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>
+      )}
+      {isIban && !hasError && (
         <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
           {t("ibanHelp")}{" "}
           <a href="https://www.iban.com" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">
@@ -88,14 +99,14 @@ function DynamicField({ field, value, onChange }: DynamicFieldProps) {
   )
 }
 
-function DocumentUploadField({ field, value, onChange }: DynamicFieldProps) {
+function DocumentUploadField({ field, value, onChange, error }: DynamicFieldProps) {
   const t = useTranslations("paymentInfo")
   const uploadMutation = useUploadIdentityDocument()
   const [modalOpen, setModalOpen] = useState(false)
   const label = safeTranslate(t, field.label_key)
   const descKey = field.label_key + "Desc"
   const description = safeTranslateOptional(t, descKey)
-  const isUploaded = value === "uploaded"
+  const isUploaded = value === "uploaded" && !error
 
   const category = field.path.startsWith("company") || field.path.startsWith("documents") ? "company" : "identity"
   const documentType = deriveDocumentType(field.path)
@@ -116,6 +127,10 @@ function DocumentUploadField({ field, value, onChange }: DynamicFieldProps) {
       </label>
       {description && (
         <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">{description}</p>
+      )}
+
+      {error && (
+        <p className="mb-2 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>
       )}
 
       {isUploaded ? (
@@ -140,7 +155,9 @@ function DocumentUploadField({ field, value, onChange }: DynamicFieldProps) {
           className={cn(
             "w-full rounded-xl border-2 border-dashed p-6",
             "flex flex-col items-center gap-2 transition-colors",
-            "border-slate-200 dark:border-slate-600",
+            error
+              ? "border-red-300 bg-red-50/50 dark:border-red-500/30 dark:bg-red-500/5"
+              : "border-slate-200 dark:border-slate-600",
             "hover:border-rose-300 hover:bg-rose-50/50 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/5",
           )}
         >
@@ -175,7 +192,9 @@ function DocumentUploadField({ field, value, onChange }: DynamicFieldProps) {
   )
 }
 
-function SelectField({ field, value, onChange, label }: DynamicFieldProps & { label: string }) {
+function SelectField({ field, value, onChange, label, error }: DynamicFieldProps & { label: string }) {
+  const hasError = !!error
+
   if (field.label_key === "nationality" || field.label_key === "country" || field.label_key === "bankCountry") {
     return (
       <div>
@@ -184,6 +203,7 @@ function SelectField({ field, value, onChange, label }: DynamicFieldProps & { la
           {field.required && <span className="ml-0.5 text-red-500">*</span>}
         </label>
         <CountrySelect value={value} onChange={onChange} />
+        {hasError && <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       </div>
     )
   }
@@ -198,6 +218,7 @@ function SelectField({ field, value, onChange, label }: DynamicFieldProps & { la
           { value: "none", label: "None" },
           { value: "existing", label: "Existing" },
         ]} />
+        {hasError && <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       </div>
     )
   }
@@ -212,6 +233,7 @@ function SelectField({ field, value, onChange, label }: DynamicFieldProps & { la
           { value: "male", label: "Male" },
           { value: "female", label: "Female" },
         ]} />
+        {hasError && <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       </div>
     )
   }
@@ -226,6 +248,7 @@ function SelectField({ field, value, onChange, label }: DynamicFieldProps & { la
           { value: "true", label: "Yes" },
           { value: "false", label: "No" },
         ]} />
+        {hasError && <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       </div>
     )
   }
@@ -241,13 +264,18 @@ function SelectField({ field, value, onChange, label }: DynamicFieldProps & { la
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={field.placeholder ?? ""}
+        aria-invalid={hasError}
         className={cn(
-          "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-xs transition-all duration-200",
+          "h-10 w-full rounded-lg border bg-white px-3 text-sm shadow-xs transition-all duration-200",
           "placeholder:text-gray-400",
-          "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-          "dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500",
+          "focus:outline-none",
+          "dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500",
+          hasError
+            ? "border-red-500 ring-4 ring-red-500/10 dark:border-red-500"
+            : "border-gray-200 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-gray-700",
         )}
       />
+      {hasError && <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
     </div>
   )
 }

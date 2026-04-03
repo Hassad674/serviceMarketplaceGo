@@ -5,47 +5,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 
+	domain "marketplace-backend/internal/domain/payment"
 	portservice "marketplace-backend/internal/port/service"
 )
 
+// RequirementsInfo holds formatted field sections for Stripe requirements.
 type RequirementsInfo struct {
-	HasRequirements bool               `json:"has_requirements"`
-	CurrentlyDue    []string           `json:"currently_due"`
-	Labels          []RequirementLabel `json:"labels"`
+	HasRequirements bool           `json:"has_requirements"`
+	Sections        []FieldSection `json:"sections"`
 }
 
-type RequirementLabel struct {
-	Code  string `json:"code"`
-	Label string `json:"label"`
-}
-
-// Requirement code to human-readable label mapping
-var requirementLabels = map[string]map[string]string{
-	"company.verification.document":                {"en": "Company document", "fr": "Document de la société"},
-	"individual.verification.document":             {"en": "Identity document", "fr": "Pièce d'identité"},
-	"individual.verification.additional_document":  {"en": "Additional identity document", "fr": "Justificatif d'identité supplémentaire"},
-	"representative.verification.document":         {"en": "Representative identity document", "fr": "Pièce d'identité du représentant"},
-	"representative.verification.additional_document": {"en": "Representative additional document", "fr": "Justificatif supplémentaire du représentant"},
-}
-
-func translateRequirement(code, lang string) string {
-	if labels, ok := requirementLabels[code]; ok {
-		if label, ok := labels[lang]; ok {
-			return label
-		}
-		return labels["en"]
-	}
-	if lang == "fr" {
-		return "Information complémentaire requise"
-	}
-	return "Additional information required"
-}
-
-// GetRequirements returns Stripe requirements for the user's connected account.
-func (s *Service) GetRequirements(ctx context.Context, userID uuid.UUID, lang string) (*RequirementsInfo, error) {
+// GetRequirements returns Stripe requirements as formatted FieldSections.
+// The sections use the same format as GetCountryFields, so the frontend
+// can render them with the same DynamicSection component.
+func (s *Service) GetRequirements(ctx context.Context, userID uuid.UUID) (*RequirementsInfo, error) {
 	info, err := s.payments.GetByUserID(ctx, userID)
 	if err != nil || info.StripeAccountID == "" {
 		return &RequirementsInfo{}, nil
@@ -60,19 +37,145 @@ func (s *Service) GetRequirements(ctx context.Context, userID uuid.UUID, lang st
 		return nil, fmt.Errorf("get requirements: %w", err)
 	}
 
-	result := &RequirementsInfo{
-		HasRequirements: len(due) > 0,
-		CurrentlyDue:    due,
+	if len(due) == 0 {
+		return &RequirementsInfo{}, nil
 	}
 
-	for _, code := range due {
-		result.Labels = append(result.Labels, RequirementLabel{
-			Code:  code,
-			Label: translateRequirement(code, lang),
+	sections := buildRequirementSections(due, info.Country)
+	return &RequirementsInfo{
+		HasRequirements: len(sections) > 0,
+		Sections:        sections,
+	}, nil
+}
+
+// buildRequirementSections converts Stripe currently_due paths into FieldSections.
+func buildRequirementSections(due []string, country string) []FieldSection {
+	sectionMap := make(map[string][]FieldSpec)
+	seen := make(dateSeen)
+	hasBankRequirement := false
+
+	for _, path := range due {
+		if isExternalAccountPath(path) {
+			hasBankRequirement = true
+			continue
+		}
+		if domain.IsAutoHandled(path) {
+			continue
+		}
+		processRequirementField(path, sectionMap, seen)
+	}
+
+	sections := buildSections(sectionMap)
+
+	if hasBankRequirement {
+		sections = appendBankSectionToSlice(sections, country)
+	}
+
+	return sections
+}
+
+// processRequirementField handles a single Stripe requirement path.
+// Unlike processField for country_fields, this does not skip person entities
+// and does not need to set DocumentsRequired on a response struct.
+func processRequirementField(
+	path string, sectionMap map[string][]FieldSpec, seen dateSeen,
+) {
+	entity := domain.EntityFromPath(path)
+
+	// Document upload fields
+	if domain.IsDocumentUploadField(path) {
+		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+			Path:     path,
+			Key:      path,
+			Type:     "document_upload",
+			LabelKey: domain.FieldLabelKey(path),
+			Required: true,
+			IsExtra:  false,
 		})
+		return
 	}
 
-	return result, nil
+	// Collapse dob components into a single date field per entity
+	if domain.IsDOBComponent(path) {
+		key := entity + ".dob"
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		_, isExtra := domain.MapStripeField(path)
+		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+			Path:     key,
+			Key:      key,
+			Type:     "date",
+			LabelKey: "dateOfBirth",
+			Required: true,
+			IsExtra:  isExtra,
+		})
+		return
+	}
+
+	// Collapse registration_date components into single date field
+	if domain.IsRegistrationDateComponent(path) {
+		key := entity + ".registration_date"
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+			Path:     key,
+			Key:      key,
+			Type:     "date",
+			LabelKey: "registrationDate",
+			Required: true,
+			IsExtra:  true,
+		})
+		return
+	}
+
+	_, isExtra := domain.MapStripeField(path)
+	sectionMap[entity] = append(sectionMap[entity], FieldSpec{
+		Path:        path,
+		Key:         path,
+		Type:        domain.FieldInputType(path),
+		LabelKey:    domain.FieldLabelKey(path),
+		Required:    true,
+		IsExtra:     isExtra,
+		Placeholder: domain.FieldPlaceholder(path),
+	})
+}
+
+// isExternalAccountPath returns true for external_account requirement paths.
+func isExternalAccountPath(path string) bool {
+	return path == "external_account" || strings.HasPrefix(path, "external_account.")
+}
+
+// appendBankSectionToSlice adds a bank section to the given sections slice.
+func appendBankSectionToSlice(sections []FieldSection, country string) []FieldSection {
+	isIBAN := ibanCountries[strings.ToUpper(country)]
+	var bankFields []FieldSpec
+
+	if isIBAN {
+		bankFields = []FieldSpec{
+			{Path: "bank.iban", Key: "bank.iban", Type: "text", LabelKey: "iban", Required: true},
+			{Path: "bank.bic", Key: "bank.bic", Type: "text", LabelKey: "bic", Required: false},
+		}
+	} else {
+		bankFields = []FieldSpec{
+			{Path: "bank.account_number", Key: "bank.account_number", Type: "text", LabelKey: "accountNumber", Required: true},
+			{Path: "bank.routing_number", Key: "bank.routing_number", Type: "text", LabelKey: "routingNumber", Required: true},
+		}
+	}
+
+	bankFields = append(bankFields,
+		FieldSpec{Path: "bank.account_holder", Key: "bank.account_holder", Type: "text", LabelKey: "accountHolder", Required: true},
+		FieldSpec{Path: "bank.bank_country", Key: "bank.bank_country", Type: "select", LabelKey: "bankCountry", Required: true},
+	)
+
+	return append(sections, FieldSection{
+		ID:       "bank",
+		TitleKey: "bankAccount",
+		Fields:   bankFields,
+	})
 }
 
 // CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
