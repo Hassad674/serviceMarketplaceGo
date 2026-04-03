@@ -79,6 +79,26 @@ async function applyToJobViaAPI(
   expect(res.ok, `Failed to apply to job ${index}: ${res.status}`).toBe(true)
 }
 
+async function loginViaAPI(email: string, password: string): Promise<string> {
+  const res = await fetch(`${API_URL}/api/v1/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+    redirect: "manual",
+  })
+  const setCookieHeaders = res.headers.getSetCookie?.() ?? []
+  const allCookies = setCookieHeaders.length > 0
+    ? setCookieHeaders
+    : (res.headers.get("set-cookie") ?? "").split(", ")
+  const cookies: string[] = []
+  for (const c of allCookies) {
+    const match = c.match(/^([^=]+=[^;]+)/)
+    if (match) cookies.push(match[1])
+  }
+  if (cookies.length > 0) return cookies.join("; ")
+  throw new Error(`Login failed for ${email}: ${res.status} - no cookies`)
+}
+
 async function resetCreditsAsAdmin(cookie: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/v1/admin/credits/reset`, {
     method: "POST",
@@ -97,8 +117,9 @@ async function resetCreditsAsAdmin(cookie: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 test.describe("Admin credits reset", () => {
-  test.beforeEach(async ({ page }) => {
-    await clearAuth(page)
+  test.beforeEach(async ({ page, context }) => {
+    await context.clearCookies()
+    await page.goto("/")
   })
 
   test("credits below 10 are reset back to 10 by admin", async ({
@@ -118,7 +139,8 @@ test.describe("Admin credits reset", () => {
     }
 
     // Step 2: Register a provider and apply to 5 jobs (credits 10 -> 5)
-    await clearAuth(page)
+    await context.clearCookies()
+    await page.goto("/")
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
     const providerUser = await page.evaluate(() => {
@@ -137,20 +159,12 @@ test.describe("Admin credits reset", () => {
     const creditsAfterApply = await fetchCreditsViaAPI(providerCookie)
     expect(creditsAfterApply).toBe(5)
 
-    // Step 3: Login as admin and trigger the weekly reset
-    await clearAuth(page)
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD)
-    const adminCookie = await getSessionCookie(context)
+    // Step 3: Login as admin via API and trigger the weekly reset
+    const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
     await resetCreditsAsAdmin(adminCookie)
 
-    // Step 4: Login back as provider and verify credits are restored to 10
-    await clearAuth(page)
-    await login(
-      page,
-      providerUser?.state?.user?.email ?? "",
-      "TestPass1234!",
-    )
-    const providerCookieAfter = await getSessionCookie(context)
+    // Step 4: Verify credits are restored to 10 (using existing provider cookie)
+    const providerCookieAfter = providerCookie
     const creditsAfterReset = await fetchCreditsViaAPI(providerCookieAfter)
     expect(creditsAfterReset).toBe(INITIAL_CREDITS)
   })
@@ -173,21 +187,12 @@ test.describe("Admin credits reset", () => {
     const initialCredits = await fetchCreditsViaAPI(providerCookie)
     expect(initialCredits).toBe(INITIAL_CREDITS)
 
-    // Step 2: Login as admin and trigger the weekly reset
-    await clearAuth(page)
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD)
-    const adminCookie = await getSessionCookie(context)
+    // Step 2: Login as admin via API and trigger the weekly reset
+    const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
     await resetCreditsAsAdmin(adminCookie)
 
-    // Step 3: Login back as provider and verify credits still = 10
-    await clearAuth(page)
-    await login(
-      page,
-      providerUser?.state?.user?.email ?? "",
-      "TestPass1234!",
-    )
-    const providerCookieAfter = await getSessionCookie(context)
-    const creditsAfterReset = await fetchCreditsViaAPI(providerCookieAfter)
+    // Step 3: Verify credits still = 10
+    const creditsAfterReset = await fetchCreditsViaAPI(providerCookie)
     expect(creditsAfterReset).toBe(INITIAL_CREDITS)
   })
 
