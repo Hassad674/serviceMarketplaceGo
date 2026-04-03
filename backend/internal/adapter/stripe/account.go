@@ -30,6 +30,7 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 	acctParams := &stripe.AccountParams{
 		Type:         stripe.String(string(stripe.AccountTypeCustom)),
 		Country:      stripe.String(country),
+		Email:        stripe.String(email),
 		AccountToken: stripe.String(accountToken),
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
 			MCC: stripe.String(mcc),
