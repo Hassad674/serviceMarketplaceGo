@@ -3,10 +3,12 @@ package stripe
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/account"
 	"github.com/stripe/stripe-go/v82/accountlink"
+	"github.com/stripe/stripe-go/v82/bankaccount"
 	"github.com/stripe/stripe-go/v82/token"
 
 	"marketplace-backend/internal/domain/payment"
@@ -70,6 +72,7 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 }
 
 // UpdateConnectedAccount updates an existing Stripe account with new data via Account Token.
+// Also updates the external bank account if bank details have changed.
 func (s *Service) UpdateConnectedAccount(_ context.Context, accountID string, info *payment.PaymentInfo, tosIP string, email string) error {
 	tok, err := createAccountToken(info, tosIP, email)
 	if err != nil {
@@ -80,7 +83,6 @@ func (s *Service) UpdateConnectedAccount(_ context.Context, accountID string, in
 		AccountToken: stripe.String(tok),
 	}
 
-	// Update MCC if set
 	mcc := info.ActivitySector
 	if mcc == "" {
 		mcc = "8999"
@@ -92,6 +94,67 @@ func (s *Service) UpdateConnectedAccount(_ context.Context, accountID string, in
 	_, err = account.Update(accountID, params)
 	if err != nil {
 		return fmt.Errorf("update stripe account: %w", err)
+	}
+
+	// Update external bank account
+	if err := s.updateExternalAccount(accountID, info); err != nil {
+		slog.Warn("failed to update external account", "account_id", accountID, "error", err)
+	}
+
+	return nil
+}
+
+// updateExternalAccount replaces the bank account on a Stripe connected account.
+func (s *Service) updateExternalAccount(accountID string, info *payment.PaymentInfo) error {
+	country := resolveCountryCode(info)
+	currency := countryToCurrency(country)
+
+	// Determine new bank details
+	var newAccountNumber string
+	if info.IBAN != "" {
+		newAccountNumber = info.IBAN
+	} else if info.AccountNumber != "" {
+		newAccountNumber = info.AccountNumber
+	}
+
+	if newAccountNumber == "" {
+		return nil // no bank details to update
+	}
+
+	// Delete existing external accounts first
+	acct, err := account.GetByID(accountID, &stripe.AccountParams{})
+	if err != nil {
+		return fmt.Errorf("get account: %w", err)
+	}
+
+	for _, ea := range acct.ExternalAccounts.Data {
+		delParams := &stripe.BankAccountParams{
+			Account: stripe.String(accountID),
+		}
+		_, err := bankaccount.Del(ea.ID, delParams)
+		if err != nil {
+			slog.Warn("failed to delete old external account", "id", ea.ID, "error", err)
+		}
+	}
+
+	// Create new external account
+	newParams := &stripe.BankAccountParams{
+		Account:           stripe.String(accountID),
+		AccountHolderName: stripe.String(info.AccountHolder),
+		Country:           stripe.String(country),
+		Currency:          stripe.String(currency),
+	}
+
+	if info.IBAN != "" {
+		newParams.AccountNumber = stripe.String(info.IBAN)
+	} else {
+		newParams.AccountNumber = stripe.String(info.AccountNumber)
+		newParams.RoutingNumber = stripe.String(info.RoutingNumber)
+	}
+
+	_, err = bankaccount.New(newParams)
+	if err != nil {
+		return fmt.Errorf("create external account: %w", err)
 	}
 
 	return nil
