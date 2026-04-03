@@ -515,6 +515,7 @@
   "noApplicationsYet": "Aucune candidature pour le moment",
   "applyAction": "Postuler",
   "alreadyApplied": "Déjà postulé",
+  "applicantTypeMismatch": "Votre type de compte ne peut pas postuler à cette offre",
   "applyTitle": "Postuler",
   "applyMessageLabel": "Votre message (optionnel)",
   "applyMessageHint": "Pourquoi êtes-vous le bon candidat ?",

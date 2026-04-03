@@ -520,6 +520,7 @@
   "noApplicationsYet": "No applications yet",
   "applyAction": "Apply",
   "alreadyApplied": "Already applied",
+  "applicantTypeMismatch": "Your account type cannot apply to this job",
   "applyTitle": "Apply",
   "applyMessageLabel": "Your message (optional)",
   "applyMessageHint": "Why are you the right candidate?",

@@ -12,6 +12,7 @@ import 'package:marketplace_mobile/features/payment_info/domain/repositories/pay
 import 'package:marketplace_mobile/features/payment_info/presentation/providers/identity_document_provider.dart';
 import 'package:marketplace_mobile/features/payment_info/presentation/providers/payment_info_provider.dart';
 import 'package:marketplace_mobile/features/payment_info/presentation/screens/payment_info_screen.dart';
+import 'package:marketplace_mobile/features/payment_info/presentation/widgets/stripe_requirements_banner.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
@@ -163,6 +164,11 @@ Widget buildKycApp({
       ),
       identityDocumentsProvider.overrideWith(
         (ref) => Future.value(<IdentityDocument>[]),
+      ),
+      stripeRequirementsProvider.overrideWith(
+        (ref) => Future.value(
+          const StripeRequirements(hasRequirements: false, sections: []),
+        ),
       ),
       apiClientProvider.overrideWithValue(FakeApiClient(role: role)),
       authProvider.overrideWith(

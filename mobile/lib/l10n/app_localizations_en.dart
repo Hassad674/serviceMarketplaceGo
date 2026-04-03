@@ -1463,6 +1463,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get alreadyApplied => 'Already applied';
 
   @override
+  String get applicantTypeMismatch =>
+      'Your account type cannot apply to this job';
+
+  @override
   String get applyTitle => 'Apply';
 
   @override

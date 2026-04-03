@@ -1471,6 +1471,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get alreadyApplied => 'Déjà postulé';
 
   @override
+  String get applicantTypeMismatch =>
+      'Votre type de compte ne peut pas postuler à cette offre';
+
+  @override
   String get applyTitle => 'Postuler';
 
   @override
