@@ -9,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -273,11 +275,21 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 	return nil
 }
 
+// statusCooldown prevents duplicate account status notifications.
+var statusCooldown sync.Map
+
 // notifyAccountStatusChange sends a notification when Stripe account charges/payouts status changes.
 func (s *Service) notifyAccountStatusChange(ctx context.Context, userID uuid.UUID, charges, payouts bool) {
 	if s.notifications == nil {
 		return
 	}
+	// Cooldown: max 1 status notification per user per 5 minutes
+	if lastSent, ok := statusCooldown.Load(userID); ok {
+		if time.Since(lastSent.(time.Time)) < 5*time.Minute {
+			return
+		}
+	}
+	statusCooldown.Store(userID, time.Now())
 
 	var title, body string
 	switch {
