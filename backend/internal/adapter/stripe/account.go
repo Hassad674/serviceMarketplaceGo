@@ -229,9 +229,13 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (
 		if v := getExtraField(info.ExtraFields, "company.address.state", "business_state"); v != "" {
 			companyAddr.State = stripe.String(v)
 		}
+		companyPhone := getExtraField(info.ExtraFields, "company.phone")
+		if companyPhone == "" {
+			companyPhone = info.Phone
+		}
 		params.Account.Company = &stripe.AccountCompanyParams{
 			Name:    stripe.String(info.BusinessName),
-			Phone:   stripe.String(info.Phone),
+			Phone:   stripe.String(companyPhone),
 			Address: companyAddr,
 			TaxID: stripe.String(info.TaxID),
 		}
