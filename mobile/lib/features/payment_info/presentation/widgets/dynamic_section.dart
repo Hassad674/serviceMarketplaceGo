@@ -12,6 +12,7 @@ const _sectionTitles = <String, String>{
   'bankAccount': 'Bank Account',
   'representative': 'Legal Representative',
   'additionalDocuments': 'Additional Documents',
+  'personInfo': 'Additional Person Information',
 };
 
 /// Field labels for known label keys from the backend.

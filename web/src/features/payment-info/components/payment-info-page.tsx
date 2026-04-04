@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react"
 import { AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 import { useTranslations, useLocale } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { apiClient } from "@/shared/lib/api-client"
 import { DynamicSection } from "./dynamic-section"
 import { ActivitySectorSelect } from "./activity-sector-select"
 import { BusinessPersonsSection } from "./business-persons-section"
@@ -201,6 +202,11 @@ export function PaymentInfoPage() {
         />
       ))}
 
+      {/* Fallback: link to Stripe when there are extra sections we can't handle */}
+      {extraSections.length > 0 && existing?.stripe_account_id && (
+        <CompleteOnStripeLink t={t} />
+      )}
+
       {/* Identity verification — only show when country is selected and docs are required but NOT inline */}
       {data.country && documentsRequired.individual && !hasDocumentUploadFields && (
         <IdentityVerificationSection />
@@ -230,6 +236,47 @@ export function PaymentInfoPage() {
         )}
       >
         {saveMutation.isPending ? t("saving") : t("save")}
+      </button>
+    </div>
+  )
+}
+
+function CompleteOnStripeLink({ t }: { t: (key: string) => string }) {
+  const [loading, setLoading] = useState(false)
+
+  async function handleClick() {
+    setLoading(true)
+    try {
+      const resp = await apiClient<{ url: string }>("/api/v1/payment-info/account-link", {
+        method: "POST",
+        body: {
+          return_url: window.location.href,
+          refresh_url: window.location.href,
+        },
+      })
+      window.open(resp.url, "_blank")
+    } catch {
+      // fallback: nothing
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/50">
+      <AlertTriangle className="h-5 w-5 shrink-0 text-slate-500" strokeWidth={1.5} />
+      <div className="flex-1">
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          {t("completeOnStripeDesc")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={loading}
+        className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+      >
+        {loading ? "..." : t("completeOnStripe")}
       </button>
     </div>
   )

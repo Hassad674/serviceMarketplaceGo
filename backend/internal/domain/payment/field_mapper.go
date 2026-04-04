@@ -188,12 +188,18 @@ func IsRegistrationDateComponent(path string) bool {
 }
 
 // EntityFromPath extracts the entity prefix from a Stripe path.
+// Normalizes dynamic person IDs (person_XXXX) to "person".
 func EntityFromPath(path string) string {
 	idx := strings.IndexByte(path, '.')
 	if idx < 0 {
 		return path
 	}
-	return path[:idx]
+	entity := path[:idx]
+	// Normalize Stripe person IDs (person_1TIWrv...) to generic "person"
+	if strings.HasPrefix(entity, "person_") {
+		return "person"
+	}
+	return entity
 }
 
 // sectionTitleKeys maps entity names to i18n title keys.
@@ -206,6 +212,7 @@ var sectionTitleKeys = map[string]string{
 	"executives":     "executives",
 	"authorizer":     "authorizer",
 	"documents":      "companyDocuments",
+	"person":         "personInfo",
 }
 
 // SectionTitleKey maps an entity to its i18n title key.
@@ -372,7 +379,24 @@ func FieldLabelKey(path string) string {
 	if key, ok := fieldLabelKeys[terminal]; ok {
 		return key
 	}
-	return terminal
+	// Fallback: humanize the terminal segment (snake_case to camelCase)
+	return humanizeTerminal(terminal)
+}
+
+// humanizeTerminal converts a snake_case terminal to a camelCase label key.
+// e.g. "percent_ownership" -> "percentOwnership", "title" -> "title"
+func humanizeTerminal(s string) string {
+	parts := strings.Split(s, "_")
+	if len(parts) <= 1 {
+		return s
+	}
+	result := parts[0]
+	for _, p := range parts[1:] {
+		if len(p) > 0 {
+			result += strings.ToUpper(p[:1]) + p[1:]
+		}
+	}
+	return result
 }
 
 // FieldPlaceholder returns an optional placeholder string.
