@@ -203,5 +203,59 @@ func (m *mockNotificationSender) Send(ctx context.Context, input service.Notific
 	return nil
 }
 
+// --- mockJobCreditRepo ---
+
+type mockJobCreditRepo struct {
+	getOrCreateFn  func(ctx context.Context, userID uuid.UUID) (int, error)
+	decrementFn    func(ctx context.Context, userID uuid.UUID) error
+	addBonusFn     func(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error
+	resetForUserFn func(ctx context.Context, userID uuid.UUID, minCredits int) error
+	resetWeeklyFn  func(ctx context.Context, minCredits int) error
+
+	addBonusCalls []addBonusCall
+}
+
+type addBonusCall struct {
+	UserID    uuid.UUID
+	Amount    int
+	MaxTokens int
+}
+
+func (m *mockJobCreditRepo) GetOrCreate(ctx context.Context, userID uuid.UUID) (int, error) {
+	if m.getOrCreateFn != nil {
+		return m.getOrCreateFn(ctx, userID)
+	}
+	return 10, nil
+}
+
+func (m *mockJobCreditRepo) Decrement(ctx context.Context, userID uuid.UUID) error {
+	if m.decrementFn != nil {
+		return m.decrementFn(ctx, userID)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) AddBonus(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error {
+	m.addBonusCalls = append(m.addBonusCalls, addBonusCall{UserID: userID, Amount: amount, MaxTokens: maxTokens})
+	if m.addBonusFn != nil {
+		return m.addBonusFn(ctx, userID, amount, maxTokens)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) ResetForUser(ctx context.Context, userID uuid.UUID, minCredits int) error {
+	if m.resetForUserFn != nil {
+		return m.resetForUserFn(ctx, userID, minCredits)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) ResetWeekly(ctx context.Context, minCredits int) error {
+	if m.resetWeeklyFn != nil {
+		return m.resetWeeklyFn(ctx, minCredits)
+	}
+	return nil
+}
+
 // suppress unused import warning
 var _ = json.RawMessage{}
