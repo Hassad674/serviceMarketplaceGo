@@ -134,6 +134,23 @@ async function activateProposalAsAdmin(adminCookie: string, proposalId: string):
   ).toBe(true)
 }
 
+async function approvePendingBonuses(adminCookie: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/admin/credits/bonus-log/pending`, {
+    headers: { Cookie: adminCookie },
+  })
+  if (!res.ok) return
+  const data = await res.json()
+  const entries = data.data ?? []
+  for (const entry of entries) {
+    if (entry.status === "pending_review") {
+      await fetch(`${API_URL}/api/v1/admin/credits/bonus-log/${entry.id}/approve`, {
+        method: "POST",
+        headers: { Cookie: adminCookie },
+      })
+    }
+  }
+}
+
 async function getProposalStatus(cookie: string, proposalId: string): Promise<string> {
   const res = await fetch(`${API_URL}/api/v1/proposals/${proposalId}`, {
     headers: { Cookie: cookie },
@@ -193,6 +210,7 @@ test.describe("Bonus credits after mission payment", () => {
     // Step 7: Enterprise pays (simulation mode in dev — no Stripe needed)
     const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
     await activateProposalAsAdmin(adminCookie, proposalId)
+    await approvePendingBonuses(adminCookie)
 
     // Step 8: Verify proposal is now active
     const status = await getProposalStatus(enterpriseCookie, proposalId)
@@ -228,6 +246,7 @@ test.describe("Bonus credits after mission payment", () => {
     await acceptProposal(providerCookie, proposalId)
     const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
     await activateProposalAsAdmin(adminCookie, proposalId)
+    await approvePendingBonuses(adminCookie)
 
     // Verify credits = 15 after first payment
     const creditsAfterPayment = await fetchCreditsViaAPI(providerCookie)
@@ -280,6 +299,7 @@ test.describe("Bonus credits after mission payment", () => {
       await acceptProposal(providerCookie, proposalId)
       const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
     await activateProposalAsAdmin(adminCookie, proposalId)
+    await approvePendingBonuses(adminCookie)
     }
 
     // Credits should be 10 + 5 + 5 = 20
