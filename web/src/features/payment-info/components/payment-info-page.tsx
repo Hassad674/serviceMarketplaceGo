@@ -539,12 +539,14 @@ function buildRequirementErrors(
       // Check if value exists — try exact key first, then suffix match
       const hasValue = formValues ? hasFormValue(formValues, field.key) : false
 
-      // If field has a value and is currently_due, Stripe is verifying it — show warning not error
-      const treatAsWarning = isEventuallyDue || (hasValue && urgency === "currently_due")
+      // Red only for past_due (truly overdue). currently_due = orange (Stripe is verifying).
+      const treatAsWarning = isEventuallyDue || urgency === "currently_due"
       const targetMap = treatAsWarning ? fieldWarnings : fieldErrors
-      const msg = treatAsWarning
-        ? (hasValue ? t("fieldPendingVerification") : t("fieldEventuallyDue"))
-        : t("fieldMissing")
+      const msg = urgency === "past_due"
+        ? t("fieldMissing")
+        : urgency === "currently_due"
+          ? t("fieldPendingVerification")
+          : t("fieldEventuallyDue")
 
       if (formFieldKeys.has(field.key)) {
         targetMap[field.key] = msg
