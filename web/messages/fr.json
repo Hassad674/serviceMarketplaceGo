@@ -717,6 +717,8 @@
     "completeOnStripe": "Compléter sur Stripe",
     "requirementsTitle": "Action requise",
     "requirementsDesc": "Veuillez fournir les informations suivantes pour maintenir votre compte actif.",
+    "requirementsEventualTitle": "Informations bientôt requises",
+    "requirementsEventualDesc": "Les informations suivantes seront nécessaires pour maintenir vos paiements actifs.",
     "fieldRejected": "Refusé \u2014 veuillez fournir à nouveau",
     "fieldMissing": "Information requise",
     "fieldInvalid": "Invalide \u2014 veuillez corriger",

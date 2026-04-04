@@ -717,6 +717,8 @@
     "completeOnStripe": "Complete on Stripe",
     "requirementsTitle": "Action required",
     "requirementsDesc": "Please provide the following information to keep your account active.",
+    "requirementsEventualTitle": "Information needed soon",
+    "requirementsEventualDesc": "The following information will be required to keep your payouts active.",
     "fieldRejected": "Rejected \u2014 please provide again",
     "fieldMissing": "Required information",
     "fieldInvalid": "Invalid \u2014 please correct",

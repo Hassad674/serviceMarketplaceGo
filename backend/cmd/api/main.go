@@ -275,6 +275,7 @@ func main() {
 		Storage:       storageSvc,
 		Notifications: notifSvc,
 		Payments:      paymentProcessor(paymentInfoSvc, cfg),
+		Credits:       jobCreditRepo,
 	})
 	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       reviewRepo,
