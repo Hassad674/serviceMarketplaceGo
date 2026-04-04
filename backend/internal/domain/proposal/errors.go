@@ -16,4 +16,5 @@ var (
 	ErrAlreadyDeclined        = errors.New("proposal is already declined")
 	ErrNotProvider            = errors.New("only the provider can perform this action")
 	ErrNotClient              = errors.New("only the client can perform this action")
+	ErrBelowMinimumAmount     = errors.New("proposal amount must be at least 30 EUR (3000 centimes)")
 )

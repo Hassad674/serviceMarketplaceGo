@@ -134,7 +134,6 @@ export function PaymentInfoPage() {
   // Merge document upload status into values for display
   const mergedValues = { ...docValues, ...data.values }
   const valid = isFormValid(data, allSections)
-  const hasRequirements = Object.keys(fieldErrors).length > 0 || Object.keys(fieldWarnings).length > 0
 
   return (
     <div className="space-y-6">
@@ -226,11 +225,11 @@ export function PaymentInfoPage() {
       {/* Save button */}
       <button
         type="button"
-        disabled={!valid || saveMutation.isPending || (saved && !hasRequirements)}
+        disabled={!valid || saveMutation.isPending}
         onClick={handleSave}
         className={cn(
           "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-200 sm:w-auto",
-          valid && !saveMutation.isPending && !(saved && !hasRequirements)
+          valid && !saveMutation.isPending
             ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
             : "cursor-not-allowed bg-gray-300 dark:bg-gray-700",
         )}

@@ -267,6 +267,9 @@ func main() {
 	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
 	identityDocHandler := handler.NewIdentityDocumentHandler(paymentInfoSvc)
 
+	// Credit bonus fraud log
+	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
+
 	// Wire services that depend on notifications
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
 		Proposals:     proposalRepo,
@@ -276,6 +279,7 @@ func main() {
 		Notifications: notifSvc,
 		Payments:      paymentProcessor(paymentInfoSvc, cfg),
 		Credits:       jobCreditRepo,
+		BonusLog:      bonusLogRepo,
 	})
 	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       reviewRepo,

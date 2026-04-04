@@ -32,10 +32,10 @@ func (r *CreditBonusLogRepository) Insert(ctx context.Context, entry *repository
 		  credits_awarded, status, block_reason, proposal_created_at, proposal_paid_at)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
 		entry.ID, entry.ProviderID, entry.ClientID, entry.ProposalID,
-		nullString(entry.ClientCardFingerprint),
+		optionalString(entry.ClientCardFingerprint),
 		entry.CreditsAwarded, entry.Status,
-		nullString(entry.BlockReason),
-		nullTime(entry.ProposalCreatedAt), entry.ProposalPaidAt,
+		optionalString(entry.BlockReason),
+		optionalTime(entry.ProposalCreatedAt), entry.ProposalPaidAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert credit bonus log: %w", err)
@@ -209,14 +209,14 @@ func scanBonusLogRow(rows *sql.Rows) (*repository.CreditBonusLogEntry, error) {
 	return &e, err
 }
 
-func nullString(s string) *string {
+func optionalString(s string) *string {
 	if s == "" {
 		return nil
 	}
 	return &s
 }
 
-func nullTime(t time.Time) *time.Time {
+func optionalTime(t time.Time) *time.Time {
 	if t.IsZero() {
 		return nil
 	}
