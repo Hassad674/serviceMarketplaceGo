@@ -26,6 +26,7 @@ type PaymentInfoResponse struct {
 	VATNumber          string `json:"vat_number"`
 	RoleInCompany      string `json:"role_in_company"`
 
+	Email          string `json:"email"`
 	Phone          string `json:"phone"`
 	ActivitySector string `json:"activity_sector"`
 
@@ -111,6 +112,7 @@ func NewPaymentInfoResponse(p *payment.PaymentInfo, persons []*payment.BusinessP
 		TaxID:              p.TaxID,
 		VATNumber:          p.VATNumber,
 		RoleInCompany:      p.RoleInCompany,
+		Email:                p.Email,
 		Phone:                p.Phone,
 		ActivitySector:       p.ActivitySector,
 		IsSelfRepresentative: p.IsSelfRepresentative,

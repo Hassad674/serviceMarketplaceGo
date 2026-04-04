@@ -496,6 +496,10 @@
   "reasonFakeProfile": "Profil faux ou trompeur",
   "reasonUnprofessionalBehavior": "Comportement non professionnel",
   "reasonOther": "Autre",
+  "reasonFraudOrScam": "Fraude ou arnaque",
+  "reasonMisleadingDescription": "Description trompeuse",
+  "reportJob": "Signaler cette offre",
+  "reportApplication": "Signaler cette candidature",
   "loadMore": "Voir plus",
 
   "candidateDetail": "Candidature",

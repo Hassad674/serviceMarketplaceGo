@@ -12,6 +12,7 @@ import { Textarea } from "@/shared/components/ui/textarea"
 import { Input } from "@/shared/components/ui/input"
 import { ReportList } from "@/shared/components/ui/report-list"
 import { ResolveReportDialog } from "@/shared/components/ui/resolve-report-dialog"
+import type { AdminReport } from "@/shared/types/report"
 import { formatDate } from "@/shared/lib/utils"
 import { useUser, useSuspendUser, useUnsuspendUser, useBanUser, useUnbanUser } from "../hooks/use-users"
 import { useUserReports, useResolveReport } from "@/shared/hooks/use-reports"
@@ -361,6 +362,9 @@ function UserReportsSection({ userId }: { userId: string }) {
   const against = data?.reports_against ?? []
   const filed = data?.reports_filed ?? []
 
+  const profileReports = against.filter((r) => r.target_type === "user")
+  const messageReports = against.filter((r) => r.target_type === "message")
+
   if (isLoading) {
     return (
       <Card>
@@ -382,18 +386,23 @@ function UserReportsSection({ userId }: { userId: string }) {
         </div>
 
         <div className="space-y-4">
-          <div>
-            <h4 className="mb-2 text-sm font-medium text-foreground">
-              Signalements recus ({against.length})
-            </h4>
-            <ReportList
-              reports={against}
-              onResolve={(id) => setResolveTarget({ id, defaultStatus: "resolved" })}
-              onDismiss={(id) => setResolveTarget({ id, defaultStatus: "dismissed" })}
-              isResolving={resolveMutation.isPending}
-              emptyLabel="Aucun signalement recu"
-            />
-          </div>
+          <ReportGroup
+            title={`Profil signale (${profileReports.length})`}
+            reports={profileReports}
+            emptyLabel="Aucun signalement de profil"
+            onResolve={(id) => setResolveTarget({ id, defaultStatus: "resolved" })}
+            onDismiss={(id) => setResolveTarget({ id, defaultStatus: "dismissed" })}
+            isResolving={resolveMutation.isPending}
+          />
+
+          <ReportGroup
+            title={`Messages signales (${messageReports.length})`}
+            reports={messageReports}
+            emptyLabel="Aucun message signale"
+            onResolve={(id) => setResolveTarget({ id, defaultStatus: "resolved" })}
+            onDismiss={(id) => setResolveTarget({ id, defaultStatus: "dismissed" })}
+            isResolving={resolveMutation.isPending}
+          />
 
           <div>
             <h4 className="mb-2 text-sm font-medium text-foreground">
@@ -422,6 +431,28 @@ function UserReportsSection({ userId }: { userId: string }) {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+function ReportGroup({ title, reports, emptyLabel, onResolve, onDismiss, isResolving }: {
+  title: string
+  reports: AdminReport[]
+  emptyLabel: string
+  onResolve: (id: string) => void
+  onDismiss: (id: string) => void
+  isResolving: boolean
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 text-sm font-medium text-foreground">{title}</h4>
+      <ReportList
+        reports={reports}
+        onResolve={onResolve}
+        onDismiss={onDismiss}
+        isResolving={isResolving}
+        emptyLabel={emptyLabel}
+      />
+    </div>
   )
 }
 

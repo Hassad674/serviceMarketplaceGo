@@ -57,11 +57,12 @@ func (h *AdminHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request)
 // ListUsers handles GET /api/v1/admin/users.
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	filters := repository.AdminUserFilters{
-		Role:   r.URL.Query().Get("role"),
-		Status: r.URL.Query().Get("status"),
-		Search: r.URL.Query().Get("search"),
-		Cursor: r.URL.Query().Get("cursor"),
-		Limit:  parseLimit(r.URL.Query().Get("limit"), 20),
+		Role:     r.URL.Query().Get("role"),
+		Status:   r.URL.Query().Get("status"),
+		Search:   r.URL.Query().Get("search"),
+		Cursor:   r.URL.Query().Get("cursor"),
+		Limit:    parseLimit(r.URL.Query().Get("limit"), 20),
+		Reported: r.URL.Query().Get("reported") == "true",
 	}
 
 	users, nextCursor, total, err := h.svc.ListUsers(r.Context(), filters)
@@ -366,6 +367,116 @@ func (h *AdminHandler) ResolveReport(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res.JSON(w, http.StatusOK, map[string]any{"message": "report resolved"})
+}
+
+// ListJobs handles GET /api/v1/admin/jobs.
+func (h *AdminHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	search := r.URL.Query().Get("search")
+	sort := r.URL.Query().Get("sort")
+	cursorStr := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	jobs, nextCursor, total, err := h.svc.ListJobs(r.Context(), status, search, sort, cursorStr, limit)
+	if err != nil {
+		slog.Error("admin list jobs", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list jobs")
+		return
+	}
+
+	items := make([]response.AdminJobResponse, 0, len(jobs))
+	for _, j := range jobs {
+		items = append(items, response.NewAdminJobResponse(j))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        items,
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+		"total":       total,
+	})
+}
+
+// GetAdminJob handles GET /api/v1/admin/jobs/{id}.
+func (h *AdminHandler) GetAdminJob(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	job, err := h.svc.GetJob(r.Context(), id)
+	if err != nil {
+		slog.Error("admin get job", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get job")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data": response.NewAdminJobResponse(*job),
+	})
+}
+
+// DeleteAdminJob handles DELETE /api/v1/admin/jobs/{id}.
+func (h *AdminHandler) DeleteAdminJob(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	if err := h.svc.DeleteJob(r.Context(), id); err != nil {
+		slog.Error("admin delete job", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to delete job")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListJobApplications handles GET /api/v1/admin/job-applications.
+func (h *AdminHandler) ListJobApplications(w http.ResponseWriter, r *http.Request) {
+	jobID := r.URL.Query().Get("job_id")
+	search := r.URL.Query().Get("search")
+	sort := r.URL.Query().Get("sort")
+	cursorStr := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	apps, nextCursor, total, err := h.svc.ListJobApplications(r.Context(), jobID, search, sort, cursorStr, limit)
+	if err != nil {
+		slog.Error("admin list job applications", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list applications")
+		return
+	}
+
+	items := make([]response.AdminJobApplicationResponse, 0, len(apps))
+	for _, a := range apps {
+		items = append(items, response.NewAdminJobApplicationResponse(a))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        items,
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+		"total":       total,
+	})
+}
+
+// DeleteJobApplication handles DELETE /api/v1/admin/job-applications/{id}.
+func (h *AdminHandler) DeleteJobApplication(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	if err := h.svc.DeleteJobApplication(r.Context(), id); err != nil {
+		slog.Error("admin delete job application", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to delete application")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseAdminUserID(r *http.Request) (uuid.UUID, error) {

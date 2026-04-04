@@ -313,6 +313,13 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/users/{id}/reports", deps.Admin.ListUserReports)
 				r.Post("/reports/{id}/resolve", deps.Admin.ResolveReport)
 
+				// Job admin endpoints
+				r.Get("/jobs", deps.Admin.ListJobs)
+				r.Get("/jobs/{id}", deps.Admin.GetAdminJob)
+				r.Delete("/jobs/{id}", deps.Admin.DeleteAdminJob)
+				r.Get("/job-applications", deps.Admin.ListJobApplications)
+				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)
+
 				// Proposal admin endpoints (force activate for testing)
 				if deps.Proposal != nil {
 					r.Post("/proposals/{id}/activate", deps.Proposal.AdminActivateProposal)

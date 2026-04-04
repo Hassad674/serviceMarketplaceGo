@@ -36,7 +36,7 @@ export const conversationsColumns: ColumnDef<AdminConversation, unknown>[] = [
   },
   {
     id: "roles",
-    header: "Rôles",
+    header: "Roles",
     cell: ({ row }) => (
       <div className="flex flex-wrap gap-1">
         {row.original.participants.map((p) => (
@@ -50,13 +50,22 @@ export const conversationsColumns: ColumnDef<AdminConversation, unknown>[] = [
     header: "Dernier message",
     cell: ({ row }) => {
       const msg = row.original.last_message
-      if (!msg) {
-        return <span className="text-muted-foreground">Aucun message</span>
-      }
+      const reported = row.original.reported_message
       return (
-        <span className="text-sm text-muted-foreground">
-          {truncate(msg, 60)}
-        </span>
+        <div className="space-y-1">
+          {msg ? (
+            <span className="text-sm text-muted-foreground">
+              {truncate(msg, 60)}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">Aucun message</span>
+          )}
+          {reported && (
+            <p className="text-xs font-medium text-destructive">
+              Message signale : {truncate(reported, 50)}
+            </p>
+          )}
+        </div>
       )
     },
   },
@@ -82,7 +91,7 @@ export const conversationsColumns: ColumnDef<AdminConversation, unknown>[] = [
   },
   {
     id: "activity",
-    header: "Activité",
+    header: "Activite",
     cell: ({ row }) => {
       const lastAt = row.original.last_message_at
       if (!lastAt) {

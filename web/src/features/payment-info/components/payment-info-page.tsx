@@ -392,6 +392,7 @@ function responseToFormData(res: PaymentInfoResponse, locale: string): PaymentIn
   if (res.city) values[`${prefix}.address.city`] = res.city
   if (res.postal_code) values[`${prefix}.address.postal_code`] = res.postal_code
   if (res.phone) values[`${prefix}.phone`] = res.phone
+  if (res.email) values["individual.email"] = res.email
 
   if (isBusiness) {
     if (res.business_name) values["company.name"] = res.business_name

@@ -851,6 +851,8 @@
   "reporting": {
     "reportMessage": "Report this message",
     "reportUser": "Report this user",
+    "reportJob": "Report this job",
+    "reportApplication": "Report this application",
     "selectReason": "What's the issue?",
     "description": "Additional details",
     "descriptionPlaceholder": "Describe the issue in detail...",
@@ -866,6 +868,8 @@
     "reason_inappropriate_content": "Inappropriate content",
     "reason_fake_profile": "Fake or misleading profile",
     "reason_unprofessional_behavior": "Unprofessional behavior",
+    "reason_fraud_or_scam": "Fraud or scam",
+    "reason_misleading_description": "Misleading description",
     "reason_other": "Other"
   },
   "opportunity": {

@@ -108,6 +108,7 @@ type AdminConversationResponse struct {
 	LastMessage        *string                            `json:"last_message"`
 	LastMessageAt      *string                            `json:"last_message_at"`
 	PendingReportCount int                                `json:"pending_report_count"`
+	ReportedMessage    *string                            `json:"reported_message,omitempty"`
 	CreatedAt          string                             `json:"created_at"`
 }
 
@@ -137,6 +138,7 @@ func NewAdminConversationResponse(c adminapp.AdminConversation) AdminConversatio
 		MessageCount:       c.MessageCount,
 		LastMessage:        c.LastMessage,
 		PendingReportCount: c.PendingReportCount,
+		ReportedMessage:    c.ReportedMessage,
 		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
 	}
 	if c.LastMessageAt != nil {

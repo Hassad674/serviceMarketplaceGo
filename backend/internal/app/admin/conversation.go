@@ -22,6 +22,7 @@ type AdminConversation struct {
 	LastMessageAt      *time.Time
 	CreatedAt          time.Time
 	PendingReportCount int
+	ReportedMessage    *string
 }
 
 // ConversationParticipant is a lightweight user representation for conversation listing.
@@ -73,15 +74,26 @@ func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit
 		conversations[i].PendingReportCount = reportCounts[conversations[i].ID]
 	}
 
+	if filter == "reported_messages" || filter == "reported" {
+		if err := s.loadReportedMessages(ctx, conversations); err != nil {
+			return nil, "", 0, fmt.Errorf("list conversations: %w", err)
+		}
+	}
+
 	return conversations, nextCursor, total, nil
 }
 
 func (s *Service) countConversations(ctx context.Context, filter string) (int, error) {
 	var total int
 	var err error
-	if filter == "reported" {
+	switch filter {
+	case "reported":
 		err = s.db.QueryRowContext(ctx, queryAdminCountReportedConversations).Scan(&total)
-	} else {
+	case "reported_conversations":
+		err = s.db.QueryRowContext(ctx, queryAdminCountReportedConvOnly).Scan(&total)
+	case "reported_messages":
+		err = s.db.QueryRowContext(ctx, queryAdminCountReportedMsgOnly).Scan(&total)
+	default:
 		err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM conversations").Scan(&total)
 	}
 	if err != nil {
@@ -297,6 +309,20 @@ func scanAdminMessages(rows *sql.Rows, limit int) ([]AdminMessage, string, error
 	return results, nextCursor, nil
 }
 
+func (s *Service) loadReportedMessages(ctx context.Context, conversations []AdminConversation) error {
+	for i := range conversations {
+		var content sql.NullString
+		err := s.db.QueryRowContext(ctx, queryAdminReportedMessage, conversations[i].ID).Scan(&content)
+		if err != nil && err != sql.ErrNoRows {
+			return fmt.Errorf("load reported message for %s: %w", conversations[i].ID, err)
+		}
+		if content.Valid {
+			conversations[i].ReportedMessage = &content.String
+		}
+	}
+	return nil
+}
+
 func (s *Service) loadPendingReportCounts(ctx context.Context, conversations []AdminConversation) (map[uuid.UUID]int, error) {
 	counts := make(map[uuid.UUID]int, len(conversations))
 	if len(conversations) == 0 {
@@ -353,16 +379,7 @@ func buildConversationListQuery(cursorStr string, sort string, filter string) st
 		LIMIT 1
 	) lm ON true`
 
-	var where string
-	if filter == "reported" {
-		where = ` WHERE EXISTS (
-			SELECT 1 FROM reports r
-			WHERE r.status = 'pending'
-			AND (r.conversation_id = c.id
-				OR (r.target_type = 'user' AND r.target_id IN (
-					SELECT user_id FROM conversation_participants WHERE conversation_id = c.id)))
-		)`
-	}
+	where := filterWhereClause(filter)
 
 	if cursorStr != "" {
 		cursorWhere := " (c.created_at, c.id) < ($1, $2)"
@@ -379,6 +396,37 @@ func buildConversationListQuery(cursorStr string, sort string, filter string) st
 		return base + where + " " + orderBy + " LIMIT $1"
 	}
 	return base + where + " " + orderBy + " LIMIT $3"
+}
+
+func filterWhereClause(filter string) string {
+	switch filter {
+	case "reported":
+		return ` WHERE EXISTS (
+			SELECT 1 FROM reports r
+			WHERE r.status = 'pending'
+			AND (r.conversation_id = c.id
+				OR (r.target_type = 'user' AND r.target_id IN (
+					SELECT user_id FROM conversation_participants WHERE conversation_id = c.id)))
+		)`
+	case "reported_conversations":
+		return ` WHERE EXISTS (
+			SELECT 1 FROM reports r
+			WHERE r.status = 'pending'
+			AND r.target_type = 'user'
+			AND r.target_id IN (
+				SELECT user_id FROM conversation_participants WHERE conversation_id = c.id)
+		)`
+	case "reported_messages":
+		return ` WHERE EXISTS (
+			SELECT 1 FROM reports r
+			JOIN messages m ON m.id = r.target_id
+			WHERE r.status = 'pending'
+			AND r.target_type = 'message'
+			AND m.conversation_id = c.id
+		)`
+	default:
+		return ""
+	}
 }
 
 // SQL queries for admin conversation endpoints.
@@ -455,3 +503,29 @@ const queryAdminListMessagesWithCursor = `
 		AND (m.created_at, m.id) > ($2, $3)
 	ORDER BY m.created_at ASC, m.id ASC
 	LIMIT $4`
+
+const queryAdminCountReportedConvOnly = `
+	SELECT COUNT(*) FROM conversations c
+	WHERE EXISTS (
+		SELECT 1 FROM reports r
+		WHERE r.status = 'pending'
+		AND r.target_type = 'user'
+		AND r.target_id IN (
+			SELECT user_id FROM conversation_participants WHERE conversation_id = c.id)
+	)`
+
+const queryAdminCountReportedMsgOnly = `
+	SELECT COUNT(*) FROM conversations c
+	WHERE EXISTS (
+		SELECT 1 FROM reports r
+		JOIN messages m ON m.id = r.target_id
+		WHERE r.status = 'pending'
+		AND r.target_type = 'message'
+		AND m.conversation_id = c.id
+	)`
+
+const queryAdminReportedMessage = `
+	SELECT m.content FROM messages m
+	JOIN reports r ON r.target_type = 'message' AND r.target_id = m.id AND r.status = 'pending'
+	WHERE m.conversation_id = $1
+	ORDER BY r.created_at DESC LIMIT 1`

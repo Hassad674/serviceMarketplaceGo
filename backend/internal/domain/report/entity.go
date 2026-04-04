@@ -11,8 +11,10 @@ import (
 type TargetType string
 
 const (
-	TargetMessage TargetType = "message"
-	TargetUser    TargetType = "user"
+	TargetMessage     TargetType = "message"
+	TargetUser        TargetType = "user"
+	TargetJob         TargetType = "job"
+	TargetApplication TargetType = "application"
 )
 
 // Reason represents why the report was filed.
@@ -21,10 +23,12 @@ type Reason string
 const (
 	ReasonHarassment             Reason = "harassment"
 	ReasonFraud                  Reason = "fraud"
+	ReasonFraudOrScam            Reason = "fraud_or_scam"
 	ReasonSpam                   Reason = "spam"
 	ReasonInappropriateContent   Reason = "inappropriate_content"
 	ReasonFakeProfile            Reason = "fake_profile"
 	ReasonUnprofessionalBehavior Reason = "unprofessional_behavior"
+	ReasonMisleadingDescription  Reason = "misleading_description"
 	ReasonOther                  Reason = "other"
 )
 
@@ -56,6 +60,21 @@ var validUserReasons = map[Reason]bool{
 	ReasonFakeProfile:            true,
 	ReasonUnprofessionalBehavior: true,
 	ReasonOther:                  true,
+}
+
+var validJobReasons = map[Reason]bool{
+	ReasonFraudOrScam:           true,
+	ReasonMisleadingDescription: true,
+	ReasonInappropriateContent:  true,
+	ReasonSpam:                  true,
+	ReasonOther:                 true,
+}
+
+var validApplicationReasons = map[Reason]bool{
+	ReasonFraudOrScam:          true,
+	ReasonSpam:                 true,
+	ReasonInappropriateContent: true,
+	ReasonOther:                true,
 }
 
 // Report represents a user-submitted report against a message or user.
@@ -93,22 +112,21 @@ func NewReport(in NewReportInput) (*Report, error) {
 	if in.TargetID == uuid.Nil {
 		return nil, ErrMissingTarget
 	}
-	if in.TargetType != TargetMessage && in.TargetType != TargetUser {
+	reasonsByTarget := map[TargetType]map[Reason]bool{
+		TargetMessage:     validMessageReasons,
+		TargetUser:        validUserReasons,
+		TargetJob:         validJobReasons,
+		TargetApplication: validApplicationReasons,
+	}
+	allowed, ok := reasonsByTarget[in.TargetType]
+	if !ok {
 		return nil, ErrInvalidTargetType
 	}
 	if in.TargetType == TargetUser && in.ReporterID == in.TargetID {
 		return nil, ErrSelfReport
 	}
-
-	switch in.TargetType {
-	case TargetMessage:
-		if !validMessageReasons[in.Reason] {
-			return nil, ErrReasonNotAllowedForType
-		}
-	case TargetUser:
-		if !validUserReasons[in.Reason] {
-			return nil, ErrReasonNotAllowedForType
-		}
+	if !allowed[in.Reason] {
+		return nil, ErrReasonNotAllowedForType
 	}
 
 	desc := strings.TrimSpace(in.Description)

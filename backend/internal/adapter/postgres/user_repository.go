@@ -205,6 +205,11 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 		args = append(args, searchPattern)
 		argIdx++
 	}
+	if filters.Reported {
+		conditions = append(conditions,
+			"EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'user' AND r.target_id = users.id AND r.status = 'pending')",
+		)
+	}
 	if filters.Cursor != "" {
 		c, err := cursor.Decode(filters.Cursor)
 		if err == nil {
@@ -285,6 +290,11 @@ func (r *UserRepository) CountAdmin(ctx context.Context, filters repository.Admi
 		))
 		args = append(args, searchPattern)
 		argIdx++
+	}
+	if filters.Reported {
+		conditions = append(conditions,
+			"EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'user' AND r.target_id = users.id AND r.status = 'pending')",
+		)
 	}
 
 	where := ""

@@ -53,6 +53,7 @@ export type PaymentInfoResponse = {
   tax_id: string
   vat_number: string
   role_in_company: string
+  email: string
   phone: string
   activity_sector: string
   is_self_representative: boolean

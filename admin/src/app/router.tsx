@@ -6,6 +6,8 @@ import { UsersPage } from "@/features/users/components/users-page"
 import { UserDetailPage } from "@/features/users/components/user-detail-page"
 import { ConversationsPage } from "@/features/conversations/components/conversations-page"
 import { ConversationDetailPage } from "@/features/conversations/components/conversation-detail-page"
+import { JobsPage } from "@/features/jobs/components/jobs-page"
+import { JobDetailPage } from "@/features/jobs/components/job-detail-page"
 
 export function AppRouter() {
   return (
@@ -19,6 +21,8 @@ export function AppRouter() {
           <Route path="/users/:id" element={<UserDetailPage />} />
           <Route path="/conversations" element={<ConversationsPage />} />
           <Route path="/conversations/:id" element={<ConversationDetailPage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/:id" element={<JobDetailPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

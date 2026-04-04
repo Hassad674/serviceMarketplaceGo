@@ -41,4 +41,5 @@ export type UserFilters = {
   status: string
   search: string
   cursor: string
+  reported: boolean
 }

@@ -8,11 +8,12 @@ import (
 )
 
 type AdminUserFilters struct {
-	Role   string
-	Status string
-	Search string
-	Cursor string
-	Limit  int
+	Role     string
+	Status   string
+	Search   string
+	Cursor   string
+	Limit    int
+	Reported bool
 }
 
 type UserRepository interface {

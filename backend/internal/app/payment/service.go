@@ -147,6 +147,7 @@ func (s *Service) SavePaymentInfo(ctx context.Context, userID uuid.UUID, input S
 		TaxID:              input.TaxID,
 		VATNumber:          input.VATNumber,
 		RoleInCompany:      input.RoleInCompany,
+		Email:                email,
 		Phone:                input.Phone,
 		ActivitySector:       input.ActivitySector,
 		IsSelfRepresentative: input.IsSelfRepresentative,

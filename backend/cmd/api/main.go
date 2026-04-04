@@ -290,9 +290,11 @@ func main() {
 	// Report feature
 	reportRepo := postgres.NewReportRepository(db)
 	reportSvc := reportapp.NewService(reportapp.ServiceDeps{
-		Reports:  reportRepo,
-		Users:    userRepo,
-		Messages: messageRepo,
+		Reports:      reportRepo,
+		Users:        userRepo,
+		Messages:     messageRepo,
+		Jobs:         jobRepo,
+		Applications: jobAppRepo,
 	})
 	reportHandler := handler.NewReportHandler(reportSvc)
 

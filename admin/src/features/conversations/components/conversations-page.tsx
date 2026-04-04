@@ -11,13 +11,22 @@ import { conversationsColumns } from "./conversations-columns"
 import { ConversationsFilters } from "./conversations-filters"
 import type { AdminConversation } from "../types"
 
+function resolveFilter(reportedConversations: boolean, reportedMessages: boolean): string {
+  if (reportedConversations && reportedMessages) return "reported"
+  if (reportedConversations) return "reported_conversations"
+  if (reportedMessages) return "reported_messages"
+  return "all"
+}
+
 export function ConversationsPage() {
   const navigate = useNavigate()
   const [cursor, setCursor] = useState("")
   const [cursors, setCursors] = useState<string[]>([])
   const [sort, setSort] = useState("recent")
-  const [filter, setFilter] = useState("all")
+  const [reportedConversations, setReportedConversations] = useState(false)
+  const [reportedMessages, setReportedMessages] = useState(false)
 
+  const filter = resolveFilter(reportedConversations, reportedMessages)
   const { data, isLoading, error } = useConversations({ cursor, sort, filter })
 
   const conversations = data?.data ?? []
@@ -47,8 +56,7 @@ export function ConversationsPage() {
     setCursors([])
   }
 
-  function handleFilterChange(newFilter: string) {
-    setFilter(newFilter)
+  function resetPagination() {
     setCursor("")
     setCursors([])
   }
@@ -62,9 +70,11 @@ export function ConversationsPage() {
 
       <ConversationsFilters
         sort={sort}
-        filter={filter}
+        reportedConversations={reportedConversations}
+        reportedMessages={reportedMessages}
         onSortChange={handleSortChange}
-        onFilterChange={handleFilterChange}
+        onReportedConversationsChange={(v) => { setReportedConversations(v); resetPagination() }}
+        onReportedMessagesChange={(v) => { setReportedMessages(v); resetPagination() }}
       />
 
       {isLoading && <TableSkeleton rows={8} cols={5} />}

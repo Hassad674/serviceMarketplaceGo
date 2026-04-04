@@ -1,4 +1,5 @@
-import { Calendar, CheckCircle, XCircle } from "lucide-react"
+import { Calendar, CheckCircle, XCircle, MessageSquare, User, ExternalLink } from "lucide-react"
+import { useNavigate } from "react-router-dom"
 import { Badge } from "./badge"
 import { Button } from "./button"
 import { formatRelativeDate } from "@/shared/lib/utils"
@@ -12,11 +13,6 @@ const REASON_LABELS: Record<string, string> = {
   fake_profile: "Faux profil",
   unprofessional_behavior: "Comportement non professionnel",
   other: "Autre",
-}
-
-const TARGET_LABELS: Record<string, string> = {
-  message: "Message",
-  user: "Utilisateur",
 }
 
 const STATUS_VARIANT: Record<string, "warning" | "success" | "outline"> = {
@@ -41,13 +37,15 @@ type ReportCardProps = {
 }
 
 export function ReportCard({ report, onResolve, onDismiss, isResolving }: ReportCardProps) {
+  const navigate = useNavigate()
   const isPending = report.status === "pending" || report.status === "reviewed"
+  const isMessageReport = report.target_type === "message"
 
   return (
     <div className="rounded-lg border border-border bg-white p-4 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <Badge variant="destructive">{REASON_LABELS[report.reason] || report.reason}</Badge>
-        <Badge variant="outline">{TARGET_LABELS[report.target_type] || report.target_type}</Badge>
+        <ReportTypeBadge targetType={report.target_type} />
         <Badge variant={STATUS_VARIANT[report.status] || "outline"}>
           {STATUS_LABELS[report.status] || report.status}
         </Badge>
@@ -57,9 +55,24 @@ export function ReportCard({ report, onResolve, onDismiss, isResolving }: Report
         <p className="text-sm text-foreground/80">{report.description}</p>
       )}
 
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        <Calendar className="h-3 w-3" />
-        {formatRelativeDate(report.created_at)}
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Calendar className="h-3 w-3" />
+          {formatRelativeDate(report.created_at)}
+        </span>
+        {report.conversation_id && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/conversations/${report.conversation_id}`)
+            }}
+            className="flex items-center gap-1 text-rose-600 hover:text-rose-700 hover:underline transition-colors"
+          >
+            <ExternalLink className="h-3 w-3" />
+            {isMessageReport ? "Voir le message" : "Voir la conversation"}
+          </button>
+        )}
       </div>
 
       {report.status === "resolved" && report.admin_note && (
@@ -95,6 +108,27 @@ export function ReportCard({ report, onResolve, onDismiss, isResolving }: Report
         </div>
       )}
     </div>
+  )
+}
+
+function ReportTypeBadge({ targetType }: { targetType: string }) {
+  if (targetType === "message") {
+    return (
+      <Badge variant="outline">
+        <span className="flex items-center gap-1">
+          <MessageSquare className="h-3 w-3" />
+          Message signale
+        </span>
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="outline">
+      <span className="flex items-center gap-1">
+        <User className="h-3 w-3" />
+        Profil signale
+      </span>
+    </Badge>
   )
 }
 

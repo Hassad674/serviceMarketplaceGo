@@ -16,7 +16,7 @@ var knownFieldMappings = map[string]FieldMapping{
 	"individual.dob.day":             {DBField: "date_of_birth", IsExtra: false},
 	"individual.dob.month":           {DBField: "date_of_birth", IsExtra: false},
 	"individual.dob.year":            {DBField: "date_of_birth", IsExtra: false},
-	"individual.email":               {DBField: "individual.email", IsExtra: true},
+	"individual.email":               {DBField: "email", IsExtra: false},
 	"individual.phone":               {DBField: "phone", IsExtra: false},
 	"individual.address.line1":       {DBField: "address", IsExtra: false},
 	"individual.address.city":        {DBField: "city", IsExtra: false},

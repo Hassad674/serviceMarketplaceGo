@@ -2834,6 +2834,30 @@ abstract class AppLocalizations {
   /// **'Other'**
   String get reasonOther;
 
+  /// No description provided for @reasonFraudOrScam.
+  ///
+  /// In en, this message translates to:
+  /// **'Fraud or scam'**
+  String get reasonFraudOrScam;
+
+  /// No description provided for @reasonMisleadingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Misleading description'**
+  String get reasonMisleadingDescription;
+
+  /// No description provided for @reportJob.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this job'**
+  String get reportJob;
+
+  /// No description provided for @reportApplication.
+  ///
+  /// In en, this message translates to:
+  /// **'Report this application'**
+  String get reportApplication;
+
   /// No description provided for @loadMore.
   ///
   /// In en, this message translates to:

@@ -18,6 +18,7 @@ export function UsersPage() {
     status: "",
     search: "",
     cursor: "",
+    reported: false,
   })
   const [cursors, setCursors] = useState<string[]>([])
 

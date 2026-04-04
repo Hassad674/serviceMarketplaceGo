@@ -7,6 +7,7 @@ export function listUsers(filters: UserFilters): Promise<AdminUserListResponse> 
   if (filters.status) params.set("status", filters.status)
   if (filters.search) params.set("search", filters.search)
   if (filters.cursor) params.set("cursor", filters.cursor)
+  if (filters.reported) params.set("reported", "true")
   params.set("limit", "20")
 
   const qs = params.toString()

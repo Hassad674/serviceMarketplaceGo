@@ -1420,6 +1420,18 @@ class AppLocalizationsFr extends AppLocalizations {
   String get reasonOther => 'Autre';
 
   @override
+  String get reasonFraudOrScam => 'Fraude ou arnaque';
+
+  @override
+  String get reasonMisleadingDescription => 'Description trompeuse';
+
+  @override
+  String get reportJob => 'Signaler cette offre';
+
+  @override
+  String get reportApplication => 'Signaler cette candidature';
+
+  @override
   String get loadMore => 'Voir plus';
 
   @override

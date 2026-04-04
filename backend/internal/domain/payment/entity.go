@@ -39,6 +39,7 @@ type PaymentInfo struct {
 	IsSelfExecutive      bool
 
 	// Contact & KYC
+	Email          string
 	Phone          string
 	ActivitySector string // MCC code
 
@@ -85,6 +86,7 @@ type NewPaymentInfoInput struct {
 	VATNumber       string
 	RoleInCompany   string
 
+	Email          string
 	Phone          string
 	ActivitySector string
 
@@ -147,6 +149,7 @@ func NewPaymentInfo(input NewPaymentInfoInput) (*PaymentInfo, error) {
 		TaxID:              strings.TrimSpace(input.TaxID),
 		VATNumber:          strings.TrimSpace(input.VATNumber),
 		RoleInCompany:      strings.TrimSpace(input.RoleInCompany),
+		Email:                strings.TrimSpace(input.Email),
 		Phone:                strings.TrimSpace(input.Phone),
 		ActivitySector:       input.ActivitySector,
 		IsSelfRepresentative: input.IsSelfRepresentative,

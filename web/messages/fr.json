@@ -851,6 +851,8 @@
   "reporting": {
     "reportMessage": "Signaler ce message",
     "reportUser": "Signaler cet utilisateur",
+    "reportJob": "Signaler cette offre",
+    "reportApplication": "Signaler cette candidature",
     "selectReason": "Quel est le problème ?",
     "description": "Détails supplémentaires",
     "descriptionPlaceholder": "Décrivez le problème en détail...",
@@ -866,6 +868,8 @@
     "reason_inappropriate_content": "Contenu inapproprié",
     "reason_fake_profile": "Profil faux ou trompeur",
     "reason_unprofessional_behavior": "Comportement non professionnel",
+    "reason_fraud_or_scam": "Fraude ou arnaque",
+    "reason_misleading_description": "Description trompeuse",
     "reason_other": "Autre"
   },
   "opportunity": {
