@@ -7,7 +7,9 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/country_field_spec.dart';
 import 'package:marketplace_mobile/features/payment_info/lib/form_data_mapper.dart';
 import '../../types/payment_info.dart';
+import '../../domain/entities/identity_document_entity.dart';
 import '../providers/country_fields_provider.dart';
+import '../providers/identity_document_provider.dart';
 import '../providers/payment_info_provider.dart';
 import '../widgets/business_persons_section.dart';
 import '../widgets/country_selector_section.dart';
@@ -184,10 +186,15 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     final personRoles = countryFields?.personRoles ?? <String>[];
     final docsRequired = countryFields?.individualDocRequired ?? false;
 
-    // Build field errors from Stripe requirements
+    // Build field errors and warnings from Stripe requirements
     final asyncReqs = ref.watch(stripeRequirementsProvider);
     final reqs = asyncReqs.valueOrNull;
     final fieldErrors = buildFieldErrors(reqs);
+    final fieldWarnings = buildFieldWarnings(reqs);
+
+    // Fetch existing identity documents for status display
+    final asyncDocs = ref.watch(identityDocumentsProvider);
+    final existingDocs = asyncDocs.valueOrNull ?? <IdentityDocument>[];
 
     final valid = hasCountry && isFormValid(_data, allSections);
 
@@ -249,6 +256,8 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
                       values: _data.values,
                       onChanged: _onValueChanged,
                       fieldErrors: fieldErrors,
+                      fieldWarnings: fieldWarnings,
+                      documents: existingDocs,
                       countryCode: _data.country,
                     ),
                   )),
@@ -273,6 +282,8 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
                     values: _data.values,
                     onChanged: _onValueChanged,
                     fieldErrors: fieldErrors,
+                    fieldWarnings: fieldWarnings,
+                    documents: existingDocs,
                     countryCode: _data.country,
                   ),
                 ),
