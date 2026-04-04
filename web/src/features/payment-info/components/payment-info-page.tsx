@@ -632,7 +632,7 @@ function valuesToFlatData(
   // Also collect any values from requirement extra sections (person fields, etc.)
   // These are in data.values but not in any section — store them in extraFields
   for (const [key, val] of Object.entries(v)) {
-    if (key.includes(".") && val && !extraFields[key]) {
+    if (key.includes(".") && val) {
       // Check if this key is already handled by a flat field mapping
       const handled = [
         `${prefix}.first_name`, `${prefix}.last_name`, `${prefix}.dob`,
