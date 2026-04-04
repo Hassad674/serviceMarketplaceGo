@@ -114,7 +114,12 @@ export function PaymentInfoPage() {
   )
 
   const handleSave = useCallback(() => {
-    const merged = valuesToFlatData(data, countryFields?.sections)
+    // Include auto-filled values in save payload
+    const dataWithAutoFill = {
+      ...data,
+      values: { ...data.values, "individual.email": user?.email ?? "" },
+    }
+    const merged = valuesToFlatData(dataWithAutoFill, countryFields?.sections)
     saveMutation.mutate({ data: merged, email: user?.email }, {
       onSuccess: (response) => {
         setSaved(true)
@@ -382,7 +387,6 @@ function isFormValid(data: PaymentInfoFormData, sections: FieldSection[]): boole
       // Skip document upload fields — they are validated separately
       if (field.type === "document_upload") continue
       if (field.required && !(data.values[field.key] ?? "").trim()) {
-        console.warn(`[isFormValid] BLOCKING: field="${field.key}" label="${field.label_key}" value="${data.values[field.key] ?? ""}"`)
         return false
       }
     }

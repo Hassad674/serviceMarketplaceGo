@@ -196,7 +196,11 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
     final asyncDocs = ref.watch(identityDocumentsProvider);
     final existingDocs = asyncDocs.valueOrNull ?? <IdentityDocument>[];
 
-    final valid = hasCountry && isFormValid(_data, allSections);
+    // Auto-fill email for validation (not stored in entity)
+    final autoFilledData = _data.values.containsKey('individual.email')
+        ? _data
+        : _data.copyWith(values: {..._data.values, 'individual.email': userEmail});
+    final valid = hasCountry && isFormValid(autoFilledData, allSections);
 
     return SafeArea(
       child: SingleChildScrollView(
