@@ -15,6 +15,7 @@ import { INITIAL_FORM_DATA, BUSINESS_ROLES } from "../types"
 import { useUser } from "@/shared/hooks/use-user"
 import { usePaymentInfo, useSavePaymentInfo, useStripeRequirements } from "../hooks/use-payment-info"
 import { useCountryFields } from "../hooks/use-country-fields"
+import { useIdentityDocuments } from "../hooks/use-identity-documents"
 import type { PaymentInfoResponse, FieldSection, RequirementsResponse } from "../api/payment-info-api"
 
 /** Map locale to default country code. */
@@ -40,6 +41,7 @@ export function PaymentInfoPage() {
   const { data: existing, isLoading } = usePaymentInfo()
   const saveMutation = useSavePaymentInfo()
   const { data: requirements } = useStripeRequirements()
+  const { data: existingDocs } = useIdentityDocuments()
 
   const businessType = data.isBusiness ? "company" : "individual"
   const { data: countryFields } = useCountryFields(data.country, businessType)
@@ -58,17 +60,30 @@ export function PaymentInfoPage() {
   // Build field errors from requirements
   const { fieldErrors, extraSections } = buildRequirementErrors(requirements, allSections, t)
 
+  // Pre-fill document_upload fields with "uploaded" when docs already exist
+  const docValues = buildDocumentValues(allSections, existingDocs ?? [])
+
   useEffect(() => {
     if (initialized || isLoading) return
+    const userEmail = user?.email ?? ""
     if (existing) {
-      setData(responseToFormData(existing, locale))
+      const formData = responseToFormData(existing, locale)
+      // Pre-fill email from auth user (not stored in payment entity)
+      if (!formData.values["individual.email"] && userEmail) {
+        formData.values["individual.email"] = userEmail
+      }
+      setData(formData)
       setSaved(true)
     } else {
       const detected = localeToCountry(locale)
-      setData((prev) => ({ ...prev, country: detected }))
+      setData((prev) => ({
+        ...prev,
+        country: detected,
+        values: { ...prev.values, "individual.email": userEmail },
+      }))
     }
     setInitialized(true)
-  }, [existing, isLoading, initialized, locale])
+  }, [existing, isLoading, initialized, locale, user])
 
   const handleValueChange = useCallback((key: string, value: string) => {
     setData((prev) => ({ ...prev, values: { ...prev.values, [key]: value } }))
@@ -111,6 +126,8 @@ export function PaymentInfoPage() {
     )
   }
 
+  // Merge document upload status into values for display
+  const mergedValues = { ...docValues, ...data.values }
   const valid = isFormValid(data, allSections)
 
   return (
@@ -141,7 +158,7 @@ export function PaymentInfoPage() {
         <DynamicSection
           key={section.id}
           section={section}
-          values={data.values}
+          values={mergedValues}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
           countryCode={data.country}
@@ -157,7 +174,7 @@ export function PaymentInfoPage() {
       {bankSection && (
         <DynamicSection
           section={bankSection}
-          values={data.values}
+          values={mergedValues}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
           countryCode={data.country}
@@ -169,7 +186,7 @@ export function PaymentInfoPage() {
         <DynamicSection
           key={`req-${section.id}`}
           section={section}
-          values={data.values}
+          values={mergedValues}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
           countryCode={data.country}
@@ -432,6 +449,23 @@ function buildRequirementErrors(
   }
 
   return { fieldErrors, extraSections }
+}
+
+/** Mark document_upload fields as "uploaded" when matching documents exist. */
+function buildDocumentValues(
+  sections: FieldSection[],
+  docs: { category: string; document_type: string }[],
+): Record<string, string> {
+  if (!docs.length) return {}
+  const vals: Record<string, string> = {}
+  for (const section of sections) {
+    for (const field of section.fields) {
+      if (field.type !== "document_upload") continue
+      // Any uploaded doc means this field is satisfied
+      if (docs.length > 0) vals[field.key] = "uploaded"
+    }
+  }
+  return vals
 }
 
 /** Convert path-keyed values back to the flat save format. */

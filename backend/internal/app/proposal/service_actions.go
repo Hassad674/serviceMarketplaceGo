@@ -165,6 +165,13 @@ func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, userI
 		return fmt.Errorf("update proposal: %w", err)
 	}
 
+	// Award bonus credits to the provider for signed mission
+	if s.credits != nil {
+		if err := s.credits.AddBonus(ctx, p.ProviderID, jobdomain.BonusPerMission, jobdomain.MaxTokens); err != nil {
+			slog.Error("failed to add bonus credits", "proposal_id", p.ID, "provider_id", p.ProviderID, "error", err)
+		}
+	}
+
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, userID, "proposal_paid", metadata)
 	s.sendNotification(ctx, p.ProviderID, "proposal_paid", "Payment received",
