@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 )
@@ -27,12 +28,13 @@ type DashboardStats struct {
 }
 
 type Service struct {
-	users repository.UserRepository
-	db    *sql.DB
+	users   repository.UserRepository
+	reports repository.ReportRepository
+	db      *sql.DB
 }
 
-func NewService(users repository.UserRepository, db *sql.DB) *Service {
-	return &Service{users: users, db: db}
+func NewService(users repository.UserRepository, reports repository.ReportRepository, db *sql.DB) *Service {
+	return &Service{users: users, reports: reports, db: db}
 }
 
 func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
@@ -190,6 +192,32 @@ func (s *Service) UnbanUser(ctx context.Context, userID uuid.UUID) error {
 
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("unban user: save: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) ListConversationReports(ctx context.Context, conversationID uuid.UUID) ([]*report.Report, error) {
+	reports, err := s.reports.ListByConversation(ctx, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("list conversation reports: %w", err)
+	}
+	return reports, nil
+}
+
+func (s *Service) ListUserReports(ctx context.Context, userID uuid.UUID) ([]*report.Report, []*report.Report, error) {
+	against, filed, err := s.reports.ListByUserInvolved(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list user reports: %w", err)
+	}
+	return against, filed, nil
+}
+
+func (s *Service) ResolveReport(ctx context.Context, reportID uuid.UUID, status string, adminNote string, resolvedBy uuid.UUID) error {
+	if status != string(report.StatusResolved) && status != string(report.StatusDismissed) {
+		return fmt.Errorf("resolve report: invalid status %q", status)
+	}
+	if err := s.reports.UpdateStatus(ctx, reportID, status, adminNote, resolvedBy); err != nil {
+		return fmt.Errorf("resolve report: %w", err)
 	}
 	return nil
 }

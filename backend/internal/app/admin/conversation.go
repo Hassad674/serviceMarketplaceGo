@@ -14,12 +14,13 @@ import (
 
 // AdminConversation represents a conversation for admin moderation view.
 type AdminConversation struct {
-	ID            uuid.UUID
-	Participants  []ConversationParticipant
-	MessageCount  int
-	LastMessage   *string
-	LastMessageAt *time.Time
-	CreatedAt     time.Time
+	ID                 uuid.UUID
+	Participants       []ConversationParticipant
+	MessageCount       int
+	LastMessage        *string
+	LastMessageAt      *time.Time
+	CreatedAt          time.Time
+	PendingReportCount int
 }
 
 // ConversationParticipant is a lightweight user representation for conversation listing.
@@ -45,7 +46,7 @@ type AdminMessage struct {
 }
 
 // ListConversations returns all conversations with participants and stats for admin.
-func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit int) ([]AdminConversation, string, int, error) {
+func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit int, sort string, filter string) ([]AdminConversation, string, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -53,40 +54,55 @@ func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit
 		limit = 20
 	}
 
-	total, err := s.countConversations(ctx)
+	total, err := s.countConversations(ctx, filter)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list conversations: %w", err)
 	}
 
-	conversations, nextCursor, err := s.queryConversations(ctx, cursorStr, limit)
+	conversations, nextCursor, err := s.queryConversations(ctx, cursorStr, limit, sort, filter)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list conversations: %w", err)
+	}
+
+	reportCounts, err := s.loadPendingReportCounts(ctx, conversations)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("list conversations: %w", err)
+	}
+	for i := range conversations {
+		conversations[i].PendingReportCount = reportCounts[conversations[i].ID]
 	}
 
 	return conversations, nextCursor, total, nil
 }
 
-func (s *Service) countConversations(ctx context.Context) (int, error) {
+func (s *Service) countConversations(ctx context.Context, filter string) (int, error) {
 	var total int
-	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM conversations").Scan(&total)
+	var err error
+	if filter == "reported" {
+		err = s.db.QueryRowContext(ctx, queryAdminCountReportedConversations).Scan(&total)
+	} else {
+		err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM conversations").Scan(&total)
+	}
 	if err != nil {
 		return 0, fmt.Errorf("count conversations: %w", err)
 	}
 	return total, nil
 }
 
-func (s *Service) queryConversations(ctx context.Context, cursorStr string, limit int) ([]AdminConversation, string, error) {
+func (s *Service) queryConversations(ctx context.Context, cursorStr string, limit int, sort string, filter string) ([]AdminConversation, string, error) {
+	query := buildConversationListQuery(cursorStr, sort, filter)
+
 	var rows *sql.Rows
 	var err error
 
 	if cursorStr == "" {
-		rows, err = s.db.QueryContext(ctx, queryAdminListConversationsFirst, limit+1)
+		rows, err = s.db.QueryContext(ctx, query, limit+1)
 	} else {
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
-		rows, err = s.db.QueryContext(ctx, queryAdminListConversationsWithCursor, c.CreatedAt, c.ID, limit+1)
+		rows, err = s.db.QueryContext(ctx, query, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
 		return nil, "", fmt.Errorf("query conversations: %w", err)
@@ -98,7 +114,6 @@ func (s *Service) queryConversations(ctx context.Context, cursorStr string, limi
 		return nil, "", err
 	}
 
-	// Load participants for each conversation
 	for i := range conversations {
 		participants, pErr := s.loadParticipants(ctx, conversations[i].ID)
 		if pErr != nil {

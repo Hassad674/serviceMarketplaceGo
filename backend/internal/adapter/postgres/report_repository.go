@@ -157,6 +157,64 @@ func (r *ReportRepository) HasPendingReport(ctx context.Context, reporterID uuid
 	return exists, nil
 }
 
+func (r *ReportRepository) ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]*report.Report, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryListReportsByConversation, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("list reports by conversation: %w", err)
+	}
+	defer rows.Close()
+
+	var reports []*report.Report
+	for rows.Next() {
+		rp, scanErr := scanReport(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan report: %w", scanErr)
+		}
+		reports = append(reports, rp)
+	}
+	return reports, nil
+}
+
+func (r *ReportRepository) ListByUserInvolved(ctx context.Context, userID uuid.UUID) ([]*report.Report, []*report.Report, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	againstRows, err := r.db.QueryContext(ctx, queryListReportsAgainstUser, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list reports against user: %w", err)
+	}
+	defer againstRows.Close()
+
+	var against []*report.Report
+	for againstRows.Next() {
+		rp, scanErr := scanReport(againstRows)
+		if scanErr != nil {
+			return nil, nil, fmt.Errorf("scan report: %w", scanErr)
+		}
+		against = append(against, rp)
+	}
+
+	filedRows, err := r.db.QueryContext(ctx, queryListReportsFiledByUser, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list reports filed by user: %w", err)
+	}
+	defer filedRows.Close()
+
+	var filed []*report.Report
+	for filedRows.Next() {
+		rp, scanErr := scanReport(filedRows)
+		if scanErr != nil {
+			return nil, nil, fmt.Errorf("scan report: %w", scanErr)
+		}
+		filed = append(filed, rp)
+	}
+
+	return against, filed, nil
+}
+
 // reportScanner interface satisfied by both *sql.Row and *sql.Rows.
 type reportScanner interface {
 	Scan(dest ...any) error

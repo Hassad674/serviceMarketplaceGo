@@ -73,6 +73,14 @@ func (m *mockReportRepo) HasPendingReport(ctx context.Context, reporterID uuid.U
 	return false, nil
 }
 
+func (m *mockReportRepo) ListByConversation(_ context.Context, _ uuid.UUID) ([]*domain.Report, error) {
+	return nil, nil
+}
+
+func (m *mockReportRepo) ListByUserInvolved(_ context.Context, _ uuid.UUID) ([]*domain.Report, []*domain.Report, error) {
+	return nil, nil, nil
+}
+
 // Compile-time check.
 var _ repository.ReportRepository = (*mockReportRepo)(nil)
 
