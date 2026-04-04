@@ -131,9 +131,21 @@ export function PaymentInfoPage() {
     )
   }
 
-  // Merge document upload status into values for display
-  const mergedValues = { ...docValues, ...data.values }
-  const valid = isFormValid(data, allSections)
+  // Auto-fill fields not stored in the entity but required by Stripe
+  const autoFill: Record<string, string> = {}
+  const userEmail = user?.email ?? ""
+  if (userEmail && !data.values["individual.email"]) {
+    autoFill["individual.email"] = userEmail
+  }
+  // Company phone: use the personal phone as fallback
+  if (data.isBusiness && !data.values["company.phone"] && data.values["individual.phone"]) {
+    autoFill["company.phone"] = data.values["individual.phone"]
+  }
+
+  // Merge: auto-fill defaults < doc upload status < user values (user values win)
+  const mergedValues = { ...autoFill, ...docValues, ...data.values }
+  // Use mergedValues for validation so auto-filled fields count
+  const valid = isFormValid({ ...data, values: mergedValues }, allSections)
 
   return (
     <div className="space-y-6">
@@ -370,6 +382,7 @@ function isFormValid(data: PaymentInfoFormData, sections: FieldSection[]): boole
       // Skip document upload fields — they are validated separately
       if (field.type === "document_upload") continue
       if (field.required && !(data.values[field.key] ?? "").trim()) {
+        console.warn(`[isFormValid] BLOCKING: field="${field.key}" label="${field.label_key}" value="${data.values[field.key] ?? ""}"`)
         return false
       }
     }
