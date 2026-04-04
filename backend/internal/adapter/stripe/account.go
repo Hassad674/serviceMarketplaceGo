@@ -344,12 +344,21 @@ func (s *Service) GetAccountRequirements(ctx context.Context, accountID string) 
 		return nil, fmt.Errorf("get stripe account: %w", err)
 	}
 	reqs := acct.Requirements
+	var errors []payment.RequirementError
+	for _, e := range reqs.Errors {
+		errors = append(errors, payment.RequirementError{
+			Code:        string(e.Code),
+			Reason:      e.Reason,
+			Requirement: e.Requirement,
+		})
+	}
 	return &payment.AccountRequirements{
 		CurrentlyDue:        reqs.CurrentlyDue,
 		EventuallyDue:       reqs.EventuallyDue,
 		PastDue:             reqs.PastDue,
 		PendingVerification: reqs.PendingVerification,
 		CurrentDeadline:     reqs.CurrentDeadline,
+		Errors:              errors,
 	}, nil
 }
 

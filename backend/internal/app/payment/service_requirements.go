@@ -17,10 +17,11 @@ import (
 
 // RequirementsInfo holds formatted field sections for Stripe requirements.
 type RequirementsInfo struct {
-	HasRequirements     bool           `json:"has_requirements"`
-	Sections            []FieldSection `json:"sections"`
-	CurrentDeadline     *int64         `json:"current_deadline,omitempty"`
-	PendingVerification []string       `json:"pending_verification,omitempty"`
+	HasRequirements     bool                      `json:"has_requirements"`
+	Sections            []FieldSection             `json:"sections"`
+	CurrentDeadline     *int64                     `json:"current_deadline,omitempty"`
+	PendingVerification []string                   `json:"pending_verification,omitempty"`
+	Errors              []domain.RequirementError  `json:"errors,omitempty"`
 }
 
 // GetRequirements returns Stripe requirements as formatted FieldSections.
@@ -55,6 +56,9 @@ func (s *Service) GetRequirements(ctx context.Context, userID uuid.UUID) (*Requi
 	}
 	if len(reqs.PendingVerification) > 0 {
 		result.PendingVerification = reqs.PendingVerification
+	}
+	if len(reqs.Errors) > 0 {
+		result.Errors = reqs.Errors
 	}
 	return result, nil
 }

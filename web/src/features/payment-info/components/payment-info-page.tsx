@@ -526,6 +526,12 @@ function buildRequirementErrors(
     }
   }
 
+  // Build error message map from Stripe requirement errors
+  const stripeErrors: Record<string, string> = {}
+  for (const err of requirements.errors ?? []) {
+    if (err.reason) stripeErrors[err.requirement] = err.reason
+  }
+
   const fieldErrors: Record<string, string> = {}
   const fieldWarnings: Record<string, string> = {}
   const extraSections: FieldSection[] = []
@@ -539,14 +545,19 @@ function buildRequirementErrors(
       // Check if value exists — try exact key first, then suffix match
       const hasValue = formValues ? hasFormValue(formValues, field.key) : false
 
-      // Red only for past_due (truly overdue). currently_due = orange (Stripe is verifying).
-      const treatAsWarning = isEventuallyDue || urgency === "currently_due"
+      // Red for: past_due OR Stripe returned an error for this field. Orange otherwise.
+      const hasStripeError = !!stripeErrors[field.key]
+      const treatAsWarning = !hasStripeError && (isEventuallyDue || urgency === "currently_due")
       const targetMap = treatAsWarning ? fieldWarnings : fieldErrors
-      const msg = urgency === "past_due"
-        ? t("fieldMissing")
-        : urgency === "currently_due"
-          ? t("fieldPendingVerification")
-          : t("fieldEventuallyDue")
+      // Use Stripe error message if available, otherwise generic
+      const stripeMsg = stripeErrors[field.key]
+      const msg = stripeMsg
+        ? stripeMsg
+        : urgency === "past_due"
+          ? t("fieldMissing")
+          : urgency === "currently_due"
+            ? t("fieldPendingVerification")
+            : t("fieldEventuallyDue")
 
       if (formFieldKeys.has(field.key)) {
         targetMap[field.key] = msg

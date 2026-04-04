@@ -140,11 +140,18 @@ export async function savePaymentInfo(data: PaymentInfoFormData, email?: string)
   })
 }
 
+export type RequirementError = {
+  code: string
+  reason: string
+  requirement: string
+}
+
 export type RequirementsResponse = {
   has_requirements: boolean
   sections: FieldSection[]
   current_deadline?: number
   pending_verification?: string[]
+  errors?: RequirementError[]
 }
 
 export function getRequirements(): Promise<RequirementsResponse> {
