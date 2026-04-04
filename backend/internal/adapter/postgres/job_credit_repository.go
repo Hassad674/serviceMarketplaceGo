@@ -74,9 +74,9 @@ func (r *JobCreditRepository) AddBonus(ctx context.Context, userID uuid.UUID, am
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO application_credits (user_id, credits)
-		 VALUES ($1, LEAST($2, $3))
+		 VALUES ($1, LEAST(10 + $2::int, $3::int))
 		 ON CONFLICT (user_id) DO UPDATE
-		 SET credits = LEAST(application_credits.credits + $2, $3),
+		 SET credits = LEAST(application_credits.credits + $2::int, $3::int),
 		     updated_at = now()`,
 		userID, amount, maxTokens,
 	)

@@ -187,12 +187,15 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
+	slog.Info("ConfirmPaymentAndActivate", "proposal_id", p.ID, "status", p.Status, "provider_id", p.ProviderID, "credits_nil", s.credits == nil)
+
 	// Idempotency: already paid/active
 	if p.Status == domain.StatusPaid || p.Status == domain.StatusActive {
 		return nil
 	}
 
 	if err := p.MarkPaid(); err != nil {
+		slog.Error("MarkPaid failed", "proposal_id", p.ID, "status", p.Status, "error", err)
 		return err
 	}
 	if err := p.MarkActive(); err != nil {
