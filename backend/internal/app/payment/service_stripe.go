@@ -500,6 +500,16 @@ func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentI
 	return nil
 }
 
+// firstNonEmpty returns the first non-empty string from the arguments.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // getExtra looks up a value in extra_fields by multiple possible keys.
 func getExtra(extra map[string]string, keys ...string) string {
 	for _, k := range keys {
@@ -524,7 +534,7 @@ func (s *Service) createStripePersons(ctx context.Context, info *domain.PaymentI
 		PostalCode:       info.PostalCode,
 		State:            getExtra(info.ExtraFields, "representative.address.state", "state"),
 		Country:          info.Country,
-		Title:            info.RoleInCompany,
+		Title:            firstNonEmpty(info.RoleInCompany, getExtra(info.ExtraFields, "representative.title", "relationship.title", "person.relationship.title")),
 		IDNumber:         getExtra(info.ExtraFields, "representative.id_number", "individual.id_number", "id_number"),
 		SSNLast4:         getExtra(info.ExtraFields, "representative.ssn_last_4", "individual.ssn_last_4", "ssn_last_4"),
 		IsRepresentative: true,

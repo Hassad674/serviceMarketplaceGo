@@ -577,6 +577,27 @@ function valuesToFlatData(
     }
   }
 
+  // Also collect any values from requirement extra sections (person fields, etc.)
+  // These are in data.values but not in any section — store them in extraFields
+  for (const [key, val] of Object.entries(v)) {
+    if (key.includes(".") && val && !extraFields[key]) {
+      // Check if this key is already handled by a flat field mapping
+      const handled = [
+        `${prefix}.first_name`, `${prefix}.last_name`, `${prefix}.dob`,
+        `${prefix}.nationality`, `${prefix}.address.line1`, `${prefix}.address.city`,
+        `${prefix}.address.postal_code`, `${prefix}.phone`,
+        "company.name", "company.address.line1", "company.address.city",
+        "company.address.postal_code", "company.address.country", "company.tax_id",
+        "bank.iban", "bank.bic", "bank.account_number", "bank.routing_number",
+        "bank.account_holder", "bank.bank_country",
+        "activity_sector", "business_role", "individual.email",
+      ]
+      if (!handled.includes(key)) {
+        extraFields[key] = val
+      }
+    }
+  }
+
   return {
     ...data,
     firstName: v[`${prefix}.first_name`] ?? data.firstName,
