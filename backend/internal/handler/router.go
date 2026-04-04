@@ -321,6 +321,13 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/job-applications", deps.Admin.ListJobApplications)
 				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)
 
+				// Media moderation endpoints
+				r.Get("/media", deps.Admin.ListMedia)
+				r.Get("/media/{id}", deps.Admin.GetMediaDetail)
+				r.Post("/media/{id}/approve", deps.Admin.ApproveMedia)
+				r.Post("/media/{id}/reject", deps.Admin.RejectMedia)
+				r.Delete("/media/{id}", deps.Admin.DeleteMedia)
+
 				// Proposal admin endpoints (force activate for testing)
 				if deps.Proposal != nil {
 					r.Post("/proposals/{id}/activate", deps.Proposal.AdminActivateProposal)

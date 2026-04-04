@@ -11,6 +11,7 @@ import (
 	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	portservice "marketplace-backend/internal/port/service"
 )
 
 // DashboardStats holds aggregated statistics for the admin dashboard.
@@ -27,14 +28,31 @@ type DashboardStats struct {
 	RecentSignups   []*user.User
 }
 
-type Service struct {
-	users   repository.UserRepository
-	reports repository.ReportRepository
-	db      *sql.DB
+// ServiceDeps groups dependencies for the admin Service.
+type ServiceDeps struct {
+	Users      repository.UserRepository
+	Reports    repository.ReportRepository
+	MediaRepo  repository.MediaRepository
+	StorageSvc portservice.StorageService
+	DB         *sql.DB
 }
 
-func NewService(users repository.UserRepository, reports repository.ReportRepository, db *sql.DB) *Service {
-	return &Service{users: users, reports: reports, db: db}
+type Service struct {
+	users      repository.UserRepository
+	reports    repository.ReportRepository
+	mediaRepo  repository.MediaRepository
+	storageSvc portservice.StorageService
+	db         *sql.DB
+}
+
+func NewService(deps ServiceDeps) *Service {
+	return &Service{
+		users:      deps.Users,
+		reports:    deps.Reports,
+		mediaRepo:  deps.MediaRepo,
+		storageSvc: deps.StorageSvc,
+		db:         deps.DB,
+	}
 }
 
 func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {

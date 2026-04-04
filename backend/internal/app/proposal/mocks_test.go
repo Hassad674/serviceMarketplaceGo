@@ -188,6 +188,10 @@ func (m *mockStorageService) GetPresignedUploadURL(ctx context.Context, key stri
 	return "https://storage.example.com/presigned/" + key, nil
 }
 
+func (m *mockStorageService) Download(_ context.Context, _ string) ([]byte, error) {
+	return nil, nil
+}
+
 // --- mockNotificationSender ---
 
 type mockNotificationSender struct {

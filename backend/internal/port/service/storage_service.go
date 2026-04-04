@@ -11,4 +11,5 @@ type StorageService interface {
 	Delete(ctx context.Context, key string) error
 	GetPublicURL(key string) string
 	GetPresignedUploadURL(ctx context.Context, key string, contentType string, expiry time.Duration) (string, error)
+	Download(ctx context.Context, key string) ([]byte, error)
 }

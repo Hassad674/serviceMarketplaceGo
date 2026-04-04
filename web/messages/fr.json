@@ -723,6 +723,7 @@
     "requirementsEventualDesc": "Les informations suivantes seront nécessaires pour maintenir vos paiements actifs.",
     "fieldRejected": "Refusé \u2014 veuillez fournir à nouveau",
     "fieldMissing": "Information requise",
+    "fieldPendingVerification": "Vérification en cours",
     "fieldEventuallyDue": "Sera bientôt requis",
     "fieldInvalid": "Invalide \u2014 veuillez corriger",
     "roleOwner": "Propriétaire",

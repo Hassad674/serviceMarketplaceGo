@@ -8,6 +8,8 @@ import { ConversationsPage } from "@/features/conversations/components/conversat
 import { ConversationDetailPage } from "@/features/conversations/components/conversation-detail-page"
 import { JobsPage } from "@/features/jobs/components/jobs-page"
 import { JobDetailPage } from "@/features/jobs/components/job-detail-page"
+import { MediaPage } from "@/features/media/components/media-page"
+import { MediaDetailPage } from "@/features/media/components/media-detail-page"
 
 export function AppRouter() {
   return (
@@ -23,6 +25,8 @@ export function AppRouter() {
           <Route path="/conversations/:id" element={<ConversationDetailPage />} />
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/jobs/:id" element={<JobDetailPage />} />
+          <Route path="/media" element={<MediaPage />} />
+          <Route path="/media/:id" element={<MediaDetailPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

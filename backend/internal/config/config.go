@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -29,9 +30,12 @@ type Config struct {
 	LiveKitAPIKey    string
 	LiveKitAPISecret   string
 	FCMCredentialsPath   string
-	StripeSecretKey      string
-	StripePublishableKey string
-	StripeWebhookSecret  string
+	StripeSecretKey        string
+	StripePublishableKey   string
+	StripeWebhookSecret    string
+	RekognitionEnabled     bool
+	RekognitionRegion      string
+	RekognitionThreshold   float64
 }
 
 func Load() *Config {
@@ -61,6 +65,9 @@ func Load() *Config {
 		StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
 		StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),
 		StripeWebhookSecret:  getEnv("STRIPE_WEBHOOK_SECRET", ""),
+		RekognitionEnabled:     getEnv("REKOGNITION_ENABLED", "false") == "true",
+		RekognitionRegion:      getEnv("REKOGNITION_REGION", "eu-west-1"),
+		RekognitionThreshold:   parseFloat(getEnv("REKOGNITION_THRESHOLD", "60")),
 	}
 }
 
@@ -84,6 +91,10 @@ func (c *Config) StripeConfigured() bool {
 	return c.StripeSecretKey != "" && c.StripePublishableKey != ""
 }
 
+func (c *Config) RekognitionConfigured() bool {
+	return c.RekognitionEnabled && c.RekognitionRegion != ""
+}
+
 func getEnv(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -97,4 +108,12 @@ func parseDuration(s string) time.Duration {
 		return 15 * time.Minute
 	}
 	return d
+}
+
+func parseFloat(s string) float64 {
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 60
+	}
+	return v
 }

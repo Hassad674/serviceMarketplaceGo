@@ -376,6 +376,10 @@ func (m *mockStorageService) GetPresignedUploadURL(ctx context.Context, key, con
 	return "https://storage.example.com/upload/" + key, nil
 }
 
+func (m *mockStorageService) Download(_ context.Context, _ string) ([]byte, error) {
+	return nil, nil
+}
+
 // --- helpers ---
 
 func testUser(id uuid.UUID, role user.Role) *user.User {

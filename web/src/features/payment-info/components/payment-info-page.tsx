@@ -146,8 +146,29 @@ export function PaymentInfoPage() {
       {/* Business toggle */}
       <BusinessToggle checked={data.isBusiness} onToggle={handleToggleBusiness} t={t} />
 
-      {/* Stripe requirements */}
-      {saved && existing?.stripe_account_id && <StripeRequirementsBanner />}
+      {/* Stripe requirements — show based on computed errors/warnings */}
+      {saved && existing?.stripe_account_id && Object.keys(fieldErrors).length > 0 && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400 mt-0.5" strokeWidth={1.5} />
+            <div className="flex-1 space-y-2">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-300">{t("requirementsTitle")}</p>
+              <p className="text-xs text-red-600/80 dark:text-red-400/80">{t("requirementsDesc")}</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {saved && existing?.stripe_account_id && Object.keys(fieldErrors).length === 0 && Object.keys(fieldWarnings).length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" strokeWidth={1.5} />
+            <div className="flex-1 space-y-2">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{t("requirementsEventualTitle")}</p>
+              <p className="text-xs text-amber-600/80 dark:text-amber-400/80">{t("requirementsEventualDesc")}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Activity sector — always visible (not from country_specs) */}
       <ActivitySectorSelect
@@ -467,6 +488,22 @@ function localeToCountryFallback(locale: string): string {
   return map[locale] ?? "FR"
 }
 
+/** Check if a form value exists — try exact key, then any key ending with the same suffix. */
+function hasFormValue(values: Record<string, string>, key: string): boolean {
+  // Exact match
+  if ((values[key] ?? "").trim()) return true
+  // Suffix match: "company.phone" matches values["company.phone"]
+  // "person_XXXX.relationship.title" matches if any value key ends with "relationship.title"
+  const lastDotIdx = key.lastIndexOf(".")
+  if (lastDotIdx > 0) {
+    const suffix = key.substring(lastDotIdx)
+    for (const [k, v] of Object.entries(values)) {
+      if (k.endsWith(suffix) && v.trim()) return true
+    }
+  }
+  return false
+}
+
 /** Build field errors (currently_due/past_due) and warnings (eventually_due) from requirements.
  *  If a currently_due field already has a value, treat it as "pending verification" (warning)
  *  instead of "required" (error) — Stripe is verifying, not rejecting. */
@@ -498,7 +535,9 @@ function buildRequirementErrors(
     for (const field of reqSection.fields) {
       const urgency = field.urgency ?? "currently_due"
       const isEventuallyDue = urgency === "eventually_due"
-      const hasValue = !!(formValues?.[field.key] ?? "").trim()
+
+      // Check if value exists — try exact key first, then suffix match
+      const hasValue = formValues ? hasFormValue(formValues, field.key) : false
 
       // If field has a value and is currently_due, Stripe is verifying it — show warning not error
       const treatAsWarning = isEventuallyDue || (hasValue && urgency === "currently_due")

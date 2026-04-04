@@ -723,6 +723,7 @@
     "requirementsEventualDesc": "The following information will be required to keep your payouts active.",
     "fieldRejected": "Rejected \u2014 please provide again",
     "fieldMissing": "Required information",
+    "fieldPendingVerification": "Pending verification",
     "fieldEventuallyDue": "Will be required soon",
     "fieldInvalid": "Invalid \u2014 please correct",
     "roleOwner": "Owner",

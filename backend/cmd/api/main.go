@@ -12,8 +12,10 @@ import (
 
 	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
+	"marketplace-backend/internal/adapter/noop"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
+	rekognitionadapter "marketplace-backend/internal/adapter/rekognition"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
@@ -22,6 +24,7 @@ import (
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	jobapp "marketplace-backend/internal/app/job"
+	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -298,14 +301,38 @@ func main() {
 	})
 	reportHandler := handler.NewReportHandler(reportSvc)
 
+	// Media moderation feature
+	mediaRepo := postgres.NewMediaRepository(db)
+	var moderationSvc service.ContentModerationService
+	if cfg.RekognitionConfigured() {
+		rekSvc, rekErr := rekognitionadapter.NewModerationService(cfg.RekognitionRegion, cfg.RekognitionThreshold)
+		if rekErr != nil {
+			slog.Error("failed to init Rekognition moderation service", "error", rekErr)
+			moderationSvc = noop.NewModerationService()
+		} else {
+			moderationSvc = rekSvc
+			slog.Info("content moderation enabled (AWS Rekognition)")
+		}
+	} else {
+		moderationSvc = noop.NewModerationService()
+		slog.Info("content moderation disabled (noop)")
+	}
+	mediaSvc := mediaapp.NewService(mediaRepo, storageSvc, moderationSvc)
+
 	// Admin feature
-	adminSvc := adminapp.NewService(userRepo, reportRepo, db)
+	adminSvc := adminapp.NewService(adminapp.ServiceDeps{
+		Users:      userRepo,
+		Reports:    reportRepo,
+		MediaRepo:  mediaRepo,
+		StorageSvc: storageSvc,
+		DB:         db,
+	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
-	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
+	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
