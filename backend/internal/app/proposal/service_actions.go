@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	jobdomain "marketplace-backend/internal/domain/job"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/port/service"
 )
@@ -165,12 +164,8 @@ func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, userI
 		return fmt.Errorf("update proposal: %w", err)
 	}
 
-	// Award bonus credits to the provider for signed mission
-	if s.credits != nil {
-		if err := s.credits.AddBonus(ctx, p.ProviderID, jobdomain.BonusPerMission, jobdomain.MaxTokens); err != nil {
-			slog.Error("failed to add bonus credits", "proposal_id", p.ID, "provider_id", p.ProviderID, "error", err)
-		}
-	}
+	// Award bonus credits with fraud detection
+	s.awardBonusWithFraudCheck(ctx, p)
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, userID, "proposal_paid", metadata)
@@ -187,15 +182,12 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	slog.Info("ConfirmPaymentAndActivate", "proposal_id", p.ID, "status", p.Status, "provider_id", p.ProviderID, "credits_nil", s.credits == nil)
-
 	// Idempotency: already paid/active
 	if p.Status == domain.StatusPaid || p.Status == domain.StatusActive {
 		return nil
 	}
 
 	if err := p.MarkPaid(); err != nil {
-		slog.Error("MarkPaid failed", "proposal_id", p.ID, "status", p.Status, "error", err)
 		return err
 	}
 	if err := p.MarkActive(); err != nil {
@@ -205,12 +197,8 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 		return fmt.Errorf("update proposal: %w", err)
 	}
 
-	// Award bonus credits to the provider for signed mission
-	if s.credits != nil {
-		if err := s.credits.AddBonus(ctx, p.ProviderID, jobdomain.BonusPerMission, jobdomain.MaxTokens); err != nil {
-			slog.Error("failed to add bonus credits", "proposal_id", p.ID, "provider_id", p.ProviderID, "error", err)
-		}
-	}
+	// Award bonus credits with fraud detection
+	s.awardBonusWithFraudCheck(ctx, p)
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, p.ClientID, "proposal_paid", metadata)

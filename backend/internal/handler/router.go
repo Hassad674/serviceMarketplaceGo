@@ -318,6 +318,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 					r.Post("/credits/reset", deps.JobApplication.ResetCredits)
 					r.Post("/credits/reset/{userId}", deps.JobApplication.ResetCreditsForUser)
 				}
+
+				// Credit bonus fraud log endpoints
+				if deps.Proposal != nil {
+					r.Get("/credits/bonus-log", deps.Proposal.AdminListBonusLog)
+					r.Get("/credits/bonus-log/pending", deps.Proposal.AdminListPendingBonusLog)
+					r.Post("/credits/bonus-log/{id}/approve", deps.Proposal.AdminApproveBonusEntry)
+					r.Post("/credits/bonus-log/{id}/reject", deps.Proposal.AdminRejectBonusEntry)
+				}
 			})
 		}
 

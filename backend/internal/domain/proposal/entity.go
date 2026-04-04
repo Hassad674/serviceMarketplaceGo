@@ -93,6 +93,9 @@ func NewProposal(input NewProposalInput) (*Proposal, error) {
 	if input.Amount <= 0 {
 		return nil, ErrInvalidAmount
 	}
+	if input.Amount < 3000 {
+		return nil, ErrBelowMinimumAmount
+	}
 	if input.SenderID == input.RecipientID {
 		return nil, ErrSameUser
 	}

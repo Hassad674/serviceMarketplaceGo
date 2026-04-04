@@ -264,9 +264,9 @@ func (s *Service) HandleAccountUpdated(ctx context.Context, accountID string) er
 		}
 	}
 
-	// Check for new requirements and notify
+	// Check for new requirements and notify (only for urgent requirements)
 	reqs, reqErr := s.stripe.GetAccountRequirements(ctx, accountID)
-	if reqErr == nil {
+	if reqErr == nil && (len(reqs.CurrentlyDue) > 0 || len(reqs.PastDue) > 0) {
 		s.NotifyNewRequirements(ctx, info.UserID, reqs)
 	}
 
