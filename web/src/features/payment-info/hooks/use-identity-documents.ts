@@ -23,7 +23,15 @@ export function useUploadIdentityDocument() {
   return useMutation({
     mutationFn: (input: { file: File; category: string; documentType: string; side: string }) =>
       uploadIdentityDocument(input.file, input.category, input.documentType, input.side),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: IDENTITY_DOCS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: IDENTITY_DOCS_KEY })
+      // Also refresh stripe requirements so the banner updates after upload
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          query.queryKey.includes("stripe-requirements"),
+      })
+    },
   })
 }
 

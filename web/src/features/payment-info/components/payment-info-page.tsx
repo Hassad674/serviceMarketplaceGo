@@ -57,8 +57,8 @@ export function PaymentInfoPage() {
     s.fields.some((f) => f.type === "document_upload"),
   )
 
-  // Build field errors from requirements
-  const { fieldErrors, extraSections } = buildRequirementErrors(requirements, allSections, t)
+  // Build field errors and warnings from requirements
+  const { fieldErrors, fieldWarnings, extraSections } = buildRequirementErrors(requirements, allSections, t)
 
   // Pre-fill document_upload fields with "uploaded" when docs already exist
   const docValues = buildDocumentValues(allSections, existingDocs ?? [])
@@ -165,6 +165,8 @@ export function PaymentInfoPage() {
           values={mergedValues}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
+          fieldWarnings={fieldWarnings}
+          documents={existingDocs ?? []}
           countryCode={data.country}
         />
       ))}
@@ -181,6 +183,8 @@ export function PaymentInfoPage() {
           values={mergedValues}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
+          fieldWarnings={fieldWarnings}
+          documents={existingDocs ?? []}
           countryCode={data.country}
         />
       )}
@@ -193,6 +197,8 @@ export function PaymentInfoPage() {
           values={mergedValues}
           onChange={handleValueChange}
           fieldErrors={fieldErrors}
+          fieldWarnings={fieldWarnings}
+          documents={existingDocs ?? []}
           countryCode={data.country}
         />
       ))}
@@ -416,14 +422,14 @@ function localeToCountryFallback(locale: string): string {
   return map[locale] ?? "FR"
 }
 
-/** Build field errors map and extra sections from requirements. */
+/** Build field errors (currently_due/past_due) and warnings (eventually_due) from requirements. */
 function buildRequirementErrors(
   requirements: RequirementsResponse | undefined,
   formSections: FieldSection[],
   t: (key: string) => string,
-): { fieldErrors: Record<string, string>; extraSections: FieldSection[] } {
+): { fieldErrors: Record<string, string>; fieldWarnings: Record<string, string>; extraSections: FieldSection[] } {
   if (!requirements?.has_requirements || !requirements.sections?.length) {
-    return { fieldErrors: {}, extraSections: [] }
+    return { fieldErrors: {}, fieldWarnings: {}, extraSections: [] }
   }
 
   const formFieldKeys = new Set<string>()
@@ -436,24 +442,27 @@ function buildRequirementErrors(
   }
 
   const fieldErrors: Record<string, string> = {}
+  const fieldWarnings: Record<string, string> = {}
   const extraSections: FieldSection[] = []
 
   for (const reqSection of requirements.sections) {
     const extraFields: typeof reqSection.fields = []
     for (const field of reqSection.fields) {
-      const errorMsg = t("fieldMissing")
+      const urgency = field.urgency ?? "currently_due"
+      const isWarning = urgency === "eventually_due"
+      const targetMap = isWarning ? fieldWarnings : fieldErrors
+      const msg = isWarning ? t("fieldEventuallyDue") : t("fieldMissing")
+
       if (formFieldKeys.has(field.key)) {
-        fieldErrors[field.key] = errorMsg
+        targetMap[field.key] = msg
       } else {
-        // Match document requirements to document_upload fields
-        // e.g., "individual.verification.document.front" → "individual.verification.document"
         const matchedDoc = docUploadKeys.find((dk) => field.key.startsWith(dk))
         if (matchedDoc) {
-          fieldErrors[matchedDoc] = errorMsg
+          targetMap[matchedDoc] = msg
         } else {
           extraFields.push(field)
         }
-        fieldErrors[field.key] = errorMsg
+        targetMap[field.key] = msg
       }
     }
     if (extraFields.length > 0) {
@@ -461,7 +470,7 @@ function buildRequirementErrors(
     }
   }
 
-  return { fieldErrors, extraSections }
+  return { fieldErrors, fieldWarnings, extraSections }
 }
 
 /** Mark document_upload fields as "uploaded" when a matching document exists. */

@@ -402,8 +402,24 @@ Map<String, String> buildFieldErrors(StripeRequirements? reqs) {
   final errors = <String, String>{};
   for (final section in reqs.sections) {
     for (final field in section.fields) {
-      errors[field.key] = 'This field is required by Stripe';
+      if (field.urgency != 'eventually_due') {
+        errors[field.key] = 'This field is required by Stripe';
+      }
     }
   }
   return errors;
+}
+
+/// Builds a map of field key -> warning message for eventually_due fields.
+Map<String, String> buildFieldWarnings(StripeRequirements? reqs) {
+  if (reqs == null || !reqs.hasRequirements) return const {};
+  final warnings = <String, String>{};
+  for (final section in reqs.sections) {
+    for (final field in section.fields) {
+      if (field.urgency == 'eventually_due') {
+        warnings[field.key] = 'Will be required soon';
+      }
+    }
+  }
+  return warnings;
 }

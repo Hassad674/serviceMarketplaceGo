@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Upload, CheckCircle2, Loader2 } from "lucide-react"
+import { Upload, CheckCircle2, Loader2, AlertTriangle, XCircle } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { CountrySelect } from "./country-select"
@@ -10,16 +10,21 @@ import { useUploadIdentityDocument } from "../hooks/use-identity-documents"
 import { isStateField, getStatesForCountry, hasStates } from "../lib/country-states"
 import type { StateOption } from "../lib/country-states"
 import type { FieldSection, FieldSpec } from "../api/payment-info-api"
+import type { IdentityDocumentResponse } from "../api/identity-document-api"
 
 interface DynamicSectionProps {
   section: FieldSection
   values: Record<string, string>
   onChange: (key: string, value: string) => void
   fieldErrors?: Record<string, string>
+  fieldWarnings?: Record<string, string>
+  documents?: IdentityDocumentResponse[]
   countryCode?: string
 }
 
-export function DynamicSection({ section, values, onChange, fieldErrors, countryCode }: DynamicSectionProps) {
+export function DynamicSection({
+  section, values, onChange, fieldErrors, fieldWarnings, documents, countryCode,
+}: DynamicSectionProps) {
   const t = useTranslations("paymentInfo")
 
   return (
@@ -35,6 +40,8 @@ export function DynamicSection({ section, values, onChange, fieldErrors, country
             value={values[field.key] ?? ""}
             onChange={(v) => onChange(field.key, v)}
             error={fieldErrors?.[field.key]}
+            warning={fieldWarnings?.[field.key]}
+            documents={documents}
             countryCode={countryCode}
           />
         ))}
@@ -48,14 +55,25 @@ interface DynamicFieldProps {
   value: string
   onChange: (value: string) => void
   error?: string
+  warning?: string
+  documents?: IdentityDocumentResponse[]
   countryCode?: string
 }
 
-function DynamicField({ field, value, onChange, error, countryCode }: DynamicFieldProps) {
+function DynamicField({ field, value, onChange, error, warning, documents, countryCode }: DynamicFieldProps) {
   const t = useTranslations("paymentInfo")
 
   if (field.type === "document_upload") {
-    return <DocumentUploadField field={field} value={value} onChange={onChange} error={error} />
+    return (
+      <DocumentUploadField
+        field={field}
+        value={value}
+        onChange={onChange}
+        error={error}
+        warning={warning}
+        documents={documents}
+      />
+    )
   }
 
   const label = safeTranslate(t, field.label_key)
@@ -118,17 +136,26 @@ function DynamicField({ field, value, onChange, error, countryCode }: DynamicFie
   )
 }
 
-function DocumentUploadField({ field, value, onChange, error }: DynamicFieldProps) {
+function DocumentUploadField({ field, value, onChange, error, warning, documents }: DynamicFieldProps) {
   const t = useTranslations("paymentInfo")
   const uploadMutation = useUploadIdentityDocument()
   const [modalOpen, setModalOpen] = useState(false)
   const label = safeTranslate(t, field.label_key)
   const descKey = field.label_key + "Desc"
   const description = safeTranslateOptional(t, descKey)
-  const isUploaded = value === "uploaded" && !error
 
   const category = field.path.startsWith("company") || field.path.startsWith("documents") ? "company" : "identity"
   const documentType = deriveDocumentType(field.path)
+
+  // Find matching document from the existing docs list for status display
+  const matchingDoc = documents?.find(
+    (d) => d.category === category && d.document_type === documentType,
+  )
+  const docStatus = matchingDoc?.status
+
+  // If value is "uploaded" (local state or from existing docs), suppress stale error
+  const isUploaded = value === "uploaded"
+  const effectiveError = isUploaded ? undefined : error
 
   async function handleUpload(file: File) {
     setModalOpen(false)
@@ -148,48 +175,28 @@ function DocumentUploadField({ field, value, onChange, error }: DynamicFieldProp
         <p className="mb-2 text-xs text-slate-500 dark:text-slate-400">{description}</p>
       )}
 
-      {error && (
-        <p className="mb-2 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{error}</p>
+      {effectiveError && (
+        <p className="mb-2 text-xs font-medium text-red-600 dark:text-red-400" role="alert">{effectiveError}</p>
+      )}
+      {!effectiveError && warning && !isUploaded && (
+        <p className="mb-2 text-xs font-medium text-amber-600 dark:text-amber-400" role="status">{warning}</p>
       )}
 
       {isUploaded ? (
-        <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-          <span className="flex-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-            {t("documentUploaded")}
-          </span>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="text-xs font-medium text-emerald-600 hover:text-emerald-800 dark:text-emerald-400"
-          >
-            {t("replaceDocument")}
-          </button>
-        </div>
+        <DocumentStatusDisplay
+          status={docStatus}
+          rejectionReason={matchingDoc?.rejection_reason}
+          onReplace={() => setModalOpen(true)}
+          t={t}
+        />
       ) : (
-        <button
-          type="button"
+        <DocumentUploadZone
+          isPending={uploadMutation.isPending}
+          hasError={!!effectiveError}
+          hasWarning={!!warning}
           onClick={() => setModalOpen(true)}
-          disabled={uploadMutation.isPending}
-          className={cn(
-            "w-full rounded-xl border-2 border-dashed p-6",
-            "flex flex-col items-center gap-2 transition-colors",
-            error
-              ? "border-red-300 bg-red-50/50 dark:border-red-500/30 dark:bg-red-500/5"
-              : "border-slate-200 dark:border-slate-600",
-            "hover:border-rose-300 hover:bg-rose-50/50 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/5",
-          )}
-        >
-          {uploadMutation.isPending ? (
-            <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
-          ) : (
-            <Upload className="h-8 w-8 text-slate-400" />
-          )}
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {t("documentUploadClick")}
-          </span>
-          <span className="text-xs text-slate-400">{t("documentUploadFormats")}</span>
-        </button>
+          t={t}
+        />
       )}
 
       {uploadMutation.isError && (
@@ -208,6 +215,106 @@ function DocumentUploadField({ field, value, onChange, error }: DynamicFieldProp
         description={t("documentUploadFormats")}
       />
     </div>
+  )
+}
+
+/** Shows the appropriate status display for an uploaded document. */
+function DocumentStatusDisplay({ status, rejectionReason, onReplace, t }: {
+  status?: "pending" | "verified" | "rejected"
+  rejectionReason?: string
+  onReplace: () => void
+  t: (key: string) => string
+}) {
+  if (status === "rejected") {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+        <XCircle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+        <div className="flex-1">
+          <span className="text-sm font-medium text-red-700 dark:text-red-300">
+            {rejectionReason ? `Rejected: ${rejectionReason}` : t("documentRejected")}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onReplace}
+          className="text-xs font-semibold text-red-600 hover:text-red-800 dark:text-red-400"
+        >
+          {t("reuploadDocument")}
+        </button>
+      </div>
+    )
+  }
+
+  if (status === "verified") {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+        <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+        <span className="flex-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          {t("documentVerified")}
+        </span>
+        <button
+          type="button"
+          onClick={onReplace}
+          className="text-xs font-medium text-emerald-600 hover:text-emerald-800 dark:text-emerald-400"
+        >
+          {t("replaceDocument")}
+        </button>
+      </div>
+    )
+  }
+
+  // Default: pending or unknown status
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+      <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+      <span className="flex-1 text-sm font-medium text-emerald-700 dark:text-emerald-300">
+        {t("documentPending")}
+      </span>
+      <button
+        type="button"
+        onClick={onReplace}
+        className="text-xs font-medium text-emerald-600 hover:text-emerald-800 dark:text-emerald-400"
+      >
+        {t("replaceDocument")}
+      </button>
+    </div>
+  )
+}
+
+/** Upload dropzone with error (red) and warning (orange) border variants. */
+function DocumentUploadZone({ isPending, hasError, hasWarning, onClick, t }: {
+  isPending: boolean
+  hasError: boolean
+  hasWarning: boolean
+  onClick: () => void
+  t: (key: string) => string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isPending}
+      className={cn(
+        "w-full rounded-xl border-2 border-dashed p-6",
+        "flex flex-col items-center gap-2 transition-colors",
+        hasError
+          ? "border-red-300 bg-red-50/50 dark:border-red-500/30 dark:bg-red-500/5"
+          : hasWarning
+            ? "border-amber-300 bg-amber-50/50 dark:border-amber-500/30 dark:bg-amber-500/5"
+            : "border-slate-200 dark:border-slate-600",
+        "hover:border-rose-300 hover:bg-rose-50/50 dark:hover:border-rose-500/30 dark:hover:bg-rose-500/5",
+      )}
+    >
+      {isPending ? (
+        <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
+      ) : (
+        <Upload className="h-8 w-8 text-slate-400" />
+      )}
+      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+        {t("documentUploadClick")}
+      </span>
+      <span className="text-xs text-slate-400">{t("documentUploadFormats")}</span>
+    </button>
   )
 }
 
