@@ -13,6 +13,7 @@ type AdminUserFilters struct {
 	Search   string
 	Cursor   string
 	Limit    int
+	Page     int
 	Reported bool
 }
 

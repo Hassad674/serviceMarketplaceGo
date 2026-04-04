@@ -210,7 +210,9 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 			"EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'user' AND r.target_id = users.id AND r.status = 'pending')",
 		)
 	}
-	if filters.Cursor != "" {
+	useOffset := filters.Page > 0 && filters.Cursor == ""
+
+	if !useOffset && filters.Cursor != "" {
 		c, err := cursor.Decode(filters.Cursor)
 		if err == nil {
 			conditions = append(conditions, fmt.Sprintf("(created_at, id) < ($%d, $%d)", argIdx, argIdx+1))
@@ -224,11 +226,18 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
+	var offsetClause string
+	if useOffset {
+		offsetClause = fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, (filters.Page-1)*limit)
+		argIdx++
+	}
+
 	query := fmt.Sprintf(`
 		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
 		FROM users %s
 		ORDER BY created_at DESC, id DESC
-		LIMIT $%d`, where, argIdx)
+		LIMIT $%d%s`, where, argIdx, offsetClause)
 	args = append(args, limit+1)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)

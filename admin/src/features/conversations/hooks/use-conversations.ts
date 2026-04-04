@@ -6,7 +6,7 @@ import {
 } from "../api/conversations-api"
 
 type ConversationsQueryParams = {
-  cursor: string
+  page: number
   sort: string
   filter: string
 }
@@ -19,7 +19,7 @@ export function useConversations(params: ConversationsQueryParams) {
   return useQuery({
     queryKey: conversationsQueryKey(params),
     queryFn: () => listConversations({
-      cursor: params.cursor || undefined,
+      page: params.page || undefined,
       sort: params.sort || undefined,
       filter: params.filter || undefined,
     }),

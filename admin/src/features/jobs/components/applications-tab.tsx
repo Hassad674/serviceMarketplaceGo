@@ -22,43 +22,29 @@ export function ApplicationsTab() {
     job_id: "",
     search: "",
     sort: "",
-    cursor: "",
+    page: 1,
   })
-  const [cursors, setCursors] = useState<string[]>([])
   const [deleteTarget, setDeleteTarget] = useState<AdminJobApplication | null>(null)
 
   const { data, isLoading, error } = useAdminJobApplications(filters)
   const deleteMutation = useDeleteJobApplication()
 
   const applications = data?.data ?? []
-  const hasMore = data?.has_more ?? false
   const total = data?.total ?? 0
-
-  function handleNextPage() {
-    if (data?.next_cursor) {
-      setCursors((prev) => [...prev, filters.cursor])
-      setFilters((prev) => ({ ...prev, cursor: data.next_cursor }))
-    }
-  }
-
-  function handlePreviousPage() {
-    const prev = cursors[cursors.length - 1] ?? ""
-    setCursors((c) => c.slice(0, -1))
-    setFilters((f) => ({ ...f, cursor: prev }))
-  }
+  const totalPages = data?.total_pages ?? 0
 
   return (
     <div className="space-y-4">
       <DataTableToolbar
         searchValue={filters.search}
-        onSearchChange={(search) => setFilters((f) => ({ ...f, search, cursor: "" }))}
+        onSearchChange={(search) => setFilters((f) => ({ ...f, search, page: 1 }))}
         searchPlaceholder="Rechercher par candidat..."
       >
         <Select
           options={sortOptions}
           placeholder="Tri"
           value={filters.sort}
-          onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value, cursor: "" }))}
+          onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value, page: 1 }))}
           className="w-36"
         />
       </DataTableToolbar>
@@ -83,11 +69,10 @@ export function ApplicationsTab() {
         <>
           <DataTable columns={applicationsColumns} data={applications} />
           <DataTablePagination
-            hasMore={hasMore}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            hasPreviousPage={cursors.length > 0}
+            currentPage={filters.page}
+            totalPages={totalPages}
             totalCount={total}
+            onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
           />
         </>
       )}

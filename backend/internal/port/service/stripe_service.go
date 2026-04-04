@@ -49,6 +49,9 @@ type StripeService interface {
 	// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
 	CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (url string, err error)
 
+	// HasPersons checks if the connected account has at least one person.
+	HasPersons(ctx context.Context, accountID string) bool
+
 	// UpdateConnectedAccount updates an existing Stripe connected account with new data.
 	UpdateConnectedAccount(ctx context.Context, accountID string, info *payment.PaymentInfo, tosIP string, email string) error
 

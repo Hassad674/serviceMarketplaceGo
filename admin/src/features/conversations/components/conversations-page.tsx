@@ -20,31 +20,17 @@ function resolveFilter(reportedConversations: boolean, reportedMessages: boolean
 
 export function ConversationsPage() {
   const navigate = useNavigate()
-  const [cursor, setCursor] = useState("")
-  const [cursors, setCursors] = useState<string[]>([])
+  const [page, setPage] = useState(1)
   const [sort, setSort] = useState("recent")
   const [reportedConversations, setReportedConversations] = useState(false)
   const [reportedMessages, setReportedMessages] = useState(false)
 
   const filter = resolveFilter(reportedConversations, reportedMessages)
-  const { data, isLoading, error } = useConversations({ cursor, sort, filter })
+  const { data, isLoading, error } = useConversations({ page, sort, filter })
 
   const conversations = data?.data ?? []
-  const hasMore = data?.has_more ?? false
   const total = data?.total ?? 0
-
-  function handleNextPage() {
-    if (data?.next_cursor) {
-      setCursors((prev) => [...prev, cursor])
-      setCursor(data.next_cursor)
-    }
-  }
-
-  function handlePreviousPage() {
-    const prev = cursors[cursors.length - 1] ?? ""
-    setCursors((c) => c.slice(0, -1))
-    setCursor(prev)
-  }
+  const totalPages = data?.total_pages ?? 0
 
   function handleRowClick(conversation: AdminConversation) {
     navigate(`/conversations/${conversation.id}`)
@@ -52,13 +38,11 @@ export function ConversationsPage() {
 
   function handleSortChange(newSort: string) {
     setSort(newSort)
-    setCursor("")
-    setCursors([])
+    setPage(1)
   }
 
   function resetPagination() {
-    setCursor("")
-    setCursors([])
+    setPage(1)
   }
 
   return (
@@ -101,11 +85,10 @@ export function ConversationsPage() {
             onRowClick={handleRowClick}
           />
           <DataTablePagination
-            hasMore={hasMore}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            hasPreviousPage={cursors.length > 0}
+            currentPage={page}
+            totalPages={totalPages}
             totalCount={total}
+            onPageChange={setPage}
           />
         </>
       )}

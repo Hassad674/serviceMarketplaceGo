@@ -48,7 +48,7 @@ type AdminMessage struct {
 }
 
 // ListConversations returns all conversations with participants and stats for admin.
-func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit int, sort string, filter string) ([]AdminConversation, string, int, error) {
+func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit int, page int, sort string, filter string) ([]AdminConversation, string, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -61,7 +61,7 @@ func (s *Service) ListConversations(ctx context.Context, cursorStr string, limit
 		return nil, "", 0, fmt.Errorf("list conversations: %w", err)
 	}
 
-	conversations, nextCursor, err := s.queryConversations(ctx, cursorStr, limit, sort, filter)
+	conversations, nextCursor, err := s.queryConversations(ctx, cursorStr, limit, page, sort, filter)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list conversations: %w", err)
 	}
@@ -102,21 +102,11 @@ func (s *Service) countConversations(ctx context.Context, filter string) (int, e
 	return total, nil
 }
 
-func (s *Service) queryConversations(ctx context.Context, cursorStr string, limit int, sort string, filter string) ([]AdminConversation, string, error) {
-	query := buildConversationListQuery(cursorStr, sort, filter)
+func (s *Service) queryConversations(ctx context.Context, cursorStr string, limit int, page int, sort string, filter string) ([]AdminConversation, string, error) {
+	useOffset := page > 0 && cursorStr == ""
+	query, args := buildConversationListQuery(cursorStr, sort, filter, limit, page, useOffset)
 
-	var rows *sql.Rows
-	var err error
-
-	if cursorStr == "" {
-		rows, err = s.db.QueryContext(ctx, query, limit+1)
-	} else {
-		c, cErr := cursor.Decode(cursorStr)
-		if cErr != nil {
-			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
-		}
-		rows, err = s.db.QueryContext(ctx, query, c.CreatedAt, c.ID, limit+1)
-	}
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, "", fmt.Errorf("query conversations: %w", err)
 	}
@@ -363,7 +353,7 @@ func orderByClause(sort string) string {
 	}
 }
 
-func buildConversationListQuery(cursorStr string, sort string, filter string) string {
+func buildConversationListQuery(cursorStr string, sort string, filter string, limit int, page int, useOffset bool) (string, []any) {
 	base := `SELECT
 		c.id,
 		(SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) AS message_count,
@@ -380,22 +370,36 @@ func buildConversationListQuery(cursorStr string, sort string, filter string) st
 	) lm ON true`
 
 	where := filterWhereClause(filter)
+	var args []any
+	paramIdx := 1
 
-	if cursorStr != "" {
-		cursorWhere := " (c.created_at, c.id) < ($1, $2)"
-		if where == "" {
-			where = " WHERE" + cursorWhere
-		} else {
-			where += " AND" + cursorWhere
+	if !useOffset && cursorStr != "" {
+		c, err := cursor.Decode(cursorStr)
+		if err == nil {
+			cursorWhere := fmt.Sprintf(" (c.created_at, c.id) < ($%d, $%d)", paramIdx, paramIdx+1)
+			if where == "" {
+				where = " WHERE" + cursorWhere
+			} else {
+				where += " AND" + cursorWhere
+			}
+			args = append(args, c.CreatedAt, c.ID)
+			paramIdx += 2
 		}
 	}
 
 	orderBy := orderByClause(sort)
 
-	if cursorStr == "" {
-		return base + where + " " + orderBy + " LIMIT $1"
+	var offsetClause string
+	if useOffset {
+		offsetClause = fmt.Sprintf(" OFFSET $%d", paramIdx)
+		args = append(args, (page-1)*limit)
+		paramIdx++
 	}
-	return base + where + " " + orderBy + " LIMIT $3"
+
+	limitClause := fmt.Sprintf(" LIMIT $%d", paramIdx)
+	args = append(args, limit+1)
+
+	return base + where + " " + orderBy + limitClause + offsetClause, args
 }
 
 func filterWhereClause(filter string) string {

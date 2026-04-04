@@ -55,6 +55,8 @@ export type AdminJobListResponse = {
   next_cursor: string
   has_more: boolean
   total: number
+  page: number
+  total_pages: number
 }
 
 export type AdminJobDetailResponse = {
@@ -66,18 +68,20 @@ export type AdminJobApplicationListResponse = {
   next_cursor: string
   has_more: boolean
   total: number
+  page: number
+  total_pages: number
 }
 
 export type JobFilters = {
   status: string
   search: string
   sort: string
-  cursor: string
+  page: number
 }
 
 export type ApplicationFilters = {
   job_id: string
   search: string
   sort: string
-  cursor: string
+  page: number
 }

@@ -59,7 +59,7 @@ export function PaymentInfoPage() {
   )
 
   // Build field errors and warnings from requirements
-  const { fieldErrors, fieldWarnings, extraSections } = buildRequirementErrors(requirements, allSections, t)
+  const { fieldErrors, fieldWarnings, extraSections } = buildRequirementErrors(requirements, allSections, t, data.values)
 
   // Pre-fill document_upload fields with "uploaded" when docs already exist
   const docValues = buildDocumentValues(allSections, existingDocs ?? [])
@@ -467,11 +467,14 @@ function localeToCountryFallback(locale: string): string {
   return map[locale] ?? "FR"
 }
 
-/** Build field errors (currently_due/past_due) and warnings (eventually_due) from requirements. */
+/** Build field errors (currently_due/past_due) and warnings (eventually_due) from requirements.
+ *  If a currently_due field already has a value, treat it as "pending verification" (warning)
+ *  instead of "required" (error) — Stripe is verifying, not rejecting. */
 function buildRequirementErrors(
   requirements: RequirementsResponse | undefined,
   formSections: FieldSection[],
   t: (key: string) => string,
+  formValues?: Record<string, string>,
 ): { fieldErrors: Record<string, string>; fieldWarnings: Record<string, string>; extraSections: FieldSection[] } {
   if (!requirements?.has_requirements || !requirements.sections?.length) {
     return { fieldErrors: {}, fieldWarnings: {}, extraSections: [] }
@@ -494,9 +497,15 @@ function buildRequirementErrors(
     const extraFields: typeof reqSection.fields = []
     for (const field of reqSection.fields) {
       const urgency = field.urgency ?? "currently_due"
-      const isWarning = urgency === "eventually_due"
-      const targetMap = isWarning ? fieldWarnings : fieldErrors
-      const msg = isWarning ? t("fieldEventuallyDue") : t("fieldMissing")
+      const isEventuallyDue = urgency === "eventually_due"
+      const hasValue = !!(formValues?.[field.key] ?? "").trim()
+
+      // If field has a value and is currently_due, Stripe is verifying it — show warning not error
+      const treatAsWarning = isEventuallyDue || (hasValue && urgency === "currently_due")
+      const targetMap = treatAsWarning ? fieldWarnings : fieldErrors
+      const msg = treatAsWarning
+        ? (hasValue ? t("fieldPendingVerification") : t("fieldEventuallyDue"))
+        : t("fieldMissing")
 
       if (formFieldKeys.has(field.key)) {
         targetMap[field.key] = msg

@@ -34,6 +34,8 @@ export type ConversationListResponse = {
   next_cursor: string
   has_more: boolean
   total: number
+  page: number
+  total_pages: number
 }
 
 export type MessageListResponse = {

@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -56,12 +58,16 @@ func (h *AdminHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request)
 
 // ListUsers handles GET /api/v1/admin/users.
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+	page := parsePage(r.URL.Query().Get("page"))
+
 	filters := repository.AdminUserFilters{
 		Role:     r.URL.Query().Get("role"),
 		Status:   r.URL.Query().Get("status"),
 		Search:   r.URL.Query().Get("search"),
 		Cursor:   r.URL.Query().Get("cursor"),
-		Limit:    parseLimit(r.URL.Query().Get("limit"), 20),
+		Limit:    limit,
+		Page:     page,
 		Reported: r.URL.Query().Get("reported") == "true",
 	}
 
@@ -82,6 +88,8 @@ func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 		"total":       total,
+		"page":        page,
+		"total_pages": totalPages(total, limit),
 	})
 }
 
@@ -207,10 +215,11 @@ func (h *AdminHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) ListConversations(w http.ResponseWriter, r *http.Request) {
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+	page := parsePage(r.URL.Query().Get("page"))
 	sort := r.URL.Query().Get("sort")
 	filter := r.URL.Query().Get("filter")
 
-	conversations, nextCursor, total, err := h.svc.ListConversations(r.Context(), cursorStr, limit, sort, filter)
+	conversations, nextCursor, total, err := h.svc.ListConversations(r.Context(), cursorStr, limit, page, sort, filter)
 	if err != nil {
 		slog.Error("admin list conversations", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list conversations")
@@ -227,6 +236,8 @@ func (h *AdminHandler) ListConversations(w http.ResponseWriter, r *http.Request)
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 		"total":       total,
+		"page":        page,
+		"total_pages": totalPages(total, limit),
 	})
 }
 
@@ -376,8 +387,9 @@ func (h *AdminHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	sort := r.URL.Query().Get("sort")
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+	page := parsePage(r.URL.Query().Get("page"))
 
-	jobs, nextCursor, total, err := h.svc.ListJobs(r.Context(), status, search, sort, cursorStr, limit)
+	jobs, nextCursor, total, err := h.svc.ListJobs(r.Context(), status, search, sort, cursorStr, limit, page)
 	if err != nil {
 		slog.Error("admin list jobs", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list jobs")
@@ -394,6 +406,8 @@ func (h *AdminHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 		"total":       total,
+		"page":        page,
+		"total_pages": totalPages(total, limit),
 	})
 }
 
@@ -441,8 +455,9 @@ func (h *AdminHandler) ListJobApplications(w http.ResponseWriter, r *http.Reques
 	sort := r.URL.Query().Get("sort")
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+	page := parsePage(r.URL.Query().Get("page"))
 
-	apps, nextCursor, total, err := h.svc.ListJobApplications(r.Context(), jobID, search, sort, cursorStr, limit)
+	apps, nextCursor, total, err := h.svc.ListJobApplications(r.Context(), jobID, search, sort, cursorStr, limit, page)
 	if err != nil {
 		slog.Error("admin list job applications", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list applications")
@@ -459,6 +474,8 @@ func (h *AdminHandler) ListJobApplications(w http.ResponseWriter, r *http.Reques
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 		"total":       total,
+		"page":        page,
+		"total_pages": totalPages(total, limit),
 	})
 }
 
@@ -481,6 +498,24 @@ func (h *AdminHandler) DeleteJobApplication(w http.ResponseWriter, r *http.Reque
 
 func parseAdminUserID(r *http.Request) (uuid.UUID, error) {
 	return uuid.Parse(chi.URLParam(r, "id"))
+}
+
+func parsePage(s string) int {
+	if s == "" {
+		return 0
+	}
+	val, err := strconv.Atoi(s)
+	if err != nil || val < 1 {
+		return 0
+	}
+	return val
+}
+
+func totalPages(total int, limit int) int {
+	if total <= 0 || limit <= 0 {
+		return 0
+	}
+	return int(math.Ceil(float64(total) / float64(limit)))
 }
 
 func handleAdminError(w http.ResponseWriter, err error) {

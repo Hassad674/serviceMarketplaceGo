@@ -460,6 +460,11 @@ func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentI
 		return err
 	}
 
+	// Create persons if business mode and none exist yet (e.g., switched from individual)
+	if info.IsBusiness && !s.stripe.HasPersons(ctx, info.StripeAccountID) {
+		s.createStripePersons(ctx, info, info.StripeAccountID, email)
+	}
+
 	slog.Info("stripe account updated", "user_id", info.UserID, "account_id", info.StripeAccountID)
 	return nil
 }

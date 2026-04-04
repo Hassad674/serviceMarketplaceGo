@@ -59,7 +59,7 @@ type AdminJobApplication struct {
 }
 
 // ListJobs returns paginated jobs for admin with author info and application counts.
-func (s *Service) ListJobs(ctx context.Context, status, search, sort, cursorStr string, limit int) ([]AdminJob, string, int, error) {
+func (s *Service) ListJobs(ctx context.Context, status, search, sort, cursorStr string, limit int, page int) ([]AdminJob, string, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -72,7 +72,8 @@ func (s *Service) ListJobs(ctx context.Context, status, search, sort, cursorStr 
 		return nil, "", 0, fmt.Errorf("list jobs: %w", err)
 	}
 
-	jobs, nextCursor, err := s.queryAdminJobs(ctx, status, search, sort, cursorStr, limit)
+	useOffset := page > 0 && cursorStr == ""
+	jobs, nextCursor, err := s.queryAdminJobs(ctx, status, search, sort, cursorStr, limit, page, useOffset)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list jobs: %w", err)
 	}
@@ -127,7 +128,7 @@ func (s *Service) DeleteJob(ctx context.Context, jobID uuid.UUID) error {
 }
 
 // ListJobApplications returns paginated job applications for admin.
-func (s *Service) ListJobApplications(ctx context.Context, jobID, search, sort, cursorStr string, limit int) ([]AdminJobApplication, string, int, error) {
+func (s *Service) ListJobApplications(ctx context.Context, jobID, search, sort, cursorStr string, limit int, page int) ([]AdminJobApplication, string, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -140,7 +141,8 @@ func (s *Service) ListJobApplications(ctx context.Context, jobID, search, sort, 
 		return nil, "", 0, fmt.Errorf("list applications: %w", err)
 	}
 
-	apps, nextCursor, err := s.queryAdminApplications(ctx, jobID, search, sort, cursorStr, limit)
+	useOffset := page > 0 && cursorStr == ""
+	apps, nextCursor, err := s.queryAdminApplications(ctx, jobID, search, sort, cursorStr, limit, page, useOffset)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list applications: %w", err)
 	}
@@ -185,8 +187,8 @@ func (s *Service) countAdminJobs(ctx context.Context, status, search string) (in
 	return total, nil
 }
 
-func (s *Service) queryAdminJobs(ctx context.Context, status, search, sort, cursorStr string, limit int) ([]AdminJob, string, error) {
-	query, args := buildAdminJobListQuery(status, search, sort, cursorStr, limit)
+func (s *Service) queryAdminJobs(ctx context.Context, status, search, sort, cursorStr string, limit int, page int, useOffset bool) ([]AdminJob, string, error) {
+	query, args := buildAdminJobListQuery(status, search, sort, cursorStr, limit, page, useOffset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -231,8 +233,8 @@ func (s *Service) countAdminApplications(ctx context.Context, jobID, search stri
 	return total, nil
 }
 
-func (s *Service) queryAdminApplications(ctx context.Context, jobID, search, sort, cursorStr string, limit int) ([]AdminJobApplication, string, error) {
-	query, args := buildAdminApplicationListQuery(jobID, search, sort, cursorStr, limit)
+func (s *Service) queryAdminApplications(ctx context.Context, jobID, search, sort, cursorStr string, limit int, page int, useOffset bool) ([]AdminJobApplication, string, error) {
+	query, args := buildAdminApplicationListQuery(jobID, search, sort, cursorStr, limit, page, useOffset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -372,7 +374,7 @@ func buildJobWhereClause(b *strings.Builder, paramIdx *int, args *[]any, status,
 	return hasWhere
 }
 
-func buildAdminJobListQuery(status, search, sort, cursorStr string, limit int) (string, []any) {
+func buildAdminJobListQuery(status, search, sort, cursorStr string, limit int, page int, useOffset bool) (string, []any) {
 	var b strings.Builder
 	args := []any{}
 	paramIdx := 1
@@ -407,7 +409,7 @@ func buildAdminJobListQuery(status, search, sort, cursorStr string, limit int) (
 		args = append(args, "%"+search+"%")
 		paramIdx++
 	}
-	if cursorStr != "" {
+	if !useOffset && cursorStr != "" {
 		c, err := cursor.Decode(cursorStr)
 		if err == nil {
 			if hasWhere {
@@ -424,6 +426,12 @@ func buildAdminJobListQuery(status, search, sort, cursorStr string, limit int) (
 	b.WriteString(adminJobOrderClause(sort))
 	fmt.Fprintf(&b, " LIMIT $%d", paramIdx)
 	args = append(args, limit+1)
+	paramIdx++
+
+	if useOffset {
+		fmt.Fprintf(&b, " OFFSET $%d", paramIdx)
+		args = append(args, (page-1)*limit)
+	}
 
 	return b.String(), args
 }
@@ -441,7 +449,7 @@ func adminJobOrderClause(sort string) string {
 	}
 }
 
-func buildAdminApplicationListQuery(jobID, search, sort, cursorStr string, limit int) (string, []any) {
+func buildAdminApplicationListQuery(jobID, search, sort, cursorStr string, limit int, page int, useOffset bool) (string, []any) {
 	var b strings.Builder
 	args := []any{}
 	paramIdx := 1
@@ -477,7 +485,7 @@ func buildAdminApplicationListQuery(jobID, search, sort, cursorStr string, limit
 		args = append(args, "%"+search+"%", "%"+search+"%")
 		paramIdx += 2
 	}
-	if cursorStr != "" {
+	if !useOffset && cursorStr != "" {
 		c, err := cursor.Decode(cursorStr)
 		if err == nil {
 			if hasWhere {
@@ -494,6 +502,12 @@ func buildAdminApplicationListQuery(jobID, search, sort, cursorStr string, limit
 	b.WriteString(adminApplicationOrderClause(sort))
 	fmt.Fprintf(&b, " LIMIT $%d", paramIdx)
 	args = append(args, limit+1)
+	paramIdx++
+
+	if useOffset {
+		fmt.Fprintf(&b, " OFFSET $%d", paramIdx)
+		args = append(args, (page-1)*limit)
+	}
 
 	return b.String(), args
 }

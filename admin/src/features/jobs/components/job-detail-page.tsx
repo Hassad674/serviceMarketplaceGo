@@ -196,30 +196,16 @@ function JobApplicationsSection({ jobId }: { jobId: string }) {
     job_id: jobId,
     search: "",
     sort: "",
-    cursor: "",
+    page: 1,
   })
-  const [cursors, setCursors] = useState<string[]>([])
   const [deleteTarget, setDeleteTarget] = useState<AdminJobApplication | null>(null)
 
   const { data, isLoading, error } = useAdminJobApplications(filters)
   const deleteMutation = useDeleteJobApplication()
 
   const applications = data?.data ?? []
-  const hasMore = data?.has_more ?? false
   const total = data?.total ?? 0
-
-  function handleNextPage() {
-    if (data?.next_cursor) {
-      setCursors((prev) => [...prev, filters.cursor])
-      setFilters((prev) => ({ ...prev, cursor: data.next_cursor }))
-    }
-  }
-
-  function handlePreviousPage() {
-    const prev = cursors[cursors.length - 1] ?? ""
-    setCursors((c) => c.slice(0, -1))
-    setFilters((f) => ({ ...f, cursor: prev }))
-  }
+  const totalPages = data?.total_pages ?? 0
 
   return (
     <Card>
@@ -249,11 +235,10 @@ function JobApplicationsSection({ jobId }: { jobId: string }) {
           <>
             <DataTable columns={applicationsColumns} data={applications} />
             <DataTablePagination
-              hasMore={hasMore}
-              onNextPage={handleNextPage}
-              onPreviousPage={handlePreviousPage}
-              hasPreviousPage={cursors.length > 0}
+              currentPage={filters.page}
+              totalPages={totalPages}
               totalCount={total}
+              onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
             />
           </>
         )}

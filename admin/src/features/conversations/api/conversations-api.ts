@@ -6,14 +6,14 @@ import type {
 } from "../types"
 
 type ListConversationsParams = {
-  cursor?: string
+  page?: number
   sort?: string
   filter?: string
 }
 
 export function listConversations(params: ListConversationsParams): Promise<ConversationListResponse> {
   const qs = new URLSearchParams()
-  if (params.cursor) qs.set("cursor", params.cursor)
+  if (params.page && params.page > 0) qs.set("page", String(params.page))
   if (params.sort) qs.set("sort", params.sort)
   if (params.filter) qs.set("filter", params.filter)
   qs.set("limit", "20")

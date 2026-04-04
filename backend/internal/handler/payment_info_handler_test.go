@@ -167,6 +167,7 @@ func (m *mockStripeService) CreatePerson(_ context.Context, _ string, _ service.
 func (m *mockStripeService) UpdateCompanyFlags(_ context.Context, _ string, _, _, _ bool) error {
 	return nil
 }
+func (m *mockStripeService) HasPersons(_ context.Context, _ string) bool { return false }
 
 var _ repository.PaymentInfoRepository = (*mockPaymentInfoRepo)(nil)
 var _ repository.PaymentRecordRepository = (*mockPaymentRecordRepo)(nil)

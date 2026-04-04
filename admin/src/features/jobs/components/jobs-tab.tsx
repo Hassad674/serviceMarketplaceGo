@@ -30,30 +30,16 @@ export function JobsTab() {
     status: "",
     search: "",
     sort: "",
-    cursor: "",
+    page: 1,
   })
-  const [cursors, setCursors] = useState<string[]>([])
   const [deleteTarget, setDeleteTarget] = useState<AdminJob | null>(null)
 
   const { data, isLoading, error } = useAdminJobs(filters)
   const deleteMutation = useDeleteJob()
 
   const jobs = data?.data ?? []
-  const hasMore = data?.has_more ?? false
   const total = data?.total ?? 0
-
-  function handleNextPage() {
-    if (data?.next_cursor) {
-      setCursors((prev) => [...prev, filters.cursor])
-      setFilters((prev) => ({ ...prev, cursor: data.next_cursor }))
-    }
-  }
-
-  function handlePreviousPage() {
-    const prev = cursors[cursors.length - 1] ?? ""
-    setCursors((c) => c.slice(0, -1))
-    setFilters((f) => ({ ...f, cursor: prev }))
-  }
+  const totalPages = data?.total_pages ?? 0
 
   function handleRowClick(job: AdminJob) {
     navigate(`/jobs/${job.id}`)
@@ -63,21 +49,21 @@ export function JobsTab() {
     <div className="space-y-4">
       <DataTableToolbar
         searchValue={filters.search}
-        onSearchChange={(search) => setFilters((f) => ({ ...f, search, cursor: "" }))}
+        onSearchChange={(search) => setFilters((f) => ({ ...f, search, page: 1 }))}
         searchPlaceholder="Rechercher par titre..."
       >
         <Select
           options={statusOptions}
           placeholder="Tous les statuts"
           value={filters.status}
-          onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value, cursor: "" }))}
+          onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value, page: 1 }))}
           className="w-36"
         />
         <Select
           options={sortOptions}
           placeholder="Tri"
           value={filters.sort}
-          onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value, cursor: "" }))}
+          onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value, page: 1 }))}
           className="w-36"
         />
       </DataTableToolbar>
@@ -102,11 +88,10 @@ export function JobsTab() {
         <>
           <DataTable columns={jobsColumns} data={jobs} onRowClick={handleRowClick} />
           <DataTablePagination
-            hasMore={hasMore}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            hasPreviousPage={cursors.length > 0}
+            currentPage={filters.page}
+            totalPages={totalPages}
             totalCount={total}
+            onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
           />
         </>
       )}

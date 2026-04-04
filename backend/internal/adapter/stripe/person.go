@@ -84,6 +84,16 @@ func (s *Service) CreatePerson(ctx context.Context, accountID string, input port
 	return p.ID, nil
 }
 
+// HasPersons returns true if the Stripe account already has at least one person.
+func (s *Service) HasPersons(ctx context.Context, accountID string) bool {
+	params := &stripe.PersonListParams{
+		Account: stripe.String(accountID),
+	}
+	params.Filters.AddFilter("limit", "", "1")
+	iter := stripeperson.List(params)
+	return iter.Next()
+}
+
 func (s *Service) UpdateCompanyFlags(ctx context.Context, accountID string, directorsProvided, executivesProvided, ownersProvided bool) error {
 	// Must use account token for FR platforms
 	tokenParams := &stripe.TokenParams{
