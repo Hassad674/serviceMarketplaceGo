@@ -303,9 +303,9 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
               const SizedBox(height: 12),
             ],
 
-            // Save button
+            // Save button — disabled when no changes
             PaymentInfoSaveButton(
-              isValid: valid,
+              isValid: valid && !_saved,
               isSaving: _saving,
               onSave: () => _save(allSections, userEmail),
             ),
