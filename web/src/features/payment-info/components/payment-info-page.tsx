@@ -212,11 +212,11 @@ export function PaymentInfoPage() {
       {/* Save button */}
       <button
         type="button"
-        disabled={!valid || saveMutation.isPending}
+        disabled={!valid || saveMutation.isPending || saved}
         onClick={handleSave}
         className={cn(
           "w-full rounded-xl px-6 py-3 text-sm font-semibold text-white transition-all duration-200 sm:w-auto",
-          valid && !saveMutation.isPending
+          valid && !saveMutation.isPending && !saved
             ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
             : "cursor-not-allowed bg-gray-300 dark:bg-gray-700",
         )}
@@ -423,9 +423,11 @@ function buildRequirementErrors(
   }
 
   const formFieldKeys = new Set<string>()
+  const docUploadKeys: string[] = []
   for (const section of formSections) {
     for (const field of section.fields) {
       formFieldKeys.add(field.key)
+      if (field.type === "document_upload") docUploadKeys.push(field.key)
     }
   }
 
@@ -439,7 +441,14 @@ function buildRequirementErrors(
       if (formFieldKeys.has(field.key)) {
         fieldErrors[field.key] = errorMsg
       } else {
-        extraFields.push(field)
+        // Match document requirements to document_upload fields
+        // e.g., "individual.verification.document.front" → "individual.verification.document"
+        const matchedDoc = docUploadKeys.find((dk) => field.key.startsWith(dk))
+        if (matchedDoc) {
+          fieldErrors[matchedDoc] = errorMsg
+        } else {
+          extraFields.push(field)
+        }
         fieldErrors[field.key] = errorMsg
       }
     }
