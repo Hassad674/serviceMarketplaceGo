@@ -148,13 +148,10 @@ export function PaymentInfoPage() {
       {/* Stripe requirements */}
       {saved && existing?.stripe_account_id && <StripeRequirementsBanner />}
 
-      {/* Activity sector — always first (not from country_specs) */}
+      {/* Activity sector — always visible (not from country_specs) */}
       <ActivitySectorSelect
         value={data.values["activity_sector"] ?? data.activitySector}
         onChange={(v) => handleValueChange("activity_sector", v)}
-        isBusiness={data.isBusiness}
-        businessRole={data.values["business_role"] ?? ""}
-        onBusinessRoleChange={(v) => handleValueChange("business_role", v)}
       />
 
       {/* Dynamic entity sections */}
