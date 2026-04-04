@@ -79,7 +79,11 @@ export function PaymentInfoPage() {
       setData((prev) => ({
         ...prev,
         country: detected,
-        values: { ...prev.values, "individual.email": userEmail },
+        values: {
+          ...prev.values,
+          "individual.email": userEmail,
+          "individual.nationality": detected,
+        },
       }))
     }
     setInitialized(true)
@@ -460,7 +464,7 @@ function buildRequirementErrors(
   return { fieldErrors, extraSections }
 }
 
-/** Mark document_upload fields as "uploaded" when matching documents exist. */
+/** Mark document_upload fields as "uploaded" when a matching document exists. */
 function buildDocumentValues(
   sections: FieldSection[],
   docs: { category: string; document_type: string }[],
@@ -470,11 +474,24 @@ function buildDocumentValues(
   for (const section of sections) {
     for (const field of section.fields) {
       if (field.type !== "document_upload") continue
-      // Any uploaded doc means this field is satisfied
-      if (docs.length > 0) vals[field.key] = "uploaded"
+      // Match by category + document_type derived from the field path
+      const category = field.path.startsWith("company") || field.path.startsWith("documents")
+        ? "company" : "identity"
+      const docType = deriveDocType(field.path)
+      const hasMatch = docs.some((d) => d.category === category && d.document_type === docType)
+      if (hasMatch) vals[field.key] = "uploaded"
     }
   }
   return vals
+}
+
+function deriveDocType(path: string): string {
+  if (path.includes("proof_of_liveness")) return "proof_of_liveness"
+  if (path.includes("additional_document")) return "additional_document"
+  if (path.includes("company_authorization")) return "company_authorization"
+  if (path.includes("passport")) return "passport"
+  if (path.includes("bank_account_ownership")) return "bank_account_ownership"
+  return "document"
 }
 
 /** Convert path-keyed values back to the flat save format. */
