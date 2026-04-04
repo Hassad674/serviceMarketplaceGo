@@ -114,12 +114,7 @@ export function PaymentInfoPage() {
   )
 
   const handleSave = useCallback(() => {
-    // Include auto-filled values in save payload
-    const dataWithAutoFill = {
-      ...data,
-      values: { ...data.values, "individual.email": user?.email ?? "" },
-    }
-    const merged = valuesToFlatData(dataWithAutoFill, countryFields?.sections)
+    const merged = valuesToFlatData(data, countryFields?.sections)
     saveMutation.mutate({ data: merged, email: user?.email }, {
       onSuccess: (response) => {
         setSaved(true)
