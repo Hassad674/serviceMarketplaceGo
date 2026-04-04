@@ -33,7 +33,8 @@ type AdminJob struct {
 	IsIndefinite     bool
 	DescriptionType  string
 	VideoURL         *string
-	ApplicationCount int
+	ApplicationCount   int
+	PendingReportCount int
 
 	AuthorDisplayName string
 	AuthorEmail       string
@@ -54,8 +55,9 @@ type AdminJobApplication struct {
 	CandidateEmail       string
 	CandidateRole        string
 
-	JobTitle  string
-	JobStatus string
+	JobTitle           string
+	JobStatus          string
+	PendingReportCount int
 }
 
 // ListJobs returns paginated jobs for admin with author info and application counts.

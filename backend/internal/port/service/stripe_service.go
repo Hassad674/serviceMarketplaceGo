@@ -52,6 +52,9 @@ type StripeService interface {
 	// HasPersons checks if the connected account has at least one person.
 	HasPersons(ctx context.Context, accountID string) bool
 
+	// UpdateRepresentativePerson updates the representative person's data.
+	UpdateRepresentativePerson(ctx context.Context, accountID string, input CreatePersonInput) error
+
 	// UpdateConnectedAccount updates an existing Stripe connected account with new data.
 	UpdateConnectedAccount(ctx context.Context, accountID string, info *payment.PaymentInfo, tosIP string, email string) error
 

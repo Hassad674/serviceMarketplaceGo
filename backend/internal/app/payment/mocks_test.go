@@ -187,6 +187,9 @@ func (m *mockStripeService) ListAllCountrySpecs(_ context.Context) ([]*domain.Co
 }
 
 func (m *mockStripeService) HasPersons(_ context.Context, _ string) bool { return false }
+func (m *mockStripeService) UpdateRepresentativePerson(_ context.Context, _ string, _ portservice.CreatePersonInput) error {
+	return nil
+}
 
 func (m *mockStripeService) UpdateConnectedAccount(_ context.Context, _ string, _ *domain.PaymentInfo, _, _ string) error {
 	return nil
