@@ -316,6 +316,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Job admin endpoints
 				r.Get("/jobs", deps.Admin.ListJobs)
 				r.Get("/jobs/{id}", deps.Admin.GetAdminJob)
+				r.Get("/jobs/{id}/reports", deps.Admin.ListJobReports)
 				r.Delete("/jobs/{id}", deps.Admin.DeleteAdminJob)
 				r.Get("/job-applications", deps.Admin.ListJobApplications)
 				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)

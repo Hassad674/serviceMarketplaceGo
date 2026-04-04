@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
-import { ArrowLeft, Trash2, FileText } from "lucide-react"
+import { ArrowLeft, Trash2, FileText, Flag } from "lucide-react"
 import { PageHeader } from "@/shared/components/layouts/page-header"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
@@ -12,8 +12,11 @@ import { DataTablePagination } from "@/shared/components/data-table/data-table-p
 import { EmptyState } from "@/shared/components/ui/empty-state"
 import { TableSkeleton } from "@/shared/components/ui/skeleton"
 import { Dialog, DialogTitle, DialogDescription, DialogFooter } from "@/shared/components/ui/dialog"
+import { ReportList } from "@/shared/components/ui/report-list"
+import { ResolveReportDialog } from "@/shared/components/ui/resolve-report-dialog"
 import { formatDate, formatCurrency } from "@/shared/lib/utils"
 import { useAdminJob, useDeleteJob, useAdminJobApplications, useDeleteJobApplication } from "../hooks/use-jobs"
+import { useJobReports, useResolveReport } from "@/shared/hooks/use-reports"
 import { applicationsColumns } from "./applications-columns"
 import type { ApplicationFilters, AdminJobApplication } from "../types"
 
@@ -62,6 +65,8 @@ export function JobDetailPage() {
       </div>
 
       <JobApplicationsSection jobId={id!} />
+
+      <JobReportsSection jobId={id!} />
 
       <Dialog open={showDeleteDialog} onClose={() => setShowDeleteDialog(false)}>
         <DialogTitle>Supprimer l&apos;offre</DialogTitle>
@@ -196,6 +201,7 @@ function JobApplicationsSection({ jobId }: { jobId: string }) {
     job_id: jobId,
     search: "",
     sort: "",
+    filter: "",
     page: 1,
   })
   const [deleteTarget, setDeleteTarget] = useState<AdminJobApplication | null>(null)
@@ -265,6 +271,68 @@ function JobApplicationsSection({ jobId }: { jobId: string }) {
             </Button>
           </DialogFooter>
         </Dialog>
+      </CardContent>
+    </Card>
+  )
+}
+
+function JobReportsSection({ jobId }: { jobId: string }) {
+  const { data, isLoading } = useJobReports(jobId)
+  const resolveMutation = useResolveReport()
+  const [resolveTarget, setResolveTarget] = useState<{
+    id: string
+    defaultStatus: "resolved" | "dismissed"
+  } | null>(null)
+
+  const reports = data?.data ?? []
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="space-y-3 pt-6">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-4 pt-6">
+        <div className="flex items-center gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <Flag className="h-4 w-4" />
+            Signalements
+          </h3>
+          {reports.length > 0 && (
+            <Badge variant="destructive">{reports.length}</Badge>
+          )}
+        </div>
+        <ReportList
+          reports={reports}
+          onResolve={(reportId) =>
+            setResolveTarget({ id: reportId, defaultStatus: "resolved" })
+          }
+          onDismiss={(reportId) =>
+            setResolveTarget({ id: reportId, defaultStatus: "dismissed" })
+          }
+          isResolving={resolveMutation.isPending}
+        />
+        {resolveTarget && (
+          <ResolveReportDialog
+            open={!!resolveTarget}
+            onClose={() => setResolveTarget(null)}
+            onConfirm={(status, adminNote) => {
+              resolveMutation.mutate(
+                { reportId: resolveTarget.id, status, adminNote },
+                { onSuccess: () => setResolveTarget(null) },
+              )
+            }}
+            isPending={resolveMutation.isPending}
+            defaultStatus={resolveTarget.defaultStatus}
+          />
+        )}
       </CardContent>
     </Card>
   )

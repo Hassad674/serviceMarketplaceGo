@@ -1,4 +1,4 @@
-import { Calendar, CheckCircle, XCircle, MessageSquare, User, ExternalLink } from "lucide-react"
+import { Calendar, CheckCircle, XCircle, MessageSquare, User, ExternalLink, Briefcase, FileText } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "./badge"
 import { Button } from "./button"
@@ -8,10 +8,12 @@ import type { AdminReport } from "@/shared/types/report"
 const REASON_LABELS: Record<string, string> = {
   harassment: "Harcelement",
   fraud: "Fraude",
+  fraud_or_scam: "Fraude / Arnaque",
   spam: "Spam",
   inappropriate_content: "Contenu inapproprie",
   fake_profile: "Faux profil",
   unprofessional_behavior: "Comportement non professionnel",
+  misleading_description: "Description trompeuse",
   other: "Autre",
 }
 
@@ -112,24 +114,44 @@ export function ReportCard({ report, onResolve, onDismiss, isResolving }: Report
 }
 
 function ReportTypeBadge({ targetType }: { targetType: string }) {
-  if (targetType === "message") {
-    return (
-      <Badge variant="outline">
-        <span className="flex items-center gap-1">
-          <MessageSquare className="h-3 w-3" />
-          Message signale
-        </span>
-      </Badge>
-    )
+  switch (targetType) {
+    case "message":
+      return (
+        <Badge variant="outline">
+          <span className="flex items-center gap-1">
+            <MessageSquare className="h-3 w-3" />
+            Message signale
+          </span>
+        </Badge>
+      )
+    case "job":
+      return (
+        <Badge variant="outline">
+          <span className="flex items-center gap-1">
+            <Briefcase className="h-3 w-3" />
+            Offre signalee
+          </span>
+        </Badge>
+      )
+    case "job_application":
+      return (
+        <Badge variant="outline">
+          <span className="flex items-center gap-1">
+            <FileText className="h-3 w-3" />
+            Candidature signalee
+          </span>
+        </Badge>
+      )
+    default:
+      return (
+        <Badge variant="outline">
+          <span className="flex items-center gap-1">
+            <User className="h-3 w-3" />
+            Profil signale
+          </span>
+        </Badge>
+      )
   }
-  return (
-    <Badge variant="outline">
-      <span className="flex items-center gap-1">
-        <User className="h-3 w-3" />
-        Profil signale
-      </span>
-    </Badge>
-  )
 }
 
 function ResolvedInfo({ note, resolvedAt }: { note: string; resolvedAt?: string }) {

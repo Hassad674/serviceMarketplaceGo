@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 
+	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/pkg/cursor"
 )
 
@@ -61,7 +62,7 @@ type AdminJobApplication struct {
 }
 
 // ListJobs returns paginated jobs for admin with author info and application counts.
-func (s *Service) ListJobs(ctx context.Context, status, search, sort, cursorStr string, limit int, page int) ([]AdminJob, string, int, error) {
+func (s *Service) ListJobs(ctx context.Context, status, search, sort, filter, cursorStr string, limit int, page int) ([]AdminJob, string, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -69,15 +70,23 @@ func (s *Service) ListJobs(ctx context.Context, status, search, sort, cursorStr 
 		limit = 20
 	}
 
-	total, err := s.countAdminJobs(ctx, status, search)
+	total, err := s.countAdminJobs(ctx, status, search, filter)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list jobs: %w", err)
 	}
 
 	useOffset := page > 0 && cursorStr == ""
-	jobs, nextCursor, err := s.queryAdminJobs(ctx, status, search, sort, cursorStr, limit, page, useOffset)
+	jobs, nextCursor, err := s.queryAdminJobs(ctx, status, search, sort, filter, cursorStr, limit, page, useOffset)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list jobs: %w", err)
+	}
+
+	reportCounts, err := s.loadJobPendingReportCounts(ctx, jobs)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("list jobs: %w", err)
+	}
+	for i := range jobs {
+		jobs[i].PendingReportCount = reportCounts[jobs[i].ID]
 	}
 
 	return jobs, nextCursor, total, nil
@@ -130,7 +139,7 @@ func (s *Service) DeleteJob(ctx context.Context, jobID uuid.UUID) error {
 }
 
 // ListJobApplications returns paginated job applications for admin.
-func (s *Service) ListJobApplications(ctx context.Context, jobID, search, sort, cursorStr string, limit int, page int) ([]AdminJobApplication, string, int, error) {
+func (s *Service) ListJobApplications(ctx context.Context, jobID, search, sort, filter, cursorStr string, limit int, page int) ([]AdminJobApplication, string, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -138,15 +147,23 @@ func (s *Service) ListJobApplications(ctx context.Context, jobID, search, sort, 
 		limit = 20
 	}
 
-	total, err := s.countAdminApplications(ctx, jobID, search)
+	total, err := s.countAdminApplications(ctx, jobID, search, filter)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list applications: %w", err)
 	}
 
 	useOffset := page > 0 && cursorStr == ""
-	apps, nextCursor, err := s.queryAdminApplications(ctx, jobID, search, sort, cursorStr, limit, page, useOffset)
+	apps, nextCursor, err := s.queryAdminApplications(ctx, jobID, search, sort, filter, cursorStr, limit, page, useOffset)
 	if err != nil {
 		return nil, "", 0, fmt.Errorf("list applications: %w", err)
+	}
+
+	reportCounts, err := s.loadApplicationPendingReportCounts(ctx, apps)
+	if err != nil {
+		return nil, "", 0, fmt.Errorf("list applications: %w", err)
+	}
+	for i := range apps {
+		apps[i].PendingReportCount = reportCounts[apps[i].ID]
 	}
 
 	return apps, nextCursor, total, nil
@@ -171,15 +188,20 @@ func (s *Service) DeleteJobApplication(ctx context.Context, applicationID uuid.U
 	return nil
 }
 
-func (s *Service) countAdminJobs(ctx context.Context, status, search string) (int, error) {
+func (s *Service) countAdminJobs(ctx context.Context, status, search, filter string) (int, error) {
 	var b strings.Builder
 	args := []any{}
 	paramIdx := 1
 
 	b.WriteString("SELECT COUNT(*) FROM jobs")
-	where := buildJobWhereClause(&b, &paramIdx, &args, status, search)
-	if where {
-		// where clause already built
+	hasWhere := buildJobWhereClause(&b, &paramIdx, &args, status, search)
+	if filter == "reported" {
+		if hasWhere {
+			b.WriteString(" AND")
+		} else {
+			b.WriteString(" WHERE")
+		}
+		b.WriteString(` EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'job' AND r.target_id = jobs.id AND r.status = 'pending')`)
 	}
 
 	var total int
@@ -189,8 +211,8 @@ func (s *Service) countAdminJobs(ctx context.Context, status, search string) (in
 	return total, nil
 }
 
-func (s *Service) queryAdminJobs(ctx context.Context, status, search, sort, cursorStr string, limit int, page int, useOffset bool) ([]AdminJob, string, error) {
-	query, args := buildAdminJobListQuery(status, search, sort, cursorStr, limit, page, useOffset)
+func (s *Service) queryAdminJobs(ctx context.Context, status, search, sort, filter, cursorStr string, limit int, page int, useOffset bool) ([]AdminJob, string, error) {
+	query, args := buildAdminJobListQuery(status, search, sort, filter, cursorStr, limit, page, useOffset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -201,7 +223,7 @@ func (s *Service) queryAdminJobs(ctx context.Context, status, search, sort, curs
 	return scanAdminJobs(rows, limit)
 }
 
-func (s *Service) countAdminApplications(ctx context.Context, jobID, search string) (int, error) {
+func (s *Service) countAdminApplications(ctx context.Context, jobID, search, filter string) (int, error) {
 	var b strings.Builder
 	args := []any{}
 	paramIdx := 1
@@ -223,9 +245,19 @@ func (s *Service) countAdminApplications(ctx context.Context, jobID, search stri
 			b.WriteString(" AND")
 		} else {
 			b.WriteString(" WHERE")
+			hasWhere = true
 		}
 		fmt.Fprintf(&b, " (COALESCE(u.display_name, u.first_name || ' ' || u.last_name) ILIKE $%d OR u.email ILIKE $%d)", paramIdx, paramIdx+1)
 		args = append(args, "%"+search+"%", "%"+search+"%")
+		paramIdx += 2
+	}
+	if filter == "reported" {
+		if hasWhere {
+			b.WriteString(" AND")
+		} else {
+			b.WriteString(" WHERE")
+		}
+		b.WriteString(` EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'job_application' AND r.target_id = ja.id AND r.status = 'pending')`)
 	}
 
 	var total int
@@ -235,8 +267,8 @@ func (s *Service) countAdminApplications(ctx context.Context, jobID, search stri
 	return total, nil
 }
 
-func (s *Service) queryAdminApplications(ctx context.Context, jobID, search, sort, cursorStr string, limit int, page int, useOffset bool) ([]AdminJobApplication, string, error) {
-	query, args := buildAdminApplicationListQuery(jobID, search, sort, cursorStr, limit, page, useOffset)
+func (s *Service) queryAdminApplications(ctx context.Context, jobID, search, sort, filter, cursorStr string, limit int, page int, useOffset bool) ([]AdminJobApplication, string, error) {
+	query, args := buildAdminApplicationListQuery(jobID, search, sort, filter, cursorStr, limit, page, useOffset)
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -376,7 +408,7 @@ func buildJobWhereClause(b *strings.Builder, paramIdx *int, args *[]any, status,
 	return hasWhere
 }
 
-func buildAdminJobListQuery(status, search, sort, cursorStr string, limit int, page int, useOffset bool) (string, []any) {
+func buildAdminJobListQuery(status, search, sort, filter, cursorStr string, limit int, page int, useOffset bool) (string, []any) {
 	var b strings.Builder
 	args := []any{}
 	paramIdx := 1
@@ -410,6 +442,15 @@ func buildAdminJobListQuery(status, search, sort, cursorStr string, limit int, p
 		fmt.Fprintf(&b, " j.title ILIKE $%d", paramIdx)
 		args = append(args, "%"+search+"%")
 		paramIdx++
+	}
+	if filter == "reported" {
+		if hasWhere {
+			b.WriteString(" AND")
+		} else {
+			b.WriteString(" WHERE")
+			hasWhere = true
+		}
+		b.WriteString(` EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'job' AND r.target_id = j.id AND r.status = 'pending')`)
 	}
 	if !useOffset && cursorStr != "" {
 		c, err := cursor.Decode(cursorStr)
@@ -451,7 +492,7 @@ func adminJobOrderClause(sort string) string {
 	}
 }
 
-func buildAdminApplicationListQuery(jobID, search, sort, cursorStr string, limit int, page int, useOffset bool) (string, []any) {
+func buildAdminApplicationListQuery(jobID, search, sort, filter, cursorStr string, limit int, page int, useOffset bool) (string, []any) {
 	var b strings.Builder
 	args := []any{}
 	paramIdx := 1
@@ -486,6 +527,15 @@ func buildAdminApplicationListQuery(jobID, search, sort, cursorStr string, limit
 		fmt.Fprintf(&b, " (COALESCE(u.display_name, u.first_name || ' ' || u.last_name) ILIKE $%d OR u.email ILIKE $%d)", paramIdx, paramIdx+1)
 		args = append(args, "%"+search+"%", "%"+search+"%")
 		paramIdx += 2
+	}
+	if filter == "reported" {
+		if hasWhere {
+			b.WriteString(" AND")
+		} else {
+			b.WriteString(" WHERE")
+			hasWhere = true
+		}
+		b.WriteString(` EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'job_application' AND r.target_id = ja.id AND r.status = 'pending')`)
 	}
 	if !useOffset && cursorStr != "" {
 		c, err := cursor.Decode(cursorStr)
@@ -522,6 +572,89 @@ func adminApplicationOrderClause(sort string) string {
 		return " ORDER BY ja.created_at DESC, ja.id DESC"
 	}
 }
+
+func (s *Service) loadJobPendingReportCounts(ctx context.Context, jobs []AdminJob) (map[uuid.UUID]int, error) {
+	counts := make(map[uuid.UUID]int, len(jobs))
+	if len(jobs) == 0 {
+		return counts, nil
+	}
+
+	ids := make([]uuid.UUID, len(jobs))
+	for i, j := range jobs {
+		ids[i] = j.ID
+	}
+
+	rows, err := s.db.QueryContext(ctx, queryAdminJobPendingReportCounts, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("load job pending report counts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var targetID uuid.UUID
+		var count int
+		if err := rows.Scan(&targetID, &count); err != nil {
+			return nil, fmt.Errorf("scan job report count: %w", err)
+		}
+		counts[targetID] = count
+	}
+
+	return counts, nil
+}
+
+func (s *Service) loadApplicationPendingReportCounts(ctx context.Context, apps []AdminJobApplication) (map[uuid.UUID]int, error) {
+	counts := make(map[uuid.UUID]int, len(apps))
+	if len(apps) == 0 {
+		return counts, nil
+	}
+
+	ids := make([]uuid.UUID, len(apps))
+	for i, a := range apps {
+		ids[i] = a.ID
+	}
+
+	rows, err := s.db.QueryContext(ctx, queryAdminApplicationPendingReportCounts, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("load application pending report counts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var targetID uuid.UUID
+		var count int
+		if err := rows.Scan(&targetID, &count); err != nil {
+			return nil, fmt.Errorf("scan application report count: %w", err)
+		}
+		counts[targetID] = count
+	}
+
+	return counts, nil
+}
+
+// ListJobReports returns all reports targeting a specific job.
+func (s *Service) ListJobReports(ctx context.Context, jobID uuid.UUID) ([]*report.Report, error) {
+	reports, err := s.reports.ListByTarget(ctx, string(report.TargetJob), jobID)
+	if err != nil {
+		return nil, fmt.Errorf("list job reports: %w", err)
+	}
+	return reports, nil
+}
+
+const queryAdminJobPendingReportCounts = `
+	SELECT r.target_id, COUNT(*)
+	FROM reports r
+	WHERE r.target_type = 'job'
+		AND r.status = 'pending'
+		AND r.target_id = ANY($1)
+	GROUP BY r.target_id`
+
+const queryAdminApplicationPendingReportCounts = `
+	SELECT r.target_id, COUNT(*)
+	FROM reports r
+	WHERE r.target_type = 'job_application'
+		AND r.status = 'pending'
+		AND r.target_id = ANY($1)
+	GROUP BY r.target_id`
 
 const queryAdminGetJob = `
 	SELECT

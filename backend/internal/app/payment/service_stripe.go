@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -477,7 +478,7 @@ func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentI
 				PostalCode: info.PostalCode,
 				Country:   info.Country,
 				State:     getExtra(info.ExtraFields, "representative.address.state", "state"),
-				Title:     firstNonEmpty(info.RoleInCompany, getExtra(info.ExtraFields, "representative.title", "relationship.title", "person.relationship.title")),
+				Title:     firstNonEmpty(info.RoleInCompany, getExtraSuffix(info.ExtraFields, "relationship.title")),
 			}
 			if err := s.stripe.UpdateRepresentativePerson(ctx, info.StripeAccountID, repInput); err != nil {
 				slog.Warn("failed to update representative person", "error", err)
@@ -530,6 +531,16 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+// getExtraSuffix finds the first extra_fields value whose key ends with the given suffix.
+func getExtraSuffix(extra map[string]string, suffix string) string {
+	for k, v := range extra {
+		if strings.HasSuffix(k, suffix) && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // getExtra looks up a value in extra_fields by multiple possible keys.
 func getExtra(extra map[string]string, keys ...string) string {
 	for _, k := range keys {
@@ -554,7 +565,7 @@ func (s *Service) createStripePersons(ctx context.Context, info *domain.PaymentI
 		PostalCode:       info.PostalCode,
 		State:            getExtra(info.ExtraFields, "representative.address.state", "state"),
 		Country:          info.Country,
-		Title:            firstNonEmpty(info.RoleInCompany, getExtra(info.ExtraFields, "representative.title", "relationship.title", "person.relationship.title")),
+		Title:            firstNonEmpty(info.RoleInCompany, getExtraSuffix(info.ExtraFields, "relationship.title")),
 		IDNumber:         getExtra(info.ExtraFields, "representative.id_number", "individual.id_number", "id_number"),
 		SSNLast4:         getExtra(info.ExtraFields, "representative.ssn_last_4", "individual.ssn_last_4", "ssn_last_4"),
 		IsRepresentative: true,

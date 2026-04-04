@@ -24,6 +24,7 @@ export type AdminJob = {
   description_type: string
   video_url?: string
   application_count: number
+  pending_report_count: number
   author: AdminJobAuthor
 }
 
@@ -46,6 +47,7 @@ export type AdminJobApplication = {
   video_url?: string
   created_at: string
   updated_at: string
+  pending_report_count: number
   candidate: AdminJobApplicationCandidate
   job: AdminJobApplicationJob
 }
@@ -76,6 +78,7 @@ export type JobFilters = {
   status: string
   search: string
   sort: string
+  filter: string
   page: number
 }
 
@@ -83,5 +86,6 @@ export type ApplicationFilters = {
   job_id: string
   search: string
   sort: string
+  filter: string
   page: number
 }

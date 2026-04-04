@@ -8,25 +8,26 @@ import (
 
 // AdminJobResponse is the JSON response for admin job listing/detail.
 type AdminJobResponse struct {
-	ID               string        `json:"id"`
-	Title            string        `json:"title"`
-	Description      string        `json:"description"`
-	Skills           []string      `json:"skills"`
-	ApplicantType    string        `json:"applicant_type"`
-	BudgetType       string        `json:"budget_type"`
-	MinBudget        int           `json:"min_budget"`
-	MaxBudget        int           `json:"max_budget"`
-	Status           string        `json:"status"`
-	CreatedAt        string        `json:"created_at"`
-	UpdatedAt        string        `json:"updated_at"`
-	ClosedAt         *string       `json:"closed_at,omitempty"`
-	PaymentFrequency *string       `json:"payment_frequency,omitempty"`
-	DurationWeeks    *int          `json:"duration_weeks,omitempty"`
-	IsIndefinite     bool          `json:"is_indefinite"`
-	DescriptionType  string        `json:"description_type"`
-	VideoURL         *string       `json:"video_url,omitempty"`
-	ApplicationCount int           `json:"application_count"`
-	Author           AdminJobAuthor `json:"author"`
+	ID                 string         `json:"id"`
+	Title              string         `json:"title"`
+	Description        string         `json:"description"`
+	Skills             []string       `json:"skills"`
+	ApplicantType      string         `json:"applicant_type"`
+	BudgetType         string         `json:"budget_type"`
+	MinBudget          int            `json:"min_budget"`
+	MaxBudget          int            `json:"max_budget"`
+	Status             string         `json:"status"`
+	CreatedAt          string         `json:"created_at"`
+	UpdatedAt          string         `json:"updated_at"`
+	ClosedAt           *string        `json:"closed_at,omitempty"`
+	PaymentFrequency   *string        `json:"payment_frequency,omitempty"`
+	DurationWeeks      *int           `json:"duration_weeks,omitempty"`
+	IsIndefinite       bool           `json:"is_indefinite"`
+	DescriptionType    string         `json:"description_type"`
+	VideoURL           *string        `json:"video_url,omitempty"`
+	ApplicationCount   int            `json:"application_count"`
+	PendingReportCount int            `json:"pending_report_count"`
+	Author             AdminJobAuthor `json:"author"`
 }
 
 // AdminJobAuthor is the author info embedded in an admin job response.
@@ -45,23 +46,24 @@ func NewAdminJobResponse(j adminapp.AdminJob) AdminJobResponse {
 	}
 
 	resp := AdminJobResponse{
-		ID:               j.ID.String(),
-		Title:            j.Title,
-		Description:      j.Description,
-		Skills:           skills,
-		ApplicantType:    j.ApplicantType,
-		BudgetType:       j.BudgetType,
-		MinBudget:        j.MinBudget,
-		MaxBudget:        j.MaxBudget,
-		Status:           j.Status,
-		CreatedAt:        j.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        j.UpdatedAt.Format(time.RFC3339),
-		PaymentFrequency: j.PaymentFrequency,
-		DurationWeeks:    j.DurationWeeks,
-		IsIndefinite:     j.IsIndefinite,
-		DescriptionType:  j.DescriptionType,
-		VideoURL:         j.VideoURL,
-		ApplicationCount: j.ApplicationCount,
+		ID:                 j.ID.String(),
+		Title:              j.Title,
+		Description:        j.Description,
+		Skills:             skills,
+		ApplicantType:      j.ApplicantType,
+		BudgetType:         j.BudgetType,
+		MinBudget:          j.MinBudget,
+		MaxBudget:          j.MaxBudget,
+		Status:             j.Status,
+		CreatedAt:          j.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          j.UpdatedAt.Format(time.RFC3339),
+		PaymentFrequency:   j.PaymentFrequency,
+		DurationWeeks:      j.DurationWeeks,
+		IsIndefinite:       j.IsIndefinite,
+		DescriptionType:    j.DescriptionType,
+		VideoURL:           j.VideoURL,
+		ApplicationCount:   j.ApplicationCount,
+		PendingReportCount: j.PendingReportCount,
 		Author: AdminJobAuthor{
 			ID:          j.CreatorID.String(),
 			DisplayName: j.AuthorDisplayName,
@@ -80,13 +82,14 @@ func NewAdminJobResponse(j adminapp.AdminJob) AdminJobResponse {
 
 // AdminJobApplicationResponse is the JSON response for admin job application listing.
 type AdminJobApplicationResponse struct {
-	ID        string                      `json:"id"`
-	Message   string                      `json:"message"`
-	VideoURL  *string                     `json:"video_url,omitempty"`
-	CreatedAt string                      `json:"created_at"`
-	UpdatedAt string                      `json:"updated_at"`
-	Candidate AdminJobApplicationCandidate `json:"candidate"`
-	Job       AdminJobApplicationJob       `json:"job"`
+	ID                 string                       `json:"id"`
+	Message            string                       `json:"message"`
+	VideoURL           *string                      `json:"video_url,omitempty"`
+	CreatedAt          string                       `json:"created_at"`
+	UpdatedAt          string                       `json:"updated_at"`
+	PendingReportCount int                          `json:"pending_report_count"`
+	Candidate          AdminJobApplicationCandidate `json:"candidate"`
+	Job                AdminJobApplicationJob       `json:"job"`
 }
 
 // AdminJobApplicationCandidate is the candidate info embedded in an application response.
@@ -107,11 +110,12 @@ type AdminJobApplicationJob struct {
 // NewAdminJobApplicationResponse converts an admin job application to its JSON response.
 func NewAdminJobApplicationResponse(a adminapp.AdminJobApplication) AdminJobApplicationResponse {
 	return AdminJobApplicationResponse{
-		ID:        a.ID.String(),
-		Message:   a.Message,
-		VideoURL:  a.VideoURL,
-		CreatedAt: a.CreatedAt.Format(time.RFC3339),
-		UpdatedAt: a.UpdatedAt.Format(time.RFC3339),
+		ID:                 a.ID.String(),
+		Message:            a.Message,
+		VideoURL:           a.VideoURL,
+		CreatedAt:          a.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          a.UpdatedAt.Format(time.RFC3339),
+		PendingReportCount: a.PendingReportCount,
 		Candidate: AdminJobApplicationCandidate{
 			ID:          a.ApplicantID.String(),
 			DisplayName: a.CandidateDisplayName,

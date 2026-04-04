@@ -64,6 +64,17 @@ export const jobsColumns: ColumnDef<AdminJob, unknown>[] = [
     ),
   },
   {
+    id: "reports",
+    header: "Signalements",
+    cell: ({ row }) => {
+      const count = row.original.pending_report_count
+      if (!count) return null
+      return (
+        <Badge variant="destructive">{count}</Badge>
+      )
+    },
+  },
+  {
     accessorKey: "created_at",
     header: "Date",
     cell: ({ row }) => (

@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table"
+import { Badge } from "@/shared/components/ui/badge"
 import { Avatar } from "@/shared/components/ui/avatar"
 import { formatDate } from "@/shared/lib/utils"
 import type { AdminJobApplication } from "../types"
@@ -34,7 +35,18 @@ export const applicationsColumns: ColumnDef<AdminJobApplication, unknown>[] = [
       const message = row.original.message
       const truncated = message.length > 80 ? message.slice(0, 80) + "..." : message
       return (
-        <span className="text-sm text-muted-foreground">{truncated || "—"}</span>
+        <span className="text-sm text-muted-foreground">{truncated || "\u2014"}</span>
+      )
+    },
+  },
+  {
+    id: "reports",
+    header: "Signalements",
+    cell: ({ row }) => {
+      const count = row.original.pending_report_count
+      if (!count) return null
+      return (
+        <Badge variant="destructive">{count}</Badge>
       )
     },
   },

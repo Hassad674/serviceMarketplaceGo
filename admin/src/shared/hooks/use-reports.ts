@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   listConversationReports,
   listUserReports,
+  listJobReports,
   resolveReport,
 } from "@/shared/api/reports-api"
 
@@ -23,6 +24,15 @@ export function useUserReports(userId: string) {
   })
 }
 
+export function useJobReports(jobId: string) {
+  return useQuery({
+    queryKey: ["admin", "jobs", jobId, "reports"],
+    queryFn: () => listJobReports(jobId),
+    enabled: !!jobId,
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useResolveReport() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -31,6 +41,7 @@ export function useResolveReport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "conversations"] })
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
+      queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] })
     },
   })
 }

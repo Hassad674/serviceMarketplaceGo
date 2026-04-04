@@ -385,11 +385,12 @@ func (h *AdminHandler) ListJobs(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
 	search := r.URL.Query().Get("search")
 	sort := r.URL.Query().Get("sort")
+	filter := r.URL.Query().Get("filter")
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 	page := parsePage(r.URL.Query().Get("page"))
 
-	jobs, nextCursor, total, err := h.svc.ListJobs(r.Context(), status, search, sort, cursorStr, limit, page)
+	jobs, nextCursor, total, err := h.svc.ListJobs(r.Context(), status, search, sort, filter, cursorStr, limit, page)
 	if err != nil {
 		slog.Error("admin list jobs", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list jobs")
@@ -453,11 +454,12 @@ func (h *AdminHandler) ListJobApplications(w http.ResponseWriter, r *http.Reques
 	jobID := r.URL.Query().Get("job_id")
 	search := r.URL.Query().Get("search")
 	sort := r.URL.Query().Get("sort")
+	filter := r.URL.Query().Get("filter")
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 	page := parsePage(r.URL.Query().Get("page"))
 
-	apps, nextCursor, total, err := h.svc.ListJobApplications(r.Context(), jobID, search, sort, cursorStr, limit, page)
+	apps, nextCursor, total, err := h.svc.ListJobApplications(r.Context(), jobID, search, sort, filter, cursorStr, limit, page)
 	if err != nil {
 		slog.Error("admin list job applications", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list applications")
@@ -477,6 +479,29 @@ func (h *AdminHandler) ListJobApplications(w http.ResponseWriter, r *http.Reques
 		"page":        page,
 		"total_pages": totalPages(total, limit),
 	})
+}
+
+// ListJobReports handles GET /api/v1/admin/jobs/{id}/reports.
+func (h *AdminHandler) ListJobReports(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	reports, err := h.svc.ListJobReports(r.Context(), id)
+	if err != nil {
+		slog.Error("admin list job reports", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list reports")
+		return
+	}
+
+	items := make([]response.AdminReportResponse, 0, len(reports))
+	for _, rp := range reports {
+		items = append(items, response.NewAdminReportResponse(rp))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"data": items})
 }
 
 // DeleteJobApplication handles DELETE /api/v1/admin/job-applications/{id}.

@@ -22,6 +22,7 @@ export function ApplicationsTab() {
     job_id: "",
     search: "",
     sort: "",
+    filter: "",
     page: 1,
   })
   const [deleteTarget, setDeleteTarget] = useState<AdminJobApplication | null>(null)
@@ -46,6 +47,13 @@ export function ApplicationsTab() {
           value={filters.sort}
           onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value, page: 1 }))}
           className="w-36"
+        />
+        <FilterCheckbox
+          label="Candidatures signalees"
+          checked={filters.filter === "reported"}
+          onChange={(checked) =>
+            setFilters((f) => ({ ...f, filter: checked ? "reported" : "", page: 1 }))
+          }
         />
       </DataTableToolbar>
 
@@ -90,6 +98,24 @@ export function ApplicationsTab() {
         isPending={deleteMutation.isPending}
       />
     </div>
+  )
+}
+
+function FilterCheckbox({ label, checked, onChange }: {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm transition-all duration-200 ease-out select-none hover:border-rose-200 hover:bg-rose-50/50">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 rounded border-gray-300 text-rose-500 focus:ring-2 focus:ring-rose-500/20"
+      />
+      <span className="text-foreground">{label}</span>
+    </label>
   )
 }
 
