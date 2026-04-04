@@ -15,7 +15,8 @@ type ServiceDeps struct {
 	Messages      service.MessageSender
 	Storage       service.StorageService
 	Notifications service.NotificationSender
-	Payments      service.PaymentProcessor // nil if Stripe not configured
+	Payments      service.PaymentProcessor     // nil if Stripe not configured
+	Credits       repository.JobCreditRepository // nil if credits not configured
 }
 
 type Service struct {
@@ -25,6 +26,7 @@ type Service struct {
 	storage       service.StorageService
 	notifications service.NotificationSender
 	payments      service.PaymentProcessor
+	credits       repository.JobCreditRepository
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -35,6 +37,7 @@ func NewService(deps ServiceDeps) *Service {
 		storage:       deps.Storage,
 		notifications: deps.Notifications,
 		payments:      deps.Payments,
+		credits:       deps.Credits,
 	}
 }
 

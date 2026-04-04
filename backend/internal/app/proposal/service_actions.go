@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	jobdomain "marketplace-backend/internal/domain/job"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/port/service"
 )
@@ -192,6 +193,13 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 	}
 	if err := s.proposals.Update(ctx, p); err != nil {
 		return fmt.Errorf("update proposal: %w", err)
+	}
+
+	// Award bonus credits to the provider for signed mission
+	if s.credits != nil {
+		if err := s.credits.AddBonus(ctx, p.ProviderID, jobdomain.BonusPerMission, jobdomain.MaxTokens); err != nil {
+			slog.Error("failed to add bonus credits", "proposal_id", p.ID, "provider_id", p.ProviderID, "error", err)
+		}
 	}
 
 	metadata := buildStatusMetadata(p)
