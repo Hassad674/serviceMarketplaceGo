@@ -460,9 +460,29 @@ func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentI
 		return err
 	}
 
-	// Create persons if business mode and none exist yet (e.g., switched from individual)
-	if info.IsBusiness && !s.stripe.HasPersons(ctx, info.StripeAccountID) {
-		s.createStripePersons(ctx, info, info.StripeAccountID, email)
+	// Create or update persons for business accounts
+	if info.IsBusiness {
+		if !s.stripe.HasPersons(ctx, info.StripeAccountID) {
+			s.createStripePersons(ctx, info, info.StripeAccountID, email)
+		} else {
+			// Update existing representative with latest data
+			repInput := portservice.CreatePersonInput{
+				FirstName: info.FirstName,
+				LastName:  info.LastName,
+				Email:     email,
+				Phone:     info.Phone,
+				DOB:       info.DateOfBirth,
+				Address:   info.Address,
+				City:      info.City,
+				PostalCode: info.PostalCode,
+				Country:   info.Country,
+				State:     getExtra(info.ExtraFields, "representative.address.state", "state"),
+				Title:     firstNonEmpty(info.RoleInCompany, getExtra(info.ExtraFields, "representative.title", "relationship.title", "person.relationship.title")),
+			}
+			if err := s.stripe.UpdateRepresentativePerson(ctx, info.StripeAccountID, repInput); err != nil {
+				slog.Warn("failed to update representative person", "error", err)
+			}
+		}
 	}
 
 	slog.Info("stripe account updated", "user_id", info.UserID, "account_id", info.StripeAccountID)

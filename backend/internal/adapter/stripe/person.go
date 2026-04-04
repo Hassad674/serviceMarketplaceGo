@@ -84,6 +84,63 @@ func (s *Service) CreatePerson(ctx context.Context, accountID string, input port
 	return p.ID, nil
 }
 
+// UpdateRepresentativePerson updates the representative person's fields on a Stripe account.
+func (s *Service) UpdateRepresentativePerson(ctx context.Context, accountID string, input portservice.CreatePersonInput) error {
+	// Find the representative person
+	listParams := &stripe.PersonListParams{
+		Account: stripe.String(accountID),
+	}
+	iter := stripeperson.List(listParams)
+	var repID string
+	for iter.Next() {
+		p := iter.Person()
+		if p.Relationship != nil && p.Relationship.Representative {
+			repID = p.ID
+			break
+		}
+	}
+	if repID == "" {
+		return fmt.Errorf("no representative person found")
+	}
+
+	params := &stripe.PersonParams{
+		Account:   stripe.String(accountID),
+		FirstName: stripe.String(input.FirstName),
+		LastName:  stripe.String(input.LastName),
+		Email:     stripe.String(input.Email),
+		Phone:     stripe.String(input.Phone),
+	}
+	if input.Title != "" {
+		params.Relationship = &stripe.PersonRelationshipParams{
+			Title: stripe.String(input.Title),
+		}
+	}
+	if !input.DOB.IsZero() {
+		params.DOB = &stripe.PersonDOBParams{
+			Day:   stripe.Int64(int64(input.DOB.Day())),
+			Month: stripe.Int64(int64(input.DOB.Month())),
+			Year:  stripe.Int64(int64(input.DOB.Year())),
+		}
+	}
+	if input.Address != "" {
+		params.Address = &stripe.AddressParams{
+			Line1:      stripe.String(input.Address),
+			City:       stripe.String(input.City),
+			PostalCode: stripe.String(input.PostalCode),
+			Country:    stripe.String(input.Country),
+		}
+		if input.State != "" {
+			params.Address.State = stripe.String(input.State)
+		}
+	}
+
+	_, err := stripeperson.Update(repID, params)
+	if err != nil {
+		return fmt.Errorf("update representative person: %w", err)
+	}
+	return nil
+}
+
 // HasPersons returns true if the Stripe account already has at least one person.
 func (s *Service) HasPersons(ctx context.Context, accountID string) bool {
 	params := &stripe.PersonListParams{
