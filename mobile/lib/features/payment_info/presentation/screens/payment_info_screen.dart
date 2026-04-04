@@ -314,9 +314,9 @@ class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
               const SizedBox(height: 12),
             ],
 
-            // Save button — disabled when no changes
+            // Save button — disabled when no changes (unless Stripe has requirements)
             PaymentInfoSaveButton(
-              isValid: valid && !_saved,
+              isValid: valid && (!_saved || fieldErrors.isNotEmpty || fieldWarnings.isNotEmpty),
               isSaving: _saving,
               onSave: () => _save(allSections, userEmail),
             ),
