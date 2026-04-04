@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
+
 	adminapp "marketplace-backend/internal/app/admin"
+	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 )
 
@@ -99,12 +102,13 @@ func NewAdminUserResponse(u *user.User) AdminUserResponse {
 
 // AdminConversationResponse is the JSON response for admin conversation listing.
 type AdminConversationResponse struct {
-	ID            string                             `json:"id"`
-	Participants  []AdminConversationParticipantResp  `json:"participants"`
-	MessageCount  int                                `json:"message_count"`
-	LastMessage   *string                            `json:"last_message"`
-	LastMessageAt *string                            `json:"last_message_at"`
-	CreatedAt     string                             `json:"created_at"`
+	ID                 string                             `json:"id"`
+	Participants       []AdminConversationParticipantResp  `json:"participants"`
+	MessageCount       int                                `json:"message_count"`
+	LastMessage        *string                            `json:"last_message"`
+	LastMessageAt      *string                            `json:"last_message_at"`
+	PendingReportCount int                                `json:"pending_report_count"`
+	CreatedAt          string                             `json:"created_at"`
 }
 
 // AdminConversationParticipantResp is a lightweight participant in a conversation.
@@ -128,11 +132,12 @@ func NewAdminConversationResponse(c adminapp.AdminConversation) AdminConversatio
 	}
 
 	resp := AdminConversationResponse{
-		ID:           c.ID.String(),
-		Participants: participants,
-		MessageCount: c.MessageCount,
-		LastMessage:  c.LastMessage,
-		CreatedAt:    c.CreatedAt.Format(time.RFC3339),
+		ID:                 c.ID.String(),
+		Participants:       participants,
+		MessageCount:       c.MessageCount,
+		LastMessage:        c.LastMessage,
+		PendingReportCount: c.PendingReportCount,
+		CreatedAt:          c.CreatedAt.Format(time.RFC3339),
 	}
 	if c.LastMessageAt != nil {
 		s := c.LastMessageAt.Format(time.RFC3339)
@@ -174,6 +179,52 @@ func NewAdminMessageResponse(m adminapp.AdminMessage) AdminMessageResponse {
 	if len(m.Metadata) > 0 {
 		raw := json.RawMessage(m.Metadata)
 		resp.Metadata = &raw
+	}
+	return resp
+}
+
+// AdminReportResponse is the JSON response for admin report viewing.
+type AdminReportResponse struct {
+	ID             string  `json:"id"`
+	ReporterID     string  `json:"reporter_id"`
+	TargetType     string  `json:"target_type"`
+	TargetID       string  `json:"target_id"`
+	ConversationID *string `json:"conversation_id,omitempty"`
+	Reason         string  `json:"reason"`
+	Description    string  `json:"description"`
+	Status         string  `json:"status"`
+	AdminNote      string  `json:"admin_note"`
+	ResolvedAt     *string `json:"resolved_at,omitempty"`
+	ResolvedBy     *string `json:"resolved_by,omitempty"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
+}
+
+// NewAdminReportResponse converts a domain report to its JSON response.
+func NewAdminReportResponse(r *report.Report) AdminReportResponse {
+	resp := AdminReportResponse{
+		ID:          r.ID.String(),
+		ReporterID:  r.ReporterID.String(),
+		TargetType:  string(r.TargetType),
+		TargetID:    r.TargetID.String(),
+		Reason:      string(r.Reason),
+		Description: r.Description,
+		Status:      string(r.Status),
+		AdminNote:   r.AdminNote,
+		CreatedAt:   r.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   r.UpdatedAt.Format(time.RFC3339),
+	}
+	if r.ConversationID != uuid.Nil {
+		s := r.ConversationID.String()
+		resp.ConversationID = &s
+	}
+	if r.ResolvedAt != nil {
+		s := r.ResolvedAt.Format(time.RFC3339)
+		resp.ResolvedAt = &s
+	}
+	if r.ResolvedBy != nil {
+		s := r.ResolvedBy.String()
+		resp.ResolvedBy = &s
 	}
 	return resp
 }

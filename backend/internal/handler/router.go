@@ -307,6 +307,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/conversations", deps.Admin.ListConversations)
 				r.Get("/conversations/{id}", deps.Admin.GetConversation)
 				r.Get("/conversations/{id}/messages", deps.Admin.GetConversationMessages)
+				r.Get("/conversations/{id}/reports", deps.Admin.ListConversationReports)
+
+				// Report management endpoints
+				r.Get("/users/{id}/reports", deps.Admin.ListUserReports)
+				r.Post("/reports/{id}/resolve", deps.Admin.ResolveReport)
 
 				// Proposal admin endpoints (force activate for testing)
 				if deps.Proposal != nil {

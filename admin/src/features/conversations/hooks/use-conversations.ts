@@ -5,14 +5,24 @@ import {
   getConversationMessages,
 } from "../api/conversations-api"
 
-export function conversationsQueryKey(cursor: string) {
-  return ["admin", "conversations", { cursor }] as const
+type ConversationsQueryParams = {
+  cursor: string
+  sort: string
+  filter: string
 }
 
-export function useConversations(cursor: string) {
+export function conversationsQueryKey(params: ConversationsQueryParams) {
+  return ["admin", "conversations", params] as const
+}
+
+export function useConversations(params: ConversationsQueryParams) {
   return useQuery({
-    queryKey: conversationsQueryKey(cursor),
-    queryFn: () => listConversations(cursor || undefined),
+    queryKey: conversationsQueryKey(params),
+    queryFn: () => listConversations({
+      cursor: params.cursor || undefined,
+      sort: params.sort || undefined,
+      filter: params.filter || undefined,
+    }),
     staleTime: 30 * 1000,
   })
 }

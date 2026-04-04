@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/pkg/cursor"
 )
@@ -296,27 +297,48 @@ func scanAdminMessages(rows *sql.Rows, limit int) ([]AdminMessage, string, error
 	return results, nextCursor, nil
 }
 
-// SQL queries for admin conversation endpoints.
-const queryAdminListConversationsFirst = `
-	SELECT
-		c.id,
-		(SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) AS message_count,
-		lm.content,
-		lm.created_at,
-		c.created_at
-	FROM conversations c
-	LEFT JOIN LATERAL (
-		SELECT content, created_at
-		FROM messages
-		WHERE conversation_id = c.id
-		ORDER BY created_at DESC
-		LIMIT 1
-	) lm ON true
-	ORDER BY COALESCE(lm.created_at, c.created_at) DESC, c.id DESC
-	LIMIT $1`
+func (s *Service) loadPendingReportCounts(ctx context.Context, conversations []AdminConversation) (map[uuid.UUID]int, error) {
+	counts := make(map[uuid.UUID]int, len(conversations))
+	if len(conversations) == 0 {
+		return counts, nil
+	}
 
-const queryAdminListConversationsWithCursor = `
-	SELECT
+	ids := make([]uuid.UUID, len(conversations))
+	for i, c := range conversations {
+		ids[i] = c.ID
+	}
+
+	rows, err := s.db.QueryContext(ctx, queryAdminPendingReportCounts, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("load pending report counts: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var convID uuid.UUID
+		var count int
+		if err := rows.Scan(&convID, &count); err != nil {
+			return nil, fmt.Errorf("scan report count: %w", err)
+		}
+		counts[convID] = count
+	}
+
+	return counts, nil
+}
+
+func orderByClause(sort string) string {
+	switch sort {
+	case "oldest":
+		return "ORDER BY c.created_at ASC, c.id ASC"
+	case "most_messages":
+		return "ORDER BY message_count DESC, c.id DESC"
+	default:
+		return "ORDER BY COALESCE(lm.created_at, c.created_at) DESC, c.id DESC"
+	}
+}
+
+func buildConversationListQuery(cursorStr string, sort string, filter string) string {
+	base := `SELECT
 		c.id,
 		(SELECT COUNT(*) FROM messages WHERE conversation_id = c.id) AS message_count,
 		lm.content,
@@ -329,10 +351,62 @@ const queryAdminListConversationsWithCursor = `
 		WHERE conversation_id = c.id
 		ORDER BY created_at DESC
 		LIMIT 1
-	) lm ON true
-	WHERE (c.created_at, c.id) < ($1, $2)
-	ORDER BY COALESCE(lm.created_at, c.created_at) DESC, c.id DESC
-	LIMIT $3`
+	) lm ON true`
+
+	var where string
+	if filter == "reported" {
+		where = ` WHERE EXISTS (
+			SELECT 1 FROM reports r
+			WHERE r.status = 'pending'
+			AND (r.conversation_id = c.id
+				OR (r.target_type = 'user' AND r.target_id IN (
+					SELECT user_id FROM conversation_participants WHERE conversation_id = c.id)))
+		)`
+	}
+
+	if cursorStr != "" {
+		cursorWhere := " (c.created_at, c.id) < ($1, $2)"
+		if where == "" {
+			where = " WHERE" + cursorWhere
+		} else {
+			where += " AND" + cursorWhere
+		}
+	}
+
+	orderBy := orderByClause(sort)
+
+	if cursorStr == "" {
+		return base + where + " " + orderBy + " LIMIT $1"
+	}
+	return base + where + " " + orderBy + " LIMIT $3"
+}
+
+// SQL queries for admin conversation endpoints.
+const queryAdminCountReportedConversations = `
+	SELECT COUNT(*) FROM conversations c
+	WHERE EXISTS (
+		SELECT 1 FROM reports r
+		WHERE r.status = 'pending'
+		AND (r.conversation_id = c.id
+			OR (r.target_type = 'user' AND r.target_id IN (
+				SELECT user_id FROM conversation_participants WHERE conversation_id = c.id)))
+	)`
+
+const queryAdminPendingReportCounts = `
+	SELECT c_id, COUNT(*) FROM (
+		SELECT r.conversation_id AS c_id
+		FROM reports r
+		WHERE r.status = 'pending'
+			AND r.conversation_id = ANY($1)
+		UNION ALL
+		SELECT cp.conversation_id AS c_id
+		FROM reports r
+		JOIN conversation_participants cp ON cp.user_id = r.target_id
+		WHERE r.status = 'pending'
+			AND r.target_type = 'user'
+			AND cp.conversation_id = ANY($1)
+	) sub
+	GROUP BY c_id`
 
 const queryAdminGetConversation = `
 	SELECT

@@ -5,12 +5,20 @@ import type {
   MessageListResponse,
 } from "../types"
 
-export function listConversations(cursor?: string): Promise<ConversationListResponse> {
-  const params = new URLSearchParams()
-  if (cursor) params.set("cursor", cursor)
-  params.set("limit", "20")
-  const qs = params.toString()
-  return adminApi<ConversationListResponse>(`/api/v1/admin/conversations${qs ? `?${qs}` : ""}`)
+type ListConversationsParams = {
+  cursor?: string
+  sort?: string
+  filter?: string
+}
+
+export function listConversations(params: ListConversationsParams): Promise<ConversationListResponse> {
+  const qs = new URLSearchParams()
+  if (params.cursor) qs.set("cursor", params.cursor)
+  if (params.sort) qs.set("sort", params.sort)
+  if (params.filter) qs.set("filter", params.filter)
+  qs.set("limit", "20")
+  const str = qs.toString()
+  return adminApi<ConversationListResponse>(`/api/v1/admin/conversations${str ? `?${str}` : ""}`)
 }
 
 export type ConversationDetailResponse = {

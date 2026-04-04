@@ -13,6 +13,7 @@ import (
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/response"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	res "marketplace-backend/pkg/response"
 )
@@ -205,8 +206,10 @@ func (h *AdminHandler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 func (h *AdminHandler) ListConversations(w http.ResponseWriter, r *http.Request) {
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+	sort := r.URL.Query().Get("sort")
+	filter := r.URL.Query().Get("filter")
 
-	conversations, nextCursor, total, err := h.svc.ListConversations(r.Context(), cursorStr, limit)
+	conversations, nextCursor, total, err := h.svc.ListConversations(r.Context(), cursorStr, limit, sort, filter)
 	if err != nil {
 		slog.Error("admin list conversations", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list conversations")
@@ -274,6 +277,95 @@ func (h *AdminHandler) GetConversationMessages(w http.ResponseWriter, r *http.Re
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 	})
+}
+
+// ListConversationReports handles GET /api/v1/admin/conversations/{id}/reports.
+func (h *AdminHandler) ListConversationReports(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	reports, err := h.svc.ListConversationReports(r.Context(), id)
+	if err != nil {
+		slog.Error("admin list conversation reports", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list reports")
+		return
+	}
+
+	items := make([]response.AdminReportResponse, 0, len(reports))
+	for _, rp := range reports {
+		items = append(items, response.NewAdminReportResponse(rp))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"data": items})
+}
+
+// ListUserReports handles GET /api/v1/admin/users/{id}/reports.
+func (h *AdminHandler) ListUserReports(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	against, filed, err := h.svc.ListUserReports(r.Context(), id)
+	if err != nil {
+		slog.Error("admin list user reports", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list reports")
+		return
+	}
+
+	againstResp := make([]response.AdminReportResponse, 0, len(against))
+	for _, rp := range against {
+		againstResp = append(againstResp, response.NewAdminReportResponse(rp))
+	}
+	filedResp := make([]response.AdminReportResponse, 0, len(filed))
+	for _, rp := range filed {
+		filedResp = append(filedResp, response.NewAdminReportResponse(rp))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"reports_against": againstResp,
+		"reports_filed":   filedResp,
+	})
+}
+
+// ResolveReport handles POST /api/v1/admin/reports/{id}/resolve.
+func (h *AdminHandler) ResolveReport(w http.ResponseWriter, r *http.Request) {
+	id, err := parseAdminUserID(r)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	var body struct {
+		Status    string `json:"status"`
+		AdminNote string `json:"admin_note"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_body", "invalid JSON body")
+		return
+	}
+	if body.Status != "resolved" && body.Status != "dismissed" {
+		res.Error(w, http.StatusBadRequest, "validation_error", "status must be resolved or dismissed")
+		return
+	}
+	if body.AdminNote == "" {
+		res.Error(w, http.StatusBadRequest, "validation_error", "admin_note is required")
+		return
+	}
+
+	adminID, _ := middleware.GetUserID(r.Context())
+
+	if err := h.svc.ResolveReport(r.Context(), id, body.Status, body.AdminNote, adminID); err != nil {
+		slog.Error("admin resolve report", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to resolve report")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"message": "report resolved"})
 }
 
 func parseAdminUserID(r *http.Request) (uuid.UUID, error) {

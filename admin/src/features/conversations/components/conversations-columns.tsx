@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { RoleBadge } from "@/shared/components/ui/badge"
+import { RoleBadge, Badge } from "@/shared/components/ui/badge"
 import { Avatar } from "@/shared/components/ui/avatar"
 import { formatRelativeDate } from "@/shared/lib/utils"
 import type { AdminConversation } from "../types"
@@ -68,6 +68,17 @@ export const conversationsColumns: ColumnDef<AdminConversation, unknown>[] = [
         {row.original.message_count}
       </span>
     ),
+  },
+  {
+    id: "reports",
+    header: "Signalements",
+    cell: ({ row }) => {
+      const count = row.original.pending_report_count
+      if (!count) return null
+      return (
+        <Badge variant="destructive">{count}</Badge>
+      )
+    },
   },
   {
     id: "activity",

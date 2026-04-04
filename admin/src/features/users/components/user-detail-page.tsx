@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
-import { ArrowLeft, Mail, Calendar, Shield, ShieldOff, Ban, UserCheck } from "lucide-react"
+import { ArrowLeft, Mail, Calendar, Shield, ShieldOff, Ban, UserCheck, Flag } from "lucide-react"
 import { PageHeader } from "@/shared/components/layouts/page-header"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
@@ -10,8 +10,11 @@ import { Skeleton } from "@/shared/components/ui/skeleton"
 import { Dialog, DialogTitle, DialogDescription, DialogFooter } from "@/shared/components/ui/dialog"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { Input } from "@/shared/components/ui/input"
+import { ReportList } from "@/shared/components/ui/report-list"
+import { ResolveReportDialog } from "@/shared/components/ui/resolve-report-dialog"
 import { formatDate } from "@/shared/lib/utils"
 import { useUser, useSuspendUser, useUnsuspendUser, useBanUser, useUnbanUser } from "../hooks/use-users"
+import { useUserReports, useResolveReport } from "@/shared/hooks/use-reports"
 
 export function UserDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -117,6 +120,8 @@ export function UserDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <UserReportsSection userId={id!} />
 
       <SuspendDialog
         open={showSuspendDialog}
@@ -345,6 +350,78 @@ function BanDialog({ open, onClose, onConfirm, isPending }: {
         </Button>
       </DialogFooter>
     </Dialog>
+  )
+}
+
+function UserReportsSection({ userId }: { userId: string }) {
+  const { data, isLoading } = useUserReports(userId)
+  const resolveMutation = useResolveReport()
+  const [resolveTarget, setResolveTarget] = useState<{ id: string; defaultStatus: "resolved" | "dismissed" } | null>(null)
+
+  const against = data?.reports_against ?? []
+  const filed = data?.reports_filed ?? []
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <Skeleton className="h-24" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="space-y-6 pt-6">
+        <div className="flex items-center gap-2">
+          <Flag className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Signalements
+          </h3>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-foreground">
+              Signalements recus ({against.length})
+            </h4>
+            <ReportList
+              reports={against}
+              onResolve={(id) => setResolveTarget({ id, defaultStatus: "resolved" })}
+              onDismiss={(id) => setResolveTarget({ id, defaultStatus: "dismissed" })}
+              isResolving={resolveMutation.isPending}
+              emptyLabel="Aucun signalement recu"
+            />
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-foreground">
+              Signalements soumis ({filed.length})
+            </h4>
+            <ReportList
+              reports={filed}
+              emptyLabel="Aucun signalement soumis"
+            />
+          </div>
+        </div>
+
+        {resolveTarget && (
+          <ResolveReportDialog
+            open={!!resolveTarget}
+            onClose={() => setResolveTarget(null)}
+            onConfirm={(status, adminNote) => {
+              resolveMutation.mutate(
+                { reportId: resolveTarget.id, status, adminNote },
+                { onSuccess: () => setResolveTarget(null) },
+              )
+            }}
+            isPending={resolveMutation.isPending}
+            defaultStatus={resolveTarget.defaultStatus}
+          />
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

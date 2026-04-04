@@ -297,7 +297,7 @@ func main() {
 	reportHandler := handler.NewReportHandler(reportSvc)
 
 	// Admin feature
-	adminSvc := adminapp.NewService(userRepo, db)
+	adminSvc := adminapp.NewService(userRepo, reportRepo, db)
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
 	// Initialize handlers

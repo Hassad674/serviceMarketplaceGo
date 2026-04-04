@@ -16,7 +16,7 @@ var knownFieldMappings = map[string]FieldMapping{
 	"individual.dob.day":             {DBField: "date_of_birth", IsExtra: false},
 	"individual.dob.month":           {DBField: "date_of_birth", IsExtra: false},
 	"individual.dob.year":            {DBField: "date_of_birth", IsExtra: false},
-	"individual.email":               {DBField: "email", IsExtra: false},
+	"individual.email":               {DBField: "individual.email", IsExtra: true},
 	"individual.phone":               {DBField: "phone", IsExtra: false},
 	"individual.address.line1":       {DBField: "address", IsExtra: false},
 	"individual.address.city":        {DBField: "city", IsExtra: false},
@@ -57,7 +57,7 @@ var knownFieldMappings = map[string]FieldMapping{
 	"representative.address.state":       {DBField: "state", IsExtra: true},
 
 	"company.name":                {DBField: "business_name", IsExtra: false},
-	"company.phone":               {DBField: "phone", IsExtra: false},
+	"company.phone":               {DBField: "company.phone", IsExtra: true},
 	"company.address.line1":       {DBField: "business_address", IsExtra: false},
 	"company.address.city":        {DBField: "business_city", IsExtra: false},
 	"company.address.postal_code": {DBField: "business_postal_code", IsExtra: false},

@@ -8,14 +8,17 @@ import { EmptyState } from "@/shared/components/ui/empty-state"
 import { TableSkeleton } from "@/shared/components/ui/skeleton"
 import { useConversations } from "../hooks/use-conversations"
 import { conversationsColumns } from "./conversations-columns"
+import { ConversationsFilters } from "./conversations-filters"
 import type { AdminConversation } from "../types"
 
 export function ConversationsPage() {
   const navigate = useNavigate()
   const [cursor, setCursor] = useState("")
   const [cursors, setCursors] = useState<string[]>([])
+  const [sort, setSort] = useState("recent")
+  const [filter, setFilter] = useState("all")
 
-  const { data, isLoading, error } = useConversations(cursor)
+  const { data, isLoading, error } = useConversations({ cursor, sort, filter })
 
   const conversations = data?.data ?? []
   const hasMore = data?.has_more ?? false
@@ -38,11 +41,30 @@ export function ConversationsPage() {
     navigate(`/conversations/${conversation.id}`)
   }
 
+  function handleSortChange(newSort: string) {
+    setSort(newSort)
+    setCursor("")
+    setCursors([])
+  }
+
+  function handleFilterChange(newFilter: string) {
+    setFilter(newFilter)
+    setCursor("")
+    setCursors([])
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Conversations"
         description={total > 0 ? `${total} conversation${total > 1 ? "s" : ""} au total` : undefined}
+      />
+
+      <ConversationsFilters
+        sort={sort}
+        filter={filter}
+        onSortChange={handleSortChange}
+        onFilterChange={handleFilterChange}
       />
 
       {isLoading && <TableSkeleton rows={8} cols={5} />}
@@ -57,7 +79,7 @@ export function ConversationsPage() {
         <EmptyState
           icon={MessageSquare}
           title="Aucune conversation"
-          description="Aucune conversation n'a encore été créée sur la plateforme."
+          description="Aucune conversation n'a encore ete creee sur la plateforme."
         />
       )}
 

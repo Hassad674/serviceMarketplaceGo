@@ -11,6 +11,7 @@ export type AdminConversation = {
   message_count: number
   last_message: string | null
   last_message_at: string | null
+  pending_report_count: number
   created_at: string
 }
 

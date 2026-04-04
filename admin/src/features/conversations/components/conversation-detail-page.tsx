@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import {
   ArrowLeft, MessageSquare, Calendar, Hash,
-  EyeOff, FileText, ExternalLink,
+  EyeOff, FileText, ExternalLink, Flag,
 } from "lucide-react"
 import { PageHeader } from "@/shared/components/layouts/page-header"
 import { Card, CardContent } from "@/shared/components/ui/card"
@@ -11,8 +11,11 @@ import { RoleBadge, Badge } from "@/shared/components/ui/badge"
 import { Avatar } from "@/shared/components/ui/avatar"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { EmptyState } from "@/shared/components/ui/empty-state"
+import { ReportList } from "@/shared/components/ui/report-list"
+import { ResolveReportDialog } from "@/shared/components/ui/resolve-report-dialog"
 import { formatDate, formatRelativeDate } from "@/shared/lib/utils"
 import { useConversation, useConversationMessages } from "../hooks/use-conversations"
+import { useConversationReports, useResolveReport } from "@/shared/hooks/use-reports"
 import type { AdminMessage, ConversationParticipant } from "../types"
 
 export function ConversationDetailPage() {
@@ -73,6 +76,8 @@ export function ConversationDetailPage() {
             messageCount={conversation.message_count}
             lastMessageAt={conversation.last_message_at}
           />
+
+          <ReportsSection conversationId={id!} />
         </div>
       </div>
     </div>
@@ -253,6 +258,60 @@ function InfoRow({ icon: Icon, label, value }: {
       </div>
       <span className="font-medium text-foreground">{value}</span>
     </div>
+  )
+}
+
+function ReportsSection({ conversationId }: { conversationId: string }) {
+  const { data, isLoading } = useConversationReports(conversationId)
+  const resolveMutation = useResolveReport()
+  const [resolveTarget, setResolveTarget] = useState<{ id: string; defaultStatus: "resolved" | "dismissed" } | null>(null)
+
+  const reports = data?.data ?? []
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-4">
+          <Skeleton className="h-24" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Flag className="h-4 w-4 text-muted-foreground" />
+          <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Signalements
+          </h4>
+          {reports.length > 0 && (
+            <Badge variant="destructive">{reports.length}</Badge>
+          )}
+        </div>
+        <ReportList
+          reports={reports}
+          onResolve={(reportId) => setResolveTarget({ id: reportId, defaultStatus: "resolved" })}
+          onDismiss={(reportId) => setResolveTarget({ id: reportId, defaultStatus: "dismissed" })}
+          isResolving={resolveMutation.isPending}
+        />
+        {resolveTarget && (
+          <ResolveReportDialog
+            open={!!resolveTarget}
+            onClose={() => setResolveTarget(null)}
+            onConfirm={(status, adminNote) => {
+              resolveMutation.mutate(
+                { reportId: resolveTarget.id, status, adminNote },
+                { onSuccess: () => setResolveTarget(null) },
+              )
+            }}
+            isPending={resolveMutation.isPending}
+            defaultStatus={resolveTarget.defaultStatus}
+          />
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
