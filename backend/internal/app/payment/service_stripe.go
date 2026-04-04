@@ -470,8 +470,8 @@ func (s *Service) updateStripeAccount(ctx context.Context, info *domain.PaymentI
 			repInput := portservice.CreatePersonInput{
 				FirstName: info.FirstName,
 				LastName:  info.LastName,
-				Email:     email,
-				Phone:     info.Phone,
+				Email:     firstNonEmpty(info.Email, email),
+				Phone:     firstNonEmpty(getPersonExtra(info.ExtraFields, "phone"), info.Phone),
 				DOB:       info.DateOfBirth,
 				Address:   info.Address,
 				City:      info.City,
@@ -525,6 +525,18 @@ func (s *Service) ensureStripeAccount(ctx context.Context, info *domain.PaymentI
 func firstNonEmpty(values ...string) string {
 	for _, v := range values {
 		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// getPersonExtra finds a Person field value from extra_fields.
+// Looks for keys starting with "person_" or "representative." ending with the given field name.
+func getPersonExtra(extra map[string]string, field string) string {
+	suffix := "." + field
+	for k, v := range extra {
+		if (strings.HasPrefix(k, "person_") || strings.HasPrefix(k, "representative.")) && strings.HasSuffix(k, suffix) && v != "" {
 			return v
 		}
 	}

@@ -162,8 +162,9 @@ async function uploadDocuments(page: Page) {
     await uploadBtn.click()
 
     await expect(modal).toBeHidden({ timeout: 15000 })
+    // Dynamic form shows "Uploaded — pending verification" after successful upload
     await expect(
-      page.getByText("Document uploaded").nth(i),
+      page.getByText("pending verification").nth(i),
     ).toBeVisible({ timeout: 15000 })
   }
 }
@@ -223,13 +224,22 @@ async function fillPersonalFields(page: Page, country: CountryTestData, person: 
   await fillByLabel(page, "Postal code", person.postalCode)
   await fillByLabel(page, "Phone number", person.phone)
 
-  // State / Province — only some countries
+  // State / Province — rendered as a <select> dropdown for known countries
   if (country.state) {
     const stateLabel = page.locator("label", { hasText: "State" }).first()
     if (await stateLabel.isVisible().catch(() => false)) {
-      const stateInput = stateLabel.locator("..").locator("input, select").first()
-      await stateInput.scrollIntoViewIfNeeded()
-      await stateInput.fill(country.state)
+      const stateSelect = stateLabel.locator("..").locator("select").first()
+      if (await stateSelect.isVisible().catch(() => false)) {
+        await stateSelect.scrollIntoViewIfNeeded()
+        // Wait for options to load (lazy-loaded country-region-data)
+        await page.waitForTimeout(1000)
+        await stateSelect.selectOption(country.state)
+      } else {
+        // Fallback to text input if no select found
+        const stateInput = stateLabel.locator("..").locator("input").first()
+        await stateInput.scrollIntoViewIfNeeded()
+        await stateInput.fill(country.state)
+      }
     }
   }
 
@@ -406,13 +416,21 @@ async function fillBusinessFields(page: Page, country: CountryTestData) {
   await fillByLabel(page, "Business city", pick(CITIES))
   await fillByLabel(page, "Business postal code", country.businessPostalCode)
 
-  // Business state — US, IN
+  // Business state — US, IN — rendered as a <select> dropdown
   if (country.businessState) {
     const stateLabel = page.locator("label", { hasText: "Business state" }).first()
     if (await stateLabel.isVisible().catch(() => false)) {
-      const stateInput = stateLabel.locator("..").locator("input, select").first()
-      await stateInput.scrollIntoViewIfNeeded()
-      await stateInput.fill(country.businessState)
+      const stateSelect = stateLabel.locator("..").locator("select").first()
+      if (await stateSelect.isVisible().catch(() => false)) {
+        await stateSelect.scrollIntoViewIfNeeded()
+        // Wait for options to load (lazy-loaded country-region-data)
+        await page.waitForTimeout(1000)
+        await stateSelect.selectOption(country.businessState)
+      } else {
+        const stateInput = stateLabel.locator("..").locator("input").first()
+        await stateInput.scrollIntoViewIfNeeded()
+        await stateInput.fill(country.businessState)
+      }
     }
   }
 
