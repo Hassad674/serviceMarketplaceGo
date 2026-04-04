@@ -56,7 +56,7 @@ export function useStripeRequirements() {
   return useQuery({
     queryKey: ["user", uid, "stripe-requirements"],
     queryFn: () => getRequirements(),
-    staleTime: 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
   })
 }
