@@ -65,6 +65,28 @@ Two major features implemented in this session:
 - **After**: Notifications send via in-app (WebSocket) + push (FCM) + email (Resend)
 - Backend logs show no more "invalid notification type" errors
 
+### Dedicated Tests for Requirements + Notifications (35 new tests)
+
+**Backend Go — service_requirements_test.go (18 tests, all PASS)**
+- 9 tests: buildRequirementSections (urgency tagging, deduplication, merge, auto-handled skip, bank section)
+- 5 tests: NotifyNewRequirements (sends for each due type, skips empty, nil-safe)
+- 4 tests: notifyAccountStatusChange (activated, payouts/charges suspended, nil-safe)
+
+**Backend Go — entity_test.go additions (3 tests, all PASS)**
+- TypeStripeRequirements/TypeStripeAccountStatus IsValid
+- Both Stripe types DefaultPreferences email=ON
+
+**Mobile Flutter — stripe_requirements_banner_test.dart (7 tests, all PASS)**
+- No requirements → nothing rendered
+- Amber banner for eventually_due, red for currently_due/past_due
+- Both banners for mixed urgencies
+- Deadline display, field name humanization
+
+**Web Playwright — kyc-requirements-banner.spec.ts (7 tests, compiled)**
+- Real flow: no banner before save, requirements endpoint called after save
+- Mocked: red/amber/both banners, no requirements hides banner
+- Requires running backend + web dev server
+
 ### Regression (all prior tests still pass after changes)
 | Suite | Result |
 |-------|--------|

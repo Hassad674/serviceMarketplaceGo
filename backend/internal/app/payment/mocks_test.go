@@ -289,3 +289,18 @@ func (m *mockStorageService) GetPublicURL(key string) string {
 func (m *mockStorageService) GetPresignedUploadURL(_ context.Context, _ string, _ string, _ time.Duration) (string, error) {
 	return "", nil
 }
+
+// --- NotificationSender mock ---
+
+type mockNotificationSender struct {
+	sendFn func(ctx context.Context, input portservice.NotificationInput) error
+	calls  []portservice.NotificationInput
+}
+
+func (m *mockNotificationSender) Send(ctx context.Context, input portservice.NotificationInput) error {
+	m.calls = append(m.calls, input)
+	if m.sendFn != nil {
+		return m.sendFn(ctx, input)
+	}
+	return nil
+}
