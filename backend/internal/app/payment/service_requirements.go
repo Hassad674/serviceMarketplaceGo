@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -229,7 +231,11 @@ func (s *Service) CreateAccountLink(ctx context.Context, userID uuid.UUID) (stri
 	return s.stripe.CreateAccountLink(ctx, info.StripeAccountID, returnURL, refreshURL)
 }
 
+// notifCooldown prevents sending duplicate notifications within 5 minutes per user.
+var notifCooldown sync.Map // map[uuid.UUID]time.Time
+
 // NotifyNewRequirements sends a notification when Stripe requires new information.
+// Deduplicates: max 1 notification per user per 5 minutes.
 func (s *Service) NotifyNewRequirements(ctx context.Context, userID uuid.UUID, reqs *domain.AccountRequirements) {
 	if s.notifications == nil {
 		return
@@ -237,6 +243,14 @@ func (s *Service) NotifyNewRequirements(ctx context.Context, userID uuid.UUID, r
 	if len(reqs.CurrentlyDue) == 0 && len(reqs.EventuallyDue) == 0 && len(reqs.PastDue) == 0 {
 		return
 	}
+
+	// Cooldown check: skip if notified within last 5 minutes
+	if lastSent, ok := notifCooldown.Load(userID); ok {
+		if time.Since(lastSent.(time.Time)) < 5*time.Minute {
+			return
+		}
+	}
+	notifCooldown.Store(userID, time.Now())
 
 	data, _ := json.Marshal(map[string]string{
 		"type": "stripe_requirements",
