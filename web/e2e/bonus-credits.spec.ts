@@ -6,6 +6,8 @@ import { registerProvider, registerEnterprise } from "./helpers/auth"
 // ---------------------------------------------------------------------------
 
 const API_URL = "http://localhost:8083"
+const ADMIN_EMAIL = "admin@marketplace.local"
+const ADMIN_PASSWORD = "Admin123!"
 const INITIAL_CREDITS = 10
 const BONUS_PER_MISSION = 5
 
@@ -99,14 +101,36 @@ async function acceptProposal(cookie: string, proposalId: string): Promise<void>
   ).toBe(true)
 }
 
-async function payProposal(cookie: string, proposalId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/v1/proposals/${proposalId}/pay`, {
+async function loginViaAPI(email: string, password: string): Promise<string> {
+  const res = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: "POST",
-    headers: { Cookie: cookie },
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+    redirect: "manual",
   })
+  const setCookieHeaders = res.headers.getSetCookie?.() ?? []
+  const allCookies = setCookieHeaders.length > 0
+    ? setCookieHeaders
+    : (res.headers.get("set-cookie") ?? "").split(", ")
+  const cookies: string[] = []
+  for (const c of allCookies) {
+    const match = c.match(/^([^=]+=[^;]+)/)
+    if (match) cookies.push(match[1])
+  }
+  if (cookies.length > 0) return cookies.join("; ")
+  throw new Error(`Login failed for ${email}: ${res.status}`)
+}
+
+async function activateProposalAsAdmin(adminCookie: string, proposalId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/admin/proposals/${proposalId}/activate`, {
+    method: "POST",
+    headers: { Cookie: adminCookie },
+  })
+  const body = await res.text()
+  console.log(`[activate] status=${res.status} body=${body} proposalId=${proposalId}`)
   expect(
     res.ok,
-    `Failed to pay proposal: ${res.status}`,
+    `Failed to activate proposal: ${res.status} — ${body}`,
   ).toBe(true)
 }
 
@@ -167,7 +191,8 @@ test.describe("Bonus credits after mission payment", () => {
     await acceptProposal(providerCookie, proposalId)
 
     // Step 7: Enterprise pays (simulation mode in dev — no Stripe needed)
-    await payProposal(enterpriseCookie, proposalId)
+    const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
+    await activateProposalAsAdmin(adminCookie, proposalId)
 
     // Step 8: Verify proposal is now active
     const status = await getProposalStatus(enterpriseCookie, proposalId)
@@ -201,7 +226,8 @@ test.describe("Bonus credits after mission payment", () => {
       providerId,
     )
     await acceptProposal(providerCookie, proposalId)
-    await payProposal(enterpriseCookie, proposalId)
+    const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
+    await activateProposalAsAdmin(adminCookie, proposalId)
 
     // Verify credits = 15 after first payment
     const creditsAfterPayment = await fetchCreditsViaAPI(providerCookie)
@@ -252,7 +278,8 @@ test.describe("Bonus credits after mission payment", () => {
         providerId,
       )
       await acceptProposal(providerCookie, proposalId)
-      await payProposal(enterpriseCookie, proposalId)
+      const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
+    await activateProposalAsAdmin(adminCookie, proposalId)
     }
 
     // Credits should be 10 + 5 + 5 = 20

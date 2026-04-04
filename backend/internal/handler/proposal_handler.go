@@ -255,6 +255,20 @@ func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
 
 // ConfirmPayment is called by the frontend after stripe.confirmPayment() succeeds.
 // It serves as a fallback to the webhook — ensures the proposal transitions to paid/active.
+// AdminActivateProposal forces a proposal to paid+active state (admin-only, for testing).
+func (h *ProposalHandler) AdminActivateProposal(w http.ResponseWriter, r *http.Request) {
+	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
+		handleProposalError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, map[string]string{"status": "activated"})
+}
+
 func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

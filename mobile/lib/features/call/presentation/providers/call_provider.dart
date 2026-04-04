@@ -273,7 +273,7 @@ class CallNotifier extends StateNotifier<CallState> {
   }) async {
     const lkUrl = String.fromEnvironment(
       'LIVEKIT_URL',
-      defaultValue: '',
+      defaultValue: 'wss://goservicemarketplace-68nmqloi.livekit.cloud',
     );
     if (lkUrl.isEmpty) {
       print('[Call] LIVEKIT_URL not set — skipping room connection');

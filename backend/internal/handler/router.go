@@ -308,6 +308,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/conversations/{id}", deps.Admin.GetConversation)
 				r.Get("/conversations/{id}/messages", deps.Admin.GetConversationMessages)
 
+				// Proposal admin endpoints (force activate for testing)
+				if deps.Proposal != nil {
+					r.Post("/proposals/{id}/activate", deps.Proposal.AdminActivateProposal)
+				}
+
 				// Job credit admin endpoints
 				if deps.JobApplication != nil {
 					r.Post("/credits/reset", deps.JobApplication.ResetCredits)
