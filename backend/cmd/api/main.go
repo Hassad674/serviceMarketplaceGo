@@ -23,6 +23,7 @@ import (
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
+	embeddedapp "marketplace-backend/internal/app/embedded"
 	jobapp "marketplace-backend/internal/app/job"
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
@@ -344,6 +345,16 @@ func main() {
 	var stripeHandler *handler.StripeHandler
 	if cfg.StripeConfigured() {
 		stripeHandler = handler.NewStripeHandler(paymentInfoSvc, proposalSvc, cfg.StripePublishableKey)
+
+		// Embedded Components notifier — diff-based multi-channel notifications
+		// for Stripe account.* webhooks (activation, requirements, docs rejected).
+		embeddedNotifier := embeddedapp.NewNotifier(
+			embeddedapp.NewNotificationSenderAdapter(notifSvc),
+			embeddedapp.NewPostgresAccountLookup(db),
+			embeddedapp.NewPostgresStateStore(db),
+			5*time.Minute, // cooldown between identical notifications
+		)
+		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
 	}
 
 	// Wallet handler
@@ -374,6 +385,7 @@ func main() {
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
 		PaymentInfo:    paymentInfoHandler,
+		Embedded:       handler.NewEmbeddedHandler(db),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,

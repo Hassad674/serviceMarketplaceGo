@@ -112,6 +112,42 @@ type StripeWebhookEvent struct {
 	Type            string
 	PaymentIntentID string
 	AccountID       string
+
+	// AccountSnapshot is populated for account.* events so downstream
+	// handlers can react on full account state without a second API call.
+	AccountSnapshot *StripeAccountSnapshot
+}
+
+// StripeAccountSnapshot captures the state of a connected account at the
+// moment a webhook was received. Used to detect transitions (activated /
+// suspended / requirements changed / document rejected) without needing
+// to re-fetch the account from the API.
+type StripeAccountSnapshot struct {
+	AccountID        string
+	Country          string
+	BusinessType     string
+	ChargesEnabled   bool
+	PayoutsEnabled   bool
+	DetailsSubmitted bool
+
+	// Requirements partitions — each holds the field names Stripe needs.
+	CurrentlyDue        []string
+	EventuallyDue       []string
+	PastDue             []string
+	PendingVerification []string
+	DisabledReason      string
+
+	// Errors explains WHY a field was rejected (document blurry, name
+	// mismatch, etc.). Keyed by the requirement, value is the reason.
+	RequirementErrors []StripeRequirementError
+}
+
+// StripeRequirementError mirrors a single entry of Stripe's
+// requirements.errors array (requirement + code + reason).
+type StripeRequirementError struct {
+	Requirement string
+	Code        string
+	Reason      string
 }
 
 // AccountFullStatus combines verification and account status from a single Stripe API call.

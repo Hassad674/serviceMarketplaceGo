@@ -23,6 +23,7 @@ type RouterDeps struct {
 	Call           *CallHandler
 	SocialLink     *SocialLinkHandler
 	PaymentInfo    *PaymentInfoHandler
+	Embedded       *EmbeddedHandler
 	Notification   *NotificationHandler
 	Stripe         *StripeHandler
 	Report         *ReportHandler
@@ -234,6 +235,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/requirements", deps.PaymentInfo.GetRequirements)
 				r.Get("/country-fields", deps.PaymentInfo.GetCountryFields)
 				r.Post("/account-link", deps.PaymentInfo.CreateAccountLink)
+				if deps.Embedded != nil {
+					r.Post("/account-session", deps.Embedded.CreateAccountSession)
+					r.Delete("/account-session", deps.Embedded.ResetAccount)
+					r.Get("/account-status", deps.Embedded.GetAccountStatus)
+				}
 			})
 		}
 
