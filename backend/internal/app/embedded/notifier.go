@@ -48,6 +48,7 @@ type LastAccountState struct {
 	DetailsSubmitted   bool
 	CurrentlyDueHash   string
 	PastDueHash        string
+	EventuallyDueHash  string
 	ErrorCodes         []string
 	DisabledReason     string
 }
@@ -183,7 +184,27 @@ func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSn
 		}
 	}
 
-	// 3. Past due (urgent)
+	// 3. Eventually due (non-urgent, anticipated requirements)
+	if curState.EventuallyDueHash != "" &&
+		(prev == nil || prev.EventuallyDueHash != curState.EventuallyDueHash) {
+		count := len(cur.EventuallyDue)
+		if count > 0 {
+			out = append(out, notifEvent{
+				Key:   "requirements_eventually_due",
+				Type:  notifdomain.TypeStripeRequirements,
+				Title: fmt.Sprintf("%d information%s à prévoir", count, pluralS(count)),
+				Body:  "Stripe anticipe des informations qui seront nécessaires pour maintenir votre compte à jour. Vous pouvez les fournir dès maintenant.",
+				Meta: map[string]any{
+					"account_id":     cur.AccountID,
+					"eventually_due": cur.EventuallyDue,
+					"count":          count,
+					"urgent":         false,
+				},
+			})
+		}
+	}
+
+	// 4. Past due (urgent)
 	if curState.PastDueHash != "" &&
 		(prev == nil || prev.PastDueHash != curState.PastDueHash) {
 		count := len(cur.PastDue)
@@ -202,7 +223,7 @@ func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSn
 		}
 	}
 
-	// 4. Document rejected (new error appeared)
+	// 5. Document rejected (new error appeared)
 	newErrors := diffErrors(prev, curState)
 	for _, ec := range newErrors {
 		title, body := errorMessageFor(ec.Code)
@@ -220,7 +241,7 @@ func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSn
 		})
 	}
 
-	// 5. Account disabled
+	// 6. Account disabled
 	if cur.DisabledReason != "" &&
 		(prev == nil || prev.DisabledReason != cur.DisabledReason) {
 		out = append(out, notifEvent{
@@ -263,13 +284,14 @@ func snapshotToState(snap *portservice.StripeAccountSnapshot) *LastAccountState 
 		errCodes = append(errCodes, e.Requirement+":"+e.Code)
 	}
 	return &LastAccountState{
-		ChargesEnabled:   snap.ChargesEnabled,
-		PayoutsEnabled:   snap.PayoutsEnabled,
-		DetailsSubmitted: snap.DetailsSubmitted,
-		CurrentlyDueHash: hashFields(snap.CurrentlyDue),
-		PastDueHash:      hashFields(snap.PastDue),
-		ErrorCodes:       errCodes,
-		DisabledReason:   snap.DisabledReason,
+		ChargesEnabled:    snap.ChargesEnabled,
+		PayoutsEnabled:    snap.PayoutsEnabled,
+		DetailsSubmitted:  snap.DetailsSubmitted,
+		CurrentlyDueHash:  hashFields(snap.CurrentlyDue),
+		PastDueHash:       hashFields(snap.PastDue),
+		EventuallyDueHash: hashFields(snap.EventuallyDue),
+		ErrorCodes:        errCodes,
+		DisabledReason:    snap.DisabledReason,
 	}
 }
 

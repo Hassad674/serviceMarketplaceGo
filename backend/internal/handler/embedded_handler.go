@@ -53,15 +53,18 @@ type embeddedAccountSessionResponse struct {
 }
 
 type embeddedAccountStatusResponse struct {
-	AccountID                string   `json:"account_id"`
-	Country                  string   `json:"country"`
-	BusinessType             string   `json:"business_type"`
-	ChargesEnabled           bool     `json:"charges_enabled"`
-	PayoutsEnabled           bool     `json:"payouts_enabled"`
-	DetailsSubmitted         bool     `json:"details_submitted"`
-	RequirementsCurrentlyDue []string `json:"requirements_currently_due"`
-	RequirementsPastDue      []string `json:"requirements_past_due"`
-	RequirementsCount        int      `json:"requirements_count"`
+	AccountID                 string   `json:"account_id"`
+	Country                   string   `json:"country"`
+	BusinessType              string   `json:"business_type"`
+	ChargesEnabled            bool     `json:"charges_enabled"`
+	PayoutsEnabled            bool     `json:"payouts_enabled"`
+	DetailsSubmitted          bool     `json:"details_submitted"`
+	RequirementsCurrentlyDue  []string `json:"requirements_currently_due"`
+	RequirementsPastDue       []string `json:"requirements_past_due"`
+	RequirementsEventuallyDue []string `json:"requirements_eventually_due"`
+	RequirementsPending       []string `json:"requirements_pending_verification"`
+	RequirementsCount         int      `json:"requirements_count"`
+	DisabledReason            string   `json:"disabled_reason,omitempty"`
 }
 
 // CreateAccountSession creates (or reuses) a Stripe Custom connected account
@@ -91,6 +94,13 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, req.BusinessType, h.platformURL)
 	if err != nil {
 		slog.Error("embedded: resolve stripe account", "user_id", userID, "error", err)
+		// Detect Stripe cross-border country restriction and surface a
+		// user-friendly 400 with a specific code.
+		if strings.Contains(err.Error(), "cannot be created by platforms in") {
+			res.Error(w, http.StatusBadRequest, "country_not_supported",
+				"Ce pays n'est pas disponible depuis notre plateforme. Contactez notre support si vous pensez que c'est une erreur.")
+			return
+		}
 		res.Error(w, http.StatusInternalServerError, "stripe_account_error", err.Error())
 		return
 	}
@@ -179,7 +189,12 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 	if acct.Requirements != nil {
 		resp.RequirementsCurrentlyDue = acct.Requirements.CurrentlyDue
 		resp.RequirementsPastDue = acct.Requirements.PastDue
-		resp.RequirementsCount = len(acct.Requirements.CurrentlyDue) + len(acct.Requirements.PastDue)
+		resp.RequirementsEventuallyDue = acct.Requirements.EventuallyDue
+		resp.RequirementsPending = acct.Requirements.PendingVerification
+		resp.DisabledReason = string(acct.Requirements.DisabledReason)
+		resp.RequirementsCount = len(acct.Requirements.CurrentlyDue) +
+			len(acct.Requirements.PastDue) +
+			len(acct.Requirements.EventuallyDue)
 	}
 
 	res.JSON(w, http.StatusOK, resp)
@@ -229,11 +244,14 @@ func (h *EmbeddedHandler) resolveStripeAccount(
 
 // syncBusinessProfile updates an existing connected account's business_profile
 // to ensure URL/MCC/description are always set. Idempotent.
+//
+// MCC 8999 = "Professional Services" — best generic match for a B2B
+// marketplace of freelancers and agencies.
 func syncBusinessProfile(accountID, platformURL string) error {
 	_, err := account.Update(accountID, &stripe.AccountParams{
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
 			URL:                stripe.String(platformURL),
-			MCC:                stripe.String("7299"),
+			MCC:                stripe.String("8999"),
 			ProductDescription: stripe.String("Freelance and agency services provided via the marketplace platform."),
 		},
 	})
@@ -301,7 +319,7 @@ func createStripeCustomAccount(country, businessType, platformURL string) (strin
 		},
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
 			URL:                stripe.String(platformURL),
-			MCC:                stripe.String("7299"),
+			MCC:                stripe.String("8999"), // Professional Services (B2B generic)
 			ProductDescription: stripe.String("Freelance and agency services provided via the marketplace platform."),
 		},
 	}
