@@ -11,6 +11,23 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+func (s *StorageService) Download(ctx context.Context, key string) ([]byte, error) {
+	result, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("s3 download %q: %w", key, err)
+	}
+	defer result.Body.Close()
+
+	data, err := io.ReadAll(result.Body)
+	if err != nil {
+		return nil, fmt.Errorf("s3 read body %q: %w", key, err)
+	}
+	return data, nil
+}
+
 type StorageService struct {
 	client    *s3.Client
 	presigner *s3.PresignClient

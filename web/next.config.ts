@@ -1,9 +1,14 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import path from "path";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
 const nextConfig: NextConfig = {
+  // Scope Turbopack to web/ only — prevents watching backend/, admin/, mobile/
+  turbopack: {
+    root: path.resolve(__dirname, ".."),
+  },
   // Remove the X-Powered-By header to reduce response size and hide framework info
   poweredByHeader: false,
 

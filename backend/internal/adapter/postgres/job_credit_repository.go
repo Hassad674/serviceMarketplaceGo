@@ -74,14 +74,31 @@ func (r *JobCreditRepository) AddBonus(ctx context.Context, userID uuid.UUID, am
 
 	_, err := r.db.ExecContext(ctx,
 		`INSERT INTO application_credits (user_id, credits)
-		 VALUES ($1, LEAST($2, $3))
+		 VALUES ($1, LEAST(10 + $2::int, $3::int))
 		 ON CONFLICT (user_id) DO UPDATE
-		 SET credits = LEAST(application_credits.credits + $2, $3),
+		 SET credits = LEAST(application_credits.credits + $2::int, $3::int),
 		     updated_at = now()`,
 		userID, amount, maxTokens,
 	)
 	if err != nil {
 		return fmt.Errorf("add bonus credits: %w", err)
+	}
+	return nil
+}
+
+// ResetForUser resets a single user's credits if below minCredits. Used by admin for testing.
+func (r *JobCreditRepository) ResetForUser(ctx context.Context, userID uuid.UUID, minCredits int) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE application_credits
+		 SET credits = $2, last_reset_at = now(), updated_at = now()
+		 WHERE user_id = $1 AND credits < $2`,
+		userID, minCredits,
+	)
+	if err != nil {
+		return fmt.Errorf("reset credits for user: %w", err)
 	}
 	return nil
 }

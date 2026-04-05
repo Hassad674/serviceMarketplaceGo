@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_entity.dart';
 
-class OpportunityCard extends StatelessWidget {
+class OpportunityCard extends ConsumerWidget {
   const OpportunityCard({super.key, required this.job, this.hasApplied = false});
 
   final JobEntity job;
   final bool hasApplied;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
@@ -50,6 +52,38 @@ class OpportunityCard extends StatelessWidget {
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                       ),
                     ),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade400),
+                      onSelected: (value) {
+                        if (value == 'report') {
+                          showReportBottomSheet(
+                            context,
+                            ref,
+                            targetType: 'job',
+                            targetId: job.id,
+                            conversationId: '',
+                          );
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'report',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.flag_outlined, size: 18, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Text(l10n.report),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
               if (job.description.isNotEmpty) ...[

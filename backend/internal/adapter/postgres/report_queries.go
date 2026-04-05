@@ -74,3 +74,27 @@ const queryHasPendingReport = `
 		SELECT 1 FROM reports
 		WHERE reporter_id = $1 AND target_type = $2 AND target_id = $3 AND status = 'pending'
 	)`
+
+const queryListReportsByConversation = `
+	SELECT id, reporter_id, target_type, target_id, conversation_id,
+		reason, description, status, admin_note,
+		resolved_at, resolved_by, created_at, updated_at
+	FROM reports
+	WHERE conversation_id = $1
+	ORDER BY created_at DESC`
+
+const queryListReportsAgainstUser = `
+	SELECT id, reporter_id, target_type, target_id, conversation_id,
+		reason, description, status, admin_note,
+		resolved_at, resolved_by, created_at, updated_at
+	FROM reports
+	WHERE target_type = 'user' AND target_id = $1
+	ORDER BY created_at DESC`
+
+const queryListReportsFiledByUser = `
+	SELECT id, reporter_id, target_type, target_id, conversation_id,
+		reason, description, status, admin_note,
+		resolved_at, resolved_by, created_at, updated_at
+	FROM reports
+	WHERE reporter_id = $1
+	ORDER BY created_at DESC`

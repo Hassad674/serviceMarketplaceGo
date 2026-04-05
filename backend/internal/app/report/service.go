@@ -12,24 +12,30 @@ import (
 
 // ServiceDeps groups the dependencies for the report service.
 type ServiceDeps struct {
-	Reports  repository.ReportRepository
-	Users    repository.UserRepository
-	Messages repository.MessageRepository
+	Reports      repository.ReportRepository
+	Users        repository.UserRepository
+	Messages     repository.MessageRepository
+	Jobs         repository.JobRepository
+	Applications repository.JobApplicationRepository
 }
 
 // Service orchestrates report use cases.
 type Service struct {
-	reports  repository.ReportRepository
-	users    repository.UserRepository
-	messages repository.MessageRepository
+	reports      repository.ReportRepository
+	users        repository.UserRepository
+	messages     repository.MessageRepository
+	jobs         repository.JobRepository
+	applications repository.JobApplicationRepository
 }
 
 // NewService creates a new report service.
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
-		reports:  deps.Reports,
-		users:    deps.Users,
-		messages: deps.Messages,
+		reports:      deps.Reports,
+		users:        deps.Users,
+		messages:     deps.Messages,
+		jobs:         deps.Jobs,
+		applications: deps.Applications,
 	}
 }
 
@@ -56,6 +62,14 @@ func (s *Service) CreateReport(ctx context.Context, in CreateReportInput) (*doma
 	case domain.TargetMessage:
 		if _, err := s.messages.GetMessage(ctx, in.TargetID); err != nil {
 			return nil, fmt.Errorf("get target message: %w", err)
+		}
+	case domain.TargetJob:
+		if _, err := s.jobs.GetByID(ctx, in.TargetID); err != nil {
+			return nil, fmt.Errorf("get target job: %w", err)
+		}
+	case domain.TargetApplication:
+		if _, err := s.applications.GetByID(ctx, in.TargetID); err != nil {
+			return nil, fmt.Errorf("get target application: %w", err)
 		}
 	}
 

@@ -1,0 +1,1 @@
+ALTER TABLE payment_info DROP COLUMN IF EXISTS email;

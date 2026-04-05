@@ -12,8 +12,13 @@ import '../../../../l10n/app_localizations.dart';
 class RequirementField {
   final String key;
   final String labelKey;
+  final String urgency;
 
-  const RequirementField({required this.key, required this.labelKey});
+  const RequirementField({
+    required this.key,
+    required this.labelKey,
+    this.urgency = 'currently_due',
+  });
 }
 
 class RequirementSection {
@@ -31,10 +36,14 @@ class RequirementSection {
 class StripeRequirements {
   final bool hasRequirements;
   final List<RequirementSection> sections;
+  final int? currentDeadline;
+  final List<String> pendingVerification;
 
   const StripeRequirements({
     required this.hasRequirements,
     required this.sections,
+    this.currentDeadline,
+    this.pendingVerification = const [],
   });
 }
 
@@ -64,6 +73,7 @@ final stripeRequirementsProvider =
         return RequirementField(
           key: fMap['key'] as String? ?? '',
           labelKey: fMap['label_key'] as String? ?? '',
+          urgency: fMap['urgency'] as String? ?? 'currently_due',
         );
       }).toList();
       return RequirementSection(
@@ -73,9 +83,16 @@ final stripeRequirementsProvider =
       );
     }).toList();
 
+    final rawDeadline = data['current_deadline'];
+    final deadline = rawDeadline is int ? rawDeadline : null;
+    final rawPending = data['pending_verification'] as List<dynamic>? ?? [];
+    final pending = rawPending.map((e) => e.toString()).toList();
+
     return StripeRequirements(
       hasRequirements: hasReq,
       sections: sections,
+      currentDeadline: deadline,
+      pendingVerification: pending,
     );
   } catch (_) {
     return const StripeRequirements(
@@ -92,7 +109,7 @@ final stripeRequirementsProvider =
 /// Banner that shows pending Stripe requirements with a list of missing fields.
 ///
 /// Calls GET /api/v1/payment-info/requirements to check for pending items.
-/// When requirements exist, shows an amber banner listing the required fields.
+/// When requirements exist, shows red for urgent and amber for eventual fields.
 class StripeRequirementsBanner extends ConsumerWidget {
   const StripeRequirementsBanner({super.key});
 
@@ -106,19 +123,162 @@ class StripeRequirementsBanner extends ConsumerWidget {
       error: (_, __) => const SizedBox.shrink(),
       data: (reqs) {
         if (!reqs.hasRequirements) return const SizedBox.shrink();
-        return _buildBanner(context, l10n, reqs);
+        return _buildBanners(context, l10n, reqs);
       },
     );
   }
 
-  Widget _buildBanner(
+  Widget _buildBanners(
     BuildContext context,
     AppLocalizations l10n,
     StripeRequirements reqs,
   ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fieldNames = _collectFieldNames(reqs.sections);
+    final urgentNames = _collectFieldNamesByUrgency(
+      reqs.sections,
+      {'past_due', 'currently_due'},
+    );
+    final eventualNames = _collectFieldNamesByUrgency(
+      reqs.sections,
+      {'eventually_due'},
+    );
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final children = <Widget>[];
+
+    if (urgentNames.isNotEmpty) {
+      children.add(_buildUrgentBanner(context, l10n, reqs, urgentNames, isDark));
+    }
+    if (eventualNames.isNotEmpty) {
+      if (children.isNotEmpty) children.add(const SizedBox(height: 8));
+      children.add(_buildEventualBanner(context, l10n, eventualNames, isDark));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
+
+  Widget _buildUrgentBanner(
+    BuildContext context,
+    AppLocalizations l10n,
+    StripeRequirements reqs,
+    List<String> fieldNames,
+    bool isDark,
+  ) {
+    final deadlineText = reqs.currentDeadline != null
+        ? _formatDeadline(reqs.currentDeadline!)
+        : null;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFFEF4444).withValues(alpha: 0.1)
+            : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFEF4444).withValues(alpha: 0.3)
+              : const Color(0xFFFECACA),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.warning_amber_outlined,
+                size: 20,
+                color: isDark
+                    ? const Color(0xFFF87171)
+                    : const Color(0xFFDC2626),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.stripeRequirementsTitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? const Color(0xFFF87171)
+                        : const Color(0xFF991B1B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: Text(
+              l10n.stripeRequirementsDesc,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? const Color(0xFFF87171).withValues(alpha: 0.8)
+                    : const Color(0xFF991B1B).withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          if (deadlineText != null) ...[
+            const SizedBox(height: 4),
+            Padding(
+              padding: const EdgeInsets.only(left: 28),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.schedule,
+                    size: 14,
+                    color: isDark
+                        ? const Color(0xFFF87171)
+                        : const Color(0xFF991B1B),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Deadline: $deadlineText',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isDark
+                          ? const Color(0xFFF87171)
+                          : const Color(0xFF991B1B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (fieldNames.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...fieldNames.map(
+              (name) => Padding(
+                padding: const EdgeInsets.only(left: 28, bottom: 2),
+                child: Text(
+                  '\u2022 $name',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark
+                        ? const Color(0xFFF87171)
+                        : const Color(0xFF991B1B),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventualBanner(
+    BuildContext context,
+    AppLocalizations l10n,
+    List<String> fieldNames,
+    bool isDark,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -138,7 +298,7 @@ class StripeRequirementsBanner extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                Icons.warning_amber_outlined,
+                Icons.info_outline,
                 size: 20,
                 color: isDark
                     ? const Color(0xFFFBBF24)
@@ -147,7 +307,7 @@ class StripeRequirementsBanner extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l10n.stripeRequirementsTitle,
+                  'Eventually required',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -163,7 +323,7 @@ class StripeRequirementsBanner extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.only(left: 28),
             child: Text(
-              l10n.stripeRequirementsDesc,
+              'These fields will be required soon to keep your account active.',
               style: TextStyle(
                 fontSize: 12,
                 color: isDark
@@ -194,12 +354,17 @@ class StripeRequirementsBanner extends ConsumerWidget {
     );
   }
 
-  /// Collect human-readable field names from requirement sections.
-  List<String> _collectFieldNames(List<RequirementSection> sections) {
+  /// Collect human-readable field names from sections matching given urgencies.
+  List<String> _collectFieldNamesByUrgency(
+    List<RequirementSection> sections,
+    Set<String> urgencies,
+  ) {
     final names = <String>[];
     for (final section in sections) {
       for (final field in section.fields) {
-        names.add(_humanizeKey(field.labelKey));
+        if (urgencies.contains(field.urgency)) {
+          names.add(_humanizeKey(field.labelKey));
+        }
       }
     }
     return names;
@@ -208,7 +373,6 @@ class StripeRequirementsBanner extends ConsumerWidget {
   /// Convert a camelCase key to a readable label.
   String _humanizeKey(String key) {
     if (key.isEmpty) return key;
-    // Insert space before capitals, replace underscores
     final spaced = key
         .replaceAllMapped(
           RegExp(r'([A-Z])'),
@@ -216,12 +380,17 @@ class StripeRequirementsBanner extends ConsumerWidget {
         )
         .replaceAll('_', ' ')
         .trim();
-    // Capitalize first letter of each word
     return spaced
         .split(' ')
         .where((w) => w.isNotEmpty)
         .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
         .join(' ');
+  }
+
+  /// Format a Unix timestamp to a human-readable date.
+  String _formatDeadline(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
 
@@ -233,8 +402,24 @@ Map<String, String> buildFieldErrors(StripeRequirements? reqs) {
   final errors = <String, String>{};
   for (final section in reqs.sections) {
     for (final field in section.fields) {
-      errors[field.key] = 'This field is required by Stripe';
+      if (field.urgency != 'eventually_due') {
+        errors[field.key] = 'This field is required by Stripe';
+      }
     }
   }
   return errors;
+}
+
+/// Builds a map of field key -> warning message for eventually_due fields.
+Map<String, String> buildFieldWarnings(StripeRequirements? reqs) {
+  if (reqs == null || !reqs.hasRequirements) return const {};
+  final warnings = <String, String>{};
+  for (final section in reqs.sections) {
+    for (final field in section.fields) {
+      if (field.urgency == 'eventually_due') {
+        warnings[field.key] = 'Will be required soon';
+      }
+    }
+  }
+  return warnings;
 }

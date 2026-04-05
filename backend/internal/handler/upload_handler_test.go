@@ -29,7 +29,7 @@ func newTestUploadHandler(
 	storage *mockStorageService,
 	profiles *mockProfileRepo,
 ) *UploadHandler {
-	return NewUploadHandler(storage, profiles)
+	return NewUploadHandler(storage, profiles, nil)
 }
 
 // buildMultipartRequest creates a multipart form request with a file field.

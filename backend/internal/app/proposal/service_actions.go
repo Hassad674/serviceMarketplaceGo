@@ -164,6 +164,9 @@ func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, userI
 		return fmt.Errorf("update proposal: %w", err)
 	}
 
+	// Award bonus credits with fraud detection
+	s.awardBonusWithFraudCheck(ctx, p)
+
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, userID, "proposal_paid", metadata)
 	s.sendNotification(ctx, p.ProviderID, "proposal_paid", "Payment received",
@@ -193,6 +196,9 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 	if err := s.proposals.Update(ctx, p); err != nil {
 		return fmt.Errorf("update proposal: %w", err)
 	}
+
+	// Award bonus credits with fraud detection
+	s.awardBonusWithFraudCheck(ctx, p)
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, p.ClientID, "proposal_paid", metadata)

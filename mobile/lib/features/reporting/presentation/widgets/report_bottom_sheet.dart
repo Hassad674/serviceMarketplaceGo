@@ -25,6 +25,23 @@ const _userReasons = [
   'other',
 ];
 
+/// Reason options for reporting a job.
+const _jobReasons = [
+  'fraud_or_scam',
+  'misleading_description',
+  'inappropriate_content',
+  'spam',
+  'other',
+];
+
+/// Reason options for reporting an application.
+const _applicationReasons = [
+  'fraud_or_scam',
+  'spam',
+  'inappropriate_content',
+  'other',
+];
+
 /// Shows the report bottom sheet as a modal.
 Future<void> showReportBottomSheet(
   BuildContext context,
@@ -72,8 +89,12 @@ class _ReportBottomSheetContentState
   String? _selectedReason;
   bool _isSubmitting = false;
 
-  List<String> get _reasons =>
-      widget.targetType == 'user' ? _userReasons : _messageReasons;
+  List<String> get _reasons => switch (widget.targetType) {
+        'user' => _userReasons,
+        'job' => _jobReasons,
+        'application' => _applicationReasons,
+        _ => _messageReasons,
+      };
 
   @override
   void dispose() {
@@ -85,11 +106,13 @@ class _ReportBottomSheetContentState
     return switch (reason) {
       'harassment' => l10n.reasonHarassment,
       'fraud' => l10n.reasonFraud,
+      'fraud_or_scam' => l10n.reasonFraudOrScam,
       'off_platform_payment' => l10n.reasonOffPlatformPayment,
       'spam' => l10n.reasonSpam,
       'inappropriate_content' => l10n.reasonInappropriateContent,
       'fake_profile' => l10n.reasonFakeProfile,
       'unprofessional_behavior' => l10n.reasonUnprofessionalBehavior,
+      'misleading_description' => l10n.reasonMisleadingDescription,
       'other' => l10n.reasonOther,
       _ => reason,
     };
@@ -132,8 +155,12 @@ class _ReportBottomSheetContentState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final isUser = widget.targetType == 'user';
-    final title = isUser ? l10n.reportUser : l10n.reportMessage;
+    final title = switch (widget.targetType) {
+      'user' => l10n.reportUser,
+      'job' => l10n.reportJob,
+      'application' => l10n.reportApplication,
+      _ => l10n.reportMessage,
+    };
     final canSubmit = _selectedReason != null &&
         _descriptionController.text.trim().isNotEmpty &&
         !_isSubmitting;

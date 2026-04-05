@@ -283,6 +283,13 @@ func (s *Service) ResetWeeklyCredits(ctx context.Context) error {
 	return s.credits.ResetWeekly(ctx, domain.WeeklyQuota)
 }
 
+func (s *Service) ResetCreditsForUser(ctx context.Context, userID uuid.UUID) error {
+	if s.credits == nil {
+		return nil
+	}
+	return s.credits.ResetForUser(ctx, userID, domain.WeeklyQuota)
+}
+
 func canCreateJob(role user.Role) bool {
 	return role == user.RoleEnterprise || role == user.RoleAgency
 }

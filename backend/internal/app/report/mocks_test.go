@@ -73,6 +73,14 @@ func (m *mockReportRepo) HasPendingReport(ctx context.Context, reporterID uuid.U
 	return false, nil
 }
 
+func (m *mockReportRepo) ListByConversation(_ context.Context, _ uuid.UUID) ([]*domain.Report, error) {
+	return nil, nil
+}
+
+func (m *mockReportRepo) ListByUserInvolved(_ context.Context, _ uuid.UUID) ([]*domain.Report, []*domain.Report, error) {
+	return nil, nil, nil
+}
+
 // Compile-time check.
 var _ repository.ReportRepository = (*mockReportRepo)(nil)
 
@@ -104,6 +112,18 @@ func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilter
 
 func (m *mockUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
 	return 0, nil
+}
+
+func (m *mockUserRepo) CountByRole(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) CountByStatus(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*userdomain.User, error) {
+	return nil, nil
 }
 
 // Compile-time check.
@@ -174,3 +194,23 @@ func (m *mockMessageRepo) SaveMessageHistory(_ context.Context, _, _ uuid.UUID, 
 
 // Compile-time check.
 var _ repository.MessageRepository = (*mockMessageRepo)(nil)
+
+// --- Stripe account stubs (migration 040) ---
+func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockUserRepo) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *mockUserRepo) SetStripeAccount(_ context.Context, _ uuid.UUID, _, _ string) error {
+	return nil
+}
+func (m *mockUserRepo) ClearStripeAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+func (m *mockUserRepo) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []byte) error {
+	return nil
+}

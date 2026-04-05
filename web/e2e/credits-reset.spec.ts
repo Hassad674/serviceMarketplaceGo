@@ -99,14 +99,14 @@ async function loginViaAPI(email: string, password: string): Promise<string> {
   throw new Error(`Login failed for ${email}: ${res.status} - no cookies`)
 }
 
-async function resetCreditsAsAdmin(cookie: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/v1/admin/credits/reset`, {
+async function resetCreditsForUser(adminCookie: string, userId: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/v1/admin/credits/reset/${userId}`, {
     method: "POST",
-    headers: { Cookie: cookie },
+    headers: { Cookie: adminCookie },
   })
   expect(
     res.ok,
-    `Admin credits reset failed: ${res.status}`,
+    `Admin credits reset for user failed: ${res.status}`,
   ).toBe(true)
   const data = await res.json()
   expect(data.status).toBe("ok")
@@ -143,11 +143,14 @@ test.describe("Admin credits reset", () => {
     await page.goto("/")
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
-    const providerUser = await page.evaluate(() => {
-      const raw = localStorage.getItem("marketplace-auth")
-      if (!raw) return null
-      return JSON.parse(raw)
+
+    // Get provider user ID via API
+    const meRes = await fetch(`${API_URL}/api/v1/auth/me`, {
+      headers: { Cookie: providerCookie },
     })
+    const meData = await meRes.json()
+    const providerUserId = meData.id ?? meData.data?.id
+    expect(providerUserId).toBeTruthy()
 
     const initialCredits = await fetchCreditsViaAPI(providerCookie)
     expect(initialCredits).toBe(INITIAL_CREDITS)
@@ -159,9 +162,9 @@ test.describe("Admin credits reset", () => {
     const creditsAfterApply = await fetchCreditsViaAPI(providerCookie)
     expect(creditsAfterApply).toBe(5)
 
-    // Step 3: Login as admin via API and trigger the weekly reset
+    // Step 3: Login as admin via API and trigger reset for this user only
     const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
-    await resetCreditsAsAdmin(adminCookie)
+    await resetCreditsForUser(adminCookie, providerUserId)
 
     // Step 4: Verify credits are restored to 10 (using existing provider cookie)
     const providerCookieAfter = providerCookie
@@ -178,18 +181,20 @@ test.describe("Admin credits reset", () => {
     // Step 1: Register a provider (starts with 10 credits)
     await registerProvider(page)
     const providerCookie = await getSessionCookie(context)
-    const providerUser = await page.evaluate(() => {
-      const raw = localStorage.getItem("marketplace-auth")
-      if (!raw) return null
-      return JSON.parse(raw)
+
+    const meRes = await fetch(`${API_URL}/api/v1/auth/me`, {
+      headers: { Cookie: providerCookie },
     })
+    const meData = await meRes.json()
+    const providerUserId = meData.id ?? meData.data?.id
+    expect(providerUserId).toBeTruthy()
 
     const initialCredits = await fetchCreditsViaAPI(providerCookie)
     expect(initialCredits).toBe(INITIAL_CREDITS)
 
-    // Step 2: Login as admin via API and trigger the weekly reset
+    // Step 2: Login as admin via API and trigger reset for this user only
     const adminCookie = await loginViaAPI(ADMIN_EMAIL, ADMIN_PASSWORD)
-    await resetCreditsAsAdmin(adminCookie)
+    await resetCreditsForUser(adminCookie, providerUserId)
 
     // Step 3: Verify credits still = 10
     const creditsAfterReset = await fetchCreditsViaAPI(providerCookie)

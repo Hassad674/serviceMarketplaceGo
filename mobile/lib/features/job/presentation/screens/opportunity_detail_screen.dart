@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
+import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
 import '../widgets/apply_bottom_sheet.dart';
@@ -34,7 +35,36 @@ class OpportunityDetailScreen extends ConsumerWidget {
         final isDisabled = alreadyApplied || noCredits;
 
         return Scaffold(
-          appBar: AppBar(title: Text(job.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+          appBar: AppBar(
+            title: Text(job.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+            actions: [
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'report') {
+                    showReportBottomSheet(
+                      context,
+                      ref,
+                      targetType: 'job',
+                      targetId: jobId,
+                      conversationId: '',
+                    );
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'report',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.flag_outlined, size: 18, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Text(l10n.reportJob),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(

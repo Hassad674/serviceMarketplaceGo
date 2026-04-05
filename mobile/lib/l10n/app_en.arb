@@ -501,6 +501,10 @@
   "reasonFakeProfile": "Fake or misleading profile",
   "reasonUnprofessionalBehavior": "Unprofessional behavior",
   "reasonOther": "Other",
+  "reasonFraudOrScam": "Fraud or scam",
+  "reasonMisleadingDescription": "Misleading description",
+  "reportJob": "Report this job",
+  "reportApplication": "Report this application",
   "loadMore": "Load more",
 
   "candidateDetail": "Application",

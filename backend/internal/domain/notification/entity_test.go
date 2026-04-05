@@ -135,6 +135,34 @@ func TestDefaultPreferences_EmailOn(t *testing.T) {
 	}
 }
 
+func TestStripeRequirementsType_IsValid(t *testing.T) {
+	assert.True(t, TypeStripeRequirements.IsValid(), "stripe_requirements should be a valid notification type")
+}
+
+func TestStripeAccountStatusType_IsValid(t *testing.T) {
+	assert.True(t, TypeStripeAccountStatus.IsValid(), "stripe_account_status should be a valid notification type")
+}
+
+func TestStripeTypes_DefaultPreferences_EmailOn(t *testing.T) {
+	userID := uuid.New()
+
+	stripeTypes := []NotificationType{
+		TypeStripeRequirements,
+		TypeStripeAccountStatus,
+	}
+
+	for _, nType := range stripeTypes {
+		t.Run(string(nType), func(t *testing.T) {
+			prefs := DefaultPreferences(userID, nType)
+			assert.Equal(t, userID, prefs.UserID)
+			assert.Equal(t, nType, prefs.NotificationType)
+			assert.True(t, prefs.InApp, "in_app should default to true for %s", nType)
+			assert.True(t, prefs.Push, "push should default to true for %s", nType)
+			assert.True(t, prefs.Email, "email should default to true for %s", nType)
+		})
+	}
+}
+
 func TestDefaultPreferences_EmailOff(t *testing.T) {
 	userID := uuid.New()
 	emailOffTypes := []NotificationType{

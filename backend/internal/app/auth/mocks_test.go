@@ -82,6 +82,18 @@ func (m *mockUserRepo) CountAdmin(ctx context.Context, filters repository.AdminU
 	return 0, nil
 }
 
+func (m *mockUserRepo) CountByRole(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) CountByStatus(_ context.Context) (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
+func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*user.User, error) {
+	return nil, nil
+}
+
 // --- mockPasswordResetRepo ---
 
 type mockPasswordResetRepo struct {
@@ -194,5 +206,25 @@ func (m *mockEmailService) SendPasswordReset(ctx context.Context, to string, res
 }
 
 func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
+// --- Stripe account stubs (migration 040) ---
+func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockUserRepo) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *mockUserRepo) SetStripeAccount(_ context.Context, _ uuid.UUID, _, _ string) error {
+	return nil
+}
+func (m *mockUserRepo) ClearStripeAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+func (m *mockUserRepo) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []byte) error {
 	return nil
 }

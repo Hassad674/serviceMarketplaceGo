@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	mediaapp "marketplace-backend/internal/app/media"
+	mediadomain "marketplace-backend/internal/domain/media"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
@@ -18,13 +20,15 @@ import (
 type UploadHandler struct {
 	storage  portservice.StorageService
 	profiles repository.ProfileRepository
+	mediaSvc *mediaapp.Service
 }
 
 func NewUploadHandler(
 	storage portservice.StorageService,
 	profiles repository.ProfileRepository,
+	mediaSvc *mediaapp.Service,
 ) *UploadHandler {
-	return &UploadHandler{storage: storage, profiles: profiles}
+	return &UploadHandler{storage: storage, profiles: profiles, mediaSvc: mediaSvc}
 }
 
 const maxPhotoSize = 5 << 20  // 5 MB
@@ -80,6 +84,10 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.mediaSvc != nil {
+		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextProfilePhoto)
+	}
+
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
@@ -131,6 +139,10 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		slog.Error("update profile video failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "update_failed", "failed to update profile")
 		return
+	}
+
+	if h.mediaSvc != nil {
+		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextProfileVideo)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
@@ -186,6 +198,10 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	if h.mediaSvc != nil {
+		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextReferrerVideo)
+	}
+
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
@@ -225,6 +241,10 @@ func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request
 		slog.Error("review video upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
 		return
+	}
+
+	if h.mediaSvc != nil {
+		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextReviewVideo)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})

@@ -1,9 +1,11 @@
 "use client"
 
-import { Briefcase, Calendar, Users } from "lucide-react"
+import { useState } from "react"
+import { Briefcase, Calendar, Users, MoreVertical, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { JobResponse } from "../types"
 
 interface OpportunityCardProps {
@@ -13,6 +15,8 @@ interface OpportunityCardProps {
 
 export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProps) {
   const t = useTranslations("opportunity")
+  const tReport = useTranslations("reporting")
+  const [showReport, setShowReport] = useState(false)
 
   const budgetLabel =
     job.budget_type === "long_term"
@@ -20,6 +24,7 @@ export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProp
       : `${job.min_budget.toLocaleString("fr-FR")}€ - ${job.max_budget.toLocaleString("fr-FR")}€`
 
   return (
+    <>
     <Link href={`/opportunities/${job.id}`}>
       <div
         className={cn(
@@ -31,11 +36,25 @@ export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProp
           <h3 className="text-base font-semibold text-slate-900 dark:text-white line-clamp-2">
             {job.title}
           </h3>
-          {hasApplied && (
-            <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-              {t("alreadyApplied")}
-            </span>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            {hasApplied && (
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                {t("alreadyApplied")}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                setShowReport(true)
+              }}
+              aria-label={tReport("report")}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-slate-100 hover:text-slate-500 dark:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-400 transition-all"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {job.description && (
@@ -76,5 +95,12 @@ export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProp
         </div>
       </div>
     </Link>
+    <ReportDialog
+      open={showReport}
+      onClose={() => setShowReport(false)}
+      targetType="job"
+      targetId={job.id}
+    />
+    </>
   )
 }

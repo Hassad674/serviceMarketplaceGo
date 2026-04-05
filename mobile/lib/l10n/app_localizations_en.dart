@@ -1412,6 +1412,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reasonOther => 'Other';
 
   @override
+  String get reasonFraudOrScam => 'Fraud or scam';
+
+  @override
+  String get reasonMisleadingDescription => 'Misleading description';
+
+  @override
+  String get reportJob => 'Report this job';
+
+  @override
+  String get reportApplication => 'Report this application';
+
+  @override
   String get loadMore => 'Load more';
 
   @override

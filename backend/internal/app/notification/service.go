@@ -135,7 +135,7 @@ func (s *Service) GetPreferences(ctx context.Context, userID uuid.UUID) ([]*noti
 		notif.TypeProposalReceived, notif.TypeProposalAccepted, notif.TypeProposalDeclined,
 		notif.TypeProposalModified, notif.TypeProposalPaid, notif.TypeCompletionRequested,
 		notif.TypeProposalCompleted, notif.TypeReviewReceived, notif.TypeNewMessage,
-		notif.TypeSystemAnnouncement,
+		notif.TypeSystemAnnouncement, notif.TypeStripeRequirements, notif.TypeStripeAccountStatus,
 	}
 
 	result := make([]*notif.Preferences, 0, len(allTypes))

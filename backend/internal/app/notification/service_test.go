@@ -228,7 +228,7 @@ func TestService_GetPreferences_MergesDefaults(t *testing.T) {
 	prefs, err := svc.GetPreferences(context.Background(), userID)
 
 	assert.NoError(t, err)
-	assert.Len(t, prefs, 10, "should return preferences for all 10 notification types")
+	assert.Len(t, prefs, 12, "should return preferences for all 12 notification types")
 
 	// Find the new_message preference — it should be the saved one (all false)
 	for _, p := range prefs {

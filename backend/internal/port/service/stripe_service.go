@@ -2,20 +2,12 @@ package service
 
 import (
 	"context"
-	"io"
 	"time"
-
-	"marketplace-backend/internal/domain/payment"
 )
 
-// StripeService abstracts Stripe API operations for Connect Custom.
+// StripeService abstracts Stripe API operations for payment + webhook
+// verification. KYC onboarding lives in Embedded Components — not here.
 type StripeService interface {
-	// CreateConnectedAccount creates a Stripe Custom connected account from payment info.
-	CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string, email string) (accountID string, err error)
-
-	// GetAccountStatus checks whether a connected account is verified.
-	GetAccountStatus(ctx context.Context, accountID string) (verified bool, err error)
-
 	// CreatePaymentIntent creates a PaymentIntent on the platform account.
 	CreatePaymentIntent(ctx context.Context, input CreatePaymentIntentInput) (*PaymentIntentResult, error)
 
@@ -24,36 +16,6 @@ type StripeService interface {
 
 	// ConstructWebhookEvent verifies and parses a Stripe webhook event.
 	ConstructWebhookEvent(payload []byte, signature string) (*StripeWebhookEvent, error)
-
-	// GetIdentityVerificationStatus returns the verification status and the verified front file ID.
-	GetIdentityVerificationStatus(ctx context.Context, accountID string) (status string, verifiedFileID string, err error)
-
-	// UploadIdentityFile uploads a file to Stripe for identity verification.
-	UploadIdentityFile(ctx context.Context, filename string, reader io.Reader, purpose string) (fileID string, err error)
-
-	// UpdateAccountVerification attaches verification documents to a connected account.
-	UpdateAccountVerification(ctx context.Context, accountID string, frontFileID, backFileID string) error
-
-	// CreatePerson creates a person on a connected account.
-	CreatePerson(ctx context.Context, accountID string, input CreatePersonInput) (personID string, err error)
-
-	// UpdateCompanyFlags marks directors/executives/owners as provided.
-	UpdateCompanyFlags(ctx context.Context, accountID string, directorsProvided, executivesProvided, ownersProvided bool) error
-
-	// GetAccountRequirements returns currently_due requirements.
-	GetAccountRequirements(ctx context.Context, accountID string) ([]string, error)
-
-	// CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.
-	CreateAccountLink(ctx context.Context, accountID, returnURL, refreshURL string) (url string, err error)
-
-	// UpdateConnectedAccount updates an existing Stripe connected account with new data.
-	UpdateConnectedAccount(ctx context.Context, accountID string, info *payment.PaymentInfo, tosIP string, email string) error
-
-	// GetCountrySpec retrieves the Stripe field requirements for a specific country.
-	GetCountrySpec(ctx context.Context, country string) (*payment.CountryFieldSpec, error)
-
-	// ListAllCountrySpecs retrieves specs for all Stripe-supported countries.
-	ListAllCountrySpecs(ctx context.Context) ([]*payment.CountryFieldSpec, error)
 }
 
 type CreatePaymentIntentInput struct {
@@ -103,4 +65,48 @@ type StripeWebhookEvent struct {
 	Type            string
 	PaymentIntentID string
 	AccountID       string
+
+	// AccountSnapshot is populated for account.* events so downstream
+	// handlers can react on full account state without a second API call.
+	AccountSnapshot *StripeAccountSnapshot
+}
+
+// StripeAccountSnapshot captures the state of a connected account at the
+// moment a webhook was received. Used to detect transitions (activated /
+// suspended / requirements changed / document rejected) without needing
+// to re-fetch the account from the API.
+type StripeAccountSnapshot struct {
+	AccountID        string
+	Country          string
+	BusinessType     string
+	ChargesEnabled   bool
+	PayoutsEnabled   bool
+	DetailsSubmitted bool
+
+	// Requirements partitions — each holds the field names Stripe needs.
+	CurrentlyDue        []string
+	EventuallyDue       []string
+	PastDue             []string
+	PendingVerification []string
+	DisabledReason      string
+
+	// Errors explains WHY a field was rejected (document blurry, name
+	// mismatch, etc.). Keyed by the requirement, value is the reason.
+	RequirementErrors []StripeRequirementError
+}
+
+// StripeRequirementError mirrors a single entry of Stripe's
+// requirements.errors array (requirement + code + reason).
+type StripeRequirementError struct {
+	Requirement string
+	Code        string
+	Reason      string
+}
+
+// AccountFullStatus combines verification and account status from a single Stripe API call.
+type AccountFullStatus struct {
+	VerificationStatus string
+	VerifiedFileID     string
+	ChargesEnabled     bool
+	PayoutsEnabled     bool
 }
