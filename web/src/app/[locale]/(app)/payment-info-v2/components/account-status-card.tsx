@@ -11,7 +11,10 @@ export type AccountStatus = {
   details_submitted: boolean
   requirements_currently_due: string[]
   requirements_past_due: string[]
+  requirements_eventually_due: string[]
+  requirements_pending_verification: string[]
   requirements_count: number
+  disabled_reason?: string
 }
 
 type AccountStatusCardProps = {

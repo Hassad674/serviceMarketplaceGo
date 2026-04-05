@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import { loadConnectAndInitialize } from "@stripe/connect-js"
 import type { StripeConnectInstance } from "@stripe/connect-js"
@@ -54,10 +54,16 @@ export default function PaymentInfoV2Page() {
   const [mode, setMode] = useState<Mode>("loading")
   const [status, setStatus] = useState<AccountStatus | null>(null)
   const [connectInstance, setConnectInstance] = useState<StripeConnectInstance | null>(null)
-  const [pendingCountry, setPendingCountry] = useState<string | null>(null)
-  const [pendingBusinessType, setPendingBusinessType] = useState<BusinessType | null>(null)
   const [creating, setCreating] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string>("")
+
+  // Ref holds the latest pending values so fetchClientSecret (called by
+  // Stripe Connect asynchronously and possibly multiple times) always reads
+  // the current country/business_type without stale-closure issues.
+  const pendingRef = useRef<{ country: string | null; businessType: BusinessType | null }>({
+    country: null,
+    businessType: null,
+  })
 
   /* ---------- Status fetch ---------- */
   const fetchStatus = useCallback(async (): Promise<AccountStatus | null> => {
@@ -85,8 +91,11 @@ export default function PaymentInfoV2Page() {
         return
       }
       setStatus(s)
-      // If account not fully onboarded, show onboarding component; else show dashboard
-      if (!s.details_submitted || s.requirements_count > 0) {
+      // First-time users (never submitted initial details) see the full
+      // AccountOnboarding wizard. Everyone else lands on the dashboard where
+      // the NotificationBanner surfaces any pending requirements and the
+      // AccountManagement component lets them resolve them inline.
+      if (!s.details_submitted) {
         setMode("onboarding")
       } else {
         setMode("dashboard")
@@ -109,16 +118,14 @@ export default function PaymentInfoV2Page() {
 
   /* ---------- Stripe Connect init (once we have a session possible) ---------- */
   const fetchClientSecret = useCallback(async (): Promise<string> => {
+    const { country, businessType } = pendingRef.current
     const res = await fetch(
       `${API_BASE_URL}/api/v1/payment-info/account-session`,
       {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          country: pendingCountry,
-          business_type: pendingBusinessType,
-        }),
+        body: JSON.stringify({ country, business_type: businessType }),
       },
     )
     if (!res.ok) {
@@ -131,7 +138,7 @@ export default function PaymentInfoV2Page() {
     }
     const payload = (await res.json()) as AccountSessionResponse
     return payload.client_secret
-  }, [pendingCountry, pendingBusinessType])
+  }, [])
 
   const initializeConnect = useCallback(() => {
     if (!STRIPE_PUBLISHABLE_KEY) {
@@ -152,11 +159,9 @@ export default function PaymentInfoV2Page() {
   const handleWizardSubmit = async (country: string, businessType: BusinessType) => {
     setCreating(true)
     setErrorMessage("")
-    setPendingCountry(country)
-    setPendingBusinessType(businessType)
+    // Write to ref synchronously so fetchClientSecret can read it immediately.
+    pendingRef.current = { country, businessType }
 
-    // Wait for state to settle, then init Stripe
-    await new Promise((r) => setTimeout(r, 50))
     try {
       initializeConnect()
       setMode("onboarding")
@@ -243,8 +248,15 @@ export default function PaymentInfoV2Page() {
         {(mode === "onboarding" || mode === "dashboard") && connectInstance ? (
           <ConnectComponentsProvider connectInstance={connectInstance}>
             <div className="flex flex-col gap-6 animate-fade-in">
-              {/* Always-visible notification banner */}
-              <ConnectNotificationBanner />
+              {/* Always-visible notification banner — also flags eventually_due
+                 requirements (not just currently_due) so the user is aware
+                 of what Stripe will need before it becomes urgent. */}
+              <ConnectNotificationBanner
+                collectionOptions={{
+                  fields: "eventually_due",
+                  futureRequirements: "include",
+                }}
+              />
 
               {/* Status card — always visible when account exists */}
               {status ? <AccountStatusCard status={status} /> : null}
@@ -258,7 +270,13 @@ export default function PaymentInfoV2Page() {
                     </h3>
                   </div>
                   <div className="p-6">
-                    <ConnectAccountOnboarding onExit={handleOnboardingExit} />
+                    <ConnectAccountOnboarding
+                      onExit={handleOnboardingExit}
+                      collectionOptions={{
+                        fields: "eventually_due",
+                        futureRequirements: "include",
+                      }}
+                    />
                   </div>
                 </section>
               ) : (
@@ -272,7 +290,12 @@ export default function PaymentInfoV2Page() {
                     </p>
                   </div>
                   <div className="p-6">
-                    <ConnectAccountManagement />
+                    <ConnectAccountManagement
+                      collectionOptions={{
+                        fields: "eventually_due",
+                        futureRequirements: "include",
+                      }}
+                    />
                   </div>
                 </section>
               )}
