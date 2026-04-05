@@ -13,7 +13,7 @@
 # Requirements:
 #   - Backend running on BACKEND_URL (default: http://localhost:8084)
 #   - Postgres reachable via DB_URL (from backend/.env)
-#   - A row in test_embedded_accounts linking a user_id to a stripe_account_id
+#   - A user with stripe_account_id populated (users.stripe_account_id)
 #   - psql, curl, openssl available
 #
 # Usage:
@@ -57,11 +57,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Auto-detect first account in test_embedded_accounts if not provided
+# Auto-detect first user with a Stripe account if not provided
 if [[ -z "$ACCOUNT_ID" || -z "$USER_ID" ]]; then
-  row=$(psql "$DB_URL" -t -A -F'|' -c "SELECT user_id, stripe_account_id FROM test_embedded_accounts ORDER BY updated_at DESC LIMIT 1;" 2>/dev/null)
+  row=$(psql "$DB_URL" -t -A -F'|' -c "SELECT id, stripe_account_id FROM users WHERE stripe_account_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1;" 2>/dev/null)
   if [[ -z "$row" ]]; then
-    echo "❌ No row in test_embedded_accounts — create an account via /fr/payment-info-v2 first"
+    echo "❌ No user with stripe_account_id — create an account via /fr/payment-info first"
     exit 1
   fi
   USER_ID="${row%%|*}"
@@ -106,7 +106,7 @@ echo
 # would be ideal, but we avoid that. Instead we use scenarios with unique
 # notification keys to avoid cooldown collisions.
 reset_state() {
-  psql "$DB_URL" -q -c "UPDATE test_embedded_accounts SET last_state = NULL WHERE stripe_account_id = '$ACCOUNT_ID';" >/dev/null 2>&1
+  psql "$DB_URL" -q -c "UPDATE users SET stripe_last_state = NULL WHERE stripe_account_id = '$ACCOUNT_ID';" >/dev/null 2>&1
 }
 
 # Purge old notifications so count_recent_notifs gives clean deltas.
@@ -301,7 +301,7 @@ if [[ "$FAILED" -eq 0 ]]; then
   echo "Still to verify manually (channels the script can't observe):"
   echo "  • Email inbox — open mailbox configured in backend"
   echo "  • Push notification — check device (if FCM configured)"
-  echo "  • Visual UI — open /fr/payment-info-v2 in browser"
+  echo "  • Visual UI — open /fr/payment-info in browser"
   echo
   exit 0
 else
