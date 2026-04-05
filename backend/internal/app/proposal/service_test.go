@@ -21,6 +21,16 @@ func newTestService(
 	msgSender *mockMessageSender,
 	storage *mockStorageService,
 ) *Service {
+	return newTestServiceWithCredits(proposalRepo, userRepo, msgSender, storage, nil)
+}
+
+func newTestServiceWithCredits(
+	proposalRepo *mockProposalRepo,
+	userRepo *mockUserRepo,
+	msgSender *mockMessageSender,
+	storage *mockStorageService,
+	credits *mockJobCreditRepo,
+) *Service {
 	if proposalRepo == nil {
 		proposalRepo = &mockProposalRepo{}
 	}
@@ -33,13 +43,17 @@ func newTestService(
 	if storage == nil {
 		storage = &mockStorageService{}
 	}
-	return NewService(ServiceDeps{
+	deps := ServiceDeps{
 		Proposals:     proposalRepo,
 		Users:         userRepo,
 		Messages:      msgSender,
 		Storage:       storage,
 		Notifications: &mockNotificationSender{},
-	})
+	}
+	if credits != nil {
+		deps.Credits = credits
+	}
+	return NewService(deps)
 }
 
 func makeUser(id uuid.UUID, role user.Role) *user.User {
@@ -95,7 +109,7 @@ func TestCreateProposal_SameUser(t *testing.T) {
 		RecipientID:    userID,
 		Title:          "Test",
 		Description:    "Test",
-		Amount:         1000,
+		Amount:         5000,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrSameUser)
@@ -398,7 +412,7 @@ func TestModifyProposal_Success(t *testing.T) {
 				ProviderID:     recipientID,
 				Status:         domain.StatusPending,
 				Title:          "Original",
-				Amount:         1000,
+				Amount:         5000,
 				Version:        1,
 			}, nil
 		},
@@ -446,7 +460,7 @@ func TestModifyProposal_BySender_Fails(t *testing.T) {
 		UserID:      senderID,
 		Title:       "Test",
 		Description: "Test",
-		Amount:      1000,
+		Amount:      5000,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrCannotModify)
@@ -474,7 +488,7 @@ func TestModifyProposal_NotPending_Fails(t *testing.T) {
 		UserID:      recipientID,
 		Title:       "Test",
 		Description: "Test",
-		Amount:      1000,
+		Amount:      5000,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrCannotModify)
@@ -499,7 +513,7 @@ func TestSimulatePayment_Success(t *testing.T) {
 				Status:         domain.StatusAccepted,
 				AcceptedAt:     &now,
 				Title:          "Test",
-				Amount:         1000,
+				Amount:         5000,
 			}, nil
 		},
 	}

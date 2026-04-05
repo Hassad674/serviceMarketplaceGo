@@ -36,7 +36,7 @@ func TestCreateProposal_EmptyTitle(t *testing.T) {
 		RecipientID:    providerID,
 		Title:          "",
 		Description:    "Some description",
-		Amount:         1000,
+		Amount:         5000,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrEmptyTitle)
@@ -62,7 +62,7 @@ func TestCreateProposal_EmptyDescription(t *testing.T) {
 		RecipientID:    providerID,
 		Title:          "Valid title",
 		Description:    "",
-		Amount:         1000,
+		Amount:         5000,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrEmptyDescription)
@@ -106,6 +106,71 @@ func TestCreateProposal_InvalidAmount(t *testing.T) {
 	}
 }
 
+func TestCreateProposal_BelowMinimumAmount(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	svc := newTestService(nil, userRepo, nil, nil)
+
+	tests := []struct {
+		name   string
+		amount int64
+	}{
+		{"below minimum 1000 centimes", 1000},
+		{"below minimum 2999 centimes", 2999},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+				ConversationID: uuid.New(),
+				SenderID:       enterpriseID,
+				RecipientID:    providerID,
+				Title:          "Valid title",
+				Description:    "Valid desc",
+				Amount:         tt.amount,
+			})
+
+			assert.ErrorIs(t, err, domain.ErrBelowMinimumAmount)
+		})
+	}
+}
+
+func TestCreateProposal_ExactMinimumAmountSucceeds(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	svc := newTestService(nil, userRepo, &mockMessageSender{}, nil)
+
+	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       enterpriseID,
+		RecipientID:    providerID,
+		Title:          "Minimum amount proposal",
+		Description:    "Exactly 30 EUR",
+		Amount:         3000,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(3000), p.Amount)
+}
+
 // --- CreateProposal user lookup errors ---
 
 func TestCreateProposal_SenderNotFound(t *testing.T) {
@@ -128,7 +193,7 @@ func TestCreateProposal_SenderNotFound(t *testing.T) {
 		RecipientID:    recipientID,
 		Title:          "Test",
 		Description:    "Test desc",
-		Amount:         1000,
+		Amount:         5000,
 	})
 
 	assert.Error(t, err)
@@ -155,7 +220,7 @@ func TestCreateProposal_RecipientNotFound(t *testing.T) {
 		RecipientID:    recipientID,
 		Title:          "Test",
 		Description:    "Test desc",
-		Amount:         1000,
+		Amount:         5000,
 	})
 
 	assert.Error(t, err)
@@ -356,7 +421,7 @@ func TestModifyProposal_PersistError(t *testing.T) {
 				ProviderID:     recipientID,
 				Status:         domain.StatusPending,
 				Title:          "Original",
-				Amount:         1000,
+				Amount:         5000,
 				Version:        1,
 			}, nil
 		},
@@ -371,7 +436,7 @@ func TestModifyProposal_PersistError(t *testing.T) {
 		UserID:      recipientID,
 		Title:       "Counter",
 		Description: "Counter desc",
-		Amount:      2000,
+		Amount:      5000,
 	})
 
 	assert.Error(t, err)
@@ -395,7 +460,7 @@ func TestModifyProposal_WithDocuments(t *testing.T) {
 				ProviderID:     recipientID,
 				Status:         domain.StatusPending,
 				Title:          "Original",
-				Amount:         1000,
+				Amount:         5000,
 				Version:        1,
 			}, nil
 		},
@@ -412,7 +477,7 @@ func TestModifyProposal_WithDocuments(t *testing.T) {
 		UserID:      recipientID,
 		Title:       "Counter with docs",
 		Description: "With attached spec",
-		Amount:      2000,
+		Amount:      5000,
 		Deadline:    &deadline,
 		Documents: []DocumentInput{
 			{Filename: "contract.pdf", URL: "https://s3/contract.pdf", Size: 1024, MimeType: "application/pdf"},
@@ -440,7 +505,7 @@ func TestModifyProposal_GetError(t *testing.T) {
 		UserID:      uuid.New(),
 		Title:       "Test",
 		Description: "Test",
-		Amount:      1000,
+		Amount:      5000,
 	})
 
 	assert.Error(t, err)

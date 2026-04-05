@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
+import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../../domain/entities/job_application_entity.dart';
 
 /// Full-page detail screen for a job application / candidate.
@@ -13,7 +15,7 @@ import '../../domain/entities/job_application_entity.dart';
 /// and action buttons (view profile, send message).
 /// Optionally accepts a full candidates list + index for prev/next
 /// navigation between candidates.
-class CandidateDetailScreen extends StatefulWidget {
+class CandidateDetailScreen extends ConsumerStatefulWidget {
   const CandidateDetailScreen({
     super.key,
     required this.item,
@@ -28,10 +30,12 @@ class CandidateDetailScreen extends StatefulWidget {
   final int? candidateIndex;
 
   @override
-  State<CandidateDetailScreen> createState() => _CandidateDetailScreenState();
+  ConsumerState<CandidateDetailScreen> createState() =>
+      _CandidateDetailScreenState();
 }
 
-class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
+class _CandidateDetailScreenState
+    extends ConsumerState<CandidateDetailScreen> {
   late int _currentIndex;
   late ApplicationWithProfile _currentItem;
 
@@ -91,6 +95,33 @@ class _CandidateDetailScreenState extends State<CandidateDetailScreen> {
                 onNext: _goToNext,
               )
             : Text(l10n.candidateDetail),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'report') {
+                showReportBottomSheet(
+                  context,
+                  ref,
+                  targetType: 'application',
+                  targetId: _currentItem.application.id,
+                  conversationId: '',
+                );
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'report',
+                child: Row(
+                  children: [
+                    const Icon(Icons.flag_outlined, size: 18, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Text(l10n.reportApplication),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

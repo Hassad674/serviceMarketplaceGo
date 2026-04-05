@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
-import { X, ChevronLeft, ChevronRight, Send, User } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { X, ChevronLeft, ChevronRight, Send, User, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { openChatWithUser } from "@/shared/components/chat-widget/use-chat-widget"
+import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { ApplicationWithProfile } from "../types"
 
 const ROLE_COLORS: Record<string, string> = {
@@ -30,9 +31,11 @@ export function CandidateDetailPanel({
   jobId: _jobId,
 }: CandidateDetailPanelProps) {
   const t = useTranslations("opportunity")
+  const tReport = useTranslations("reporting")
   const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const isOpen = candidate !== null
+  const [showReportDialog, setShowReportDialog] = useState(false)
 
   const currentIndex = candidate
     ? candidates.findIndex((c) => c.application.id === candidate.application.id)
@@ -150,14 +153,24 @@ export function CandidateDetailPanel({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowReportDialog(true)}
+              aria-label={tReport("reportApplication")}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all"
+            >
+              <Flag className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable content */}
@@ -269,6 +282,15 @@ export function CandidateDetailPanel({
         </div>
 
       </aside>
+
+      {candidate && (
+        <ReportDialog
+          open={showReportDialog}
+          onClose={() => setShowReportDialog(false)}
+          targetType="application"
+          targetId={candidate.application.id}
+        />
+      )}
     </>
   )
 }

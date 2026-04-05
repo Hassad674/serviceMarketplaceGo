@@ -17,4 +17,6 @@ type ReportRepository interface {
 	ListByTarget(ctx context.Context, targetType string, targetID uuid.UUID) ([]*report.Report, error)
 	UpdateStatus(ctx context.Context, id uuid.UUID, status string, adminNote string, resolvedBy uuid.UUID) error
 	HasPendingReport(ctx context.Context, reporterID uuid.UUID, targetType string, targetID uuid.UUID) (bool, error)
+	ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]*report.Report, error)
+	ListByUserInvolved(ctx context.Context, userID uuid.UUID) (against []*report.Report, filed []*report.Report, err error)
 }

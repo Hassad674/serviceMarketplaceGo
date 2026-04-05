@@ -514,6 +514,35 @@ All logs are structured JSON via Go's `slog` package. Every log line includes:
 - Migrations are immutable once applied in prod — never edit, only create new ones
 - Workflow: create migration -> test locally (`make migrate-up`) -> commit -> apply to prod (`DATABASE_URL=<prod> make migrate-up`)
 
+### Migration Safety Rules (multi-agent)
+
+Multiple agents work in parallel on separate worktrees sharing the same PostgreSQL. Code is isolated by worktrees, **but the database is shared**. These rules prevent data loss:
+
+1. **NEVER run `migrate-down`** unless you are the ONLY agent working AND you are rolling back your own migration. If you need to fix a migration, create a new corrective migration instead.
+
+2. **Fix migrations forward, not backward.** To correct a mistake, create a NEW migration (e.g., `033_fix_xyz.up.sql`). Never edit or rollback an existing applied migration.
+
+3. **Verify tables before and after merge.** Before merging a branch that touches migrations, verify no tables were lost:
+   ```bash
+   psql $DATABASE_URL -c "\dt" | sort > /tmp/tables_before.txt
+   # After merge + migrate-up:
+   psql $DATABASE_URL -c "\dt" | sort | diff /tmp/tables_before.txt -
+   ```
+
+4. **Agents that touch migrations MUST use their own database copy.** This is mandatory — not optional. The shared DB (`marketplace_go`) must never be modified directly by an agent working in a worktree.
+   ```bash
+   # At worktree creation:
+   createdb -p 5434 marketplace_go_feat_<name> -T marketplace_go
+   # Agent's .env in worktree:
+   DATABASE_URL=postgres://postgres:postgres@localhost:5434/marketplace_go_feat_<name>
+   # After merge to main, apply on shared DB:
+   DATABASE_URL=<shared> make migrate-up
+   # Cleanup:
+   dropdb -p 5434 marketplace_go_feat_<name>
+   ```
+
+**Why rule 4 is mandatory:** An agent debugging a migration issue may run `migrate-down` to "fix" it. Without an isolated DB, this rolls back ALL migrations (including other agents' tables), causing data loss. With an isolated copy, the agent can do anything — the shared DB is untouched.
+
 ### Git
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `chore:`, `test:`, `docs:`
 - One feature per commit, atomic changes

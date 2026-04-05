@@ -255,6 +255,20 @@ func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
 
 // ConfirmPayment is called by the frontend after stripe.confirmPayment() succeeds.
 // It serves as a fallback to the webhook — ensures the proposal transitions to paid/active.
+// AdminActivateProposal forces a proposal to paid+active state (admin-only, for testing).
+func (h *ProposalHandler) AdminActivateProposal(w http.ResponseWriter, r *http.Request) {
+	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
+		return
+	}
+	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
+		handleProposalError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, map[string]string{"status": "activated"})
+}
+
 func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -398,6 +412,86 @@ func (h *ProposalHandler) ListActiveProjects(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+// AdminListBonusLog handles GET /api/v1/admin/credits/bonus-log.
+func (h *ProposalHandler) AdminListBonusLog(w http.ResponseWriter, r *http.Request) {
+	cursor := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	entries, nextCursor, err := h.proposalSvc.ListBonusLog(r.Context(), cursor, limit)
+	if err != nil {
+		slog.Error("list bonus log", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list bonus log")
+		return
+	}
+
+	items := make([]response.BonusLogResponse, 0, len(entries))
+	for _, e := range entries {
+		items = append(items, response.NewBonusLogResponse(e))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        items,
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+	})
+}
+
+// AdminListPendingBonusLog handles GET /api/v1/admin/credits/bonus-log/pending.
+func (h *ProposalHandler) AdminListPendingBonusLog(w http.ResponseWriter, r *http.Request) {
+	cursor := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	entries, nextCursor, err := h.proposalSvc.ListPendingBonusLog(r.Context(), cursor, limit)
+	if err != nil {
+		slog.Error("list pending bonus log", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list pending bonus log")
+		return
+	}
+
+	items := make([]response.BonusLogResponse, 0, len(entries))
+	for _, e := range entries {
+		items = append(items, response.NewBonusLogResponse(e))
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":        items,
+		"next_cursor": nextCursor,
+		"has_more":    nextCursor != "",
+	})
+}
+
+// AdminApproveBonusEntry handles POST /api/v1/admin/credits/bonus-log/{id}/approve.
+func (h *ProposalHandler) AdminApproveBonusEntry(w http.ResponseWriter, r *http.Request) {
+	entryID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	if err := h.proposalSvc.ApproveBonusEntry(r.Context(), entryID); err != nil {
+		handleProposalError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "approved"})
+}
+
+// AdminRejectBonusEntry handles POST /api/v1/admin/credits/bonus-log/{id}/reject.
+func (h *ProposalHandler) AdminRejectBonusEntry(w http.ResponseWriter, r *http.Request) {
+	entryID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
+		return
+	}
+
+	if err := h.proposalSvc.RejectBonusEntry(r.Context(), entryID); err != nil {
+		handleProposalError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "rejected"})
+}
+
 func convertDocumentInputs(inputs []request.DocumentInput) []proposalapp.DocumentInput {
 	docs := make([]proposalapp.DocumentInput, len(inputs))
 	for i, d := range inputs {
@@ -431,6 +525,8 @@ func handleProposalError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "empty_description", err.Error())
 	case errors.Is(err, proposaldomain.ErrInvalidAmount):
 		res.Error(w, http.StatusBadRequest, "invalid_amount", err.Error())
+	case errors.Is(err, proposaldomain.ErrBelowMinimumAmount):
+		res.Error(w, http.StatusBadRequest, "below_minimum_amount", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotProvider):
 		res.Error(w, http.StatusForbidden, "not_provider", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotClient):

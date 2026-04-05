@@ -2,21 +2,138 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	portservice "marketplace-backend/internal/port/service"
 )
 
-type Service struct {
-	users repository.UserRepository
+// DashboardStats holds aggregated statistics for the admin dashboard.
+type DashboardStats struct {
+	TotalUsers      int
+	UsersByRole     map[string]int
+	ActiveUsers     int
+	SuspendedUsers  int
+	BannedUsers     int
+	TotalProposals  int
+	ActiveProposals int
+	TotalJobs       int
+	OpenJobs        int
+	RecentSignups   []*user.User
 }
 
-func NewService(users repository.UserRepository) *Service {
-	return &Service{users: users}
+// ServiceDeps groups dependencies for the admin Service.
+type ServiceDeps struct {
+	Users      repository.UserRepository
+	Reports    repository.ReportRepository
+	MediaRepo  repository.MediaRepository
+	StorageSvc portservice.StorageService
+	DB         *sql.DB
+}
+
+type Service struct {
+	users      repository.UserRepository
+	reports    repository.ReportRepository
+	mediaRepo  repository.MediaRepository
+	storageSvc portservice.StorageService
+	db         *sql.DB
+}
+
+func NewService(deps ServiceDeps) *Service {
+	return &Service{
+		users:      deps.Users,
+		reports:    deps.Reports,
+		mediaRepo:  deps.MediaRepo,
+		storageSvc: deps.StorageSvc,
+		db:         deps.DB,
+	}
+}
+
+func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {
+	roleCount, err := s.users.CountByRole(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: count by role: %w", err)
+	}
+
+	statusCount, err := s.users.CountByStatus(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: count by status: %w", err)
+	}
+
+	recent, err := s.users.RecentSignups(ctx, 10)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: recent signups: %w", err)
+	}
+
+	totalProposals, activeProposals, err := s.countProposals(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: proposals: %w", err)
+	}
+
+	totalJobs, openJobs, err := s.countJobs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("dashboard stats: jobs: %w", err)
+	}
+
+	totalUsers := 0
+	for _, c := range roleCount {
+		totalUsers += c
+	}
+
+	return &DashboardStats{
+		TotalUsers:      totalUsers,
+		UsersByRole:     roleCount,
+		ActiveUsers:     statusCount["active"],
+		SuspendedUsers:  statusCount["suspended"],
+		BannedUsers:     statusCount["banned"],
+		TotalProposals:  totalProposals,
+		ActiveProposals: activeProposals,
+		TotalJobs:       totalJobs,
+		OpenJobs:        openJobs,
+		RecentSignups:   recent,
+	}, nil
+}
+
+func (s *Service) countProposals(ctx context.Context) (total int, active int, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM proposals").Scan(&total)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count total proposals: %w", err)
+	}
+
+	err = s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM proposals WHERE status IN ('paid', 'active', 'completion_requested')",
+	).Scan(&active)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count active proposals: %w", err)
+	}
+	return total, active, nil
+}
+
+func (s *Service) countJobs(ctx context.Context) (total int, open int, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM jobs").Scan(&total)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count total jobs: %w", err)
+	}
+
+	err = s.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM jobs WHERE status = 'open'",
+	).Scan(&open)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count open jobs: %w", err)
+	}
+	return total, open, nil
 }
 
 func (s *Service) ListUsers(ctx context.Context, filters repository.AdminUserFilters) ([]*user.User, string, int, error) {
@@ -93,6 +210,32 @@ func (s *Service) UnbanUser(ctx context.Context, userID uuid.UUID) error {
 
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("unban user: save: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) ListConversationReports(ctx context.Context, conversationID uuid.UUID) ([]*report.Report, error) {
+	reports, err := s.reports.ListByConversation(ctx, conversationID)
+	if err != nil {
+		return nil, fmt.Errorf("list conversation reports: %w", err)
+	}
+	return reports, nil
+}
+
+func (s *Service) ListUserReports(ctx context.Context, userID uuid.UUID) ([]*report.Report, []*report.Report, error) {
+	against, filed, err := s.reports.ListByUserInvolved(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list user reports: %w", err)
+	}
+	return against, filed, nil
+}
+
+func (s *Service) ResolveReport(ctx context.Context, reportID uuid.UUID, status string, adminNote string, resolvedBy uuid.UUID) error {
+	if status != string(report.StatusResolved) && status != string(report.StatusDismissed) {
+		return fmt.Errorf("resolve report: invalid status %q", status)
+	}
+	if err := s.reports.UpdateStatus(ctx, reportID, status, adminNote, resolvedBy); err != nil {
+		return fmt.Errorf("resolve report: %w", err)
 	}
 	return nil
 }

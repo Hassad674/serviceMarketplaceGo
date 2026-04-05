@@ -22,12 +22,11 @@ type RouterDeps struct {
 	Review         *ReviewHandler
 	Call           *CallHandler
 	SocialLink     *SocialLinkHandler
-	PaymentInfo    *PaymentInfoHandler
+	Embedded       *EmbeddedHandler
 	Notification   *NotificationHandler
 	Stripe         *StripeHandler
 	Report         *ReportHandler
 	Wallet         *WalletHandler
-	IdentityDoc    *IdentityDocumentHandler
 	Admin          *AdminHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
@@ -223,17 +222,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		}
 
-		// Payment info routes (authenticated)
-		if deps.PaymentInfo != nil {
+		// Payment info routes — all served by Embedded Components now.
+		if deps.Embedded != nil {
 			r.Route("/payment-info", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Use(middleware.NoCache)
-				r.Get("/", deps.PaymentInfo.GetPaymentInfo)
-				r.Put("/", deps.PaymentInfo.SavePaymentInfo)
-				r.Get("/status", deps.PaymentInfo.GetPaymentInfoStatus)
-				r.Get("/requirements", deps.PaymentInfo.GetRequirements)
-				r.Get("/country-fields", deps.PaymentInfo.GetCountryFields)
-				r.Post("/account-link", deps.PaymentInfo.CreateAccountLink)
+				r.Post("/account-session", deps.Embedded.CreateAccountSession)
+				r.Delete("/account-session", deps.Embedded.ResetAccount)
+				r.Get("/account-status", deps.Embedded.GetAccountStatus)
 			})
 		}
 
@@ -253,15 +249,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		}
 
-		// Identity document routes (authenticated)
-		if deps.IdentityDoc != nil {
-			r.Route("/identity-documents", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
-				r.Post("/upload", deps.IdentityDoc.UploadDocument)
-				r.Get("/", deps.IdentityDoc.ListDocuments)
-				r.Delete("/{id}", deps.IdentityDoc.DeleteDocument)
-			})
-		}
+		// Identity documents are now handled by Stripe Embedded Components —
+		// no custom upload/list/delete endpoints needed.
 
 		// Wallet routes (authenticated)
 		if deps.Wallet != nil {
@@ -295,6 +284,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
 				r.Use(middleware.RequireAdmin())
 				r.Use(middleware.NoCache)
+				r.Get("/dashboard/stats", deps.Admin.GetDashboardStats)
 				r.Get("/users", deps.Admin.ListUsers)
 				r.Get("/users/{id}", deps.Admin.GetUser)
 				r.Post("/users/{id}/suspend", deps.Admin.SuspendUser)
@@ -302,9 +292,48 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/users/{id}/ban", deps.Admin.BanUser)
 				r.Post("/users/{id}/unban", deps.Admin.UnbanUser)
 
+				// Conversation moderation endpoints
+				r.Get("/conversations", deps.Admin.ListConversations)
+				r.Get("/conversations/{id}", deps.Admin.GetConversation)
+				r.Get("/conversations/{id}/messages", deps.Admin.GetConversationMessages)
+				r.Get("/conversations/{id}/reports", deps.Admin.ListConversationReports)
+
+				// Report management endpoints
+				r.Get("/users/{id}/reports", deps.Admin.ListUserReports)
+				r.Post("/reports/{id}/resolve", deps.Admin.ResolveReport)
+
+				// Job admin endpoints
+				r.Get("/jobs", deps.Admin.ListJobs)
+				r.Get("/jobs/{id}", deps.Admin.GetAdminJob)
+				r.Get("/jobs/{id}/reports", deps.Admin.ListJobReports)
+				r.Delete("/jobs/{id}", deps.Admin.DeleteAdminJob)
+				r.Get("/job-applications", deps.Admin.ListJobApplications)
+				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)
+
+				// Media moderation endpoints
+				r.Get("/media", deps.Admin.ListMedia)
+				r.Get("/media/{id}", deps.Admin.GetMediaDetail)
+				r.Post("/media/{id}/approve", deps.Admin.ApproveMedia)
+				r.Post("/media/{id}/reject", deps.Admin.RejectMedia)
+				r.Delete("/media/{id}", deps.Admin.DeleteMedia)
+
+				// Proposal admin endpoints (force activate for testing)
+				if deps.Proposal != nil {
+					r.Post("/proposals/{id}/activate", deps.Proposal.AdminActivateProposal)
+				}
+
 				// Job credit admin endpoints
 				if deps.JobApplication != nil {
 					r.Post("/credits/reset", deps.JobApplication.ResetCredits)
+					r.Post("/credits/reset/{userId}", deps.JobApplication.ResetCreditsForUser)
+				}
+
+				// Credit bonus fraud log endpoints
+				if deps.Proposal != nil {
+					r.Get("/credits/bonus-log", deps.Proposal.AdminListBonusLog)
+					r.Get("/credits/bonus-log/pending", deps.Proposal.AdminListPendingBonusLog)
+					r.Post("/credits/bonus-log/{id}/approve", deps.Proposal.AdminApproveBonusEntry)
+					r.Post("/credits/bonus-log/{id}/reject", deps.Proposal.AdminRejectBonusEntry)
 				}
 			})
 		}

@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go/v82/token"
 
 	"marketplace-backend/internal/domain/payment"
+	portservice "marketplace-backend/internal/port/service"
 )
 
 func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.PaymentInfo, tosIP string, email string) (string, error) {
@@ -228,9 +229,13 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (
 		if v := getExtraField(info.ExtraFields, "company.address.state", "business_state"); v != "" {
 			companyAddr.State = stripe.String(v)
 		}
+		companyPhone := getExtraField(info.ExtraFields, "company.phone")
+		if companyPhone == "" {
+			companyPhone = info.Phone
+		}
 		params.Account.Company = &stripe.AccountCompanyParams{
 			Name:    stripe.String(info.BusinessName),
-			Phone:   stripe.String(info.Phone),
+			Phone:   stripe.String(companyPhone),
 			Address: companyAddr,
 			TaxID: stripe.String(info.TaxID),
 		}
@@ -302,13 +307,59 @@ func (s *Service) GetIdentityVerificationStatus(ctx context.Context, accountID s
 	return "unverified", "", nil
 }
 
-// GetAccountRequirements returns the currently_due requirements for a connected account.
-func (s *Service) GetAccountRequirements(ctx context.Context, accountID string) ([]string, error) {
+// GetAccountFullStatus returns verification status, charges_enabled, and payouts_enabled in one API call.
+func (s *Service) GetAccountFullStatus(ctx context.Context, accountID string) (*portservice.AccountFullStatus, error) {
 	acct, err := account.GetByID(accountID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get stripe account: %w", err)
 	}
-	return acct.Requirements.CurrentlyDue, nil
+
+	result := &portservice.AccountFullStatus{
+		ChargesEnabled: acct.ChargesEnabled,
+		PayoutsEnabled: acct.PayoutsEnabled,
+	}
+
+	// For individual accounts: check individual.verification
+	if acct.Individual != nil && acct.Individual.Verification != nil {
+		ver := acct.Individual.Verification
+		result.VerificationStatus = string(ver.Status)
+		if ver.Document != nil && ver.Document.Front != nil {
+			result.VerifiedFileID = ver.Document.Front.ID
+		}
+	} else if acct.ChargesEnabled && acct.PayoutsEnabled {
+		result.VerificationStatus = "verified"
+	} else if acct.BusinessType == stripe.AccountBusinessTypeCompany {
+		result.VerificationStatus = "pending"
+	} else {
+		result.VerificationStatus = "unverified"
+	}
+
+	return result, nil
+}
+
+// GetAccountRequirements returns the full account requirements for a connected account.
+func (s *Service) GetAccountRequirements(ctx context.Context, accountID string) (*payment.AccountRequirements, error) {
+	acct, err := account.GetByID(accountID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get stripe account: %w", err)
+	}
+	reqs := acct.Requirements
+	var errors []payment.RequirementError
+	for _, e := range reqs.Errors {
+		errors = append(errors, payment.RequirementError{
+			Code:        string(e.Code),
+			Reason:      e.Reason,
+			Requirement: e.Requirement,
+		})
+	}
+	return &payment.AccountRequirements{
+		CurrentlyDue:        reqs.CurrentlyDue,
+		EventuallyDue:       reqs.EventuallyDue,
+		PastDue:             reqs.PastDue,
+		PendingVerification: reqs.PendingVerification,
+		CurrentDeadline:     reqs.CurrentDeadline,
+		Errors:              errors,
+	}, nil
 }
 
 // CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.

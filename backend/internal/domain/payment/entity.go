@@ -39,6 +39,7 @@ type PaymentInfo struct {
 	IsSelfExecutive      bool
 
 	// Contact & KYC
+	Email          string
 	Phone          string
 	ActivitySector string // MCC code
 
@@ -54,9 +55,11 @@ type PaymentInfo struct {
 	Country     string            // activity country (ISO 2-letter)
 	ExtraFields map[string]string // country-specific fields (JSONB)
 
-	// Stripe Connect (future)
+	// Stripe Connect
 	StripeAccountID string
 	StripeVerified  bool
+	ChargesEnabled  bool
+	PayoutsEnabled  bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -83,6 +86,7 @@ type NewPaymentInfoInput struct {
 	VATNumber       string
 	RoleInCompany   string
 
+	Email          string
 	Phone          string
 	ActivitySector string
 
@@ -145,6 +149,7 @@ func NewPaymentInfo(input NewPaymentInfoInput) (*PaymentInfo, error) {
 		TaxID:              strings.TrimSpace(input.TaxID),
 		VATNumber:          strings.TrimSpace(input.VATNumber),
 		RoleInCompany:      strings.TrimSpace(input.RoleInCompany),
+		Email:                strings.TrimSpace(input.Email),
 		Phone:                strings.TrimSpace(input.Phone),
 		ActivitySector:       input.ActivitySector,
 		IsSelfRepresentative: input.IsSelfRepresentative,

@@ -6,7 +6,12 @@ import { toast } from "sonner"
 import { X, Flag, AlertCircle } from "lucide-react"
 import { createPortal } from "react-dom"
 import { useCreateReport } from "../hooks/use-report"
-import { MESSAGE_REASONS, USER_REASONS } from "../types"
+import {
+  MESSAGE_REASONS,
+  USER_REASONS,
+  JOB_REASONS,
+  APPLICATION_REASONS,
+} from "../types"
 import type { TargetType, ReportReason } from "../types"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
@@ -16,7 +21,7 @@ interface ReportDialogProps {
   onClose: () => void
   targetType: TargetType
   targetId: string
-  conversationId: string
+  conversationId?: string
 }
 
 export function ReportDialog({
@@ -34,7 +39,13 @@ export function ReportDialog({
 
   if (!open) return null
 
-  const reasons = targetType === "message" ? MESSAGE_REASONS : USER_REASONS
+  const reasonsByType: Record<TargetType, ReportReason[]> = {
+    message: MESSAGE_REASONS,
+    user: USER_REASONS,
+    job: JOB_REASONS,
+    application: APPLICATION_REASONS,
+  }
+  const reasons = reasonsByType[targetType]
 
   function handleSubmit() {
     if (!reason || alreadyReported) return
@@ -42,7 +53,7 @@ export function ReportDialog({
       {
         target_type: targetType,
         target_id: targetId,
-        conversation_id: conversationId,
+        conversation_id: conversationId ?? "",
         reason,
         description,
       },
@@ -84,9 +95,10 @@ export function ReportDialog({
           <div className="flex items-center gap-2">
             <Flag className="h-5 w-5 text-red-500" />
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {targetType === "message"
-                ? t("reportMessage")
-                : t("reportUser")}
+              {targetType === "message" && t("reportMessage")}
+              {targetType === "user" && t("reportUser")}
+              {targetType === "job" && t("reportJob")}
+              {targetType === "application" && t("reportApplication")}
             </h2>
           </div>
           <button

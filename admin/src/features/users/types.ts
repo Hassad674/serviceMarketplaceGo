@@ -20,25 +20,21 @@ export type AdminUser = {
 
 export type AdminUserListResponse = {
   data: AdminUser[]
-  meta: {
-    request_id: string
-    pagination: {
-      next_cursor: string
-      has_more: boolean
-      count: number
-      total: number
-    }
-  }
+  next_cursor: string
+  has_more: boolean
+  total: number
+  page: number
+  total_pages: number
 }
 
 export type AdminUserResponse = {
   data: AdminUser
-  meta: { request_id: string }
 }
 
 export type UserFilters = {
   role: string
   status: string
   search: string
-  cursor: string
+  page: number
+  reported: boolean
 }

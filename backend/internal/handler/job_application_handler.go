@@ -206,6 +206,19 @@ func (h *JobApplicationHandler) ResetCredits(w http.ResponseWriter, r *http.Requ
 	res.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (h *JobApplicationHandler) ResetCreditsForUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_user_id", "userId must be a valid UUID")
+		return
+	}
+	if err := h.jobSvc.ResetCreditsForUser(r.Context(), userID); err != nil {
+		res.Error(w, http.StatusInternalServerError, "reset_failed", err.Error())
+		return
+	}
+	res.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (h *JobApplicationHandler) HasApplied(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {

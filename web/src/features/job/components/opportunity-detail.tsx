@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { ArrowLeft, Briefcase, Calendar, Clock, Users, Ticket } from "lucide-react"
+import { useState, useRef } from "react"
+import { ArrowLeft, Briefcase, Calendar, Clock, Users, Ticket, MoreVertical, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useHasApplied } from "../hooks/use-job-applications"
 import { useCredits } from "../hooks/use-jobs"
 import { ApplyModal } from "./apply-modal"
+import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { JobResponse } from "../types"
 import { getJob } from "../api/job-api"
 import { useQuery } from "@tanstack/react-query"
@@ -19,7 +20,11 @@ interface OpportunityDetailProps {
 export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
   const t = useTranslations("opportunity")
   const router = useRouter()
+  const t2 = useTranslations("reporting")
   const [showApplyModal, setShowApplyModal] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const { data: job, isLoading } = useQuery({
     queryKey: ["jobs", jobId],
@@ -59,26 +64,54 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
             <span className="flex items-center gap-1"><Users className="h-4 w-4" />{job.applicant_type === "all" ? t("allTypes") : job.applicant_type === "freelancers" ? t("freelancersOnly") : t("agenciesOnly")}</span>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowApplyModal(true)}
-            disabled={hasAlreadyApplied || noCredits}
-            className={cn(
-              "rounded-xl px-6 py-2.5 text-sm font-medium transition-all",
-              hasAlreadyApplied || noCredits
-                ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-700"
-                : "gradient-primary text-white hover:shadow-glow active:scale-[0.98]",
+        <div className="flex items-start gap-2 shrink-0">
+          <div className="flex flex-col items-end gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowApplyModal(true)}
+              disabled={hasAlreadyApplied || noCredits}
+              className={cn(
+                "rounded-xl px-6 py-2.5 text-sm font-medium transition-all",
+                hasAlreadyApplied || noCredits
+                  ? "bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-700"
+                  : "gradient-primary text-white hover:shadow-glow active:scale-[0.98]",
+              )}
+            >
+              {hasAlreadyApplied ? t("alreadyApplied") : t("apply")}
+            </button>
+            {noCredits && !hasAlreadyApplied && (
+              <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                <Ticket className="h-3 w-3" />
+                {t("noCreditsLeft")}
+              </span>
             )}
-          >
-            {hasAlreadyApplied ? t("alreadyApplied") : t("apply")}
-          </button>
-          {noCredits && !hasAlreadyApplied && (
-            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-              <Ticket className="h-3 w-3" />
-              {t("noCreditsLeft")}
-            </span>
-          )}
+          </div>
+          {/* 3-dot menu for report */}
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setShowMenu((v) => !v)}
+              aria-label={t2("report")}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-all"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 z-20 w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMenu(false)
+                    setShowReportDialog(true)
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10 transition-colors"
+                >
+                  <Flag className="h-4 w-4" />
+                  {t2("reportJob")}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -140,6 +173,12 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
       )}
 
       <ApplyModal open={showApplyModal} onClose={() => setShowApplyModal(false)} jobId={jobId} />
+      <ReportDialog
+        open={showReportDialog}
+        onClose={() => setShowReportDialog(false)}
+        targetType="job"
+        targetId={jobId}
+      />
     </div>
   )
 }

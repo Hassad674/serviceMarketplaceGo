@@ -12,8 +12,10 @@ import (
 
 	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
+	"marketplace-backend/internal/adapter/noop"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
+	rekognitionadapter "marketplace-backend/internal/adapter/rekognition"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
@@ -21,7 +23,9 @@ import (
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
+	embeddedapp "marketplace-backend/internal/app/embedded"
 	jobapp "marketplace-backend/internal/app/job"
+	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -194,11 +198,8 @@ func main() {
 		slog.Info("stripe payment adapter disabled (not configured)")
 	}
 
-	// Payment info + records + identity documents feature
-	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
+	// Payment records (custom KYC repos removed — see migration 040/041)
 	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
-	identityDocRepo := postgres.NewIdentityDocumentRepository(db)
-	businessPersonRepo := postgres.NewBusinessPersonRepository(db)
 
 	// Push notification service (optional — only when FCM is configured)
 	var pushSvc service.PushService
@@ -243,29 +244,18 @@ func main() {
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	slog.Info("notification feature enabled")
 
-	// Country spec cache (optional — only when Stripe is configured)
-	var countrySpecCache *redisadapter.CountrySpecCache
-	if stripeSvc != nil {
-		countrySpecCache = redisadapter.NewCountrySpecCache(redisClient, stripeSvc)
-		if err := countrySpecCache.WarmCache(context.Background()); err != nil {
-			slog.Warn("failed to warm country spec cache", "error", err)
-		}
-	}
-
-	// Payment info service (depends on notifications)
+	// Payment service — charge creation + transfers + wallet overview.
+	// KYC onboarding lives in internal/app/embedded (Embedded Components).
 	paymentInfoSvc := paymentapp.NewService(paymentapp.ServiceDeps{
-		Payments:      paymentInfoRepo,
 		Records:       paymentRecordRepo,
-		Documents:     identityDocRepo,
-		Persons:       businessPersonRepo,
+		Users:         userRepo,
 		Stripe:        stripeSvc,
-		Storage:       storageSvc,
 		Notifications: notifSvc,
-		CountrySpecs:  countrySpecCache,
 		FrontendURL:   cfg.FrontendURL,
 	})
-	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
-	identityDocHandler := handler.NewIdentityDocumentHandler(paymentInfoSvc)
+
+	// Credit bonus fraud log
+	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
 
 	// Wire services that depend on notifications
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
@@ -275,6 +265,8 @@ func main() {
 		Storage:       storageSvc,
 		Notifications: notifSvc,
 		Payments:      paymentProcessor(paymentInfoSvc, cfg),
+		Credits:       jobCreditRepo,
+		BonusLog:      bonusLogRepo,
 	})
 	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       reviewRepo,
@@ -285,20 +277,46 @@ func main() {
 	// Report feature
 	reportRepo := postgres.NewReportRepository(db)
 	reportSvc := reportapp.NewService(reportapp.ServiceDeps{
-		Reports:  reportRepo,
-		Users:    userRepo,
-		Messages: messageRepo,
+		Reports:      reportRepo,
+		Users:        userRepo,
+		Messages:     messageRepo,
+		Jobs:         jobRepo,
+		Applications: jobAppRepo,
 	})
 	reportHandler := handler.NewReportHandler(reportSvc)
 
+	// Media moderation feature
+	mediaRepo := postgres.NewMediaRepository(db)
+	var moderationSvc service.ContentModerationService
+	if cfg.RekognitionConfigured() {
+		rekSvc, rekErr := rekognitionadapter.NewModerationService(cfg.RekognitionRegion, cfg.RekognitionThreshold)
+		if rekErr != nil {
+			slog.Error("failed to init Rekognition moderation service", "error", rekErr)
+			moderationSvc = noop.NewModerationService()
+		} else {
+			moderationSvc = rekSvc
+			slog.Info("content moderation enabled (AWS Rekognition)")
+		}
+	} else {
+		moderationSvc = noop.NewModerationService()
+		slog.Info("content moderation disabled (noop)")
+	}
+	mediaSvc := mediaapp.NewService(mediaRepo, storageSvc, moderationSvc)
+
 	// Admin feature
-	adminSvc := adminapp.NewService(userRepo)
+	adminSvc := adminapp.NewService(adminapp.ServiceDeps{
+		Users:      userRepo,
+		Reports:    reportRepo,
+		MediaRepo:  mediaRepo,
+		StorageSvc: storageSvc,
+		DB:         db,
+	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
-	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo)
+	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
@@ -310,6 +328,16 @@ func main() {
 	var stripeHandler *handler.StripeHandler
 	if cfg.StripeConfigured() {
 		stripeHandler = handler.NewStripeHandler(paymentInfoSvc, proposalSvc, cfg.StripePublishableKey)
+
+		// Embedded Components notifier — diff-based multi-channel notifications
+		// for Stripe account.* webhooks (activation, requirements, docs rejected).
+		// Backed by the users table (migration 040) for both lookup + state.
+		embeddedNotifier := embeddedapp.NewNotifier(
+			embeddedapp.NewNotificationSenderAdapter(notifSvc),
+			userRepo, // satisfies UserStore via the 3 Stripe methods on UserRepository
+			5*time.Minute,
+		)
+		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
 	}
 
 	// Wallet handler
@@ -339,11 +367,10 @@ func main() {
 		Report:         reportHandler,
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
-		PaymentInfo:    paymentInfoHandler,
+		Embedded:       handler.NewEmbeddedHandler(userRepo),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
-		IdentityDoc:    identityDocHandler,
 		Admin:          adminHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,

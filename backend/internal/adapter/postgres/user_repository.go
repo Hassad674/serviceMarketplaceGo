@@ -205,7 +205,14 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 		args = append(args, searchPattern)
 		argIdx++
 	}
-	if filters.Cursor != "" {
+	if filters.Reported {
+		conditions = append(conditions,
+			"EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'user' AND r.target_id = users.id AND r.status = 'pending')",
+		)
+	}
+	useOffset := filters.Page > 0 && filters.Cursor == ""
+
+	if !useOffset && filters.Cursor != "" {
 		c, err := cursor.Decode(filters.Cursor)
 		if err == nil {
 			conditions = append(conditions, fmt.Sprintf("(created_at, id) < ($%d, $%d)", argIdx, argIdx+1))
@@ -219,11 +226,18 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
+	var offsetClause string
+	if useOffset {
+		offsetClause = fmt.Sprintf(" OFFSET $%d", argIdx)
+		args = append(args, (filters.Page-1)*limit)
+		argIdx++
+	}
+
 	query := fmt.Sprintf(`
 		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
 		FROM users %s
 		ORDER BY created_at DESC, id DESC
-		LIMIT $%d`, where, argIdx)
+		LIMIT $%d%s`, where, argIdx, offsetClause)
 	args = append(args, limit+1)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -286,6 +300,11 @@ func (r *UserRepository) CountAdmin(ctx context.Context, filters repository.Admi
 		args = append(args, searchPattern)
 		argIdx++
 	}
+	if filters.Reported {
+		conditions = append(conditions,
+			"EXISTS (SELECT 1 FROM reports r WHERE r.target_type = 'user' AND r.target_id = users.id AND r.status = 'pending')",
+		)
+	}
 
 	where := ""
 	if len(conditions) > 0 {
@@ -300,4 +319,201 @@ func (r *UserRepository) CountAdmin(ctx context.Context, filters repository.Admi
 	}
 
 	return count, nil
+}
+
+func (r *UserRepository) CountByRole(ctx context.Context) (map[string]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, "SELECT role, COUNT(*) FROM users GROUP BY role")
+	if err != nil {
+		return nil, fmt.Errorf("count users by role: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var role string
+		var count int
+		if err := rows.Scan(&role, &count); err != nil {
+			return nil, fmt.Errorf("scan role count: %w", err)
+		}
+		result[role] = count
+	}
+	return result, rows.Err()
+}
+
+func (r *UserRepository) CountByStatus(ctx context.Context) (map[string]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, "SELECT status, COUNT(*) FROM users GROUP BY status")
+	if err != nil {
+		return nil, fmt.Errorf("count users by status: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var status string
+		var count int
+		if err := rows.Scan(&status, &count); err != nil {
+			return nil, fmt.Errorf("scan status count: %w", err)
+		}
+		result[status] = count
+	}
+	return result, rows.Err()
+}
+
+func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `
+		SELECT id, email, hashed_password, first_name, last_name, display_name,
+		       role, referrer_enabled, is_admin, status,
+		       suspended_at, suspension_reason, suspension_expires_at,
+		       banned_at, ban_reason, organization_id, linkedin_id, google_id,
+		       email_verified, created_at, updated_at
+		FROM users
+		ORDER BY created_at DESC
+		LIMIT $1`
+
+	rows, err := r.db.QueryContext(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("recent signups: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*user.User
+	for rows.Next() {
+		u := &user.User{}
+		var role, status string
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
+			&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
+			&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt,
+			&u.BannedAt, &u.BanReason, &u.OrganizationID, &u.LinkedInID, &u.GoogleID,
+			&u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan recent signup: %w", err)
+		}
+		u.Role = user.Role(role)
+		u.Status = user.UserStatus(status)
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+// ---------------------------------------------------------------------------
+// Stripe account operations (migration 040)
+//
+// These methods manipulate the stripe_* columns on users added in
+// migration 040. They live on UserRepository because the Stripe account
+// is a 1-1 attribute of the user, not a separate entity.
+// ---------------------------------------------------------------------------
+
+// GetStripeAccount returns the Stripe account_id + country for a user.
+// Returns empty strings + sql.ErrNoRows if the user has no Stripe account yet.
+func (r *UserRepository) GetStripeAccount(ctx context.Context, userID uuid.UUID) (string, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var accountID sql.NullString
+	var country sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`SELECT stripe_account_id, stripe_account_country FROM users WHERE id = $1`,
+		userID,
+	).Scan(&accountID, &country)
+	if err != nil {
+		return "", "", err
+	}
+	if !accountID.Valid {
+		return "", "", sql.ErrNoRows
+	}
+	return accountID.String, country.String, nil
+}
+
+// FindUserIDByStripeAccount reverse-lookup: Stripe account_id → user_id.
+// Used by the embedded Notifier to route webhooks to the right user.
+func (r *UserRepository) FindUserIDByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var userID uuid.UUID
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id FROM users WHERE stripe_account_id = $1`,
+		accountID,
+	).Scan(&userID)
+	return userID, err
+}
+
+// SetStripeAccount persists the Stripe account_id + country for a user.
+// Idempotent — safe to call on every /account-session to refresh.
+func (r *UserRepository) SetStripeAccount(ctx context.Context, userID uuid.UUID, accountID, country string) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET stripe_account_id      = $2,
+		     stripe_account_country = $3,
+		     updated_at             = now()
+		 WHERE id = $1`,
+		userID, accountID, country,
+	)
+	return err
+}
+
+// ClearStripeAccount wipes the Stripe account mapping for a user.
+// Used by the test reset flow to allow recreating with a different country.
+func (r *UserRepository) ClearStripeAccount(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET stripe_account_id      = NULL,
+		     stripe_account_country = NULL,
+		     stripe_last_state      = NULL,
+		     updated_at             = now()
+		 WHERE id = $1`,
+		userID,
+	)
+	return err
+}
+
+// GetStripeLastState returns the raw JSONB snapshot the Notifier uses
+// to diff incoming webhooks. Returns (nil, nil) when no state is stored.
+func (r *UserRepository) GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var raw sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`SELECT stripe_last_state FROM users WHERE id = $1`,
+		userID,
+	).Scan(&raw)
+	if err != nil {
+		return nil, err
+	}
+	if !raw.Valid || raw.String == "" {
+		return nil, nil
+	}
+	return []byte(raw.String), nil
+}
+
+// SaveStripeLastState persists the Notifier's last-seen state for a user.
+func (r *UserRepository) SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET stripe_last_state = $2::jsonb,
+		     updated_at        = now()
+		 WHERE id = $1`,
+		userID, string(state),
+	)
+	return err
 }

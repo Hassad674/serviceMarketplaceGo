@@ -17,32 +17,17 @@ export function UsersPage() {
     role: "",
     status: "",
     search: "",
-    cursor: "",
+    page: 1,
+    reported: false,
   })
-  const [cursors, setCursors] = useState<string[]>([])
 
   const { data, isLoading, error } = useUsers(filters)
 
   const users = data?.data ?? []
-  const pagination = data?.meta?.pagination
-  const hasMore = pagination?.has_more ?? false
-  const total = pagination?.total ?? 0
-
-  function handleNextPage() {
-    if (pagination?.next_cursor) {
-      setCursors((prev) => [...prev, filters.cursor])
-      setFilters((prev) => ({ ...prev, cursor: pagination.next_cursor }))
-    }
-  }
-
-  function handlePreviousPage() {
-    const prev = cursors[cursors.length - 1] ?? ""
-    setCursors((c) => c.slice(0, -1))
-    setFilters((f) => ({ ...f, cursor: prev }))
-  }
+  const total = data?.total ?? 0
+  const totalPages = data?.total_pages ?? 0
 
   function handleFiltersChange(newFilters: UserFilters) {
-    setCursors([])
     setFilters(newFilters)
   }
 
@@ -71,7 +56,7 @@ export function UsersPage() {
         <EmptyState
           icon={Users}
           title="Aucun utilisateur"
-          description="Aucun utilisateur ne correspond aux filtres sélectionnés."
+          description="Aucun utilisateur ne correspond aux filtres s{'\u00E9'}lectionn{'\u00E9'}s."
         />
       )}
 
@@ -79,11 +64,10 @@ export function UsersPage() {
         <>
           <DataTable columns={usersColumns} data={users} onRowClick={handleRowClick} />
           <DataTablePagination
-            hasMore={hasMore}
-            onNextPage={handleNextPage}
-            onPreviousPage={handlePreviousPage}
-            hasPreviousPage={cursors.length > 0}
+            currentPage={filters.page}
+            totalPages={totalPages}
             totalCount={total}
+            onPageChange={(p) => setFilters((f) => ({ ...f, page: p }))}
           />
         </>
       )}
