@@ -69,7 +69,6 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	case "payment_intent.succeeded":
 		h.handlePaymentSucceeded(r, event.PaymentIntentID)
 	case "account.updated":
-		h.handleAccountUpdated(r, event.AccountID)
 		h.dispatchEmbeddedNotif(r, event)
 	case "capability.updated",
 		"account.application.authorized",
@@ -113,8 +112,3 @@ func (h *StripeHandler) handlePaymentSucceeded(r *http.Request, piID string) {
 	}
 }
 
-func (h *StripeHandler) handleAccountUpdated(r *http.Request, accountID string) {
-	if err := h.paymentSvc.HandleAccountUpdated(r.Context(), accountID); err != nil {
-		slog.Error("handle account updated", "account_id", accountID, "error", err)
-	}
-}
