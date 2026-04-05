@@ -29,4 +29,12 @@ type UserRepository interface {
 	CountByRole(ctx context.Context) (map[string]int, error)
 	CountByStatus(ctx context.Context) (map[string]int, error)
 	RecentSignups(ctx context.Context, limit int) ([]*user.User, error)
+
+	// Stripe account operations (migration 040).
+	GetStripeAccount(ctx context.Context, userID uuid.UUID) (accountID, country string, err error)
+	FindUserIDByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error)
+	SetStripeAccount(ctx context.Context, userID uuid.UUID, accountID, country string) error
+	ClearStripeAccount(ctx context.Context, userID uuid.UUID) error
+	GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error)
+	SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error
 }

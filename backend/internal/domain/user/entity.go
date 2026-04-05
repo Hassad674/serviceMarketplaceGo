@@ -54,8 +54,18 @@ type User struct {
 	LinkedInID      *string
 	GoogleID        *string
 	EmailVerified   bool
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+
+	// Stripe Connect account (Embedded Components) — see migration 040.
+	// All three are nil/empty until the user starts payment setup.
+	StripeAccountID      *string
+	StripeAccountCountry *string
+	// StripeLastState is the last-seen Stripe account snapshot used by the
+	// embedded Notifier to diff incoming webhooks. Opaque JSON, owned by
+	// internal/app/embedded.
+	StripeLastState []byte
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // NewUser creates a new user with validated fields.
