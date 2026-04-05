@@ -18,6 +18,8 @@ import (
 	rekognitionadapter "marketplace-backend/internal/adapter/rekognition"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
+	"marketplace-backend/internal/adapter/s3transit"
+	sqsadapter "marketplace-backend/internal/adapter/sqs"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	"marketplace-backend/internal/adapter/ws"
 	adminapp "marketplace-backend/internal/app/admin"
@@ -305,7 +307,12 @@ func main() {
 	mediaRepo := postgres.NewMediaRepository(db)
 	var moderationSvc service.ContentModerationService
 	if cfg.RekognitionConfigured() {
-		rekSvc, rekErr := rekognitionadapter.NewModerationService(cfg.RekognitionRegion, cfg.RekognitionThreshold)
+		rekSvc, rekErr := rekognitionadapter.NewModerationService(rekognitionadapter.ModerationServiceDeps{
+			Region:      cfg.RekognitionRegion,
+			Threshold:   cfg.RekognitionThreshold,
+			SNSTopicARN: cfg.SNSTopicARN,
+			RoleARN:     cfg.RekognitionRoleARN,
+		})
 		if rekErr != nil {
 			slog.Error("failed to init Rekognition moderation service", "error", rekErr)
 			moderationSvc = noop.NewModerationService()
@@ -317,7 +324,44 @@ func main() {
 		moderationSvc = noop.NewModerationService()
 		slog.Info("content moderation disabled (noop)")
 	}
-	mediaSvc := mediaapp.NewService(mediaRepo, storageSvc, moderationSvc)
+
+	// Video moderation transit storage (optional, requires all AWS video vars)
+	var transitStorage service.TransitStorageService
+	if cfg.VideoModerationConfigured() {
+		transit, transitErr := s3transit.NewTransitStorage(cfg.RekognitionRegion, cfg.S3ModerationBucket)
+		if transitErr != nil {
+			slog.Error("failed to init S3 transit storage", "error", transitErr)
+		} else {
+			transitStorage = transit
+			slog.Info("video moderation transit storage enabled",
+				"bucket", cfg.S3ModerationBucket)
+		}
+	}
+
+	mediaSvc := mediaapp.NewService(mediaapp.ServiceDeps{
+		Media:               mediaRepo,
+		Storage:             storageSvc,
+		Transit:             transitStorage,
+		Moderation:          moderationSvc,
+		FlagThreshold:       cfg.RekognitionThreshold,
+		AutoRejectThreshold: cfg.RekognitionAutoRejectThreshold,
+	})
+
+	// SQS worker polls Rekognition completion notifications and finalizes jobs.
+	if cfg.VideoModerationConfigured() && transitStorage != nil {
+		worker, workerErr := sqsadapter.NewWorker(sqsadapter.WorkerDeps{
+			Region:    cfg.RekognitionRegion,
+			QueueURL:  cfg.SQSQueueURL,
+			Finalizer: mediaSvc,
+		})
+		if workerErr != nil {
+			slog.Error("failed to init SQS worker", "error", workerErr)
+		} else {
+			workerCtx, workerCancel := context.WithCancel(context.Background())
+			defer workerCancel()
+			go worker.Start(workerCtx)
+		}
+	}
 
 	// Admin feature
 	adminSvc := adminapp.NewService(adminapp.ServiceDeps{

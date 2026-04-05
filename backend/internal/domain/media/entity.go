@@ -57,21 +57,22 @@ type ModerationLabel struct {
 
 // Media represents an uploaded media item tracked for moderation.
 type Media struct {
-	ID               uuid.UUID
-	UploaderID       uuid.UUID
-	FileURL          string
-	FileName         string
-	FileType         string
-	FileSize         int64
-	Context          Context
-	ContextID        *uuid.UUID
-	ModerationStatus ModerationStatus
-	ModerationLabels []ModerationLabel
-	ModerationScore  float64
-	ReviewedAt       *time.Time
-	ReviewedBy       *uuid.UUID
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                uuid.UUID
+	UploaderID        uuid.UUID
+	FileURL           string
+	FileName          string
+	FileType          string
+	FileSize          int64
+	Context           Context
+	ContextID         *uuid.UUID
+	ModerationStatus  ModerationStatus
+	ModerationLabels  []ModerationLabel
+	ModerationScore   float64
+	RekognitionJobID  *string
+	ReviewedAt        *time.Time
+	ReviewedBy        *uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // NewMediaInput groups parameters for creating a new Media record.
@@ -149,7 +150,26 @@ func (m *Media) Flag(labels []ModerationLabel, score float64) {
 
 // AutoApprove marks the media as approved by automated moderation.
 func (m *Media) AutoApprove(score float64) {
+	now := time.Now()
 	m.ModerationStatus = StatusApproved
 	m.ModerationScore = score
+	m.ReviewedAt = &now
+	m.UpdatedAt = now
+}
+
+// AutoReject marks the media as rejected by automated moderation.
+// No reviewer is set because the rejection is system-driven.
+func (m *Media) AutoReject(labels []ModerationLabel, score float64) {
+	now := time.Now()
+	m.ModerationStatus = StatusRejected
+	m.ModerationLabels = labels
+	m.ModerationScore = score
+	m.ReviewedAt = &now
+	m.UpdatedAt = now
+}
+
+// SetJobID records the async moderation job identifier.
+func (m *Media) SetJobID(jobID string) {
+	m.RekognitionJobID = &jobID
 	m.UpdatedAt = time.Now()
 }

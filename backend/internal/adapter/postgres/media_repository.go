@@ -36,12 +36,26 @@ func (r *MediaRepository) Create(ctx context.Context, m *media.Media) error {
 	_, err = r.db.ExecContext(ctx, queryInsertMedia,
 		m.ID, m.UploaderID, m.FileURL, m.FileName, m.FileType, m.FileSize,
 		string(m.Context), m.ContextID, string(m.ModerationStatus), labelsJSON,
-		m.ModerationScore, m.ReviewedAt, m.ReviewedBy, m.CreatedAt, m.UpdatedAt,
+		m.ModerationScore, m.RekognitionJobID, m.ReviewedAt, m.ReviewedBy, m.CreatedAt, m.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert media: %w", err)
 	}
 	return nil
+}
+
+func (r *MediaRepository) GetByJobID(ctx context.Context, jobID string) (*media.Media, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	m, err := scanMedia(r.db.QueryRowContext(ctx, queryGetMediaByJobID, jobID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, media.ErrMediaNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get media by job id: %w", err)
+	}
+	return m, nil
 }
 
 func (r *MediaRepository) GetByID(ctx context.Context, id uuid.UUID) (*media.Media, error) {
@@ -69,7 +83,7 @@ func (r *MediaRepository) Update(ctx context.Context, m *media.Media) error {
 
 	_, err = r.db.ExecContext(ctx, queryUpdateMedia,
 		m.ID, string(m.ModerationStatus), labelsJSON,
-		m.ModerationScore, m.ReviewedAt, m.ReviewedBy, m.UpdatedAt,
+		m.ModerationScore, m.RekognitionJobID, m.ReviewedAt, m.ReviewedBy, m.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update media: %w", err)
@@ -197,11 +211,12 @@ func scanMedia(row *sql.Row) (*media.Media, error) {
 	var ctxStr, statusStr string
 	var labelsJSON []byte
 	var contextID *uuid.UUID
+	var jobID *string
 
 	err := row.Scan(
 		&m.ID, &m.UploaderID, &m.FileURL, &m.FileName, &m.FileType, &m.FileSize,
 		&ctxStr, &contextID, &statusStr, &labelsJSON,
-		&m.ModerationScore, &m.ReviewedAt, &m.ReviewedBy, &m.CreatedAt, &m.UpdatedAt,
+		&m.ModerationScore, &jobID, &m.ReviewedAt, &m.ReviewedBy, &m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -210,6 +225,7 @@ func scanMedia(row *sql.Row) (*media.Media, error) {
 	m.Context = media.Context(ctxStr)
 	m.ModerationStatus = media.ModerationStatus(statusStr)
 	m.ContextID = contextID
+	m.RekognitionJobID = jobID
 	m.ModerationLabels = unmarshalLabels(labelsJSON)
 	return &m, nil
 }
