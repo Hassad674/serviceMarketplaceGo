@@ -22,19 +22,27 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
-// EmbeddedHandler serves the isolated Stripe Connect Embedded Components test.
-// It lives alongside the existing payment_info handler but touches nothing in it —
-// its only backing store is the test_embedded_accounts table (migration 038).
+// userAccountStore is the trimmed view of UserRepository this handler needs.
+// Defined here so tests can stub it without pulling the full repository.
+type userAccountStore interface {
+	GetStripeAccount(ctx context.Context, userID uuid.UUID) (accountID, country string, err error)
+	SetStripeAccount(ctx context.Context, userID uuid.UUID, accountID, country string) error
+	ClearStripeAccount(ctx context.Context, userID uuid.UUID) error
+}
+
+// EmbeddedHandler serves the Stripe Connect Embedded Components endpoints.
+// Stripe account ownership is persisted on the users table (migration 040)
+// via the UserRepository — no per-handler table required.
 type EmbeddedHandler struct {
-	db          *sql.DB
+	users       userAccountStore
 	platformURL string
 }
 
-// NewEmbeddedHandler wires the handler with a DB connection.
+// NewEmbeddedHandler wires the handler with the user repository.
 // stripe.Key must be set globally (done in adapter/stripe.NewService at startup).
-func NewEmbeddedHandler(db *sql.DB) *EmbeddedHandler {
+func NewEmbeddedHandler(users userAccountStore) *EmbeddedHandler {
 	return &EmbeddedHandler{
-		db:          db,
+		users:       users,
 		platformURL: "https://marketplace-service.com",
 	}
 }
@@ -134,9 +142,7 @@ func (h *EmbeddedHandler) ResetAccount(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	_, err := h.db.ExecContext(ctx,
-		`DELETE FROM test_embedded_accounts WHERE user_id = $1`, userID)
-	if err != nil {
+	if err := h.users.ClearStripeAccount(ctx, userID); err != nil {
 		slog.Error("embedded: reset account", "user_id", userID, "error", err)
 		res.Error(w, http.StatusInternalServerError, "db_error", err.Error())
 		return
@@ -159,7 +165,7 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	accountID, err := h.findAccountID(ctx, userID)
+	accountID, _, err := h.users.GetStripeAccount(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			res.Error(w, http.StatusNotFound, "no_account", "no stripe account for this user yet")
@@ -210,7 +216,7 @@ func (h *EmbeddedHandler) resolveStripeAccount(
 	userID uuid.UUID,
 	country, businessType, platformURL string,
 ) (string, error) {
-	existing, err := h.findAccountID(ctx, userID)
+	existing, _, err := h.users.GetStripeAccount(ctx, userID)
 	if err == nil && existing != "" {
 		// Ensure business_profile is always populated on the connected account
 		// so Stripe does not re-ask for website URL / MCC / description.
@@ -236,7 +242,7 @@ func (h *EmbeddedHandler) resolveStripeAccount(
 		return "", fmt.Errorf("create stripe account: %w", err)
 	}
 
-	if err := h.persistAccountID(ctx, userID, accountID, country); err != nil {
+	if err := h.users.SetStripeAccount(ctx, userID, accountID, country); err != nil {
 		return "", fmt.Errorf("persist account id: %w", err)
 	}
 	return accountID, nil
@@ -255,34 +261,6 @@ func syncBusinessProfile(accountID, platformURL string) error {
 			ProductDescription: stripe.String("Freelance and agency services provided via the marketplace platform."),
 		},
 	})
-	return err
-}
-
-func (h *EmbeddedHandler) findAccountID(ctx context.Context, userID uuid.UUID) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	var accountID string
-	err := h.db.QueryRowContext(ctx,
-		`SELECT stripe_account_id FROM test_embedded_accounts WHERE user_id = $1`,
-		userID,
-	).Scan(&accountID)
-	return accountID, err
-}
-
-func (h *EmbeddedHandler) persistAccountID(ctx context.Context, userID uuid.UUID, accountID, country string) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := h.db.ExecContext(ctx,
-		`INSERT INTO test_embedded_accounts (user_id, stripe_account_id, country)
-		 VALUES ($1, $2, $3)
-		 ON CONFLICT (user_id) DO UPDATE
-		 SET stripe_account_id = EXCLUDED.stripe_account_id,
-		     country = EXCLUDED.country,
-		     updated_at = now()`,
-		userID, accountID, country,
-	)
 	return err
 }
 

@@ -385,7 +385,7 @@ func main() {
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
 		PaymentInfo:    paymentInfoHandler,
-		Embedded:       handler.NewEmbeddedHandler(db),
+		Embedded:       handler.NewEmbeddedHandler(userRepo),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
