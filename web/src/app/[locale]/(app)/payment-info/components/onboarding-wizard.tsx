@@ -3,9 +3,9 @@
 import { useState } from "react"
 import { ArrowRight, Loader2 } from "lucide-react"
 
-import { BusinessTypeCard } from "../../test-embedded/components/business-type-card"
-import { CountrySelector } from "../../test-embedded/components/country-selector"
-import { TrustSignals } from "../../test-embedded/components/trust-signals"
+import { BusinessTypeCard } from "./business-type-card"
+import { CountrySelector } from "./country-selector"
+import { TrustSignals } from "./trust-signals"
 
 type BusinessType = "individual" | "company"
 

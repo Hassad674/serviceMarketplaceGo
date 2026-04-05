@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Route } from "@playwright/test"
 
 // ---------------------------------------------------------------------------
-// /payment-info-v2 — visual state matrix
+// /payment-info — visual state matrix
 // ---------------------------------------------------------------------------
 //
 // The page auto-detects 4 modes based on the /account-status endpoint:
@@ -96,14 +96,14 @@ async function mockRoutes(page: Page, status: StatusResponse | null) {
 }
 
 async function gotoPage(page: Page) {
-  await page.goto("/fr/payment-info-v2", { waitUntil: "domcontentloaded" })
+  await page.goto("/fr/payment-info", { waitUntil: "domcontentloaded" })
 }
 
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
-test.describe("payment-info-v2 — visual state matrix", () => {
+test.describe("payment-info — visual state matrix", () => {
   test("no account (404) → shows wizard with country selector", async ({ page }) => {
     await mockRoutes(page, null)
     await gotoPage(page)
