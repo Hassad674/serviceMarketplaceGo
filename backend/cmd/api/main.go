@@ -348,11 +348,11 @@ func main() {
 
 		// Embedded Components notifier — diff-based multi-channel notifications
 		// for Stripe account.* webhooks (activation, requirements, docs rejected).
+		// Backed by the users table (migration 040) for both lookup + state.
 		embeddedNotifier := embeddedapp.NewNotifier(
 			embeddedapp.NewNotificationSenderAdapter(notifSvc),
-			embeddedapp.NewPostgresAccountLookup(db),
-			embeddedapp.NewPostgresStateStore(db),
-			5*time.Minute, // cooldown between identical notifications
+			userRepo, // satisfies UserStore via the 3 Stripe methods on UserRepository
+			5*time.Minute,
 		)
 		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
 	}

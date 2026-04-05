@@ -9,6 +9,7 @@ package embedded
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -27,18 +28,16 @@ type NotificationSink interface {
 	Send(ctx context.Context, userID uuid.UUID, t notifdomain.NotificationType, title, body string, metadata map[string]any) error
 }
 
-// AccountLookup resolves a Stripe account_id back to the platform user_id.
-// Returns uuid.Nil + error if no mapping found.
-type AccountLookup interface {
-	FindUserByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error)
-}
-
-// StateStore persists the last-seen state of a Stripe account so the
-// Notifier can detect transitions between webhooks (activated ⇄ suspended,
-// requirements list changed, etc.).
-type StateStore interface {
-	GetLast(ctx context.Context, accountID string) (*LastAccountState, error)
-	SaveLast(ctx context.Context, accountID string, state *LastAccountState) error
+// UserStore gives the Notifier the 3 user-table operations it needs.
+// This is a trimmed view of repository.UserRepository — we duck-type it
+// so tests don't need to implement the full UserRepository interface.
+//
+// Production: wire with repository.UserRepository (satisfies this).
+// Tests: implement with an in-memory fake.
+type UserStore interface {
+	FindUserIDByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error)
+	GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error)
+	SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error
 }
 
 // LastAccountState mirrors the fields of StripeAccountSnapshot we compare on.
@@ -57,8 +56,7 @@ type LastAccountState struct {
 // events. Thread-safe: holds an in-memory cooldown map shared across calls.
 type Notifier struct {
 	notifications NotificationSink
-	accounts      AccountLookup
-	state         StateStore
+	users         UserStore
 
 	cooldown sync.Map // key: userID|type, val: time.Time (last sent)
 	ttl      time.Duration
@@ -67,14 +65,13 @@ type Notifier struct {
 // NewNotifier wires the notifier. ttl sets the minimum interval between
 // two identical notifications for the same user (to avoid spam when Stripe
 // fires multiple account.updated webhooks back-to-back).
-func NewNotifier(sink NotificationSink, accts AccountLookup, state StateStore, ttl time.Duration) *Notifier {
+func NewNotifier(sink NotificationSink, users UserStore, ttl time.Duration) *Notifier {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute
 	}
 	return &Notifier{
 		notifications: sink,
-		accounts:      accts,
-		state:         state,
+		users:         users,
 		ttl:           ttl,
 	}
 }
@@ -92,12 +89,12 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 		return fmt.Errorf("nil or empty snapshot")
 	}
 
-	userID, err := n.accounts.FindUserByStripeAccount(ctx, snap.AccountID)
+	userID, err := n.users.FindUserIDByStripeAccount(ctx, snap.AccountID)
 	if err != nil {
 		return fmt.Errorf("resolve user for account %s: %w", snap.AccountID, err)
 	}
 
-	prev, _ := n.state.GetLast(ctx, snap.AccountID)
+	prev := n.loadPrevState(ctx, userID)
 
 	events := n.diff(prev, snap)
 	for _, ev := range events {
@@ -114,9 +111,37 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 		n.markSent(userID, ev.Key)
 	}
 
-	// Persist new state
-	_ = n.state.SaveLast(ctx, snap.AccountID, snapshotToState(snap))
+	// Persist new state (marshal to JSON for the users.stripe_last_state column)
+	n.savePrevState(ctx, userID, snapshotToState(snap))
 	return nil
+}
+
+// loadPrevState reads the user's last snapshot from UserStore and unmarshals
+// it. Returns nil on any error (first webhook, corrupt JSON, etc.) — the
+// diff() helper treats nil as "no prior state, emit notifs".
+func (n *Notifier) loadPrevState(ctx context.Context, userID uuid.UUID) *LastAccountState {
+	raw, err := n.users.GetStripeLastState(ctx, userID)
+	if err != nil || len(raw) == 0 {
+		return nil
+	}
+	var state LastAccountState
+	if err := json.Unmarshal(raw, &state); err != nil {
+		return nil
+	}
+	return &state
+}
+
+// savePrevState marshals and persists the current snapshot. Best-effort:
+// logs a warning on failure but never fails the webhook dispatch.
+func (n *Notifier) savePrevState(ctx context.Context, userID uuid.UUID, state *LastAccountState) {
+	raw, err := json.Marshal(state)
+	if err != nil {
+		slog.Warn("embedded: marshal last_state", "user_id", userID, "error", err)
+		return
+	}
+	if err := n.users.SaveStripeLastState(ctx, userID, raw); err != nil {
+		slog.Warn("embedded: persist last_state", "user_id", userID, "error", err)
+	}
 }
 
 /* ----------------------------- Diffing ----------------------------- */

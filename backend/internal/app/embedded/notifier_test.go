@@ -2,6 +2,7 @@ package embedded
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -34,26 +35,32 @@ func (f *fakeSink) Send(_ context.Context, userID uuid.UUID, t notifdomain.Notif
 	return f.err
 }
 
-type fakeLookup struct {
-	userID uuid.UUID
-	err    error
+// fakeUserStore implements UserStore — combines the old fakeLookup +
+// fakeStateStore into one fake backed by user_id keys.
+type fakeUserStore struct {
+	userID   uuid.UUID
+	lookupErr error
+	prev     *LastAccountState
+	saved    *LastAccountState
 }
 
-func (f *fakeLookup) FindUserByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
-	return f.userID, f.err
+func (f *fakeUserStore) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
+	return f.userID, f.lookupErr
 }
 
-type fakeStateStore struct {
-	prev  *LastAccountState
-	saved *LastAccountState
+func (f *fakeUserStore) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
+	if f.prev == nil {
+		return nil, nil
+	}
+	return json.Marshal(f.prev)
 }
 
-func (f *fakeStateStore) GetLast(_ context.Context, _ string) (*LastAccountState, error) {
-	return f.prev, nil
-}
-
-func (f *fakeStateStore) SaveLast(_ context.Context, _ string, s *LastAccountState) error {
-	f.saved = s
+func (f *fakeUserStore) SaveStripeLastState(_ context.Context, _ uuid.UUID, state []byte) error {
+	var s LastAccountState
+	if err := json.Unmarshal(state, &s); err != nil {
+		return err
+	}
+	f.saved = &s
 	return nil
 }
 
@@ -65,12 +72,11 @@ func snapshot(accountID string) *portservice.StripeAccountSnapshot {
 	}
 }
 
-func newTestNotifier(prev *LastAccountState) (*Notifier, *fakeSink, *fakeStateStore) {
+func newTestNotifier(prev *LastAccountState) (*Notifier, *fakeSink, *fakeUserStore) {
 	sink := &fakeSink{}
-	store := &fakeStateStore{prev: prev}
+	store := &fakeUserStore{userID: uuid.New(), prev: prev}
 	n := NewNotifier(
 		sink,
-		&fakeLookup{userID: uuid.New()},
 		store,
 		100*time.Millisecond, // short cooldown for tests
 	)
@@ -93,8 +99,8 @@ func TestNotifier_EmptyAccountID_ReturnsError(t *testing.T) {
 
 func TestNotifier_LookupFails_ReturnsError(t *testing.T) {
 	sink := &fakeSink{}
-	store := &fakeStateStore{}
-	n := NewNotifier(sink, &fakeLookup{err: errors.New("not found")}, store, time.Minute)
+	store := &fakeUserStore{lookupErr: errors.New("not found")}
+	n := NewNotifier(sink, store, time.Minute)
 	err := n.HandleAccountSnapshot(context.Background(), snapshot("acct_1"))
 	assert.Error(t, err)
 	assert.Empty(t, sink.calls)
@@ -424,8 +430,8 @@ func TestNotifier_Cooldown_SuppressesSecondCall(t *testing.T) {
 
 func TestNotifier_Cooldown_ExpiresAfterTTL(t *testing.T) {
 	sink := &fakeSink{}
-	store := &fakeStateStore{prev: &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}}
-	n := NewNotifier(sink, &fakeLookup{userID: uuid.New()}, store, 10*time.Millisecond)
+	store := &fakeUserStore{userID: uuid.New(), prev: &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}}
+	n := NewNotifier(sink, store, 10*time.Millisecond)
 
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -445,8 +451,8 @@ func TestNotifier_Cooldown_ExpiresAfterTTL(t *testing.T) {
 
 func TestNotifier_SinkFailure_DoesNotCrash(t *testing.T) {
 	sink := &fakeSink{err: errors.New("sink down")}
-	store := &fakeStateStore{}
-	n := NewNotifier(sink, &fakeLookup{userID: uuid.New()}, store, time.Minute)
+	store := &fakeUserStore{userID: uuid.New()}
+	n := NewNotifier(sink, store, time.Minute)
 
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -459,8 +465,8 @@ func TestNotifier_SinkFailure_DoesNotCrash(t *testing.T) {
 
 func TestNotifier_DefaultCooldown_ZeroMeansFiveMinutes(t *testing.T) {
 	sink := &fakeSink{}
-	store := &fakeStateStore{}
-	n := NewNotifier(sink, &fakeLookup{userID: uuid.New()}, store, 0)
+	store := &fakeUserStore{userID: uuid.New()}
+	n := NewNotifier(sink, store, 0)
 	assert.Equal(t, 5*time.Minute, n.ttl)
 }
 

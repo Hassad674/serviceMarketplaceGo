@@ -2,6 +2,7 @@ package embedded
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -51,32 +52,41 @@ func (c *capturingSink) Send(_ context.Context, userID uuid.UUID, t notifdomain.
 	return nil
 }
 
-type staticLookup struct {
+// memoryUserStore is a single in-memory UserStore combining the
+// account lookup + state persistence. Used by integration tests to
+// simulate a real user_repository without a DB.
+type memoryUserStore struct {
 	userID uuid.UUID
+	state  *LastAccountState
 }
 
-func (s *staticLookup) FindUserByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
-	return s.userID, nil
+func (m *memoryUserStore) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
+	return m.userID, nil
 }
 
-type memoryStateStore struct {
-	state *LastAccountState
+func (m *memoryUserStore) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
+	if m.state == nil {
+		return nil, nil
+	}
+	return json.Marshal(m.state)
 }
 
-func (m *memoryStateStore) GetLast(_ context.Context, _ string) (*LastAccountState, error) {
-	return m.state, nil
-}
-
-func (m *memoryStateStore) SaveLast(_ context.Context, _ string, s *LastAccountState) error {
-	m.state = s
+func (m *memoryUserStore) SaveStripeLastState(_ context.Context, _ uuid.UUID, raw []byte) error {
+	var s LastAccountState
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return err
+	}
+	m.state = &s
 	return nil
 }
 
-func setupChain(prev *LastAccountState) (*Notifier, *capturingSink, *memoryStateStore) {
+func setupChain(prev *LastAccountState) (*Notifier, *capturingSink, *memoryUserStore) {
 	sink := &capturingSink{}
-	store := &memoryStateStore{state: prev}
-	userID := uuid.MustParse("51a9b3e7-1dae-45ee-913a-d73733b20aae")
-	n := NewNotifier(sink, &staticLookup{userID: userID}, store, 5*time.Minute)
+	store := &memoryUserStore{
+		userID: uuid.MustParse("51a9b3e7-1dae-45ee-913a-d73733b20aae"),
+		state:  prev,
+	}
+	n := NewNotifier(sink, store, 5*time.Minute)
 	return n, sink, store
 }
 
