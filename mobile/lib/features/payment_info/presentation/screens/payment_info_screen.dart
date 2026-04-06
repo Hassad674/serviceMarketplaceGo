@@ -1,413 +1,313 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/router/app_router.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../domain/entities/country_field_spec.dart';
-import 'package:marketplace_mobile/features/payment_info/lib/form_data_mapper.dart';
-import '../../types/payment_info.dart';
-import '../../domain/entities/identity_document_entity.dart';
-import '../providers/country_fields_provider.dart';
-import '../providers/identity_document_provider.dart';
-import '../providers/payment_info_provider.dart';
-import '../widgets/business_persons_section.dart';
-import '../widgets/country_selector_section.dart';
-import '../widgets/dynamic_section.dart';
-import '../widgets/extra_fields_section.dart';
-import '../widgets/identity_verification_section.dart';
-import '../widgets/payment_info_widgets.dart';
-import '../widgets/stripe_requirements_banner.dart';
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
+/// Stripe account status fetched from GET /payment-info/account-status.
+final _accountStatusProvider = FutureProvider.autoDispose<_AccountStatus?>((ref) async {
+  try {
+    final client = ref.read(apiClientProvider);
+    final response = await client.get('/api/v1/payment-info/account-status');
+    return _AccountStatus.fromJson(response.data);
+  } catch (_) {
+    return null;
+  }
+});
 
-/// Payment information form connected to the backend API.
-///
-/// Accessible to agency and provider roles. Loads existing data on mount,
-/// renders dynamic sections based on the selected country.
-class PaymentInfoScreen extends ConsumerStatefulWidget {
+class _AccountStatus {
+  final bool chargesEnabled;
+  final bool payoutsEnabled;
+  final int requirementsCount;
+
+  const _AccountStatus({
+    required this.chargesEnabled,
+    required this.payoutsEnabled,
+    required this.requirementsCount,
+  });
+
+  bool get fullyActive => chargesEnabled && payoutsEnabled && requirementsCount == 0;
+
+  factory _AccountStatus.fromJson(Map<String, dynamic> json) {
+    return _AccountStatus(
+      chargesEnabled: json['charges_enabled'] ?? false,
+      payoutsEnabled: json['payouts_enabled'] ?? false,
+      requirementsCount: json['requirements_count'] ?? 0,
+    );
+  }
+}
+
+/// Payment info screen — shows Stripe account status and opens a WebView
+/// to the Next.js /payment-info page for KYC onboarding and management.
+class PaymentInfoScreen extends ConsumerWidget {
   const PaymentInfoScreen({super.key});
 
   @override
-  ConsumerState<PaymentInfoScreen> createState() => _PaymentInfoScreenState();
-}
-
-class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
-  var _data = const PaymentInfoFormData();
-  bool _saved = false;
-  bool _saving = false;
-  bool _populated = false;
-  String? _stripeError;
-  String? _lastUserId;
-
-  void _onValueChanged(String key, String value) {
-    setState(() {
-      _data = _data.copyWith(
-        values: {..._data.values, key: value},
-      );
-      _saved = false;
-    });
-  }
-
-  void _onCountryChanged(String country) {
-    setState(() {
-      _data = _data.copyWith(country: country, values: {}, extraFields: {});
-      _saved = false;
-    });
-  }
-
-  void _onBusinessToggled(bool isBusiness) {
-    setState(() {
-      _data = _data.copyWith(isBusiness: isBusiness, values: {});
-      _saved = false;
-    });
-  }
-
-  void _onFormDataChanged(PaymentInfoFormData Function(PaymentInfoFormData) fn) {
-    setState(() {
-      _data = fn(_data);
-      _saved = false;
-    });
-  }
-
-  Future<void> _save(List<FieldSection>? sections, String email) async {
-    setState(() => _saving = true);
-    try {
-      final json = valuesToFlatData(_data, sections, email: email);
-
-      final repo = ref.read(paymentInfoRepositoryProvider);
-      final savedInfo = await repo.savePaymentInfo(json);
-      ref.invalidate(paymentInfoProvider);
-      ref.invalidate(paymentInfoStatusProvider);
-      if (mounted) {
-        setState(() {
-          _saved = true;
-          _stripeError = savedInfo.stripeError.isNotEmpty
-              ? savedInfo.stripeError
-              : null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final asyncInfo = ref.watch(paymentInfoProvider);
-
-    final authState = ref.watch(authProvider);
-    final userEmail = authState.user?['email'] as String? ?? '';
-
-    // Reset form when user changes (logout → new account)
-    final currentUserId = userEmail;
-    if (_lastUserId != null && _lastUserId != currentUserId) {
-      _populated = false;
-      _data = const PaymentInfoFormData();
-      _saved = false;
-      _stripeError = null;
-    }
-    _lastUserId = currentUserId;
-
-    // Populate form when data arrives (only once per user).
-    if (!_populated && asyncInfo.hasValue && asyncInfo.value != null) {
-      _populated = true;
-      _data = responseToFormData(asyncInfo.value!);
-      // Pre-fill email from auth user (not stored in entity)
-      if (_data.values['individual.email']?.isEmpty ?? true) {
-        _data = _data.copyWith(
-          values: {..._data.values, 'individual.email': userEmail},
-        );
-      }
-      _saved = true;
-    }
-
-    // Show stripe error from loaded entity (if any)
-    final loadedStripeError =
-        asyncInfo.valueOrNull?.stripeError ?? '';
-    final effectiveStripeError = _stripeError ??
-        (loadedStripeError.isNotEmpty ? loadedStripeError : null);
+    final statusAsync = ref.watch(_accountStatusProvider);
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.menu),
-          onPressed: openShellDrawer,
-        ),
-        title: Text(l10n.paymentInfoTitle),
+        title: Text(l10n.drawerPaymentInfo),
+        elevation: 0,
       ),
-      body: asyncInfo.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Error: $error'),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(paymentInfoProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-        data: (_) => _buildForm(l10n, theme, effectiveStripeError, userEmail),
-      ),
-    );
-  }
-
-  Widget _buildForm(AppLocalizations l10n, ThemeData theme, String? stripeErr, String userEmail) {
-    final businessType = _data.isBusiness ? 'company' : 'individual';
-    final hasCountry = _data.country.length == 2;
-
-    // Fetch dynamic sections for the selected country
-    final asyncFields = hasCountry
-        ? ref.watch(countryFieldsProvider(
-            CountryFieldsKey(_data.country, businessType)))
-        : null;
-
-    final countryFields = asyncFields?.valueOrNull;
-    final allSections = countryFields?.sections ?? <FieldSection>[];
-    final entitySections =
-        allSections.where((s) => s.id != 'bank').toList();
-    final bankSection =
-        allSections.where((s) => s.id == 'bank').firstOrNull;
-    final extraFields = countryFields?.extraFields ?? <FieldSpec>[];
-    final personRoles = countryFields?.personRoles ?? <String>[];
-    final docsRequired = countryFields?.individualDocRequired ?? false;
-
-    // Build field errors and warnings from Stripe requirements
-    final asyncReqs = ref.watch(stripeRequirementsProvider);
-    final reqs = asyncReqs.valueOrNull;
-    final fieldErrors = buildFieldErrors(reqs);
-    final fieldWarnings = buildFieldWarnings(reqs);
-
-    // Fetch existing identity documents for status display
-    final asyncDocs = ref.watch(identityDocumentsProvider);
-    final existingDocs = asyncDocs.valueOrNull ?? <IdentityDocument>[];
-
-    // Auto-fill email for validation (not stored in entity)
-    final autoFilledData = _data.values.containsKey('individual.email')
-        ? _data
-        : _data.copyWith(values: {..._data.values, 'individual.email': userEmail});
-    final valid = hasCountry && isFormValid(autoFilledData, allSections);
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: () async => ref.invalidate(_accountStatusProvider),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            // Subtitle
-            Text(
-              l10n.paymentInfoSubtitle,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            statusAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(48),
+                  child: CircularProgressIndicator(),
+                ),
               ),
+              error: (_, __) => _buildContent(context, ref, l10n, null),
+              data: (status) => _buildContent(context, ref, l10n, status),
             ),
-            const SizedBox(height: 16),
-
-            // Stripe requirements banner
-            if (_saved) const StripeRequirementsBanner(),
-            if (_saved) const SizedBox(height: 16),
-
-            // Status banner + stripe error
-            PaymentStatusBanner(saved: _saved),
-            const SizedBox(height: 16),
-
-            // Country selector
-            CountrySelectorSection(
-              value: _data.country,
-              onChanged: _onCountryChanged,
-            ),
-            const SizedBox(height: 16),
-
-            // Business toggle
-            PaymentBusinessToggle(
-              value: _data.isBusiness,
-              onChanged: _onBusinessToggled,
-            ),
-            const SizedBox(height: 16),
-
-            // Activity sector (always visible, not from country specs)
-            ActivitySectorSection(data: _data, onUpdate: _onFormDataChanged),
-            const SizedBox(height: 16),
-
-            // Dynamic sections or placeholder
-            if (!hasCountry)
-              _Placeholder(text: 'Select your country to see required fields')
-            else if (asyncFields != null && asyncFields.isLoading)
-              const Center(child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(),
-              ))
-            else ...[
-              // Entity sections (personal info, company, etc.)
-              ...entitySections.map((section) => Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: DynamicSection(
-                      section: section,
-                      values: _data.values,
-                      onChanged: _onValueChanged,
-                      fieldErrors: fieldErrors,
-                      fieldWarnings: fieldWarnings,
-                      documents: existingDocs,
-                      countryCode: _data.country,
-                    ),
-                  )),
-
-              // Business persons (when business + roles beyond representative)
-              if (_data.isBusiness &&
-                  personRoles.any((r) => r != 'representative'))
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: BusinessPersonsSection(
-                    data: _data,
-                    onUpdate: _onFormDataChanged,
-                  ),
-                ),
-
-              // Bank section
-              if (bankSection != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: DynamicSection(
-                    section: bankSection,
-                    values: _data.values,
-                    onChanged: _onValueChanged,
-                    fieldErrors: fieldErrors,
-                    fieldWarnings: fieldWarnings,
-                    documents: existingDocs,
-                    countryCode: _data.country,
-                  ),
-                ),
-
-              // Extra fields (country-specific)
-              if (extraFields.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: ExtraFieldsSection(
-                    fields: extraFields,
-                    values: _data.values,
-                    onChanged: _onValueChanged,
-                    fieldErrors: fieldErrors,
-                    countryCode: _data.country,
-                  ),
-                ),
-
-              // Identity verification
-              if (docsRequired) ...[
-                const IdentityVerificationSection(),
-                const SizedBox(height: 8),
-              ],
-            ],
-
-            // Stripe error just above save
-            if (stripeErr != null) ...[
-              _StripeErrorBanner(message: stripeErr),
-              const SizedBox(height: 12),
-            ],
-
-            // Save button
-            PaymentInfoSaveButton(
-              isValid: valid,
-              isSaving: _saving,
-              onSave: () => _save(allSections, userEmail),
-            ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
-}
 
-// ---------------------------------------------------------------------------
-// Small helper widgets
-// ---------------------------------------------------------------------------
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations l10n,
+    _AccountStatus? status,
+  ) {
+    final theme = Theme.of(context);
+    final hasAccount = status != null;
+    final fullyActive = status?.fullyActive ?? false;
 
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.text});
-  final String text;
+    return Column(
+      children: [
+        // Status card
+        _StatusCard(status: status),
+        const SizedBox(height: 24),
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.5),
+        // Action button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: FilledButton.icon(
+            onPressed: () => _openWebView(context, ref),
+            icon: Icon(
+              fullyActive ? Icons.edit_outlined : Icons.arrow_forward_rounded,
             ),
+            label: Text(
+              fullyActive
+                  ? l10n.paymentInfoEdit
+                  : hasAccount
+                      ? l10n.paymentInfoComplete
+                      : l10n.paymentInfoSetup,
+            ),
+            style: FilledButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openWebView(BuildContext context, WidgetRef ref) async {
+    final locale = Localizations.localeOf(context).languageCode;
+    // Payment info WebView always uses the production web app so it works
+    // from any device without local proxy issues. Override with WEB_PAYMENT_URL
+    // for dev if needed.
+    const webBaseUrl = String.fromEnvironment(
+      'WEB_URL',
+      defaultValue: 'http://192.168.1.156:3001',
+    );
+
+    // Pass JWT token via URL — the page reads it and uses Authorization
+    // header for API calls. No cookie injection needed.
+    final storage = ref.read(secureStorageProvider);
+    final token = await storage.getAccessToken();
+
+    if (!context.mounted) return;
+
+    final query = token != null
+        ? '?token=$token&embedded=true'
+        : '?embedded=true';
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => _PaymentInfoWebView(
+          url: '$webBaseUrl/$locale/payment-info$query',
+          title: AppLocalizations.of(context)!.drawerPaymentInfo,
+          onDone: () {
+            Navigator.of(context).pop();
+            ref.invalidate(_accountStatusProvider);
+          },
+        ),
       ),
     );
   }
 }
 
-class _StripeErrorBanner extends StatelessWidget {
-  const _StripeErrorBanner({required this.message});
-  final String message;
+// ---------------------------------------------------------------------------
+// Status card
+// ---------------------------------------------------------------------------
+
+class _StatusCard extends StatelessWidget {
+  final _AccountStatus? status;
+
+  const _StatusCard({required this.status});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final hasAccount = status != null;
+    final fullyActive = status?.fullyActive ?? false;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.error.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.error.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          colors: fullyActive
+              ? [Colors.green.shade500, Colors.green.shade600]
+              : hasAccount
+                  ? [Colors.orange.shade500, Colors.orange.shade600]
+                  : [Colors.grey.shade400, Colors.grey.shade500],
         ),
       ),
-      child: Row(
+      padding: const EdgeInsets.all(20),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded,
-              size: 20, color: theme.colorScheme.error),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Icon(
+            fullyActive
+                ? Icons.check_circle_rounded
+                : hasAccount
+                    ? Icons.warning_rounded
+                    : Icons.credit_card_off_rounded,
+            color: Colors.white,
+            size: 32,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            fullyActive
+                ? l10n.paymentInfoActive
+                : hasAccount
+                    ? l10n.paymentInfoPending
+                    : l10n.paymentInfoNotConfigured,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            fullyActive
+                ? l10n.paymentInfoActiveDesc
+                : hasAccount
+                    ? l10n.paymentInfoPendingDesc(status!.requirementsCount)
+                    : l10n.paymentInfoNotConfiguredDesc,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+          if (hasAccount) ...[
+            const SizedBox(height: 16),
+            Row(
               children: [
-                Text(
-                  'Stripe error',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.error,
-                  ),
+                _CapabilityChip(
+                  label: l10n.paymentInfoCharges,
+                  enabled: status!.chargesEnabled,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  message,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error.withValues(alpha: 0.8),
-                  ),
+                const SizedBox(width: 8),
+                _CapabilityChip(
+                  label: l10n.paymentInfoPayouts,
+                  enabled: status!.payoutsEnabled,
                 ),
               ],
             ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CapabilityChip extends StatelessWidget {
+  final String label;
+  final bool enabled;
+
+  const _CapabilityChip({required this.label, required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: enabled ? Colors.greenAccent : Colors.orangeAccent,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white, fontSize: 12),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// WebView screen (full-screen modal)
+// ---------------------------------------------------------------------------
+
+class _PaymentInfoWebView extends StatelessWidget {
+  final String url;
+  final String title;
+  final VoidCallback onDone;
+
+  const _PaymentInfoWebView({
+    required this.url,
+    required this.title,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: onDone,
+        ),
+      ),
+      body: InAppWebView(
+        initialUrlRequest: URLRequest(url: WebUri(url)),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          supportZoom: false,
+          transparentBackground: true,
+        ),
       ),
     );
   }

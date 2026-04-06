@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useParams, useNavigate, Link } from "react-router-dom"
 import {
   ArrowLeft, MessageSquare, Calendar, Hash,
-  EyeOff, FileText, ExternalLink, Flag,
+  EyeOff, ExternalLink, Flag,
 } from "lucide-react"
 import { PageHeader } from "@/shared/components/layouts/page-header"
 import { Card, CardContent } from "@/shared/components/ui/card"
@@ -16,6 +16,8 @@ import { ResolveReportDialog } from "@/shared/components/ui/resolve-report-dialo
 import { formatDate, formatRelativeDate } from "@/shared/lib/utils"
 import { useConversation, useConversationMessages } from "../hooks/use-conversations"
 import { useConversationReports, useResolveReport } from "@/shared/hooks/use-reports"
+import { MessageBubble } from "./message-bubble"
+import { SystemMessage, isSystemMessage } from "./system-message"
 import type { AdminMessage, ConversationParticipant } from "../types"
 
 export function ConversationDetailPage() {
@@ -31,6 +33,11 @@ export function ConversationDetailPage() {
   const messages = msgData?.data ?? []
   const participants = conversation?.participants ?? []
 
+  // Build a map of sender_id -> color index for consistent bubble colors
+  const senderColorMap = useMemo(() => {
+    return buildSenderColorMap(messages)
+  }, [messages])
+
   if (convLoading || (msgsLoading && cursor === "")) {
     return <DetailSkeleton />
   }
@@ -39,9 +46,7 @@ export function ConversationDetailPage() {
     return (
       <div className="space-y-6">
         <BackButton onClick={() => navigate("/conversations")} />
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center text-sm text-destructive">
-          Erreur lors du chargement de la conversation
-        </div>
+        <ErrorBanner />
       </div>
     )
   }
@@ -54,14 +59,17 @@ export function ConversationDetailPage() {
       <PageHeader title={title} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        {/* Messages area */}
-        <div className="lg:col-span-3 space-y-4">
-          <MessageList messages={messages} />
+        {/* Chat area */}
+        <div className="lg:col-span-3 flex flex-col">
+          <ChatArea
+            messages={messages}
+            senderColorMap={senderColorMap}
+          />
 
           {/* Read-only indicator */}
-          <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+          <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <EyeOff className="h-4 w-4" />
-            Lecture seule — vue de mod&eacute;ration
+            Lecture seule — vue de moderation
           </div>
         </div>
 
@@ -84,7 +92,21 @@ export function ConversationDetailPage() {
   )
 }
 
-/* ─── Sub-components ──────────────────────────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────────────────── */
+
+function buildSenderColorMap(messages: AdminMessage[]): Map<string, number> {
+  const map = new Map<string, number>()
+  let index = 0
+  for (const msg of messages) {
+    if (!map.has(msg.sender_id) && !isSystemMessage(msg.type)) {
+      map.set(msg.sender_id, index)
+      index++
+    }
+  }
+  return map
+}
+
+/* ── Sub-components ──────────────────────────────────────────────── */
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
@@ -94,10 +116,21 @@ function BackButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-function MessageList({ messages }: { messages: AdminMessage[] }) {
+function ErrorBanner() {
+  return (
+    <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center text-sm text-destructive">
+      Erreur lors du chargement de la conversation
+    </div>
+  )
+}
+
+function ChatArea({ messages, senderColorMap }: {
+  messages: AdminMessage[]
+  senderColorMap: Map<string, number>
+}) {
   if (messages.length === 0) {
     return (
-      <Card>
+      <Card className="flex-1">
         <CardContent className="p-0">
           <EmptyState
             icon={MessageSquare}
@@ -110,11 +143,15 @@ function MessageList({ messages }: { messages: AdminMessage[] }) {
   }
 
   return (
-    <Card>
+    <Card className="flex-1">
       <CardContent className="p-0">
-        <div className="divide-y divide-border">
+        <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto px-5 py-4">
           {messages.map((msg) => (
-            <MessageRow key={msg.id} message={msg} />
+            <ChatMessage
+              key={msg.id}
+              message={msg}
+              senderColorMap={senderColorMap}
+            />
           ))}
         </div>
       </CardContent>
@@ -122,80 +159,16 @@ function MessageList({ messages }: { messages: AdminMessage[] }) {
   )
 }
 
-const MESSAGE_TYPE_LABELS: Record<string, string> = {
-  proposal_sent: "Proposition envoyée",
-  proposal_accepted: "Proposition acceptée",
-  proposal_declined: "Proposition refusée",
-  proposal_modified: "Proposition modifiée",
-  proposal_paid: "Paiement effectué",
-  proposal_payment_requested: "Paiement demandé",
-  proposal_completion_requested: "Achèvement demandé",
-  proposal_completed: "Mission terminée",
-  proposal_completion_rejected: "Achèvement rejeté",
-  evaluation_request: "Demande d'évaluation",
-  call_ended: "Appel terminé",
-  call_missed: "Appel manqué",
-}
-
-function isSystemMessage(type: string): boolean {
-  return type !== "text" && type !== "file" && type !== "voice"
-}
-
-function MessageRow({ message }: { message: AdminMessage }) {
+function ChatMessage({ message, senderColorMap }: {
+  message: AdminMessage
+  senderColorMap: Map<string, number>
+}) {
   if (isSystemMessage(message.type)) {
-    return <SystemMessageRow message={message} />
+    return <SystemMessage message={message} />
   }
 
-  return (
-    <div className="flex gap-3 px-4 py-3">
-      <Avatar name={message.sender_name} size="sm" className="mt-0.5 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            {message.sender_name}
-          </span>
-          <RoleBadge role={message.sender_role} />
-          <span className="ml-auto shrink-0 text-xs text-muted-foreground">
-            {formatRelativeDate(message.created_at)}
-          </span>
-        </div>
-        {message.type === "file" && message.metadata ? (
-          <FileMessageContent metadata={message.metadata} />
-        ) : (
-          <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/80">
-            {message.content}
-          </p>
-        )}
-        {message.reply_to_id && (
-          <p className="mt-1 text-xs text-muted-foreground italic">
-            En r&eacute;ponse &agrave; un message
-          </p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function SystemMessageRow({ message }: { message: AdminMessage }) {
-  const label = MESSAGE_TYPE_LABELS[message.type] || message.type
-  return (
-    <div className="flex items-center justify-center gap-2 px-4 py-2">
-      <Badge variant="outline">{label}</Badge>
-      <span className="text-xs text-muted-foreground">
-        {formatRelativeDate(message.created_at)}
-      </span>
-    </div>
-  )
-}
-
-function FileMessageContent({ metadata }: { metadata: Record<string, unknown> }) {
-  const filename = (metadata.filename as string) || "Fichier"
-  return (
-    <div className="mt-1 inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm">
-      <FileText className="h-4 w-4 text-muted-foreground" />
-      <span className="text-foreground">{filename}</span>
-    </div>
-  )
+  const colorIndex = senderColorMap.get(message.sender_id) ?? 0
+  return <MessageBubble message={message} senderColorIndex={colorIndex} />
 }
 
 function ParticipantCard({ participant }: { participant: ConversationParticipant }) {
@@ -231,7 +204,7 @@ function ConversationInfoCard({ createdAt, messageCount, lastMessageAt }: {
         <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Infos
         </h4>
-        <InfoRow icon={Calendar} label="Création" value={formatDate(createdAt)} />
+        <InfoRow icon={Calendar} label="Creation" value={formatDate(createdAt)} />
         <InfoRow icon={Hash} label="Messages" value={String(messageCount)} />
         {lastMessageAt && (
           <InfoRow
@@ -264,7 +237,10 @@ function InfoRow({ icon: Icon, label, value }: {
 function ReportsSection({ conversationId }: { conversationId: string }) {
   const { data, isLoading } = useConversationReports(conversationId)
   const resolveMutation = useResolveReport()
-  const [resolveTarget, setResolveTarget] = useState<{ id: string; defaultStatus: "resolved" | "dismissed" } | null>(null)
+  const [resolveTarget, setResolveTarget] = useState<{
+    id: string
+    defaultStatus: "resolved" | "dismissed"
+  } | null>(null)
 
   const reports = data?.data ?? []
 
@@ -280,7 +256,7 @@ function ReportsSection({ conversationId }: { conversationId: string }) {
 
   return (
     <Card>
-      <CardContent className="pt-4 space-y-3">
+      <CardContent className="space-y-3 pt-4">
         <div className="flex items-center gap-2">
           <Flag className="h-4 w-4 text-muted-foreground" />
           <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -292,8 +268,12 @@ function ReportsSection({ conversationId }: { conversationId: string }) {
         </div>
         <ReportList
           reports={reports}
-          onResolve={(reportId) => setResolveTarget({ id: reportId, defaultStatus: "resolved" })}
-          onDismiss={(reportId) => setResolveTarget({ id: reportId, defaultStatus: "dismissed" })}
+          onResolve={(reportId) =>
+            setResolveTarget({ id: reportId, defaultStatus: "resolved" })
+          }
+          onDismiss={(reportId) =>
+            setResolveTarget({ id: reportId, defaultStatus: "dismissed" })
+          }
           isResolving={resolveMutation.isPending}
         />
         {resolveTarget && (
@@ -323,7 +303,7 @@ function DetailSkeleton() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <div className="lg:col-span-3 space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
         <div className="space-y-4">

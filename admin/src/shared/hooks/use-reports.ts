@@ -3,6 +3,7 @@ import {
   listConversationReports,
   listUserReports,
   listJobReports,
+  listReviewReports,
   resolveReport,
 } from "@/shared/api/reports-api"
 
@@ -33,6 +34,15 @@ export function useJobReports(jobId: string) {
   })
 }
 
+export function useReviewReports(reviewId: string) {
+  return useQuery({
+    queryKey: ["admin", "reviews", reviewId, "reports"],
+    queryFn: () => listReviewReports(reviewId),
+    enabled: !!reviewId,
+    staleTime: 30 * 1000,
+  })
+}
+
 export function useResolveReport() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -42,6 +52,7 @@ export function useResolveReport() {
       queryClient.invalidateQueries({ queryKey: ["admin", "conversations"] })
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] })
       queryClient.invalidateQueries({ queryKey: ["admin", "jobs"] })
+      queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] })
     },
   })
 }

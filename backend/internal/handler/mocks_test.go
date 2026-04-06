@@ -339,6 +339,22 @@ func (m *mockJobRepo) ListOpen(_ context.Context, _ repository.JobListFilters, _
 
 func (m *mockJobRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
 
+func (m *mockJobRepo) ListAdmin(_ context.Context, _ repository.AdminJobFilters) ([]repository.AdminJob, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockJobRepo) CountAdmin(_ context.Context, _ repository.AdminJobFilters) (int, error) {
+	return 0, nil
+}
+
+func (m *mockJobRepo) GetAdmin(_ context.Context, _ uuid.UUID) (*repository.AdminJob, error) {
+	return nil, nil
+}
+
+func (m *mockJobRepo) CountAll(_ context.Context) (int, int, error) {
+	return 0, 0, nil
+}
+
 // --- mockStorageService ---
 
 type mockStorageService struct {

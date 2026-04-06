@@ -1,7 +1,7 @@
 export type AdminReport = {
   id: string
   reporter_id: string
-  target_type: "message" | "user" | "job" | "job_application"
+  target_type: "message" | "user" | "job" | "job_application" | "review"
   target_id: string
   conversation_id?: string
   reason: string

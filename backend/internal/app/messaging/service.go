@@ -15,32 +15,41 @@ import (
 )
 
 type Service struct {
-	messages    repository.MessageRepository
-	users       repository.UserRepository
-	presence    service.PresenceService
-	broadcaster service.MessageBroadcaster
-	storage     service.StorageService
-	rateLimiter service.MessagingRateLimiter
+	messages      repository.MessageRepository
+	users         repository.UserRepository
+	presence      service.PresenceService
+	broadcaster   service.MessageBroadcaster
+	storage       service.StorageService
+	rateLimiter   service.MessagingRateLimiter
+	mediaRecorder service.MediaRecorder
 }
 
 type ServiceDeps struct {
-	Messages    repository.MessageRepository
-	Users       repository.UserRepository
-	Presence    service.PresenceService
-	Broadcaster service.MessageBroadcaster
-	Storage     service.StorageService
-	RateLimiter service.MessagingRateLimiter
+	Messages      repository.MessageRepository
+	Users         repository.UserRepository
+	Presence      service.PresenceService
+	Broadcaster   service.MessageBroadcaster
+	Storage       service.StorageService
+	RateLimiter   service.MessagingRateLimiter
+	MediaRecorder service.MediaRecorder
 }
 
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
-		messages:    deps.Messages,
-		users:       deps.Users,
-		presence:    deps.Presence,
-		broadcaster: deps.Broadcaster,
-		storage:     deps.Storage,
-		rateLimiter: deps.RateLimiter,
+		messages:      deps.Messages,
+		users:         deps.Users,
+		presence:      deps.Presence,
+		broadcaster:   deps.Broadcaster,
+		storage:       deps.Storage,
+		rateLimiter:   deps.RateLimiter,
+		mediaRecorder: deps.MediaRecorder,
 	}
+}
+
+// SetMediaRecorder sets the media recorder after construction.
+// This breaks the circular init dependency: messaging is created before media.
+func (s *Service) SetMediaRecorder(recorder service.MediaRecorder) {
+	s.mediaRecorder = recorder
 }
 
 type StartConversationInput struct {
@@ -95,6 +104,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 	}
 
 	s.broadcastNewMessage(ctx, convID, input.SenderID, msg)
+	s.recordMediaIfNeeded(msg)
 
 	return msg, convID, nil
 }
@@ -153,6 +163,7 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 	}
 
 	s.broadcastNewMessage(ctx, input.ConversationID, input.SenderID, msg)
+	s.recordMediaIfNeeded(msg)
 
 	return msg, nil
 }

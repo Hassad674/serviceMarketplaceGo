@@ -7,6 +7,7 @@ import (
 
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domain "marketplace-backend/internal/domain/review"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -55,6 +56,22 @@ func (m *mockReviewRepo) HasReviewed(ctx context.Context, proposalID, reviewerID
 		return m.hasReviewedFn(ctx, proposalID, reviewerID)
 	}
 	return false, nil
+}
+
+func (m *mockReviewRepo) ListAdmin(_ context.Context, _ repository.AdminReviewFilters) ([]repository.AdminReview, error) {
+	return nil, nil
+}
+
+func (m *mockReviewRepo) CountAdmin(_ context.Context, _ repository.AdminReviewFilters) (int, error) {
+	return 0, nil
+}
+
+func (m *mockReviewRepo) GetAdminByID(_ context.Context, _ uuid.UUID) (*repository.AdminReview, error) {
+	return nil, domain.ErrNotFound
+}
+
+func (m *mockReviewRepo) DeleteAdmin(_ context.Context, _ uuid.UUID) error {
+	return nil
 }
 
 // mockProposalRepo implements the subset of ProposalRepository used by review service.

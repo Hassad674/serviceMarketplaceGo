@@ -1036,174 +1036,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalViewDetails => 'Voir les détails';
 
   @override
-  String get paymentInfoTitle => 'Informations de paiement';
-
-  @override
-  String get paymentInfoSubtitle =>
-      'Complétez vos informations pour recevoir les paiements de vos missions.';
-
-  @override
-  String get paymentInfoIsBusiness =>
-      'J\'exerce en tant qu\'entreprise enregistrée';
-
-  @override
-  String get paymentInfoIsBusinessDesc =>
-      'Activez si votre activité est exercée par une société enregistrée. Laissez désactivé si vous possédez un statut juridique en nom propre (freelance, indépendant).';
-
-  @override
-  String get paymentInfoPersonalInfo => 'Informations personnelles';
-
-  @override
-  String get paymentInfoLegalRep => 'Représentant légal';
-
-  @override
-  String get paymentInfoBusinessInfo => 'Informations de l\'entreprise';
-
-  @override
-  String get paymentInfoBankAccount => 'Compte bancaire';
-
-  @override
-  String get paymentInfoFirstName => 'Prénom';
-
-  @override
-  String get paymentInfoLastName => 'Nom';
-
-  @override
-  String get paymentInfoDob => 'Date de naissance';
-
-  @override
-  String get paymentInfoNationality => 'Nationalité';
-
-  @override
-  String get paymentInfoAddress => 'Adresse';
-
-  @override
-  String get paymentInfoCity => 'Ville';
-
-  @override
-  String get paymentInfoPostalCode => 'Code postal';
-
-  @override
-  String get paymentInfoYourRole => 'Votre rôle dans l\'entreprise';
-
-  @override
-  String get paymentInfoBusinessName => 'Raison sociale';
-
-  @override
-  String get paymentInfoBusinessAddress => 'Adresse du siège';
-
-  @override
-  String get paymentInfoBusinessCity => 'Ville du siège';
-
-  @override
-  String get paymentInfoBusinessPostalCode => 'Code postal du siège';
-
-  @override
-  String get paymentInfoBusinessCountry => 'Pays d\'enregistrement';
-
-  @override
-  String get paymentInfoTaxId => 'Numéro d\'identification fiscale';
-
-  @override
-  String get paymentInfoTaxIdHint => 'SIRET, EIN, numéro TVA...';
-
-  @override
-  String get paymentInfoVatNumber => 'Numéro de TVA (optionnel)';
-
-  @override
-  String get paymentInfoVatNumberHint =>
-      'Numéro de TVA intracommunautaire (optionnel)';
-
-  @override
-  String get paymentInfoIban => 'IBAN';
-
-  @override
-  String get paymentInfoIbanHint => 'FR76 1234 5678 9012 3456 78';
-
-  @override
-  String get paymentInfoBic => 'BIC / SWIFT (optionnel)';
-
-  @override
-  String get paymentInfoBicHint => 'BNPAFRPP';
-
-  @override
-  String get paymentInfoIbanHelp =>
-      'Si votre banque ne vous a pas fourni d\'IBAN, vous pouvez en générer un sur';
-
-  @override
-  String get paymentInfoNoIban => 'Je n\'ai pas d\'IBAN';
-
-  @override
-  String get paymentInfoUseIban => 'J\'ai un IBAN';
-
-  @override
-  String get paymentInfoAccountNumber => 'Numéro de compte';
-
-  @override
-  String get paymentInfoRoutingNumber => 'Numéro de routage';
-
-  @override
-  String get paymentInfoAccountHolder => 'Titulaire du compte';
-
-  @override
-  String get paymentInfoBankCountry => 'Pays de la banque';
-
-  @override
-  String get paymentInfoSave => 'Enregistrer';
-
-  @override
-  String get paymentInfoSaved => 'Informations de paiement enregistrées';
-
-  @override
-  String get paymentInfoIncomplete =>
-      'Complétez vos informations de paiement pour recevoir vos paiements';
-
-  @override
-  String get paymentInfoRoleOwner => 'Propriétaire';
-
-  @override
-  String get paymentInfoRoleCeo => 'PDG / Gérant';
-
-  @override
-  String get paymentInfoRoleDirector => 'Directeur';
-
-  @override
-  String get paymentInfoRolePartner => 'Associé';
-
-  @override
-  String get paymentInfoRoleOther => 'Autre';
-
-  @override
-  String get paymentInfoPhone => 'Numéro de téléphone';
-
-  @override
-  String get paymentInfoActivitySector => 'Secteur d\'activité';
-
-  @override
-  String get paymentInfoBusinessPersons => 'Représentants de l\'entreprise';
-
-  @override
-  String get paymentInfoSelfRepresentative => 'Je suis le représentant légal';
-
-  @override
-  String get paymentInfoSelfDirector =>
-      'Le représentant légal est le seul dirigeant';
-
-  @override
-  String get paymentInfoNoMajorOwners =>
-      'Aucun actionnaire ne détient plus de 25%';
-
-  @override
-  String get paymentInfoSelfExecutive =>
-      'Le représentant légal est le seul cadre dirigeant';
-
-  @override
-  String get paymentInfoAddPerson => 'Ajouter une personne';
-
-  @override
-  String get paymentInfoPerson => 'Personne';
-
-  @override
   String get identityDocTitle => 'Vérification d\'identité';
 
   @override
@@ -1288,36 +1120,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get identityDocProofOfRegistrationDesc =>
       'Certificat d\'enregistrement, document d\'incorporation ou preuve officielle du registre des entreprises de votre pays';
-
-  @override
-  String get paymentInfoAddRepresentative => 'Ajouter un représentant';
-
-  @override
-  String get paymentInfoAddDirector => 'Ajouter un dirigeant';
-
-  @override
-  String get paymentInfoAddOwner => 'Ajouter un actionnaire';
-
-  @override
-  String get paymentInfoAddExecutive => 'Ajouter un cadre dirigeant';
-
-  @override
-  String get paymentInfoRepresentative => 'Représentant';
-
-  @override
-  String get paymentInfoDirectorLabel => 'Dirigeant';
-
-  @override
-  String get paymentInfoOwnerLabel => 'Actionnaire';
-
-  @override
-  String get paymentInfoExecutiveLabel => 'Cadre dirigeant';
-
-  @override
-  String get paymentInfoPersonTitle => 'Titre';
-
-  @override
-  String get paymentInfoDateOfBirth => 'Date de naissance';
 
   @override
   String get stripeRequirementsTitle => 'Informations supplémentaires requises';
@@ -1566,4 +1368,47 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get noCreditsCannotApply =>
       'Vous avez besoin de crédits pour postuler à cette opportunité';
+
+  @override
+  String get paymentInfoSetup => 'Configurer les paiements';
+
+  @override
+  String get paymentInfoComplete => 'Compléter la vérification';
+
+  @override
+  String get paymentInfoEdit => 'Modifier les infos de paiement';
+
+  @override
+  String get paymentInfoActive => 'Compte entièrement actif';
+
+  @override
+  String get paymentInfoActiveDesc =>
+      'Vous pouvez recevoir des paiements et transférer des fonds.';
+
+  @override
+  String get paymentInfoPending => 'Vérification en cours';
+
+  @override
+  String paymentInfoPendingDesc(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count informations à compléter',
+      one: '$count information à compléter',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get paymentInfoNotConfigured => 'Non configuré';
+
+  @override
+  String get paymentInfoNotConfiguredDesc =>
+      'Configurez votre compte de paiement pour recevoir des fonds.';
+
+  @override
+  String get paymentInfoCharges => 'Paiements';
+
+  @override
+  String get paymentInfoPayouts => 'Virements';
 }

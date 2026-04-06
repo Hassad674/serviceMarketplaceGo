@@ -85,11 +85,11 @@ export const STRIPE_CONNECT_COUNTRIES: SupportedCountry[] = [
 ]
 
 export const REGION_LABELS: Record<SupportedCountry["region"], string> = {
-  eu: "Union Européenne",
+  eu: "European Union",
   europe_other: "Europe",
-  americas: "Amériques",
-  apac: "Asie-Pacifique",
-  mena: "Moyen-Orient",
+  americas: "Americas",
+  apac: "Asia-Pacific",
+  mena: "Middle East",
 }
 
 export function findCountry(code: string): SupportedCountry | undefined {

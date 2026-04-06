@@ -17,6 +17,10 @@ type JobApplicationRepository interface {
 	ListByJob(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
 	ListByApplicant(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
 	CountByJob(ctx context.Context, jobID uuid.UUID) (int, error)
+
+	// Admin methods
+	ListAdmin(ctx context.Context, filters AdminApplicationFilters) ([]AdminJobApplication, string, error)
+	CountAdmin(ctx context.Context, filters AdminApplicationFilters) (int, error)
 }
 
 // JobViewRepository tracks when users last viewed a job's applications.

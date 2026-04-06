@@ -8,6 +8,28 @@ import (
 	"marketplace-backend/internal/domain/review"
 )
 
+// AdminReviewFilters holds query filters for admin review listing.
+type AdminReviewFilters struct {
+	Search string
+	Rating int
+	Sort   string
+	Filter string
+	Page   int
+	Limit  int
+}
+
+// AdminReview extends Review with reviewer and reviewed user info for admin views.
+type AdminReview struct {
+	review.Review
+	ReviewerDisplayName string
+	ReviewerEmail       string
+	ReviewerRole        string
+	ReviewedDisplayName string
+	ReviewedEmail       string
+	ReviewedRole        string
+	PendingReportCount  int
+}
+
 // ReviewRepository defines persistence operations for reviews.
 type ReviewRepository interface {
 	Create(ctx context.Context, r *review.Review) error
@@ -15,4 +37,10 @@ type ReviewRepository interface {
 	ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*review.Review, string, error)
 	GetAverageRating(ctx context.Context, userID uuid.UUID) (*review.AverageRating, error)
 	HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
+
+	// Admin operations
+	ListAdmin(ctx context.Context, filters AdminReviewFilters) ([]AdminReview, error)
+	CountAdmin(ctx context.Context, filters AdminReviewFilters) (int, error)
+	GetAdminByID(ctx context.Context, id uuid.UUID) (*AdminReview, error)
+	DeleteAdmin(ctx context.Context, id uuid.UUID) error
 }

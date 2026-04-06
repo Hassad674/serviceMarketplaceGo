@@ -19,4 +19,5 @@ type ProposalRepository interface {
 	ListActiveProjects(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*proposal.Proposal, string, error)
 	GetDocuments(ctx context.Context, proposalID uuid.UUID) ([]*proposal.ProposalDocument, error)
 	CreateDocument(ctx context.Context, doc *proposal.ProposalDocument) error
+	CountAll(ctx context.Context) (total int, active int, err error)
 }

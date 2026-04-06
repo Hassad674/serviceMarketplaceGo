@@ -15,6 +15,7 @@ const (
 	TargetUser        TargetType = "user"
 	TargetJob         TargetType = "job"
 	TargetApplication TargetType = "application"
+	TargetReview      TargetType = "review"
 )
 
 // Reason represents why the report was filed.

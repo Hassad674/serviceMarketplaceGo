@@ -120,6 +120,34 @@ func (r *MediaRepository) GetAdminByID(ctx context.Context, id uuid.UUID) (*repo
 	return &item, nil
 }
 
+// ClearSource removes the URL reference from the source table when a media is auto-rejected.
+func (r *MediaRepository) ClearSource(ctx context.Context, mediaContext string, contextID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var query string
+	switch mediaContext {
+	case "profile_photo":
+		query = "UPDATE profiles SET photo_url = '' WHERE user_id = $1"
+	case "profile_video":
+		query = "UPDATE profiles SET presentation_video_url = '' WHERE user_id = $1"
+	case "referrer_video":
+		query = "UPDATE profiles SET referrer_video_url = '' WHERE user_id = $1"
+	case "review_video":
+		query = "UPDATE reviews SET video_url = '' WHERE id = $1"
+	case "job_video":
+		query = "UPDATE jobs SET video_url = '' WHERE id = $1"
+	default:
+		return nil // message_attachment, identity_document — no source URL to clear
+	}
+
+	_, err := r.db.ExecContext(ctx, query, contextID)
+	if err != nil {
+		return fmt.Errorf("clear source %s: %w", mediaContext, err)
+	}
+	return nil
+}
+
 func (r *MediaRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -219,7 +247,14 @@ func buildMediaListQuery(
 	}
 
 	if !countOnly {
-		sb.WriteString(" ORDER BY m.created_at DESC, m.id DESC")
+		switch filters.Sort {
+		case "oldest":
+			sb.WriteString(" ORDER BY m.created_at ASC, m.id ASC")
+		case "score":
+			sb.WriteString(" ORDER BY m.moderation_score DESC, m.created_at DESC")
+		default:
+			sb.WriteString(" ORDER BY m.created_at DESC, m.id DESC")
+		}
 		limit := filters.Limit
 		if limit <= 0 || limit > 100 {
 			limit = 20

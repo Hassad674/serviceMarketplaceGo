@@ -26,4 +26,10 @@ type JobRepository interface {
 	ListByCreator(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*job.Job, string, error)
 	ListOpen(ctx context.Context, filters JobListFilters, cursor string, limit int) ([]*job.Job, string, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// Admin methods
+	ListAdmin(ctx context.Context, filters AdminJobFilters) ([]AdminJob, string, error)
+	CountAdmin(ctx context.Context, filters AdminJobFilters) (int, error)
+	GetAdmin(ctx context.Context, id uuid.UUID) (*AdminJob, error)
+	CountAll(ctx context.Context) (total int, open int, err error)
 }

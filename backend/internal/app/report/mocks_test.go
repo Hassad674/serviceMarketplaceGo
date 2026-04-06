@@ -81,6 +81,10 @@ func (m *mockReportRepo) ListByUserInvolved(_ context.Context, _ uuid.UUID) ([]*
 	return nil, nil, nil
 }
 
+func (m *mockReportRepo) PendingCountsByTargets(_ context.Context, _ string, _ []uuid.UUID) (map[uuid.UUID]int, error) {
+	return map[uuid.UUID]int{}, nil
+}
+
 // Compile-time check.
 var _ repository.ReportRepository = (*mockReportRepo)(nil)
 

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -30,28 +29,40 @@ type DashboardStats struct {
 
 // ServiceDeps groups dependencies for the admin Service.
 type ServiceDeps struct {
-	Users      repository.UserRepository
-	Reports    repository.ReportRepository
-	MediaRepo  repository.MediaRepository
-	StorageSvc portservice.StorageService
-	DB         *sql.DB
+	Users              repository.UserRepository
+	Reports            repository.ReportRepository
+	Reviews            repository.ReviewRepository
+	Jobs               repository.JobRepository
+	Applications       repository.JobApplicationRepository
+	Proposals          repository.ProposalRepository
+	AdminConversations repository.AdminConversationRepository
+	MediaRepo          repository.MediaRepository
+	StorageSvc         portservice.StorageService
 }
 
 type Service struct {
-	users      repository.UserRepository
-	reports    repository.ReportRepository
-	mediaRepo  repository.MediaRepository
-	storageSvc portservice.StorageService
-	db         *sql.DB
+	users              repository.UserRepository
+	reports            repository.ReportRepository
+	reviews            repository.ReviewRepository
+	jobs               repository.JobRepository
+	applications       repository.JobApplicationRepository
+	proposals          repository.ProposalRepository
+	adminConversations repository.AdminConversationRepository
+	mediaRepo          repository.MediaRepository
+	storageSvc         portservice.StorageService
 }
 
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
-		users:      deps.Users,
-		reports:    deps.Reports,
-		mediaRepo:  deps.MediaRepo,
-		storageSvc: deps.StorageSvc,
-		db:         deps.DB,
+		users:              deps.Users,
+		reports:            deps.Reports,
+		reviews:            deps.Reviews,
+		jobs:               deps.Jobs,
+		applications:       deps.Applications,
+		proposals:          deps.Proposals,
+		adminConversations: deps.AdminConversations,
+		mediaRepo:          deps.MediaRepo,
+		storageSvc:         deps.StorageSvc,
 	}
 }
 
@@ -71,12 +82,12 @@ func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error
 		return nil, fmt.Errorf("dashboard stats: recent signups: %w", err)
 	}
 
-	totalProposals, activeProposals, err := s.countProposals(ctx)
+	totalProposals, activeProposals, err := s.proposals.CountAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("dashboard stats: proposals: %w", err)
 	}
 
-	totalJobs, openJobs, err := s.countJobs(ctx)
+	totalJobs, openJobs, err := s.jobs.CountAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("dashboard stats: jobs: %w", err)
 	}
@@ -100,41 +111,6 @@ func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error
 	}, nil
 }
 
-func (s *Service) countProposals(ctx context.Context) (total int, active int, err error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM proposals").Scan(&total)
-	if err != nil {
-		return 0, 0, fmt.Errorf("count total proposals: %w", err)
-	}
-
-	err = s.db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM proposals WHERE status IN ('paid', 'active', 'completion_requested')",
-	).Scan(&active)
-	if err != nil {
-		return 0, 0, fmt.Errorf("count active proposals: %w", err)
-	}
-	return total, active, nil
-}
-
-func (s *Service) countJobs(ctx context.Context) (total int, open int, err error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	err = s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM jobs").Scan(&total)
-	if err != nil {
-		return 0, 0, fmt.Errorf("count total jobs: %w", err)
-	}
-
-	err = s.db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM jobs WHERE status = 'open'",
-	).Scan(&open)
-	if err != nil {
-		return 0, 0, fmt.Errorf("count open jobs: %w", err)
-	}
-	return total, open, nil
-}
 
 func (s *Service) ListUsers(ctx context.Context, filters repository.AdminUserFilters) ([]*user.User, string, int, error) {
 	users, nextCursor, err := s.users.ListAdmin(ctx, filters)
