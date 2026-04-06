@@ -13,25 +13,25 @@ const statusVariants = {
 
 const statusLabels: Record<string, string> = {
   pending: "En attente",
-  approved: "Approuv\u00E9",
-  flagged: "Signal\u00E9",
-  rejected: "Rejet\u00E9",
+  approved: "Approuvé",
+  flagged: "Signalé",
+  rejected: "Rejeté",
 }
 
 const contextLabels: Record<string, string> = {
   profile_photo: "Photo de profil",
-  profile_video: "Vid\u00E9o de profil",
-  message_attachment: "Pi\u00E8ce jointe",
-  review_video: "Vid\u00E9o d'avis",
-  job_video: "Vid\u00E9o d'offre",
-  referrer_video: "Vid\u00E9o parrain",
-  identity_document: "Pi\u00E8ce d'identit\u00E9",
+  profile_video: "Vidéo de profil",
+  message_attachment: "Pièce jointe",
+  review_video: "Vidéo d'avis",
+  job_video: "Vidéo d'offre",
+  referrer_video: "Vidéo parrain",
+  identity_document: "Pièce d'identité",
 }
 
 export const mediaColumns: ColumnDef<AdminMedia, unknown>[] = [
   {
     id: "preview",
-    header: "Aper\u00E7u",
+    header: "Aperçu",
     cell: ({ row }) => (
       <MediaPreview
         fileUrl={row.original.file_url}

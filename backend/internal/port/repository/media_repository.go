@@ -30,6 +30,7 @@ type AdminMediaItem struct {
 type MediaRepository interface {
 	Create(ctx context.Context, m *media.Media) error
 	GetByID(ctx context.Context, id uuid.UUID) (*media.Media, error)
+	GetAdminByID(ctx context.Context, id uuid.UUID) (*AdminMediaItem, error)
 	GetByJobID(ctx context.Context, jobID string) (*media.Media, error)
 	Update(ctx context.Context, m *media.Media) error
 	Delete(ctx context.Context, id uuid.UUID) error

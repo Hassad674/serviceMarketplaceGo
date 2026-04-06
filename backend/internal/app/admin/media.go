@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 
-	mediadomain "marketplace-backend/internal/domain/media"
 	"marketplace-backend/internal/port/repository"
 )
 
@@ -28,13 +27,13 @@ func (s *Service) ListMedia(
 	return items, count, nil
 }
 
-// GetMedia returns a single media item for admin detail view.
-func (s *Service) GetMedia(ctx context.Context, id uuid.UUID) (*mediadomain.Media, error) {
-	m, err := s.mediaRepo.GetByID(ctx, id)
+// GetMedia returns a single media item for admin detail view with uploader info.
+func (s *Service) GetMedia(ctx context.Context, id uuid.UUID) (*repository.AdminMediaItem, error) {
+	item, err := s.mediaRepo.GetAdminByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get admin media: %w", err)
 	}
-	return m, nil
+	return item, nil
 }
 
 // ApproveMedia marks a media item as approved by the admin.

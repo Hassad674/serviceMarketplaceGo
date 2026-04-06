@@ -21,19 +21,19 @@ const statusVariants = {
 
 const statusLabels: Record<string, string> = {
   pending: "En attente",
-  approved: "Approuv\u00E9",
-  flagged: "Signal\u00E9",
-  rejected: "Rejet\u00E9",
+  approved: "Approuvé",
+  flagged: "Signalé",
+  rejected: "Rejeté",
 }
 
 const contextLabels: Record<string, string> = {
   profile_photo: "Photo de profil",
-  profile_video: "Vid\u00E9o de profil",
-  message_attachment: "Pi\u00E8ce jointe",
-  review_video: "Vid\u00E9o d'avis",
-  job_video: "Vid\u00E9o d'offre",
-  referrer_video: "Vid\u00E9o parrain",
-  identity_document: "Pi\u00E8ce d'identit\u00E9",
+  profile_video: "Vidéo de profil",
+  message_attachment: "Pièce jointe",
+  review_video: "Vidéo d'avis",
+  job_video: "Vidéo d'offre",
+  referrer_video: "Vidéo parrain",
+  identity_document: "Pièce d'identité",
 }
 
 export function MediaDetailPage() {
@@ -67,7 +67,7 @@ export function MediaDetailPage() {
   if (error || !data) {
     return (
       <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center text-sm text-destructive">
-        Erreur lors du chargement du m{"\u00E9"}dia
+        Erreur lors du chargement du m{"é"}dia
       </div>
     )
   }
@@ -77,7 +77,7 @@ export function MediaDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="D\u00E9tail du m\u00E9dia"
+        title="Détail du média"
         actions={
           <Button variant="ghost" size="sm" onClick={() => navigate("/media")}>
             <ArrowLeft className="h-4 w-4" />
@@ -130,7 +130,7 @@ function PreviewCard({ media }: MediaProp) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Aper{"\u00E7"}u</CardTitle>
+        <CardTitle>Aper{"ç"}u</CardTitle>
       </CardHeader>
       <CardContent className="flex items-center justify-center">
         <MediaPreview
@@ -166,7 +166,7 @@ function UploaderCard({ media }: MediaProp) {
           <span className="text-sm">{media.uploader_email}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">R{"\u00F4"}le</span>
+          <span className="text-sm text-muted-foreground">R{"ô"}le</span>
           <span className="text-sm capitalize">{media.uploader_role}</span>
         </div>
       </CardContent>
@@ -214,23 +214,21 @@ function ModerationCard({ media, onAction }: ModerationCardProps) {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Mod{"\u00E9"}ration</CardTitle>
+          <CardTitle>Mod{"é"}ration</CardTitle>
           <Badge variant={variant}>
             {statusLabels[status] || status}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {media.moderation_score > 0 && (
-          <div>
-            <p className="mb-1 text-sm text-muted-foreground">Score de risque</p>
-            <p className="text-lg font-mono font-semibold">{media.moderation_score.toFixed(1)}%</p>
-          </div>
-        )}
+        <div>
+          <p className="mb-1 text-sm text-muted-foreground">Score de risque</p>
+          <p className="text-lg font-mono font-semibold">{media.moderation_score.toFixed(1)}%</p>
+        </div>
 
         {media.moderation_labels.length > 0 && (
           <div>
-            <p className="mb-2 text-sm text-muted-foreground">Labels d{"\u00E9"}tect{"\u00E9"}s</p>
+            <p className="mb-2 text-sm text-muted-foreground">Labels d{"é"}tect{"é"}s</p>
             <div className="space-y-2">
               {media.moderation_labels.map((label, idx) => (
                 <LabelBar key={idx} label={label} />
@@ -242,7 +240,7 @@ function ModerationCard({ media, onAction }: ModerationCardProps) {
         {media.reviewed_at && (
           <div>
             <p className="text-sm text-muted-foreground">
-              R{"\u00E9"}vis{"\u00E9"} le {formatDate(media.reviewed_at)}
+              R{"é"}vis{"é"} le {formatDate(media.reviewed_at)}
             </p>
           </div>
         )}
@@ -293,20 +291,20 @@ type ConfirmDialogProps = {
 
 const dialogConfig = {
   approve: {
-    title: "Approuver ce m\u00E9dia ?",
-    description: "Ce m\u00E9dia sera marqu\u00E9 comme approuv\u00E9 et visible.",
+    title: "Approuver ce média ?",
+    description: "Ce média sera marqué comme approuvé et visible.",
     confirmLabel: "Approuver",
     variant: "primary" as const,
   },
   reject: {
-    title: "Rejeter ce m\u00E9dia ?",
-    description: "Ce m\u00E9dia sera marqu\u00E9 comme rejet\u00E9.",
+    title: "Rejeter ce média ?",
+    description: "Ce média sera marqué comme rejeté.",
     confirmLabel: "Rejeter",
     variant: "outline" as const,
   },
   delete: {
-    title: "Supprimer ce m\u00E9dia ?",
-    description: "Cette action est irr\u00E9versible. Le fichier sera d\u00E9finitivement supprim\u00E9.",
+    title: "Supprimer ce média ?",
+    description: "Cette action est irréversible. Le fichier sera définitivement supprimé.",
     confirmLabel: "Supprimer",
     variant: "destructive" as const,
   },

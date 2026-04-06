@@ -12,25 +12,25 @@ import type { MediaFilters, AdminMedia } from "../types"
 
 const statusOptions = [
   { value: "pending", label: "En attente" },
-  { value: "approved", label: "Approuv\u00E9" },
-  { value: "flagged", label: "Signal\u00E9" },
-  { value: "rejected", label: "Rejet\u00E9" },
+  { value: "approved", label: "Approuvé" },
+  { value: "flagged", label: "Signalé" },
+  { value: "rejected", label: "Rejeté" },
 ]
 
 const typeOptions = [
   { value: "image/", label: "Images" },
-  { value: "video/", label: "Vid\u00E9os" },
+  { value: "video/", label: "Vidéos" },
   { value: "application/", label: "Documents" },
 ]
 
 const contextOptions = [
   { value: "profile_photo", label: "Photo de profil" },
-  { value: "profile_video", label: "Vid\u00E9o de profil" },
-  { value: "message_attachment", label: "Pi\u00E8ce jointe" },
-  { value: "review_video", label: "Vid\u00E9o d'avis" },
-  { value: "job_video", label: "Vid\u00E9o d'offre" },
-  { value: "referrer_video", label: "Vid\u00E9o parrain" },
-  { value: "identity_document", label: "Pi\u00E8ce d'identit\u00E9" },
+  { value: "profile_video", label: "Vidéo de profil" },
+  { value: "message_attachment", label: "Pièce jointe" },
+  { value: "review_video", label: "Vidéo d'avis" },
+  { value: "job_video", label: "Vidéo d'offre" },
+  { value: "referrer_video", label: "Vidéo parrain" },
+  { value: "identity_document", label: "Pièce d'identité" },
 ]
 
 export function MediaPage() {
@@ -60,8 +60,8 @@ export function MediaPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="M\u00E9dias"
-        description="Mod\u00E9ration des fichiers t\u00E9l\u00E9vers\u00E9s par les utilisateurs"
+        title="Médias"
+        description="Modération des fichiers téléversés par les utilisateurs"
       />
 
       <DataTableToolbar
@@ -96,7 +96,7 @@ export function MediaPage() {
 
       {error && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center text-sm text-destructive">
-          Erreur lors du chargement des m{"\u00E9"}dias
+          Erreur lors du chargement des m{"é"}dias
         </div>
       )}
 

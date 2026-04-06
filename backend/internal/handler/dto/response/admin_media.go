@@ -71,37 +71,6 @@ func NewAdminMediaResponse(item repository.AdminMediaItem) AdminMediaResponse {
 	return resp
 }
 
-// NewAdminMediaDetailResponse converts a domain Media to its JSON response.
-func NewAdminMediaDetailResponse(m *mediadomain.Media) AdminMediaResponse {
-	resp := AdminMediaResponse{
-		ID:               m.ID.String(),
-		UploaderID:       m.UploaderID.String(),
-		FileURL:          m.FileURL,
-		FileName:         m.FileName,
-		FileType:         m.FileType,
-		FileSize:         m.FileSize,
-		Context:          string(m.Context),
-		ModerationStatus: string(m.ModerationStatus),
-		ModerationLabels: convertLabels(m.ModerationLabels),
-		ModerationScore:  m.ModerationScore,
-		CreatedAt:        m.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:        m.UpdatedAt.Format(time.RFC3339),
-	}
-	if m.ContextID != nil {
-		s := m.ContextID.String()
-		resp.ContextID = &s
-	}
-	if m.ReviewedAt != nil {
-		s := m.ReviewedAt.Format(time.RFC3339)
-		resp.ReviewedAt = &s
-	}
-	if m.ReviewedBy != nil {
-		s := m.ReviewedBy.String()
-		resp.ReviewedBy = &s
-	}
-	return resp
-}
-
 func convertLabels(labels []mediadomain.ModerationLabel) []ModerationLabelResp {
 	if labels == nil {
 		return []ModerationLabelResp{}
