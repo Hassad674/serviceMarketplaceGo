@@ -25,6 +25,7 @@ import (
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
+	embeddedapp "marketplace-backend/internal/app/embedded"
 	jobapp "marketplace-backend/internal/app/job"
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
@@ -199,11 +200,8 @@ func main() {
 		slog.Info("stripe payment adapter disabled (not configured)")
 	}
 
-	// Payment info + records + identity documents feature
-	paymentInfoRepo := postgres.NewPaymentInfoRepository(db)
+	// Payment records (custom KYC repos removed — see migration 040/041)
 	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
-	identityDocRepo := postgres.NewIdentityDocumentRepository(db)
-	businessPersonRepo := postgres.NewBusinessPersonRepository(db)
 
 	// Push notification service (optional — only when FCM is configured)
 	var pushSvc service.PushService
@@ -248,29 +246,15 @@ func main() {
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	slog.Info("notification feature enabled")
 
-	// Country spec cache (optional — only when Stripe is configured)
-	var countrySpecCache *redisadapter.CountrySpecCache
-	if stripeSvc != nil {
-		countrySpecCache = redisadapter.NewCountrySpecCache(redisClient, stripeSvc)
-		if err := countrySpecCache.WarmCache(context.Background()); err != nil {
-			slog.Warn("failed to warm country spec cache", "error", err)
-		}
-	}
-
-	// Payment info service (depends on notifications)
+	// Payment service — charge creation + transfers + wallet overview.
+	// KYC onboarding lives in internal/app/embedded (Embedded Components).
 	paymentInfoSvc := paymentapp.NewService(paymentapp.ServiceDeps{
-		Payments:      paymentInfoRepo,
 		Records:       paymentRecordRepo,
-		Documents:     identityDocRepo,
-		Persons:       businessPersonRepo,
+		Users:         userRepo,
 		Stripe:        stripeSvc,
-		Storage:       storageSvc,
 		Notifications: notifSvc,
-		CountrySpecs:  countrySpecCache,
 		FrontendURL:   cfg.FrontendURL,
 	})
-	paymentInfoHandler := handler.NewPaymentInfoHandler(paymentInfoSvc)
-	identityDocHandler := handler.NewIdentityDocumentHandler(paymentInfoSvc)
 
 	// Credit bonus fraud log
 	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
@@ -388,6 +372,16 @@ func main() {
 	var stripeHandler *handler.StripeHandler
 	if cfg.StripeConfigured() {
 		stripeHandler = handler.NewStripeHandler(paymentInfoSvc, proposalSvc, cfg.StripePublishableKey)
+
+		// Embedded Components notifier — diff-based multi-channel notifications
+		// for Stripe account.* webhooks (activation, requirements, docs rejected).
+		// Backed by the users table (migration 040) for both lookup + state.
+		embeddedNotifier := embeddedapp.NewNotifier(
+			embeddedapp.NewNotificationSenderAdapter(notifSvc),
+			userRepo, // satisfies UserStore via the 3 Stripe methods on UserRepository
+			5*time.Minute,
+		)
+		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
 	}
 
 	// Wallet handler
@@ -417,11 +411,10 @@ func main() {
 		Report:         reportHandler,
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
-		PaymentInfo:    paymentInfoHandler,
+		Embedded:       handler.NewEmbeddedHandler(userRepo),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
-		IdentityDoc:    identityDocHandler,
 		Admin:          adminHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
