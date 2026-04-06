@@ -2102,324 +2102,6 @@ abstract class AppLocalizations {
   /// **'View details'**
   String get proposalViewDetails;
 
-  /// No description provided for @paymentInfoTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Payment Information'**
-  String get paymentInfoTitle;
-
-  /// No description provided for @paymentInfoSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Complete your information to receive payments for your projects.'**
-  String get paymentInfoSubtitle;
-
-  /// No description provided for @paymentInfoIsBusiness.
-  ///
-  /// In en, this message translates to:
-  /// **'I operate as a registered business'**
-  String get paymentInfoIsBusiness;
-
-  /// No description provided for @paymentInfoIsBusinessDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Enable if your activity is operated through a registered company. Leave disabled if you operate under a sole proprietorship (freelance, independent).'**
-  String get paymentInfoIsBusinessDesc;
-
-  /// No description provided for @paymentInfoPersonalInfo.
-  ///
-  /// In en, this message translates to:
-  /// **'Personal Information'**
-  String get paymentInfoPersonalInfo;
-
-  /// No description provided for @paymentInfoLegalRep.
-  ///
-  /// In en, this message translates to:
-  /// **'Legal Representative'**
-  String get paymentInfoLegalRep;
-
-  /// No description provided for @paymentInfoBusinessInfo.
-  ///
-  /// In en, this message translates to:
-  /// **'Business Information'**
-  String get paymentInfoBusinessInfo;
-
-  /// No description provided for @paymentInfoBankAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Bank Account'**
-  String get paymentInfoBankAccount;
-
-  /// No description provided for @paymentInfoFirstName.
-  ///
-  /// In en, this message translates to:
-  /// **'First name'**
-  String get paymentInfoFirstName;
-
-  /// No description provided for @paymentInfoLastName.
-  ///
-  /// In en, this message translates to:
-  /// **'Last name'**
-  String get paymentInfoLastName;
-
-  /// No description provided for @paymentInfoDob.
-  ///
-  /// In en, this message translates to:
-  /// **'Date of birth'**
-  String get paymentInfoDob;
-
-  /// No description provided for @paymentInfoNationality.
-  ///
-  /// In en, this message translates to:
-  /// **'Nationality'**
-  String get paymentInfoNationality;
-
-  /// No description provided for @paymentInfoAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Address'**
-  String get paymentInfoAddress;
-
-  /// No description provided for @paymentInfoCity.
-  ///
-  /// In en, this message translates to:
-  /// **'City'**
-  String get paymentInfoCity;
-
-  /// No description provided for @paymentInfoPostalCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Postal code'**
-  String get paymentInfoPostalCode;
-
-  /// No description provided for @paymentInfoYourRole.
-  ///
-  /// In en, this message translates to:
-  /// **'Your role in the company'**
-  String get paymentInfoYourRole;
-
-  /// No description provided for @paymentInfoBusinessName.
-  ///
-  /// In en, this message translates to:
-  /// **'Business name'**
-  String get paymentInfoBusinessName;
-
-  /// No description provided for @paymentInfoBusinessAddress.
-  ///
-  /// In en, this message translates to:
-  /// **'Business address'**
-  String get paymentInfoBusinessAddress;
-
-  /// No description provided for @paymentInfoBusinessCity.
-  ///
-  /// In en, this message translates to:
-  /// **'Business city'**
-  String get paymentInfoBusinessCity;
-
-  /// No description provided for @paymentInfoBusinessPostalCode.
-  ///
-  /// In en, this message translates to:
-  /// **'Business postal code'**
-  String get paymentInfoBusinessPostalCode;
-
-  /// No description provided for @paymentInfoBusinessCountry.
-  ///
-  /// In en, this message translates to:
-  /// **'Country of registration'**
-  String get paymentInfoBusinessCountry;
-
-  /// No description provided for @paymentInfoTaxId.
-  ///
-  /// In en, this message translates to:
-  /// **'Tax ID'**
-  String get paymentInfoTaxId;
-
-  /// No description provided for @paymentInfoTaxIdHint.
-  ///
-  /// In en, this message translates to:
-  /// **'SIRET, EIN, VAT ID...'**
-  String get paymentInfoTaxIdHint;
-
-  /// No description provided for @paymentInfoVatNumber.
-  ///
-  /// In en, this message translates to:
-  /// **'VAT number (optional)'**
-  String get paymentInfoVatNumber;
-
-  /// No description provided for @paymentInfoVatNumberHint.
-  ///
-  /// In en, this message translates to:
-  /// **'EU VAT number (optional)'**
-  String get paymentInfoVatNumberHint;
-
-  /// No description provided for @paymentInfoIban.
-  ///
-  /// In en, this message translates to:
-  /// **'IBAN'**
-  String get paymentInfoIban;
-
-  /// No description provided for @paymentInfoIbanHint.
-  ///
-  /// In en, this message translates to:
-  /// **'FR76 1234 5678 9012 3456 78'**
-  String get paymentInfoIbanHint;
-
-  /// No description provided for @paymentInfoBic.
-  ///
-  /// In en, this message translates to:
-  /// **'BIC / SWIFT (optional)'**
-  String get paymentInfoBic;
-
-  /// No description provided for @paymentInfoBicHint.
-  ///
-  /// In en, this message translates to:
-  /// **'BNPAFRPP'**
-  String get paymentInfoBicHint;
-
-  /// No description provided for @paymentInfoIbanHelp.
-  ///
-  /// In en, this message translates to:
-  /// **'If your bank hasn\'t provided an IBAN, you can generate one at'**
-  String get paymentInfoIbanHelp;
-
-  /// No description provided for @paymentInfoNoIban.
-  ///
-  /// In en, this message translates to:
-  /// **'I don\'t have an IBAN'**
-  String get paymentInfoNoIban;
-
-  /// No description provided for @paymentInfoUseIban.
-  ///
-  /// In en, this message translates to:
-  /// **'I have an IBAN'**
-  String get paymentInfoUseIban;
-
-  /// No description provided for @paymentInfoAccountNumber.
-  ///
-  /// In en, this message translates to:
-  /// **'Account number'**
-  String get paymentInfoAccountNumber;
-
-  /// No description provided for @paymentInfoRoutingNumber.
-  ///
-  /// In en, this message translates to:
-  /// **'Routing number'**
-  String get paymentInfoRoutingNumber;
-
-  /// No description provided for @paymentInfoAccountHolder.
-  ///
-  /// In en, this message translates to:
-  /// **'Account holder name'**
-  String get paymentInfoAccountHolder;
-
-  /// No description provided for @paymentInfoBankCountry.
-  ///
-  /// In en, this message translates to:
-  /// **'Bank country'**
-  String get paymentInfoBankCountry;
-
-  /// No description provided for @paymentInfoSave.
-  ///
-  /// In en, this message translates to:
-  /// **'Save'**
-  String get paymentInfoSave;
-
-  /// No description provided for @paymentInfoSaved.
-  ///
-  /// In en, this message translates to:
-  /// **'Payment information saved'**
-  String get paymentInfoSaved;
-
-  /// No description provided for @paymentInfoIncomplete.
-  ///
-  /// In en, this message translates to:
-  /// **'Complete your payment information to receive payments'**
-  String get paymentInfoIncomplete;
-
-  /// No description provided for @paymentInfoRoleOwner.
-  ///
-  /// In en, this message translates to:
-  /// **'Owner'**
-  String get paymentInfoRoleOwner;
-
-  /// No description provided for @paymentInfoRoleCeo.
-  ///
-  /// In en, this message translates to:
-  /// **'CEO'**
-  String get paymentInfoRoleCeo;
-
-  /// No description provided for @paymentInfoRoleDirector.
-  ///
-  /// In en, this message translates to:
-  /// **'Director'**
-  String get paymentInfoRoleDirector;
-
-  /// No description provided for @paymentInfoRolePartner.
-  ///
-  /// In en, this message translates to:
-  /// **'Partner'**
-  String get paymentInfoRolePartner;
-
-  /// No description provided for @paymentInfoRoleOther.
-  ///
-  /// In en, this message translates to:
-  /// **'Other'**
-  String get paymentInfoRoleOther;
-
-  /// No description provided for @paymentInfoPhone.
-  ///
-  /// In en, this message translates to:
-  /// **'Phone number'**
-  String get paymentInfoPhone;
-
-  /// No description provided for @paymentInfoActivitySector.
-  ///
-  /// In en, this message translates to:
-  /// **'Activity sector'**
-  String get paymentInfoActivitySector;
-
-  /// No description provided for @paymentInfoBusinessPersons.
-  ///
-  /// In en, this message translates to:
-  /// **'Business representatives'**
-  String get paymentInfoBusinessPersons;
-
-  /// No description provided for @paymentInfoSelfRepresentative.
-  ///
-  /// In en, this message translates to:
-  /// **'I am the legal representative'**
-  String get paymentInfoSelfRepresentative;
-
-  /// No description provided for @paymentInfoSelfDirector.
-  ///
-  /// In en, this message translates to:
-  /// **'The legal representative is the sole director'**
-  String get paymentInfoSelfDirector;
-
-  /// No description provided for @paymentInfoNoMajorOwners.
-  ///
-  /// In en, this message translates to:
-  /// **'No shareholder holds more than 25%'**
-  String get paymentInfoNoMajorOwners;
-
-  /// No description provided for @paymentInfoSelfExecutive.
-  ///
-  /// In en, this message translates to:
-  /// **'The legal representative is the sole executive'**
-  String get paymentInfoSelfExecutive;
-
-  /// No description provided for @paymentInfoAddPerson.
-  ///
-  /// In en, this message translates to:
-  /// **'Add a person'**
-  String get paymentInfoAddPerson;
-
-  /// No description provided for @paymentInfoPerson.
-  ///
-  /// In en, this message translates to:
-  /// **'Person'**
-  String get paymentInfoPerson;
-
   /// No description provided for @identityDocTitle.
   ///
   /// In en, this message translates to:
@@ -2575,66 +2257,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Certificate of registration, incorporation document, or official proof from your country\'s business registry'**
   String get identityDocProofOfRegistrationDesc;
-
-  /// No description provided for @paymentInfoAddRepresentative.
-  ///
-  /// In en, this message translates to:
-  /// **'Add a representative'**
-  String get paymentInfoAddRepresentative;
-
-  /// No description provided for @paymentInfoAddDirector.
-  ///
-  /// In en, this message translates to:
-  /// **'Add a director'**
-  String get paymentInfoAddDirector;
-
-  /// No description provided for @paymentInfoAddOwner.
-  ///
-  /// In en, this message translates to:
-  /// **'Add a shareholder'**
-  String get paymentInfoAddOwner;
-
-  /// No description provided for @paymentInfoAddExecutive.
-  ///
-  /// In en, this message translates to:
-  /// **'Add an executive'**
-  String get paymentInfoAddExecutive;
-
-  /// No description provided for @paymentInfoRepresentative.
-  ///
-  /// In en, this message translates to:
-  /// **'Representative'**
-  String get paymentInfoRepresentative;
-
-  /// No description provided for @paymentInfoDirectorLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Director'**
-  String get paymentInfoDirectorLabel;
-
-  /// No description provided for @paymentInfoOwnerLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Shareholder'**
-  String get paymentInfoOwnerLabel;
-
-  /// No description provided for @paymentInfoExecutiveLabel.
-  ///
-  /// In en, this message translates to:
-  /// **'Executive'**
-  String get paymentInfoExecutiveLabel;
-
-  /// No description provided for @paymentInfoPersonTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Title'**
-  String get paymentInfoPersonTitle;
-
-  /// No description provided for @paymentInfoDateOfBirth.
-  ///
-  /// In en, this message translates to:
-  /// **'Date of birth'**
-  String get paymentInfoDateOfBirth;
 
   /// No description provided for @stripeRequirementsTitle.
   ///
@@ -3097,6 +2719,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You need credits to apply to this opportunity'**
   String get noCreditsCannotApply;
+
+  /// No description provided for @paymentInfoSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up payments'**
+  String get paymentInfoSetup;
+
+  /// No description provided for @paymentInfoComplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete verification'**
+  String get paymentInfoComplete;
+
+  /// No description provided for @paymentInfoEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit payment info'**
+  String get paymentInfoEdit;
+
+  /// No description provided for @paymentInfoActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Account fully active'**
+  String get paymentInfoActive;
+
+  /// No description provided for @paymentInfoActiveDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'You can receive payments and transfer funds.'**
+  String get paymentInfoActiveDesc;
+
+  /// No description provided for @paymentInfoPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification in progress'**
+  String get paymentInfoPending;
+
+  /// No description provided for @paymentInfoPendingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} item to complete} other{{count} items to complete}}'**
+  String paymentInfoPendingDesc(int count);
+
+  /// No description provided for @paymentInfoNotConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get paymentInfoNotConfigured;
+
+  /// No description provided for @paymentInfoNotConfiguredDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your payment account to start receiving funds.'**
+  String get paymentInfoNotConfiguredDesc;
+
+  /// No description provided for @paymentInfoCharges.
+  ///
+  /// In en, this message translates to:
+  /// **'Payments'**
+  String get paymentInfoCharges;
+
+  /// No description provided for @paymentInfoPayouts.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfers'**
+  String get paymentInfoPayouts;
 }
 
 class _AppLocalizationsDelegate

@@ -1,7 +1,6 @@
 {
   "@@locale": "en",
   "appTitle": "Marketplace Service",
-
   "signIn": "Sign In",
   "signUp": "Sign Up",
   "signOut": "Sign Out",
@@ -18,7 +17,6 @@
   "changeProfile": "Change profile",
   "signingIn": "Signing in...",
   "signingUp": "Signing up...",
-
   "agencyName": "Agency name",
   "agencyNameHint": "Commercial name of your agency",
   "companyName": "Company name",
@@ -27,11 +25,9 @@
   "firstNameHint": "John",
   "lastName": "Last name",
   "lastNameHint": "Doe",
-
   "createAgencyAccount": "Create my agency account",
   "createFreelanceAccount": "Create my freelance account",
   "createEnterpriseAccount": "Create my enterprise account",
-
   "roleSelectionTitle": "Join the marketplace",
   "roleSelectionSubtitle": "Choose your professional profile",
   "roleAgency": "Agency",
@@ -40,7 +36,6 @@
   "roleFreelanceDesc": "Manage your missions and grow your activity.",
   "roleEnterprise": "Enterprise",
   "roleEnterpriseDesc": "Find the best providers for your projects.",
-
   "welcomeBack": "Welcome back,",
   "dashboard": "Dashboard",
   "home": "Home",
@@ -49,7 +44,6 @@
   "profile": "Profile",
   "myProfile": "My Profile",
   "settings": "Settings",
-
   "activeMissions": "Active Missions",
   "activeContracts": "Active contracts",
   "unreadMessages": "Unread Messages",
@@ -65,17 +59,14 @@
   "totalHistory": "Total history",
   "commissions": "Commissions",
   "totalEarned": "Total earned",
-
   "businessReferrerMode": "Business Referrer Mode",
   "freelanceDashboard": "Freelance Dashboard",
   "referrerMode": "Referrer Mode",
-
   "presentationVideo": "Presentation Video",
   "noVideo": "No presentation video",
   "addVideo": "Add a video",
   "videoUpdated": "Video updated",
   "photoUpdated": "Photo updated",
-
   "addPhoto": "Add a photo",
   "takePhoto": "Take a photo",
   "chooseFromGallery": "Choose from gallery",
@@ -88,21 +79,19 @@
   "maxSize": "Maximum size: {size}",
   "@maxSize": {
     "placeholders": {
-      "size": {"type": "String"}
+      "size": {
+        "type": "String"
+      }
     }
   },
-
   "about": "About",
   "professionalTitle": "Professional Title",
   "noTitle": "No title added",
-
   "unexpectedError": "An unexpected error occurred",
   "connectionError": "Connection error. Check your internet.",
   "timeoutError": "Request timed out. Try again.",
   "serverError": "Server error. Try again later.",
-
   "comingSoon": "Coming soon",
-
   "fieldRequired": "This field is required",
   "invalidEmail": "Invalid email address",
   "passwordTooShort": "Minimum 8 characters",
@@ -110,7 +99,6 @@
   "passwordNoLowercase": "At least one lowercase letter",
   "passwordNoDigit": "At least one digit",
   "passwordsDoNotMatch": "Passwords do not match",
-
   "search": "Search",
   "findFreelancers": "Find Freelancers",
   "findAgencies": "Find Agencies",
@@ -122,7 +110,6 @@
   "checkConnectionRetry": "Check your connection and try again.",
   "somethingWentWrong": "Something went wrong",
   "retry": "Retry",
-
   "tapToPlay": "Tap to play",
   "replaceVideo": "Replace video",
   "removeVideo": "Remove video",
@@ -136,7 +123,6 @@
   "titlePlaceholder": "Add your professional title",
   "videoRemoved": "Video removed",
   "couldNotOpenVideo": "Could not open video",
-
   "messagingSearchHint": "Search conversations...",
   "messagingNoMessages": "No messages in this conversation",
   "messagingNoConversations": "No conversations yet",
@@ -152,7 +138,9 @@
   "messagingTyping": "{name} is typing...",
   "@messagingTyping": {
     "placeholders": {
-      "name": {"type": "String"}
+      "name": {
+        "type": "String"
+      }
     }
   },
   "messagingTypingShort": "typing...",
@@ -177,10 +165,11 @@
   "messagingReplyingTo": "Replying to {name}",
   "@messagingReplyingTo": {
     "placeholders": {
-      "name": { "type": "String" }
+      "name": {
+        "type": "String"
+      }
     }
   },
-
   "projects": "Projects",
   "createProject": "Create Project",
   "noProjects": "No projects yet",
@@ -222,7 +211,6 @@
   "addMilestone": "Add milestone",
   "publishProject": "Publish project",
   "projectPublished": "Project published successfully",
-
   "jobCreateJob": "Create job",
   "jobDetails": "Job details",
   "jobBudgetAndDuration": "Budget and duration",
@@ -283,14 +271,13 @@
   "jobVideoUploading": "Uploading video...",
   "jobVideoUploaded": "Video uploaded",
   "jobUpdateSuccess": "Job updated successfully",
-
   "proposalPropose": "Send a proposal",
   "proposalCreate": "Create a proposal",
   "proposalTitle": "Mission title",
   "proposalTitleHint": "e.g. Corporate website redesign",
   "proposalDescription": "Description",
   "proposalDescriptionHint": "Detail deliverables and scope of work",
-  "proposalAmount": "Amount (\u20AC)",
+  "proposalAmount": "Amount (€)",
   "proposalAmountHint": "1500",
   "proposalDeadline": "Deadline",
   "proposalRecipient": "Recipient",
@@ -325,7 +312,6 @@
   "projectStatusActive": "Active",
   "projectStatusCompleted": "Completed",
   "startProject": "Start a project",
-
   "callCalling": "Calling...",
   "callIncomingCall": "Incoming call",
   "callAudioCall": "Audio call",
@@ -350,7 +336,6 @@
   "callIncomingVideoCall": "Incoming video call",
   "callTapToReturn": "Tap to return to call",
   "callMinimize": "Minimize",
-
   "drawerDashboard": "Dashboard",
   "drawerMessages": "Messages",
   "drawerProjects": "Projects",
@@ -361,7 +346,6 @@
   "drawerFindReferrers": "Find referrers",
   "drawerLogout": "Log out",
   "drawerLogoutConfirm": "Are you sure you want to log out?",
-
   "drawerSwitchToReferrer": "Business Referrer",
   "drawerSwitchToFreelance": "Freelance Dashboard",
   "drawerPaymentInfo": "Payment Info",
@@ -371,62 +355,6 @@
   "noNotificationsDesc": "You'll be notified when something happens",
   "markAllRead": "Mark all read",
   "proposalViewDetails": "View details",
-
-  "paymentInfoTitle": "Payment Information",
-  "paymentInfoSubtitle": "Complete your information to receive payments for your projects.",
-  "paymentInfoIsBusiness": "I operate as a registered business",
-  "paymentInfoIsBusinessDesc": "Enable if your activity is operated through a registered company. Leave disabled if you operate under a sole proprietorship (freelance, independent).",
-  "paymentInfoPersonalInfo": "Personal Information",
-  "paymentInfoLegalRep": "Legal Representative",
-  "paymentInfoBusinessInfo": "Business Information",
-  "paymentInfoBankAccount": "Bank Account",
-  "paymentInfoFirstName": "First name",
-  "paymentInfoLastName": "Last name",
-  "paymentInfoDob": "Date of birth",
-  "paymentInfoNationality": "Nationality",
-  "paymentInfoAddress": "Address",
-  "paymentInfoCity": "City",
-  "paymentInfoPostalCode": "Postal code",
-  "paymentInfoYourRole": "Your role in the company",
-  "paymentInfoBusinessName": "Business name",
-  "paymentInfoBusinessAddress": "Business address",
-  "paymentInfoBusinessCity": "Business city",
-  "paymentInfoBusinessPostalCode": "Business postal code",
-  "paymentInfoBusinessCountry": "Country of registration",
-  "paymentInfoTaxId": "Tax ID",
-  "paymentInfoTaxIdHint": "SIRET, EIN, VAT ID...",
-  "paymentInfoVatNumber": "VAT number (optional)",
-  "paymentInfoVatNumberHint": "EU VAT number (optional)",
-  "paymentInfoIban": "IBAN",
-  "paymentInfoIbanHint": "FR76 1234 5678 9012 3456 78",
-  "paymentInfoBic": "BIC / SWIFT (optional)",
-  "paymentInfoBicHint": "BNPAFRPP",
-  "paymentInfoIbanHelp": "If your bank hasn't provided an IBAN, you can generate one at",
-  "paymentInfoNoIban": "I don't have an IBAN",
-  "paymentInfoUseIban": "I have an IBAN",
-  "paymentInfoAccountNumber": "Account number",
-  "paymentInfoRoutingNumber": "Routing number",
-  "paymentInfoAccountHolder": "Account holder name",
-  "paymentInfoBankCountry": "Bank country",
-  "paymentInfoSave": "Save",
-  "paymentInfoSaved": "Payment information saved",
-  "paymentInfoIncomplete": "Complete your payment information to receive payments",
-  "paymentInfoRoleOwner": "Owner",
-  "paymentInfoRoleCeo": "CEO",
-  "paymentInfoRoleDirector": "Director",
-  "paymentInfoRolePartner": "Partner",
-  "paymentInfoRoleOther": "Other",
-
-  "paymentInfoPhone": "Phone number",
-  "paymentInfoActivitySector": "Activity sector",
-  "paymentInfoBusinessPersons": "Business representatives",
-  "paymentInfoSelfRepresentative": "I am the legal representative",
-  "paymentInfoSelfDirector": "The legal representative is the sole director",
-  "paymentInfoNoMajorOwners": "No shareholder holds more than 25%",
-  "paymentInfoSelfExecutive": "The legal representative is the sole executive",
-  "paymentInfoAddPerson": "Add a person",
-  "paymentInfoPerson": "Person",
-
   "identityDocTitle": "Identity verification",
   "identityDocSubtitle": "Upload a government-issued identity document for verification.",
   "identityDocType": "Document type",
@@ -448,28 +376,14 @@
   "identityDocPendingBanner": "Your document is being reviewed",
   "identityDocVerifiedBanner": "Your identity has been verified",
   "identityDocRejectedBanner": "Your document was rejected",
-
   "identityDocPassportDesc": "Valid passport, national ID card, or driver's license",
   "identityDocProofOfAddressDesc": "Utility bill (less than 3 months old), bank statement, or certificate of residence",
   "identityDocBusinessRegDesc": "Certificate of incorporation, articles of organization, or official equivalent for your country",
   "identityDocProofOfLivenessDesc": "Live photo of your face to confirm your identity",
   "identityDocProofOfRegistrationDesc": "Certificate of registration, incorporation document, or official proof from your country's business registry",
-
-  "paymentInfoAddRepresentative": "Add a representative",
-  "paymentInfoAddDirector": "Add a director",
-  "paymentInfoAddOwner": "Add a shareholder",
-  "paymentInfoAddExecutive": "Add an executive",
-  "paymentInfoRepresentative": "Representative",
-  "paymentInfoDirectorLabel": "Director",
-  "paymentInfoOwnerLabel": "Shareholder",
-  "paymentInfoExecutiveLabel": "Executive",
-  "paymentInfoPersonTitle": "Title",
-  "paymentInfoDateOfBirth": "Date of birth",
-
   "stripeRequirementsTitle": "Additional information required",
   "stripeRequirementsDesc": "Please provide the following information to keep your account active.",
   "stripeCompleteOnStripe": "Complete on Stripe",
-
   "walletTitle": "Wallet",
   "walletStripeAccount": "Stripe account",
   "walletCharges": "Charges",
@@ -482,7 +396,6 @@
   "walletTransactionHistory": "Transaction history",
   "walletNoTransactions": "No transactions yet",
   "drawerWallet": "Wallet",
-
   "reportMessage": "Report this message",
   "reportUser": "Report this user",
   "report": "Report",
@@ -506,11 +419,9 @@
   "reportJob": "Report this job",
   "reportApplication": "Report this application",
   "loadMore": "Load more",
-
   "candidateDetail": "Application",
   "applicationMessage": "Application message",
   "applicationVideo": "Presentation video",
-
   "opportunities": "Opportunities",
   "noOpportunities": "No opportunities at the moment",
   "jobNotFound": "Job not found",
@@ -535,37 +446,47 @@
   "applicationSent": "Application sent!",
   "applicationSendError": "Failed to send application",
   "videoUploadFailed": "Video upload failed. Please try again.",
-
   "jobTotalApplicants": "{count} applicants",
   "@jobTotalApplicants": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "jobNewApplicants": "{count} new",
   "@jobNewApplicants": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "candidateOf": "{current} of {total}",
   "@candidateOf": {
     "placeholders": {
-      "current": {"type": "int"},
-      "total": {"type": "int"}
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "uploadProgress": "{percent}%",
   "@uploadProgress": {
     "placeholders": {
-      "percent": {"type": "int"}
+      "percent": {
+        "type": "int"
+      }
     }
   },
-
   "creditsRemaining": "{count} credits remaining",
   "@creditsRemaining": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "noCreditsLeft": "You have no application credits left",
@@ -574,5 +495,23 @@
   "creditsExplanation2": "Every Monday, your balance is reset to 10 credits if it's below 10",
   "creditsExplanation3": "Each signed mission earns you 5 bonus credits",
   "creditsExplanation4": "Your balance can go up to 50 credits maximum",
-  "noCreditsCannotApply": "You need credits to apply to this opportunity"
+  "noCreditsCannotApply": "You need credits to apply to this opportunity",
+  "paymentInfoSetup": "Set up payments",
+  "paymentInfoComplete": "Complete verification",
+  "paymentInfoEdit": "Edit payment info",
+  "paymentInfoActive": "Account fully active",
+  "paymentInfoActiveDesc": "You can receive payments and transfer funds.",
+  "paymentInfoPending": "Verification in progress",
+  "paymentInfoPendingDesc": "{count, plural, one{{count} item to complete} other{{count} items to complete}}",
+  "@paymentInfoPendingDesc": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "paymentInfoNotConfigured": "Not configured",
+  "paymentInfoNotConfiguredDesc": "Set up your payment account to start receiving funds.",
+  "paymentInfoCharges": "Payments",
+  "paymentInfoPayouts": "Transfers"
 }
