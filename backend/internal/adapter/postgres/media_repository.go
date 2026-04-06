@@ -91,6 +91,35 @@ func (r *MediaRepository) Update(ctx context.Context, m *media.Media) error {
 	return nil
 }
 
+func (r *MediaRepository) GetAdminByID(ctx context.Context, id uuid.UUID) (*repository.AdminMediaItem, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `SELECT m.id, m.uploader_id, m.file_url, m.file_name, m.file_type, m.file_size,
+		m.context, m.context_id, m.moderation_status, m.moderation_labels,
+		m.moderation_score, m.reviewed_at, m.reviewed_by, m.created_at, m.updated_at,
+		u.display_name, u.email, u.role
+		FROM media m
+		JOIN users u ON u.id = m.uploader_id
+		WHERE m.id = $1`
+
+	rows, err := r.db.QueryContext(ctx, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("get admin media: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, media.ErrMediaNotFound
+	}
+
+	item, err := scanAdminMediaRow(rows)
+	if err != nil {
+		return nil, fmt.Errorf("scan admin media: %w", err)
+	}
+	return &item, nil
+}
+
 func (r *MediaRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

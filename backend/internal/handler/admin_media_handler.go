@@ -64,7 +64,7 @@ func (h *AdminHandler) GetMediaDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res.JSON(w, http.StatusOK, map[string]any{
-		"data": response.NewAdminMediaDetailResponse(m),
+		"data": response.NewAdminMediaResponse(*m),
 	})
 }
 
