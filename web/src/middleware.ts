@@ -67,8 +67,10 @@ export function middleware(request: NextRequest) {
     return response
   }
 
-  // Auth check: cookie must exist
-  const token = request.cookies.get("session_id")?.value
+  // Auth check: cookie OR ?token= query param (mobile WebView passes JWT via URL)
+  const token =
+    request.cookies.get("session_id")?.value ??
+    request.nextUrl.searchParams.get("token")
   if (!token) {
     const loginUrl = new URL("/login", request.url)
     return NextResponse.redirect(loginUrl)
