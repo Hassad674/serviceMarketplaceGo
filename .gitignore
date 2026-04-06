@@ -73,3 +73,4 @@ web/test-results/
 
 # Claude worktrees
 .claude/worktrees/
+backend/api

@@ -33,9 +33,14 @@ type Config struct {
 	StripeSecretKey        string
 	StripePublishableKey   string
 	StripeWebhookSecret    string
-	RekognitionEnabled     bool
-	RekognitionRegion      string
-	RekognitionThreshold   float64
+	RekognitionEnabled              bool
+	RekognitionRegion               string
+	RekognitionThreshold            float64
+	RekognitionAutoRejectThreshold  float64
+	RekognitionRoleARN              string
+	S3ModerationBucket              string
+	SNSTopicARN                     string
+	SQSQueueURL                     string
 }
 
 func Load() *Config {
@@ -65,9 +70,14 @@ func Load() *Config {
 		StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
 		StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),
 		StripeWebhookSecret:  getEnv("STRIPE_WEBHOOK_SECRET", ""),
-		RekognitionEnabled:     getEnv("REKOGNITION_ENABLED", "false") == "true",
-		RekognitionRegion:      getEnv("REKOGNITION_REGION", "eu-west-1"),
-		RekognitionThreshold:   parseFloat(getEnv("REKOGNITION_THRESHOLD", "60")),
+		RekognitionEnabled:             getEnv("REKOGNITION_ENABLED", "false") == "true",
+		RekognitionRegion:              getEnv("REKOGNITION_REGION", getEnv("AWS_REGION", "eu-west-1")),
+		RekognitionThreshold:           parseFloat(getEnv("REKOGNITION_THRESHOLD", "60")),
+		RekognitionAutoRejectThreshold: parseFloat(getEnv("REKOGNITION_AUTO_REJECT_THRESHOLD", "95")),
+		RekognitionRoleARN:             getEnv("REKOGNITION_ROLE_ARN", ""),
+		S3ModerationBucket:             getEnv("S3_MODERATION_BUCKET", ""),
+		SNSTopicARN:                    getEnv("SNS_TOPIC_ARN", ""),
+		SQSQueueURL:                    getEnv("SQS_QUEUE_URL", ""),
 	}
 }
 
@@ -93,6 +103,16 @@ func (c *Config) StripeConfigured() bool {
 
 func (c *Config) RekognitionConfigured() bool {
 	return c.RekognitionEnabled && c.RekognitionRegion != ""
+}
+
+// VideoModerationConfigured reports whether all AWS prerequisites for async
+// video moderation are set (Rekognition + S3 transit bucket + SNS + SQS + role).
+func (c *Config) VideoModerationConfigured() bool {
+	return c.RekognitionConfigured() &&
+		c.S3ModerationBucket != "" &&
+		c.SNSTopicARN != "" &&
+		c.SQSQueueURL != "" &&
+		c.RekognitionRoleARN != ""
 }
 
 func getEnv(key, fallback string) string {
