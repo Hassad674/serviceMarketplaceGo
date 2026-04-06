@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronDown, Search } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import {
   REGION_LABELS,
@@ -17,13 +18,14 @@ type CountrySelectorProps = {
 }
 
 export function CountrySelector({ value, onChange, disabled }: CountrySelectorProps) {
+  const t = useTranslations("paymentInfo")
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [highlightIndex, setHighlightIndex] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
-  const filtered = useMemo(() => searchCountries(query, "fr"), [query])
+  const filtered = useMemo(() => searchCountries(query, "en"), [query])
   const grouped = useMemo(() => groupByRegion(filtered), [filtered])
   const selected = useMemo(
     () => (value ? STRIPE_CONNECT_COUNTRIES.find((c) => c.code === value) : null),
@@ -89,14 +91,14 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
               {selected.flag}
             </span>
             <span className="flex flex-col items-start">
-              <span className="text-[13px] font-medium text-slate-500">Pays de résidence fiscale</span>
-              <span className="text-[15px] font-semibold text-slate-900">{selected.labelFr}</span>
+              <span className="text-[13px] font-medium text-slate-500">{t("countryLabel")}</span>
+              <span className="text-[15px] font-semibold text-slate-900">{selected.labelEn}</span>
             </span>
           </span>
         ) : (
           <span className="flex flex-col items-start">
-            <span className="text-[13px] font-medium text-slate-500">Pays de résidence fiscale</span>
-            <span className="text-[15px] text-slate-400">Sélectionnez votre pays</span>
+            <span className="text-[13px] font-medium text-slate-500">{t("countryLabel")}</span>
+            <span className="text-[15px] text-slate-400">{t("countryPlaceholder")}</span>
           </span>
         )}
         <ChevronDown
@@ -113,7 +115,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
               <input
                 ref={searchRef}
                 type="text"
-                placeholder="Rechercher un pays..."
+                placeholder={t("searchCountry")}
                 value={query}
                 onChange={(e) => {
                   setQuery(e.target.value)
@@ -121,19 +123,19 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                 }}
                 onKeyDown={handleKeyDown}
                 className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
-                aria-label="Rechercher un pays"
+                aria-label={t("searchCountry")}
               />
             </div>
           </div>
 
           <ul
             role="listbox"
-            aria-label="Liste des pays supportés"
+            aria-label={t("countryLabel")}
             className="max-h-[340px] overflow-y-auto py-1"
           >
             {grouped.length === 0 ? (
               <li className="px-4 py-6 text-center text-sm text-slate-400">
-                Aucun pays trouvé
+                {t("noCountryFound")}
               </li>
             ) : (
               grouped.map((group) => (
@@ -166,7 +168,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                               <span className="text-xl leading-none" aria-hidden>
                                 {country.flag}
                               </span>
-                              <span className="font-medium text-slate-900">{country.labelFr}</span>
+                              <span className="font-medium text-slate-900">{country.labelEn}</span>
                               <span className="font-mono text-[11px] text-slate-400">
                                 {country.code}
                               </span>

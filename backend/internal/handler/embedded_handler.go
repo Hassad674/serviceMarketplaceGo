@@ -94,12 +94,11 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 		_ = json.Unmarshal(body, &req)
 	}
 	req.Country = strings.ToUpper(strings.TrimSpace(req.Country))
-	req.BusinessType = strings.ToLower(strings.TrimSpace(req.BusinessType))
 
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
-	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, req.BusinessType, h.platformURL)
+	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, h.platformURL)
 	if err != nil {
 		slog.Error("embedded: resolve stripe account", "user_id", userID, "error", err)
 		// Detect Stripe cross-border country restriction and surface a
@@ -214,7 +213,7 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 func (h *EmbeddedHandler) resolveStripeAccount(
 	ctx context.Context,
 	userID uuid.UUID,
-	country, businessType, platformURL string,
+	country, platformURL string,
 ) (string, error) {
 	existing, _, err := h.users.GetStripeAccount(ctx, userID)
 	if err == nil && existing != "" {
@@ -233,11 +232,8 @@ func (h *EmbeddedHandler) resolveStripeAccount(
 	if country == "" {
 		return "", fmt.Errorf("country is required to create a new account")
 	}
-	if businessType != "individual" && businessType != "company" {
-		return "", fmt.Errorf("business_type must be 'individual' or 'company'")
-	}
 
-	accountID, err := createStripeCustomAccount(country, businessType, platformURL)
+	accountID, err := createStripeCustomAccount(country, platformURL)
 	if err != nil {
 		return "", fmt.Errorf("create stripe account: %w", err)
 	}
@@ -269,12 +265,11 @@ func syncBusinessProfile(accountID, platformURL string) error {
 // skip redundant KYC fields (website URL, MCC, product description).
 //
 // FR platforms require an Account Token when creating Custom accounts where
-// controller[requirement_collection]=application. We encode business_type +
-// business_profile inside the token, then pass its ID via AccountToken.
-func createStripeCustomAccount(country, businessType, platformURL string) (string, error) {
+// controller[requirement_collection]=application. business_type is NOT
+// pre-filled — Stripe's Embedded onboarding asks the user directly.
+func createStripeCustomAccount(country, platformURL string) (string, error) {
 	tokenParams := &stripe.TokenParams{
 		Account: &stripe.TokenAccountParams{
-			BusinessType:        stripe.String(businessType),
 			TOSShownAndAccepted: stripe.Bool(true),
 		},
 	}

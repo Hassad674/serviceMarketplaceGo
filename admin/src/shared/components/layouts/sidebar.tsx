@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { LayoutDashboard, Users, MessageSquare, Briefcase, Image, LogOut } from "lucide-react"
+import { LayoutDashboard, Users, MessageSquare, Briefcase, Star, Image, LogOut } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { useAuth } from "@/shared/hooks/use-auth"
 
@@ -8,6 +8,7 @@ const navigation = [
   { to: "/users", label: "Utilisateurs", icon: Users },
   { to: "/conversations", label: "Conversations", icon: MessageSquare },
   { to: "/jobs", label: "Offres", icon: Briefcase },
+  { to: "/reviews", label: "Avis", icon: Star },
   { to: "/media", label: "M\u00E9dias", icon: Image },
 ]
 

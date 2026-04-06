@@ -8,6 +8,7 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Dialog, DialogTitle, DialogDescription, DialogFooter } from "@/shared/components/ui/dialog"
 import { Skeleton } from "@/shared/components/ui/skeleton"
 import { MediaPreview } from "./media-preview"
+import { ScoreBadge } from "./media-columns"
 import { useAdminMediaDetail, useApproveMedia, useRejectMedia, useDeleteMedia } from "../hooks/use-media"
 import { formatDate } from "@/shared/lib/utils"
 import type { ModerationLabel } from "../types"
@@ -223,7 +224,13 @@ function ModerationCard({ media, onAction }: ModerationCardProps) {
       <CardContent className="space-y-4">
         <div>
           <p className="mb-1 text-sm text-muted-foreground">Score de risque</p>
-          <p className="text-lg font-mono font-semibold">{media.moderation_score.toFixed(1)}%</p>
+          <div className="mt-1">
+            {media.moderation_score === 0 ? (
+              <p className="text-lg font-mono font-semibold text-muted-foreground">-</p>
+            ) : (
+              <ScoreBadge score={media.moderation_score} />
+            )}
+          </div>
         </div>
 
         {media.moderation_labels.length > 0 && (

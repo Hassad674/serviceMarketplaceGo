@@ -23,17 +23,17 @@ const OPTIONS: {
 }[] = [
   {
     type: "individual",
-    title: "Je suis un particulier",
-    description: "Freelance, auto-entrepreneur ou travailleur indépendant",
+    title: "Individual",
+    description: "Freelance or independent professional",
     icon: User,
-    details: ["Pièce d'identité", "Adresse personnelle", "Informations bancaires"],
+    details: ["Identity document", "Personal address", "Bank details"],
   },
   {
     type: "company",
-    title: "Je représente une société",
-    description: "SARL, SAS, SA ou équivalent étranger",
+    title: "Registered business",
+    description: "Company, partnership or other legal entity",
     icon: Building2,
-    details: ["Document d'entreprise", "Représentant légal", "Bénéficiaires effectifs"],
+    details: ["Business registration", "Legal representative", "Beneficial owners"],
   },
 ]
 

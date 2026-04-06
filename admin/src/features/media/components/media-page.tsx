@@ -33,6 +33,12 @@ const contextOptions = [
   { value: "identity_document", label: "Pièce d'identité" },
 ]
 
+const sortOptions = [
+  { value: "newest", label: "Plus récents" },
+  { value: "oldest", label: "Plus anciens" },
+  { value: "score", label: "Score le plus élevé" },
+]
+
 export function MediaPage() {
   const navigate = useNavigate()
   const [filters, setFilters] = useState<MediaFilters>({
@@ -40,6 +46,7 @@ export function MediaPage() {
     type: "",
     context: "",
     search: "",
+    sort: "newest",
     page: 1,
   })
 
@@ -88,6 +95,13 @@ export function MediaPage() {
           placeholder="Contexte"
           value={filters.context}
           onChange={(e) => updateFilter("context", e.target.value)}
+          className="w-[180px]"
+        />
+        <Select
+          options={sortOptions}
+          placeholder="Tri"
+          value={filters.sort}
+          onChange={(e) => updateFilter("sort", e.target.value)}
           className="w-[180px]"
         />
       </DataTableToolbar>

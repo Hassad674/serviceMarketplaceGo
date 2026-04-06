@@ -215,6 +215,33 @@ func (r *ReportRepository) ListByUserInvolved(ctx context.Context, userID uuid.U
 	return against, filed, nil
 }
 
+func (r *ReportRepository) PendingCountsByTargets(ctx context.Context, targetType string, targetIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	counts := make(map[uuid.UUID]int, len(targetIDs))
+	if len(targetIDs) == 0 {
+		return counts, nil
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryPendingCountsByTargets, targetType, pq.Array(targetIDs))
+	if err != nil {
+		return nil, fmt.Errorf("pending counts by targets: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var targetID uuid.UUID
+		var count int
+		if err := rows.Scan(&targetID, &count); err != nil {
+			return nil, fmt.Errorf("scan pending count: %w", err)
+		}
+		counts[targetID] = count
+	}
+
+	return counts, nil
+}
+
 // reportScanner interface satisfied by both *sql.Row and *sql.Rows.
 type reportScanner interface {
 	Scan(dest ...any) error

@@ -171,6 +171,35 @@ func marshalMessageForWS(msg *message.Message) map[string]any {
 	return result
 }
 
+// recordMediaIfNeeded fires a background media record for file and voice messages
+// so that attachments sent in conversations appear in the admin media table.
+func (s *Service) recordMediaIfNeeded(msg *message.Message) {
+	if s.mediaRecorder == nil {
+		return
+	}
+
+	switch msg.Type {
+	case message.MessageTypeFile:
+		var meta message.FileMetadata
+		if err := json.Unmarshal(msg.Metadata, &meta); err != nil {
+			slog.Error("parse file metadata for media record", "error", err, "msg_id", msg.ID)
+			return
+		}
+		go s.mediaRecorder.RecordUploadRaw(
+			msg.SenderID, meta.URL, meta.Filename, meta.MimeType, meta.Size, "message_attachment",
+		)
+	case message.MessageTypeVoice:
+		var meta message.VoiceMetadata
+		if err := json.Unmarshal(msg.Metadata, &meta); err != nil {
+			slog.Error("parse voice metadata for media record", "error", err, "msg_id", msg.ID)
+			return
+		}
+		go s.mediaRecorder.RecordUploadRaw(
+			msg.SenderID, meta.URL, "voice_message.ogg", meta.MimeType, meta.Size, "message_attachment",
+		)
+	}
+}
+
 // populateReplyPreview fetches the replied-to message and attaches a preview.
 func (s *Service) populateReplyPreview(ctx context.Context, msg *message.Message) {
 	if msg.ReplyToID == nil {

@@ -31,6 +31,14 @@ export function listJobReports(jobId: string): Promise<JobReportsResponse> {
   return adminApi<JobReportsResponse>(`/api/v1/admin/jobs/${jobId}/reports`)
 }
 
+type ReviewReportsResponse = {
+  data: AdminReport[]
+}
+
+export function listReviewReports(reviewId: string): Promise<ReviewReportsResponse> {
+  return adminApi<ReviewReportsResponse>(`/api/v1/admin/reviews/${reviewId}/reports`)
+}
+
 export function resolveReport(reportId: string, payload: ResolvePayload): Promise<void> {
   return adminApi<void>(`/api/v1/admin/reports/${reportId}/resolve`, {
     method: "POST",

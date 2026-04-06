@@ -91,6 +91,10 @@ func (m *mockProposalRepo) CreateDocument(ctx context.Context, doc *domain.Propo
 	return nil
 }
 
+func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) {
+	return 0, 0, nil
+}
+
 // --- mockUserRepo ---
 
 type mockUserRepo struct {

@@ -7,6 +7,7 @@ export function listAdminMedia(filters: MediaFilters): Promise<AdminMediaListRes
   if (filters.type) params.set("type", filters.type)
   if (filters.context) params.set("context", filters.context)
   if (filters.search) params.set("search", filters.search)
+  if (filters.sort) params.set("sort", filters.sort)
   if (filters.page > 0) params.set("page", String(filters.page))
   params.set("limit", "20")
 

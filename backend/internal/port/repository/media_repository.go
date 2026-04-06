@@ -14,6 +14,7 @@ type AdminMediaFilters struct {
 	Type    string
 	Context string
 	Search  string
+	Sort    string
 	Page    int
 	Limit   int
 }
@@ -36,4 +37,5 @@ type MediaRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListAdmin(ctx context.Context, filters AdminMediaFilters) ([]AdminMediaItem, error)
 	CountAdmin(ctx context.Context, filters AdminMediaFilters) (int, error)
+	ClearSource(ctx context.Context, mediaContext string, contextID uuid.UUID) error
 }

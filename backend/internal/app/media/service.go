@@ -169,6 +169,12 @@ func (s *Service) applyDecision(
 			slog.Warn("media moderation: delete source after auto-reject",
 				"error", err, "key", srcKey)
 		}
+		if m.ContextID != nil {
+			if err := s.media.ClearSource(ctx, string(m.Context), *m.ContextID); err != nil {
+				slog.Warn("media moderation: clear source URL after auto-reject",
+					"error", err, "context", m.Context, "context_id", m.ContextID)
+			}
+		}
 		m.AutoReject(result.Labels, result.Score)
 	case s.flagThreshold > 0 && result.Score >= s.flagThreshold:
 		m.Flag(result.Labels, result.Score)
@@ -207,6 +213,19 @@ func (s *Service) FinalizeVideoJob(ctx context.Context, jobID string) error {
 		}
 	}
 	return nil
+}
+
+// RecordUploadRaw satisfies the service.MediaRecorder interface using a plain
+// string context value, avoiding the need for callers to import the media domain.
+func (s *Service) RecordUploadRaw(
+	uploaderID uuid.UUID,
+	fileURL string,
+	fileName string,
+	fileType string,
+	fileSize int64,
+	mediaCtx string,
+) {
+	s.RecordUpload(uploaderID, fileURL, fileName, fileType, fileSize, mediadomain.Context(mediaCtx))
 }
 
 // extractStorageKey removes the public URL prefix to get the storage key.

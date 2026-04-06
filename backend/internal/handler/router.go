@@ -310,6 +310,12 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/job-applications", deps.Admin.ListJobApplications)
 				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)
 
+				// Review admin endpoints
+				r.Get("/reviews", deps.Admin.ListReviews)
+				r.Get("/reviews/{id}", deps.Admin.GetReview)
+				r.Delete("/reviews/{id}", deps.Admin.DeleteReview)
+				r.Get("/reviews/{id}/reports", deps.Admin.ListReviewReports)
+
 				// Media moderation endpoints
 				r.Get("/media", deps.Admin.ListMedia)
 				r.Get("/media/{id}", deps.Admin.GetMediaDetail)

@@ -3,6 +3,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../../../l10n/app_localizations.dart';
 
 /// Stripe account status fetched from GET /payment-info/account-status.
@@ -118,13 +119,32 @@ class PaymentInfoScreen extends ConsumerWidget {
     );
   }
 
-  void _openWebView(BuildContext context, WidgetRef ref) {
+  Future<void> _openWebView(BuildContext context, WidgetRef ref) async {
     final locale = Localizations.localeOf(context).languageCode;
-    // Web URL — same domain as API but port 3001 in dev, or production domain.
     const webBaseUrl = String.fromEnvironment(
       'WEB_URL',
       defaultValue: 'http://192.168.1.156:3001',
     );
+
+    // Inject the JWT access_token as a cookie into the WebView so the
+    // Next.js app recognizes the user. The web middleware reads this cookie
+    // for authentication — same as the browser flow.
+    final storage = ref.read(secureStorageProvider);
+    final token = await storage.getAccessToken();
+    if (token != null) {
+      final uri = WebUri(webBaseUrl);
+      final cookieManager = CookieManager.instance();
+      await cookieManager.setCookie(
+        url: uri,
+        name: 'access_token',
+        value: token,
+        path: '/',
+        isHttpOnly: false,
+        isSecure: false,
+      );
+    }
+
+    if (!context.mounted) return;
 
     Navigator.of(context).push(
       MaterialPageRoute(

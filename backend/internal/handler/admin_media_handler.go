@@ -25,6 +25,7 @@ func (h *AdminHandler) ListMedia(w http.ResponseWriter, r *http.Request) {
 		Type:    r.URL.Query().Get("type"),
 		Context: r.URL.Query().Get("context"),
 		Search:  r.URL.Query().Get("search"),
+		Sort:    r.URL.Query().Get("sort"),
 		Page:    page,
 		Limit:   limit,
 	}

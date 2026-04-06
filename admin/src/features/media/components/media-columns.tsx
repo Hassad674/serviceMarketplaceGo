@@ -28,6 +28,28 @@ const contextLabels: Record<string, string> = {
   identity_document: "Pièce d'identité",
 }
 
+export function ScoreBadge({ score }: { score: number }) {
+  if (score >= 90) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold font-mono text-destructive">
+        {score.toFixed(1)}%
+      </span>
+    )
+  }
+  if (score >= 60) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-orange-50 px-2 py-0.5 text-xs font-semibold font-mono text-orange-700">
+        {score.toFixed(1)}%
+      </span>
+    )
+  }
+  return (
+    <span className="text-sm font-mono text-muted-foreground">
+      {score.toFixed(1)}%
+    </span>
+  )
+}
+
 export const mediaColumns: ColumnDef<AdminMedia, unknown>[] = [
   {
     id: "preview",
@@ -96,7 +118,7 @@ export const mediaColumns: ColumnDef<AdminMedia, unknown>[] = [
     cell: ({ row }) => {
       const score = row.original.moderation_score
       if (score === 0) return <span className="text-sm text-muted-foreground">-</span>
-      return <span className="text-sm font-mono">{score.toFixed(1)}%</span>
+      return <ScoreBadge score={score} />
     },
   },
   {

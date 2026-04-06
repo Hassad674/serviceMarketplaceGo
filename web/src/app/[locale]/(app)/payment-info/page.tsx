@@ -10,7 +10,8 @@ import {
   ConnectComponentsProvider,
   ConnectNotificationBanner,
 } from "@stripe/react-connect-js"
-import { AlertCircle, Loader2, Sparkles } from "lucide-react"
+import { AlertCircle, ArrowLeft, Loader2, Sparkles } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
 
@@ -48,8 +49,9 @@ type Mode = "loading" | "wizard" | "onboarding" | "dashboard"
 
 export default function PaymentInfoV2Page() {
   const params = useParams()
-  const appLocale = (params?.locale as string) || "fr"
+  const appLocale = (params?.locale as string) || "en"
   const stripeLocale = useMemo(() => mapAppLocaleToStripe(appLocale), [appLocale])
+  const t = useTranslations("paymentInfo")
 
   const [mode, setMode] = useState<Mode>("loading")
   const [status, setStatus] = useState<AccountStatus | null>(null)
@@ -60,9 +62,8 @@ export default function PaymentInfoV2Page() {
   // Ref holds the latest pending values so fetchClientSecret (called by
   // Stripe Connect asynchronously and possibly multiple times) always reads
   // the current country/business_type without stale-closure issues.
-  const pendingRef = useRef<{ country: string | null; businessType: BusinessType | null }>({
+  const pendingRef = useRef<{ country: string | null }>({
     country: null,
-    businessType: null,
   })
 
   /* ---------- Status fetch ---------- */
@@ -118,14 +119,14 @@ export default function PaymentInfoV2Page() {
 
   /* ---------- Stripe Connect init (once we have a session possible) ---------- */
   const fetchClientSecret = useCallback(async (): Promise<string> => {
-    const { country, businessType } = pendingRef.current
+    const { country } = pendingRef.current
     const res = await fetch(
       `${API_BASE_URL}/api/v1/payment-info/account-session`,
       {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country, business_type: businessType }),
+        body: JSON.stringify({ country }),
       },
     )
     if (!res.ok) {
@@ -156,11 +157,11 @@ export default function PaymentInfoV2Page() {
   }, [fetchClientSecret, stripeLocale])
 
   /* ---------- Handlers ---------- */
-  const handleWizardSubmit = async (country: string, businessType: BusinessType) => {
+  const handleWizardSubmit = async (country: string) => {
     setCreating(true)
     setErrorMessage("")
     // Write to ref synchronously so fetchClientSecret can read it immediately.
-    pendingRef.current = { country, businessType }
+    pendingRef.current = { country }
 
     try {
       initializeConnect()
@@ -172,6 +173,22 @@ export default function PaymentInfoV2Page() {
     } finally {
       setCreating(false)
     }
+  }
+
+  const handleResetToWizard = async () => {
+    try {
+      await fetch(`${API_BASE_URL}/api/v1/payment-info/account-session`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+    } catch {
+      // Silent fail — best effort
+    }
+    setMode("wizard")
+    setStatus(null)
+    setConnectInstance(null)
+    setErrorMessage("")
+    pendingRef.current = { country: null }
   }
 
   const handleOnboardingExit = async () => {
@@ -203,10 +220,10 @@ export default function PaymentInfoV2Page() {
             </div>
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-wider text-rose-600">
-                Informations de paiement
+                {t("header")}
               </div>
               <h1 className="text-[15px] font-bold text-slate-900">
-                Compte de paiement
+                {t("subheader")}
               </h1>
             </div>
           </div>
@@ -222,14 +239,14 @@ export default function PaymentInfoV2Page() {
           >
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" aria-hidden />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-red-900">Une erreur est survenue</p>
+              <p className="text-sm font-semibold text-red-900">{t("errorOccurred")}</p>
               <p className="mt-1 text-sm text-red-700">{errorMessage}</p>
             </div>
             <button
               onClick={() => setErrorMessage("")}
               className="text-xs font-medium text-red-600 hover:text-red-700"
             >
-              Fermer
+              {t("dismiss")}
             </button>
           </div>
         ) : null}
@@ -237,7 +254,7 @@ export default function PaymentInfoV2Page() {
         {mode === "loading" ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-rose-500" aria-hidden />
-            <span className="ml-3 text-sm text-slate-600">Chargement de votre compte...</span>
+            <span className="ml-3 text-sm text-slate-600">{t("loadingAccount")}</span>
           </div>
         ) : null}
 
@@ -264,10 +281,17 @@ export default function PaymentInfoV2Page() {
               {/* Onboarding resume OR management editor */}
               {mode === "onboarding" ? (
                 <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 bg-slate-50 px-6 py-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-3">
                     <h3 className="text-[13px] font-semibold text-slate-900">
-                      Finaliser la vérification
+                      {t("completeVerification")}
                     </h3>
+                    <button
+                      onClick={handleResetToWizard}
+                      className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 transition-colors hover:text-rose-600"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+                      {t("changeCountry")}
+                    </button>
                   </div>
                   <div className="p-6">
                     <ConnectAccountOnboarding
@@ -283,10 +307,10 @@ export default function PaymentInfoV2Page() {
                 <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
                   <div className="border-b border-slate-100 bg-slate-50 px-6 py-3">
                     <h3 className="text-[13px] font-semibold text-slate-900">
-                      Gérer mes informations
+                      {t("manageInfo")}
                     </h3>
                     <p className="mt-0.5 text-[12px] text-slate-500">
-                      Modifiez vos coordonnées, IBAN, adresse ou représentants légaux.
+                      {t("manageInfoHint")}
                     </p>
                   </div>
                   <div className="p-6">

@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/port/repository"
 )
 
 // DashboardStatsResponse is the JSON response for GET /api/v1/admin/dashboard/stats.
@@ -121,7 +121,7 @@ type AdminConversationParticipantResp struct {
 }
 
 // NewAdminConversationResponse converts an admin conversation to its JSON response.
-func NewAdminConversationResponse(c adminapp.AdminConversation) AdminConversationResponse {
+func NewAdminConversationResponse(c repository.AdminConversation) AdminConversationResponse {
 	participants := make([]AdminConversationParticipantResp, 0, len(c.Participants))
 	for _, p := range c.Participants {
 		participants = append(participants, AdminConversationParticipantResp{
@@ -163,7 +163,7 @@ type AdminMessageResponse struct {
 }
 
 // NewAdminMessageResponse converts an admin message to its JSON response.
-func NewAdminMessageResponse(m adminapp.AdminMessage) AdminMessageResponse {
+func NewAdminMessageResponse(m repository.AdminMessage) AdminMessageResponse {
 	resp := AdminMessageResponse{
 		ID:             m.ID.String(),
 		ConversationID: m.ConversationID.String(),

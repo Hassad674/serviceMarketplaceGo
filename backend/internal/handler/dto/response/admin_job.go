@@ -3,7 +3,7 @@ package response
 import (
 	"time"
 
-	adminapp "marketplace-backend/internal/app/admin"
+	"marketplace-backend/internal/port/repository"
 )
 
 // AdminJobResponse is the JSON response for admin job listing/detail.
@@ -39,7 +39,7 @@ type AdminJobAuthor struct {
 }
 
 // NewAdminJobResponse converts an admin job to its JSON response.
-func NewAdminJobResponse(j adminapp.AdminJob) AdminJobResponse {
+func NewAdminJobResponse(j repository.AdminJob) AdminJobResponse {
 	skills := j.Skills
 	if skills == nil {
 		skills = []string{}
@@ -108,7 +108,7 @@ type AdminJobApplicationJob struct {
 }
 
 // NewAdminJobApplicationResponse converts an admin job application to its JSON response.
-func NewAdminJobApplicationResponse(a adminapp.AdminJobApplication) AdminJobApplicationResponse {
+func NewAdminJobApplicationResponse(a repository.AdminJobApplication) AdminJobApplicationResponse {
 	return AdminJobApplicationResponse{
 		ID:                 a.ID.String(),
 		Message:            a.Message,

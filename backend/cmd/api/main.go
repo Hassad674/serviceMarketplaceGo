@@ -143,6 +143,7 @@ func main() {
 		Broadcaster: streamBroadcaster,
 		Storage:     storageSvc,
 		RateLimiter: rateLimiter,
+		// MediaRecorder is set below after mediaSvc is created.
 	})
 
 	// Proposal
@@ -331,6 +332,9 @@ func main() {
 		AutoRejectThreshold: cfg.RekognitionAutoRejectThreshold,
 	})
 
+	// Wire media recorder into messaging so file/voice messages are tracked.
+	messagingSvc.SetMediaRecorder(mediaSvc)
+
 	// SQS worker polls Rekognition completion notifications and finalizes jobs.
 	if cfg.VideoModerationConfigured() && transitStorage != nil {
 		worker, workerErr := sqsadapter.NewWorker(sqsadapter.WorkerDeps{
@@ -348,12 +352,17 @@ func main() {
 	}
 
 	// Admin feature
+	adminConvRepo := postgres.NewAdminConversationRepository(db)
 	adminSvc := adminapp.NewService(adminapp.ServiceDeps{
-		Users:      userRepo,
-		Reports:    reportRepo,
-		MediaRepo:  mediaRepo,
-		StorageSvc: storageSvc,
-		DB:         db,
+		Users:              userRepo,
+		Reports:            reportRepo,
+		Reviews:            reviewRepo,
+		Jobs:               jobRepo,
+		Applications:       jobAppRepo,
+		Proposals:          proposalRepo,
+		AdminConversations: adminConvRepo,
+		MediaRepo:          mediaRepo,
+		StorageSvc:         storageSvc,
 	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 

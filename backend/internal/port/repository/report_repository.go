@@ -19,4 +19,5 @@ type ReportRepository interface {
 	HasPendingReport(ctx context.Context, reporterID uuid.UUID, targetType string, targetID uuid.UUID) (bool, error)
 	ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]*report.Report, error)
 	ListByUserInvolved(ctx context.Context, userID uuid.UUID) (against []*report.Report, filed []*report.Report, err error)
+	PendingCountsByTargets(ctx context.Context, targetType string, targetIDs []uuid.UUID) (map[uuid.UUID]int, error)
 }

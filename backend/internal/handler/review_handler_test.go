@@ -69,6 +69,22 @@ func (m *mockReviewRepo) HasReviewed(ctx context.Context, proposalID, reviewerID
 	return false, nil
 }
 
+func (m *mockReviewRepo) ListAdmin(_ context.Context, _ repository.AdminReviewFilters) ([]repository.AdminReview, error) {
+	return nil, nil
+}
+
+func (m *mockReviewRepo) CountAdmin(_ context.Context, _ repository.AdminReviewFilters) (int, error) {
+	return 0, nil
+}
+
+func (m *mockReviewRepo) GetAdminByID(_ context.Context, _ uuid.UUID) (*repository.AdminReview, error) {
+	return nil, reviewdomain.ErrNotFound
+}
+
+func (m *mockReviewRepo) DeleteAdmin(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 // Compile-time check.
 var _ repository.ReviewRepository = (*mockReviewRepo)(nil)
 

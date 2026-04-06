@@ -52,6 +52,22 @@ func (m *mockJobRepo) ListByCreator(ctx context.Context, creatorID uuid.UUID, cu
 
 func (m *mockJobRepo) Delete(_ context.Context, _ uuid.UUID) error { return nil }
 
+func (m *mockJobRepo) ListAdmin(_ context.Context, _ repository.AdminJobFilters) ([]repository.AdminJob, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockJobRepo) CountAdmin(_ context.Context, _ repository.AdminJobFilters) (int, error) {
+	return 0, nil
+}
+
+func (m *mockJobRepo) GetAdmin(_ context.Context, _ uuid.UUID) (*repository.AdminJob, error) {
+	return nil, nil
+}
+
+func (m *mockJobRepo) CountAll(_ context.Context) (int, int, error) {
+	return 0, 0, nil
+}
+
 func (m *mockJobRepo) ListOpen(ctx context.Context, filters repository.JobListFilters, cursor string, limit int) ([]*domain.Job, string, error) {
 	if m.listOpenFn != nil {
 		return m.listOpenFn(ctx, filters, cursor, limit)
@@ -117,6 +133,14 @@ func (m *mockJobApplicationRepo) CountByJob(ctx context.Context, jobID uuid.UUID
 	if m.countByJobFn != nil {
 		return m.countByJobFn(ctx, jobID)
 	}
+	return 0, nil
+}
+
+func (m *mockJobApplicationRepo) ListAdmin(_ context.Context, _ repository.AdminApplicationFilters) ([]repository.AdminJobApplication, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockJobApplicationRepo) CountAdmin(_ context.Context, _ repository.AdminApplicationFilters) (int, error) {
 	return 0, nil
 }
 

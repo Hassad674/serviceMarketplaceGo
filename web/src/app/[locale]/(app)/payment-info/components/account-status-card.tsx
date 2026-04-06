@@ -1,6 +1,7 @@
 "use client"
 
 import { AlertCircle, CheckCircle2, Clock, CreditCard, Send } from "lucide-react"
+import { useTranslations } from "next-intl"
 
 export type AccountStatus = {
   account_id: string
@@ -22,6 +23,7 @@ type AccountStatusCardProps = {
 }
 
 export function AccountStatusCard({ status }: AccountStatusCardProps) {
+  const t = useTranslations("paymentInfo")
   const fullyActive =
     status.charges_enabled && status.payouts_enabled && status.requirements_count === 0
   const hasPastDue = status.requirements_past_due.length > 0
@@ -55,17 +57,17 @@ export function AccountStatusCard({ status }: AccountStatusCardProps) {
             <div>
               <h2 className="text-lg font-bold text-white">
                 {fullyActive
-                  ? "Compte entièrement actif"
+                  ? t("accountActive")
                   : hasPastDue
-                    ? "Action urgente requise"
-                    : "Vérification en cours"}
+                    ? t("urgentAction")
+                    : t("verificationInProgress")}
               </h2>
               <p className="text-[13px] text-white/90">
                 {fullyActive
-                  ? "Vous pouvez recevoir et transférer des fonds"
+                  ? t("accountActiveDesc")
                   : status.requirements_count > 0
-                    ? `${status.requirements_count} information${status.requirements_count > 1 ? "s" : ""} à compléter`
-                    : "Traitement par Stripe en cours"}
+                    ? t("itemsToComplete", { count: status.requirements_count })
+                    : t("processingByStripe")}
               </p>
             </div>
           </div>
@@ -79,13 +81,17 @@ export function AccountStatusCard({ status }: AccountStatusCardProps) {
       <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         <CapabilityRow
           icon={CreditCard}
-          label="Paiements entrants"
+          label={t("incomingPayments")}
           enabled={status.charges_enabled}
+          activeLabel={t("active")}
+          pendingLabel={t("pending")}
         />
         <CapabilityRow
           icon={Send}
-          label="Virements sortants"
+          label={t("outgoingTransfers")}
           enabled={status.payouts_enabled}
+          activeLabel={t("active")}
+          pendingLabel={t("pending")}
         />
       </div>
     </section>
@@ -96,10 +102,14 @@ function CapabilityRow({
   icon: Icon,
   label,
   enabled,
+  activeLabel,
+  pendingLabel,
 }: {
   icon: typeof CreditCard
   label: string
   enabled: boolean
+  activeLabel: string
+  pendingLabel: string
 }) {
   return (
     <div className="flex items-center justify-between px-6 py-4">
@@ -125,7 +135,7 @@ function CapabilityRow({
           className={`h-1.5 w-1.5 rounded-full ${enabled ? "bg-emerald-500" : "bg-amber-500"}`}
           aria-hidden
         />
-        {enabled ? "Actif" : "En attente"}
+        {enabled ? activeLabel : pendingLabel}
       </span>
     </div>
   )

@@ -98,3 +98,11 @@ const queryListReportsFiledByUser = `
 	FROM reports
 	WHERE reporter_id = $1
 	ORDER BY created_at DESC`
+
+const queryPendingCountsByTargets = `
+	SELECT r.target_id, COUNT(*)
+	FROM reports r
+	WHERE r.target_type = $1
+		AND r.status = 'pending'
+		AND r.target_id = ANY($2)
+	GROUP BY r.target_id`

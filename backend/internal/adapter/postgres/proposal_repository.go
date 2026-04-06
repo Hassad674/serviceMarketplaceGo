@@ -215,6 +215,24 @@ func (r *ProposalRepository) CreateDocument(ctx context.Context, doc *proposal.P
 	return nil
 }
 
+func (r *ProposalRepository) CountAll(ctx context.Context) (total int, active int, err error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	err = r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM proposals").Scan(&total)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count total proposals: %w", err)
+	}
+
+	err = r.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM proposals WHERE status IN ('paid', 'active', 'completion_requested')",
+	).Scan(&active)
+	if err != nil {
+		return 0, 0, fmt.Errorf("count active proposals: %w", err)
+	}
+	return total, active, nil
+}
+
 // scanProposal scans a single proposal from a QueryRow result.
 func scanProposal(row *sql.Row) (*proposal.Proposal, error) {
 	p := &proposal.Proposal{}

@@ -41,5 +41,6 @@ export type MediaFilters = {
   type: string
   context: string
   search: string
+  sort: string
   page: number
 }
