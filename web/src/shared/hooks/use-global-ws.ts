@@ -123,6 +123,18 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
             data: { count: frame.payload?.count ?? 0 },
           })
         }
+        if (frame.type === "account_suspended") {
+          const reason = frame.payload?.reason || ""
+          // Show alert, then clear session and redirect to login
+          window.alert(
+            reason
+              ? `Votre compte a \u00e9t\u00e9 suspendu.\n\n${reason}`
+              : "Votre compte a \u00e9t\u00e9 suspendu.",
+          )
+          // Hard redirect — destroys React tree, query cache, WS connection
+          window.location.href = "/login"
+          return
+        }
         if (frame.type === "call_event" && callEventHandlerRef.current) {
           callEventHandlerRef.current(frame.payload)
         }

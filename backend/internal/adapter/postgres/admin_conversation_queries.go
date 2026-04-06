@@ -84,7 +84,8 @@ const queryAdminListMessagesFirst = `
 		m.id, m.conversation_id, m.sender_id, m.content,
 		m.msg_type, m.metadata, m.reply_to_id, m.created_at,
 		COALESCE(u.display_name, u.first_name || ' ' || u.last_name),
-		COALESCE(u.role, '')
+		COALESCE(u.role, ''),
+		m.moderation_status, m.moderation_score, m.moderation_labels
 	FROM messages m
 	JOIN users u ON u.id = m.sender_id
 	WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
@@ -96,7 +97,8 @@ const queryAdminListMessagesWithCursor = `
 		m.id, m.conversation_id, m.sender_id, m.content,
 		m.msg_type, m.metadata, m.reply_to_id, m.created_at,
 		COALESCE(u.display_name, u.first_name || ' ' || u.last_name),
-		COALESCE(u.role, '')
+		COALESCE(u.role, ''),
+		m.moderation_status, m.moderation_score, m.moderation_labels
 	FROM messages m
 	JOIN users u ON u.id = m.sender_id
 	WHERE m.conversation_id = $1 AND m.deleted_at IS NULL

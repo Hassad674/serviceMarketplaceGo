@@ -37,6 +37,7 @@ type ReviewRepository interface {
 	ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*review.Review, string, error)
 	GetAverageRating(ctx context.Context, userID uuid.UUID) (*review.AverageRating, error)
 	HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
+	UpdateReviewModeration(ctx context.Context, reviewID uuid.UUID, status string, score float64, labelsJSON []byte) error
 
 	// Admin operations
 	ListAdmin(ctx context.Context, filters AdminReviewFilters) ([]AdminReview, error)

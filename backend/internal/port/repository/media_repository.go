@@ -38,4 +38,5 @@ type MediaRepository interface {
 	ListAdmin(ctx context.Context, filters AdminMediaFilters) ([]AdminMediaItem, error)
 	CountAdmin(ctx context.Context, filters AdminMediaFilters) (int, error)
 	ClearSource(ctx context.Context, mediaContext string, contextID uuid.UUID) error
+	CountRejectedByUploader(ctx context.Context, uploaderID uuid.UUID) (int, error)
 }

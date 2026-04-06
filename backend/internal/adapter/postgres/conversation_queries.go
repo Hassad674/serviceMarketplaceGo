@@ -189,3 +189,8 @@ const queryMarkMessagesAsRead = `
 const querySaveMessageHistory = `
 	INSERT INTO message_history (id, message_id, content, action, performed_by, created_at)
 	VALUES (gen_random_uuid(), $1, $2, $3, $4, now())`
+
+const queryUpdateMessageModeration = `
+	UPDATE messages
+	SET moderation_status = $2, moderation_score = $3, moderation_labels = $4, updated_at = now()
+	WHERE id = $1`

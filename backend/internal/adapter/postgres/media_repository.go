@@ -120,6 +120,21 @@ func (r *MediaRepository) GetAdminByID(ctx context.Context, id uuid.UUID) (*repo
 	return &item, nil
 }
 
+func (r *MediaRepository) CountRejectedByUploader(ctx context.Context, uploaderID uuid.UUID) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		"SELECT COUNT(*) FROM media WHERE uploader_id = $1 AND moderation_status = 'rejected'",
+		uploaderID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count rejected media: %w", err)
+	}
+	return count, nil
+}
+
 // ClearSource removes the URL reference from the source table when a media is auto-rejected.
 func (r *MediaRepository) ClearSource(ctx context.Context, mediaContext string, contextID uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)

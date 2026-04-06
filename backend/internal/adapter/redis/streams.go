@@ -73,6 +73,14 @@ func (b *StreamBroadcaster) BroadcastCallEvent(ctx context.Context, recipientIDs
 	return b.publish(ctx, "call_event", recipientIDs, payload)
 }
 
+func (b *StreamBroadcaster) BroadcastAccountSuspended(ctx context.Context, userID uuid.UUID, reason string) error {
+	payload, err := json.Marshal(map[string]string{"reason": reason})
+	if err != nil {
+		return fmt.Errorf("marshal account_suspended payload: %w", err)
+	}
+	return b.publish(ctx, "account_suspended", []uuid.UUID{userID}, payload)
+}
+
 func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recipientIDs []uuid.UUID, payload []byte) error {
 	ids, err := json.Marshal(recipientIDs)
 	if err != nil {

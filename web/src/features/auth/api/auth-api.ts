@@ -20,6 +20,23 @@ type AuthUser = {
  * Web auth responses return the flat user object (session cookie is set via Set-Cookie header).
  * Mobile clients using X-Auth-Mode: token receive { user, access_token, refresh_token }.
  */
+export type LoginError = {
+  error: string
+  message: string
+  reason?: string
+}
+
+export class AuthApiError extends Error {
+  code: string
+  reason?: string
+
+  constructor(code: string, message: string, reason?: string) {
+    super(message)
+    this.code = code
+    this.reason = reason
+  }
+}
+
 export async function login(email: string, password: string): Promise<AuthUser> {
   const res = await fetch(`${API_URL}/api/v1/auth/login`, {
     method: "POST",
@@ -28,8 +45,8 @@ export async function login(email: string, password: string): Promise<AuthUser> 
     body: JSON.stringify({ email, password }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ message: "An error occurred" }))
-    throw new Error(err.message || "Login failed")
+    const err: LoginError = await res.json().catch(() => ({ error: "unknown", message: "An error occurred" }))
+    throw new AuthApiError(err.error, err.message || "Login failed", err.reason)
   }
   return res.json()
 }

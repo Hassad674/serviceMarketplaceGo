@@ -150,29 +150,34 @@ func NewAdminConversationResponse(c repository.AdminConversation) AdminConversat
 
 // AdminMessageResponse is the JSON response for admin message viewing.
 type AdminMessageResponse struct {
-	ID             string           `json:"id"`
-	ConversationID string           `json:"conversation_id"`
-	SenderID       string           `json:"sender_id"`
-	SenderName     string           `json:"sender_name"`
-	SenderRole     string           `json:"sender_role"`
-	Content        string           `json:"content"`
-	Type           string           `json:"type"`
-	Metadata       *json.RawMessage `json:"metadata,omitempty"`
-	ReplyToID      *string          `json:"reply_to_id,omitempty"`
-	CreatedAt      string           `json:"created_at"`
+	ID               string           `json:"id"`
+	ConversationID   string           `json:"conversation_id"`
+	SenderID         string           `json:"sender_id"`
+	SenderName       string           `json:"sender_name"`
+	SenderRole       string           `json:"sender_role"`
+	Content          string           `json:"content"`
+	Type             string           `json:"type"`
+	Metadata         *json.RawMessage `json:"metadata,omitempty"`
+	ReplyToID        *string          `json:"reply_to_id,omitempty"`
+	ModerationStatus string           `json:"moderation_status"`
+	ModerationScore  float64          `json:"moderation_score"`
+	ModerationLabels *json.RawMessage `json:"moderation_labels,omitempty"`
+	CreatedAt        string           `json:"created_at"`
 }
 
 // NewAdminMessageResponse converts an admin message to its JSON response.
 func NewAdminMessageResponse(m repository.AdminMessage) AdminMessageResponse {
 	resp := AdminMessageResponse{
-		ID:             m.ID.String(),
-		ConversationID: m.ConversationID.String(),
-		SenderID:       m.SenderID.String(),
-		SenderName:     m.SenderName,
-		SenderRole:     m.SenderRole,
-		Content:        m.Content,
-		Type:           m.Type,
-		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
+		ID:               m.ID.String(),
+		ConversationID:   m.ConversationID.String(),
+		SenderID:         m.SenderID.String(),
+		SenderName:       m.SenderName,
+		SenderRole:       m.SenderRole,
+		Content:          m.Content,
+		Type:             m.Type,
+		ModerationStatus: m.ModerationStatus,
+		ModerationScore:  m.ModerationScore,
+		CreatedAt:        m.CreatedAt.Format(time.RFC3339),
 	}
 	if m.ReplyToID != nil {
 		s := m.ReplyToID.String()
@@ -181,6 +186,10 @@ func NewAdminMessageResponse(m repository.AdminMessage) AdminMessageResponse {
 	if len(m.Metadata) > 0 {
 		raw := json.RawMessage(m.Metadata)
 		resp.Metadata = &raw
+	}
+	if len(m.ModerationLabels) > 0 {
+		raw := json.RawMessage(m.ModerationLabels)
+		resp.ModerationLabels = &raw
 	}
 	return resp
 }

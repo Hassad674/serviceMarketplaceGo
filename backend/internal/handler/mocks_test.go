@@ -224,6 +224,10 @@ func (m *mockSessionService) Delete(ctx context.Context, sessionID string) error
 	return nil
 }
 
+func (m *mockSessionService) DeleteByUserID(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 func (m *mockSessionService) CreateWSToken(ctx context.Context, userID uuid.UUID) (string, error) {
 	if m.createWSTokenFn != nil {
 		return m.createWSTokenFn(ctx, userID)

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,6 +39,8 @@ type ServiceDeps struct {
 	AdminConversations repository.AdminConversationRepository
 	MediaRepo          repository.MediaRepository
 	StorageSvc         portservice.StorageService
+	SessionSvc         portservice.SessionService
+	Broadcaster        portservice.MessageBroadcaster
 }
 
 type Service struct {
@@ -50,6 +53,8 @@ type Service struct {
 	adminConversations repository.AdminConversationRepository
 	mediaRepo          repository.MediaRepository
 	storageSvc         portservice.StorageService
+	sessionSvc         portservice.SessionService
+	broadcaster        portservice.MessageBroadcaster
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -63,6 +68,8 @@ func NewService(deps ServiceDeps) *Service {
 		adminConversations: deps.AdminConversations,
 		mediaRepo:          deps.MediaRepo,
 		storageSvc:         deps.StorageSvc,
+		sessionSvc:         deps.SessionSvc,
+		broadcaster:        deps.Broadcaster,
 	}
 }
 
@@ -145,6 +152,8 @@ func (s *Service) SuspendUser(ctx context.Context, userID uuid.UUID, reason stri
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("suspend user: save: %w", err)
 	}
+
+	s.invalidateAndNotify(ctx, userID, reason)
 	return nil
 }
 
@@ -173,7 +182,26 @@ func (s *Service) BanUser(ctx context.Context, userID uuid.UUID, reason string) 
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("ban user: save: %w", err)
 	}
+
+	s.invalidateAndNotify(ctx, userID, reason)
 	return nil
+}
+
+// invalidateAndNotify deletes the user's session and broadcasts a WS event
+// so the frontend disconnects immediately after a suspension or ban.
+func (s *Service) invalidateAndNotify(ctx context.Context, userID uuid.UUID, reason string) {
+	if s.sessionSvc != nil {
+		if err := s.sessionSvc.DeleteByUserID(ctx, userID); err != nil {
+			slog.Error("admin: delete sessions after suspension",
+				"error", err, "user_id", userID)
+		}
+	}
+	if s.broadcaster != nil {
+		if err := s.broadcaster.BroadcastAccountSuspended(ctx, userID, reason); err != nil {
+			slog.Error("admin: broadcast account_suspended",
+				"error", err, "user_id", userID)
+		}
+	}
 }
 
 func (s *Service) UnbanUser(ctx context.Context, userID uuid.UUID) error {

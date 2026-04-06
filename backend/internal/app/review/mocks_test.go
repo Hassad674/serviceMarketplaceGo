@@ -74,6 +74,10 @@ func (m *mockReviewRepo) DeleteAdmin(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
 
+func (m *mockReviewRepo) UpdateReviewModeration(_ context.Context, _ uuid.UUID, _ string, _ float64, _ []byte) error {
+	return nil
+}
+
 // mockProposalRepo implements the subset of ProposalRepository used by review service.
 type mockProposalRepo struct {
 	getByIDFn func(ctx context.Context, id uuid.UUID) (*mockProposal, error)

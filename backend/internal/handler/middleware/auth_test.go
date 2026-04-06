@@ -51,6 +51,8 @@ func (m *mockSessionService) Get(ctx context.Context, sessionID string) (*servic
 
 func (m *mockSessionService) Delete(_ context.Context, _ string) error { return nil }
 
+func (m *mockSessionService) DeleteByUserID(_ context.Context, _ uuid.UUID) error { return nil }
+
 func (m *mockSessionService) CreateWSToken(_ context.Context, _ uuid.UUID) (string, error) {
 	return "", nil
 }

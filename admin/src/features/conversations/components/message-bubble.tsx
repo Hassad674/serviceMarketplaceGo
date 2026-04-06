@@ -40,27 +40,78 @@ export function MessageBubble({ message, senderColorIndex }: MessageBubbleProps)
           senderName={message.sender_name}
           senderRole={message.sender_role}
           timestamp={message.created_at}
+          moderationStatus={message.moderation_status}
         />
         <div className={cn("mt-1 rounded-2xl px-4 py-3", bgColor)}>
           <BubbleContent message={message} />
         </div>
+        <ModerationInfo message={message} />
       </div>
     </div>
   )
 }
 
-function BubbleHeader({ senderName, senderRole, timestamp }: {
+function BubbleHeader({ senderName, senderRole, timestamp, moderationStatus }: {
   senderName: string
   senderRole: string
   timestamp: string
+  moderationStatus: string
 }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm font-medium text-foreground">{senderName}</span>
       <RoleBadge role={senderRole} />
+      {moderationStatus === "flagged" && (
+        <ModerationBadge status="flagged" />
+      )}
+      {moderationStatus === "hidden" && (
+        <ModerationBadge status="hidden" />
+      )}
       <span className="ml-auto text-xs text-muted-foreground">
         {formatTime(timestamp)}
       </span>
+    </div>
+  )
+}
+
+function ModerationBadge({ status }: { status: "flagged" | "hidden" }) {
+  const styles = status === "hidden"
+    ? "bg-red-100 text-red-700 border-red-200"
+    : "bg-amber-100 text-amber-700 border-amber-200"
+  const label = status === "hidden" ? "Masque" : "Signale"
+
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+      styles,
+    )}>
+      {label}
+    </span>
+  )
+}
+
+function ModerationInfo({ message }: { message: AdminMessage }) {
+  if (!message.moderation_status) {
+    return null
+  }
+
+  const labels = message.moderation_labels ?? []
+  const significantLabels = labels.filter((l) => l.Score >= 0.3)
+
+  if (significantLabels.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-1">
+      {significantLabels.map((label) => (
+        <span
+          key={label.Name}
+          className="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600"
+        >
+          {label.Name} ({Math.round(label.Score * 100)}%)
+        </span>
+      ))}
     </div>
   )
 }

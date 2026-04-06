@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -21,9 +23,10 @@ type ServiceDeps struct {
 
 // Service orchestrates review use cases.
 type Service struct {
-	reviews       repository.ReviewRepository
-	proposals     repository.ProposalRepository
-	notifications service.NotificationSender
+	reviews        repository.ReviewRepository
+	proposals      repository.ProposalRepository
+	notifications  service.NotificationSender
+	textModeration service.TextModerationService
 }
 
 // NewService creates a new review service.
@@ -33,6 +36,11 @@ func NewService(deps ServiceDeps) *Service {
 		proposals:     deps.Proposals,
 		notifications: deps.Notifications,
 	}
+}
+
+// SetTextModeration sets the text moderation service after construction.
+func (s *Service) SetTextModeration(svc service.TextModerationService) {
+	s.textModeration = svc
 }
 
 // CreateReviewInput contains the data needed to create a review.
@@ -112,7 +120,49 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		})
 	}
 
+	s.moderateReviewIfNeeded(r)
+
 	return r, nil
+}
+
+// moderateReviewIfNeeded fires a background text moderation check for the review comment.
+func (s *Service) moderateReviewIfNeeded(r *domain.Review) {
+	if s.textModeration == nil || r.Comment == "" {
+		return
+	}
+
+	go s.runReviewModeration(r.ID, r.Comment)
+}
+
+// runReviewModeration calls the text moderation service and updates the review.
+func (s *Service) runReviewModeration(reviewID uuid.UUID, comment string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := s.textModeration.AnalyzeText(ctx, comment)
+	if err != nil {
+		slog.Error("review text moderation failed", "error", err, "review_id", reviewID)
+		return
+	}
+
+	if result.IsSafe {
+		return
+	}
+
+	status := "flagged"
+	if result.MaxScore >= 0.9 {
+		status = "hidden"
+	}
+
+	labelsJSON, err := json.Marshal(result.Labels)
+	if err != nil {
+		slog.Error("marshal review moderation labels", "error", err, "review_id", reviewID)
+		return
+	}
+
+	if err := s.reviews.UpdateReviewModeration(ctx, reviewID, status, result.MaxScore, labelsJSON); err != nil {
+		slog.Error("update review moderation", "error", err, "review_id", reviewID)
+	}
 }
 
 // ListByUser returns reviews received by a user (public).

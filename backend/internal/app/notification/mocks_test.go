@@ -220,6 +220,10 @@ func (m *mockBroadcaster) BroadcastMessageDeleted(_ context.Context, _ []uuid.UU
 	return nil
 }
 
+func (m *mockBroadcaster) BroadcastAccountSuspended(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 // --- mockPushService implements service.PushService ---
 
 type mockPushService struct {

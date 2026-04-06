@@ -87,6 +87,42 @@ func (s *SessionService) Delete(ctx context.Context, sessionID string) error {
 	return s.client.Del(ctx, "session:"+sessionID).Err()
 }
 
+// DeleteByUserID scans all session keys and deletes those belonging to the
+// given user. Sessions are stored as "session:{uuid}" with a JSON body
+// containing user_id. This uses SCAN to avoid blocking Redis on large keyspaces.
+func (s *SessionService) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
+	var cursor uint64
+	target := userID.String()
+
+	for {
+		keys, nextCursor, err := s.client.Scan(ctx, cursor, "session:*", 100).Result()
+		if err != nil {
+			return fmt.Errorf("scan sessions: %w", err)
+		}
+
+		for _, key := range keys {
+			val, err := s.client.Get(ctx, key).Result()
+			if err != nil {
+				continue // key expired between scan and get
+			}
+			var data sessionData
+			if err := json.Unmarshal([]byte(val), &data); err != nil {
+				continue
+			}
+			if data.UserID == target {
+				_ = s.client.Del(ctx, key).Err()
+			}
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return nil
+}
+
 // CreateWSToken generates a short-lived token for WebSocket authentication.
 // The token maps to the user's ID and expires in 60 seconds.
 // This avoids exposing the session_id in a non-httpOnly cookie.

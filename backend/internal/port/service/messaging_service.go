@@ -24,6 +24,7 @@ type MessageBroadcaster interface {
 	BroadcastNotification(ctx context.Context, userID uuid.UUID, payload []byte) error
 	BroadcastMessageEdited(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
 	BroadcastMessageDeleted(ctx context.Context, recipientIDs []uuid.UUID, payload []byte) error
+	BroadcastAccountSuspended(ctx context.Context, userID uuid.UUID, reason string) error
 }
 
 type MessagingRateLimiter interface {
