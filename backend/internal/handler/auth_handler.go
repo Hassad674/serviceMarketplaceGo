@@ -288,6 +288,24 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 }
 
 func handleAuthError(w http.ResponseWriter, err error) {
+	// Check for suspension/ban errors first — they carry a reason payload.
+	var statusErr *user.AccountStatusError
+	if errors.As(err, &statusErr) {
+		code := "account_suspended"
+		message := "Votre compte a \u00e9t\u00e9 suspendu"
+		httpStatus := http.StatusForbidden
+		if errors.Is(statusErr.Sentinel, user.ErrAccountBanned) {
+			code = "account_banned"
+			message = "Votre compte a \u00e9t\u00e9 banni"
+		}
+		res.JSON(w, httpStatus, map[string]string{
+			"error":   code,
+			"message": message,
+			"reason":  statusErr.Reason,
+		})
+		return
+	}
+
 	switch {
 	case errors.Is(err, user.ErrInvalidEmail):
 		res.Error(w, http.StatusBadRequest, "invalid_email", err.Error())

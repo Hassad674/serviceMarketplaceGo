@@ -19,9 +19,10 @@ const (
 	TypePresence     = "presence"
 	TypePong         = "pong"
 	TypeSyncResult   = "sync_result"
-	TypeError        = "error"
-	TypeCallEvent    = "call_event"
-	TypeNotification = "notification"
+	TypeError            = "error"
+	TypeCallEvent        = "call_event"
+	TypeNotification     = "notification"
+	TypeAccountSuspended = "account_suspended"
 )
 
 // StreamEvent represents a broadcast event received from the pub/sub layer.

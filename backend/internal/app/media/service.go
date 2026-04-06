@@ -18,9 +18,13 @@ import (
 // ServiceDeps groups the dependencies required to construct a media service.
 type ServiceDeps struct {
 	Media               repository.MediaRepository
+	Users               repository.UserRepository
 	Storage             service.StorageService
 	Transit             service.TransitStorageService
 	Moderation          service.ContentModerationService
+	Email               service.EmailService
+	SessionSvc          service.SessionService
+	Broadcaster         service.MessageBroadcaster
 	FlagThreshold       float64
 	AutoRejectThreshold float64
 }
@@ -28,9 +32,13 @@ type ServiceDeps struct {
 // Service orchestrates media recording and moderation.
 type Service struct {
 	media               repository.MediaRepository
+	users               repository.UserRepository
 	storage             service.StorageService
 	transit             service.TransitStorageService
 	moderation          service.ContentModerationService
+	email               service.EmailService
+	sessionSvc          service.SessionService
+	broadcaster         service.MessageBroadcaster
 	flagThreshold       float64
 	autoRejectThreshold float64
 }
@@ -39,9 +47,13 @@ type Service struct {
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		media:               deps.Media,
+		users:               deps.Users,
 		storage:             deps.Storage,
 		transit:             deps.Transit,
 		moderation:          deps.Moderation,
+		email:               deps.Email,
+		sessionSvc:          deps.SessionSvc,
+		broadcaster:         deps.Broadcaster,
 		flagThreshold:       deps.FlagThreshold,
 		autoRejectThreshold: deps.AutoRejectThreshold,
 	}
@@ -185,6 +197,92 @@ func (s *Service) applyDecision(
 	if err := s.media.Update(ctx, m); err != nil {
 		slog.Error("media moderation: update", "error", err, "media_id", m.ID)
 	}
+
+	// Auto-suspend user after repeated rejected media
+	if m.ModerationStatus == mediadomain.StatusRejected {
+		s.checkAutoSuspension(ctx, m, result)
+	}
+}
+
+// checkAutoSuspension suspends users who repeatedly upload rejected content.
+// Sexual explicit: 2 rejections → suspension. Other categories: 3 rejections.
+func (s *Service) checkAutoSuspension(ctx context.Context, m *mediadomain.Media, result *service.ModerationResult) {
+	if s.users == nil {
+		return
+	}
+
+	count, err := s.media.CountRejectedByUploader(ctx, m.UploaderID)
+	if err != nil {
+		slog.Error("media moderation: count rejected", "error", err, "user_id", m.UploaderID)
+		return
+	}
+
+	threshold := 3 // default: suspend after 3 rejections
+	if isSexualContent(result) {
+		threshold = 2 // sexual content: suspend after 2 rejections
+	}
+
+	if count < threshold {
+		return
+	}
+
+	u, err := s.users.GetByID(ctx, m.UploaderID)
+	if err != nil {
+		slog.Error("media moderation: get user for suspension", "error", err, "user_id", m.UploaderID)
+		return
+	}
+
+	if u.IsSuspended() || u.IsBanned() {
+		return // already suspended or banned
+	}
+
+	reason := fmt.Sprintf("Suspension automatique : %d contenus rejetés par la modération automatique", count)
+	u.Suspend(reason, nil) // nil = no expiry, admin must review
+
+	if err := s.users.Update(ctx, u); err != nil {
+		slog.Error("media moderation: auto-suspend user", "error", err, "user_id", m.UploaderID)
+		return
+	}
+
+	slog.Warn("media moderation: user auto-suspended",
+		"user_id", m.UploaderID, "rejected_count", count, "threshold", threshold)
+
+	// Invalidate session so the user is disconnected on next API call
+	if s.sessionSvc != nil {
+		if err := s.sessionSvc.DeleteByUserID(ctx, m.UploaderID); err != nil {
+			slog.Error("media moderation: delete sessions after auto-suspend",
+				"error", err, "user_id", m.UploaderID)
+		}
+	}
+
+	// Broadcast WS event so frontend disconnects immediately
+	if s.broadcaster != nil {
+		if err := s.broadcaster.BroadcastAccountSuspended(ctx, m.UploaderID, reason); err != nil {
+			slog.Error("media moderation: broadcast account_suspended",
+				"error", err, "user_id", m.UploaderID)
+		}
+	}
+
+	// Send notification email
+	if s.email != nil {
+		_ = s.email.SendNotification(ctx, u.Email,
+			"Votre compte a été suspendu",
+			"Suite à des violations répétées de nos conditions d'utilisation concernant le contenu publié, "+
+				"votre compte a été temporairement suspendu. Notre équipe examine votre situation et vous "+
+				"serez notifié par email de notre décision.",
+		)
+	}
+}
+
+func isSexualContent(result *service.ModerationResult) bool {
+	for _, label := range result.Labels {
+		name := strings.ToLower(label.Name)
+		if strings.Contains(name, "nudity") || strings.Contains(name, "sexual") ||
+			strings.Contains(name, "explicit") {
+			return true
+		}
+	}
+	return false
 }
 
 // FinalizeVideoJob is invoked by the SQS worker when Rekognition has finished

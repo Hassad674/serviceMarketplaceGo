@@ -30,16 +30,19 @@ type ConversationParticipant struct {
 
 // AdminMessage represents a message for admin moderation view.
 type AdminMessage struct {
-	ID             uuid.UUID
-	ConversationID uuid.UUID
-	SenderID       uuid.UUID
-	SenderName     string
-	SenderRole     string
-	Content        string
-	Type           string
-	Metadata       json.RawMessage
-	ReplyToID      *uuid.UUID
-	CreatedAt      time.Time
+	ID               uuid.UUID
+	ConversationID   uuid.UUID
+	SenderID         uuid.UUID
+	SenderName       string
+	SenderRole       string
+	Content          string
+	Type             string
+	Metadata         json.RawMessage
+	ReplyToID        *uuid.UUID
+	ModerationStatus string
+	ModerationScore  float64
+	ModerationLabels json.RawMessage
+	CreatedAt        time.Time
 }
 
 // AdminConversationFilters groups query parameters for admin conversation listing.

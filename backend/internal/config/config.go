@@ -41,6 +41,7 @@ type Config struct {
 	S3ModerationBucket              string
 	SNSTopicARN                     string
 	SQSQueueURL                     string
+	ComprehendEnabled               bool
 }
 
 func Load() *Config {
@@ -78,6 +79,7 @@ func Load() *Config {
 		S3ModerationBucket:             getEnv("S3_MODERATION_BUCKET", ""),
 		SNSTopicARN:                    getEnv("SNS_TOPIC_ARN", ""),
 		SQSQueueURL:                    getEnv("SQS_QUEUE_URL", ""),
+		ComprehendEnabled:              getEnv("COMPREHEND_ENABLED", "false") == "true",
 	}
 }
 
@@ -99,6 +101,10 @@ func (c *Config) FCMConfigured() bool {
 
 func (c *Config) StripeConfigured() bool {
 	return c.StripeSecretKey != "" && c.StripePublishableKey != ""
+}
+
+func (c *Config) ComprehendConfigured() bool {
+	return c.ComprehendEnabled
 }
 
 func (c *Config) RekognitionConfigured() bool {

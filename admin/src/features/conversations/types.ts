@@ -16,6 +16,11 @@ export type AdminConversation = {
   created_at: string
 }
 
+export type ModerationLabel = {
+  Name: string
+  Score: number
+}
+
 export type AdminMessage = {
   id: string
   conversation_id: string
@@ -26,6 +31,9 @@ export type AdminMessage = {
   type: string
   metadata?: Record<string, unknown>
   reply_to_id?: string
+  moderation_status: string
+  moderation_score: number
+  moderation_labels?: ModerationLabel[]
   created_at: string
 }
 

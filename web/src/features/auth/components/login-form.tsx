@@ -4,10 +4,10 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useState } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
-import { login } from "@/features/auth/api/auth-api"
+import { login, AuthApiError } from "@/features/auth/api/auth-api"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -16,9 +16,15 @@ const loginSchema = z.object({
 
 type LoginValues = z.infer<typeof loginSchema>
 
+type SuspensionInfo = {
+  message: string
+  reason: string
+}
+
 export function LoginForm() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
+  const [suspension, setSuspension] = useState<SuspensionInfo | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const t = useTranslations("auth")
   const tCommon = useTranslations("common")
@@ -33,10 +39,15 @@ export function LoginForm() {
 
   async function onSubmit(values: LoginValues) {
     setError(null)
+    setSuspension(null)
     try {
       await login(values.email, values.password)
       router.push("/dashboard")
     } catch (err) {
+      if (err instanceof AuthApiError && (err.code === "account_suspended" || err.code === "account_banned")) {
+        setSuspension({ message: err.message, reason: err.reason || "" })
+        return
+      }
       setError(
         err instanceof Error ? err.message : tCommon("errorOccurred"),
       )
@@ -46,6 +57,20 @@ export function LoginForm() {
   return (
     <div className="animate-scale-in rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 p-8 shadow-lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {suspension && (
+          <div className="rounded-xl border border-orange-300 dark:border-orange-500/30 bg-orange-50 dark:bg-orange-500/10 p-4 space-y-2" role="alert">
+            <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400 font-semibold text-sm">
+              <ShieldAlert className="h-5 w-5 flex-shrink-0" />
+              <span>{suspension.message}</span>
+            </div>
+            {suspension.reason && (
+              <p className="text-sm text-orange-600 dark:text-orange-300/80 pl-7">
+                {suspension.reason}
+              </p>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-3 text-sm text-red-600 dark:text-red-400" role="alert">
             {error}

@@ -15,6 +15,7 @@ import (
 	"marketplace-backend/internal/adapter/noop"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
+	comprehendadapter "marketplace-backend/internal/adapter/comprehend"
 	rekognitionadapter "marketplace-backend/internal/adapter/rekognition"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
@@ -325,15 +326,37 @@ func main() {
 
 	mediaSvc := mediaapp.NewService(mediaapp.ServiceDeps{
 		Media:               mediaRepo,
+		Users:               userRepo,
 		Storage:             storageSvc,
 		Transit:             transitStorage,
 		Moderation:          moderationSvc,
+		Email:               emailSvc,
+		SessionSvc:          sessionSvc,
+		Broadcaster:         streamBroadcaster,
 		FlagThreshold:       cfg.RekognitionThreshold,
 		AutoRejectThreshold: cfg.RekognitionAutoRejectThreshold,
 	})
 
 	// Wire media recorder into messaging so file/voice messages are tracked.
 	messagingSvc.SetMediaRecorder(mediaSvc)
+
+	// Text moderation (AWS Comprehend) — moderates messages and reviews for toxicity.
+	var textModerationSvc service.TextModerationService
+	if cfg.ComprehendConfigured() {
+		comprehendSvc, compErr := comprehendadapter.NewTextModerationService(cfg.RekognitionRegion)
+		if compErr != nil {
+			slog.Error("failed to init Comprehend text moderation", "error", compErr)
+			textModerationSvc = noop.NewTextModerationService()
+		} else {
+			textModerationSvc = comprehendSvc
+			slog.Info("text moderation enabled (AWS Comprehend)")
+		}
+	} else {
+		textModerationSvc = noop.NewTextModerationService()
+		slog.Info("text moderation disabled (noop)")
+	}
+	messagingSvc.SetTextModeration(textModerationSvc)
+	reviewSvc.SetTextModeration(textModerationSvc)
 
 	// SQS worker polls Rekognition completion notifications and finalizes jobs.
 	if cfg.VideoModerationConfigured() && transitStorage != nil {
@@ -363,6 +386,8 @@ func main() {
 		AdminConversations: adminConvRepo,
 		MediaRepo:          mediaRepo,
 		StorageSvc:         storageSvc,
+		SessionSvc:         sessionSvc,
+		Broadcaster:        streamBroadcaster,
 	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 

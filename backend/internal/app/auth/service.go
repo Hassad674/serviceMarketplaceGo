@@ -133,6 +133,13 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 		return nil, user.ErrInvalidCredentials
 	}
 
+	if u.IsSuspended() {
+		return nil, user.NewSuspendedError(u.SuspensionReason)
+	}
+	if u.IsBanned() {
+		return nil, user.NewBannedError(u.BanReason)
+	}
+
 	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
@@ -159,6 +166,13 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 	u, err := s.users.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, user.ErrUnauthorized
+	}
+
+	if u.IsSuspended() {
+		return nil, user.NewSuspendedError(u.SuspensionReason)
+	}
+	if u.IsBanned() {
+		return nil, user.NewBannedError(u.BanReason)
 	}
 
 	newAccessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)

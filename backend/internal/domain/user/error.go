@@ -14,3 +14,25 @@ var (
 	ErrAccountSuspended   = errors.New("account is suspended")
 	ErrAccountBanned      = errors.New("account is banned")
 )
+
+// AccountStatusError carries the suspension/ban reason alongside the sentinel.
+type AccountStatusError struct {
+	Sentinel error
+	Reason   string
+}
+
+func (e *AccountStatusError) Error() string {
+	return e.Sentinel.Error()
+}
+
+func (e *AccountStatusError) Unwrap() error {
+	return e.Sentinel
+}
+
+func NewSuspendedError(reason string) *AccountStatusError {
+	return &AccountStatusError{Sentinel: ErrAccountSuspended, Reason: reason}
+}
+
+func NewBannedError(reason string) *AccountStatusError {
+	return &AccountStatusError{Sentinel: ErrAccountBanned, Reason: reason}
+}

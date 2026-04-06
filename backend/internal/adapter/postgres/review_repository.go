@@ -104,6 +104,17 @@ func (r *ReviewRepository) GetAverageRating(ctx context.Context, userID uuid.UUI
 	return &review.AverageRating{Average: avg, Count: count}, nil
 }
 
+func (r *ReviewRepository) UpdateReviewModeration(ctx context.Context, reviewID uuid.UUID, status string, score float64, labelsJSON []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, queryUpdateReviewModeration, reviewID, status, score, labelsJSON)
+	if err != nil {
+		return fmt.Errorf("update review moderation: %w", err)
+	}
+	return nil
+}
+
 func (r *ReviewRepository) HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
