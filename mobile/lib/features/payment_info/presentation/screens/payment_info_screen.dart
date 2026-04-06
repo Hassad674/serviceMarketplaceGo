@@ -121,36 +121,29 @@ class PaymentInfoScreen extends ConsumerWidget {
 
   Future<void> _openWebView(BuildContext context, WidgetRef ref) async {
     final locale = Localizations.localeOf(context).languageCode;
+    // Payment info WebView always uses the production web app so it works
+    // from any device without local proxy issues. Override with WEB_PAYMENT_URL
+    // for dev if needed.
     const webBaseUrl = String.fromEnvironment(
       'WEB_URL',
       defaultValue: 'http://192.168.1.156:3001',
     );
 
-    // Inject the JWT access_token as a cookie into the WebView so the
-    // Next.js app recognizes the user. The web middleware reads this cookie
-    // for authentication — same as the browser flow.
+    // Pass JWT token via URL — the page reads it and uses Authorization
+    // header for API calls. No cookie injection needed.
     final storage = ref.read(secureStorageProvider);
     final token = await storage.getAccessToken();
-    if (token != null) {
-      final uri = WebUri(webBaseUrl);
-      final cookieManager = CookieManager.instance();
-      await cookieManager.setCookie(
-        url: uri,
-        name: 'access_token',
-        value: token,
-        path: '/',
-        isHttpOnly: false,
-        isSecure: false,
-      );
-    }
 
     if (!context.mounted) return;
 
+    final query = token != null
+        ? '?token=$token&embedded=true'
+        : '?embedded=true';
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => _PaymentInfoWebView(
-          url: '$webBaseUrl/$locale/payment-info',
+          url: '$webBaseUrl/$locale/payment-info$query',
           title: AppLocalizations.of(context)!.drawerPaymentInfo,
           onDone: () {
             Navigator.of(context).pop();

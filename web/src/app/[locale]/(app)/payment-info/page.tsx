@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useSearchParams } from "next/navigation"
 import { loadConnectAndInitialize } from "@stripe/connect-js"
 import type { StripeConnectInstance } from "@stripe/connect-js"
 import {
@@ -13,7 +13,9 @@ import {
 import { AlertCircle, ArrowLeft, Loader2, Sparkles } from "lucide-react"
 import { useTranslations } from "next-intl"
 
-import { API_BASE_URL } from "@/shared/lib/api-client"
+// Use relative URLs so API calls go through the Next.js proxy rewrite.
+// This makes the page work from any device (mobile WebView, emulator,
+// desktop) without needing to change NEXT_PUBLIC_API_URL.
 
 import {
   AccountStatusCard,
@@ -49,9 +51,14 @@ type Mode = "loading" | "wizard" | "onboarding" | "dashboard"
 
 export default function PaymentInfoV2Page() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const appLocale = (params?.locale as string) || "en"
   const stripeLocale = useMemo(() => mapAppLocaleToStripe(appLocale), [appLocale])
   const t = useTranslations("paymentInfo")
+
+  // Mobile WebView passes the JWT via ?token= so we can authenticate
+  // API calls with Authorization: Bearer header (no cookie needed).
+  const mobileToken = searchParams.get("token")
 
   const [mode, setMode] = useState<Mode>("loading")
   const [status, setStatus] = useState<AccountStatus | null>(null)
@@ -66,12 +73,25 @@ export default function PaymentInfoV2Page() {
     country: null,
   })
 
+  // Build fetch options — if a mobile token is present, use Authorization
+  // header instead of cookies. Works for both web (cookie) and mobile (JWT).
+  const authHeaders = useMemo((): Record<string, string> => {
+    if (!mobileToken) return {}
+    return {
+      Authorization: `Bearer ${mobileToken}`,
+      "X-Auth-Mode": "token",
+    }
+  }, [mobileToken])
+
   /* ---------- Status fetch ---------- */
   const fetchStatus = useCallback(async (): Promise<AccountStatus | null> => {
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/v1/payment-info/account-status`,
-        { credentials: "include" },
+        `/api/v1/payment-info/account-status`,
+        {
+          credentials: mobileToken ? "omit" : "include",
+          headers: authHeaders,
+        },
       )
       if (res.status === 404) return null
       if (!res.ok) return null
@@ -121,11 +141,11 @@ export default function PaymentInfoV2Page() {
   const fetchClientSecret = useCallback(async (): Promise<string> => {
     const { country } = pendingRef.current
     const res = await fetch(
-      `${API_BASE_URL}/api/v1/payment-info/account-session`,
+      `/api/v1/payment-info/account-session`,
       {
         method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        credentials: mobileToken ? "omit" : "include",
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({ country }),
       },
     )
@@ -177,9 +197,10 @@ export default function PaymentInfoV2Page() {
 
   const handleResetToWizard = async () => {
     try {
-      await fetch(`${API_BASE_URL}/api/v1/payment-info/account-session`, {
+      await fetch(`/api/v1/payment-info/account-session`, {
         method: "DELETE",
-        credentials: "include",
+        credentials: mobileToken ? "omit" : "include",
+        headers: authHeaders,
       })
     } catch {
       // Silent fail — best effort

@@ -52,8 +52,8 @@ const nextConfig: NextConfig = {
   // Uses API_BACKEND_URL (server-only) for the rewrite destination.
   // In development, NEXT_PUBLIC_API_URL is set so the client calls directly — no proxy needed.
   async rewrites() {
-    if (process.env.NEXT_PUBLIC_API_URL) return [];
-    const backendUrl = process.env.API_BACKEND_URL;
+    const backendUrl =
+      process.env.API_BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL;
     if (!backendUrl) return [];
     return [
       {
