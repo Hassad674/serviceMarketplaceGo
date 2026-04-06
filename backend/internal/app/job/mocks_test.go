@@ -238,3 +238,24 @@ func (m *mockJobCreditRepo) ResetWeekly(ctx context.Context, minCredits int) err
 	}
 	return nil
 }
+
+
+// --- Stripe account stubs (migration 040) ---
+func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockUserRepo) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *mockUserRepo) SetStripeAccount(_ context.Context, _ uuid.UUID, _, _ string) error {
+	return nil
+}
+func (m *mockUserRepo) ClearStripeAccount(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+func (m *mockUserRepo) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []byte) error {
+	return nil
+}

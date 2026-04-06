@@ -404,3 +404,116 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 	}
 	return users, rows.Err()
 }
+
+// ---------------------------------------------------------------------------
+// Stripe account operations (migration 040)
+//
+// These methods manipulate the stripe_* columns on users added in
+// migration 040. They live on UserRepository because the Stripe account
+// is a 1-1 attribute of the user, not a separate entity.
+// ---------------------------------------------------------------------------
+
+// GetStripeAccount returns the Stripe account_id + country for a user.
+// Returns empty strings + sql.ErrNoRows if the user has no Stripe account yet.
+func (r *UserRepository) GetStripeAccount(ctx context.Context, userID uuid.UUID) (string, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var accountID sql.NullString
+	var country sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`SELECT stripe_account_id, stripe_account_country FROM users WHERE id = $1`,
+		userID,
+	).Scan(&accountID, &country)
+	if err != nil {
+		return "", "", err
+	}
+	if !accountID.Valid {
+		return "", "", sql.ErrNoRows
+	}
+	return accountID.String, country.String, nil
+}
+
+// FindUserIDByStripeAccount reverse-lookup: Stripe account_id → user_id.
+// Used by the embedded Notifier to route webhooks to the right user.
+func (r *UserRepository) FindUserIDByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var userID uuid.UUID
+	err := r.db.QueryRowContext(ctx,
+		`SELECT id FROM users WHERE stripe_account_id = $1`,
+		accountID,
+	).Scan(&userID)
+	return userID, err
+}
+
+// SetStripeAccount persists the Stripe account_id + country for a user.
+// Idempotent — safe to call on every /account-session to refresh.
+func (r *UserRepository) SetStripeAccount(ctx context.Context, userID uuid.UUID, accountID, country string) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET stripe_account_id      = $2,
+		     stripe_account_country = $3,
+		     updated_at             = now()
+		 WHERE id = $1`,
+		userID, accountID, country,
+	)
+	return err
+}
+
+// ClearStripeAccount wipes the Stripe account mapping for a user.
+// Used by the test reset flow to allow recreating with a different country.
+func (r *UserRepository) ClearStripeAccount(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET stripe_account_id      = NULL,
+		     stripe_account_country = NULL,
+		     stripe_last_state      = NULL,
+		     updated_at             = now()
+		 WHERE id = $1`,
+		userID,
+	)
+	return err
+}
+
+// GetStripeLastState returns the raw JSONB snapshot the Notifier uses
+// to diff incoming webhooks. Returns (nil, nil) when no state is stored.
+func (r *UserRepository) GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var raw sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`SELECT stripe_last_state FROM users WHERE id = $1`,
+		userID,
+	).Scan(&raw)
+	if err != nil {
+		return nil, err
+	}
+	if !raw.Valid || raw.String == "" {
+		return nil, nil
+	}
+	return []byte(raw.String), nil
+}
+
+// SaveStripeLastState persists the Notifier's last-seen state for a user.
+func (r *UserRepository) SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET stripe_last_state = $2::jsonb,
+		     updated_at        = now()
+		 WHERE id = $1`,
+		userID, string(state),
+	)
+	return err
+}

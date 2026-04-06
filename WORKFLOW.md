@@ -1,247 +1,203 @@
 # Workflow — multi-agent revert safety
 
-This repo is worked on by many parallel agents in separate worktrees.
-These rules keep work revertable and prevent one agent from breaking
-another's in-progress branch.
+Practical rules for a solo dev running 3-5 parallel agents in different
+worktrees. Keeps work revertable without enterprise-grade overhead.
 
 ---
 
-## 1. Git discipline
+## 1. Default: shared DB, isolated ONLY for destructive work
 
-### Atomic, themed commits
-- One commit = one unit of logic that can be reverted in isolation.
-- If you find yourself writing "and" in the commit subject, split it.
-- Commit message: **what** in the subject, **why** in the body.
+The default is a **shared** database. Isolate only when you'll break schema.
 
-### Merge feature branches with `--no-ff`
-- Each feature merge to `main` creates a single merge commit that groups
-  its N child commits.
-- Reverting a feature = `git revert -m 1 <merge-sha>`. One command, all
-  related commits gone cleanly.
-- Fast-forward merges make `main` history hard to revert — avoid them
-  for non-trivial features.
+| What the agent does | DB |
+|--------------------|-----|
+| Add a table, column, index | **Shared** ✅ |
+| Build a new feature (no schema removal) | **Shared** ✅ |
+| No DB changes at all | **Shared** ✅ |
+| `DROP TABLE` | **Isolated** 🔒 |
+| `ALTER TABLE ... RENAME` | **Isolated** 🔒 |
+| Major schema refactor | **Isolated** 🔒 |
+| Experimenting with migrations (might `migrate-down`) | **Isolated** 🔒 |
 
-### Never force-push to shared branches
-- `main` and any branch another agent may base work on: no `--force` /
-  `--force-with-lease` without explicit agreement.
-- Never rewrite published history.
+**Why:** 90 % of work is additive and safe on shared DB. Isolation only
+matters when your experimentation could destroy another agent's tables.
 
-### Tag + archive branch before risky migrations
-Before deleting a large chunk of code, renaming routes, or dropping
-tables, create a restore point:
+### Creating an isolated DB (only when needed)
+
 ```bash
-git tag -a vX.Y-descriptive-name -m "Restore point before X"
-git branch archive/pre-X main
-git push origin vX.Y-descriptive-name archive/pre-X
+# Template clone from the shared DB
+createdb -h localhost -p 5435 -U postgres marketplace_feat_<name> -T marketplace_go
+
+# In the worktree .env
+DATABASE_URL=postgres://postgres:postgres@localhost:5435/marketplace_feat_<name>?sslmode=disable
+
+# After merging to main
+DATABASE_URL=<main> make migrate-up
+
+# Cleanup
+dropdb -h localhost -p 5435 -U postgres marketplace_feat_<name>
 ```
-Example done once: `v0.9-kyc-custom-final` + `archive/kyc-custom-api`
-before migrating KYC to Embedded Components.
 
 ---
 
-## 2. Worktree & DB isolation
+## 2. Before any destructive change: 30-second safety check
 
-### Never touch `main` directly from inside a feature worktree
-- Merge into `main` via a temporary worktree:
-  ```bash
-  git worktree add /tmp/main-merge main
-  cd /tmp/main-merge
-  git merge feat/my-branch --no-ff -m "..."
-  git push origin main
-  cd - && git worktree remove /tmp/main-merge
-  ```
-- This keeps `main` outside the scope of any single agent's active
-  worktree.
+```bash
+# Who is active right now?
+git worktree list
 
-### Each migration-touching worktree MUST use its own DB copy
-- The shared `marketplace_go` DB must NEVER be modified by an agent
-  working in a worktree.
-- Pattern:
-  ```bash
-  # At worktree creation
-  createdb -h localhost -p 5435 -U postgres marketplace_feat_<name> -T marketplace_go
+# What just shipped to main?
+git log main --oneline -10
 
-  # In worktree .env
-  DATABASE_URL=postgres://postgres:postgres@localhost:5435/marketplace_feat_<name>?sslmode=disable
+# Is the thing I'm about to drop used anywhere else?
+grep -rn "payment_info" --include="*.go" --include="*.ts" .
+```
 
-  # After merge to main
-  DATABASE_URL=<main> make migrate-up
-
-  # Cleanup
-  dropdb -h localhost -p 5435 -U postgres marketplace_feat_<name>
-  ```
-- An agent who runs `migrate-down` on a shared DB takes down every
-  parallel agent's table. Isolated DB = blast radius = zero.
-
-### Never edit files owned by another worktree's active branch
-- Before touching a file used across features, check:
-  ```bash
-  git worktree list
-  # Is another worktree on a branch that will conflict?
-  ```
-- If yes, coordinate (merge, rebase, or wait) before touching.
+If all three are clean (no parallel agent on the same table) → proceed.
+If one agent is on a branch that touches the table → coordinate first
+(merge, rebase, or just wait).
 
 ---
 
-## 3. Migrations
+## 3. Forward-only migrations
 
-### Sequential numbering, no gaps
-- `040_x.up.sql`, `041_y.up.sql`, ... Never skip or reorder.
-- Two agents creating migration 042 in parallel = conflict at merge time.
-  Coordinate numbers in a shared tracker if multiple agents touch
-  migrations simultaneously.
+Migrations are **immutable once merged**. To change schema:
 
-### Always write a functional `.down.sql`
-- Every `up` must be reversible.
-- For `DROP TABLE`: the `.down.sql` recreates the schema shell (data
-  loss is acceptable on rollback — document it).
+- Need to remove a table? → **new migration** `DROP TABLE`, don't edit the
+  original `CREATE TABLE` migration.
+- Need to fix a bad column? → **new migration** `ALTER TABLE`, don't edit.
+- Need to rename? → **new migration**, don't edit.
 
-### Migrations are immutable once merged
-- Applied in `main`? Don't edit — create a NEW corrective migration.
-- Example: `040` created a bad column → don't edit 040, add `042_fix_x_column.up.sql`.
+**Why:** migration runners record the version applied. Editing a file
+already applied in any environment means the change will never execute —
+silent drift between environments.
 
-### Test rollback before merging
+### Before merging a migration
+
 ```bash
 make migrate-up      # apply
-# verify schema
-make migrate-down    # rollback
+# verify schema with psql
+make migrate-down    # verify rollback works
 make migrate-up      # re-apply
 ```
-A migration that doesn't round-trip cleanly ≈ a live grenade.
+
+If it doesn't round-trip cleanly, don't merge.
 
 ---
 
-## 4. Tests
+## 4. Tag + archive before large deletions
 
-### `go build ./...` broken = emergency
-- Never merge, never push. Fix in the next 10 minutes or revert.
-- A broken build blocks every other agent's test runs.
+If you're about to delete > 10 files or drop a table: create a restore
+point. Costs 30 s, saves hours of reconstruction.
 
-### Run the full test suite before any merge to `main`
 ```bash
-cd backend && go test ./... -count=1
-cd web && npx tsc --noEmit
-# + relevant playwright/smoke tests
+git tag -a vX.Y-before-big-change -m "Restore point before X"
+git branch archive/before-X main
+git push origin vX.Y-before-big-change archive/before-X
 ```
 
-### Never skip or delete tests to pass the suite
-- If a test is legitimately obsolete, delete it IN ITS OWN COMMIT with
-  a clear justification.
-- Comment out / `t.Skip()` only with a `// TODO: fix — <reason>` and a
-  plan.
+Example done once: `v0.9-kyc-custom-final` + `archive/kyc-custom-api`
+before the KYC → Embedded migration.
 
 ---
 
-## 5. Code deletions
+## 5. Git discipline
 
-### Large deletions (>20 files or >500 lines) need a restore point
-- Tag + archive branch BEFORE the delete (see §1).
-- Deletion commit title: `refactor: delete X — replaced by Y`.
+### Atomic commits
+One commit = one unit of logic that can be reverted in isolation. If the
+subject contains "and", split it.
 
-### Audit cross-references before deleting
+### `--no-ff` merges to main
+Groups a feature's N commits under a single merge commit — one `git revert`
+undoes the whole feature cleanly.
+
 ```bash
-grep -rn "TypeName\|func FuncName" --include="*.go" --include="*.ts"
-```
-Deleting a type/function used by another agent's branch = silent breakage
-on their next rebase.
-
-### Prefer deprecation over immediate delete for shared APIs
-When an endpoint, table, or port interface has external consumers:
-1. Add deprecation comment + log warning
-2. Give agents a window to migrate
-3. Delete in a separate commit after the window
-
----
-
-## 6. Merging your feature into `main`
-
-### Pre-merge checklist
-- [ ] All tests green locally
-- [ ] Build + TypeScript pass
-- [ ] Migrations round-trip (up/down/up)
-- [ ] No `console.log`, `TODO: fix`, dead code
-- [ ] Commit messages tell the story
-- [ ] `git merge-base --is-ancestor main <your-branch>` returns true
-      (your branch includes the latest `main`) — if not, rebase first
-
-### Merge command
-```bash
+# Standard merge pattern (from a temp worktree)
 git worktree add /tmp/main-merge main
 cd /tmp/main-merge
-git merge <your-branch> --no-ff -m "feat: <clear subject>
+git merge feat/my-branch --no-ff -m "feat: clear subject
 
-<body explaining what + why + notable changes>
+Body explaining what + why.
 "
 git push origin main
 cd - && git worktree remove /tmp/main-merge
 ```
 
-### Post-merge cleanup
-```bash
-# Remove your feature worktree
-git worktree remove .claude/worktrees/<name>
+### Never force-push to shared branches
+`main` and any branch another agent bases work on: no `--force` /
+`--force-with-lease` without explicit agreement.
 
-# Drop isolated DB
-dropdb -h localhost -p 5435 -U postgres marketplace_feat_<name>
-
-# Keep the remote branch as history (optional to delete)
-# git push origin --delete <your-branch>
-```
+### Never touch `main` directly from a feature worktree
+Always merge via a temp worktree (pattern above). Keeps `main`'s working
+tree out of scope for any one feature branch.
 
 ---
 
-## 7. Reverting
+## 6. Cookies / dev server isolation
+
+When two agents run web dev servers on different ports (e.g. 3000 and
+3001), they **share cookies** because browsers scope cookies by domain
+(`localhost`), not by port. That causes auth sessions to clash.
+
+**Solution:** open each dev server in a **separate browser profile** or
+private window. Cookies isolated by profile, zero config needed.
+
+No need for `/etc/hosts` aliases at this scale — too much setup for the
+gain.
+
+---
+
+## 7. Tests
+
+### Broken `go build ./...` = emergency
+Never merge, never push. Fix in the next 10 minutes or revert.
+
+### Run the full suite before merging to main
+```bash
+cd backend && go test ./... -count=1
+cd web && npx tsc --noEmit
+# + playwright / smoke tests if relevant to the change
+```
+
+### Never skip or delete a test to pass the suite
+Legitimately obsolete? Delete it in its OWN commit with the reason in
+the message. Flaky? Don't `t.Skip()` without a `// TODO: fix — <why>`.
+
+---
+
+## 8. Reverting
 
 ### Reverting a feature merge
 ```bash
 git revert -m 1 <merge-sha>
 git push origin main
 ```
-Creates a new commit that undoes the merge. Original history preserved.
+Creates a new commit that undoes the merge. History preserved, other
+agents unaffected.
 
-### Restoring from archive
+### Restoring from an archive
 ```bash
-# From any worktree
 git checkout <tag-or-archive-branch>
-# Or create a new branch from it
+# Or a new branch based on it
 git checkout -b fix/restore-X <tag>
 ```
 
-### NEVER `git reset --hard` on a shared branch
-- Use `git revert` to undo commits on `main` — creates a new commit, safe.
-- `reset --hard` rewrites history and breaks every agent whose work is
-  based on the reset commits.
+### Never `git reset --hard` on a shared branch
+Use `git revert` on `main`. `reset --hard` rewrites history and breaks
+every agent whose work is based on the reset commits.
 
 ---
 
-## 8. Communication with parallel agents
-
-### Before starting
-- `git worktree list` — see who's active on what
-- `git log main --oneline -10` — see what just shipped
-
-### During work
-- Don't rebase your branch on `main` while another agent is merging —
-  races produce duplicate commits.
-- If two branches touch the same file, the second to merge handles the
-  conflict.
-
-### After a big change
-- Bump a note in the team channel: "main now at <sha>, watch for
-  rebase conflicts on feature X".
-
----
-
-## Summary checklist
+## Pre-merge checklist
 
 Before every push to `main`:
 
-- [ ] Tests pass
-- [ ] Build passes
-- [ ] Migrations reversible + tested
-- [ ] `git worktree list` checked for conflicts
-- [ ] Big deletions tagged + archived
-- [ ] Commits atomic + well-labelled
+- [ ] Tests pass (`go test ./...`, `npx tsc --noEmit`, relevant E2E)
+- [ ] Build passes (`go build ./...`)
+- [ ] Migrations reversible (if any)
+- [ ] `git worktree list` checked for conflicts on files I changed
+- [ ] Large deletions preceded by tag + archive
+- [ ] Commits atomic, messages tell the story
 - [ ] Merge via `--no-ff` from a temp worktree
 
 When in doubt: create a restore point, commit smaller, document more.
