@@ -2,6 +2,7 @@ package user
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -185,4 +186,81 @@ func TestUser_EnableDisableReferrer_Toggle(t *testing.T) {
 
 	u.EnableReferrer()
 	assert.True(t, u.ReferrerEnabled)
+}
+
+// --- Suspend / Ban / Unsuspend / Unban tests ---
+
+func TestUser_Suspend(t *testing.T) {
+	u := &User{Status: StatusActive}
+
+	u.Suspend("policy violation", nil)
+
+	assert.Equal(t, StatusSuspended, u.Status)
+	assert.NotNil(t, u.SuspendedAt)
+	assert.Equal(t, "policy violation", u.SuspensionReason)
+	assert.Nil(t, u.SuspensionExpiresAt)
+	assert.True(t, u.IsSuspended())
+}
+
+func TestUser_Suspend_WithExpiry(t *testing.T) {
+	u := &User{Status: StatusActive}
+	expiry := time.Now().Add(24 * time.Hour)
+
+	u.Suspend("temporary ban", &expiry)
+
+	assert.Equal(t, StatusSuspended, u.Status)
+	assert.NotNil(t, u.SuspendedAt)
+	assert.Equal(t, "temporary ban", u.SuspensionReason)
+	require.NotNil(t, u.SuspensionExpiresAt)
+	assert.Equal(t, expiry, *u.SuspensionExpiresAt)
+	assert.True(t, u.IsSuspended())
+}
+
+func TestUser_Suspend_Expired_NotSuspended(t *testing.T) {
+	u := &User{Status: StatusSuspended}
+	past := time.Now().Add(-1 * time.Hour)
+	now := time.Now()
+	u.SuspendedAt = &now
+	u.SuspensionReason = "temp"
+	u.SuspensionExpiresAt = &past
+
+	assert.False(t, u.IsSuspended(), "expired suspension should not count as suspended")
+}
+
+func TestUser_Ban(t *testing.T) {
+	u := &User{Status: StatusActive}
+
+	u.Ban("repeated violations")
+
+	assert.Equal(t, StatusBanned, u.Status)
+	assert.NotNil(t, u.BannedAt)
+	assert.Equal(t, "repeated violations", u.BanReason)
+	assert.True(t, u.IsBanned())
+}
+
+func TestUser_Unsuspend(t *testing.T) {
+	u := &User{Status: StatusActive}
+	u.Suspend("test", nil)
+	require.True(t, u.IsSuspended())
+
+	u.Unsuspend()
+
+	assert.Equal(t, StatusActive, u.Status)
+	assert.Nil(t, u.SuspendedAt)
+	assert.Empty(t, u.SuspensionReason)
+	assert.Nil(t, u.SuspensionExpiresAt)
+	assert.False(t, u.IsSuspended())
+}
+
+func TestUser_Unban(t *testing.T) {
+	u := &User{Status: StatusActive}
+	u.Ban("test")
+	require.True(t, u.IsBanned())
+
+	u.Unban()
+
+	assert.Equal(t, StatusActive, u.Status)
+	assert.Nil(t, u.BannedAt)
+	assert.Empty(t, u.BanReason)
+	assert.False(t, u.IsBanned())
 }

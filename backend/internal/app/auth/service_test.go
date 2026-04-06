@@ -933,3 +933,141 @@ func TestAuthService_EnableReferrer_SetsUpdatedAt(t *testing.T) {
 	assert.True(t, result.UpdatedAt.After(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)),
 		"updated_at should be refreshed to a recent time")
 }
+
+// --- Login: suspended / banned user tests ---
+
+func TestAuthService_Login_SuspendedUser_ReturnsSuspendedError(t *testing.T) {
+	suspendedUser := &user.User{
+		ID:             uuid.New(),
+		Email:          "suspended@example.com",
+		HashedPassword: "hashed_CorrectPass1",
+		Role:           user.RoleProvider,
+		Status:         user.StatusActive,
+	}
+	suspendedUser.Suspend("policy violation", nil)
+
+	userRepo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return suspendedUser, nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.Login(context.Background(), LoginInput{
+		Email:    "suspended@example.com",
+		Password: "CorrectPass1",
+	})
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, user.ErrAccountSuspended)
+
+	var statusErr *user.AccountStatusError
+	require.ErrorAs(t, err, &statusErr)
+	assert.Equal(t, "policy violation", statusErr.Reason)
+}
+
+func TestAuthService_Login_BannedUser_ReturnsBannedError(t *testing.T) {
+	bannedUser := &user.User{
+		ID:             uuid.New(),
+		Email:          "banned@example.com",
+		HashedPassword: "hashed_CorrectPass1",
+		Role:           user.RoleAgency,
+		Status:         user.StatusActive,
+	}
+	bannedUser.Ban("repeated violations")
+
+	userRepo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return bannedUser, nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, nil, nil)
+
+	result, err := svc.Login(context.Background(), LoginInput{
+		Email:    "banned@example.com",
+		Password: "CorrectPass1",
+	})
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, user.ErrAccountBanned)
+
+	var statusErr *user.AccountStatusError
+	require.ErrorAs(t, err, &statusErr)
+	assert.Equal(t, "repeated violations", statusErr.Reason)
+}
+
+// --- RefreshToken: suspended / banned user tests ---
+
+func TestAuthService_RefreshToken_SuspendedUser_ReturnsError(t *testing.T) {
+	suspendedUser := &user.User{
+		ID:     uuid.New(),
+		Email:  "suspended@example.com",
+		Role:   user.RoleProvider,
+		Status: user.StatusActive,
+	}
+	suspendedUser.Suspend("auto-suspension", nil)
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == suspendedUser.ID {
+				return suspendedUser, nil
+			}
+			return nil, user.ErrUserNotFound
+		},
+	}
+	tokens := &mockTokenService{
+		validateRefreshFn: func(_ string) (*service.TokenClaims, error) {
+			return &service.TokenClaims{
+				UserID:    suspendedUser.ID,
+				ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+			}, nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, tokens, nil)
+
+	result, err := svc.RefreshToken(context.Background(), "valid_refresh_token")
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, user.ErrAccountSuspended)
+}
+
+func TestAuthService_RefreshToken_BannedUser_ReturnsError(t *testing.T) {
+	bannedUser := &user.User{
+		ID:     uuid.New(),
+		Email:  "banned@example.com",
+		Role:   user.RoleEnterprise,
+		Status: user.StatusActive,
+	}
+	bannedUser.Ban("permanent ban")
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == bannedUser.ID {
+				return bannedUser, nil
+			}
+			return nil, user.ErrUserNotFound
+		},
+	}
+	tokens := &mockTokenService{
+		validateRefreshFn: func(_ string) (*service.TokenClaims, error) {
+			return &service.TokenClaims{
+				UserID:    bannedUser.ID,
+				ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+			}, nil
+		},
+	}
+
+	svc := newTestService(userRepo, nil, nil, tokens, nil)
+
+	result, err := svc.RefreshToken(context.Background(), "valid_refresh_token")
+
+	assert.Nil(t, result)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, user.ErrAccountBanned)
+}
