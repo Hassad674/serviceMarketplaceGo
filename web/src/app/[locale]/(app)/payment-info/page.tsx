@@ -13,9 +13,7 @@ import {
 import { AlertCircle, ArrowLeft, Loader2, Sparkles } from "lucide-react"
 import { useTranslations } from "next-intl"
 
-// Use relative URLs so API calls go through the Next.js proxy rewrite.
-// This makes the page work from any device (mobile WebView, emulator,
-// desktop) without needing to change NEXT_PUBLIC_API_URL.
+import { API_BASE_URL } from "@/shared/lib/api-client"
 
 import {
   AccountStatusCard,
@@ -59,6 +57,9 @@ export default function PaymentInfoV2Page() {
   // Mobile WebView passes the JWT via ?token= so we can authenticate
   // API calls with Authorization: Bearer header (no cookie needed).
   const mobileToken = searchParams.get("token")
+  // Mobile uses relative URLs (through Next.js proxy), desktop uses
+  // the absolute API_BASE_URL (direct to Railway/backend).
+  const apiBase = mobileToken ? "" : API_BASE_URL
 
   const [mode, setMode] = useState<Mode>("loading")
   const [status, setStatus] = useState<AccountStatus | null>(null)
@@ -87,7 +88,7 @@ export default function PaymentInfoV2Page() {
   const fetchStatus = useCallback(async (): Promise<AccountStatus | null> => {
     try {
       const res = await fetch(
-        `/api/v1/payment-info/account-status`,
+        `${apiBase}/api/v1/payment-info/account-status`,
         {
           credentials: mobileToken ? "omit" : "include",
           headers: authHeaders,
@@ -141,7 +142,7 @@ export default function PaymentInfoV2Page() {
   const fetchClientSecret = useCallback(async (): Promise<string> => {
     const { country } = pendingRef.current
     const res = await fetch(
-      `/api/v1/payment-info/account-session`,
+      `${apiBase}/api/v1/payment-info/account-session`,
       {
         method: "POST",
         credentials: mobileToken ? "omit" : "include",
@@ -197,7 +198,7 @@ export default function PaymentInfoV2Page() {
 
   const handleResetToWizard = async () => {
     try {
-      await fetch(`/api/v1/payment-info/account-session`, {
+      await fetch(`${apiBase}/api/v1/payment-info/account-session`, {
         method: "DELETE",
         credentials: mobileToken ? "omit" : "include",
         headers: authHeaders,
