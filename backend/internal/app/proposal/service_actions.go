@@ -271,6 +271,14 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		}
 	}
 
+	// Record first earning for KYC enforcement — triggers the 14-day countdown.
+	// Idempotent: only writes if kyc_first_earning_at is NULL.
+	if s.users != nil {
+		if err := s.users.SetKYCFirstEarning(ctx, p.ProviderID, time.Now()); err != nil {
+			slog.Warn("kyc: failed to record first earning", "provider_id", p.ProviderID, "error", err)
+		}
+	}
+
 	return nil
 }
 

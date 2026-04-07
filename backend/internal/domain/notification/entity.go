@@ -24,6 +24,9 @@ const (
 	TypeSystemAnnouncement  NotificationType = "system_announcement"
 	TypeStripeRequirements  NotificationType = "stripe_requirements"
 	TypeStripeAccountStatus NotificationType = "stripe_account_status"
+	TypeKYCReminder         NotificationType = "kyc_reminder"
+	TypeKYCRestriction      NotificationType = "kyc_restriction"
+	TypeKYCUnlocked         NotificationType = "kyc_unlocked"
 )
 
 var validTypes = map[NotificationType]bool{
@@ -39,6 +42,9 @@ var validTypes = map[NotificationType]bool{
 	TypeSystemAnnouncement:  true,
 	TypeStripeRequirements:  true,
 	TypeStripeAccountStatus: true,
+	TypeKYCReminder:         true,
+	TypeKYCRestriction:      true,
+	TypeKYCUnlocked:         true,
 }
 
 // IsValid checks if the notification type is recognised.
@@ -116,7 +122,8 @@ func DefaultPreferences(userID uuid.UUID, nType NotificationType) *Preferences {
 	switch nType {
 	case TypeProposalReceived, TypeProposalAccepted, TypeProposalDeclined,
 		TypeProposalPaid, TypeCompletionRequested, TypeProposalCompleted,
-		TypeSystemAnnouncement, TypeStripeRequirements, TypeStripeAccountStatus:
+		TypeSystemAnnouncement, TypeStripeRequirements, TypeStripeAccountStatus,
+		TypeKYCReminder, TypeKYCRestriction, TypeKYCUnlocked:
 		emailDefault = true
 	}
 	return &Preferences{
