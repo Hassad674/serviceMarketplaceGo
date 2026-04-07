@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
+	paymentdomain "marketplace-backend/internal/domain/payment"
 	"marketplace-backend/internal/handler/middleware"
 	res "marketplace-backend/pkg/response"
 )
@@ -69,6 +71,10 @@ func (h *WalletHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.paymentSvc.RequestPayout(r.Context(), userID)
 	if err != nil {
+		if errors.Is(err, paymentdomain.ErrStripeAccountNotFound) {
+			res.Error(w, http.StatusForbidden, "stripe_account_missing", "You must complete your payment setup before requesting a payout.")
+			return
+		}
 		res.Error(w, http.StatusInternalServerError, "payout_error", err.Error())
 		return
 	}

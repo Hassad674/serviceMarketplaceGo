@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/domain/user"
 )
 
 // --- AcceptProposal table-driven tests ---
@@ -568,6 +570,62 @@ func TestRejectCompletion_RepoGetError(t *testing.T) {
 }
 
 // --- helper ---
+
+// --- KYC enforcement tests ---
+
+func TestAcceptProposal_KYCBlocked(t *testing.T) {
+	senderID := uuid.New()
+	providerID := uuid.New()
+	past15 := time.Now().Add(-15 * 24 * time.Hour)
+
+	p := newStubProposal(senderID, providerID, domain.StatusPending)
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) { return p, nil },
+	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			u := makeUser(id, user.RoleProvider)
+			u.KYCFirstEarningAt = &past15
+			return u, nil
+		},
+	}
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
+
+	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
+		ProposalID: p.ID,
+		UserID:     providerID,
+	})
+
+	assert.ErrorIs(t, err, user.ErrKYCRestricted)
+}
+
+func TestAcceptProposal_KYCNotBlocked_Passes(t *testing.T) {
+	senderID := uuid.New()
+	providerID := uuid.New()
+	past5 := time.Now().Add(-5 * 24 * time.Hour)
+
+	p := newStubProposal(senderID, providerID, domain.StatusPending)
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) { return p, nil },
+	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			u := makeUser(id, user.RoleProvider)
+			u.KYCFirstEarningAt = &past5
+			return u, nil
+		},
+	}
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
+
+	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
+		ProposalID: p.ID,
+		UserID:     providerID,
+	})
+
+	assert.NoError(t, err)
+}
 
 func newStubProposal(senderID, recipientID uuid.UUID, status domain.ProposalStatus) *domain.Proposal {
 	return &domain.Proposal{

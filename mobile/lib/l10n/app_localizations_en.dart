@@ -1405,4 +1405,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get paymentInfoPayouts => 'Transfers';
+
+  @override
+  String get kycBannerPendingTitle => 'Set up your payment info';
+
+  @override
+  String kycBannerPendingBody(int days) {
+    return 'You have funds pending. Complete setup within $days days to avoid restrictions.';
+  }
+
+  @override
+  String get kycBannerRestrictedTitle => 'Account restricted';
+
+  @override
+  String get kycBannerRestrictedBody =>
+      'You cannot apply to jobs or create proposals until you complete your payment setup.';
+
+  @override
+  String get kycBannerCta => 'Set up now';
 }

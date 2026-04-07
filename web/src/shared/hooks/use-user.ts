@@ -15,6 +15,8 @@ export type CurrentUser = {
   role: "agency" | "enterprise" | "provider"
   referrer_enabled: boolean
   email_verified: boolean
+  kyc_status: "none" | "pending" | "restricted" | "completed"
+  kyc_deadline?: string
   created_at: string
 }
 

@@ -513,5 +513,18 @@
   "paymentInfoNotConfigured": "Not configured",
   "paymentInfoNotConfiguredDesc": "Set up your payment account to start receiving funds.",
   "paymentInfoCharges": "Payments",
-  "paymentInfoPayouts": "Transfers"
+  "paymentInfoPayouts": "Transfers",
+
+  "kycBannerPendingTitle": "Set up your payment info",
+  "kycBannerPendingBody": "You have funds pending. Complete setup within {days} days to avoid restrictions.",
+  "@kycBannerPendingBody": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "kycBannerRestrictedTitle": "Account restricted",
+  "kycBannerRestrictedBody": "You cannot apply to jobs or create proposals until you complete your payment setup.",
+  "kycBannerCta": "Set up now"
 }

@@ -1411,4 +1411,22 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get paymentInfoPayouts => 'Virements';
+
+  @override
+  String get kycBannerPendingTitle => 'Configurez vos paiements';
+
+  @override
+  String kycBannerPendingBody(int days) {
+    return 'Vous avez des fonds en attente. Finalisez dans les $days jours pour éviter des restrictions.';
+  }
+
+  @override
+  String get kycBannerRestrictedTitle => 'Compte restreint';
+
+  @override
+  String get kycBannerRestrictedBody =>
+      'Vous ne pouvez plus postuler ni créer de propositions tant que votre compte de paiement n\'est pas configuré.';
+
+  @override
+  String get kycBannerCta => 'Configurer';
 }

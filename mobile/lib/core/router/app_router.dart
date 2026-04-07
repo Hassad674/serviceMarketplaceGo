@@ -39,6 +39,7 @@ import '../../features/search/presentation/screens/search_screen.dart';
 import '../../features/wallet/presentation/screens/wallet_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_drawer.dart';
+import '../../shared/widgets/kyc_banner.dart';
 import '../notifications/fcm_service.dart';
 import '../theme/app_theme.dart';
 
@@ -420,7 +421,12 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     return Scaffold(
       key: DashboardShell.scaffoldKey,
       drawer: const AppDrawer(),
-      body: widget.child,
+      body: Column(
+        children: [
+          const KYCBanner(),
+          Expanded(child: widget.child),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
