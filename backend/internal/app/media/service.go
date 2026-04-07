@@ -39,8 +39,14 @@ type Service struct {
 	email               service.EmailService
 	sessionSvc          service.SessionService
 	broadcaster         service.MessageBroadcaster
+	adminNotifier       service.AdminNotifierService
 	flagThreshold       float64
 	autoRejectThreshold float64
+}
+
+// SetAdminNotifier sets the admin notifier after construction.
+func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
+	s.adminNotifier = n
 }
 
 // NewService creates a new media service.
@@ -198,6 +204,9 @@ func (s *Service) applyDecision(
 		slog.Error("media moderation: update", "error", err, "media_id", m.ID)
 	}
 
+	// Notify admins of moderation results
+	s.notifyAdminMediaDecision(m)
+
 	// Auto-suspend user after repeated rejected media
 	if m.ModerationStatus == mediadomain.StatusRejected {
 		s.checkAutoSuspension(ctx, m, result)
@@ -247,6 +256,17 @@ func (s *Service) checkAutoSuspension(ctx context.Context, m *mediadomain.Media,
 	slog.Warn("media moderation: user auto-suspended",
 		"user_id", m.UploaderID, "rejected_count", count, "threshold", threshold)
 
+	// Notify admins of auto-suspension
+	if s.adminNotifier != nil {
+		go func() {
+			nCtx, nCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer nCancel()
+			if err := s.adminNotifier.IncrementAll(nCtx, service.AdminNotifUsersSuspended); err != nil {
+				slog.Error("admin notifier: increment users_suspended", "error", err)
+			}
+		}()
+	}
+
 	// Invalidate session so the user is disconnected on next API call
 	if s.sessionSvc != nil {
 		if err := s.sessionSvc.DeleteByUserID(ctx, m.UploaderID); err != nil {
@@ -272,6 +292,30 @@ func (s *Service) checkAutoSuspension(ctx context.Context, m *mediadomain.Media,
 				"serez notifié par email de notre décision.",
 		)
 	}
+}
+
+// notifyAdminMediaDecision fires a background admin notification for
+// media that was auto-rejected or flagged.
+func (s *Service) notifyAdminMediaDecision(m *mediadomain.Media) {
+	if s.adminNotifier == nil {
+		return
+	}
+	var category string
+	switch m.ModerationStatus {
+	case mediadomain.StatusRejected:
+		category = service.AdminNotifMediaRejected
+	case mediadomain.StatusFlagged:
+		category = service.AdminNotifMediaFlagged
+	default:
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.adminNotifier.IncrementAll(ctx, category); err != nil {
+			slog.Error("admin notifier: increment media", "error", err, "category", category)
+		}
+	}()
 }
 
 func isSexualContent(result *service.ModerationResult) bool {

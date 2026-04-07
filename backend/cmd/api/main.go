@@ -387,6 +387,14 @@ func main() {
 		}
 	}
 
+	// Admin notification counters (per-admin Redis counters)
+	adminNotifierSvc := redisadapter.NewAdminNotifierService(redisClient, db, streamBroadcaster)
+	reportSvc.SetAdminNotifier(adminNotifierSvc)
+	mediaSvc.SetAdminNotifier(adminNotifierSvc)
+	messagingSvc.SetAdminNotifier(adminNotifierSvc)
+	reviewSvc.SetAdminNotifier(adminNotifierSvc)
+	slog.Info("admin notification counters enabled")
+
 	// Admin feature
 	adminConvRepo := postgres.NewAdminConversationRepository(db)
 	adminModerationRepo := postgres.NewAdminModerationRepository(db)
@@ -403,6 +411,7 @@ func main() {
 		StorageSvc:         storageSvc,
 		SessionSvc:         sessionSvc,
 		Broadcaster:        streamBroadcaster,
+		AdminNotifier:      adminNotifierSvc,
 	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
@@ -469,6 +478,7 @@ func main() {
 		Config:         cfg,
 		TokenService:   tokenSvc,
 		SessionService: sessionSvc,
+		UserRepo:       userRepo,
 	})
 
 	// Create HTTP server

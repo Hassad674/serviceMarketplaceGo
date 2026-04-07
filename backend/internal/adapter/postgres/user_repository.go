@@ -57,16 +57,18 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	defer cancel()
 
 	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
 		FROM users WHERE id = $1`
 
 	u := &user.User{}
 	var role, status string
+	var stripeAcctID sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
 		&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
-		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
+		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
+		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -77,6 +79,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 
 	u.Role = user.Role(role)
 	u.Status = user.UserStatus(status)
+	if stripeAcctID.Valid {
+		u.StripeAccountID = &stripeAcctID.String
+	}
 	return u, nil
 }
 
@@ -85,16 +90,18 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	defer cancel()
 
 	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
 		FROM users WHERE email = $1`
 
 	u := &user.User{}
 	var role, status string
+	var stripeAcctID sql.NullString
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
 		&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
-		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
+		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
+		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -105,6 +112,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 
 	u.Role = user.Role(role)
 	u.Status = user.UserStatus(status)
+	if stripeAcctID.Valid {
+		u.StripeAccountID = &stripeAcctID.String
+	}
 	return u, nil
 }
 

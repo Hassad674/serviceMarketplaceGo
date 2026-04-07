@@ -42,6 +42,7 @@ type ServiceDeps struct {
 	StorageSvc         portservice.StorageService
 	SessionSvc         portservice.SessionService
 	Broadcaster        portservice.MessageBroadcaster
+	AdminNotifier      portservice.AdminNotifierService
 }
 
 type Service struct {
@@ -57,6 +58,7 @@ type Service struct {
 	storageSvc         portservice.StorageService
 	sessionSvc         portservice.SessionService
 	broadcaster        portservice.MessageBroadcaster
+	adminNotifier      portservice.AdminNotifierService
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -73,7 +75,31 @@ func NewService(deps ServiceDeps) *Service {
 		storageSvc:         deps.StorageSvc,
 		sessionSvc:         deps.SessionSvc,
 		broadcaster:        deps.Broadcaster,
+		adminNotifier:      deps.AdminNotifier,
 	}
+}
+
+// GetNotificationCounters returns all notification counters for the given admin.
+func (s *Service) GetNotificationCounters(ctx context.Context, adminID uuid.UUID) (map[string]int64, error) {
+	if s.adminNotifier == nil {
+		return make(map[string]int64), nil
+	}
+	counters, err := s.adminNotifier.GetAll(ctx, adminID)
+	if err != nil {
+		return nil, fmt.Errorf("get admin notification counters: %w", err)
+	}
+	return counters, nil
+}
+
+// ResetNotificationCounter resets a single notification counter for the given admin.
+func (s *Service) ResetNotificationCounter(ctx context.Context, adminID uuid.UUID, category string) error {
+	if s.adminNotifier == nil {
+		return nil
+	}
+	if err := s.adminNotifier.Reset(ctx, adminID, category); err != nil {
+		return fmt.Errorf("reset admin notification counter: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error) {

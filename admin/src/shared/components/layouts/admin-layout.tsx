@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "@/shared/hooks/use-auth"
+import { useAdminWS } from "@/shared/hooks/use-admin-ws"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 
@@ -7,6 +8,12 @@ export function AdminLayout() {
   const { isAuthenticated } = useAuth()
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
+
+  return <AuthenticatedLayout />
+}
+
+function AuthenticatedLayout() {
+  useAdminWS()
 
   return (
     <div className="flex h-screen">

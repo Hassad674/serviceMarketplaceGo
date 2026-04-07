@@ -240,6 +240,9 @@ func (m *mockBroadcaster) BroadcastAccountSuspended(ctx context.Context, userID 
 	}
 	return nil
 }
+func (m *mockBroadcaster) BroadcastAdminNotification(_ context.Context, _ []uuid.UUID) error {
+	return nil
+}
 
 // --- helper ---
 

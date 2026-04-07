@@ -73,6 +73,11 @@ func (b *StreamBroadcaster) BroadcastCallEvent(ctx context.Context, recipientIDs
 	return b.publish(ctx, "call_event", recipientIDs, payload)
 }
 
+func (b *StreamBroadcaster) BroadcastAdminNotification(ctx context.Context, adminIDs []uuid.UUID) error {
+	payload, _ := json.Marshal(map[string]string{"event": "counters_updated"})
+	return b.publish(ctx, "admin_notification_update", adminIDs, payload)
+}
+
 func (b *StreamBroadcaster) BroadcastAccountSuspended(ctx context.Context, userID uuid.UUID, reason string) error {
 	payload, err := json.Marshal(map[string]string{"reason": reason})
 	if err != nil {

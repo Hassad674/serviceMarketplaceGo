@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -20,6 +21,10 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 	sender, err := s.users.GetByID(ctx, input.SenderID)
 	if err != nil {
 		return nil, fmt.Errorf("get sender: %w", err)
+	}
+	// KYC enforcement: blocked providers/agencies cannot create proposals
+	if sender.IsKYCBlocked() {
+		return nil, user.ErrKYCRestricted
 	}
 
 	recipient, err := s.users.GetByID(ctx, input.RecipientID)

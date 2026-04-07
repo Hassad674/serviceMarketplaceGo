@@ -27,6 +27,12 @@ type Service struct {
 	proposals      repository.ProposalRepository
 	notifications  service.NotificationSender
 	textModeration service.TextModerationService
+	adminNotifier  service.AdminNotifierService
+}
+
+// SetAdminNotifier sets the admin notifier after construction.
+func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
+	s.adminNotifier = n
 }
 
 // NewService creates a new review service.
@@ -162,6 +168,13 @@ func (s *Service) runReviewModeration(reviewID uuid.UUID, comment string) {
 
 	if err := s.reviews.UpdateReviewModeration(ctx, reviewID, status, result.MaxScore, labelsJSON); err != nil {
 		slog.Error("update review moderation", "error", err, "review_id", reviewID)
+	}
+
+	// Notify admins of flagged review
+	if s.adminNotifier != nil {
+		if err := s.adminNotifier.IncrementAll(ctx, service.AdminNotifReviewsFlagged); err != nil {
+			slog.Error("admin notifier: increment reviews_flagged", "error", err)
+		}
 	}
 }
 

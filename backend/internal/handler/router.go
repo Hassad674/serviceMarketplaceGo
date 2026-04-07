@@ -7,6 +7,7 @@ import (
 
 	"marketplace-backend/internal/config"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -32,6 +33,7 @@ type RouterDeps struct {
 	Config         *config.Config
 	TokenService   service.TokenService
 	SessionService service.SessionService
+	UserRepo       repository.UserRepository // for KYC middleware
 }
 
 func NewRouter(deps RouterDeps) chi.Router {
@@ -324,6 +326,10 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Unified moderation queue
 				r.Get("/moderation", deps.Admin.ListModerationItems)
 				r.Get("/moderation/count", deps.Admin.ModerationCount)
+
+				// Admin notification counters
+				r.Get("/notifications", deps.Admin.GetNotificationCounters)
+				r.Post("/notifications/{category}/reset", deps.Admin.ResetNotificationCounter)
 
 				// Media moderation endpoints
 				r.Get("/media", deps.Admin.ListMedia)
