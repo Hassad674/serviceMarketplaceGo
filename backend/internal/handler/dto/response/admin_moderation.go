@@ -60,15 +60,19 @@ func NewModerationItemResponse(item repository.ModerationItem) ModerationItemRes
 // computeContentURL generates a frontend-friendly URL based on the source and content type.
 func computeContentURL(item repository.ModerationItem) string {
 	switch item.ContentType {
-	case "report":
-		return "/reports/" + item.ContentID.String()
 	case "message":
 		if item.ConversationID != nil {
 			return "/conversations/" + item.ConversationID.String()
 		}
 		return ""
+	case "user":
+		return "/users/" + item.ContentID.String()
 	case "review":
 		return "/reviews/" + item.ContentID.String()
+	case "job":
+		return "/jobs/" + item.ContentID.String()
+	case "job_application":
+		return "/jobs"
 	case "media":
 		return "/media/" + item.ContentID.String()
 	default:

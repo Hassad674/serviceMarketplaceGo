@@ -68,6 +68,8 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	switch event.Type {
 	case "payment_intent.succeeded":
 		h.handlePaymentSucceeded(r, event.PaymentIntentID)
+	case "payment_intent.payment_failed":
+		slog.Warn("payment intent failed", "payment_intent_id", event.PaymentIntentID)
 	case "account.updated":
 		h.dispatchEmbeddedNotif(r, event)
 	case "capability.updated",

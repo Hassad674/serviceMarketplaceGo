@@ -7,6 +7,12 @@ import (
 
 // StripeService abstracts Stripe API operations for payment + webhook
 // verification. KYC onboarding lives in Embedded Components — not here.
+// StripeAccountInfo is a minimal view of a connected account's capabilities.
+type StripeAccountInfo struct {
+	ChargesEnabled bool
+	PayoutsEnabled bool
+}
+
 type StripeService interface {
 	// CreatePaymentIntent creates a PaymentIntent on the platform account.
 	CreatePaymentIntent(ctx context.Context, input CreatePaymentIntentInput) (*PaymentIntentResult, error)
@@ -16,6 +22,9 @@ type StripeService interface {
 
 	// ConstructWebhookEvent verifies and parses a Stripe webhook event.
 	ConstructWebhookEvent(payload []byte, signature string) (*StripeWebhookEvent, error)
+
+	// GetAccount retrieves a connected account's capabilities status.
+	GetAccount(ctx context.Context, accountID string) (*StripeAccountInfo, error)
 }
 
 type CreatePaymentIntentInput struct {

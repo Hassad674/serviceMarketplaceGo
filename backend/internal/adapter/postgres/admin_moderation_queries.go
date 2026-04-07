@@ -18,8 +18,8 @@ func buildModerationUnionQuery(filters repository.ModerationFilters) (string, []
 	wantSource := filters.Source
 	wantType := filters.Type
 
-	if shouldInclude(wantSource, wantType, "human_report", "report") {
-		subQueries = append(subQueries, buildReportSubQuery())
+	if shouldIncludeReports(wantSource, wantType) {
+		subQueries = append(subQueries, buildReportSubQuery(wantType))
 	}
 	if shouldInclude(wantSource, wantType, "auto_text", "message") {
 		subQueries = append(subQueries, buildMessageSubQuery())
@@ -34,7 +34,7 @@ func buildModerationUnionQuery(filters repository.ModerationFilters) (string, []
 	if len(subQueries) == 0 {
 		// Return all sources when no filter matches
 		subQueries = []string{
-			buildReportSubQuery(),
+			buildReportSubQuery(""),
 			buildMessageSubQuery(),
 			buildReviewSubQuery(),
 			buildMediaSubQuery(),
@@ -84,8 +84,8 @@ func buildModerationCountQuery(filters repository.ModerationFilters) (string, []
 	wantSource := filters.Source
 	wantType := filters.Type
 
-	if shouldInclude(wantSource, wantType, "human_report", "report") {
-		subQueries = append(subQueries, buildReportSubQuery())
+	if shouldIncludeReports(wantSource, wantType) {
+		subQueries = append(subQueries, buildReportSubQuery(wantType))
 	}
 	if shouldInclude(wantSource, wantType, "auto_text", "message") {
 		subQueries = append(subQueries, buildMessageSubQuery())
@@ -99,7 +99,7 @@ func buildModerationCountQuery(filters repository.ModerationFilters) (string, []
 
 	if len(subQueries) == 0 {
 		subQueries = []string{
-			buildReportSubQuery(),
+			buildReportSubQuery(""),
 			buildMessageSubQuery(),
 			buildReviewSubQuery(),
 			buildMediaSubQuery(),
@@ -142,12 +142,25 @@ func shouldInclude(wantSource, wantType, source, contentType string) bool {
 	return true
 }
 
-func buildReportSubQuery() string {
+func shouldIncludeReports(wantSource, wantType string) bool {
+	if wantSource != "" && wantSource != "human_report" {
+		return false
+	}
+	// Reports have dynamic target_type, so we always include them
+	// and let the SQL WHERE clause filter by target_type if needed
+	return true
+}
+
+func buildReportSubQuery(wantType string) string {
+	where := "WHERE 1=1"
+	if wantType != "" {
+		where += " AND r.target_type = '" + wantType + "'"
+	}
 	return `SELECT
 		r.id,
 		'human_report'::text AS source,
-		'report'::text AS content_type,
-		r.id AS content_id,
+		r.target_type::text AS content_type,
+		r.target_id AS content_id,
 		COALESCE(r.description, '') AS content_preview,
 		r.status::text AS status,
 		0::real AS moderation_score,
@@ -158,7 +171,7 @@ func buildReportSubQuery() string {
 		r.conversation_id,
 		r.created_at
 	FROM reports r
-	JOIN users u ON u.id = r.reporter_id`
+	JOIN users u ON u.id = r.reporter_id ` + where
 }
 
 func buildMessageSubQuery() string {
