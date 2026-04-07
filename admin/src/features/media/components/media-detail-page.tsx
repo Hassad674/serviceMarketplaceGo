@@ -80,7 +80,7 @@ export function MediaDetailPage() {
       <PageHeader
         title="Détail du média"
         actions={
-          <Button variant="ghost" size="sm" onClick={() => navigate("/media")}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-4 w-4" />
             Retour
           </Button>
