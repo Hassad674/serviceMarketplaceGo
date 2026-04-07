@@ -278,17 +278,22 @@ func scanAdminMessages(rows *sql.Rows, limit int) ([]repository.AdminMessage, st
 	for rows.Next() {
 		var m repository.AdminMessage
 		var metadata []byte
+		var moderationLabels []byte
 
 		if err := rows.Scan(
 			&m.ID, &m.ConversationID, &m.SenderID, &m.Content,
 			&m.Type, &metadata, &m.ReplyToID, &m.CreatedAt,
 			&m.SenderName, &m.SenderRole,
+			&m.ModerationStatus, &m.ModerationScore, &moderationLabels,
 		); err != nil {
 			return nil, "", fmt.Errorf("scan message: %w", err)
 		}
 
 		if len(metadata) > 0 {
 			m.Metadata = metadata
+		}
+		if len(moderationLabels) > 0 {
+			m.ModerationLabels = moderationLabels
 		}
 
 		results = append(results, m)

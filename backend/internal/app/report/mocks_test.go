@@ -195,6 +195,9 @@ func (m *mockMessageRepo) GetContactIDs(_ context.Context, _ uuid.UUID) ([]uuid.
 func (m *mockMessageRepo) SaveMessageHistory(_ context.Context, _, _ uuid.UUID, _, _ string) error {
 	return nil
 }
+func (m *mockMessageRepo) UpdateMessageModeration(_ context.Context, _ uuid.UUID, _ string, _ float64, _ []byte) error {
+	return nil
+}
 
 // Compile-time check.
 var _ repository.MessageRepository = (*mockMessageRepo)(nil)

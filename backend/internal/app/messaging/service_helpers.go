@@ -200,6 +200,50 @@ func (s *Service) recordMediaIfNeeded(msg *message.Message) {
 	}
 }
 
+// moderateTextIfNeeded fires a background text moderation check for text messages.
+// Results are stored in the database asynchronously (never blocks the send flow).
+func (s *Service) moderateTextIfNeeded(msg *message.Message) {
+	if s.textModeration == nil {
+		return
+	}
+	if msg.Type != message.MessageTypeText || msg.Content == "" {
+		return
+	}
+
+	go s.runTextModeration(msg.ID, msg.Content)
+}
+
+// runTextModeration calls the text moderation service and updates the message.
+func (s *Service) runTextModeration(msgID uuid.UUID, content string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	result, err := s.textModeration.AnalyzeText(ctx, content)
+	if err != nil {
+		slog.Error("text moderation failed", "error", err, "msg_id", msgID)
+		return
+	}
+
+	if result.IsSafe {
+		return
+	}
+
+	status := "flagged"
+	if result.MaxScore >= 0.9 {
+		status = "hidden"
+	}
+
+	labelsJSON, err := json.Marshal(result.Labels)
+	if err != nil {
+		slog.Error("marshal moderation labels", "error", err, "msg_id", msgID)
+		return
+	}
+
+	if err := s.messages.UpdateMessageModeration(ctx, msgID, status, result.MaxScore, labelsJSON); err != nil {
+		slog.Error("update message moderation", "error", err, "msg_id", msgID)
+	}
+}
+
 // populateReplyPreview fetches the replied-to message and attaches a preview.
 func (s *Service) populateReplyPreview(ctx context.Context, msg *message.Message) {
 	if msg.ReplyToID == nil {

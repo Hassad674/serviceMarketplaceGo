@@ -85,6 +85,10 @@ func (m *mockReviewRepo) DeleteAdmin(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
 
+func (m *mockReviewRepo) UpdateReviewModeration(_ context.Context, _ uuid.UUID, _ string, _ float64, _ []byte) error {
+	return nil
+}
+
 // Compile-time check.
 var _ repository.ReviewRepository = (*mockReviewRepo)(nil)
 

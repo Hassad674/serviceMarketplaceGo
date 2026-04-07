@@ -15,13 +15,14 @@ import (
 )
 
 type Service struct {
-	messages      repository.MessageRepository
-	users         repository.UserRepository
-	presence      service.PresenceService
-	broadcaster   service.MessageBroadcaster
-	storage       service.StorageService
-	rateLimiter   service.MessagingRateLimiter
-	mediaRecorder service.MediaRecorder
+	messages       repository.MessageRepository
+	users          repository.UserRepository
+	presence       service.PresenceService
+	broadcaster    service.MessageBroadcaster
+	storage        service.StorageService
+	rateLimiter    service.MessagingRateLimiter
+	mediaRecorder  service.MediaRecorder
+	textModeration service.TextModerationService
 }
 
 type ServiceDeps struct {
@@ -50,6 +51,11 @@ func NewService(deps ServiceDeps) *Service {
 // This breaks the circular init dependency: messaging is created before media.
 func (s *Service) SetMediaRecorder(recorder service.MediaRecorder) {
 	s.mediaRecorder = recorder
+}
+
+// SetTextModeration sets the text moderation service after construction.
+func (s *Service) SetTextModeration(svc service.TextModerationService) {
+	s.textModeration = svc
 }
 
 type StartConversationInput struct {
@@ -105,6 +111,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 
 	s.broadcastNewMessage(ctx, convID, input.SenderID, msg)
 	s.recordMediaIfNeeded(msg)
+	s.moderateTextIfNeeded(msg)
 
 	return msg, convID, nil
 }
@@ -164,6 +171,7 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 
 	s.broadcastNewMessage(ctx, input.ConversationID, input.SenderID, msg)
 	s.recordMediaIfNeeded(msg)
+	s.moderateTextIfNeeded(msg)
 
 	return msg, nil
 }

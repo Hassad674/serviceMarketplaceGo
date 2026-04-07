@@ -47,3 +47,8 @@ const queryHasReviewed = `
 		SELECT 1 FROM reviews
 		WHERE proposal_id = $1 AND reviewer_id = $2
 	)`
+
+const queryUpdateReviewModeration = `
+	UPDATE reviews
+	SET moderation_status = $2, moderation_score = $3, moderation_labels = $4, updated_at = now()
+	WHERE id = $1`

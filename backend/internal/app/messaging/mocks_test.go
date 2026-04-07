@@ -166,6 +166,10 @@ func (m *mockMessageRepo) SaveMessageHistory(_ context.Context, _, _ uuid.UUID, 
 	return nil
 }
 
+func (m *mockMessageRepo) UpdateMessageModeration(_ context.Context, _ uuid.UUID, _ string, _ float64, _ []byte) error {
+	return nil
+}
+
 // --- mockUserRepo ---
 
 type mockUserRepo struct {
@@ -334,6 +338,10 @@ func (m *mockBroadcaster) BroadcastMessageEdited(_ context.Context, _ []uuid.UUI
 }
 
 func (m *mockBroadcaster) BroadcastMessageDeleted(_ context.Context, _ []uuid.UUID, _ []byte) error {
+	return nil
+}
+
+func (m *mockBroadcaster) BroadcastAccountSuspended(_ context.Context, _ uuid.UUID, _ string) error {
 	return nil
 }
 
