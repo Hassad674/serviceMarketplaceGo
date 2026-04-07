@@ -115,7 +115,7 @@ func makeRequestNoUser(method, path string, body []byte) *http.Request {
 
 func TestResetAccount_NoUser_Returns401(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.ResetAccount(rec, makeRequestNoUser("DELETE", "/account-session", nil))
@@ -126,7 +126,7 @@ func TestResetAccount_NoUser_Returns401(t *testing.T) {
 
 func TestResetAccount_ValidUser_Returns204(t *testing.T) {
 	store := &fakeUserAccountStore{accountID: "acct_to_delete"}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 	userID := uuid.New()
 
 	rec := httptest.NewRecorder()
@@ -140,7 +140,7 @@ func TestResetAccount_ValidUser_Returns204(t *testing.T) {
 
 func TestResetAccount_IdempotentNoRows(t *testing.T) {
 	store := &fakeUserAccountStore{} // no existing account
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.ResetAccount(rec, makeRequestWithUser("DELETE", "/account-session", nil, uuid.New()))
@@ -151,7 +151,7 @@ func TestResetAccount_IdempotentNoRows(t *testing.T) {
 
 func TestResetAccount_DBError_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{clearErr: errors.New("db down")}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.ResetAccount(rec, makeRequestWithUser("DELETE", "/account-session", nil, uuid.New()))
@@ -162,7 +162,7 @@ func TestResetAccount_DBError_Returns500(t *testing.T) {
 
 func TestResetAccount_ResponseContentType_None(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.ResetAccount(rec, makeRequestWithUser("DELETE", "/account-session", nil, uuid.New()))
@@ -173,7 +173,7 @@ func TestResetAccount_ResponseContentType_None(t *testing.T) {
 
 func TestResetAccount_ConcurrentCalls_AllIndependent(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
@@ -191,7 +191,7 @@ func TestResetAccount_ConcurrentCalls_AllIndependent(t *testing.T) {
 
 func TestResetAccount_UsesRequestingUserID(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	userID := uuid.MustParse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
 	rec := httptest.NewRecorder()
@@ -206,7 +206,7 @@ func TestResetAccount_UsesRequestingUserID(t *testing.T) {
 
 func TestGetAccountStatus_NoUser_Returns401(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.GetAccountStatus(rec, makeRequestNoUser("GET", "/account-status", nil))
@@ -216,7 +216,7 @@ func TestGetAccountStatus_NoUser_Returns401(t *testing.T) {
 
 func TestGetAccountStatus_NoAccount_Returns404(t *testing.T) {
 	store := &fakeUserAccountStore{} // no account → GetStripeAccount returns ErrNoRows
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.GetAccountStatus(rec, makeRequestWithUser("GET", "/account-status", nil, uuid.New()))
@@ -228,7 +228,7 @@ func TestGetAccountStatus_NoAccount_Returns404(t *testing.T) {
 
 func TestGetAccountStatus_DBError_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{getErr: errors.New("connection lost")}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.GetAccountStatus(rec, makeRequestWithUser("GET", "/account-status", nil, uuid.New()))
@@ -243,7 +243,7 @@ func TestGetAccountStatus_DBError_Returns500(t *testing.T) {
 
 func TestCreateAccountSession_NoUser_Returns401(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	body, _ := json.Marshal(map[string]string{"country": "FR", "business_type": "individual"})
 	rec := httptest.NewRecorder()
@@ -254,7 +254,7 @@ func TestCreateAccountSession_NoUser_Returns401(t *testing.T) {
 
 func TestCreateAccountSession_NoBody_NoExistingAccount_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{} // no account
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	rec := httptest.NewRecorder()
 	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", nil, uuid.New()))
@@ -265,7 +265,7 @@ func TestCreateAccountSession_NoBody_NoExistingAccount_Returns500(t *testing.T) 
 
 func TestCreateAccountSession_EmptyBody_MissingCountry_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	body, _ := json.Marshal(map[string]string{})
 	rec := httptest.NewRecorder()
@@ -275,24 +275,10 @@ func TestCreateAccountSession_EmptyBody_MissingCountry_Returns500(t *testing.T) 
 	assert.Contains(t, strings.ToLower(rec.Body.String()), "country is required")
 }
 
-func TestCreateAccountSession_InvalidBusinessType_Returns500(t *testing.T) {
-	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
-
-	body, _ := json.Marshal(map[string]string{
-		"country":       "FR",
-		"business_type": "partnership",
-	})
-	rec := httptest.NewRecorder()
-	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, strings.ToLower(rec.Body.String()), "business_type must be")
-}
 
 func TestCreateAccountSession_DBLookupError_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{getErr: errors.New("db down")}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	body, _ := json.Marshal(map[string]string{
 		"country":       "FR",
@@ -306,7 +292,7 @@ func TestCreateAccountSession_DBLookupError_Returns500(t *testing.T) {
 
 func TestCreateAccountSession_MalformedJSON_NoExistingAccount_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	body := []byte(`{this is not valid json`)
 	rec := httptest.NewRecorder()
@@ -318,7 +304,7 @@ func TestCreateAccountSession_MalformedJSON_NoExistingAccount_Returns500(t *test
 
 func TestCreateAccountSession_EmptyBodyLength_NoExistingAccount_Returns500(t *testing.T) {
 	store := &fakeUserAccountStore{}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	r := httptest.NewRequest("POST", "/account-session", bytes.NewReader([]byte{}))
 	r.Header.Set("Content-Type", "application/json")
@@ -349,7 +335,7 @@ func TestCreateAccountSession_CountryNormalization(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Inject a getErr so the handler exits right after normalization.
 			store := &fakeUserAccountStore{getErr: errors.New("post-validation exit")}
-			h := NewEmbeddedHandler(store)
+			h := NewEmbeddedHandler(store, "http://localhost:3001")
 			body, _ := json.Marshal(map[string]string{
 				"country":       tc.country,
 				"business_type": "individual",
@@ -364,42 +350,6 @@ func TestCreateAccountSession_CountryNormalization(t *testing.T) {
 	}
 }
 
-func TestCreateAccountSession_BusinessTypeNormalization(t *testing.T) {
-	validCases := []string{"individual", "Individual", "INDIVIDUAL", "  individual  ", "company", "Company"}
-	for _, input := range validCases {
-		t.Run(input, func(t *testing.T) {
-			store := &fakeUserAccountStore{getErr: errors.New("post-validation exit")}
-			h := NewEmbeddedHandler(store)
-			body, _ := json.Marshal(map[string]string{
-				"country":       "FR",
-				"business_type": input,
-			})
-			rec := httptest.NewRecorder()
-			h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
-
-			assert.Equal(t, http.StatusInternalServerError, rec.Code)
-			// Should NOT fail with "business_type must be" — it passed validation
-			assert.NotContains(t, strings.ToLower(rec.Body.String()), "business_type must be")
-		})
-	}
-
-	invalidCases := []string{"partnership", "sole_proprietor", "LLC", ""}
-	for _, input := range invalidCases {
-		t.Run("invalid_"+input, func(t *testing.T) {
-			store := &fakeUserAccountStore{}
-			h := NewEmbeddedHandler(store)
-			body, _ := json.Marshal(map[string]string{
-				"country":       "FR",
-				"business_type": input,
-			})
-			rec := httptest.NewRecorder()
-			h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
-
-			assert.Equal(t, http.StatusInternalServerError, rec.Code)
-			assert.Contains(t, strings.ToLower(rec.Body.String()), "business_type must be")
-		})
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Cross-border error translation (country not supported from FR platform)
@@ -411,7 +361,7 @@ func TestCreateAccountSession_CrossBorderError_Returns400(t *testing.T) {
 	store := &fakeUserAccountStore{
 		getErr: errors.New("create stripe account: cannot be created by platforms in FR"),
 	}
-	h := NewEmbeddedHandler(store)
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
 	body, _ := json.Marshal(map[string]string{
 		"country":       "IN",

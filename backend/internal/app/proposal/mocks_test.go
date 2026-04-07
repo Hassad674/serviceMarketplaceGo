@@ -287,3 +287,14 @@ func (m *mockUserRepo) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byt
 func (m *mockUserRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []byte) error {
 	return nil
 }
+
+// --- KYC enforcement stubs (migration 044) ---
+func (m *mockUserRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.Time) error {
+	return nil
+}
+func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
+	return nil
+}

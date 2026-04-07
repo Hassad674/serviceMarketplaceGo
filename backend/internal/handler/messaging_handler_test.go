@@ -556,3 +556,4 @@ func TestMessagingHandler_GetTotalUnread(t *testing.T) {
 		})
 	}
 }
+func (m *mockMessageRepo) UpdateMessageModeration(_ context.Context, _ uuid.UUID, _ string, _ float64, _ []byte) error { return nil }

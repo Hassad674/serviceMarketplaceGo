@@ -13,6 +13,7 @@ var (
 	ErrForbidden          = errors.New("forbidden")
 	ErrAccountSuspended   = errors.New("account is suspended")
 	ErrAccountBanned      = errors.New("account is banned")
+	ErrKYCRestricted      = errors.New("account restricted: payment info not configured within 14 days of first earning")
 )
 
 // AccountStatusError carries the suspension/ban reason alongside the sentinel.

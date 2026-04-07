@@ -629,3 +629,7 @@ func TestCheckAutoSuspension_NilUserRepo_NoAction(t *testing.T) {
 		svc.checkAutoSuspension(context.Background(), m, result)
 	})
 }
+
+func (m *mockUserRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.Time) error { return nil }
+func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, error) { return nil, nil }
+func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error { return nil }

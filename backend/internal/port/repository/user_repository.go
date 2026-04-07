@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"marketplace-backend/internal/domain/user"
@@ -37,4 +38,9 @@ type UserRepository interface {
 	ClearStripeAccount(ctx context.Context, userID uuid.UUID) error
 	GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error)
 	SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error
+
+	// KYC enforcement (migration 044).
+	SetKYCFirstEarning(ctx context.Context, userID uuid.UUID, at time.Time) error
+	GetKYCPendingUsers(ctx context.Context) ([]*user.User, error)
+	SaveKYCNotificationState(ctx context.Context, userID uuid.UUID, state map[string]time.Time) error
 }

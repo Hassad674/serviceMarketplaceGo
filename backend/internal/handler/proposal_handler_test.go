@@ -549,3 +549,4 @@ func assertProposalErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantC
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	assert.Equal(t, wantCode, resp["error"])
 }
+func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) { return 0, 0, nil }
