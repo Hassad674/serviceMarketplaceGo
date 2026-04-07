@@ -27,6 +27,7 @@ import (
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	embeddedapp "marketplace-backend/internal/app/embedded"
+	kycapp "marketplace-backend/internal/app/kyc"
 	jobapp "marketplace-backend/internal/app/job"
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
@@ -247,6 +248,18 @@ func main() {
 	go notifWorker.Run(workerCtx)
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	slog.Info("notification feature enabled")
+
+	// KYC enforcement scheduler — sends reminders at day 0/3/7/14 for
+	// providers with available funds who haven't completed Stripe KYC.
+	kycScheduler := kycapp.NewScheduler(kycapp.SchedulerDeps{
+		Users:         userRepo,
+		Records:       paymentRecordRepo,
+		Notifications: notifSvc,
+	})
+	kycCtx, kycCancel := context.WithCancel(context.Background())
+	defer kycCancel()
+	go kycScheduler.Run(kycCtx)
+	slog.Info("kyc enforcement scheduler started")
 
 	// Payment service — charge creation + transfers + wallet overview.
 	// KYC onboarding lives in internal/app/embedded (Embedded Components).
