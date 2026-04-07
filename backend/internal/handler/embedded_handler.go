@@ -263,7 +263,7 @@ func syncBusinessProfile(accountID, platformURL string) error {
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
 			URL:                stripe.String(platformURL),
 			MCC:                stripe.String("8999"),
-			ProductDescription: stripe.String("Freelance and agency services provided via the marketplace platform."),
+			ProductDescription: stripe.String("Professional services provided through our B2B marketplace platform. Clients pay upfront when a proposal is accepted, funds are held in escrow via Stripe Connect, and released to the provider upon successful delivery."),
 		},
 	})
 	return err
@@ -302,7 +302,7 @@ func createStripeCustomAccount(country, platformURL string) (string, error) {
 		BusinessProfile: &stripe.AccountBusinessProfileParams{
 			URL:                stripe.String(platformURL),
 			MCC:                stripe.String("8999"), // Professional Services (B2B generic)
-			ProductDescription: stripe.String("Freelance and agency services provided via the marketplace platform."),
+			ProductDescription: stripe.String("Professional services provided through our B2B marketplace platform. Clients pay upfront when a proposal is accepted, funds are held in escrow via Stripe Connect, and released to the provider upon successful delivery."),
 		},
 	}
 	acct, err := account.New(params)
