@@ -3,29 +3,29 @@ import type { ModerationFilters } from "../types"
 
 const sourceOptions = [
   { value: "human_report", label: "Signalements" },
-  { value: "auto_media", label: "D\u00E9tection m\u00E9dia" },
-  { value: "auto_text", label: "D\u00E9tection texte" },
+  { value: "auto_media", label: "Détection média" },
+  { value: "auto_text", label: "Détection texte" },
 ]
 
 const typeOptions = [
   { value: "report", label: "Signalements" },
   { value: "message", label: "Messages" },
   { value: "review", label: "Avis" },
-  { value: "media", label: "M\u00E9dias" },
+  { value: "media", label: "Médias" },
 ]
 
 const statusOptions = [
   { value: "pending", label: "En attente" },
-  { value: "resolved", label: "R\u00E9solu" },
-  { value: "dismissed", label: "Rejet\u00E9" },
-  { value: "hidden", label: "Masqu\u00E9" },
-  { value: "approved", label: "Approuv\u00E9" },
+  { value: "resolved", label: "Résolu" },
+  { value: "dismissed", label: "Rejeté" },
+  { value: "hidden", label: "Masqué" },
+  { value: "approved", label: "Approuvé" },
 ]
 
 const sortOptions = [
-  { value: "newest", label: "Plus r\u00E9cents" },
+  { value: "newest", label: "Plus récents" },
   { value: "oldest", label: "Plus anciens" },
-  { value: "score", label: "Score le plus \u00E9lev\u00E9" },
+  { value: "score", label: "Score le plus élevé" },
 ]
 
 type ModerationFiltersBarProps = {

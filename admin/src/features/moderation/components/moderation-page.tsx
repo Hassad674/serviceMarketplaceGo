@@ -36,8 +36,8 @@ export function ModerationPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`Mod\u00E9ration`}
-        description="File unifi\u00E9e de mod\u00E9ration : signalements, d\u00E9tection m\u00E9dia et texte"
+        title={`Modération`}
+        description="File unifiée de modération : signalements, détection média et texte"
         actions={
           pendingCount > 0 ? (
             <Badge variant="destructive" className="text-sm">
@@ -56,7 +56,7 @@ export function ModerationPage() {
 
       {error && (
         <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-6 text-center text-sm text-destructive">
-          {`Erreur lors du chargement des \u00E9l\u00E9ments de mod\u00E9ration`}
+          {`Erreur lors du chargement des éléments de modération`}
         </div>
       )}
 
@@ -65,8 +65,8 @@ export function ModerationPage() {
           {data.data.length === 0 ? (
             <EmptyState
               icon={Shield}
-              title={`Aucun \u00E9l\u00E9ment`}
-              description={`Aucun \u00E9l\u00E9ment de mod\u00E9ration ne correspond \u00E0 vos filtres`}
+              title={`Aucun élément`}
+              description={`Aucun élément de modération ne correspond à vos filtres`}
             />
           ) : (
             <div className="space-y-4">

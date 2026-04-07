@@ -64,7 +64,7 @@ function SourceBadge({ source, score }: { source: string; score: number }) {
     return (
       <Badge variant="warning" className="gap-1">
         <Image className="h-3 w-3" />
-        {`D\u00E9tection m\u00E9dia`}
+        {`Détection média`}
       </Badge>
     )
   }
@@ -73,7 +73,7 @@ function SourceBadge({ source, score }: { source: string; score: number }) {
   return (
     <Badge variant={isHighScore ? "destructive" : "warning"} className="gap-1">
       <MessageSquare className="h-3 w-3" />
-      {`D\u00E9tection texte`}
+      {`Détection texte`}
     </Badge>
   )
 }
@@ -92,11 +92,11 @@ function ReasonBadge({ item }: { item: ModerationItem }) {
   }
   // human_report: show the reason
   const reasonLabels: Record<string, string> = {
-    harassment: "Harc\u00E8lement",
+    harassment: "Harcèlement",
     fraud: "Fraude",
     fraud_or_scam: "Fraude / Arnaque",
     spam: "Spam",
-    inappropriate_content: "Contenu inappropri\u00E9",
+    inappropriate_content: "Contenu inapproprié",
     fake_profile: "Faux profil",
     unprofessional_behavior: "Comportement non professionnel",
     misleading_description: "Description trompeuse",
@@ -181,7 +181,7 @@ function ReportActions({ item }: { item: ModerationItem }) {
   return (
     <>
       <Button variant="primary" size="sm" onClick={() => setDialogOpen(true)}>
-        {`R\u00E9soudre`}
+        {`Résoudre`}
       </Button>
       <ResolveReportDialog
         open={dialogOpen}
