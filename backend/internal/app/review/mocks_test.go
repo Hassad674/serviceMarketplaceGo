@@ -136,3 +136,4 @@ func (m *mockNotificationSender) Send(ctx context.Context, input service.Notific
 	}
 	return nil
 }
+func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) { return 0, 0, nil }

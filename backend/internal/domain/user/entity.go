@@ -64,8 +64,44 @@ type User struct {
 	// internal/app/embedded.
 	StripeLastState []byte
 
+	// KYC enforcement (migration 044). Set once when the first mission
+	// completes with funds available. Used to compute the 14-day deadline.
+	KYCFirstEarningAt       *time.Time
+	KYCRestrictionNotifiedAt map[string]time.Time // tier → timestamp
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// IsKYCBlocked returns true if the user has earned available funds, has NOT
+// completed KYC, and 14 days have elapsed since the first earning.
+func (u *User) IsKYCBlocked() bool {
+	if u.HasKYCCompleted() {
+		return false
+	}
+	if u.KYCFirstEarningAt == nil {
+		return false
+	}
+	return time.Since(*u.KYCFirstEarningAt) >= 14*24*time.Hour
+}
+
+// HasKYCCompleted returns true when a Stripe account exists.
+func (u *User) HasKYCCompleted() bool {
+	return u.StripeAccountID != nil && *u.StripeAccountID != ""
+}
+
+// KYCDaysRemaining returns the number of days before restriction kicks in.
+// Returns -1 if not applicable (no earnings or KYC done).
+// Returns 0 if already restricted.
+func (u *User) KYCDaysRemaining() int {
+	if u.HasKYCCompleted() || u.KYCFirstEarningAt == nil {
+		return -1
+	}
+	remaining := 14*24*time.Hour - time.Since(*u.KYCFirstEarningAt)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Hours() / 24)
 }
 
 // NewUser creates a new user with validated fields.

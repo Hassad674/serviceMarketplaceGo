@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -514,6 +515,82 @@ func (r *UserRepository) SaveStripeLastState(ctx context.Context, userID uuid.UU
 		     updated_at        = now()
 		 WHERE id = $1`,
 		userID, string(state),
+	)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// KYC enforcement (migration 044)
+// ---------------------------------------------------------------------------
+
+// SetKYCFirstEarning records when the user first had funds available for
+// withdrawal. Idempotent: only writes if kyc_first_earning_at is NULL.
+func (r *UserRepository) SetKYCFirstEarning(ctx context.Context, userID uuid.UUID, at time.Time) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users
+		 SET kyc_first_earning_at = $2, updated_at = now()
+		 WHERE id = $1 AND kyc_first_earning_at IS NULL`,
+		userID, at,
+	)
+	return err
+}
+
+// GetKYCPendingUsers returns all users who have earned money but have NOT
+// completed KYC (no stripe_account_id). Used by the KYC scheduler.
+func (r *UserRepository) GetKYCPendingUsers(ctx context.Context) ([]*user.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, email, display_name, role, stripe_account_id,
+		        kyc_first_earning_at, kyc_restriction_notified_at
+		 FROM users
+		 WHERE kyc_first_earning_at IS NOT NULL
+		   AND stripe_account_id IS NULL`)
+	if err != nil {
+		return nil, fmt.Errorf("get kyc pending users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*user.User
+	for rows.Next() {
+		u := &user.User{}
+		var role string
+		var stripeID sql.NullString
+		var notifiedRaw sql.NullString
+		if err := rows.Scan(
+			&u.ID, &u.Email, &u.DisplayName, &role, &stripeID,
+			&u.KYCFirstEarningAt, &notifiedRaw,
+		); err != nil {
+			return nil, fmt.Errorf("scan kyc pending user: %w", err)
+		}
+		u.Role = user.Role(role)
+		if stripeID.Valid {
+			u.StripeAccountID = &stripeID.String
+		}
+		if notifiedRaw.Valid && notifiedRaw.String != "" {
+			_ = json.Unmarshal([]byte(notifiedRaw.String), &u.KYCRestrictionNotifiedAt)
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+// SaveKYCNotificationState persists the notification tier state JSONB.
+func (r *UserRepository) SaveKYCNotificationState(ctx context.Context, userID uuid.UUID, state map[string]time.Time) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("marshal kyc notification state: %w", err)
+	}
+	_, err = r.db.ExecContext(ctx,
+		`UPDATE users SET kyc_restriction_notified_at = $2::jsonb, updated_at = now() WHERE id = $1`,
+		userID, string(raw),
 	)
 	return err
 }
