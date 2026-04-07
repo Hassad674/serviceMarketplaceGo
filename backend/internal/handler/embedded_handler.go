@@ -35,15 +35,16 @@ type userAccountStore interface {
 // via the UserRepository — no per-handler table required.
 type EmbeddedHandler struct {
 	users       userAccountStore
-	platformURL string
+	frontendURL string
 }
 
 // NewEmbeddedHandler wires the handler with the user repository.
-// stripe.Key must be set globally (done in adapter/stripe.NewService at startup).
-func NewEmbeddedHandler(users userAccountStore) *EmbeddedHandler {
+// frontendURL is the public web app URL (e.g., https://service-marketplace-go.vercel.app)
+// used to build per-user profile URLs for Stripe business_profile.url.
+func NewEmbeddedHandler(users userAccountStore, frontendURL string) *EmbeddedHandler {
 	return &EmbeddedHandler{
 		users:       users,
-		platformURL: "https://marketplace-service.com",
+		frontendURL: frontendURL,
 	}
 }
 
@@ -98,7 +99,15 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
-	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, h.platformURL)
+	// Build per-user profile URL for Stripe business_profile.url
+	// adapting the path based on user role (freelancers vs agencies)
+	role := middleware.GetRole(r.Context())
+	profilePath := "freelancers"
+	if role == "agency" {
+		profilePath = "agencies"
+	}
+	profileURL := fmt.Sprintf("%s/%s/%s", h.frontendURL, profilePath, userID)
+	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, profileURL)
 	if err != nil {
 		slog.Error("embedded: resolve stripe account", "user_id", userID, "error", err)
 		// Detect Stripe cross-border country restriction and surface a
