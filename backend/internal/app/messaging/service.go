@@ -23,6 +23,7 @@ type Service struct {
 	rateLimiter    service.MessagingRateLimiter
 	mediaRecorder  service.MediaRecorder
 	textModeration service.TextModerationService
+	adminNotifier  service.AdminNotifierService
 }
 
 type ServiceDeps struct {
@@ -56,6 +57,11 @@ func (s *Service) SetMediaRecorder(recorder service.MediaRecorder) {
 // SetTextModeration sets the text moderation service after construction.
 func (s *Service) SetTextModeration(svc service.TextModerationService) {
 	s.textModeration = svc
+}
+
+// SetAdminNotifier sets the admin notifier after construction.
+func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
+	s.adminNotifier = n
 }
 
 type StartConversationInput struct {

@@ -12,6 +12,7 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
+	userdomain "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
@@ -531,6 +532,8 @@ func handleProposalError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "not_provider", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotClient):
 		res.Error(w, http.StatusForbidden, "not_client", err.Error())
+	case errors.Is(err, userdomain.ErrKYCRestricted):
+		res.Error(w, http.StatusForbidden, "kyc_restricted", "Your account is restricted. Set up your payment info to lift this restriction.")
 	default:
 		slog.Error("unhandled proposal error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")

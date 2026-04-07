@@ -10,6 +10,7 @@ import (
 
 	jobapp "marketplace-backend/internal/app/job"
 	jobdomain "marketplace-backend/internal/domain/job"
+	userdomain "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
@@ -252,6 +253,8 @@ func handleJobError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "message_too_long", err.Error())
 	case errors.Is(err, jobdomain.ErrNoCreditsLeft):
 		res.Error(w, http.StatusTooManyRequests, "no_credits_left", err.Error())
+	case errors.Is(err, userdomain.ErrKYCRestricted):
+		res.Error(w, http.StatusForbidden, "kyc_restricted", "Your account is restricted. Set up your payment info to lift this restriction.")
 	default:
 		slog.Error("unhandled job error", "error", err.Error())
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")

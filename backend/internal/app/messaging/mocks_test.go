@@ -344,6 +344,9 @@ func (m *mockBroadcaster) BroadcastMessageDeleted(_ context.Context, _ []uuid.UU
 func (m *mockBroadcaster) BroadcastAccountSuspended(_ context.Context, _ uuid.UUID, _ string) error {
 	return nil
 }
+func (m *mockBroadcaster) BroadcastAdminNotification(_ context.Context, _ []uuid.UUID) error {
+	return nil
+}
 
 // --- mockStorageService ---
 

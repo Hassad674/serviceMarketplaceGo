@@ -164,6 +164,9 @@ func (m *mockMessageBroadcaster) BroadcastMessageDeleted(_ context.Context, _ []
 func (m *mockMessageBroadcaster) BroadcastAccountSuspended(_ context.Context, _ uuid.UUID, _ string) error {
 	return nil
 }
+func (m *mockMessageBroadcaster) BroadcastAdminNotification(_ context.Context, _ []uuid.UUID) error {
+	return nil
+}
 
 type mockPushService struct{}
 

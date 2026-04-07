@@ -22,7 +22,8 @@ const (
 	TypeError            = "error"
 	TypeCallEvent        = "call_event"
 	TypeNotification     = "notification"
-	TypeAccountSuspended = "account_suspended"
+	TypeAccountSuspended         = "account_suspended"
+	TypeAdminNotificationUpdate  = "admin_notification_update"
 )
 
 // StreamEvent represents a broadcast event received from the pub/sub layer.

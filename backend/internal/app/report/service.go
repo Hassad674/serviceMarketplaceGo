@@ -3,11 +3,13 @@ package report
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // ServiceDeps groups the dependencies for the report service.
@@ -21,11 +23,17 @@ type ServiceDeps struct {
 
 // Service orchestrates report use cases.
 type Service struct {
-	reports      repository.ReportRepository
-	users        repository.UserRepository
-	messages     repository.MessageRepository
-	jobs         repository.JobRepository
-	applications repository.JobApplicationRepository
+	reports       repository.ReportRepository
+	users         repository.UserRepository
+	messages      repository.MessageRepository
+	jobs          repository.JobRepository
+	applications  repository.JobApplicationRepository
+	adminNotifier service.AdminNotifierService
+}
+
+// SetAdminNotifier sets the admin notifier after construction.
+func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
+	s.adminNotifier = n
 }
 
 // NewService creates a new report service.
@@ -97,6 +105,14 @@ func (s *Service) CreateReport(ctx context.Context, in CreateReportInput) (*doma
 
 	if err := s.reports.Create(ctx, r); err != nil {
 		return nil, fmt.Errorf("persist report: %w", err)
+	}
+
+	if s.adminNotifier != nil {
+		go func() {
+			if err := s.adminNotifier.IncrementAll(context.Background(), service.AdminNotifReports); err != nil {
+				slog.Error("admin notifier: increment reports", "error", err)
+			}
+		}()
 	}
 
 	return r, nil

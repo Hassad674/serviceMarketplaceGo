@@ -10,6 +10,7 @@ import (
 
 	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 func (s *Service) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
@@ -241,6 +242,17 @@ func (s *Service) runTextModeration(msgID uuid.UUID, content string) {
 
 	if err := s.messages.UpdateMessageModeration(ctx, msgID, status, result.MaxScore, labelsJSON); err != nil {
 		slog.Error("update message moderation", "error", err, "msg_id", msgID)
+	}
+
+	// Notify admins
+	if s.adminNotifier != nil {
+		category := service.AdminNotifMessagesFlagged
+		if status == "hidden" {
+			category = service.AdminNotifMessagesHidden
+		}
+		if err := s.adminNotifier.IncrementAll(ctx, category); err != nil {
+			slog.Error("admin notifier: increment messages", "error", err, "category", category)
+		}
 	}
 }
 

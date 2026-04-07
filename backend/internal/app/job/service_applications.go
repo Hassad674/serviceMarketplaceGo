@@ -55,6 +55,10 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 	if !canApply(j.ApplicantType, applicant.Role) {
 		return nil, domain.ErrApplicantTypeMismatch
 	}
+	// KYC enforcement: blocked providers/agencies cannot apply
+	if applicant.IsKYCBlocked() {
+		return nil, user.ErrKYCRestricted
+	}
 
 	// Check application credits before proceeding.
 	if s.credits != nil {
