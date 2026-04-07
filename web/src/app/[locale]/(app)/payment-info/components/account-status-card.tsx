@@ -31,7 +31,7 @@ export function AccountStatusCard({ status }: AccountStatusCardProps) {
   return (
     <section
       aria-label="Statut du compte de paiement"
-      className="overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm sm:rounded-2xl"
+      className="mx-1 overflow-hidden rounded-xl border border-slate-100 bg-white shadow-sm sm:mx-0 sm:rounded-2xl"
     >
       {/* Header gradient */}
       <div
