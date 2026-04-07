@@ -272,6 +272,34 @@ func (r *AdminConversationRepository) loadPendingReportCounts(ctx context.Contex
 	return nil
 }
 
+// UpdateMessageModeration updates the moderation status, score, and labels on a message.
+func (r *AdminConversationRepository) UpdateMessageModeration(ctx context.Context, messageID uuid.UUID, status string, score float64, labelsJSON []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE messages SET moderation_status = $2, moderation_score = $3, moderation_labels = $4, updated_at = now() WHERE id = $1`,
+		messageID, status, score, labelsJSON)
+	if err != nil {
+		return fmt.Errorf("update message moderation: %w", err)
+	}
+	return nil
+}
+
+// HideMessage sets the moderation_status to 'hidden' on a message.
+func (r *AdminConversationRepository) HideMessage(ctx context.Context, messageID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE messages SET moderation_status = 'hidden', updated_at = now() WHERE id = $1`,
+		messageID)
+	if err != nil {
+		return fmt.Errorf("hide message: %w", err)
+	}
+	return nil
+}
+
 func scanAdminMessages(rows *sql.Rows, limit int) ([]repository.AdminMessage, string, error) {
 	var results []repository.AdminMessage
 

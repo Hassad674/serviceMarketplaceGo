@@ -310,11 +310,20 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/job-applications", deps.Admin.ListJobApplications)
 				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)
 
+				// Message moderation action endpoints
+				r.Post("/messages/{id}/approve-moderation", deps.Admin.ApproveMessageModeration)
+				r.Post("/messages/{id}/hide", deps.Admin.HideMessage)
+
 				// Review admin endpoints
 				r.Get("/reviews", deps.Admin.ListReviews)
 				r.Get("/reviews/{id}", deps.Admin.GetReview)
 				r.Delete("/reviews/{id}", deps.Admin.DeleteReview)
 				r.Get("/reviews/{id}/reports", deps.Admin.ListReviewReports)
+				r.Post("/reviews/{id}/approve-moderation", deps.Admin.ApproveReviewModeration)
+
+				// Unified moderation queue
+				r.Get("/moderation", deps.Admin.ListModerationItems)
+				r.Get("/moderation/count", deps.Admin.ModerationCount)
 
 				// Media moderation endpoints
 				r.Get("/media", deps.Admin.ListMedia)

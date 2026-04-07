@@ -59,6 +59,14 @@ func (s *Service) ListReviewReports(ctx context.Context, reviewID uuid.UUID) ([]
 	return reports, nil
 }
 
+// ApproveReviewModeration clears the moderation flag on a review, marking it clean.
+func (s *Service) ApproveReviewModeration(ctx context.Context, reviewID uuid.UUID) error {
+	if err := s.reviews.UpdateReviewModeration(ctx, reviewID, "clean", 0, nil); err != nil {
+		return fmt.Errorf("approve review moderation: %w", err)
+	}
+	return nil
+}
+
 func (s *Service) loadReviewPendingReportCounts(ctx context.Context, reviews []repository.AdminReview) (map[uuid.UUID]int, error) {
 	if len(reviews) == 0 {
 		return make(map[uuid.UUID]int), nil
