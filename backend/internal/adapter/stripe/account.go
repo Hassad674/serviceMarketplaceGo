@@ -269,6 +269,18 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (
 	return tok.ID, nil
 }
 
+// GetAccount retrieves a connected account's capability status.
+func (s *Service) GetAccount(ctx context.Context, accountID string) (*portservice.StripeAccountInfo, error) {
+	acct, err := account.GetByID(accountID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get stripe account: %w", err)
+	}
+	return &portservice.StripeAccountInfo{
+		ChargesEnabled: acct.ChargesEnabled,
+		PayoutsEnabled: acct.PayoutsEnabled,
+	}, nil
+}
+
 func (s *Service) GetAccountStatus(ctx context.Context, accountID string) (bool, error) {
 	acct, err := account.GetByID(accountID, nil)
 	if err != nil {
