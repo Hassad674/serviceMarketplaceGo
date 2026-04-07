@@ -65,6 +65,16 @@
   animation: fadeIn 0.2s ease-out;
 }
 
+@keyframes highlightFade {
+  0% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.7); }
+  30% { box-shadow: 0 0 12px 4px rgba(239, 68, 68, 0.4); }
+  100% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
+}
+
+.animate-highlight-fade {
+  animation: highlightFade 2s ease-out forwards;
+}
+
 /* Glass effects — matching web sidebar/header */
 .glass {
   background: rgba(255, 255, 255, 0.8);

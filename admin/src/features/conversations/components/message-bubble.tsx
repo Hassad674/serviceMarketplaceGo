@@ -20,6 +20,7 @@ const SENDER_COLORS = [
 type MessageBubbleProps = {
   message: AdminMessage
   senderColorIndex: number
+  highlighted?: boolean
 }
 
 function formatTime(dateStr: string): string {
@@ -29,11 +30,17 @@ function formatTime(dateStr: string): string {
   })
 }
 
-export function MessageBubble({ message, senderColorIndex }: MessageBubbleProps) {
+export function MessageBubble({ message, senderColorIndex, highlighted }: MessageBubbleProps) {
   const bgColor = SENDER_COLORS[senderColorIndex % SENDER_COLORS.length]
 
   return (
-    <div className="flex items-start gap-3">
+    <div
+      id={`msg-${message.id}`}
+      className={cn(
+        "flex items-start gap-3 rounded-2xl p-1 transition-all duration-300",
+        highlighted && "ring-2 ring-red-500 bg-red-50/30 animate-highlight-fade",
+      )}
+    >
       <Avatar name={message.sender_name} size="sm" className="mt-1 shrink-0" />
       <div className="min-w-0 max-w-[85%] flex-1">
         <BubbleHeader
