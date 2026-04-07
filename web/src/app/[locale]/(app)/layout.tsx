@@ -8,7 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isEmbedded = searchParams.get("embedded") === "true"
 
   if (isEmbedded) {
-    return <div className="min-h-screen bg-background">{children}</div>
+    return <div className="min-h-screen bg-background px-2">{children}</div>
   }
 
   return <DashboardShell>{children}</DashboardShell>
