@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react"
-import { useParams, useNavigate, Link } from "react-router-dom"
+import { useState, useMemo, useEffect } from "react"
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom"
 import {
   ArrowLeft, MessageSquare, Calendar, Hash,
   EyeOff, ExternalLink, Flag,
@@ -23,7 +23,10 @@ import type { AdminMessage, ConversationParticipant } from "../types"
 export function ConversationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [cursor] = useState("")
+
+  const highlightId = searchParams.get("highlight") ?? undefined
 
   const { data: convData, isLoading: convLoading, error: convError } = useConversation(id!)
   const { data: msgData, isLoading: msgsLoading, error: msgsError } =
@@ -37,6 +40,15 @@ export function ConversationDetailPage() {
   const senderColorMap = useMemo(() => {
     return buildSenderColorMap(messages)
   }, [messages])
+
+  // Scroll to highlighted message once messages are loaded
+  useEffect(() => {
+    if (!highlightId || msgsLoading) return
+    const el = document.getElementById(`msg-${highlightId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [highlightId, msgsLoading])
 
   if (convLoading || (msgsLoading && cursor === "")) {
     return <DetailSkeleton />
@@ -64,6 +76,7 @@ export function ConversationDetailPage() {
           <ChatArea
             messages={messages}
             senderColorMap={senderColorMap}
+            highlightId={highlightId}
           />
 
           {/* Read-only indicator */}
@@ -124,9 +137,10 @@ function ErrorBanner() {
   )
 }
 
-function ChatArea({ messages, senderColorMap }: {
+function ChatArea({ messages, senderColorMap, highlightId }: {
   messages: AdminMessage[]
   senderColorMap: Map<string, number>
+  highlightId?: string
 }) {
   if (messages.length === 0) {
     return (
@@ -151,6 +165,7 @@ function ChatArea({ messages, senderColorMap }: {
               key={msg.id}
               message={msg}
               senderColorMap={senderColorMap}
+              highlighted={msg.id === highlightId}
             />
           ))}
         </div>
@@ -159,16 +174,23 @@ function ChatArea({ messages, senderColorMap }: {
   )
 }
 
-function ChatMessage({ message, senderColorMap }: {
+function ChatMessage({ message, senderColorMap, highlighted }: {
   message: AdminMessage
   senderColorMap: Map<string, number>
+  highlighted?: boolean
 }) {
   if (isSystemMessage(message.type)) {
     return <SystemMessage message={message} />
   }
 
   const colorIndex = senderColorMap.get(message.sender_id) ?? 0
-  return <MessageBubble message={message} senderColorIndex={colorIndex} />
+  return (
+    <MessageBubble
+      message={message}
+      senderColorIndex={colorIndex}
+      highlighted={highlighted}
+    />
+  )
 }
 
 function ParticipantCard({ participant }: { participant: ConversationParticipant }) {
