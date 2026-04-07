@@ -174,6 +174,8 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 // WalletOverview holds the provider's wallet state.
 type WalletOverview struct {
 	StripeAccountID   string         `json:"stripe_account_id"`
+	ChargesEnabled    bool           `json:"charges_enabled"`
+	PayoutsEnabled    bool           `json:"payouts_enabled"`
 	EscrowAmount      int64          `json:"escrow_amount"`
 	AvailableAmount   int64          `json:"available_amount"`
 	TransferredAmount int64          `json:"transferred_amount"`
@@ -195,6 +197,15 @@ type WalletRecord struct {
 func (s *Service) GetWalletOverview(ctx context.Context, userID uuid.UUID) (*WalletOverview, error) {
 	stripeAccountID, _, _ := s.users.GetStripeAccount(ctx, userID)
 	wallet := &WalletOverview{StripeAccountID: stripeAccountID}
+
+	// Fetch account capabilities from Stripe so wallet shows if charges/payouts are active
+	if stripeAccountID != "" && s.stripe != nil {
+		acct, err := s.stripe.GetAccount(ctx, stripeAccountID)
+		if err == nil && acct != nil {
+			wallet.ChargesEnabled = acct.ChargesEnabled
+			wallet.PayoutsEnabled = acct.PayoutsEnabled
+		}
+	}
 
 	records, err := s.records.ListByProviderID(ctx, userID)
 	if err != nil {

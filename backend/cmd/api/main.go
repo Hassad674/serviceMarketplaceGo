@@ -376,6 +376,7 @@ func main() {
 
 	// Admin feature
 	adminConvRepo := postgres.NewAdminConversationRepository(db)
+	adminModerationRepo := postgres.NewAdminModerationRepository(db)
 	adminSvc := adminapp.NewService(adminapp.ServiceDeps{
 		Users:              userRepo,
 		Reports:            reportRepo,
@@ -385,6 +386,7 @@ func main() {
 		Proposals:          proposalRepo,
 		AdminConversations: adminConvRepo,
 		MediaRepo:          mediaRepo,
+		ModerationRepo:     adminModerationRepo,
 		StorageSvc:         storageSvc,
 		SessionSvc:         sessionSvc,
 		Broadcaster:        streamBroadcaster,
