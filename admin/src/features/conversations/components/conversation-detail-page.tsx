@@ -45,7 +45,7 @@ export function ConversationDetailPage() {
   if (convError || msgsError || !conversation) {
     return (
       <div className="space-y-6">
-        <BackButton onClick={() => navigate("/conversations")} />
+        <BackButton onClick={() => navigate(-1)} />
         <ErrorBanner />
       </div>
     )
@@ -55,7 +55,7 @@ export function ConversationDetailPage() {
 
   return (
     <div className="space-y-6">
-      <BackButton onClick={() => navigate("/conversations")} />
+      <BackButton onClick={() => navigate(-1)} />
       <PageHeader title={title} />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
