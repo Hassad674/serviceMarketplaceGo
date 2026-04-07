@@ -447,7 +447,7 @@ func main() {
 		Report:         reportHandler,
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
-		Embedded:       handler.NewEmbeddedHandler(userRepo),
+		Embedded:       handler.NewEmbeddedHandler(userRepo, cfg.FrontendURL),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
