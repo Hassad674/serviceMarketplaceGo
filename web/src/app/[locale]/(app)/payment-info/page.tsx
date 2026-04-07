@@ -235,7 +235,7 @@ export default function PaymentInfoV2Page() {
     <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-rose-50/30 pb-16">
       {/* Header */}
       <header className="border-b border-slate-100 bg-white/70 backdrop-blur-xl">
-        <div className="mx-auto max-w-5xl px-4 py-5 sm:px-6">
+        <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-rose-600 text-white shadow-sm">
               <Sparkles className="h-4 w-4" aria-hidden />
@@ -252,7 +252,7 @@ export default function PaymentInfoV2Page() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-3 pt-6 sm:px-6 sm:pt-8">
+      <div className="mx-auto max-w-5xl px-2 pt-4 sm:px-6 sm:pt-8">
         {/* Error banner */}
         {errorMessage ? (
           <div
@@ -303,7 +303,7 @@ export default function PaymentInfoV2Page() {
               {/* Onboarding resume OR management editor */}
               {mode === "onboarding" ? (
                 <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3 sm:px-6">
+                  <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-2.5 sm:px-6 sm:py-3">
                     <h3 className="text-[13px] font-semibold text-slate-900">
                       {t("completeVerification")}
                     </h3>
@@ -315,7 +315,7 @@ export default function PaymentInfoV2Page() {
                       {t("changeCountry")}
                     </button>
                   </div>
-                  <div className="px-3 py-4 sm:p-6">
+                  <div className="px-1 py-3 sm:p-6">
                     <ConnectAccountOnboarding
                       onExit={handleOnboardingExit}
                       collectionOptions={{
@@ -335,7 +335,7 @@ export default function PaymentInfoV2Page() {
                       {t("manageInfoHint")}
                     </p>
                   </div>
-                  <div className="px-3 py-4 sm:p-6">
+                  <div className="px-1 py-3 sm:p-6">
                     <ConnectAccountManagement
                       collectionOptions={{
                         fields: "eventually_due",
