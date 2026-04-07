@@ -2785,6 +2785,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Transfers'**
   String get paymentInfoPayouts;
+
+  /// No description provided for @kycBannerPendingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your payment info'**
+  String get kycBannerPendingTitle;
+
+  /// No description provided for @kycBannerPendingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You have funds pending. Complete setup within {days} days to avoid restrictions.'**
+  String kycBannerPendingBody(int days);
+
+  /// No description provided for @kycBannerRestrictedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Account restricted'**
+  String get kycBannerRestrictedTitle;
+
+  /// No description provided for @kycBannerRestrictedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You cannot apply to jobs or create proposals until you complete your payment setup.'**
+  String get kycBannerRestrictedBody;
+
+  /// No description provided for @kycBannerCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up now'**
+  String get kycBannerCta;
 }
 
 class _AppLocalizationsDelegate

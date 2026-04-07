@@ -258,8 +258,12 @@ func main() {
 	})
 	kycCtx, kycCancel := context.WithCancel(context.Background())
 	defer kycCancel()
-	go kycScheduler.Run(kycCtx)
-	slog.Info("kyc enforcement scheduler started")
+	kycInterval := 1 * time.Hour
+	if cfg.Env == "development" {
+		kycInterval = 1 * time.Minute
+	}
+	go kycScheduler.Run(kycCtx, kycInterval)
+	slog.Info("kyc enforcement scheduler started", "interval", kycInterval)
 
 	// Payment service — charge creation + transfers + wallet overview.
 	// KYC onboarding lives in internal/app/embedded (Embedded Components).

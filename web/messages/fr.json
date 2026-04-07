@@ -621,6 +621,13 @@
     "recipientBusy": "Le destinataire est en appel",
     "unknownCaller": "Appelant inconnu"
   },
+  "kycBanner": {
+    "pendingTitle": "Configurez vos informations de paiement",
+    "pendingBody": "Vous avez des fonds en attente. Finalisez la configuration de votre compte dans les {days} jours pour les recevoir et eviter des restrictions.",
+    "restrictedTitle": "Compte restreint",
+    "restrictedBody": "Vous ne pouvez plus postuler aux offres ni creer de propositions tant que votre compte de paiement n'est pas configure.",
+    "cta": "Configurer"
+  },
   "paymentInfo": {
     "header": "Informations de paiement",
     "subheader": "Compte de paiement",

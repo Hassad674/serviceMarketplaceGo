@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -300,4 +301,47 @@ func TestGetCredits_NilRepo(t *testing.T) {
 	credits, err := svc.GetCredits(context.Background(), uuid.New())
 	assert.NoError(t, err)
 	assert.Equal(t, domain.WeeklyQuota, credits)
+}
+
+// --- KYC enforcement tests ---
+
+func TestApplyToJob_KYCBlocked(t *testing.T) {
+	svc, jr, _, ur, _, _ := newTestApplyService()
+	creatorID := uuid.New()
+	applicantID := uuid.New()
+	j := openJob(creatorID)
+	past15 := time.Now().Add(-15 * 24 * time.Hour)
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		u := &user.User{ID: id, Role: user.RoleProvider}
+		u.KYCFirstEarningAt = &past15
+		return u, nil
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: applicantID, Message: "test",
+	})
+	assert.ErrorIs(t, err, user.ErrKYCRestricted)
+}
+
+func TestApplyToJob_KYCNotBlocked_OK(t *testing.T) {
+	svc, jr, _, ur, _, _ := newTestApplyService()
+	creatorID := uuid.New()
+	applicantID := uuid.New()
+	j := openJob(creatorID)
+	past5 := time.Now().Add(-5 * 24 * time.Hour)
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		u := &user.User{ID: id, Role: user.RoleProvider}
+		u.KYCFirstEarningAt = &past5
+		return u, nil
+	}
+
+	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: j.ID, ApplicantID: applicantID, Message: "I am interested",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, app)
 }

@@ -621,6 +621,13 @@
     "recipientBusy": "Recipient is busy",
     "unknownCaller": "Unknown caller"
   },
+  "kycBanner": {
+    "pendingTitle": "Set up your payment info",
+    "pendingBody": "You have funds pending. Complete your payment setup within {days} days to receive them and avoid account restrictions.",
+    "restrictedTitle": "Account restricted",
+    "restrictedBody": "You cannot apply to jobs or create proposals until you complete your payment setup.",
+    "cta": "Set up now"
+  },
   "paymentInfo": {
     "header": "Payment information",
     "subheader": "Payment account",

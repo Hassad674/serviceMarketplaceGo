@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import {
   Wallet,
   ArrowDownToLine,
@@ -14,6 +15,7 @@ import {
   Send,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { ApiError } from "@/shared/lib/api-client"
 import { useWallet, useRequestPayout } from "../hooks/use-wallet"
 import type { WalletRecord } from "../api/wallet-api"
 
@@ -130,7 +132,19 @@ export function WalletPage() {
           <p className="mt-3 text-sm text-green-600 dark:text-green-400">{payoutMessage}</p>
         )}
         {payoutMutation.isError && (
-          <p className="mt-3 text-sm text-red-500">Erreur lors du retrait</p>
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-500/20 dark:bg-red-500/10">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            {payoutMutation.error instanceof ApiError && payoutMutation.error.code === "stripe_account_missing" ? (
+              <p className="text-sm text-red-700 dark:text-red-400">
+                Vous devez d&apos;abord configurer vos informations de paiement pour effectuer un retrait.{" "}
+                <Link href="/payment-info" className="font-semibold underline hover:text-red-900 dark:hover:text-red-300">
+                  Configurer maintenant
+                </Link>
+              </p>
+            ) : (
+              <p className="text-sm text-red-700 dark:text-red-400">Erreur lors du retrait</p>
+            )}
+          </div>
         )}
       </div>
 

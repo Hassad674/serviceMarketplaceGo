@@ -76,10 +76,11 @@ func NewScheduler(deps SchedulerDeps) *Scheduler {
 	}
 }
 
-// Run blocks until ctx is cancelled. Ticks every hour + runs immediately.
-func (s *Scheduler) Run(ctx context.Context) {
+// Run blocks until ctx is cancelled. Ticks every interval + runs immediately.
+// interval controls the tick frequency (e.g. 1 minute in dev, 1 hour in prod).
+func (s *Scheduler) Run(ctx context.Context, interval time.Duration) {
 	s.tick(ctx)
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {

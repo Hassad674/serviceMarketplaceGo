@@ -183,10 +183,8 @@ func (s *Service) applyDecision(
 	case result.Safe:
 		m.AutoApprove(result.Score)
 	case s.autoRejectThreshold > 0 && result.Score >= s.autoRejectThreshold:
-		if err := s.storage.Delete(ctx, srcKey); err != nil {
-			slog.Warn("media moderation: delete source after auto-reject",
-				"error", err, "key", srcKey)
-		}
+		// Don't delete from R2 — keep file visible to admin for review.
+		// Only clear the source URL so users can't see it anymore.
 		if m.ContextID != nil {
 			if err := s.media.ClearSource(ctx, string(m.Context), *m.ContextID); err != nil {
 				slog.Warn("media moderation: clear source URL after auto-reject",
@@ -387,6 +385,10 @@ func extractStorageKey(fileURL string) string {
 	if idx >= 0 {
 		return fileURL[idx:]
 	}
+	idx = strings.Index(fileURL, "messaging/")
+	if idx >= 0 {
+		return fileURL[idx:]
+	}
 	idx = strings.Index(fileURL, "messages/")
 	if idx >= 0 {
 		return fileURL[idx:]
@@ -395,6 +397,11 @@ func extractStorageKey(fileURL string) string {
 	if idx >= 0 {
 		return fileURL[idx:]
 	}
-	// Fallback: return the last path component from slash 3 onwards
-	return fmt.Sprintf("%s", parts[3])
+	// Fallback: strip the bucket prefix (first path segment after host)
+	// URL format: http://host/bucket/key → we want "key"
+	afterHost := parts[3] // "bucket/path/to/file"
+	if slashIdx := strings.Index(afterHost, "/"); slashIdx >= 0 {
+		return afterHost[slashIdx+1:]
+	}
+	return afterHost
 }

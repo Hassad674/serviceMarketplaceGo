@@ -6,6 +6,7 @@ import { Sidebar, SIDEBAR_STORAGE_KEY } from "./sidebar"
 import { Header } from "./header"
 import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
+import { KYCBanner } from "@/shared/components/kyc-banner"
 import { useGlobalWS } from "@/shared/hooks/use-global-ws"
 import { useCall } from "@/features/call/hooks/use-call"
 import { CallContext } from "@/shared/hooks/use-call-context"
@@ -100,6 +101,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
           <main className="flex-1 overflow-y-auto p-5">
             <div className="mx-auto w-full max-w-4xl">
+              {user && <KYCBanner user={user} />}
               {children}
             </div>
           </main>

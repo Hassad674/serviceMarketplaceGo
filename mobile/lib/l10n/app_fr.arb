@@ -506,5 +506,18 @@
   "paymentInfoNotConfigured": "Non configuré",
   "paymentInfoNotConfiguredDesc": "Configurez votre compte de paiement pour recevoir des fonds.",
   "paymentInfoCharges": "Paiements",
-  "paymentInfoPayouts": "Virements"
+  "paymentInfoPayouts": "Virements",
+
+  "kycBannerPendingTitle": "Configurez vos paiements",
+  "kycBannerPendingBody": "Vous avez des fonds en attente. Finalisez dans les {days} jours pour éviter des restrictions.",
+  "@kycBannerPendingBody": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "kycBannerRestrictedTitle": "Compte restreint",
+  "kycBannerRestrictedBody": "Vous ne pouvez plus postuler ni créer de propositions tant que votre compte de paiement n'est pas configuré.",
+  "kycBannerCta": "Configurer"
 }

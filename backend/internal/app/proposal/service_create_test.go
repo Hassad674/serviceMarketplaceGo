@@ -511,3 +511,68 @@ func TestModifyProposal_GetError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "get proposal")
 }
+
+// --- KYC enforcement tests ---
+
+func TestCreateProposal_KYCBlocked(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	past15 := time.Now().Add(-15 * 24 * time.Hour)
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			// Provider is KYC-blocked: has earnings, no Stripe account, 15 days elapsed
+			u := makeUser(id, user.RoleProvider)
+			u.KYCFirstEarningAt = &past15
+			return u, nil
+		},
+	}
+	svc := newTestService(nil, userRepo, nil, nil)
+
+	_, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       providerID,
+		RecipientID:    enterpriseID,
+		Title:          "Test proposal",
+		Description:    "Test description",
+		Amount:         5000,
+	})
+
+	assert.ErrorIs(t, err, user.ErrKYCRestricted)
+}
+
+func TestCreateProposal_KYCCompleted_OK(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	past15 := time.Now().Add(-15 * 24 * time.Hour)
+	stripeID := "acct_123"
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			if id == enterpriseID {
+				return makeUser(id, user.RoleEnterprise), nil
+			}
+			u := makeUser(id, user.RoleProvider)
+			u.KYCFirstEarningAt = &past15
+			u.StripeAccountID = &stripeID
+			return u, nil
+		},
+	}
+	proposalRepo := &mockProposalRepo{}
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
+
+	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+		ConversationID: uuid.New(),
+		SenderID:       providerID,
+		RecipientID:    enterpriseID,
+		Title:          "Test proposal",
+		Description:    "Test description",
+		Amount:         5000,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, p)
+}
