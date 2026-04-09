@@ -360,31 +360,45 @@ func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Requ
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
 
-// validateImageBytes checks that the byte buffer is a complete image of the
-// declared type. JPEGs must end with the EOI marker (FFD9), PNGs with IEND.
+// validateImageBytes verifies that the byte buffer looks like a complete
+// image of the declared type. The check is intentionally lenient: it confirms
+// the file header and looks for the end-of-file marker anywhere in the tail
+// (real-world JPEGs/PNGs often have trailing metadata or padding bytes after
+// the spec-defined end marker, which is perfectly valid in practice).
 func validateImageBytes(buf []byte, contentType string) error {
-	if len(buf) < 8 {
+	if len(buf) < 16 {
 		return fmt.Errorf("image is too small")
 	}
+
+	// Look at the last 1KB for the end marker — enough to catch truncation
+	// without false-positive on legit files with trailing bytes.
+	const tailWindow = 1024
+	tail := buf
+	if len(tail) > tailWindow {
+		tail = tail[len(tail)-tailWindow:]
+	}
+
 	switch {
 	case strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "jpg"):
+		// SOI (Start Of Image) must be at the very start.
 		if buf[0] != 0xFF || buf[1] != 0xD8 {
 			return fmt.Errorf("not a valid JPEG (missing SOI marker)")
 		}
-		if buf[len(buf)-2] != 0xFF || buf[len(buf)-1] != 0xD9 {
-			return fmt.Errorf("JPEG file is incomplete (missing EOI marker)")
+		// EOI (End Of Image) must appear somewhere in the tail.
+		if !bytes.Contains(tail, []byte{0xFF, 0xD9}) {
+			return fmt.Errorf("JPEG file is incomplete (no EOI marker in tail)")
 		}
 	case strings.Contains(contentType, "png"):
-		// PNG header: 89 50 4E 47 0D 0A 1A 0A
+		// PNG signature: 89 50 4E 47 0D 0A 1A 0A
 		if buf[0] != 0x89 || buf[1] != 0x50 || buf[2] != 0x4E || buf[3] != 0x47 {
 			return fmt.Errorf("not a valid PNG (missing signature)")
 		}
-		// PNG ends with IEND chunk: ... 49 45 4E 44 AE 42 60 82
-		if !bytes.HasSuffix(buf, []byte{0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82}) {
-			return fmt.Errorf("PNG file is incomplete (missing IEND chunk)")
+		// IEND chunk: 49 45 4E 44 AE 42 60 82 — must appear in the tail.
+		if !bytes.Contains(tail, []byte{0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82}) {
+			return fmt.Errorf("PNG file is incomplete (no IEND chunk in tail)")
 		}
 	}
-	// For other formats (gif, webp, etc.), accept as-is.
+	// For other formats (gif, webp, avif, heic, etc.), accept as-is.
 	return nil
 }
 
