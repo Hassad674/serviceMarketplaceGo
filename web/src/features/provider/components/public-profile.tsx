@@ -11,6 +11,7 @@ import { ProfileVideo } from "./profile-video"
 import { ProfileAbout } from "./profile-about"
 import { ProfileHistory } from "./profile-history"
 import { ProfileSkeleton } from "./profile-skeleton"
+import { PublicPortfolioSection } from "./portfolio-grid"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
 
@@ -93,6 +94,7 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
           readOnly
         />
 
+        <PublicPortfolioSection userId={userId} />
         <ProfileHistory readOnly />
       </div>
     </div>

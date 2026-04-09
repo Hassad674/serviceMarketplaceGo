@@ -13,6 +13,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../providers/profile_provider.dart';
 
 /// Premium profile screen showing user info, photo, video, about, and logout.
@@ -41,6 +42,9 @@ class ProfileScreen extends ConsumerWidget {
     );
     final profileAbout = profileAsync.whenOrNull(
       data: (p) => p['about'] as String?,
+    );
+    final profileUserId = profileAsync.whenOrNull(
+      data: (p) => p['user_id'] as String?,
     );
 
     return Scaffold(
@@ -121,6 +125,15 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // Portfolio section
+              if (profileUserId != null) ...[
+                PortfolioGridWidget(
+                  userId: profileUserId,
+                  readOnly: false,
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Dark mode toggle
               _DarkModeToggle(),

@@ -36,13 +36,15 @@ const (
 	ContextJobVideo         Context = "job_video"
 	ContextReferrerVideo    Context = "referrer_video"
 	ContextIdentityDocument Context = "identity_document"
+	ContextPortfolioImage   Context = "portfolio_image"
+	ContextPortfolioVideo   Context = "portfolio_video"
 )
 
 func (c Context) IsValid() bool {
 	switch c {
 	case ContextProfilePhoto, ContextProfileVideo, ContextMessageAttach,
 		ContextReviewVideo, ContextJobVideo, ContextReferrerVideo,
-		ContextIdentityDocument:
+		ContextIdentityDocument, ContextPortfolioImage, ContextPortfolioVideo:
 		return true
 	}
 	return false

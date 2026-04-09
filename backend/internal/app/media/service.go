@@ -347,6 +347,10 @@ func extractStorageKey(fileURL string) string {
 	if idx >= 0 {
 		return fileURL[idx:]
 	}
+	idx = strings.Index(fileURL, "portfolios/")
+	if idx >= 0 {
+		return fileURL[idx:]
+	}
 	idx = strings.Index(fileURL, "identity/")
 	if idx >= 0 {
 		return fileURL[idx:]
