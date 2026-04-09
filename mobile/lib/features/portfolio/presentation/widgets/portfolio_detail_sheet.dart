@@ -89,6 +89,14 @@ class _PortfolioDetailSheetState extends State<PortfolioDetailSheet> {
                                         CachedNetworkImage(
                                           imageUrl: m.thumbnailUrl,
                                           fit: BoxFit.contain,
+                                          placeholder: (_, __) => Container(
+                                            color: Colors.black,
+                                          ),
+                                          errorWidget: (_, __, ___) =>
+                                              PortfolioVideoThumbnail(
+                                            videoUrl: m.mediaUrl,
+                                            fit: BoxFit.contain,
+                                          ),
                                         )
                                       else
                                         PortfolioVideoThumbnail(
@@ -120,8 +128,13 @@ class _PortfolioDetailSheetState extends State<PortfolioDetailSheet> {
                                   placeholder: (_, __) => Container(
                                     color: Colors.black12,
                                   ),
-                                  errorWidget: (_, __, ___) =>
-                                      const Icon(Icons.broken_image),
+                                  errorWidget: (_, __, ___) => const Center(
+                                    child: Icon(
+                                      Icons.broken_image,
+                                      color: Colors.white54,
+                                      size: 48,
+                                    ),
+                                  ),
                                 );
                               },
                             ),

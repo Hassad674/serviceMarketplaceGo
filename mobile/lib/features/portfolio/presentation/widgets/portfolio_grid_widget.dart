@@ -399,7 +399,10 @@ class _PortfolioCard extends StatelessWidget {
                 placeholder: (_, __) => Container(
                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 ),
-                errorWidget: (_, __, ___) => _placeholderCover(context),
+                // If the custom thumbnail fails to decode (e.g. truncated upload),
+                // fall back to extracting the video's first frame.
+                errorWidget: (_, __, ___) =>
+                    PortfolioVideoThumbnail(videoUrl: cover.mediaUrl),
               )
             else if (coverIsVideo && cover != null)
               PortfolioVideoThumbnail(videoUrl: cover.mediaUrl)
