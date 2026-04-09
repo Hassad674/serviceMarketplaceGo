@@ -297,3 +297,94 @@ func (h *UploadHandler) DeleteReferrerVideo(w http.ResponseWriter, r *http.Reque
 
 	res.JSON(w, http.StatusOK, map[string]string{"message": "referrer video removed"})
 }
+
+const maxPortfolioImageSize = 10 << 20  // 10 MB
+const maxPortfolioVideoSize = 100 << 20 // 100 MB
+
+// UploadPortfolioImage handles POST /api/v1/upload/portfolio-image.
+func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxPortfolioImageSize)
+	if err := r.ParseMultipartForm(maxPortfolioImageSize); err != nil {
+		res.Error(w, http.StatusBadRequest, "file_too_large", "image must be under 10MB")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
+		return
+	}
+	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be an image")
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	key := fmt.Sprintf("portfolios/%s/image_%s%s", userID.String(), uuid.New().String(), ext)
+
+	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	if err != nil {
+		slog.Error("portfolio image upload failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload image")
+		return
+	}
+
+	if h.mediaSvc != nil {
+		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextPortfolioImage)
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"url": url})
+}
+
+// UploadPortfolioVideo handles POST /api/v1/upload/portfolio-video.
+func (h *UploadHandler) UploadPortfolioVideo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxPortfolioVideoSize)
+	if err := r.ParseMultipartForm(maxPortfolioVideoSize); err != nil {
+		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 100MB")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
+		return
+	}
+	defer file.Close()
+
+	contentType := header.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "video/") {
+		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video")
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	key := fmt.Sprintf("portfolios/%s/video_%s%s", userID.String(), uuid.New().String(), ext)
+
+	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	if err != nil {
+		slog.Error("portfolio video upload failed", "error", err, "user_id", userID)
+		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
+		return
+	}
+
+	if h.mediaSvc != nil {
+		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextPortfolioVideo)
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"url": url})
+}

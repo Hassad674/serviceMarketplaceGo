@@ -32,6 +32,7 @@ import (
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
 	paymentapp "marketplace-backend/internal/app/payment"
+	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
@@ -172,6 +173,13 @@ func main() {
 	socialLinkRepo := postgres.NewSocialLinkRepository(db)
 	socialLinkSvc := profileapp.NewSocialLinkService(socialLinkRepo)
 	socialLinkHandler := handler.NewSocialLinkHandler(socialLinkSvc)
+
+	// Portfolio feature
+	portfolioRepo := postgres.NewPortfolioRepository(db)
+	portfolioSvc := portfolioapp.NewService(portfolioapp.ServiceDeps{
+		Portfolios: portfolioRepo,
+	})
+	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
 
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
@@ -452,6 +460,7 @@ func main() {
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
 		Admin:          adminHandler,
+		Portfolio:      portfolioHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

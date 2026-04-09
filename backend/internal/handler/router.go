@@ -28,6 +28,7 @@ type RouterDeps struct {
 	Report         *ReportHandler
 	Wallet         *WalletHandler
 	Admin          *AdminHandler
+	Portfolio      *PortfolioHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -88,6 +89,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
 			r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
 			r.Post("/review-video", deps.Upload.UploadReviewVideo)
+			r.Post("/portfolio-image", deps.Upload.UploadPortfolioImage)
+			r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
 		})
 
 		// Public profiles
@@ -207,6 +210,23 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/", deps.SocialLink.ListMySocialLinks)
 				r.Put("/", deps.SocialLink.UpsertSocialLink)
 				r.Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
+			})
+		}
+
+		// Portfolio routes (mixed: public reads, authenticated writes)
+		if deps.Portfolio != nil {
+			// Public: read portfolio
+			r.Get("/portfolio/user/{userId}", deps.Portfolio.ListPortfolioByUser)
+			r.Get("/portfolio/{id}", deps.Portfolio.GetPortfolioItem)
+
+			// Authenticated: manage own portfolio
+			r.Route("/portfolio", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Portfolio.CreatePortfolioItem)
+				r.Put("/reorder", deps.Portfolio.ReorderPortfolio)
+				r.Put("/{id}", deps.Portfolio.UpdatePortfolioItem)
+				r.Delete("/{id}", deps.Portfolio.DeletePortfolioItem)
 			})
 		}
 

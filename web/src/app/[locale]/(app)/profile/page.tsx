@@ -10,6 +10,7 @@ import { ProfileAbout } from "@/features/provider/components/profile-about"
 import { ProfileHistory } from "@/features/provider/components/profile-history"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
+import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
 
 function getDisplayName(
   user: { first_name: string; last_name: string; display_name: string; role: string } | null,
@@ -81,6 +82,7 @@ export default function ProfilePage() {
         placeholder={aboutPlaceholder}
       />
       <SocialLinksSection />
+      <PortfolioSection />
       <ProfileHistory />
     </div>
   )
