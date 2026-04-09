@@ -203,6 +203,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           const SizedBox(height: 16),
 
           // Reviews section
+          // Portfolio section
+          PortfolioGridWidget(userId: widget.profileUserId),
+          const SizedBox(height: 16),
+
+          // Reviews section
           ReviewListWidget(userId: widget.profileUserId),
         ],
       ),
