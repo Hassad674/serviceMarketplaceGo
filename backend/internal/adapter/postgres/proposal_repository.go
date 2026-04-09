@@ -30,6 +30,7 @@ func (r *ProposalRepository) Create(ctx context.Context, p *proposal.Proposal) e
 		p.Title, p.Description, p.Amount, p.Deadline,
 		string(p.Status), p.ParentID, p.Version,
 		p.ClientID, p.ProviderID, p.Metadata,
+		p.ActiveDisputeID,
 		p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
 		p.CreatedAt, p.UpdatedAt,
 	)
@@ -55,6 +56,7 @@ func (r *ProposalRepository) CreateWithDocuments(ctx context.Context, p *proposa
 		p.Title, p.Description, p.Amount, p.Deadline,
 		string(p.Status), p.ParentID, p.Version,
 		p.ClientID, p.ProviderID, p.Metadata,
+		p.ActiveDisputeID,
 		p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
 		p.CreatedAt, p.UpdatedAt,
 	); err != nil {
@@ -94,7 +96,7 @@ func (r *ProposalRepository) Update(ctx context.Context, p *proposal.Proposal) e
 	result, err := r.db.ExecContext(ctx, queryUpdateProposal,
 		p.ID, string(p.Status),
 		p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
-		p.Metadata, p.UpdatedAt,
+		p.Metadata, p.ActiveDisputeID, p.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update proposal: %w", err)
@@ -244,6 +246,7 @@ func scanProposal(row *sql.Row) (*proposal.Proposal, error) {
 		&p.Title, &p.Description, &p.Amount, &p.Deadline,
 		&status, &p.ParentID, &p.Version,
 		&p.ClientID, &p.ProviderID, &metadata,
+		&p.ActiveDisputeID,
 		&p.AcceptedAt, &p.DeclinedAt, &p.PaidAt, &p.CompletedAt,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
@@ -270,6 +273,7 @@ func scanProposalFromRows(rows *sql.Rows) (*proposal.Proposal, error) {
 		&p.Title, &p.Description, &p.Amount, &p.Deadline,
 		&status, &p.ParentID, &p.Version,
 		&p.ClientID, &p.ProviderID, &metadata,
+		&p.ActiveDisputeID,
 		&p.AcceptedAt, &p.DeclinedAt, &p.PaidAt, &p.CompletedAt,
 		&p.CreatedAt, &p.UpdatedAt,
 	)

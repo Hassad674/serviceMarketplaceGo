@@ -19,13 +19,14 @@ const (
 	StatusActive              ProposalStatus = "active"
 	StatusCompletionRequested ProposalStatus = "completion_requested"
 	StatusCompleted           ProposalStatus = "completed"
+	StatusDisputed            ProposalStatus = "disputed"
 )
 
 func (s ProposalStatus) IsValid() bool {
 	switch s {
 	case StatusPending, StatusAccepted, StatusDeclined,
 		StatusWithdrawn, StatusPaid, StatusActive,
-		StatusCompletionRequested, StatusCompleted:
+		StatusCompletionRequested, StatusCompleted, StatusDisputed:
 		return true
 	}
 	return false
@@ -47,7 +48,8 @@ type Proposal struct {
 	Version        int
 	ClientID       uuid.UUID
 	ProviderID     uuid.UUID
-	Metadata       json.RawMessage
+	Metadata        json.RawMessage
+	ActiveDisputeID *uuid.UUID
 	AcceptedAt     *time.Time
 	DeclinedAt     *time.Time
 	PaidAt         *time.Time
@@ -239,6 +241,30 @@ func (p *Proposal) RejectCompletion(userID uuid.UUID) error {
 		return ErrNotClient
 	}
 	p.Status = StatusActive
+	p.UpdatedAt = time.Now()
+	return nil
+}
+
+// MarkDisputed transitions the proposal to disputed status and records the
+// dispute ID. Only active or completion_requested proposals can be disputed.
+func (p *Proposal) MarkDisputed(disputeID uuid.UUID) error {
+	if p.Status != StatusActive && p.Status != StatusCompletionRequested {
+		return ErrInvalidStatus
+	}
+	p.ActiveDisputeID = &disputeID
+	p.Status = StatusDisputed
+	p.UpdatedAt = time.Now()
+	return nil
+}
+
+// RestoreFromDispute returns the proposal to the given target status after a
+// dispute is resolved or cancelled. Clears the active dispute reference.
+func (p *Proposal) RestoreFromDispute(target ProposalStatus) error {
+	if p.Status != StatusDisputed {
+		return ErrInvalidStatus
+	}
+	p.ActiveDisputeID = nil
+	p.Status = target
 	p.UpdatedAt = time.Now()
 	return nil
 }

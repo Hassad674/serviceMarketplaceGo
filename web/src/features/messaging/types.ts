@@ -14,6 +14,16 @@ export type MessageType =
   | "evaluation_request"
   | "call_ended"
   | "call_missed"
+  | "dispute_opened"
+  | "dispute_counter_proposal"
+  | "dispute_counter_accepted"
+  | "dispute_counter_rejected"
+  | "dispute_escalated"
+  | "dispute_resolved"
+  | "dispute_cancelled"
+  | "dispute_auto_resolved"
+  | "dispute_cancellation_requested"
+  | "dispute_cancellation_refused"
 
 export type MessageStatus = "sending" | "sent" | "delivered" | "read"
 

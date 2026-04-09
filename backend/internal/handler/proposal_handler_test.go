@@ -54,6 +54,14 @@ func (m *mockPaymentProcessor) HandlePaymentSucceeded(ctx context.Context, piID 
 	return uuid.Nil, nil
 }
 
+func (m *mockPaymentProcessor) TransferPartialToProvider(_ context.Context, _ uuid.UUID, _ int64) error {
+	return nil
+}
+
+func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ int64) error {
+	return nil
+}
+
 var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)
 
 // ---------------------------------------------------------------------------

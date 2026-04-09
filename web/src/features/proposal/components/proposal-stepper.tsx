@@ -24,6 +24,7 @@ function getStepIndex(status: ProposalStatus): number {
     completion_requested: 3,
     declined: -1,
     withdrawn: -1,
+    disputed: 3,
   }
   return mapping[status]
 }

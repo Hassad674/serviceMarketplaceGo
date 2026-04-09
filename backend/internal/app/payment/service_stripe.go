@@ -171,6 +171,72 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 	return s.records.Update(ctx, record)
 }
 
+// TransferPartialToProvider transfers a specific amount to the provider and
+// updates the payment record to reflect the new ProviderPayout. Used for dispute
+// resolutions: the wallet computation must show the actual amount, not the
+// original proposal payout.
+func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid.UUID, amount int64) error {
+	record, err := s.records.GetByProposalID(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("find payment record: %w", err)
+	}
+	if record.Status != domain.RecordStatusSucceeded {
+		return domain.ErrPaymentNotSucceeded
+	}
+
+	var transferID string
+	if amount > 0 {
+		stripeAccountID, _, accErr := s.users.GetStripeAccount(ctx, record.ProviderID)
+		if accErr != nil || stripeAccountID == "" {
+			return domain.ErrStripeAccountNotFound
+		}
+
+		transferID, err = s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
+			Amount:             amount,
+			Currency:           record.Currency,
+			DestinationAccount: stripeAccountID,
+			TransferGroup:      proposalID.String(),
+			IdempotencyKey:     fmt.Sprintf("dispute_transfer_%s_%d", proposalID, amount),
+		})
+		if err != nil {
+			return fmt.Errorf("stripe partial transfer: %w", err)
+		}
+	}
+
+	// Update the record so the wallet computation reflects the actual amount.
+	// If amount == 0 (full refund), provider gets nothing — still mark as
+	// resolved so the funds are no longer in escrow.
+	record.ApplyDisputeResolution(amount, transferID)
+	return s.records.Update(ctx, record)
+}
+
+// RefundToClient creates a partial or full refund on the original payment.
+// If the provider portion is 0 (full refund), marks the record as refunded
+// so the wallet excludes it from escrow.
+func (s *Service) RefundToClient(ctx context.Context, proposalID uuid.UUID, amount int64) error {
+	if amount <= 0 {
+		return nil
+	}
+	record, err := s.records.GetByProposalID(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("find payment record: %w", err)
+	}
+	if record.StripePaymentIntentID == "" {
+		return fmt.Errorf("no payment intent for refund")
+	}
+
+	_, err = s.stripe.CreateRefund(ctx, record.StripePaymentIntentID, amount)
+	if err != nil {
+		return fmt.Errorf("stripe refund: %w", err)
+	}
+
+	// Full refund (provider gets nothing) → mark the entire payment as refunded
+	if record.ProviderPayout == 0 {
+		record.MarkRefunded()
+	}
+	return s.records.Update(ctx, record)
+}
+
 // WalletOverview holds the provider's wallet state.
 type WalletOverview struct {
 	StripeAccountID   string         `json:"stripe_account_id"`

@@ -183,8 +183,10 @@ func (s *Service) applyDecision(
 	case result.Safe:
 		m.AutoApprove(result.Score)
 	case s.autoRejectThreshold > 0 && result.Score >= s.autoRejectThreshold:
-		// Don't delete from R2 — keep file visible to admin for review.
-		// Only clear the source URL so users can't see it anymore.
+		if err := s.storage.Delete(ctx, srcKey); err != nil {
+			slog.Warn("media moderation: delete source after auto-reject",
+				"error", err, "key", srcKey)
+		}
 		if m.ContextID != nil {
 			if err := s.media.ClearSource(ctx, string(m.Context), *m.ContextID); err != nil {
 				slog.Warn("media moderation: clear source URL after auto-reject",
@@ -390,6 +392,10 @@ func extractStorageKey(fileURL string) string {
 		return fileURL[idx:]
 	}
 	idx = strings.Index(fileURL, "messages/")
+	if idx >= 0 {
+		return fileURL[idx:]
+	}
+	idx = strings.Index(fileURL, "portfolios/")
 	if idx >= 0 {
 		return fileURL[idx:]
 	}

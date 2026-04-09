@@ -13,6 +13,8 @@ import { ReviewsPage } from "@/features/reviews/components/reviews-page"
 import { ReviewDetailPage } from "@/features/reviews/components/review-detail-page"
 import { MediaPage } from "@/features/media/components/media-page"
 import { MediaDetailPage } from "@/features/media/components/media-detail-page"
+import { DisputesPage } from "@/features/disputes/components/disputes-page"
+import { DisputeDetailPage } from "@/features/disputes/components/dispute-detail-page"
 
 export function AppRouter() {
   return (
@@ -33,6 +35,8 @@ export function AppRouter() {
           <Route path="/reviews/:id" element={<ReviewDetailPage />} />
           <Route path="/media" element={<MediaPage />} />
           <Route path="/media/:id" element={<MediaDetailPage />} />
+          <Route path="/disputes" element={<DisputesPage />} />
+          <Route path="/disputes/:id" element={<DisputeDetailPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

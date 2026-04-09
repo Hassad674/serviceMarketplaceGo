@@ -526,5 +526,101 @@
   },
   "kycBannerRestrictedTitle": "Account restricted",
   "kycBannerRestrictedBody": "You cannot apply to jobs or create proposals until you complete your payment setup.",
-  "kycBannerCta": "Set up now"
+  "kycBannerCta": "Set up now",
+
+  "disputeOpenTitle": "Dispute in progress",
+  "disputeNegotiationTitle": "Negotiation in progress",
+  "disputeEscalatedTitle": "Under mediation",
+  "disputeResolvedTitle": "Dispute resolved",
+  "disputeCounterPropose": "Make a proposal",
+  "disputeCancel": "Cancel dispute",
+  "disputeOpenBtn": "Report a problem",
+
+  "disputeStatusOpen": "Dispute in progress",
+  "disputeStatusNegotiation": "Negotiation in progress",
+  "disputeStatusEscalated": "Under mediation",
+  "disputeStatusResolved": "Dispute resolved",
+  "disputeStatusCancelled": "Dispute cancelled",
+
+  "disputeReasonWorkNotConforming": "Work does not conform to scope",
+  "disputeReasonNonDelivery": "Non-delivery",
+  "disputeReasonInsufficientQuality": "Insufficient quality",
+  "disputeReasonClientGhosting": "Client unresponsive",
+  "disputeReasonScopeCreep": "Scope creep",
+  "disputeReasonRefusalToValidate": "Refusal to validate without reason",
+  "disputeReasonHarassment": "Harassment",
+  "disputeReasonOther": "Other",
+
+  "disputeReasonLabel": "Reason",
+  "disputeReasonPlaceholder": "Select a reason",
+  "disputeAmountLabel": "What are you requesting?",
+  "disputeTotalRefund": "Full refund ({amount})",
+  "@disputeTotalRefund": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "disputeTotalRelease": "Full fund release ({amount})",
+  "@disputeTotalRelease": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "disputePartialAmount": "Partial amount",
+  "disputeMessageToPartyLabel": "Message to the other party",
+  "disputeMessageToPartyHint": "This message will be visible in the conversation. Explain your request clearly.",
+  "disputeMessageToPartyPlaceholder": "Explain what you expect and why...",
+  "disputeDescriptionLabel": "Detailed description for mediation (optional)",
+  "disputeDescriptionHint": "This will only be read by the mediation team if the dispute is escalated.",
+  "disputeDescriptionPlaceholder": "Additional context, timeline of events, evidence descriptions...",
+  "disputeFormWarning": "Opening a dispute freezes the funds until resolution. The other party will be notified.",
+
+  "disputeSubmit": "Submit dispute",
+  "disputeAccept": "Accept",
+  "disputeReject": "Reject",
+  "disputeCounterSubmit": "Send proposal",
+  "disputeAddFiles": "Add files",
+  "disputeCancelBtn": "Cancel",
+  "disputeViewDetails": "View details",
+  "disputeReportProblem": "Report a problem",
+
+  "disputeCounterSplitLabel": "Proposed split",
+  "disputeCounterMessageLabel": "Message (optional)",
+  "disputeCounterMessagePlaceholder": "Explain your proposal...",
+
+  "disputeRequestedAmount": "requested",
+  "disputeDaysLeft": "{days} days left before escalation",
+  "@disputeDaysLeft": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "disputeEscalationSoon": "Escalation imminent",
+  "disputeLastProposal": "Last proposal",
+  "disputeSplit": "{client} to client, {provider} to provider",
+  "@disputeSplit": {
+    "placeholders": {
+      "client": { "type": "String" },
+      "provider": { "type": "String" }
+    }
+  },
+  "disputeResolution": "Resolution",
+  "disputeInProgress": "A dispute is in progress on this mission",
+  "disputeClient": "Client",
+  "disputeProvider": "Provider",
+
+  "disputeOpenedLabel": "Dispute opened",
+  "disputeCounterProposalLabel": "Proposal",
+  "disputeCounterAcceptedLabel": "Proposal accepted",
+  "disputeCounterRejectedLabel": "Proposal rejected",
+  "disputeEscalatedLabel": "Escalated to mediation",
+  "disputeResolvedLabel": "Dispute resolved",
+  "disputeCancelledLabel": "Dispute cancelled",
+  "disputeAutoResolvedLabel": "Dispute auto-resolved",
+  "disputeCancellationRequestedLabel": "Cancellation request",
+  "disputeCancellationRefusedLabel": "Cancellation refused",
+
+  "disputeYourLastProposalRefused": "Your last proposal was refused",
+  "disputeCancellationRequestPending": "Cancellation request pending",
+  "disputeCancellationRequestWaiting": "Waiting for the other party to accept or refuse your cancellation request.",
+  "disputeCancellationRequestConsent": "The other party is asking to cancel this dispute. Your consent is required.",
+  "disputeCancellationRequestSent": "Cancellation request sent. Waiting for the other party's response.",
+  "disputeAcceptCancellation": "Accept cancellation",
+  "disputeRefuseCancellation": "Refuse",
+
+  "projectStatusDisputed": "Disputed"
 }

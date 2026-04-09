@@ -10,6 +10,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../messaging/data/messaging_repository_impl.dart';
+import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../review/presentation/widgets/review_list_widget.dart';
 import '../providers/search_provider.dart';
 
@@ -196,6 +197,10 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             ),
           if (about != null && about.isNotEmpty)
             const SizedBox(height: 16),
+
+          // Portfolio section
+          PortfolioGridWidget(userId: widget.profileUserId),
+          const SizedBox(height: 16),
 
           // Reviews section
           ReviewListWidget(userId: widget.profileUserId),

@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  AlertTriangle,
   CheckCircle2,
   Clock,
   CreditCard,
@@ -157,6 +158,15 @@ function getStatusConfig(
       iconClass: "text-slate-500 dark:text-slate-400",
       textClass: "text-slate-600 dark:text-slate-400",
       subtitleClass: "text-slate-500 dark:text-slate-400",
+    },
+    disputed: {
+      icon: AlertTriangle,
+      label: t("disputed"),
+      subtitle: t("disputeInProgress"),
+      bgClass: "bg-orange-50 dark:bg-orange-500/10",
+      iconClass: "text-orange-600 dark:text-orange-400",
+      textClass: "text-orange-700 dark:text-orange-300",
+      subtitleClass: "text-orange-500 dark:text-orange-400",
     },
   }
 

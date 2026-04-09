@@ -23,9 +23,11 @@ import (
 	sqsadapter "marketplace-backend/internal/adapter/sqs"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	"marketplace-backend/internal/adapter/ws"
+	anthropicadapter "marketplace-backend/internal/adapter/anthropic"
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
+	disputeapp "marketplace-backend/internal/app/dispute"
 	embeddedapp "marketplace-backend/internal/app/embedded"
 	kycapp "marketplace-backend/internal/app/kyc"
 	jobapp "marketplace-backend/internal/app/job"
@@ -33,6 +35,7 @@ import (
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
 	paymentapp "marketplace-backend/internal/app/payment"
+	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
@@ -173,6 +176,13 @@ func main() {
 	socialLinkRepo := postgres.NewSocialLinkRepository(db)
 	socialLinkSvc := profileapp.NewSocialLinkService(socialLinkRepo)
 	socialLinkHandler := handler.NewSocialLinkHandler(socialLinkSvc)
+
+	// Portfolio feature
+	portfolioRepo := postgres.NewPortfolioRepository(db)
+	portfolioSvc := portfolioapp.NewService(portfolioapp.ServiceDeps{
+		Portfolios: portfolioRepo,
+	})
+	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
 
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
@@ -449,6 +459,46 @@ func main() {
 	// Wallet handler
 	walletHandler := handler.NewWalletHandler(paymentInfoSvc, proposalSvc)
 
+	// Dispute feature
+	disputeRepo := postgres.NewDisputeRepository(db)
+	var aiAnalyzer service.AIAnalyzer
+	if cfg.AnthropicAPIKey != "" {
+		aiAnalyzer = anthropicadapter.NewAnalyzer(cfg.AnthropicAPIKey)
+		slog.Info("AI analyzer enabled (Anthropic Claude Haiku)")
+	} else {
+		aiAnalyzer = noop.NewAnalyzer()
+		slog.Info("AI analyzer disabled (no ANTHROPIC_API_KEY)")
+	}
+	disputeSvc := disputeapp.NewService(disputeapp.ServiceDeps{
+		Disputes:      disputeRepo,
+		Proposals:     proposalRepo,
+		Users:         userRepo,
+		Messages:      messagingSvc,
+		Notifications: notifSvc,
+		Payments:      paymentInfoSvc,
+		AI:            aiAnalyzer,
+	})
+	disputeHandler := handler.NewDisputeHandler(disputeSvc)
+	adminDisputeHandler := handler.NewAdminDisputeHandler(disputeSvc, disputeRepo)
+
+	// Dispute scheduler — auto-resolve ghost (7d) + escalate to admin
+	disputeScheduler := disputeapp.NewScheduler(disputeapp.SchedulerDeps{
+		Disputes:      disputeRepo,
+		Proposals:     proposalRepo,
+		Messages:      messagingSvc,
+		Notifications: notifSvc,
+		AI:            aiAnalyzer,
+		Payments:      paymentInfoSvc,
+	})
+	disputeCtx, disputeCancel := context.WithCancel(context.Background())
+	defer disputeCancel()
+	disputeInterval := 1 * time.Hour
+	if cfg.Env == "development" {
+		disputeInterval = 1 * time.Minute
+	}
+	go disputeScheduler.Run(disputeCtx, disputeInterval)
+	slog.Info("dispute scheduler started", "interval", disputeInterval)
+
 	wsHandler := ws.ServeWS(ws.ConnDeps{
 		Hub:              wsHub,
 		MessagingSvc:     messagingSvc,
@@ -478,6 +528,9 @@ func main() {
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,
 		Admin:          adminHandler,
+		Portfolio:      portfolioHandler,
+		Dispute:        disputeHandler,
+		AdminDispute:   adminDisputeHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

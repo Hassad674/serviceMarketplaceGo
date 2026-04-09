@@ -30,6 +30,8 @@ import '../../features/proposal/domain/entities/proposal_entity.dart';
 import '../../features/proposal/presentation/screens/create_proposal_screen.dart';
 import '../../features/proposal/presentation/screens/payment_simulation_screen.dart';
 import '../../features/proposal/presentation/screens/projects_list_screen.dart';
+import '../../features/dispute/presentation/screens/counter_propose_screen.dart';
+import '../../features/dispute/presentation/screens/open_dispute_screen.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/notification/presentation/screens/notification_screen.dart';
@@ -86,6 +88,8 @@ class RoutePaths {
   static const String jobDetail = '/jobs/detail';
   static const String jobEdit = '/jobs/edit';
   static const String candidateDetail = '/candidates/detail';
+  static const String disputeOpen = '/disputes/open';
+  static const String disputeCounter = '/disputes/counter';
 }
 
 // ---------------------------------------------------------------------------
@@ -249,6 +253,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ProposalDetailScreen(
           proposalId: state.pathParameters['id'] ?? '',
         ),
+      ),
+
+      // --- Open dispute (full-screen, no bottom nav) ---
+      GoRoute(
+        path: RoutePaths.disputeOpen,
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>? ?? const {};
+          return OpenDisputeScreen(
+            proposalId: extras['proposalId'] as String? ?? '',
+            proposalAmount: extras['proposalAmount'] as int? ?? 0,
+            userRole: extras['userRole'] as String? ?? 'client',
+          );
+        },
+      ),
+
+      // --- Counter-propose dispute (full-screen, no bottom nav) ---
+      GoRoute(
+        path: RoutePaths.disputeCounter,
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>? ?? const {};
+          return CounterProposeScreen(
+            disputeId: extras['disputeId'] as String? ?? '',
+            proposalAmount: extras['proposalAmount'] as int? ?? 0,
+          );
+        },
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---

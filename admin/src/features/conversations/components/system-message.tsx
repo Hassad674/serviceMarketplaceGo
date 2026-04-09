@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   CheckCircle2,
   XCircle,
   DollarSign,
@@ -6,6 +7,8 @@ import {
   Clock,
   RotateCcw,
   Pencil,
+  Scale,
+  ShieldAlert,
   Star,
   Trophy,
   Phone,
@@ -29,6 +32,14 @@ const SYSTEM_LABELS: Record<string, string> = {
   evaluation_request: "Demande d'evaluation",
   call_ended: "Appel termine",
   call_missed: "Appel manque",
+  dispute_opened: "Litige ouvert",
+  dispute_counter_proposal: "Contre-proposition",
+  dispute_counter_accepted: "Proposition acceptee",
+  dispute_counter_rejected: "Proposition refusee",
+  dispute_escalated: "Escalade en mediation",
+  dispute_resolved: "Litige resolu",
+  dispute_cancelled: "Litige annule",
+  dispute_auto_resolved: "Litige resolu automatiquement",
 }
 
 type SystemConfig = {
@@ -123,6 +134,62 @@ const SYSTEM_STYLES: Record<string, SystemConfig> = {
     iconBg: "bg-red-100",
     cardBg: "bg-red-50",
     cardBorder: "border-red-200",
+  },
+  dispute_opened: {
+    icon: AlertTriangle,
+    iconColor: "text-orange-600",
+    iconBg: "bg-orange-100",
+    cardBg: "bg-orange-50",
+    cardBorder: "border-orange-200",
+  },
+  dispute_counter_proposal: {
+    icon: Scale,
+    iconColor: "text-amber-600",
+    iconBg: "bg-amber-100",
+    cardBg: "bg-amber-50",
+    cardBorder: "border-amber-200",
+  },
+  dispute_counter_accepted: {
+    icon: CheckCircle2,
+    iconColor: "text-green-600",
+    iconBg: "bg-green-100",
+    cardBg: "bg-green-50",
+    cardBorder: "border-green-200",
+  },
+  dispute_counter_rejected: {
+    icon: XCircle,
+    iconColor: "text-red-600",
+    iconBg: "bg-red-100",
+    cardBg: "bg-red-50",
+    cardBorder: "border-red-200",
+  },
+  dispute_escalated: {
+    icon: ShieldAlert,
+    iconColor: "text-orange-600",
+    iconBg: "bg-orange-100",
+    cardBg: "bg-orange-50",
+    cardBorder: "border-orange-200",
+  },
+  dispute_resolved: {
+    icon: CheckCircle2,
+    iconColor: "text-emerald-600",
+    iconBg: "bg-emerald-100",
+    cardBg: "bg-emerald-50",
+    cardBorder: "border-emerald-200",
+  },
+  dispute_cancelled: {
+    icon: XCircle,
+    iconColor: "text-slate-600",
+    iconBg: "bg-slate-100",
+    cardBg: "bg-slate-50",
+    cardBorder: "border-slate-200",
+  },
+  dispute_auto_resolved: {
+    icon: Clock,
+    iconColor: "text-amber-600",
+    iconBg: "bg-amber-100",
+    cardBg: "bg-amber-50",
+    cardBorder: "border-amber-200",
   },
 }
 

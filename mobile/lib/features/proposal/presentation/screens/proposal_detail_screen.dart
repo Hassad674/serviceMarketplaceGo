@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../dispute/presentation/providers/dispute_provider.dart';
+import '../../../dispute/presentation/widgets/dispute_banner_widget.dart';
 import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../types/proposal.dart';
@@ -91,11 +94,34 @@ class _ProposalDetailBody extends ConsumerWidget {
     final isOwn = proposal.senderId == currentUserId;
     final status = _parseStatus(proposal.status);
 
+    final canOpenDispute = (proposal.status == 'active' ||
+            proposal.status == 'completion_requested') &&
+        proposal.activeDisputeId == null;
+
+    final userRole =
+        currentUserId == proposal.clientId ? 'client' : 'provider';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Active dispute banner
+          if (proposal.activeDisputeId != null)
+            _DisputeBannerSection(
+              disputeId: proposal.activeDisputeId!,
+              currentUserId: currentUserId,
+              proposalAmount: proposal.amount,
+            ),
+
+          // Report a problem button (only when no active dispute and mission active)
+          if (canOpenDispute)
+            _ReportProblemButton(
+              proposalId: proposal.id,
+              proposalAmount: proposal.amount,
+              userRole: userRole,
+            ),
+
           _ProposalHeader(
             title: proposal.title,
             status: status,
@@ -591,5 +617,155 @@ class _ActionButtons extends ConsumerWidget {
 
   void _pay(BuildContext context) {
     GoRouter.of(context).push('/projects/pay/${proposal.id}');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dispute integration widgets
+// ---------------------------------------------------------------------------
+
+class _DisputeBannerSection extends ConsumerWidget {
+  const _DisputeBannerSection({
+    required this.disputeId,
+    required this.currentUserId,
+    required this.proposalAmount,
+  });
+
+  final String disputeId;
+  final String currentUserId;
+  final int proposalAmount;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncDispute = ref.watch(disputeByIdProvider(disputeId));
+    return asyncDispute.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (dispute) => DisputeBannerWidget(
+        dispute: dispute,
+        currentUserId: currentUserId,
+        onCounterPropose: () => GoRouter.of(context).push(
+          RoutePaths.disputeCounter,
+          extra: {
+            'disputeId': disputeId,
+            'proposalAmount': proposalAmount,
+          },
+        ),
+        onAcceptProposal: (cpId) async {
+          final ok = await respondToCounter(
+            ref,
+            disputeId: disputeId,
+            counterProposalId: cpId,
+            accept: true,
+          );
+          if (context.mounted && !ok) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.unexpectedError)),
+            );
+          }
+        },
+        onRejectProposal: (cpId) async {
+          final ok = await respondToCounter(
+            ref,
+            disputeId: disputeId,
+            counterProposalId: cpId,
+            accept: false,
+          );
+          if (context.mounted && !ok) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.unexpectedError)),
+            );
+          }
+        },
+        onCancel: () async {
+          final outcome = await cancelDispute(ref, disputeId);
+          if (!context.mounted) return;
+          final l10n = AppLocalizations.of(context)!;
+          switch (outcome) {
+            case CancelDisputeOutcome.cancelled:
+              // Silent success — the banner disappears / updates on refresh.
+              break;
+            case CancelDisputeOutcome.requested:
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.disputeCancellationRequestSent)),
+              );
+              break;
+            case CancelDisputeOutcome.failed:
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(l10n.unexpectedError)),
+              );
+              break;
+          }
+        },
+        onAcceptCancellation: () async {
+          final ok = await respondToCancellation(
+            ref,
+            disputeId: disputeId,
+            accept: true,
+          );
+          if (context.mounted && !ok) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.unexpectedError)),
+            );
+          }
+        },
+        onRefuseCancellation: () async {
+          final ok = await respondToCancellation(
+            ref,
+            disputeId: disputeId,
+            accept: false,
+          );
+          if (context.mounted && !ok) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context)!.unexpectedError)),
+            );
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _ReportProblemButton extends StatelessWidget {
+  const _ReportProblemButton({
+    required this.proposalId,
+    required this.proposalAmount,
+    required this.userRole,
+  });
+
+  final String proposalId;
+  final int proposalAmount;
+  final String userRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.warning_amber_rounded,
+            color: Color(0xFFEA580C), size: 18),
+        label: Text(
+          l10n.disputeReportProblem,
+          style: const TextStyle(color: Color(0xFFC2410C)),
+        ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFF7ED),
+          side: const BorderSide(color: Color(0xFFFDBA74)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+          ),
+        ),
+        onPressed: () => GoRouter.of(context).push(
+          RoutePaths.disputeOpen,
+          extra: {
+            'proposalId': proposalId,
+            'proposalAmount': proposalAmount,
+            'userRole': userRole,
+          },
+        ),
+      ),
+    );
   }
 }

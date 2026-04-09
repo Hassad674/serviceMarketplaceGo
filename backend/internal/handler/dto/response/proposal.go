@@ -22,6 +22,7 @@ type ProposalResponse struct {
 	ProviderID     string             `json:"provider_id"`
 	ClientName     string             `json:"client_name"`
 	ProviderName   string             `json:"provider_name"`
+	ActiveDisputeID *string            `json:"active_dispute_id"`
 	Documents      []DocumentResponse `json:"documents"`
 	AcceptedAt     *string            `json:"accepted_at,omitempty"`
 	PaidAt         *string            `json:"paid_at,omitempty"`
@@ -76,6 +77,10 @@ func NewProposalResponseWithNames(p *proposal.Proposal, docs []*proposal.Proposa
 	if p.AcceptedAt != nil {
 		t := p.AcceptedAt.Format(time.RFC3339)
 		resp.AcceptedAt = &t
+	}
+	if p.ActiveDisputeID != nil {
+		s := p.ActiveDisputeID.String()
+		resp.ActiveDisputeID = &s
 	}
 	if p.PaidAt != nil {
 		t := p.PaidAt.Format(time.RFC3339)

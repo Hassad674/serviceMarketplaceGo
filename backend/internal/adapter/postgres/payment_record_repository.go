@@ -83,10 +83,12 @@ func (r *PaymentRecordRepository) Update(ctx context.Context, rec *payment.Payme
 		UPDATE payment_records SET
 			stripe_payment_intent_id = $1, stripe_transfer_id = $2,
 			status = $3, transfer_status = $4,
-			paid_at = $5, transferred_at = $6, updated_at = $7
-		WHERE id = $8`,
+			provider_payout = $5,
+			paid_at = $6, transferred_at = $7, updated_at = $8
+		WHERE id = $9`,
 		ptrString(rec.StripePaymentIntentID), ptrString(rec.StripeTransferID),
 		string(rec.Status), string(rec.TransferStatus),
+		rec.ProviderPayout,
 		rec.PaidAt, rec.TransferredAt, rec.UpdatedAt,
 		rec.ID,
 	)

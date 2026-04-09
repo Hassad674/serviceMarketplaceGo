@@ -1429,4 +1429,238 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get kycBannerCta => 'Configurer';
+
+  @override
+  String get disputeOpenTitle => 'Litige en cours';
+
+  @override
+  String get disputeNegotiationTitle => 'Negociation en cours';
+
+  @override
+  String get disputeEscalatedTitle => 'En mediation';
+
+  @override
+  String get disputeResolvedTitle => 'Litige resolu';
+
+  @override
+  String get disputeCounterPropose => 'Faire une proposition';
+
+  @override
+  String get disputeCancel => 'Annuler le litige';
+
+  @override
+  String get disputeOpenBtn => 'Signaler un probleme';
+
+  @override
+  String get disputeStatusOpen => 'Litige en cours';
+
+  @override
+  String get disputeStatusNegotiation => 'Negociation en cours';
+
+  @override
+  String get disputeStatusEscalated => 'En mediation';
+
+  @override
+  String get disputeStatusResolved => 'Litige resolu';
+
+  @override
+  String get disputeStatusCancelled => 'Litige annule';
+
+  @override
+  String get disputeReasonWorkNotConforming => 'Travail non conforme au scope';
+
+  @override
+  String get disputeReasonNonDelivery => 'Non-livraison';
+
+  @override
+  String get disputeReasonInsufficientQuality => 'Qualite insuffisante';
+
+  @override
+  String get disputeReasonClientGhosting => 'Client injoignable';
+
+  @override
+  String get disputeReasonScopeCreep => 'Demande hors du scope initial';
+
+  @override
+  String get disputeReasonRefusalToValidate =>
+      'Refus de valider sans justification';
+
+  @override
+  String get disputeReasonHarassment => 'Harcelement';
+
+  @override
+  String get disputeReasonOther => 'Autre';
+
+  @override
+  String get disputeReasonLabel => 'Raison du signalement';
+
+  @override
+  String get disputeReasonPlaceholder => 'Selectionnez une raison';
+
+  @override
+  String get disputeAmountLabel => 'Que demandez-vous ?';
+
+  @override
+  String disputeTotalRefund(String amount) {
+    return 'Remboursement total ($amount)';
+  }
+
+  @override
+  String disputeTotalRelease(String amount) {
+    return 'Liberation totale des fonds ($amount)';
+  }
+
+  @override
+  String get disputePartialAmount => 'Montant partiel';
+
+  @override
+  String get disputeMessageToPartyLabel => 'Message a l\'autre partie';
+
+  @override
+  String get disputeMessageToPartyHint =>
+      'Ce message sera visible dans la conversation. Expliquez clairement votre demande.';
+
+  @override
+  String get disputeMessageToPartyPlaceholder =>
+      'Expliquez ce que vous attendez et pourquoi...';
+
+  @override
+  String get disputeDescriptionLabel =>
+      'Description detaillee pour la mediation (optionnel)';
+
+  @override
+  String get disputeDescriptionHint =>
+      'Ce texte ne sera lu que par l\'equipe de mediation si le litige est escalade.';
+
+  @override
+  String get disputeDescriptionPlaceholder =>
+      'Contexte supplementaire, chronologie des evenements, description des preuves...';
+
+  @override
+  String get disputeFormWarning =>
+      'L\'ouverture d\'un litige gele les fonds jusqu\'a resolution. L\'autre partie sera notifiee.';
+
+  @override
+  String get disputeSubmit => 'Soumettre le litige';
+
+  @override
+  String get disputeAccept => 'Accepter';
+
+  @override
+  String get disputeReject => 'Refuser';
+
+  @override
+  String get disputeCounterSubmit => 'Envoyer la proposition';
+
+  @override
+  String get disputeAddFiles => 'Ajouter des fichiers';
+
+  @override
+  String get disputeCancelBtn => 'Annuler';
+
+  @override
+  String get disputeViewDetails => 'Voir les details';
+
+  @override
+  String get disputeReportProblem => 'Signaler un probleme';
+
+  @override
+  String get disputeCounterSplitLabel => 'Repartition proposee';
+
+  @override
+  String get disputeCounterMessageLabel => 'Message (optionnel)';
+
+  @override
+  String get disputeCounterMessagePlaceholder =>
+      'Expliquez votre proposition...';
+
+  @override
+  String get disputeRequestedAmount => 'demande';
+
+  @override
+  String disputeDaysLeft(int days) {
+    return '$days jours avant escalade';
+  }
+
+  @override
+  String get disputeEscalationSoon => 'Escalade imminente';
+
+  @override
+  String get disputeLastProposal => 'Derniere proposition';
+
+  @override
+  String disputeSplit(String client, String provider) {
+    return '$client au client, $provider au prestataire';
+  }
+
+  @override
+  String get disputeResolution => 'Resolution';
+
+  @override
+  String get disputeInProgress => 'Un litige est en cours sur cette mission';
+
+  @override
+  String get disputeClient => 'Client';
+
+  @override
+  String get disputeProvider => 'Prestataire';
+
+  @override
+  String get disputeOpenedLabel => 'Litige ouvert';
+
+  @override
+  String get disputeCounterProposalLabel => 'Proposition';
+
+  @override
+  String get disputeCounterAcceptedLabel => 'Proposition acceptee';
+
+  @override
+  String get disputeCounterRejectedLabel => 'Proposition refusee';
+
+  @override
+  String get disputeEscalatedLabel => 'Escalade en mediation';
+
+  @override
+  String get disputeResolvedLabel => 'Litige resolu';
+
+  @override
+  String get disputeCancelledLabel => 'Litige annule';
+
+  @override
+  String get disputeAutoResolvedLabel => 'Litige resolu automatiquement';
+
+  @override
+  String get disputeCancellationRequestedLabel => 'Demande d\'annulation';
+
+  @override
+  String get disputeCancellationRefusedLabel => 'Annulation refusee';
+
+  @override
+  String get disputeYourLastProposalRefused =>
+      'Votre dernière proposition a été refusée';
+
+  @override
+  String get disputeCancellationRequestPending =>
+      'Demande d\'annulation en attente';
+
+  @override
+  String get disputeCancellationRequestWaiting =>
+      'En attente de l\'accord de l\'autre partie pour annuler le litige.';
+
+  @override
+  String get disputeCancellationRequestConsent =>
+      'L\'autre partie demande l\'annulation de ce litige. Votre accord est requis.';
+
+  @override
+  String get disputeCancellationRequestSent =>
+      'Demande d\'annulation envoyee. En attente de la reponse de l\'autre partie.';
+
+  @override
+  String get disputeAcceptCancellation => 'Accepter l\'annulation';
+
+  @override
+  String get disputeRefuseCancellation => 'Refuser';
+
+  @override
+  String get projectStatusDisputed => 'En litige';
 }

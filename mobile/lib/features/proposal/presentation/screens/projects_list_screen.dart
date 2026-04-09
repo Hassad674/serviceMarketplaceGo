@@ -267,6 +267,12 @@ class _StatusBadge extends StatelessWidget {
           const Color(0xFFDCFCE7),
           const Color(0xFF166534),
         );
+      case 'disputed':
+        return (
+          l10n.projectStatusDisputed,
+          const Color(0xFFFFEDD5), // orange-100
+          const Color(0xFFC2410C), // orange-700
+        );
       case 'completed':
         return (
           l10n.projectStatusCompleted,

@@ -100,13 +100,18 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 	defer cancel()
 
 	// Build per-user profile URL for Stripe business_profile.url
-	// adapting the path based on user role (freelancers vs agencies)
+	// adapting the path based on user role (freelancers vs agencies).
+	// Stripe rejects localhost URLs, so use the production URL for dev.
+	baseURL := h.frontendURL
+	if strings.Contains(baseURL, "localhost") {
+		baseURL = "https://service-marketplace-go.vercel.app"
+	}
 	role := middleware.GetRole(r.Context())
 	profilePath := "freelancers"
 	if role == "agency" {
 		profilePath = "agencies"
 	}
-	profileURL := fmt.Sprintf("%s/%s/%s", h.frontendURL, profilePath, userID)
+	profileURL := fmt.Sprintf("%s/%s/%s", baseURL, profilePath, userID)
 	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, profileURL)
 	if err != nil {
 		slog.Error("embedded: resolve stripe account", "user_id", userID, "error", err)

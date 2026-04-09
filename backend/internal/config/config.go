@@ -42,6 +42,7 @@ type Config struct {
 	SNSTopicARN                     string
 	SQSQueueURL                     string
 	ComprehendEnabled               bool
+	AnthropicAPIKey                 string
 }
 
 func Load() *Config {
@@ -80,6 +81,7 @@ func Load() *Config {
 		SNSTopicARN:                    getEnv("SNS_TOPIC_ARN", ""),
 		SQSQueueURL:                    getEnv("SQS_QUEUE_URL", ""),
 		ComprehendEnabled:              getEnv("COMPREHEND_ENABLED", "false") == "true",
+		AnthropicAPIKey:                getEnv("ANTHROPIC_API_KEY", ""),
 	}
 }
 

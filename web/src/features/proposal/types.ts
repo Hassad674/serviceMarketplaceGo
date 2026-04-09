@@ -7,6 +7,7 @@ export type ProposalStatus =
   | "active"
   | "completion_requested"
   | "completed"
+  | "disputed"
 
 export type ProposalDocument = {
   id: string
@@ -32,6 +33,7 @@ export type ProposalResponse = {
   provider_id: string
   client_name: string
   provider_name: string
+  active_dispute_id: string | null
   documents: ProposalDocument[]
   accepted_at: string | null
   paid_at: string | null

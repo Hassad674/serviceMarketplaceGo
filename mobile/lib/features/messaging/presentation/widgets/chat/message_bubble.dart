@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../dispute/presentation/widgets/dispute_card.dart';
 import '../../../../proposal/types/proposal.dart';
 import '../../../domain/entities/message_entity.dart';
 import 'file_message_bubble.dart';
@@ -137,6 +138,11 @@ class MessageBubble extends StatelessWidget {
       }
       // Fallback: render as system message if metadata is missing
       return _buildSystemMessage(context, theme, appColors, l10n);
+    }
+
+    // Dispute rich cards (dispute_opened, dispute_counter_proposal)
+    if (_isDisputeCard(message.type)) {
+      return DisputeCard(message: message);
     }
 
     // Evaluation request — special system message with "Leave a review" button.
@@ -282,7 +288,7 @@ class MessageBubble extends StatelessWidget {
         type == 'proposal_payment_requested';
   }
 
-  /// Returns true for system-level lifecycle events (proposals, calls).
+  /// Returns true for system-level lifecycle events (proposals, calls, disputes).
   /// Note: `evaluation_request` is handled separately with a review button.
   bool _isSystemMessage(String type) {
     return type == 'proposal_accepted' ||
@@ -292,7 +298,22 @@ class MessageBubble extends StatelessWidget {
         type == 'proposal_completed' ||
         type == 'proposal_completion_rejected' ||
         type == 'call_ended' ||
-        type == 'call_missed';
+        type == 'call_missed' ||
+        type == 'dispute_counter_accepted' ||
+        type == 'dispute_escalated' ||
+        type == 'dispute_resolved' ||
+        type == 'dispute_cancelled' ||
+        type == 'dispute_auto_resolved' ||
+        type == 'dispute_cancellation_refused';
+  }
+
+  /// Returns true for dispute messages that should render as a rich card
+  /// (with amounts, optional message, and a View Details button).
+  bool _isDisputeCard(String type) {
+    return type == 'dispute_opened' ||
+        type == 'dispute_counter_proposal' ||
+        type == 'dispute_counter_rejected' ||
+        type == 'dispute_cancellation_requested';
   }
 
   Widget _buildEvaluationRequest(
@@ -429,6 +450,36 @@ class MessageBubble extends StatelessWidget {
       'call_missed' => (
           Icons.phone_missed_outlined,
           l10n.callMissed,
+          const Color(0xFFEF4444),
+        ),
+      'dispute_counter_accepted' => (
+          Icons.check_circle_outline,
+          l10n.disputeCounterAcceptedLabel,
+          const Color(0xFF22C55E),
+        ),
+      'dispute_escalated' => (
+          Icons.shield_outlined,
+          l10n.disputeEscalatedLabel,
+          const Color(0xFFEA580C),
+        ),
+      'dispute_resolved' => (
+          Icons.check_circle_outline,
+          l10n.disputeResolvedLabel,
+          const Color(0xFF16A34A),
+        ),
+      'dispute_cancelled' => (
+          Icons.cancel_outlined,
+          l10n.disputeCancelledLabel,
+          const Color(0xFF64748B),
+        ),
+      'dispute_auto_resolved' => (
+          Icons.access_time,
+          l10n.disputeAutoResolvedLabel,
+          const Color(0xFFD97706),
+        ),
+      'dispute_cancellation_refused' => (
+          Icons.cancel_outlined,
+          l10n.disputeCancellationRefusedLabel,
           const Color(0xFFEF4444),
         ),
       _ => (

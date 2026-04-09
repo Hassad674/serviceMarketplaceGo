@@ -23,12 +23,14 @@ const MISSION_STATUSES: ProposalStatus[] = [
   "active",
   "completion_requested",
   "completed",
+  "disputed",
 ]
 
 const IN_PROGRESS_STATUSES: ProposalStatus[] = [
   "paid",
   "active",
   "completion_requested",
+  "disputed",
 ]
 
 export default function ProjectsListPage() {
@@ -344,6 +346,7 @@ function getStatusDot(status: ProposalStatus): { dotClass: string } {
     completion_requested: "bg-amber-500",
     completed: "bg-blue-500",
     paid: "bg-emerald-500",
+    disputed: "bg-orange-500",
   }
   return { dotClass: map[status] ?? "bg-slate-400" }
 }

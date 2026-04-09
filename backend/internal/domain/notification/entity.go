@@ -27,6 +27,16 @@ const (
 	TypeKYCReminder         NotificationType = "kyc_reminder"
 	TypeKYCRestriction      NotificationType = "kyc_restriction"
 	TypeKYCUnlocked         NotificationType = "kyc_unlocked"
+
+	TypeDisputeOpened                NotificationType = "dispute_opened"
+	TypeDisputeCounterProposal       NotificationType = "dispute_counter_proposal"
+	TypeDisputeCounterRejected       NotificationType = "dispute_counter_rejected"
+	TypeDisputeEscalated             NotificationType = "dispute_escalated"
+	TypeDisputeResolved              NotificationType = "dispute_resolved"
+	TypeDisputeCancelled             NotificationType = "dispute_cancelled"
+	TypeDisputeAutoResolved          NotificationType = "dispute_auto_resolved"
+	TypeDisputeCancellationRequested NotificationType = "dispute_cancellation_requested"
+	TypeDisputeCancellationRefused   NotificationType = "dispute_cancellation_refused"
 )
 
 var validTypes = map[NotificationType]bool{
@@ -45,6 +55,16 @@ var validTypes = map[NotificationType]bool{
 	TypeKYCReminder:         true,
 	TypeKYCRestriction:      true,
 	TypeKYCUnlocked:         true,
+
+	TypeDisputeOpened:                true,
+	TypeDisputeCounterProposal:       true,
+	TypeDisputeCounterRejected:       true,
+	TypeDisputeEscalated:             true,
+	TypeDisputeResolved:              true,
+	TypeDisputeCancelled:             true,
+	TypeDisputeAutoResolved:          true,
+	TypeDisputeCancellationRequested: true,
+	TypeDisputeCancellationRefused:   true,
 }
 
 // IsValid checks if the notification type is recognised.
@@ -123,7 +143,11 @@ func DefaultPreferences(userID uuid.UUID, nType NotificationType) *Preferences {
 	case TypeProposalReceived, TypeProposalAccepted, TypeProposalDeclined,
 		TypeProposalPaid, TypeCompletionRequested, TypeProposalCompleted,
 		TypeSystemAnnouncement, TypeStripeRequirements, TypeStripeAccountStatus,
-		TypeKYCReminder, TypeKYCRestriction, TypeKYCUnlocked:
+		TypeKYCReminder, TypeKYCRestriction, TypeKYCUnlocked,
+		TypeDisputeOpened, TypeDisputeCounterProposal, TypeDisputeCounterRejected,
+		TypeDisputeEscalated, TypeDisputeResolved, TypeDisputeCancelled,
+		TypeDisputeAutoResolved, TypeDisputeCancellationRequested,
+		TypeDisputeCancellationRefused:
 		emailDefault = true
 	}
 	return &Preferences{

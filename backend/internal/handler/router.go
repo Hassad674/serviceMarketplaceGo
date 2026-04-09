@@ -29,6 +29,9 @@ type RouterDeps struct {
 	Report         *ReportHandler
 	Wallet         *WalletHandler
 	Admin          *AdminHandler
+	Portfolio      *PortfolioHandler
+	Dispute        *DisputeHandler
+	AdminDispute   *AdminDisputeHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -90,6 +93,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
 			r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
 			r.Post("/review-video", deps.Upload.UploadReviewVideo)
+			r.Post("/portfolio-image", deps.Upload.UploadPortfolioImage)
+			r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
 		})
 
 		// Public profiles
@@ -212,6 +217,23 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		}
 
+		// Portfolio routes (mixed: public reads, authenticated writes)
+		if deps.Portfolio != nil {
+			// Public: read portfolio
+			r.Get("/portfolio/user/{userId}", deps.Portfolio.ListPortfolioByUser)
+			r.Get("/portfolio/{id}", deps.Portfolio.GetPortfolioItem)
+
+			// Authenticated: manage own portfolio
+			r.Route("/portfolio", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Portfolio.CreatePortfolioItem)
+				r.Put("/reorder", deps.Portfolio.ReorderPortfolio)
+				r.Put("/{id}", deps.Portfolio.UpdatePortfolioItem)
+				r.Delete("/{id}", deps.Portfolio.DeletePortfolioItem)
+			})
+		}
+
 		// Call routes (authenticated)
 		if deps.Call != nil {
 			r.Route("/calls", func(r chi.Router) {
@@ -261,6 +283,21 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.Wallet.GetWallet)
 				r.Post("/payout", deps.Wallet.RequestPayout)
+			})
+		}
+
+		// Dispute routes
+		if deps.Dispute != nil {
+			r.Route("/disputes", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Dispute.OpenDispute)
+				r.Get("/mine", deps.Dispute.ListMyDisputes)
+				r.Get("/{id}", deps.Dispute.GetDispute)
+				r.Post("/{id}/counter-propose", deps.Dispute.CounterPropose)
+				r.Post("/{id}/counter-proposals/{cpId}/respond", deps.Dispute.RespondToCounter)
+				r.Post("/{id}/cancel", deps.Dispute.CancelDispute)
+				r.Post("/{id}/cancellation/respond", deps.Dispute.RespondToCancellation)
 			})
 		}
 
@@ -337,6 +374,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/media/{id}/approve", deps.Admin.ApproveMedia)
 				r.Post("/media/{id}/reject", deps.Admin.RejectMedia)
 				r.Delete("/media/{id}", deps.Admin.DeleteMedia)
+
+				// Dispute admin endpoints
+				if deps.AdminDispute != nil {
+					r.Get("/disputes", deps.AdminDispute.ListDisputes)
+					r.Get("/disputes/{id}", deps.AdminDispute.GetAdminDispute)
+					r.Post("/disputes/{id}/resolve", deps.AdminDispute.ResolveDispute)
+					r.Get("/disputes/count", deps.AdminDispute.CountDisputes)
+				}
 
 				// Proposal admin endpoints (force activate for testing)
 				if deps.Proposal != nil {

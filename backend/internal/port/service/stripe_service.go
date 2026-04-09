@@ -25,6 +25,9 @@ type StripeService interface {
 
 	// GetAccount retrieves a connected account's capabilities status.
 	GetAccount(ctx context.Context, accountID string) (*StripeAccountInfo, error)
+
+	// CreateRefund creates a partial or full refund on a PaymentIntent.
+	CreateRefund(ctx context.Context, paymentIntentID string, amount int64) (refundID string, err error)
 }
 
 type CreatePaymentIntentInput struct {

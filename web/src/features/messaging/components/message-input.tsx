@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { getPresignedURL } from "../api/messaging-api"
-import { FileUploadModal } from "./file-upload-modal"
+import { FileUploadModal } from "@/shared/components/file-upload-modal"
 import { useVoiceRecorder } from "../hooks/use-voice-recorder"
 
 const TYPING_INTERVAL_MS = 2_000

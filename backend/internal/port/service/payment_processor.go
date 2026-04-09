@@ -19,6 +19,14 @@ type PaymentProcessor interface {
 	// HandlePaymentSucceeded processes a successful payment webhook.
 	// Returns the proposal ID so the caller can transition the proposal.
 	HandlePaymentSucceeded(ctx context.Context, paymentIntentID string) (proposalID uuid.UUID, err error)
+
+	// TransferPartialToProvider transfers a specific amount (in centimes) to the
+	// provider's connected account. Used for dispute partial resolutions.
+	TransferPartialToProvider(ctx context.Context, proposalID uuid.UUID, amount int64) error
+
+	// RefundToClient creates a partial or full refund on the original PaymentIntent.
+	// amount is in centimes. Used for dispute resolutions.
+	RefundToClient(ctx context.Context, proposalID uuid.UUID, amount int64) error
 }
 
 type PaymentIntentInput struct {

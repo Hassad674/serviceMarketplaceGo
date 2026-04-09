@@ -31,6 +31,18 @@ const (
 	// Call message types
 	MessageTypeCallEnded  MessageType = "call_ended"
 	MessageTypeCallMissed MessageType = "call_missed"
+
+	// Dispute message types
+	MessageTypeDisputeOpened                 MessageType = "dispute_opened"
+	MessageTypeDisputeCounterProposal        MessageType = "dispute_counter_proposal"
+	MessageTypeDisputeCounterAccepted        MessageType = "dispute_counter_accepted"
+	MessageTypeDisputeCounterRejected        MessageType = "dispute_counter_rejected"
+	MessageTypeDisputeEscalated              MessageType = "dispute_escalated"
+	MessageTypeDisputeResolved               MessageType = "dispute_resolved"
+	MessageTypeDisputeCancelled              MessageType = "dispute_cancelled"
+	MessageTypeDisputeAutoResolved           MessageType = "dispute_auto_resolved"
+	MessageTypeDisputeCancellationRequested  MessageType = "dispute_cancellation_requested"
+	MessageTypeDisputeCancellationRefused    MessageType = "dispute_cancellation_refused"
 )
 
 // IsProposalType returns true if the message type is a proposal event type.
@@ -46,6 +58,19 @@ func (mt MessageType) IsProposalType() bool {
 	return false
 }
 
+// IsDisputeType returns true if the message type is a dispute event type.
+func (mt MessageType) IsDisputeType() bool {
+	switch mt {
+	case MessageTypeDisputeOpened, MessageTypeDisputeCounterProposal,
+		MessageTypeDisputeCounterAccepted, MessageTypeDisputeCounterRejected,
+		MessageTypeDisputeEscalated, MessageTypeDisputeResolved,
+		MessageTypeDisputeCancelled, MessageTypeDisputeAutoResolved,
+		MessageTypeDisputeCancellationRequested, MessageTypeDisputeCancellationRefused:
+		return true
+	}
+	return false
+}
+
 func (mt MessageType) IsValid() bool {
 	switch mt {
 	case MessageTypeText, MessageTypeFile, MessageTypeVoice,
@@ -55,7 +80,12 @@ func (mt MessageType) IsValid() bool {
 		MessageTypeProposalCompletionRequested, MessageTypeProposalCompleted,
 		MessageTypeProposalCompletionRejected,
 		MessageTypeEvaluationRequest,
-		MessageTypeCallEnded, MessageTypeCallMissed:
+		MessageTypeCallEnded, MessageTypeCallMissed,
+		MessageTypeDisputeOpened, MessageTypeDisputeCounterProposal,
+		MessageTypeDisputeCounterAccepted, MessageTypeDisputeCounterRejected,
+		MessageTypeDisputeEscalated, MessageTypeDisputeResolved,
+		MessageTypeDisputeCancelled, MessageTypeDisputeAutoResolved,
+		MessageTypeDisputeCancellationRequested, MessageTypeDisputeCancellationRefused:
 		return true
 	}
 	return false

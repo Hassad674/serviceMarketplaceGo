@@ -109,6 +109,26 @@ func (r *PaymentRecord) MarkTransferFailed() {
 	r.UpdatedAt = time.Now()
 }
 
+// ApplyDisputeResolution updates the record after a dispute resolution.
+// Sets the actual provider payout amount and marks the transfer as completed.
+// If amount is 0 (full refund to client), no Stripe transfer is recorded.
+func (r *PaymentRecord) ApplyDisputeResolution(providerAmount int64, transferID string) {
+	r.ProviderPayout = providerAmount
+	r.TransferStatus = TransferCompleted
+	if transferID != "" {
+		r.StripeTransferID = transferID
+	}
+	now := time.Now()
+	r.TransferredAt = &now
+	r.UpdatedAt = now
+}
+
+// MarkRefunded marks the entire payment as refunded (full refund to client).
+func (r *PaymentRecord) MarkRefunded() {
+	r.Status = RecordStatusRefunded
+	r.UpdatedAt = time.Now()
+}
+
 // EstimateStripeFee estimates the Stripe processing fee for European cards.
 // Stripe EU rate: 1.5% + 0.25€ (25 centimes).
 func EstimateStripeFee(proposalAmount int64) int64 {

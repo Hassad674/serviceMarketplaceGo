@@ -2815,6 +2815,432 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Set up now'**
   String get kycBannerCta;
+
+  /// No description provided for @disputeOpenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute in progress'**
+  String get disputeOpenTitle;
+
+  /// No description provided for @disputeNegotiationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiation in progress'**
+  String get disputeNegotiationTitle;
+
+  /// No description provided for @disputeEscalatedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Under mediation'**
+  String get disputeEscalatedTitle;
+
+  /// No description provided for @disputeResolvedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute resolved'**
+  String get disputeResolvedTitle;
+
+  /// No description provided for @disputeCounterPropose.
+  ///
+  /// In en, this message translates to:
+  /// **'Make a proposal'**
+  String get disputeCounterPropose;
+
+  /// No description provided for @disputeCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel dispute'**
+  String get disputeCancel;
+
+  /// No description provided for @disputeOpenBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a problem'**
+  String get disputeOpenBtn;
+
+  /// No description provided for @disputeStatusOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute in progress'**
+  String get disputeStatusOpen;
+
+  /// No description provided for @disputeStatusNegotiation.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiation in progress'**
+  String get disputeStatusNegotiation;
+
+  /// No description provided for @disputeStatusEscalated.
+  ///
+  /// In en, this message translates to:
+  /// **'Under mediation'**
+  String get disputeStatusEscalated;
+
+  /// No description provided for @disputeStatusResolved.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute resolved'**
+  String get disputeStatusResolved;
+
+  /// No description provided for @disputeStatusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute cancelled'**
+  String get disputeStatusCancelled;
+
+  /// No description provided for @disputeReasonWorkNotConforming.
+  ///
+  /// In en, this message translates to:
+  /// **'Work does not conform to scope'**
+  String get disputeReasonWorkNotConforming;
+
+  /// No description provided for @disputeReasonNonDelivery.
+  ///
+  /// In en, this message translates to:
+  /// **'Non-delivery'**
+  String get disputeReasonNonDelivery;
+
+  /// No description provided for @disputeReasonInsufficientQuality.
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient quality'**
+  String get disputeReasonInsufficientQuality;
+
+  /// No description provided for @disputeReasonClientGhosting.
+  ///
+  /// In en, this message translates to:
+  /// **'Client unresponsive'**
+  String get disputeReasonClientGhosting;
+
+  /// No description provided for @disputeReasonScopeCreep.
+  ///
+  /// In en, this message translates to:
+  /// **'Scope creep'**
+  String get disputeReasonScopeCreep;
+
+  /// No description provided for @disputeReasonRefusalToValidate.
+  ///
+  /// In en, this message translates to:
+  /// **'Refusal to validate without reason'**
+  String get disputeReasonRefusalToValidate;
+
+  /// No description provided for @disputeReasonHarassment.
+  ///
+  /// In en, this message translates to:
+  /// **'Harassment'**
+  String get disputeReasonHarassment;
+
+  /// No description provided for @disputeReasonOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get disputeReasonOther;
+
+  /// No description provided for @disputeReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason'**
+  String get disputeReasonLabel;
+
+  /// No description provided for @disputeReasonPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a reason'**
+  String get disputeReasonPlaceholder;
+
+  /// No description provided for @disputeAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'What are you requesting?'**
+  String get disputeAmountLabel;
+
+  /// No description provided for @disputeTotalRefund.
+  ///
+  /// In en, this message translates to:
+  /// **'Full refund ({amount})'**
+  String disputeTotalRefund(String amount);
+
+  /// No description provided for @disputeTotalRelease.
+  ///
+  /// In en, this message translates to:
+  /// **'Full fund release ({amount})'**
+  String disputeTotalRelease(String amount);
+
+  /// No description provided for @disputePartialAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial amount'**
+  String get disputePartialAmount;
+
+  /// No description provided for @disputeMessageToPartyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Message to the other party'**
+  String get disputeMessageToPartyLabel;
+
+  /// No description provided for @disputeMessageToPartyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This message will be visible in the conversation. Explain your request clearly.'**
+  String get disputeMessageToPartyHint;
+
+  /// No description provided for @disputeMessageToPartyPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain what you expect and why...'**
+  String get disputeMessageToPartyPlaceholder;
+
+  /// No description provided for @disputeDescriptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Detailed description for mediation (optional)'**
+  String get disputeDescriptionLabel;
+
+  /// No description provided for @disputeDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This will only be read by the mediation team if the dispute is escalated.'**
+  String get disputeDescriptionHint;
+
+  /// No description provided for @disputeDescriptionPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional context, timeline of events, evidence descriptions...'**
+  String get disputeDescriptionPlaceholder;
+
+  /// No description provided for @disputeFormWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening a dispute freezes the funds until resolution. The other party will be notified.'**
+  String get disputeFormWarning;
+
+  /// No description provided for @disputeSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit dispute'**
+  String get disputeSubmit;
+
+  /// No description provided for @disputeAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get disputeAccept;
+
+  /// No description provided for @disputeReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get disputeReject;
+
+  /// No description provided for @disputeCounterSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Send proposal'**
+  String get disputeCounterSubmit;
+
+  /// No description provided for @disputeAddFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Add files'**
+  String get disputeAddFiles;
+
+  /// No description provided for @disputeCancelBtn.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get disputeCancelBtn;
+
+  /// No description provided for @disputeViewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View details'**
+  String get disputeViewDetails;
+
+  /// No description provided for @disputeReportProblem.
+  ///
+  /// In en, this message translates to:
+  /// **'Report a problem'**
+  String get disputeReportProblem;
+
+  /// No description provided for @disputeCounterSplitLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposed split'**
+  String get disputeCounterSplitLabel;
+
+  /// No description provided for @disputeCounterMessageLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Message (optional)'**
+  String get disputeCounterMessageLabel;
+
+  /// No description provided for @disputeCounterMessagePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain your proposal...'**
+  String get disputeCounterMessagePlaceholder;
+
+  /// No description provided for @disputeRequestedAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'requested'**
+  String get disputeRequestedAmount;
+
+  /// No description provided for @disputeDaysLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} days left before escalation'**
+  String disputeDaysLeft(int days);
+
+  /// No description provided for @disputeEscalationSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Escalation imminent'**
+  String get disputeEscalationSoon;
+
+  /// No description provided for @disputeLastProposal.
+  ///
+  /// In en, this message translates to:
+  /// **'Last proposal'**
+  String get disputeLastProposal;
+
+  /// No description provided for @disputeSplit.
+  ///
+  /// In en, this message translates to:
+  /// **'{client} to client, {provider} to provider'**
+  String disputeSplit(String client, String provider);
+
+  /// No description provided for @disputeResolution.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolution'**
+  String get disputeResolution;
+
+  /// No description provided for @disputeInProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'A dispute is in progress on this mission'**
+  String get disputeInProgress;
+
+  /// No description provided for @disputeClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Client'**
+  String get disputeClient;
+
+  /// No description provided for @disputeProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider'**
+  String get disputeProvider;
+
+  /// No description provided for @disputeOpenedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute opened'**
+  String get disputeOpenedLabel;
+
+  /// No description provided for @disputeCounterProposalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal'**
+  String get disputeCounterProposalLabel;
+
+  /// No description provided for @disputeCounterAcceptedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal accepted'**
+  String get disputeCounterAcceptedLabel;
+
+  /// No description provided for @disputeCounterRejectedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposal rejected'**
+  String get disputeCounterRejectedLabel;
+
+  /// No description provided for @disputeEscalatedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Escalated to mediation'**
+  String get disputeEscalatedLabel;
+
+  /// No description provided for @disputeResolvedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute resolved'**
+  String get disputeResolvedLabel;
+
+  /// No description provided for @disputeCancelledLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute cancelled'**
+  String get disputeCancelledLabel;
+
+  /// No description provided for @disputeAutoResolvedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute auto-resolved'**
+  String get disputeAutoResolvedLabel;
+
+  /// No description provided for @disputeCancellationRequestedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation request'**
+  String get disputeCancellationRequestedLabel;
+
+  /// No description provided for @disputeCancellationRefusedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation refused'**
+  String get disputeCancellationRefusedLabel;
+
+  /// No description provided for @disputeYourLastProposalRefused.
+  ///
+  /// In en, this message translates to:
+  /// **'Your last proposal was refused'**
+  String get disputeYourLastProposalRefused;
+
+  /// No description provided for @disputeCancellationRequestPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation request pending'**
+  String get disputeCancellationRequestPending;
+
+  /// No description provided for @disputeCancellationRequestWaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the other party to accept or refuse your cancellation request.'**
+  String get disputeCancellationRequestWaiting;
+
+  /// No description provided for @disputeCancellationRequestConsent.
+  ///
+  /// In en, this message translates to:
+  /// **'The other party is asking to cancel this dispute. Your consent is required.'**
+  String get disputeCancellationRequestConsent;
+
+  /// No description provided for @disputeCancellationRequestSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellation request sent. Waiting for the other party\'s response.'**
+  String get disputeCancellationRequestSent;
+
+  /// No description provided for @disputeAcceptCancellation.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept cancellation'**
+  String get disputeAcceptCancellation;
+
+  /// No description provided for @disputeRefuseCancellation.
+  ///
+  /// In en, this message translates to:
+  /// **'Refuse'**
+  String get disputeRefuseCancellation;
+
+  /// No description provided for @projectStatusDisputed.
+  ///
+  /// In en, this message translates to:
+  /// **'Disputed'**
+  String get projectStatusDisputed;
 }
 
 class _AppLocalizationsDelegate

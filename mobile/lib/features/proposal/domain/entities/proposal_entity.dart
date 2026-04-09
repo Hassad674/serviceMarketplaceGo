@@ -19,6 +19,7 @@ class ProposalEntity {
     required this.clientId,
     required this.providerId,
     this.documents = const [],
+    this.activeDisputeId,
     this.acceptedAt,
     this.paidAt,
     required this.createdAt,
@@ -38,6 +39,7 @@ class ProposalEntity {
   final String clientId;
   final String providerId;
   final List<ProposalDocumentEntity> documents;
+  final String? activeDisputeId;
   final String? acceptedAt;
   final String? paidAt;
   final String createdAt;
@@ -67,6 +69,7 @@ class ProposalEntity {
       clientId: json['client_id'] as String,
       providerId: json['provider_id'] as String,
       documents: docs,
+      activeDisputeId: json['active_dispute_id'] as String?,
       acceptedAt: json['accepted_at'] as String?,
       paidAt: json['paid_at'] as String?,
       createdAt: json['created_at'] as String,

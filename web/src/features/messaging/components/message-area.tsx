@@ -3,7 +3,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from "react"
 import { MessageSquare, Phone, PhoneMissed, Reply, Pencil, Trash2, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { cn } from "@/shared/lib/utils"
+import { cn, formatCurrency } from "@/shared/lib/utils"
 import type { Message, ProposalMessageMetadata, ReplyToInfo, VoiceMetadata } from "../types"
 import { MessageStatusIcon } from "./message-status-icon"
 import { FileMessage } from "./file-message"
@@ -17,6 +17,7 @@ import {
   CompletionRequestedMessage,
   EvaluationRequestMessage,
 } from "./proposal-system-message"
+import { DisputeSystemBubble } from "./dispute-system-message"
 
 interface MessageAreaProps {
   messages: Message[]
@@ -229,6 +230,30 @@ const PROPOSAL_SYSTEM_TYPES = new Set([
   "proposal_modified",
 ])
 
+const DISPUTE_REASON_LABELS: Record<string, string> = {
+  work_not_conforming: "Travail non conforme",
+  non_delivery: "Non-livraison",
+  insufficient_quality: "Qualite insuffisante",
+  client_ghosting: "Client injoignable",
+  scope_creep: "Hors du scope",
+  refusal_to_validate: "Refus de valider",
+  harassment: "Harcelement",
+  other: "Autre",
+}
+
+const DISPUTE_SYSTEM_TYPES = new Set([
+  "dispute_opened",
+  "dispute_counter_proposal",
+  "dispute_counter_accepted",
+  "dispute_counter_rejected",
+  "dispute_escalated",
+  "dispute_resolved",
+  "dispute_cancelled",
+  "dispute_auto_resolved",
+  "dispute_cancellation_requested",
+  "dispute_cancellation_refused",
+])
+
 function MessageBubble({
   message,
   isOwn,
@@ -343,6 +368,18 @@ function MessageBubble({
           </span>
         </div>
       </div>
+    )
+  }
+
+  // Dispute system messages
+  if (DISPUTE_SYSTEM_TYPES.has(message.type)) {
+    return (
+      <DisputeSystemBubble
+        type={message.type}
+        metadata={(message.metadata ?? {}) as Record<string, unknown>}
+        currentUserId={currentUserId}
+        conversationId={conversationId}
+      />
     )
   }
 
@@ -523,7 +560,7 @@ function TextMessageBubble({
               setIsEditing(true)
             } : undefined}
             onDelete={isOwn ? () => onDelete(message.id) : undefined}
-            onReport={onReport ? () => onReport(message.id) : undefined}
+            onReport={!isOwn && onReport ? () => onReport(message.id) : undefined}
           />
         </div>
       )}

@@ -519,5 +519,101 @@
   },
   "kycBannerRestrictedTitle": "Compte restreint",
   "kycBannerRestrictedBody": "Vous ne pouvez plus postuler ni créer de propositions tant que votre compte de paiement n'est pas configuré.",
-  "kycBannerCta": "Configurer"
+  "kycBannerCta": "Configurer",
+
+  "disputeOpenTitle": "Litige en cours",
+  "disputeNegotiationTitle": "Negociation en cours",
+  "disputeEscalatedTitle": "En mediation",
+  "disputeResolvedTitle": "Litige resolu",
+  "disputeCounterPropose": "Faire une proposition",
+  "disputeCancel": "Annuler le litige",
+  "disputeOpenBtn": "Signaler un probleme",
+
+  "disputeStatusOpen": "Litige en cours",
+  "disputeStatusNegotiation": "Negociation en cours",
+  "disputeStatusEscalated": "En mediation",
+  "disputeStatusResolved": "Litige resolu",
+  "disputeStatusCancelled": "Litige annule",
+
+  "disputeReasonWorkNotConforming": "Travail non conforme au scope",
+  "disputeReasonNonDelivery": "Non-livraison",
+  "disputeReasonInsufficientQuality": "Qualite insuffisante",
+  "disputeReasonClientGhosting": "Client injoignable",
+  "disputeReasonScopeCreep": "Demande hors du scope initial",
+  "disputeReasonRefusalToValidate": "Refus de valider sans justification",
+  "disputeReasonHarassment": "Harcelement",
+  "disputeReasonOther": "Autre",
+
+  "disputeReasonLabel": "Raison du signalement",
+  "disputeReasonPlaceholder": "Selectionnez une raison",
+  "disputeAmountLabel": "Que demandez-vous ?",
+  "disputeTotalRefund": "Remboursement total ({amount})",
+  "@disputeTotalRefund": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "disputeTotalRelease": "Liberation totale des fonds ({amount})",
+  "@disputeTotalRelease": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
+  "disputePartialAmount": "Montant partiel",
+  "disputeMessageToPartyLabel": "Message a l'autre partie",
+  "disputeMessageToPartyHint": "Ce message sera visible dans la conversation. Expliquez clairement votre demande.",
+  "disputeMessageToPartyPlaceholder": "Expliquez ce que vous attendez et pourquoi...",
+  "disputeDescriptionLabel": "Description detaillee pour la mediation (optionnel)",
+  "disputeDescriptionHint": "Ce texte ne sera lu que par l'equipe de mediation si le litige est escalade.",
+  "disputeDescriptionPlaceholder": "Contexte supplementaire, chronologie des evenements, description des preuves...",
+  "disputeFormWarning": "L'ouverture d'un litige gele les fonds jusqu'a resolution. L'autre partie sera notifiee.",
+
+  "disputeSubmit": "Soumettre le litige",
+  "disputeAccept": "Accepter",
+  "disputeReject": "Refuser",
+  "disputeCounterSubmit": "Envoyer la proposition",
+  "disputeAddFiles": "Ajouter des fichiers",
+  "disputeCancelBtn": "Annuler",
+  "disputeViewDetails": "Voir les details",
+  "disputeReportProblem": "Signaler un probleme",
+
+  "disputeCounterSplitLabel": "Repartition proposee",
+  "disputeCounterMessageLabel": "Message (optionnel)",
+  "disputeCounterMessagePlaceholder": "Expliquez votre proposition...",
+
+  "disputeRequestedAmount": "demande",
+  "disputeDaysLeft": "{days} jours avant escalade",
+  "@disputeDaysLeft": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "disputeEscalationSoon": "Escalade imminente",
+  "disputeLastProposal": "Derniere proposition",
+  "disputeSplit": "{client} au client, {provider} au prestataire",
+  "@disputeSplit": {
+    "placeholders": {
+      "client": { "type": "String" },
+      "provider": { "type": "String" }
+    }
+  },
+  "disputeResolution": "Resolution",
+  "disputeInProgress": "Un litige est en cours sur cette mission",
+  "disputeClient": "Client",
+  "disputeProvider": "Prestataire",
+
+  "disputeOpenedLabel": "Litige ouvert",
+  "disputeCounterProposalLabel": "Proposition",
+  "disputeCounterAcceptedLabel": "Proposition acceptee",
+  "disputeCounterRejectedLabel": "Proposition refusee",
+  "disputeEscalatedLabel": "Escalade en mediation",
+  "disputeResolvedLabel": "Litige resolu",
+  "disputeCancelledLabel": "Litige annule",
+  "disputeAutoResolvedLabel": "Litige resolu automatiquement",
+  "disputeCancellationRequestedLabel": "Demande d'annulation",
+  "disputeCancellationRefusedLabel": "Annulation refusee",
+
+  "disputeYourLastProposalRefused": "Votre dernière proposition a été refusée",
+  "disputeCancellationRequestPending": "Demande d'annulation en attente",
+  "disputeCancellationRequestWaiting": "En attente de l'accord de l'autre partie pour annuler le litige.",
+  "disputeCancellationRequestConsent": "L'autre partie demande l'annulation de ce litige. Votre accord est requis.",
+  "disputeCancellationRequestSent": "Demande d'annulation envoyee. En attente de la reponse de l'autre partie.",
+  "disputeAcceptCancellation": "Accepter l'annulation",
+  "disputeRefuseCancellation": "Refuser",
+
+  "projectStatusDisputed": "En litige"
 }

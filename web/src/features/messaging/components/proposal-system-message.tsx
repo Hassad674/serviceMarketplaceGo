@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  AlertTriangle,
   CheckCircle2,
   XCircle,
   DollarSign,
@@ -8,6 +9,8 @@ import {
   Clock,
   RotateCcw,
   Pencil,
+  Scale,
+  ShieldAlert,
   Star,
   Trophy,
   ArrowRight,
@@ -89,6 +92,62 @@ const SYSTEM_MESSAGE_STYLES: Record<string, SystemMessageConfig> = {
     cardBg: "bg-amber-50 dark:bg-amber-900/20",
     cardBorder: "border-amber-200 dark:border-amber-800",
   },
+  dispute_opened: {
+    icon: AlertTriangle,
+    iconColor: "text-orange-600 dark:text-orange-400",
+    iconBg: "bg-orange-100 dark:bg-orange-500/20",
+    cardBg: "bg-orange-50 dark:bg-orange-900/20",
+    cardBorder: "border-orange-200 dark:border-orange-800",
+  },
+  dispute_counter_proposal: {
+    icon: Scale,
+    iconColor: "text-amber-600 dark:text-amber-400",
+    iconBg: "bg-amber-100 dark:bg-amber-500/20",
+    cardBg: "bg-amber-50 dark:bg-amber-900/20",
+    cardBorder: "border-amber-200 dark:border-amber-800",
+  },
+  dispute_counter_accepted: {
+    icon: CheckCircle2,
+    iconColor: "text-green-600 dark:text-green-400",
+    iconBg: "bg-green-100 dark:bg-green-500/20",
+    cardBg: "bg-green-50 dark:bg-green-900/20",
+    cardBorder: "border-green-200 dark:border-green-800",
+  },
+  dispute_counter_rejected: {
+    icon: XCircle,
+    iconColor: "text-red-600 dark:text-red-400",
+    iconBg: "bg-red-100 dark:bg-red-500/20",
+    cardBg: "bg-red-50 dark:bg-red-900/20",
+    cardBorder: "border-red-200 dark:border-red-800",
+  },
+  dispute_escalated: {
+    icon: ShieldAlert,
+    iconColor: "text-orange-600 dark:text-orange-400",
+    iconBg: "bg-orange-100 dark:bg-orange-500/20",
+    cardBg: "bg-orange-50 dark:bg-orange-900/20",
+    cardBorder: "border-orange-200 dark:border-orange-800",
+  },
+  dispute_resolved: {
+    icon: CheckCircle2,
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
+    cardBg: "bg-emerald-50 dark:bg-emerald-900/20",
+    cardBorder: "border-emerald-200 dark:border-emerald-800",
+  },
+  dispute_cancelled: {
+    icon: XCircle,
+    iconColor: "text-slate-600 dark:text-slate-400",
+    iconBg: "bg-slate-100 dark:bg-slate-500/20",
+    cardBg: "bg-slate-50 dark:bg-slate-800/50",
+    cardBorder: "border-slate-200 dark:border-slate-700",
+  },
+  dispute_auto_resolved: {
+    icon: Clock,
+    iconColor: "text-amber-600 dark:text-amber-400",
+    iconBg: "bg-amber-100 dark:bg-amber-500/20",
+    cardBg: "bg-amber-50 dark:bg-amber-900/20",
+    cardBorder: "border-amber-200 dark:border-amber-800",
+  },
 }
 
 function getSystemMessageTitle(type: string, t: ReturnType<typeof useTranslations<"proposal">>) {
@@ -102,6 +161,14 @@ function getSystemMessageTitle(type: string, t: ReturnType<typeof useTranslation
     proposal_modified: t("systemModified"),
     proposal_payment_requested: t("systemPaymentRequested"),
     evaluation_request: t("systemEvaluationRequest"),
+    dispute_opened: "Litige ouvert",
+    dispute_counter_proposal: "Contre-proposition",
+    dispute_counter_accepted: "Proposition acceptee",
+    dispute_counter_rejected: "Proposition refusee",
+    dispute_escalated: "Escalade en mediation",
+    dispute_resolved: "Litige resolu",
+    dispute_cancelled: "Litige annule",
+    dispute_auto_resolved: "Litige resolu automatiquement",
   }
   return titles[type] ?? ""
 }

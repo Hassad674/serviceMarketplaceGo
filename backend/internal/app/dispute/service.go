@@ -1,0 +1,43 @@
+// Package dispute implements the dispute resolution feature.
+//
+// Disputes freeze funds on active proposals and allow negotiation
+// between client and provider. Unresolved disputes escalate to
+// admin mediation with AI-assisted analysis.
+package dispute
+
+import (
+	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
+)
+
+type ServiceDeps struct {
+	Disputes      repository.DisputeRepository
+	Proposals     repository.ProposalRepository
+	Users         repository.UserRepository
+	Messages      service.MessageSender
+	Notifications service.NotificationSender
+	Payments      service.PaymentProcessor
+	AI            service.AIAnalyzer
+}
+
+type Service struct {
+	disputes      repository.DisputeRepository
+	proposals     repository.ProposalRepository
+	users         repository.UserRepository
+	messages      service.MessageSender
+	notifications service.NotificationSender
+	payments      service.PaymentProcessor
+	ai            service.AIAnalyzer
+}
+
+func NewService(deps ServiceDeps) *Service {
+	return &Service{
+		disputes:      deps.Disputes,
+		proposals:     deps.Proposals,
+		users:         deps.Users,
+		messages:      deps.Messages,
+		notifications: deps.Notifications,
+		payments:      deps.Payments,
+		ai:            deps.AI,
+	}
+}
