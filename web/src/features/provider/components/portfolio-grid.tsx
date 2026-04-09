@@ -41,18 +41,18 @@ export function PortfolioSection() {
   }
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
       {/* Header */}
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-100 to-rose-50">
+      <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-100 to-rose-50 sm:h-10 sm:w-10">
             <Briefcase className="h-5 w-5 text-rose-600" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+          <div className="min-w-0">
+            <h2 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
               {t("sectionTitle")}
             </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {items.length > 0
                 ? t("publicItemCount", { count: items.length })
                 : t("sectionSubtitle")}
@@ -63,10 +63,11 @@ export function PortfolioSection() {
         {items.length > 0 && items.length < MAX_ITEMS && (
           <button
             onClick={openCreate}
-            className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98]"
+            aria-label={t("addProject")}
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] sm:px-4"
           >
             <Plus className="h-4 w-4" />
-            {t("addProject")}
+            <span className="hidden sm:inline">{t("addProject")}</span>
           </button>
         )}
       </div>
@@ -77,7 +78,7 @@ export function PortfolioSection() {
       ) : items.length === 0 ? (
         <EmptyState onCreate={openCreate} />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           {items.map((item, index) => (
             <div
               key={item.id}
@@ -116,24 +117,24 @@ export function PortfolioSection() {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   const t = useTranslations("portfolio")
   return (
-    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-rose-200 bg-gradient-to-br from-rose-50/60 via-white to-purple-50/40 px-6 py-12 text-center">
+    <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-rose-200 bg-gradient-to-br from-rose-50/60 via-white to-purple-50/40 px-4 py-8 text-center sm:px-6 sm:py-12">
       {/* Decorative blurs */}
       <div className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-rose-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -right-16 -bottom-16 h-48 w-48 rounded-full bg-purple-200/30 blur-3xl" />
 
       <div className="relative">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30">
-          <ImagePlus className="h-7 w-7 text-white" />
+        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 shadow-lg shadow-rose-500/30 sm:mb-4 sm:h-16 sm:w-16">
+          <ImagePlus className="h-6 w-6 text-white sm:h-7 sm:w-7" />
         </div>
         <h3 className="text-base font-semibold text-foreground">
           {t("emptyTitle")}
         </h3>
-        <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+        <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground sm:text-sm">
           {t("emptyDescription")}
         </p>
         <button
           onClick={onCreate}
-          className="mt-5 inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98]"
+          className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] sm:mt-5 sm:px-5"
         >
           <Sparkles className="h-4 w-4" />
           {t("addFirstProject")}
@@ -147,8 +148,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 function PortfolioGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {[0, 1, 2].map((i) => (
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+      {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
           className="aspect-[4/5] animate-shimmer rounded-2xl bg-gradient-to-br from-muted via-muted/60 to-muted"
@@ -174,17 +175,17 @@ export function PublicPortfolioSection({ userId }: PublicPortfolioSectionProps) 
   if (!isLoading && items.length === 0) return null
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-rose-100 to-rose-50">
+    <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
+      <div className="mb-4 flex items-center gap-3 sm:mb-5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-100 to-rose-50 sm:h-10 sm:w-10">
           <Briefcase className="h-5 w-5 text-rose-600" />
         </div>
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
             {t("sectionTitle")}
           </h2>
           {items.length > 0 && (
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
               {t("publicItemCount", { count: items.length })}
             </p>
           )}
@@ -194,7 +195,7 @@ export function PublicPortfolioSection({ userId }: PublicPortfolioSectionProps) 
       {isLoading ? (
         <PortfolioGridSkeleton />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           {items.map((item, index) => (
             <div
               key={item.id}

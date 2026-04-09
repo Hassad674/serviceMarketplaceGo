@@ -95,39 +95,39 @@ export function PortfolioItemCard({
         </div>
       )}
 
-      {/* Edit/Delete actions (edit mode only) */}
+      {/* Edit/Delete actions (edit mode only) — always visible on mobile, hover on desktop */}
       {!readOnly && (
-        <div className="absolute right-2.5 top-2.5 flex translate-y-1 gap-1.5 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="absolute right-2 top-2 flex gap-1.5 opacity-100 transition-all duration-200 sm:right-2.5 sm:top-2.5 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
           <button
             onClick={(e) => {
               e.stopPropagation()
               onEdit?.()
             }}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-rose-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-rose-600 sm:h-9 sm:w-9"
             aria-label={t("edit")}
           >
-            <Pencil className="h-4 w-4" />
+            <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
           <button
             onClick={(e) => {
               e.stopPropagation()
               onDelete?.()
             }}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-red-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-700 shadow-md backdrop-blur-sm transition-all hover:scale-110 hover:bg-white hover:text-red-600 sm:h-9 sm:w-9"
             aria-label={t("delete")}
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
         </div>
       )}
 
       {/* Bottom gradient + title */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-4 pt-12">
-        <h3 className="line-clamp-2 break-words text-base font-semibold text-white">
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent p-2.5 pt-10 sm:p-4 sm:pt-12">
+        <h3 className="line-clamp-2 break-words text-sm font-semibold text-white sm:text-base">
           {item.title}
         </h3>
         {hostname && (
-          <div className="mt-1 flex items-center gap-1 text-xs text-white/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <div className="mt-1 hidden items-center gap-1 text-xs text-white/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100 sm:flex">
             <ExternalLink className="h-3 w-3 shrink-0" />
             <span className="truncate">{hostname}</span>
           </div>
