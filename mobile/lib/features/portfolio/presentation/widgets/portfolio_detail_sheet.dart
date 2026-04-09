@@ -2,8 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../shared/widgets/video_player_widget.dart';
 import '../../domain/entities/portfolio_item.dart';
-import 'portfolio_video_thumbnail.dart';
 
 /// Bottom sheet showing full portfolio item details with media gallery.
 class PortfolioDetailSheet extends StatefulWidget {
@@ -82,44 +82,18 @@ class _PortfolioDetailSheetState extends State<PortfolioDetailSheet> {
                               itemBuilder: (context, index) {
                                 final m = media[index];
                                 if (m.isVideo) {
-                                  return Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      if (m.hasCustomThumbnail)
-                                        CachedNetworkImage(
-                                          imageUrl: m.thumbnailUrl,
-                                          fit: BoxFit.contain,
-                                          placeholder: (_, __) => Container(
-                                            color: Colors.black,
-                                          ),
-                                          errorWidget: (_, __, ___) =>
-                                              PortfolioVideoThumbnail(
-                                            videoUrl: m.mediaUrl,
-                                            fit: BoxFit.contain,
-                                          ),
-                                        )
-                                      else
-                                        PortfolioVideoThumbnail(
-                                          videoUrl: m.mediaUrl,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      Center(
-                                        child: Container(
-                                          width: 64,
-                                          height: 64,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.black
-                                                .withValues(alpha: 0.5),
-                                          ),
-                                          child: const Icon(
-                                            Icons.play_arrow,
-                                            color: Colors.white,
-                                            size: 36,
-                                          ),
-                                        ),
+                                  return Container(
+                                    color: Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                    child: Center(
+                                      child: VideoPlayerWidget(
+                                        videoUrl: m.mediaUrl,
+                                        autoPlay: false,
                                       ),
-                                    ],
+                                    ),
                                   );
                                 }
                                 return CachedNetworkImage(
