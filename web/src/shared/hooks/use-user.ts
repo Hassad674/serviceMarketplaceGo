@@ -4,7 +4,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
 
+// Three hooks share a single underlying query to /api/v1/auth/me.
+// - useSession() returns the full { user, organization } payload.
+// - useUser() and useOrganization() are selectors on the same query.
+// TanStack Query deduplicates by queryKey, so mounting any combination
+// of the three hooks results in exactly one network request.
+
 const API_URL = API_BASE_URL
+
+const SESSION_QUERY_KEY = ["session"] as const
 
 export type CurrentUser = {
   id: string
@@ -20,7 +28,22 @@ export type CurrentUser = {
   created_at: string
 }
 
-async function fetchCurrentUser(): Promise<CurrentUser> {
+export type CurrentOrganization = {
+  id: string
+  type: string
+  owner_user_id: string
+  member_role: string
+  member_title: string
+  permissions: string[]
+}
+
+export type SessionResponse = {
+  user: CurrentUser
+  // null for Providers who are not part of any organization.
+  organization: CurrentOrganization | null
+}
+
+async function fetchSession(): Promise<SessionResponse> {
   const res = await fetch(`${API_URL}/api/v1/auth/me`, {
     credentials: "include",
   })
@@ -28,12 +51,37 @@ async function fetchCurrentUser(): Promise<CurrentUser> {
   return res.json()
 }
 
+const sessionQueryOptions = {
+  queryKey: SESSION_QUERY_KEY,
+  queryFn: fetchSession,
+  staleTime: 5 * 60 * 1000,
+  retry: false,
+} as const
+
+/**
+ * Returns the full session payload (user + organization).
+ *
+ * Prefer `useUser()` or `useOrganization()` when you only need one of the
+ * two — they return referentially stable slices and skip re-renders when
+ * the other slice changes. Use `useSession()` only when a single component
+ * legitimately needs both objects in the same render (e.g. a dashboard
+ * banner "Hi {user.first_name}, {member_role} of {organization.name}").
+ */
+export function useSession() {
+  return useQuery(sessionQueryOptions)
+}
+
 export function useUser() {
   return useQuery({
-    queryKey: ["current-user"],
-    queryFn: fetchCurrentUser,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
+    ...sessionQueryOptions,
+    select: (data) => data.user,
+  })
+}
+
+export function useOrganization() {
+  return useQuery({
+    ...sessionQueryOptions,
+    select: (data) => data.organization,
   })
 }
 
