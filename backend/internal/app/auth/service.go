@@ -2,16 +2,41 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	orgapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
+
+// OrgProvisioner is what the auth service needs from the organization
+// service. Defined here (not in port/) because it describes a
+// same-layer collaboration between two app services, not an external
+// port to the outside world.
+//
+// A nil OrgProvisioner is allowed for tests that don't exercise the
+// org provisioning path (typical Provider tests). Production code
+// always wires a real one.
+type OrgProvisioner interface {
+	// CreateForOwner provisions a new organization owned by the given user.
+	// Returns organization.ErrProviderCannotOwnOrg if the user is a Provider.
+	CreateForOwner(ctx context.Context, u *user.User) (*orgapp.Context, error)
+
+	// ResolveContext returns the user's org membership and computed
+	// permissions, or (nil, nil) when the user has no org.
+	ResolveContext(ctx context.Context, userID uuid.UUID) (*orgapp.Context, error)
+}
+
+// orgContext is a local type alias so call sites read naturally.
+// See internal/app/organization/service.go for the definition.
+type orgContext = orgapp.Context
 
 type RegisterInput struct {
 	Email       string
@@ -40,6 +65,12 @@ type AuthOutput struct {
 	User         *user.User
 	AccessToken  string
 	RefreshToken string
+
+	// Organization context — populated when the user belongs to an
+	// organization (marketplace owners of type Agency/Enterprise,
+	// and invited operators). Nil / empty for Providers.
+	OrganizationID *uuid.UUID
+	OrgRole        string
 }
 
 type Service struct {
@@ -48,9 +79,25 @@ type Service struct {
 	hasher      service.HasherService
 	tokens      service.TokenService
 	email       service.EmailService
+	orgs        OrgProvisioner // may be nil in unit tests that don't exercise the org path
 	frontendURL string
 }
 
+// ServiceDeps groups the auth service dependencies to avoid a growing
+// positional constructor (already at 6 args before adding the org provisioner).
+type ServiceDeps struct {
+	Users       repository.UserRepository
+	Resets      repository.PasswordResetRepository
+	Hasher      service.HasherService
+	Tokens      service.TokenService
+	Email       service.EmailService
+	Orgs        OrgProvisioner
+	FrontendURL string
+}
+
+// NewService returns a fully wired auth service. Prefer NewServiceWithDeps
+// in new callsites; this variant is kept for backward compatibility with
+// existing tests.
 func NewService(
 	users repository.UserRepository,
 	resets repository.PasswordResetRepository,
@@ -66,6 +113,20 @@ func NewService(
 		tokens:      tokens,
 		email:       email,
 		frontendURL: frontendURL,
+	}
+}
+
+// NewServiceWithDeps is the struct-based constructor used by main.go wiring.
+// Accepts the organization provisioner alongside the legacy deps.
+func NewServiceWithDeps(deps ServiceDeps) *Service {
+	return &Service{
+		users:       deps.Users,
+		resets:      deps.Resets,
+		hasher:      deps.Hasher,
+		tokens:      deps.Tokens,
+		email:       deps.Email,
+		orgs:        deps.Orgs,
+		frontendURL: deps.FrontendURL,
 	}
 }
 
@@ -101,7 +162,15 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
+	// Provision an organization for Agency/Enterprise self-registrations.
+	// Providers stay solo. If the org provisioner is not wired (e.g. in
+	// tests), we skip this step — the user is created but without an org.
+	orgCtx, err := s.provisionOrgForNewUser(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.tokens.GenerateAccessToken(buildAccessInput(u, orgCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -111,11 +180,62 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	return &AuthOutput{
+	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
+}
+
+// provisionOrgForNewUser creates an organization for a newly registered
+// Agency or Enterprise user. Returns nil when the user is a Provider
+// (solo by design) or when no provisioner is wired (tests).
+func (s *Service) provisionOrgForNewUser(ctx context.Context, u *user.User) (*orgContext, error) {
+	if s.orgs == nil {
+		return nil, nil
+	}
+	if u.Role == user.RoleProvider {
+		return nil, nil
+	}
+
+	orgCtx, err := s.orgs.CreateForOwner(ctx, u)
+	if err != nil {
+		if errors.Is(err, organization.ErrProviderCannotOwnOrg) {
+			return nil, nil // shouldn't happen given the role check above
+		}
+		return nil, fmt.Errorf("provision organization: %w", err)
+	}
+	return orgCtx, nil
+}
+
+// buildAccessInput prepares the TokenService input from a user and an
+// optional org context. The session_version is copied from the user's
+// current value so the auth middleware has a reference to compare
+// future requests against.
+func buildAccessInput(u *user.User, orgCtx *orgContext) service.AccessTokenInput {
+	input := service.AccessTokenInput{
+		UserID:         u.ID,
+		Role:           u.Role.String(),
+		IsAdmin:        u.IsAdmin,
+		SessionVersion: u.SessionVersion,
+	}
+	if orgCtx != nil && orgCtx.Organization != nil && orgCtx.Member != nil {
+		orgID := orgCtx.Organization.ID
+		input.OrganizationID = &orgID
+		input.OrgRole = orgCtx.Member.Role.String()
+	}
+	return input
+}
+
+// buildAuthOutput assembles the auth output with optional org context.
+func buildAuthOutput(u *user.User, orgCtx *orgContext, access, refresh string) *AuthOutput {
+	out := &AuthOutput{
 		User:         u,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}
+	if orgCtx != nil && orgCtx.Organization != nil && orgCtx.Member != nil {
+		orgID := orgCtx.Organization.ID
+		out.OrganizationID = &orgID
+		out.OrgRole = orgCtx.Member.Role.String()
+	}
+	return out
 }
 
 func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, error) {
@@ -140,7 +260,12 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 		return nil, user.NewBannedError(u.BanReason)
 	}
 
-	accessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
+	orgCtx, err := s.resolveOrgContext(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	accessToken, err := s.tokens.GenerateAccessToken(buildAccessInput(u, orgCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -150,11 +275,20 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	return &AuthOutput{
-		User:         u,
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
+	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
+}
+
+// resolveOrgContext returns the user's org context at login/refresh time.
+// Returns nil when the user has no org or when the provisioner is not wired.
+func (s *Service) resolveOrgContext(ctx context.Context, userID uuid.UUID) (*orgContext, error) {
+	if s.orgs == nil {
+		return nil, nil
+	}
+	orgCtx, err := s.orgs.ResolveContext(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("resolve org context: %w", err)
+	}
+	return orgCtx, nil
 }
 
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthOutput, error) {
@@ -175,7 +309,12 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, user.NewBannedError(u.BanReason)
 	}
 
-	newAccessToken, err := s.tokens.GenerateAccessToken(u.ID, u.Role.String(), u.IsAdmin)
+	orgCtx, err := s.resolveOrgContext(ctx, u.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	newAccessToken, err := s.tokens.GenerateAccessToken(buildAccessInput(u, orgCtx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -185,11 +324,7 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
-	return &AuthOutput{
-		User:         u,
-		AccessToken:  newAccessToken,
-		RefreshToken: newRefreshToken,
-	}, nil
+	return buildAuthOutput(u, orgCtx, newAccessToken, newRefreshToken), nil
 }
 
 func (s *Service) GetMe(ctx context.Context, userID uuid.UUID) (*user.User, error) {

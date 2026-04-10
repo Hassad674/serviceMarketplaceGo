@@ -159,17 +159,17 @@ func (m *mockHasher) Compare(hashed, password string) error {
 // --- mockTokenService ---
 
 type mockTokenService struct {
-	generateAccessFn  func(userID uuid.UUID, role string, isAdmin bool) (string, error)
+	generateAccessFn  func(input service.AccessTokenInput) (string, error)
 	generateRefreshFn func(userID uuid.UUID) (string, error)
 	validateAccessFn  func(token string) (*service.TokenClaims, error)
 	validateRefreshFn func(token string) (*service.TokenClaims, error)
 }
 
-func (m *mockTokenService) GenerateAccessToken(userID uuid.UUID, role string, isAdmin bool) (string, error) {
+func (m *mockTokenService) GenerateAccessToken(input service.AccessTokenInput) (string, error) {
 	if m.generateAccessFn != nil {
-		return m.generateAccessFn(userID, role, isAdmin)
+		return m.generateAccessFn(input)
 	}
-	return "access_" + userID.String(), nil
+	return "access_" + input.UserID.String(), nil
 }
 
 func (m *mockTokenService) GenerateRefreshToken(userID uuid.UUID) (string, error) {
@@ -196,18 +196,25 @@ func (m *mockTokenService) ValidateRefreshToken(token string) (*service.TokenCla
 // --- mockSessionService ---
 
 type mockSessionService struct {
-	createFn          func(ctx context.Context, userID uuid.UUID, role string, isAdmin bool) (*service.Session, error)
+	createFn          func(ctx context.Context, input service.CreateSessionInput) (*service.Session, error)
 	getFn             func(ctx context.Context, sessionID string) (*service.Session, error)
 	deleteFn          func(ctx context.Context, sessionID string) error
 	createWSTokenFn   func(ctx context.Context, userID uuid.UUID) (string, error)
 	validateWSTokenFn func(ctx context.Context, token string) (uuid.UUID, error)
 }
 
-func (m *mockSessionService) Create(ctx context.Context, userID uuid.UUID, role string, isAdmin bool) (*service.Session, error) {
+func (m *mockSessionService) Create(ctx context.Context, input service.CreateSessionInput) (*service.Session, error) {
 	if m.createFn != nil {
-		return m.createFn(ctx, userID, role, isAdmin)
+		return m.createFn(ctx, input)
 	}
-	return &service.Session{ID: "session_123", UserID: userID, Role: role, IsAdmin: isAdmin}, nil
+	return &service.Session{
+		ID:             "session_123",
+		UserID:         input.UserID,
+		Role:           input.Role,
+		IsAdmin:        input.IsAdmin,
+		OrganizationID: input.OrganizationID,
+		OrgRole:        input.OrgRole,
+	}, nil
 }
 
 func (m *mockSessionService) Get(ctx context.Context, sessionID string) (*service.Session, error) {
@@ -256,6 +263,10 @@ func (m *mockEmailService) SendPasswordReset(ctx context.Context, to, resetURL s
 }
 
 func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) error {
+	return nil
+}
+
+func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
 	return nil
 }
 
@@ -481,4 +492,12 @@ func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, erro
 }
 func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
 	return nil
+}
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
 }

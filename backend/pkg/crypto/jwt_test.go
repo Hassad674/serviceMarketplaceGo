@@ -7,6 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"marketplace-backend/internal/port/service"
 )
 
 const testSecret = "test-secret-key-for-unit-tests-32chars!"
@@ -15,11 +17,17 @@ func newTestJWTService() *JWTService {
 	return NewJWTService(testSecret, 15*time.Minute, 7*24*time.Hour)
 }
 
+// accessInput builds a minimal AccessTokenInput for tests. Callers that
+// need organization context construct the input inline.
+func accessInput(userID uuid.UUID, role string) service.AccessTokenInput {
+	return service.AccessTokenInput{UserID: userID, Role: role, IsAdmin: false}
+}
+
 func TestJWTService_GenerateAccessToken_ReturnsNonEmpty(t *testing.T) {
 	svc := newTestJWTService()
 	userID := uuid.New()
 
-	token, err := svc.GenerateAccessToken(userID, "agency", false)
+	token, err := svc.GenerateAccessToken(accessInput(userID, "agency"))
 
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
@@ -38,10 +46,10 @@ func TestJWTService_GenerateRefreshToken_ReturnsNonEmpty(t *testing.T) {
 func TestJWTService_GenerateAccessToken_DifferentUsersProduceDifferentTokens(t *testing.T) {
 	svc := newTestJWTService()
 
-	token1, err := svc.GenerateAccessToken(uuid.New(), "agency", false)
+	token1, err := svc.GenerateAccessToken(accessInput(uuid.New(), "agency"))
 	require.NoError(t, err)
 
-	token2, err := svc.GenerateAccessToken(uuid.New(), "provider", false)
+	token2, err := svc.GenerateAccessToken(accessInput(uuid.New(), "provider"))
 	require.NoError(t, err)
 
 	assert.NotEqual(t, token1, token2)
@@ -52,7 +60,7 @@ func TestJWTService_ValidateAccessToken_ValidToken(t *testing.T) {
 	userID := uuid.New()
 	role := "enterprise"
 
-	token, err := svc.GenerateAccessToken(userID, role, false)
+	token, err := svc.GenerateAccessToken(accessInput(userID, role))
 	require.NoError(t, err)
 
 	claims, err := svc.ValidateAccessToken(token)
@@ -70,7 +78,7 @@ func TestJWTService_ValidateAccessToken_ExpiredToken(t *testing.T) {
 	svc := NewJWTService(testSecret, -1*time.Second, 7*24*time.Hour)
 	userID := uuid.New()
 
-	token, err := svc.GenerateAccessToken(userID, "agency", false)
+	token, err := svc.GenerateAccessToken(accessInput(userID, "agency"))
 	require.NoError(t, err)
 
 	claims, err := svc.ValidateAccessToken(token)
@@ -84,7 +92,7 @@ func TestJWTService_ValidateAccessToken_WrongSecret(t *testing.T) {
 	svc1 := NewJWTService("secret-one-for-signing-tokens!!", 15*time.Minute, 7*24*time.Hour)
 	svc2 := NewJWTService("secret-two-different-from-one!!", 15*time.Minute, 7*24*time.Hour)
 
-	token, err := svc1.GenerateAccessToken(uuid.New(), "agency", false)
+	token, err := svc1.GenerateAccessToken(accessInput(uuid.New(), "agency"))
 	require.NoError(t, err)
 
 	claims, err := svc2.ValidateAccessToken(token)
@@ -115,7 +123,7 @@ func TestJWTService_ValidateRefreshToken_WithAccessToken_ReturnsError(t *testing
 	svc := newTestJWTService()
 	userID := uuid.New()
 
-	accessToken, err := svc.GenerateAccessToken(userID, "agency", false)
+	accessToken, err := svc.GenerateAccessToken(accessInput(userID, "agency"))
 	require.NoError(t, err)
 
 	// Trying to validate an access token as a refresh token should fail
@@ -186,7 +194,7 @@ func TestJWTService_AccessToken_ContainsCorrectUserIDAndRole(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			userID := uuid.New()
 
-			token, err := svc.GenerateAccessToken(userID, tt.role, false)
+			token, err := svc.GenerateAccessToken(accessInput(userID, tt.role))
 			require.NoError(t, err)
 
 			claims, err := svc.ValidateAccessToken(token)
@@ -204,7 +212,7 @@ func TestJWTService_AccessToken_ExpiresWithinExpectedWindow(t *testing.T) {
 	userID := uuid.New()
 
 	beforeGenerate := time.Now().Truncate(time.Second)
-	token, err := svc.GenerateAccessToken(userID, "agency", false)
+	token, err := svc.GenerateAccessToken(accessInput(userID, "agency"))
 	require.NoError(t, err)
 
 	claims, err := svc.ValidateAccessToken(token)
@@ -240,4 +248,42 @@ func TestJWTService_RefreshToken_ExpiresWithinExpectedWindow(t *testing.T) {
 		"expiry %v should be at or after %v", claims.ExpiresAt, expectedMin)
 	assert.True(t, claims.ExpiresAt.Before(expectedMax),
 		"expiry %v should be before %v", claims.ExpiresAt, expectedMax)
+}
+
+// TestJWTService_AccessToken_WithOrganizationContext verifies that
+// organization fields survive the round-trip through the token.
+func TestJWTService_AccessToken_WithOrganizationContext(t *testing.T) {
+	svc := newTestJWTService()
+	userID := uuid.New()
+	orgID := uuid.New()
+
+	token, err := svc.GenerateAccessToken(service.AccessTokenInput{
+		UserID:         userID,
+		Role:           "agency",
+		IsAdmin:        false,
+		OrganizationID: &orgID,
+		OrgRole:        "owner",
+	})
+	require.NoError(t, err)
+
+	claims, err := svc.ValidateAccessToken(token)
+	require.NoError(t, err)
+	require.NotNil(t, claims.OrganizationID)
+	assert.Equal(t, orgID, *claims.OrganizationID)
+	assert.Equal(t, "owner", claims.OrgRole)
+}
+
+// TestJWTService_AccessToken_WithoutOrganizationContext verifies that
+// Provider-style tokens (no org context) decode with nil/empty org fields.
+func TestJWTService_AccessToken_WithoutOrganizationContext(t *testing.T) {
+	svc := newTestJWTService()
+	userID := uuid.New()
+
+	token, err := svc.GenerateAccessToken(accessInput(userID, "provider"))
+	require.NoError(t, err)
+
+	claims, err := svc.ValidateAccessToken(token)
+	require.NoError(t, err)
+	assert.Nil(t, claims.OrganizationID)
+	assert.Empty(t, claims.OrgRole)
 }

@@ -24,25 +24,49 @@ func NewJWTService(secret string, accessExpiry, refreshExpiry time.Duration) *JW
 	}
 }
 
+// customClaims holds everything we pack into an access token.
+//
+// Organization context (OrgID, OrgRole) is optional and omitted from the
+// JSON when the user is a solo Provider. The omitempty tags keep the
+// token payload small for users without an org.
+//
+// SessionVersion is intentionally NOT marked omitempty: we want it to be
+// explicitly present (even when 0) so the middleware can distinguish
+// "claim present, value 0" from "claim absent, assume 0".
 type customClaims struct {
 	UserID  string `json:"user_id"`
 	Role    string `json:"role,omitempty"`
 	IsAdmin bool   `json:"is_admin,omitempty"`
 	Type    string `json:"type"`
+
+	// Organization context for members of an organization. When absent,
+	// the user is a solo Provider (or a not-yet-activated account).
+	OrgID   string `json:"org_id,omitempty"`
+	OrgRole string `json:"org_role,omitempty"`
+
+	// SessionVersion is the revocation anchor. Middleware compares this
+	// against users.session_version and rejects on mismatch.
+	SessionVersion int `json:"sv,omitempty"`
+
 	jwt.RegisteredClaims
 }
 
-func (s *JWTService) GenerateAccessToken(userID uuid.UUID, role string, isAdmin bool) (string, error) {
+func (s *JWTService) GenerateAccessToken(input service.AccessTokenInput) (string, error) {
 	claims := customClaims{
-		UserID:  userID.String(),
-		Role:    role,
-		IsAdmin: isAdmin,
-		Type:    "access",
+		UserID:         input.UserID.String(),
+		Role:           input.Role,
+		IsAdmin:        input.IsAdmin,
+		Type:           "access",
+		OrgRole:        input.OrgRole,
+		SessionVersion: input.SessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ID:        uuid.New().String(),
 		},
+	}
+	if input.OrganizationID != nil {
+		claims.OrgID = input.OrganizationID.String()
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -97,10 +121,20 @@ func (s *JWTService) validateToken(tokenString string, expectedType string) (*se
 		return nil, fmt.Errorf("invalid user id in token: %w", err)
 	}
 
-	return &service.TokenClaims{
-		UserID:    userID,
-		Role:      claims.Role,
-		IsAdmin:   claims.IsAdmin,
-		ExpiresAt: claims.ExpiresAt.Time,
-	}, nil
+	result := &service.TokenClaims{
+		UserID:         userID,
+		Role:           claims.Role,
+		IsAdmin:        claims.IsAdmin,
+		ExpiresAt:      claims.ExpiresAt.Time,
+		OrgRole:        claims.OrgRole,
+		SessionVersion: claims.SessionVersion,
+	}
+	if claims.OrgID != "" {
+		orgID, err := uuid.Parse(claims.OrgID)
+		if err != nil {
+			return nil, fmt.Errorf("invalid org id in token: %w", err)
+		}
+		result.OrganizationID = &orgID
+	}
+	return result, nil
 }

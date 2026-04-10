@@ -34,6 +34,36 @@ const (
 	StatusBanned    UserStatus = "banned"
 )
 
+// AccountType distinguishes between users who self-registered in a
+// marketplace role (agencies, enterprises, providers) and operators who
+// were invited into an existing organization and have no standalone
+// marketplace identity.
+//
+// Operators inherit their org's marketplace role (agency or enterprise)
+// in the Role field, so existing queries that filter by role keep working
+// naturally. AccountType is the orthogonal dimension that tells us whether
+// the user is the founder of their account or a delegated operator.
+type AccountType string
+
+const (
+	// AccountTypeMarketplaceOwner is a user who self-registered
+	// as an Agency, Enterprise, or Provider. They own their account.
+	AccountTypeMarketplaceOwner AccountType = "marketplace_owner"
+
+	// AccountTypeOperator is a user who was invited into an existing
+	// organization. They have no independent marketplace identity
+	// (no public profile, not searchable, no personal wallet).
+	AccountTypeOperator AccountType = "operator"
+)
+
+func (a AccountType) IsValid() bool {
+	return a == AccountTypeMarketplaceOwner || a == AccountTypeOperator
+}
+
+func (a AccountType) String() string {
+	return string(a)
+}
+
 type User struct {
 	ID              uuid.UUID
 	Email           string
@@ -42,7 +72,18 @@ type User struct {
 	LastName        string
 	DisplayName     string
 	Role            Role
+	AccountType     AccountType
 	ReferrerEnabled bool
+
+	// SessionVersion is incremented every time the user's effective
+	// permissions change (role bumped/demoted, removed from org,
+	// suspended, password changed). The JWT carries the session version
+	// at issuance time, and the auth middleware compares against the
+	// current value on every request. A mismatch triggers immediate 401
+	// — this is the revocation mechanism that gives us "immediate"
+	// effect on sensitive security actions.
+	SessionVersion int
+
 	IsAdmin             bool
 	Status              UserStatus
 	SuspendedAt         *time.Time
@@ -120,6 +161,36 @@ func NewUser(email string, hashedPassword string, firstName, lastName, displayNa
 		LastName:       lastName,
 		DisplayName:    displayName,
 		Role:           role,
+		AccountType:    AccountTypeMarketplaceOwner,
+		Status:         StatusActive,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}, nil
+}
+
+// NewOperator creates a user with AccountType=operator, used exclusively
+// by the organization invitation acceptance flow. Operators inherit the
+// marketplace role (agency or enterprise) of the organization they join,
+// so the role passed here must match organization.Type.
+func NewOperator(email, hashedPassword, firstName, lastName, displayName string, role Role) (*User, error) {
+	if !role.IsValid() {
+		return nil, ErrInvalidRole
+	}
+	if role == RoleProvider {
+		// Providers are solo — they cannot become operators of an org.
+		return nil, ErrInvalidRole
+	}
+
+	now := time.Now()
+	return &User{
+		ID:             uuid.New(),
+		Email:          email,
+		HashedPassword: hashedPassword,
+		FirstName:      firstName,
+		LastName:       lastName,
+		DisplayName:    displayName,
+		Role:           role,
+		AccountType:    AccountTypeOperator,
 		Status:         StatusActive,
 		CreatedAt:      now,
 		UpdatedAt:      now,

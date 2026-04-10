@@ -195,3 +195,11 @@ func TestRequireKYCCompliant_Provider_PendingButNotExpired_PassesThrough(t *test
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (s *stubUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (s *stubUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}

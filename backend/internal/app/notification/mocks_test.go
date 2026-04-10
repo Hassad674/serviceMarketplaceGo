@@ -9,6 +9,7 @@ import (
 	notif "marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // --- mockNotificationRepo implements repository.NotificationRepository ---
@@ -262,6 +263,10 @@ func (m *mockEmailService) SendNotification(ctx context.Context, to, subject, ht
 	return nil
 }
 
+func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
+	return nil
+}
+
 // --- mockUserRepo implements repository.UserRepository ---
 
 type mockUserRepo struct {
@@ -364,4 +369,12 @@ func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, erro
 }
 func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
 	return nil
+}
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
 }

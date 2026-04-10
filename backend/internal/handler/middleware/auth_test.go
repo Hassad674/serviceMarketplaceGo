@@ -21,7 +21,7 @@ type mockTokenService struct {
 	validateAccessFn func(token string) (*service.TokenClaims, error)
 }
 
-func (m *mockTokenService) GenerateAccessToken(_ uuid.UUID, _ string, _ bool) (string, error) {
+func (m *mockTokenService) GenerateAccessToken(_ service.AccessTokenInput) (string, error) {
 	return "", nil
 }
 
@@ -41,7 +41,7 @@ type mockSessionService struct {
 	getFn func(ctx context.Context, sessionID string) (*service.Session, error)
 }
 
-func (m *mockSessionService) Create(_ context.Context, _ uuid.UUID, _ string, _ bool) (*service.Session, error) {
+func (m *mockSessionService) Create(_ context.Context, _ service.CreateSessionInput) (*service.Session, error) {
 	return nil, nil
 }
 
@@ -99,7 +99,7 @@ func TestAuth_ValidSessionCookie(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/profile", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "sess-1"})
 	rec := httptest.NewRecorder()
@@ -140,7 +140,7 @@ func TestAuth_ExpiredSessionFallsBackToBearer(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/profile", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "dead-sess"})
 	req.Header.Set("Authorization", "Bearer valid-access-token")
@@ -179,7 +179,7 @@ func TestAuth_ValidBearerToken(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer good-token")
 	rec := httptest.NewRecorder()
@@ -207,7 +207,7 @@ func TestAuth_InvalidBearerToken(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer bad-token")
 	rec := httptest.NewRecorder()
@@ -235,7 +235,7 @@ func TestAuth_NoAuthAtAll(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 
@@ -271,7 +271,7 @@ func TestAuth_SessionTakesPriorityOverBearer(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "sess-priority"})
 	req.Header.Set("Authorization", "Bearer some-token")

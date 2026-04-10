@@ -13,6 +13,8 @@ import (
 
 type RouterDeps struct {
 	Auth           *AuthHandler
+	Invitation     *InvitationHandler
+	Team           *TeamHandler
 	Profile        *ProfileHandler
 	Upload         *UploadHandler
 	Health         *HealthHandler
@@ -67,7 +69,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Protected
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/me", deps.Auth.Me)
 				r.Get("/ws-token", deps.Auth.WSToken)
@@ -76,9 +78,46 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		})
 
+		// Team invitation routes — public acceptance endpoints + protected
+		// management endpoints nested under /organizations/{orgID}/invitations.
+		if deps.Invitation != nil {
+			// Public: validate a token and accept an invitation.
+			r.Get("/invitations/validate", deps.Invitation.Validate)
+			r.Post("/invitations/accept", deps.Invitation.Accept)
+
+			r.Route("/organizations/{orgID}/invitations", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Invitation.Send)
+				r.Get("/", deps.Invitation.List)
+				r.Post("/{invID}/resend", deps.Invitation.Resend)
+				r.Delete("/{invID}", deps.Invitation.Cancel)
+			})
+		}
+
+		// Team management routes — list/edit/remove members + transfer
+		// ownership. All protected by auth middleware; each method
+		// enforces its own permission checks at the service layer.
+		if deps.Team != nil {
+			r.Route("/organizations/{orgID}", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+
+				r.Get("/members", deps.Team.ListMembers)
+				r.Patch("/members/{userID}", deps.Team.UpdateMember)
+				r.Delete("/members/{userID}", deps.Team.RemoveMember)
+				r.Post("/leave", deps.Team.Leave)
+
+				r.Post("/transfer", deps.Team.InitiateTransfer)
+				r.Delete("/transfer", deps.Team.CancelTransfer)
+				r.Post("/transfer/accept", deps.Team.AcceptTransfer)
+				r.Post("/transfer/decline", deps.Team.DeclineTransfer)
+			})
+		}
+
 		// Profile routes (authenticated)
 		r.Route("/profile", func(r chi.Router) {
-			r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+			r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 			r.Use(middleware.NoCache)
 			r.Get("/", deps.Profile.GetMyProfile)
 			r.Put("/", deps.Profile.UpdateMyProfile)
@@ -86,7 +125,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Upload routes (authenticated)
 		r.Route("/upload", func(r chi.Router) {
-			r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+			r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 			r.Use(middleware.NoCache)
 			r.Post("/photo", deps.Upload.UploadPhoto)
 			r.Post("/video", deps.Upload.UploadVideo)
@@ -108,7 +147,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Messaging routes (authenticated)
 		if deps.Messaging != nil {
 			r.Route("/messaging", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/conversations", deps.Messaging.StartConversation)
 				r.Get("/conversations", deps.Messaging.ListConversations)
@@ -125,7 +164,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Proposal routes (authenticated)
 		if deps.Proposal != nil {
 			r.Route("/proposals", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Proposal.CreateProposal)
 				r.Get("/{id}", deps.Proposal.GetProposal)
@@ -139,7 +178,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Post("/{id}/reject-completion", deps.Proposal.RejectCompletion)
 			})
 			r.Route("/projects", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.Proposal.ListActiveProjects)
 			})
@@ -148,7 +187,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Job routes (authenticated)
 		if deps.Job != nil {
 			r.Route("/jobs", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 
 				// Static routes first (before {id} wildcard)
@@ -188,7 +227,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 				// Authenticated: create reviews and check eligibility
 				r.Group(func(r chi.Router) {
-					r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+					r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 					r.Use(middleware.NoCache)
 					r.Post("/", deps.Review.CreateReview)
 					r.Get("/can-review/{proposalId}", deps.Review.CanReview)
@@ -199,7 +238,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Report routes (authenticated)
 		if deps.Report != nil {
 			r.Route("/reports", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Report.CreateReport)
 				r.Get("/mine", deps.Report.ListMyReports)
@@ -213,7 +252,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Authenticated: manage own social links
 			r.Route("/profile/social-links", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.SocialLink.ListMySocialLinks)
 				r.Put("/", deps.SocialLink.UpsertSocialLink)
@@ -229,7 +268,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Authenticated: manage own portfolio
 			r.Route("/portfolio", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Portfolio.CreatePortfolioItem)
 				r.Put("/reorder", deps.Portfolio.ReorderPortfolio)
@@ -241,7 +280,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Call routes (authenticated)
 		if deps.Call != nil {
 			r.Route("/calls", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/initiate", deps.Call.InitiateCall)
 				r.Post("/{id}/accept", deps.Call.AcceptCall)
@@ -253,7 +292,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Payment info routes — all served by Embedded Components now.
 		if deps.Embedded != nil {
 			r.Route("/payment-info", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/account-session", deps.Embedded.CreateAccountSession)
 				r.Delete("/account-session", deps.Embedded.ResetAccount)
@@ -264,7 +303,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Notification routes (authenticated)
 		if deps.Notification != nil {
 			r.Route("/notifications", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.Notification.ListNotifications)
 				r.Get("/unread-count", deps.Notification.GetUnreadCount)
@@ -283,7 +322,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Wallet routes (authenticated)
 		if deps.Wallet != nil {
 			r.Route("/wallet", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.Wallet.GetWallet)
 				r.Post("/payout", deps.Wallet.RequestPayout)
@@ -293,7 +332,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Dispute routes
 		if deps.Dispute != nil {
 			r.Route("/disputes", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Dispute.OpenDispute)
 				r.Get("/mine", deps.Dispute.ListMyDisputes)
@@ -308,7 +347,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Stripe routes
 		if deps.Stripe != nil {
 			r.Route("/stripe", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/config", deps.Stripe.GetConfig)
 			})
@@ -324,7 +363,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Admin routes (authenticated + admin only)
 		if deps.Admin != nil {
 			r.Route("/admin", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.RequireAdmin())
 				r.Use(middleware.NoCache)
 				r.Get("/dashboard/stats", deps.Admin.GetDashboardStats)

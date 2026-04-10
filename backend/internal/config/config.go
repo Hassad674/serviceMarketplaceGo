@@ -24,8 +24,9 @@ type Config struct {
 	StorageBucket    string
 	StorageUseSSL    bool
 	StoragePublicURL string
-	ResendAPIKey     string
-	FrontendURL      string
+	ResendAPIKey         string
+	ResendDevRedirectTo  string // optional: if set, all outgoing emails are routed here (dev/staging sandbox)
+	FrontendURL          string
 	LiveKitURL       string
 	LiveKitAPIKey    string
 	LiveKitAPISecret   string
@@ -63,8 +64,9 @@ func Load() *Config {
 		StorageBucket:    getEnv("STORAGE_BUCKET", "marketplace"),
 		StorageUseSSL:    getEnv("STORAGE_USE_SSL", "false") == "true",
 		StoragePublicURL: getEnv("STORAGE_PUBLIC_URL", "http://localhost:9000/marketplace"),
-		ResendAPIKey:     getEnv("RESEND_API_KEY", ""),
-		FrontendURL:      getEnv("FRONTEND_URL", "http://localhost:3001"),
+		ResendAPIKey:        getEnv("RESEND_API_KEY", ""),
+		ResendDevRedirectTo: getEnv("RESEND_DEV_REDIRECT_TO", ""),
+		FrontendURL:         getEnv("FRONTEND_URL", "http://localhost:3001"),
 		LiveKitURL:       getEnv("LIVEKIT_URL", ""),
 		LiveKitAPIKey:    getEnv("LIVEKIT_API_KEY", ""),
 		LiveKitAPISecret:   getEnv("LIVEKIT_API_SECRET", ""),

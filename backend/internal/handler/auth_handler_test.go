@@ -29,7 +29,9 @@ func newTestAuthHandler(
 	email *mockEmailService,
 ) *AuthHandler {
 	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokens, email, "https://example.com")
-	return NewAuthHandler(authSvc, session, testCookieConfig())
+	// Handler tests don't exercise the org provisioning path — pass nil
+	// as the org service, which makes /me skip org resolution.
+	return NewAuthHandler(authSvc, nil, session, testCookieConfig())
 }
 
 func TestAuthHandler_Register(t *testing.T) {

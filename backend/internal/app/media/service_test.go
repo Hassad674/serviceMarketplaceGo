@@ -179,6 +179,9 @@ func (m *mockEmail) SendNotification(ctx context.Context, to, subject, html stri
 	}
 	return nil
 }
+func (m *mockEmail) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
+	return nil
+}
 
 // --- mock session ---
 
@@ -186,7 +189,7 @@ type mockSession struct {
 	deleteByUserIDFn func(ctx context.Context, userID uuid.UUID) error
 }
 
-func (m *mockSession) Create(_ context.Context, _ uuid.UUID, _ string, _ bool) (*service.Session, error) {
+func (m *mockSession) Create(_ context.Context, _ service.CreateSessionInput) (*service.Session, error) {
 	return nil, nil
 }
 func (m *mockSession) Get(_ context.Context, _ string) (*service.Session, error) { return nil, nil }
@@ -636,3 +639,11 @@ func TestCheckAutoSuspension_NilUserRepo_NoAction(t *testing.T) {
 func (m *mockUserRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.Time) error { return nil }
 func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, error) { return nil, nil }
 func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error { return nil }
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}

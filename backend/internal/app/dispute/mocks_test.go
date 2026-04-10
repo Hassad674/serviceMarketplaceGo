@@ -354,3 +354,11 @@ var (
 	_ = time.Now
 	_ = repository.AdminUserFilters{}
 )
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}

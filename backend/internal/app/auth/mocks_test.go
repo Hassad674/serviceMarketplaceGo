@@ -159,17 +159,17 @@ func (m *mockHasher) Compare(hashed, password string) error {
 // --- mockTokenService ---
 
 type mockTokenService struct {
-	generateAccessFn   func(userID uuid.UUID, role string, isAdmin bool) (string, error)
+	generateAccessFn   func(input service.AccessTokenInput) (string, error)
 	generateRefreshFn  func(userID uuid.UUID) (string, error)
 	validateAccessFn   func(token string) (*service.TokenClaims, error)
 	validateRefreshFn  func(token string) (*service.TokenClaims, error)
 }
 
-func (m *mockTokenService) GenerateAccessToken(userID uuid.UUID, role string, isAdmin bool) (string, error) {
+func (m *mockTokenService) GenerateAccessToken(input service.AccessTokenInput) (string, error) {
 	if m.generateAccessFn != nil {
-		return m.generateAccessFn(userID, role, isAdmin)
+		return m.generateAccessFn(input)
 	}
-	return "access_token_" + userID.String(), nil
+	return "access_token_" + input.UserID.String(), nil
 }
 
 func (m *mockTokenService) GenerateRefreshToken(userID uuid.UUID) (string, error) {
@@ -210,6 +210,10 @@ func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) e
 	return nil
 }
 
+func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
+	return nil
+}
+
 // --- Stripe account stubs (migration 040) ---
 func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
 	return "", "", nil
@@ -239,4 +243,12 @@ func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, erro
 }
 func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
 	return nil
+}
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
 }

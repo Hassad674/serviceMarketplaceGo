@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"marketplace-backend/internal/app/auth"
+	orgapp "marketplace-backend/internal/app/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
@@ -17,13 +18,15 @@ import (
 
 type AuthHandler struct {
 	authService *auth.Service
+	orgService  *orgapp.Service
 	sessionSvc  service.SessionService
 	cookie      *CookieConfig
 }
 
-func NewAuthHandler(authService *auth.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
+func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
+		orgService:  orgService,
 		sessionSvc:  sessionSvc,
 		cookie:      cookie,
 	}
@@ -178,7 +181,19 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res.JSON(w, http.StatusOK, response.NewUserResponse(u))
+	// Resolve the user's organization context if the org service is wired.
+	// Not having an org is not an error (Providers are expected to have none).
+	var orgCtx *orgapp.Context
+	if h.orgService != nil {
+		resolved, resolveErr := h.orgService.ResolveContext(r.Context(), userID)
+		if resolveErr != nil {
+			slog.Warn("failed to resolve org context", "user_id", userID, "error", resolveErr)
+		} else {
+			orgCtx = resolved
+		}
+	}
+
+	res.JSON(w, http.StatusOK, response.NewMeResponse(u, orgCtx))
 }
 
 // WSToken issues a short-lived single-use token for WebSocket authentication.
@@ -269,14 +284,32 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // sendAuthResponse checks X-Auth-Mode header to decide between
 // session cookies (web) and token body (mobile).
 func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, status int, output *auth.AuthOutput) {
+	// Resolve the freshly created/loaded org context for inclusion in the
+	// response payload. We re-query the org service rather than storing
+	// the Context on AuthOutput to keep the auth package from leaking
+	// internal/app/organization types outward.
+	var orgCtx *orgapp.Context
+	if h.orgService != nil {
+		resolved, err := h.orgService.ResolveContext(r.Context(), output.User.ID)
+		if err == nil {
+			orgCtx = resolved
+		}
+	}
+
 	// Mobile mode: return tokens in response body
 	if r.Header.Get("X-Auth-Mode") == "token" {
-		res.JSON(w, status, response.NewAuthResponse(output.User, output.AccessToken, output.RefreshToken))
+		res.JSON(w, status, response.NewAuthResponseWithOrg(output.User, orgCtx, output.AccessToken, output.RefreshToken))
 		return
 	}
 
 	// Web mode: create session, set cookies, return user only
-	session, err := h.sessionSvc.Create(r.Context(), output.User.ID, output.User.Role.String(), output.User.IsAdmin)
+	session, err := h.sessionSvc.Create(r.Context(), service.CreateSessionInput{
+		UserID:         output.User.ID,
+		Role:           output.User.Role.String(),
+		IsAdmin:        output.User.IsAdmin,
+		OrganizationID: output.OrganizationID,
+		OrgRole:        output.OrgRole,
+	})
 	if err != nil {
 		slog.Error("failed to create session", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to create session")
@@ -284,7 +317,7 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 	}
 
 	h.cookie.SetSession(w, session.ID, output.User.Role.String())
-	res.JSON(w, status, response.NewUserResponse(output.User))
+	res.JSON(w, status, response.NewMeResponse(output.User, orgCtx))
 }
 
 func handleAuthError(w http.ResponseWriter, err error) {
