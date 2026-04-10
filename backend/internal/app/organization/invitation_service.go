@@ -259,6 +259,11 @@ func (s *InvitationService) AcceptInvitation(ctx context.Context, in AcceptInvit
 	if err != nil {
 		return nil, fmt.Errorf("accept invitation: build operator user: %w", err)
 	}
+	// Denormalize the invited org onto the new operator's users row, so
+	// single-row lookups (JWT refresh, /me, resource backfills) see it
+	// without joining organization_members.
+	orgID := inv.OrganizationID
+	newOperator.OrganizationID = &orgID
 
 	newMember, err := organization.NewMember(inv.OrganizationID, newOperator.ID, inv.Role, inv.Title)
 	if err != nil {

@@ -197,6 +197,17 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 		return fmt.Errorf("insert owner membership: %w", err)
 	}
 
+	// Denormalize the org onto users.organization_id so single-row lookups
+	// (JWT refresh, /me, resource backfills) can read it without joining
+	// organization_members. organization_members remains the source of
+	// truth for membership state.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE users SET organization_id = $1, updated_at = now() WHERE id = $2`,
+		org.ID, member.UserID,
+	); err != nil {
+		return fmt.Errorf("set user organization_id: %w", err)
+	}
+
 	return tx.Commit()
 }
 
