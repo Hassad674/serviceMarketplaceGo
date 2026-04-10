@@ -133,7 +133,7 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-purple-600 text-sm font-semibold text-white">
-              {user ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}` : "?"}
+              {((user?.first_name?.charAt(0) ?? "") + (user?.last_name?.charAt(0) ?? "")).toUpperCase() || "?"}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{user?.display_name ?? "---"}</p>

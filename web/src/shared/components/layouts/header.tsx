@@ -53,9 +53,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
     await logout()
   }
 
-  const initials = user
-    ? `${user.first_name.charAt(0)}${user.last_name.charAt(0)}`
-    : "?"
+  // Defensive: some accounts (legacy data or partial fetch) may have
+  // empty or undefined name fields. Fall back gracefully so the header
+  // never crashes the entire dashboard over a missing initial.
+  const firstInitial = user?.first_name?.charAt(0) ?? ""
+  const lastInitial = user?.last_name?.charAt(0) ?? ""
+  const initials = (firstInitial + lastInitial).toUpperCase() || "?"
 
   const profileHref = (user?.role === "provider" && isReferrerMode) ? "/referral" : "/profile"
 
