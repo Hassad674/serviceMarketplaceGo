@@ -15,6 +15,27 @@ const queryInsertParticipant = `
 	INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
 	VALUES ($1, $2, $3)`
 
+// queryBackfillConversationOrg denormalizes the first org-owning participant
+// onto the conversation row. Runs inside the same tx as the participant
+// inserts, so the subquery always sees both participants. Conversations
+// between two Providers leave organization_id NULL and keep working via the
+// conversation_participants join path.
+//
+// We resolve the org via organization_members (the source of truth) rather
+// than users.organization_id, so this works regardless of whether the
+// denormalized user column has been backfilled.
+const queryBackfillConversationOrg = `
+	UPDATE conversations
+	SET organization_id = (
+		SELECT om.organization_id
+		FROM conversation_participants cp
+		JOIN organization_members om ON om.user_id = cp.user_id
+		WHERE cp.conversation_id = $1
+		ORDER BY cp.user_id
+		LIMIT 1
+	)
+	WHERE id = $1`
+
 const queryGetConversation = `
 	SELECT id, created_at, updated_at
 	FROM conversations WHERE id = $1`

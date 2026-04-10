@@ -23,6 +23,10 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
+	// organization_id is resolved from organization_members keyed on the
+	// client — Agencies/Enterprises get their org denormalized onto the
+	// record, Providers stay NULL. Used by the dashboard wallet view for
+	// operators in later phases.
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO payment_records (
 			id, proposal_id, client_id, provider_id,
@@ -30,9 +34,11 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 			proposal_amount, stripe_fee_amount, platform_fee_amount,
 			client_total_amount, provider_payout,
 			currency, status, transfer_status,
-			paid_at, transferred_at, created_at, updated_at
+			paid_at, transferred_at, created_at, updated_at,
+			organization_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+			(SELECT organization_id FROM organization_members WHERE user_id = $3 LIMIT 1)
 		)`,
 		rec.ID, rec.ProposalID, rec.ClientID, rec.ProviderID,
 		ptrString(rec.StripePaymentIntentID), ptrString(rec.StripeTransferID),
