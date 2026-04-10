@@ -16,6 +16,7 @@ export type Review = {
   quality: number | null
   comment: string
   video_url: string | null
+  title_visible: boolean
   created_at: string
 }
 

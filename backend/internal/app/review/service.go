@@ -59,6 +59,7 @@ type CreateReviewInput struct {
 	Quality       *int
 	Comment       string
 	VideoURL      string
+	TitleVisible  bool
 }
 
 // CreateReview validates the context and persists a new review.
@@ -102,6 +103,7 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		Quality:       in.Quality,
 		Comment:       in.Comment,
 		VideoURL:      in.VideoURL,
+		TitleVisible:  in.TitleVisible,
 	})
 	if err != nil {
 		return nil, err

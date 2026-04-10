@@ -13,6 +13,7 @@ abstract class ReviewRepository {
     int? quality,
     String? comment,
     String? videoUrl,
+    bool titleVisible = true,
   });
   Future<String> uploadReviewVideo(String filePath);
 }

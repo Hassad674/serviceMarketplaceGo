@@ -88,6 +88,15 @@ class ProjectHistoryEntryCard extends StatelessWidget {
               ),
             ],
           ),
+          if (entry.title.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              entry.title,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
 
           // Body: review or awaiting state

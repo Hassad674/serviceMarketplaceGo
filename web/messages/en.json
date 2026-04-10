@@ -771,7 +771,9 @@
     "addVideo": "Add a video",
     "removeVideo": "Remove video",
     "videoReview": "Video review",
-    "uploadingVideo": "Uploading video..."
+    "uploadingVideo": "Uploading video...",
+    "titleVisibleLabel": "Show the mission title on the provider's public profile",
+    "titleVisibleHint": "Uncheck to keep the mission title private. Your rating and comment will still be visible."
   },
   "reporting": {
     "reportMessage": "Report this message",

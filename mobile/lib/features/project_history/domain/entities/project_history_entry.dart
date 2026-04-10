@@ -3,6 +3,7 @@ import '../../../../core/models/review.dart';
 /// One completed mission in a provider's project history.
 class ProjectHistoryEntry {
   final String proposalId;
+  final String title; // empty when the client opted out of sharing the title
   final int amount; // in cents
   final String currency; // always "EUR" in v1
   final DateTime completedAt;
@@ -10,6 +11,7 @@ class ProjectHistoryEntry {
 
   const ProjectHistoryEntry({
     required this.proposalId,
+    required this.title,
     required this.amount,
     required this.currency,
     required this.completedAt,
@@ -19,6 +21,7 @@ class ProjectHistoryEntry {
   factory ProjectHistoryEntry.fromJson(Map<String, dynamic> json) {
     return ProjectHistoryEntry(
       proposalId: json['proposal_id'] as String,
+      title: json['title'] as String? ?? '',
       amount: json['amount'] as int,
       currency: json['currency'] as String? ?? 'EUR',
       completedAt: DateTime.parse(json['completed_at'] as String),

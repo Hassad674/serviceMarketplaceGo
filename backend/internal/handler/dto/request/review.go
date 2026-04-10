@@ -9,4 +9,8 @@ type CreateReviewRequest struct {
 	Quality       *int   `json:"quality,omitempty"`
 	Comment       string `json:"comment,omitempty"`
 	VideoURL      string `json:"video_url,omitempty"`
+	// TitleVisible toggles whether the mission title can be displayed alongside
+	// the review on the provider's public project history. Optional in the JSON
+	// payload: when omitted, the handler defaults it to true (visible).
+	TitleVisible *bool `json:"title_visible,omitempty"`
 }

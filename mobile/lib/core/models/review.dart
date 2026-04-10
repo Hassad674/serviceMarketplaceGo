@@ -13,6 +13,7 @@ class Review {
   final int? quality;
   final String comment;
   final String videoUrl;
+  final bool titleVisible;
   final DateTime createdAt;
 
   const Review({
@@ -26,6 +27,7 @@ class Review {
     this.quality,
     this.comment = '',
     this.videoUrl = '',
+    this.titleVisible = true,
     required this.createdAt,
   });
 
@@ -41,6 +43,7 @@ class Review {
       quality: json['quality'] as int?,
       comment: json['comment'] as String? ?? '',
       videoUrl: json['video_url'] as String? ?? '',
+      titleVisible: json['title_visible'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }

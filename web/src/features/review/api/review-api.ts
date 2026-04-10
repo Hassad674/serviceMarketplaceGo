@@ -22,6 +22,7 @@ export type CreateReviewPayload = {
   quality?: number
   comment?: string
   video_url?: string
+  title_visible?: boolean
 }
 
 export async function fetchReviewsByUser(userId: string, cursor?: string) {

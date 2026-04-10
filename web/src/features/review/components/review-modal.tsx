@@ -31,6 +31,7 @@ export function ReviewModal({
   const [comment, setComment] = useState("")
   const [videoUrl, setVideoUrl] = useState("")
   const [videoFile, setVideoFile] = useState<File | null>(null)
+  const [titleVisible, setTitleVisible] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { mutate: submitReview, isPending } = useCreateReview()
@@ -44,6 +45,7 @@ export function ReviewModal({
     setComment("")
     setVideoUrl("")
     setVideoFile(null)
+    setTitleVisible(true)
   }, [])
 
   const handleVideoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +80,7 @@ export function ReviewModal({
         quality: quality > 0 ? quality : undefined,
         comment: comment.trim() || undefined,
         video_url: videoUrl || undefined,
+        title_visible: titleVisible,
       },
       {
         onSuccess: () => {
@@ -88,7 +91,7 @@ export function ReviewModal({
     )
   }, [
     proposalId, globalRating, timeliness, communication,
-    quality, comment, videoUrl, submitReview, resetForm, onClose,
+    quality, comment, videoUrl, titleVisible, submitReview, resetForm, onClose,
   ])
 
   if (!isOpen) return null
@@ -154,6 +157,13 @@ export function ReviewModal({
               remove: t("removeVideo"),
               uploading: t("uploadingVideo"),
             }}
+          />
+
+          <TitleVisibilityField
+            checked={titleVisible}
+            onChange={setTitleVisible}
+            label={t("titleVisibleLabel")}
+            hint={t("titleVisibleHint")}
           />
 
           <ReviewModalActions
@@ -341,6 +351,33 @@ function VideoUploadField({
         <p className="mt-1 text-xs text-muted-foreground">{videoFile.name}</p>
       )}
     </div>
+  )
+}
+
+function TitleVisibilityField({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+  hint: string
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 transition-colors hover:bg-muted/50">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 flex-shrink-0 cursor-pointer rounded border-border text-rose-600 focus:ring-2 focus:ring-rose-500/20"
+      />
+      <span className="space-y-1 text-sm">
+        <span className="block font-medium text-foreground">{label}</span>
+        <span className="block text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
   )
 }
 

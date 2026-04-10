@@ -18,6 +18,7 @@ type Review struct {
 	Quality       *int
 	Comment       string
 	VideoURL      string
+	TitleVisible  bool // When false, the mission title must be hidden on the provider's public history
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -33,6 +34,7 @@ type NewReviewInput struct {
 	Quality       *int
 	Comment       string
 	VideoURL      string
+	TitleVisible  bool // Defaults to true when zero-valued; callers pass the explicit client choice.
 }
 
 // NewReview creates a validated Review from the given input.
@@ -83,6 +85,7 @@ func NewReview(in NewReviewInput) (*Review, error) {
 		Quality:       in.Quality,
 		Comment:       in.Comment,
 		VideoURL:      in.VideoURL,
+		TitleVisible:  in.TitleVisible,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}, nil

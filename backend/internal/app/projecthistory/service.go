@@ -22,6 +22,7 @@ const Currency = "EUR"
 // Entry is one completed mission enriched with its optional review.
 type Entry struct {
 	ProposalID  uuid.UUID
+	Title       string // empty when the client opted out via the review form
 	Amount      int64
 	Currency    string
 	CompletedAt time.Time
@@ -78,6 +79,9 @@ func (s *Service) ListByProvider(ctx context.Context, providerID uuid.UUID, curs
 		entry := entryFromProposal(p)
 		if rv, ok := reviews[p.ID]; ok {
 			entry.Review = rv
+			if !rv.TitleVisible {
+				entry.Title = ""
+			}
 		}
 		entries = append(entries, entry)
 	}
@@ -92,6 +96,7 @@ func entryFromProposal(p *proposaldomain.Proposal) Entry {
 	}
 	return Entry{
 		ProposalID:  p.ID,
+		Title:       p.Title,
 		Amount:      p.Amount,
 		Currency:    Currency,
 		CompletedAt: completedAt,

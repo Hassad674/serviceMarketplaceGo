@@ -771,7 +771,9 @@
     "addVideo": "Ajouter une vidéo",
     "removeVideo": "Supprimer la vidéo",
     "videoReview": "Avis vidéo",
-    "uploadingVideo": "Envoi de la vidéo..."
+    "uploadingVideo": "Envoi de la vidéo...",
+    "titleVisibleLabel": "Afficher le titre de la mission sur le profil public du prestataire",
+    "titleVisibleHint": "Décochez pour garder le titre de la mission privé. Votre note et votre commentaire resteront visibles."
   },
   "reporting": {
     "reportMessage": "Signaler ce message",

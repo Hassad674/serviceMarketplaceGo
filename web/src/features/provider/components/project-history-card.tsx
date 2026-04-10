@@ -22,6 +22,8 @@ export function ProjectHistoryCard({ entry }: ProjectHistoryCardProps) {
   const amount = entry.amount / 100
   const completedDate = new Date(entry.completed_at)
 
+  const showTitle = entry.title.trim().length > 0
+
   return (
     <article className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-rose-200">
       {/* Header: amount + date */}
@@ -47,6 +49,12 @@ export function ProjectHistoryCard({ entry }: ProjectHistoryCardProps) {
           </time>
         </div>
       </header>
+
+      {showTitle && (
+        <h3 className="mt-3 text-base font-semibold text-foreground">
+          {entry.title}
+        </h3>
+      )}
 
       {/* Body: review or awaiting state */}
       <div className="mt-4">

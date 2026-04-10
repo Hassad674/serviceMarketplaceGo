@@ -48,6 +48,11 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	titleVisible := true
+	if req.TitleVisible != nil {
+		titleVisible = *req.TitleVisible
+	}
+
 	rv, err := h.reviewSvc.CreateReview(r.Context(), reviewapp.CreateReviewInput{
 		ProposalID:    proposalID,
 		ReviewerID:    userID,
@@ -57,6 +62,7 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		Quality:       req.Quality,
 		Comment:       req.Comment,
 		VideoURL:      req.VideoURL,
+		TitleVisible:  titleVisible,
 	})
 	if err != nil {
 		handleReviewError(w, err)

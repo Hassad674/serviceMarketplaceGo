@@ -44,10 +44,12 @@ class ReviewRepositoryImpl implements ReviewRepository {
     int? quality,
     String? comment,
     String? videoUrl,
+    bool titleVisible = true,
   }) async {
     final body = <String, dynamic>{
       'proposal_id': proposalId,
       'global_rating': globalRating,
+      'title_visible': titleVisible,
     };
     if (timeliness != null) body['timeliness'] = timeliness;
     if (communication != null) body['communication'] = communication;

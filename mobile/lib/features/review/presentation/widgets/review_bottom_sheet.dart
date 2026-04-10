@@ -54,6 +54,7 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
   bool _isUploadingVideo = false;
   String? _videoUrl;
   VideoPlayerController? _videoController;
+  bool _titleVisible = true;
 
   @override
   void dispose() {
@@ -119,6 +120,7 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
         quality: _quality > 0 ? _quality : null,
         comment: _commentController.text.trim(),
         videoUrl: _videoUrl,
+        titleVisible: _titleVisible,
       );
       if (mounted) {
         Navigator.of(context).pop();
@@ -180,8 +182,60 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
             const SizedBox(height: 16),
             _buildVideoSection(theme),
             const SizedBox(height: 16),
+            _buildTitleVisibilityToggle(theme),
+            const SizedBox(height: 16),
             _buildActions(theme),
             const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTitleVisibilityToggle(ThemeData theme) {
+    return InkWell(
+      onTap: _isSubmitting
+          ? null
+          : () => setState(() => _titleVisible = !_titleVisible),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: _titleVisible,
+              onChanged: _isSubmitting
+                  ? null
+                  : (v) => setState(() => _titleVisible = v ?? true),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Show the mission title on the provider\'s public profile',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Uncheck to keep the mission title private. Your rating and comment will still be visible.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

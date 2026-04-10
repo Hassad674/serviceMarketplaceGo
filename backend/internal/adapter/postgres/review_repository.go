@@ -30,7 +30,7 @@ func (r *ReviewRepository) Create(ctx context.Context, rv *review.Review) error 
 	_, err := r.db.ExecContext(ctx, queryInsertReview,
 		rv.ID, rv.ProposalID, rv.ReviewerID, rv.ReviewedID,
 		rv.GlobalRating, rv.Timeliness, rv.Communication, rv.Quality,
-		rv.Comment, rv.VideoURL, rv.CreatedAt, rv.UpdatedAt,
+		rv.Comment, rv.VideoURL, rv.TitleVisible, rv.CreatedAt, rv.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert review: %w", err)
@@ -174,7 +174,7 @@ func scanReview(s reviewScanner) (*review.Review, error) {
 	err := s.Scan(
 		&rv.ID, &rv.ProposalID, &rv.ReviewerID, &rv.ReviewedID,
 		&rv.GlobalRating, &rv.Timeliness, &rv.Communication, &rv.Quality,
-		&rv.Comment, &rv.VideoURL, &rv.CreatedAt, &rv.UpdatedAt,
+		&rv.Comment, &rv.VideoURL, &rv.TitleVisible, &rv.CreatedAt, &rv.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err

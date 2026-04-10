@@ -109,7 +109,7 @@ func scanAdminReviewRow(s reviewScanner) (*repository.AdminReview, error) {
 	err := s.Scan(
 		&ar.ID, &ar.ProposalID, &ar.ReviewerID, &ar.ReviewedID,
 		&ar.GlobalRating, &ar.Timeliness, &ar.Communication, &ar.Quality,
-		&ar.Comment, &ar.VideoURL, &ar.CreatedAt, &ar.UpdatedAt,
+		&ar.Comment, &ar.VideoURL, &ar.TitleVisible, &ar.CreatedAt, &ar.UpdatedAt,
 		&ar.ReviewerDisplayName, &ar.ReviewerEmail, &ar.ReviewerRole,
 		&ar.ReviewedDisplayName, &ar.ReviewedEmail, &ar.ReviewedRole,
 	)
@@ -124,7 +124,7 @@ func scanSingleAdminReview(row *sql.Row) (*repository.AdminReview, error) {
 	err := row.Scan(
 		&ar.ID, &ar.ProposalID, &ar.ReviewerID, &ar.ReviewedID,
 		&ar.GlobalRating, &ar.Timeliness, &ar.Communication, &ar.Quality,
-		&ar.Comment, &ar.VideoURL, &ar.CreatedAt, &ar.UpdatedAt,
+		&ar.Comment, &ar.VideoURL, &ar.TitleVisible, &ar.CreatedAt, &ar.UpdatedAt,
 		&ar.ReviewerDisplayName, &ar.ReviewerEmail, &ar.ReviewerRole,
 		&ar.ReviewedDisplayName, &ar.ReviewedEmail, &ar.ReviewedRole,
 	)
@@ -234,7 +234,7 @@ func adminReviewOrderClause(sort string) string {
 const baseAdminReviewSelect = `SELECT
 	rv.id, rv.proposal_id, rv.reviewer_id, rv.reviewed_id,
 	rv.global_rating, rv.timeliness, rv.communication, rv.quality,
-	rv.comment, rv.video_url, rv.created_at, rv.updated_at,
+	rv.comment, rv.video_url, rv.title_visible, rv.created_at, rv.updated_at,
 	COALESCE(reviewer.display_name, reviewer.first_name || ' ' || reviewer.last_name),
 	reviewer.email, reviewer.role,
 	COALESCE(reviewed.display_name, reviewed.first_name || ' ' || reviewed.last_name),
