@@ -87,7 +87,7 @@ func main() {
 	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
-	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey)
+	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey, cfg.ResendDevRedirectTo)
 	storageSvc := s3adapter.NewStorageService(
 		cfg.StorageEndpoint,
 		cfg.StorageAccessKey,
@@ -144,7 +144,18 @@ func main() {
 	})
 
 	// Initialize application services
+	invitationRateLimiter := redisadapter.NewInvitationRateLimiter(redisClient)
 	organizationSvc := organizationapp.NewService(organizationRepo, organizationMemberRepo, organizationInvitationRepo)
+	invitationSvc := organizationapp.NewInvitationService(organizationapp.InvitationServiceDeps{
+		Orgs:        organizationRepo,
+		Members:     organizationMemberRepo,
+		Invitations: organizationInvitationRepo,
+		Users:       userRepo,
+		Hasher:      hasher,
+		Email:       emailSvc,
+		RateLimiter: invitationRateLimiter,
+		FrontendURL: cfg.FrontendURL,
+	})
 	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
 		Users:       userRepo,
 		Resets:      resetRepo,
@@ -453,6 +464,13 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg)
+	invitationHandler := handler.NewInvitationHandler(handler.InvitationHandlerDeps{
+		InvitationService: invitationSvc,
+		OrgService:        organizationSvc,
+		TokenService:      tokenSvc,
+		SessionService:    sessionSvc,
+		Cookie:            cookieCfg,
+	})
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
@@ -538,6 +556,7 @@ func main() {
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
 		Auth:           authHandler,
+		Invitation:     invitationHandler,
 		Profile:        profileHandler,
 		Upload:         uploadHandler,
 		Health:         healthHandler,

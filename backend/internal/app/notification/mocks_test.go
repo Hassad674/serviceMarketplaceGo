@@ -9,6 +9,7 @@ import (
 	notif "marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // --- mockNotificationRepo implements repository.NotificationRepository ---
@@ -259,6 +260,10 @@ func (m *mockEmailService) SendNotification(ctx context.Context, to, subject, ht
 	if m.sendNotificationFn != nil {
 		return m.sendNotificationFn(ctx, to, subject, html)
 	}
+	return nil
+}
+
+func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
 	return nil
 }
 

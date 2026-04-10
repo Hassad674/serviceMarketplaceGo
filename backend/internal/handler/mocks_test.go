@@ -266,6 +266,10 @@ func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) e
 	return nil
 }
 
+func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
+	return nil
+}
+
 // --- mockProfileRepo ---
 
 type mockProfileRepo struct {

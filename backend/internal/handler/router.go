@@ -13,6 +13,7 @@ import (
 
 type RouterDeps struct {
 	Auth           *AuthHandler
+	Invitation     *InvitationHandler
 	Profile        *ProfileHandler
 	Upload         *UploadHandler
 	Health         *HealthHandler
@@ -75,6 +76,23 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Put("/referrer-enable", deps.Auth.EnableReferrer)
 			})
 		})
+
+		// Team invitation routes — public acceptance endpoints + protected
+		// management endpoints nested under /organizations/{orgID}/invitations.
+		if deps.Invitation != nil {
+			// Public: validate a token and accept an invitation.
+			r.Get("/invitations/validate", deps.Invitation.Validate)
+			r.Post("/invitations/accept", deps.Invitation.Accept)
+
+			r.Route("/organizations/{orgID}/invitations", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Invitation.Send)
+				r.Get("/", deps.Invitation.List)
+				r.Post("/{invID}/resend", deps.Invitation.Resend)
+				r.Delete("/{invID}", deps.Invitation.Cancel)
+			})
+		}
 
 		// Profile routes (authenticated)
 		r.Route("/profile", func(r chi.Router) {

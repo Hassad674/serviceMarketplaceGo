@@ -179,6 +179,9 @@ func (m *mockEmail) SendNotification(ctx context.Context, to, subject, html stri
 	}
 	return nil
 }
+func (m *mockEmail) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
+	return nil
+}
 
 // --- mock session ---
 

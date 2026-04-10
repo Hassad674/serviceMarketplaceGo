@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/organization"
+	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 )
 
@@ -176,4 +177,13 @@ func (m *mockInvitationRepo) Delete(_ context.Context, _ uuid.UUID) error {
 
 func (m *mockInvitationRepo) ExpireStale(_ context.Context) (int, error) {
 	return 0, nil
+}
+
+func (m *mockInvitationRepo) AcceptInvitationTx(
+	_ context.Context,
+	_ *organization.Invitation,
+	_ *user.User,
+	_ *organization.Member,
+) error {
+	return nil
 }

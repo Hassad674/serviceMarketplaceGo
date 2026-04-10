@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/organization"
+	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/pkg/cursor"
 )
@@ -193,6 +194,90 @@ func (r *OrganizationInvitationRepository) Delete(ctx context.Context, id uuid.U
 		return organization.ErrInvitationNotFound
 	}
 	return nil
+}
+
+// AcceptInvitationTx atomically creates the operator user, adds them as
+// a member of the organization, and marks the invitation as accepted.
+// The three inserts/update happen in a single DB transaction so partial
+// state is impossible — if any step fails, the whole thing rolls back.
+//
+// The caller is responsible for passing entities in the right terminal
+// state: the user must have account_type=operator and hashed password,
+// the member must have the role/title from the invitation, and the
+// invitation must already have Status=accepted + AcceptedAt set.
+func (r *OrganizationInvitationRepository) AcceptInvitationTx(
+	ctx context.Context,
+	inv *organization.Invitation,
+	newUser *user.User,
+	newMember *organization.Member,
+) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("accept invitation: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	accountType := newUser.AccountType
+	if accountType == "" {
+		accountType = user.AccountTypeOperator
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO users (
+			id, email, hashed_password, first_name, last_name, display_name,
+			role, account_type, referrer_enabled, is_admin, status,
+			suspended_at, suspension_reason, suspension_expires_at,
+			banned_at, ban_reason, organization_id, linkedin_id, google_id,
+			email_verified, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`,
+		newUser.ID, newUser.Email, newUser.HashedPassword,
+		newUser.FirstName, newUser.LastName, newUser.DisplayName,
+		string(newUser.Role), string(accountType),
+		newUser.ReferrerEnabled, newUser.IsAdmin, string(newUser.Status),
+		newUser.SuspendedAt, newUser.SuspensionReason, newUser.SuspensionExpiresAt,
+		newUser.BannedAt, newUser.BanReason, newUser.OrganizationID,
+		newUser.LinkedInID, newUser.GoogleID, newUser.EmailVerified,
+		newUser.CreatedAt, newUser.UpdatedAt,
+	); err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return user.ErrEmailAlreadyExists
+		}
+		return fmt.Errorf("accept invitation: insert operator user: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO organization_members (
+			id, organization_id, user_id, role, title, joined_at, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		newMember.ID, newMember.OrganizationID, newMember.UserID,
+		string(newMember.Role), newMember.Title,
+		newMember.JoinedAt, newMember.CreatedAt, newMember.UpdatedAt,
+	); err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return organization.ErrAlreadyMember
+		}
+		return fmt.Errorf("accept invitation: insert member: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE organization_invitations
+		SET status      = $2,
+		    accepted_at = $3,
+		    updated_at  = now()
+		WHERE id = $1`,
+		inv.ID, string(inv.Status), inv.AcceptedAt,
+	); err != nil {
+		return fmt.Errorf("accept invitation: update invitation: %w", err)
+	}
+
+	return tx.Commit()
 }
 
 // ExpireStale marks pending invitations with expires_at < now as expired.

@@ -210,6 +210,10 @@ func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) e
 	return nil
 }
 
+func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
+	return nil
+}
+
 // --- Stripe account stubs (migration 040) ---
 func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
 	return "", "", nil

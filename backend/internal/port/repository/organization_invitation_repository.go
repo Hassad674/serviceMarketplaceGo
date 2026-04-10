@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/organization"
+	"marketplace-backend/internal/domain/user"
 )
 
 // ListInvitationsParams groups the filters for listing invitations of an
@@ -56,4 +57,21 @@ type OrganizationInvitationRepository interface {
 	// expired in a single UPDATE. Called by a background sweeper, returns
 	// the number of rows affected for observability.
 	ExpireStale(ctx context.Context) (int, error)
+
+	// AcceptInvitationTx atomically creates the operator user, creates
+	// the corresponding organization membership, and marks the invitation
+	// as accepted — all inside a single database transaction so the
+	// three-table change is either fully applied or fully rolled back.
+	//
+	// This method lives on the invitation repository because "accept" is
+	// the invitation's terminal state and it is conceptually an
+	// invitation operation that happens to span the users and members
+	// tables. The alternative (exposing raw *sql.DB to the service
+	// layer) would violate the hexagonal boundary.
+	AcceptInvitationTx(
+		ctx context.Context,
+		invitation *organization.Invitation,
+		newUser *user.User,
+		newMember *organization.Member,
+	) error
 }
