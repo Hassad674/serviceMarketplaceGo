@@ -295,3 +295,11 @@ func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, erro
 func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
 	return nil
 }
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}

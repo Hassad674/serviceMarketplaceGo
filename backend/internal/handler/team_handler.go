@@ -1,0 +1,278 @@
+package handler
+
+import (
+	"errors"
+	"log/slog"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	orgapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/organization"
+	"marketplace-backend/internal/handler/dto/response"
+	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/pkg/validator"
+	res "marketplace-backend/pkg/response"
+)
+
+// TeamHandler owns the HTTP surface for team management: listing
+// members, updating roles/titles, removing members, self-leave, and
+// the 4-step transfer ownership flow.
+type TeamHandler struct {
+	membership *orgapp.MembershipService
+	orgService *orgapp.Service
+}
+
+func NewTeamHandler(membership *orgapp.MembershipService, orgService *orgapp.Service) *TeamHandler {
+	return &TeamHandler{
+		membership: membership,
+		orgService: orgService,
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Members — list, update, remove
+// ---------------------------------------------------------------------------
+
+// ListMembers handles GET /api/v1/organizations/{orgID}/members.
+func (h *TeamHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	cursor := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	items, next, err := h.membership.ListMembers(r.Context(), actorID, orgID, cursor, limit)
+	if err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, response.NewMemberListResponse(items, next))
+}
+
+// UpdateMember handles PATCH /api/v1/organizations/{orgID}/members/{userID}.
+// Body accepts optional `role` and/or `title` — the handler applies
+// whichever is present, each in a dedicated service call.
+func (h *TeamHandler) UpdateMember(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	targetUserID, err := uuid.Parse(chi.URLParam(r, "userID"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_user_id", "invalid user id")
+		return
+	}
+
+	var req struct {
+		Role  *string `json:"role,omitempty"`
+		Title *string `json:"title,omitempty"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if req.Role == nil && req.Title == nil {
+		res.Error(w, http.StatusBadRequest, "no_changes", "provide at least one of role or title")
+		return
+	}
+
+	var updated *organization.Member
+	if req.Role != nil {
+		updated, err = h.membership.UpdateMemberRole(r.Context(), actorID, orgID, targetUserID, organization.Role(*req.Role))
+		if err != nil {
+			h.handleTeamError(w, err)
+			return
+		}
+	}
+	if req.Title != nil {
+		updated, err = h.membership.UpdateMemberTitle(r.Context(), actorID, orgID, targetUserID, *req.Title)
+		if err != nil {
+			h.handleTeamError(w, err)
+			return
+		}
+	}
+	res.JSON(w, http.StatusOK, response.NewMemberResponse(updated))
+}
+
+// RemoveMember handles DELETE /api/v1/organizations/{orgID}/members/{userID}.
+func (h *TeamHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	targetUserID, err := uuid.Parse(chi.URLParam(r, "userID"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_user_id", "invalid user id")
+		return
+	}
+	if err := h.membership.RemoveMember(r.Context(), actorID, orgID, targetUserID); err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusNoContent, nil)
+}
+
+// Leave handles POST /api/v1/organizations/{orgID}/leave.
+// The caller removes themselves from the org.
+func (h *TeamHandler) Leave(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	if err := h.membership.LeaveOrganization(r.Context(), actorID, orgID); err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusNoContent, nil)
+}
+
+// ---------------------------------------------------------------------------
+// Transfer ownership
+// ---------------------------------------------------------------------------
+
+// InitiateTransfer handles POST /api/v1/organizations/{orgID}/transfer.
+// Body: {"target_user_id": "uuid"}.
+func (h *TeamHandler) InitiateTransfer(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		TargetUserID string `json:"target_user_id"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	targetUserID, err := uuid.Parse(req.TargetUserID)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_target_user_id", "invalid target user id")
+		return
+	}
+	org, err := h.membership.InitiateTransferOwnership(r.Context(), actorID, orgID, targetUserID)
+	if err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusAccepted, response.NewTransferResponse(org))
+}
+
+// CancelTransfer handles DELETE /api/v1/organizations/{orgID}/transfer.
+// The current Owner cancels a pending transfer.
+func (h *TeamHandler) CancelTransfer(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	if err := h.membership.CancelTransferOwnership(r.Context(), actorID, orgID); err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusNoContent, nil)
+}
+
+// AcceptTransfer handles POST /api/v1/organizations/{orgID}/transfer/accept.
+// The proposed new owner confirms.
+func (h *TeamHandler) AcceptTransfer(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	org, err := h.membership.AcceptTransferOwnership(r.Context(), actorID, orgID)
+	if err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, response.NewTransferResponse(org))
+}
+
+// DeclineTransfer handles POST /api/v1/organizations/{orgID}/transfer/decline.
+// The proposed new owner refuses — the org reverts to its previous state.
+func (h *TeamHandler) DeclineTransfer(w http.ResponseWriter, r *http.Request) {
+	actorID, orgID, ok := h.authContext(w, r)
+	if !ok {
+		return
+	}
+	if err := h.membership.DeclineTransferOwnership(r.Context(), actorID, orgID); err != nil {
+		h.handleTeamError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusNoContent, nil)
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// authContext pulls the authenticated user id and the URL's orgID
+// parameter out of the request. Returns (uuid.Nil, uuid.Nil, false)
+// and writes the appropriate error response when either is missing.
+func (h *TeamHandler) authContext(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return uuid.Nil, uuid.Nil, false
+	}
+	orgID, err := uuid.Parse(chi.URLParam(r, "orgID"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "invalid organization id")
+		return uuid.Nil, uuid.Nil, false
+	}
+	return actorID, orgID, true
+}
+
+// handleTeamError maps domain sentinels to HTTP codes for team routes.
+func (h *TeamHandler) handleTeamError(w http.ResponseWriter, err error) {
+	switch {
+	// Authorization
+	case errors.Is(err, organization.ErrNotAMember):
+		res.Error(w, http.StatusForbidden, "not_a_member", "you are not a member of this organization")
+	case errors.Is(err, organization.ErrPermissionDenied):
+		res.Error(w, http.StatusForbidden, "permission_denied", "you do not have permission to perform this action")
+	case errors.Is(err, organization.ErrForbidden):
+		res.Error(w, http.StatusForbidden, "forbidden", err.Error())
+
+	// Lookup
+	case errors.Is(err, organization.ErrOrgNotFound):
+		res.Error(w, http.StatusNotFound, "organization_not_found", "organization not found")
+	case errors.Is(err, organization.ErrMemberNotFound):
+		res.Error(w, http.StatusNotFound, "member_not_found", "member not found")
+
+	// Membership invariants
+	case errors.Is(err, organization.ErrOwnerCannotBeRemoved):
+		res.Error(w, http.StatusConflict, "owner_cannot_be_removed", "the organization owner cannot be removed — transfer ownership first")
+	case errors.Is(err, organization.ErrOwnerCannotBeDemoted):
+		res.Error(w, http.StatusConflict, "owner_cannot_be_demoted", "the organization owner cannot be demoted — transfer ownership first")
+	case errors.Is(err, organization.ErrLastOwnerCannotLeave):
+		res.Error(w, http.StatusConflict, "last_owner_cannot_leave", "the owner cannot leave — transfer ownership first")
+	case errors.Is(err, organization.ErrLastOwnerCannotDemote):
+		res.Error(w, http.StatusConflict, "last_owner_cannot_demote", "the owner cannot self-demote — transfer ownership first")
+	case errors.Is(err, organization.ErrCannotInviteAsOwner):
+		res.Error(w, http.StatusBadRequest, "cannot_promote_to_owner", "cannot promote to Owner — use transfer ownership instead")
+
+	// Transfer
+	case errors.Is(err, organization.ErrTransferAlreadyPending):
+		res.Error(w, http.StatusConflict, "transfer_already_pending", "a transfer is already pending")
+	case errors.Is(err, organization.ErrNoPendingTransfer):
+		res.Error(w, http.StatusNotFound, "no_pending_transfer", "no transfer pending")
+	case errors.Is(err, organization.ErrTransferExpired):
+		res.Error(w, http.StatusGone, "transfer_expired", "transfer expired")
+	case errors.Is(err, organization.ErrTransferTargetInvalid):
+		res.Error(w, http.StatusBadRequest, "transfer_target_invalid", "transfer target must be an existing Admin of the organization")
+	case errors.Is(err, organization.ErrCannotTransferToSelf):
+		res.Error(w, http.StatusBadRequest, "cannot_transfer_to_self", "cannot transfer ownership to yourself")
+
+	// Validation
+	case errors.Is(err, organization.ErrInvalidRole):
+		res.Error(w, http.StatusBadRequest, "invalid_role", "invalid role")
+	case errors.Is(err, organization.ErrTitleTooLong):
+		res.Error(w, http.StatusBadRequest, "title_too_long", "title exceeds the maximum length")
+
+	default:
+		slog.Error("unhandled team error", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
+	}
+}

@@ -43,4 +43,13 @@ type UserRepository interface {
 	SetKYCFirstEarning(ctx context.Context, userID uuid.UUID, at time.Time) error
 	GetKYCPendingUsers(ctx context.Context) ([]*user.User, error)
 	SaveKYCNotificationState(ctx context.Context, userID uuid.UUID, state map[string]time.Time) error
+
+	// Session version (migration 056, wired in Phase 3).
+	// Incremented whenever the user's effective permissions change.
+	// The auth middleware compares the JWT's session_version against
+	// the current value and rejects mismatches with 401 — this is how
+	// "immediate revocation" takes effect for role changes, removals,
+	// suspensions, and password resets.
+	BumpSessionVersion(ctx context.Context, userID uuid.UUID) (int, error)
+	GetSessionVersion(ctx context.Context, userID uuid.UUID) (int, error)
 }

@@ -7,16 +7,44 @@ import (
 	"github.com/google/uuid"
 )
 
+// CreateSessionInput groups the fields required to create a new session.
+// Mirror of AccessTokenInput so web (cookie session) and mobile (JWT)
+// carry exactly the same context.
+type CreateSessionInput struct {
+	UserID  uuid.UUID
+	Role    string
+	IsAdmin bool
+
+	// Organization context — nil / empty for Providers.
+	OrganizationID *uuid.UUID
+	OrgRole        string
+
+	// SessionVersion mirrors the one in AccessTokenInput. Copied from
+	// users.session_version at login so the cookie session stays in
+	// sync with the JWT issued for mobile clients.
+	SessionVersion int
+}
+
+// Session is the decoded content of a persisted session record.
 type Session struct {
 	ID        string
 	UserID    uuid.UUID
 	Role      string
 	IsAdmin   bool
 	CreatedAt time.Time
+
+	// Organization context — nil / empty for solo users.
+	OrganizationID *uuid.UUID
+	OrgRole        string
+
+	// SessionVersion at the time the session was created. The auth
+	// middleware compares this against the current value in the DB
+	// and rejects stale sessions the same way it handles stale JWTs.
+	SessionVersion int
 }
 
 type SessionService interface {
-	Create(ctx context.Context, userID uuid.UUID, role string, isAdmin bool) (*Session, error)
+	Create(ctx context.Context, input CreateSessionInput) (*Session, error)
 	Get(ctx context.Context, sessionID string) (*Session, error)
 	Delete(ctx context.Context, sessionID string) error
 	DeleteByUserID(ctx context.Context, userID uuid.UUID) error

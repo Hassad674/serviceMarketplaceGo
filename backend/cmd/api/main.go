@@ -34,6 +34,7 @@ import (
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
+	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
@@ -81,9 +82,12 @@ func main() {
 	userRepo := postgres.NewUserRepository(db)
 	profileRepo := postgres.NewProfileRepository(db)
 	resetRepo := postgres.NewPasswordResetRepository(db)
+	organizationRepo := postgres.NewOrganizationRepository(db)
+	organizationMemberRepo := postgres.NewOrganizationMemberRepository(db)
+	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
-	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey)
+	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey, cfg.ResendDevRedirectTo)
 	storageSvc := s3adapter.NewStorageService(
 		cfg.StorageEndpoint,
 		cfg.StorageAccessKey,
@@ -140,7 +144,32 @@ func main() {
 	})
 
 	// Initialize application services
-	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)
+	invitationRateLimiter := redisadapter.NewInvitationRateLimiter(redisClient)
+	organizationSvc := organizationapp.NewService(organizationRepo, organizationMemberRepo, organizationInvitationRepo)
+	invitationSvc := organizationapp.NewInvitationService(organizationapp.InvitationServiceDeps{
+		Orgs:        organizationRepo,
+		Members:     organizationMemberRepo,
+		Invitations: organizationInvitationRepo,
+		Users:       userRepo,
+		Hasher:      hasher,
+		Email:       emailSvc,
+		RateLimiter: invitationRateLimiter,
+		FrontendURL: cfg.FrontendURL,
+	})
+	membershipSvc := organizationapp.NewMembershipService(organizationapp.MembershipServiceDeps{
+		Orgs:    organizationRepo,
+		Members: organizationMemberRepo,
+		Users:   userRepo,
+	})
+	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
+		Users:       userRepo,
+		Resets:      resetRepo,
+		Hasher:      hasher,
+		Tokens:      tokenSvc,
+		Email:       emailSvc,
+		Orgs:        organizationSvc,
+		FrontendURL: cfg.FrontendURL,
+	})
 	profileSvc := profileapp.NewService(profileRepo)
 	messagingSvc := messaging.NewService(messaging.ServiceDeps{
 		Messages:    messageRepo,
@@ -439,7 +468,15 @@ func main() {
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
+	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg)
+	invitationHandler := handler.NewInvitationHandler(handler.InvitationHandlerDeps{
+		InvitationService: invitationSvc,
+		OrgService:        organizationSvc,
+		TokenService:      tokenSvc,
+		SessionService:    sessionSvc,
+		Cookie:            cookieCfg,
+	})
+	teamHandler := handler.NewTeamHandler(membershipSvc, organizationSvc)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
@@ -525,6 +562,8 @@ func main() {
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
 		Auth:           authHandler,
+		Invitation:     invitationHandler,
+		Team:           teamHandler,
 		Profile:        profileHandler,
 		Upload:         uploadHandler,
 		Health:         healthHandler,
