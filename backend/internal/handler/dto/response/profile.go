@@ -17,14 +17,16 @@ type ProfileResponse struct {
 }
 
 type PublicProfileSummary struct {
-	UserID          string `json:"user_id"`
-	DisplayName     string `json:"display_name"`
-	FirstName       string `json:"first_name"`
-	LastName        string `json:"last_name"`
-	Role            string `json:"role"`
-	Title           string `json:"title"`
-	PhotoURL        string `json:"photo_url"`
-	ReferrerEnabled bool   `json:"referrer_enabled"`
+	UserID          string  `json:"user_id"`
+	DisplayName     string  `json:"display_name"`
+	FirstName       string  `json:"first_name"`
+	LastName        string  `json:"last_name"`
+	Role            string  `json:"role"`
+	Title           string  `json:"title"`
+	PhotoURL        string  `json:"photo_url"`
+	ReferrerEnabled bool    `json:"referrer_enabled"`
+	AverageRating   float64 `json:"average_rating"`
+	ReviewCount     int     `json:"review_count"`
 }
 
 func NewPublicProfileSummary(p *profile.PublicProfile) PublicProfileSummary {
@@ -37,6 +39,8 @@ func NewPublicProfileSummary(p *profile.PublicProfile) PublicProfileSummary {
 		Title:           p.Title,
 		PhotoURL:        p.PhotoURL,
 		ReferrerEnabled: p.ReferrerEnabled,
+		AverageRating:   p.AverageRating,
+		ReviewCount:     p.ReviewCount,
 	}
 }
 

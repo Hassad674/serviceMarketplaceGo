@@ -37,6 +37,7 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
+	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
@@ -183,6 +184,14 @@ func main() {
 		Portfolios: portfolioRepo,
 	})
 	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
+
+	// Project history feature (orchestrates proposal + review reads for the
+	// public provider profile page).
+	projectHistorySvc := projecthistoryapp.NewService(projecthistoryapp.ServiceDeps{
+		Proposals: proposalRepo,
+		Reviews:   reviewRepo,
+	})
+	projectHistoryHandler := handler.NewProjectHistoryHandler(projectHistorySvc)
 
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
@@ -529,6 +538,7 @@ func main() {
 		Wallet:         walletHandler,
 		Admin:          adminHandler,
 		Portfolio:      portfolioHandler,
+		ProjectHistory: projectHistoryHandler,
 		Dispute:        disputeHandler,
 		AdminDispute:   adminDisputeHandler,
 		WSHandler:      wsHandler,

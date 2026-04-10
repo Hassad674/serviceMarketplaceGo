@@ -170,6 +170,35 @@ func (r *ProposalRepository) ListActiveProjects(ctx context.Context, userID uuid
 	return scanProposalListWithCursor(rows, limit)
 }
 
+func (r *ProposalRepository) ListCompletedByProvider(ctx context.Context, providerID uuid.UUID, cursorStr string, limit int) ([]*proposal.Proposal, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	var rows *sql.Rows
+	var err error
+
+	if cursorStr == "" {
+		rows, err = r.db.QueryContext(ctx, queryListCompletedByProviderFirst, providerID, limit+1)
+	} else {
+		c, cErr := cursor.Decode(cursorStr)
+		if cErr != nil {
+			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+		}
+		rows, err = r.db.QueryContext(ctx, queryListCompletedByProviderWithCursor,
+			providerID, c.CreatedAt, c.ID, limit+1)
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("list completed by provider: %w", err)
+	}
+	defer rows.Close()
+
+	return scanCompletedProposalListWithCursor(rows, limit)
+}
+
 func (r *ProposalRepository) GetDocuments(ctx context.Context, proposalID uuid.UUID) ([]*proposal.ProposalDocument, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -317,6 +346,26 @@ func scanProposalListWithCursor(rows *sql.Rows, limit int) ([]*proposal.Proposal
 	if len(results) > limit {
 		last := results[limit-1]
 		nextCursor = cursor.Encode(last.CreatedAt, last.ID)
+		results = results[:limit]
+	}
+
+	return results, nextCursor, nil
+}
+
+// scanCompletedProposalListWithCursor is like scanProposalListWithCursor but
+// uses CompletedAt as the cursor timestamp (for ListCompletedByProvider).
+func scanCompletedProposalListWithCursor(rows *sql.Rows, limit int) ([]*proposal.Proposal, string, error) {
+	results, err := scanProposalList(rows)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var nextCursor string
+	if len(results) > limit {
+		last := results[limit-1]
+		if last.CompletedAt != nil {
+			nextCursor = cursor.Encode(*last.CompletedAt, last.ID)
+		}
 		results = results[:limit]
 	}
 

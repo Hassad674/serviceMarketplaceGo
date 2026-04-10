@@ -17,6 +17,8 @@ interface ProfileHeaderProps {
   onUploadPhoto?: (file: File) => Promise<void>
   uploadingPhoto?: boolean
   readOnly?: boolean
+  averageRating?: number
+  reviewCount?: number
 }
 
 const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB
@@ -29,6 +31,8 @@ export function ProfileHeader({
   onUploadPhoto,
   uploadingPhoto = false,
   readOnly = false,
+  averageRating,
+  reviewCount,
 }: ProfileHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState(profile?.title ?? "")
@@ -178,11 +182,25 @@ export function ProfileHeader({
             <p className="text-sm text-muted-foreground">0 {t("completedProjects")}</p>
           </div>
 
-          {/* Rating placeholder */}
-          <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
-            <Star className="w-4 h-4" aria-hidden="true" />
-            <span>{t("noReviews")}</span>
-          </div>
+          {/* Average rating — shows real stars when reviews exist */}
+          {reviewCount !== undefined && reviewCount > 0 ? (
+            <div className="flex items-center gap-1.5 text-sm shrink-0">
+              <Star
+                className="w-4 h-4 fill-amber-400 text-amber-400"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              <span className="font-semibold text-foreground">
+                {(averageRating ?? 0).toFixed(1)}
+              </span>
+              <span className="text-muted-foreground">({reviewCount})</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground shrink-0">
+              <Star className="w-4 h-4" aria-hidden="true" />
+              <span>{t("noReviews")}</span>
+            </div>
+          )}
         </div>
       </section>
 

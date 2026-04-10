@@ -9,6 +9,8 @@ export type PublicProfileSummary = {
   title: string
   photo_url: string
   referrer_enabled: boolean
+  average_rating: number
+  review_count: number
 }
 
 export type SearchType = "freelancer" | "agency" | "referrer"

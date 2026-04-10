@@ -168,6 +168,9 @@ func (m *mockProposalRepo) ListByConversation(context.Context, uuid.UUID) ([]*pr
 func (m *mockProposalRepo) ListActiveProjects(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
+func (m *mockProposalRepo) ListCompletedByProvider(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
+	return nil, "", nil
+}
 func (m *mockProposalRepo) GetDocuments(context.Context, uuid.UUID) ([]*proposal.ProposalDocument, error) {
 	return nil, nil
 }
@@ -281,8 +284,12 @@ func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ 
 
 type mockAIAnalyzer struct{}
 
-func (m *mockAIAnalyzer) AnalyzeDispute(_ context.Context, _ service.DisputeAnalysisInput) (string, error) {
-	return "Mock AI analysis: test summary", nil
+func (m *mockAIAnalyzer) AnalyzeDispute(_ context.Context, _ service.DisputeAnalysisInput, _ int) (string, service.AIUsage, error) {
+	return "Mock AI analysis: test summary", service.AIUsage{InputTokens: 1000, OutputTokens: 200}, nil
+}
+
+func (m *mockAIAnalyzer) ChatAboutDispute(_ context.Context, _ service.DisputeAnalysisInput, _ []service.ChatTurn, _ string, _ int) (string, service.AIUsage, error) {
+	return "Mock AI chat answer", service.AIUsage{InputTokens: 800, OutputTokens: 150}, nil
 }
 
 // ---------------------------------------------------------------------------

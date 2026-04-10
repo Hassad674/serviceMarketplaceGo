@@ -121,9 +121,18 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string,
 	if cursorStr == "" {
 		query := `
 			SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
-			       COALESCE(p.title, ''), COALESCE(p.photo_url, ''), u.created_at
+			       COALESCE(p.title, ''), COALESCE(p.photo_url, ''), u.created_at,
+			       COALESCE(r.avg_rating, 0)::float8, COALESCE(r.review_count, 0)::int
 			FROM users u
 			LEFT JOIN profiles p ON p.user_id = u.id
+			LEFT JOIN (
+				SELECT reviewed_id,
+				       AVG(global_rating)::float8 AS avg_rating,
+				       COUNT(*)::int              AS review_count
+				FROM reviews
+				WHERE moderation_status != 'hidden'
+				GROUP BY reviewed_id
+			) r ON r.reviewed_id = u.id
 			WHERE ($1 = '' OR u.role = $1)
 			AND ($2 = false OR (u.role = 'provider' AND u.referrer_enabled = true))
 			ORDER BY u.created_at DESC, u.id DESC
@@ -136,9 +145,18 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string,
 		}
 		query := `
 			SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
-			       COALESCE(p.title, ''), COALESCE(p.photo_url, ''), u.created_at
+			       COALESCE(p.title, ''), COALESCE(p.photo_url, ''), u.created_at,
+			       COALESCE(r.avg_rating, 0)::float8, COALESCE(r.review_count, 0)::int
 			FROM users u
 			LEFT JOIN profiles p ON p.user_id = u.id
+			LEFT JOIN (
+				SELECT reviewed_id,
+				       AVG(global_rating)::float8 AS avg_rating,
+				       COUNT(*)::int              AS review_count
+				FROM reviews
+				WHERE moderation_status != 'hidden'
+				GROUP BY reviewed_id
+			) r ON r.reviewed_id = u.id
 			WHERE ($1 = '' OR u.role = $1)
 			AND ($2 = false OR (u.role = 'provider' AND u.referrer_enabled = true))
 			AND (u.created_at, u.id) < ($3, $4)
@@ -157,7 +175,7 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, roleFilter string,
 		if err := rows.Scan(
 			&pp.UserID, &pp.DisplayName, &pp.FirstName, &pp.LastName,
 			&pp.Role, &pp.ReferrerEnabled, &pp.Title, &pp.PhotoURL,
-			&pp.CreatedAt,
+			&pp.CreatedAt, &pp.AverageRating, &pp.ReviewCount,
 		); err != nil {
 			return nil, "", fmt.Errorf("failed to scan public profile: %w", err)
 		}
@@ -192,9 +210,18 @@ func (r *ProfileRepository) GetPublicProfilesByUserIDs(ctx context.Context, user
 
 	query := `
 		SELECT u.id, u.display_name, u.first_name, u.last_name, u.role, u.referrer_enabled,
-		       COALESCE(p.title, ''), COALESCE(p.photo_url, '')
+		       COALESCE(p.title, ''), COALESCE(p.photo_url, ''),
+		       COALESCE(r.avg_rating, 0)::float8, COALESCE(r.review_count, 0)::int
 		FROM users u
 		LEFT JOIN profiles p ON p.user_id = u.id
+		LEFT JOIN (
+			SELECT reviewed_id,
+			       AVG(global_rating)::float8 AS avg_rating,
+			       COUNT(*)::int              AS review_count
+			FROM reviews
+			WHERE moderation_status != 'hidden'
+			GROUP BY reviewed_id
+		) r ON r.reviewed_id = u.id
 		WHERE u.id = ANY($1)`
 
 	ids := make([]string, len(userIDs))
@@ -214,6 +241,7 @@ func (r *ProfileRepository) GetPublicProfilesByUserIDs(ctx context.Context, user
 		if err := rows.Scan(
 			&pp.UserID, &pp.DisplayName, &pp.FirstName, &pp.LastName,
 			&pp.Role, &pp.ReferrerEnabled, &pp.Title, &pp.PhotoURL,
+			&pp.AverageRating, &pp.ReviewCount,
 		); err != nil {
 			return nil, fmt.Errorf("scan public profile: %w", err)
 		}

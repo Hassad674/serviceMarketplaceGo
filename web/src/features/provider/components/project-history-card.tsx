@@ -1,0 +1,64 @@
+"use client"
+
+import { Clock, Euro } from "lucide-react"
+import { useFormatter, useTranslations } from "next-intl"
+import { ReviewCard } from "@/shared/components/ui/review-card"
+import type { ProjectHistoryEntry } from "../api/project-history-api"
+
+interface ProjectHistoryCardProps {
+  entry: ProjectHistoryEntry
+}
+
+/**
+ * One completed mission in the project history section: top row with the
+ * amount + date, then either the embedded review or an "awaiting review"
+ * placeholder when the client has not left feedback yet.
+ */
+export function ProjectHistoryCard({ entry }: ProjectHistoryCardProps) {
+  const t = useTranslations("profile")
+  const format = useFormatter()
+
+  // amount is stored in cents server-side → divide for display.
+  const amount = entry.amount / 100
+  const completedDate = new Date(entry.completed_at)
+
+  return (
+    <article className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-rose-200">
+      {/* Header: amount + date */}
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-50 to-rose-100/60 px-3 py-1.5 text-sm font-semibold text-rose-700">
+          <Euro className="h-3.5 w-3.5" strokeWidth={2.5} />
+          {format.number(amount, {
+            style: "currency",
+            currency: entry.currency || "EUR",
+            maximumFractionDigits: 0,
+          })}
+        </div>
+        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Clock className="h-3.5 w-3.5" />
+          <time dateTime={entry.completed_at}>
+            {t("completedOn", {
+              date: format.dateTime(completedDate, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              }),
+            })}
+          </time>
+        </div>
+      </header>
+
+      {/* Body: review or awaiting state */}
+      <div className="mt-4">
+        {entry.review ? (
+          <ReviewCard review={entry.review} />
+        ) : (
+          <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4 shrink-0" />
+            <span>{t("awaitingReview")}</span>
+          </div>
+        )}
+      </div>
+    </article>
+  )
+}

@@ -74,6 +74,36 @@ class ProviderCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if ((profile['review_count'] as int? ?? 0) > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          size: 12,
+                          color: Color(0xFFFBBF24),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          (profile['average_rating'] as num? ?? 0)
+                              .toDouble()
+                              .toStringAsFixed(1),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '(${profile['review_count']})',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: appColors?.mutedForeground,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

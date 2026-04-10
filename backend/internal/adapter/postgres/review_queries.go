@@ -52,3 +52,11 @@ const queryUpdateReviewModeration = `
 	UPDATE reviews
 	SET moderation_status = $2, moderation_score = $3, moderation_labels = $4, updated_at = now()
 	WHERE id = $1`
+
+const queryReviewsByProposalIDs = `
+	SELECT id, proposal_id, reviewer_id, reviewed_id,
+		global_rating, timeliness, communication, quality,
+		comment, video_url, created_at, updated_at
+	FROM reviews
+	WHERE proposal_id = ANY($1)
+		AND moderation_status != 'hidden'`

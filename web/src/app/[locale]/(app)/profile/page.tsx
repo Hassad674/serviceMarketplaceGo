@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl"
 import { useUser } from "@/shared/hooks/use-user"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
+import { useProfileRating } from "@/features/provider/hooks/use-profile-rating"
 import { useUploadPhoto, useUploadVideo, useDeleteVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
@@ -29,6 +30,7 @@ function getRoleContext(role: string): "agency" | "provider" | "referrer" {
 export default function ProfilePage() {
   const { data: user } = useUser()
   const { data: profile, isLoading, error } = useProfile()
+  const { data: rating } = useProfileRating(user?.id)
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
@@ -63,6 +65,8 @@ export default function ProfilePage() {
         onUpdateTitle={(title) => updateProfile.mutate({ title })}
         onUploadPhoto={async (file) => { await photoUpload.mutateAsync(file) }}
         uploadingPhoto={photoUpload.isPending}
+        averageRating={rating?.average}
+        reviewCount={rating?.count}
       />
       <ProfileVideo
         videoUrl={profile?.presentation_video_url}
@@ -83,7 +87,7 @@ export default function ProfilePage() {
       />
       <SocialLinksSection />
       <PortfolioSection />
-      <ProfileHistory />
+      <ProfileHistory userId={user?.id} />
     </div>
   )
 }

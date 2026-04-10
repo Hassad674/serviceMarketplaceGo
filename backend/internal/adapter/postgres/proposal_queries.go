@@ -96,6 +96,37 @@ const queryListActiveProjectsWithCursor = `
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`
 
+const queryListCompletedByProviderFirst = `
+	SELECT id, conversation_id, sender_id, recipient_id,
+		title, description, amount, deadline,
+		status, parent_id, version,
+		client_id, provider_id, metadata,
+		active_dispute_id,
+		accepted_at, declined_at, paid_at, completed_at,
+		created_at, updated_at
+	FROM proposals
+	WHERE provider_id = $1
+		AND status = 'completed'
+		AND completed_at IS NOT NULL
+	ORDER BY completed_at DESC, id DESC
+	LIMIT $2`
+
+const queryListCompletedByProviderWithCursor = `
+	SELECT id, conversation_id, sender_id, recipient_id,
+		title, description, amount, deadline,
+		status, parent_id, version,
+		client_id, provider_id, metadata,
+		active_dispute_id,
+		accepted_at, declined_at, paid_at, completed_at,
+		created_at, updated_at
+	FROM proposals
+	WHERE provider_id = $1
+		AND status = 'completed'
+		AND completed_at IS NOT NULL
+		AND (completed_at, id) < ($2, $3)
+	ORDER BY completed_at DESC, id DESC
+	LIMIT $4`
+
 const queryGetProposalDocuments = `
 	SELECT id, proposal_id, filename, url, size, mime_type, created_at
 	FROM proposal_documents

@@ -30,6 +30,7 @@ type RouterDeps struct {
 	Wallet         *WalletHandler
 	Admin          *AdminHandler
 	Portfolio      *PortfolioHandler
+	ProjectHistory *ProjectHistoryHandler
 	Dispute        *DisputeHandler
 	AdminDispute   *AdminDisputeHandler
 	WSHandler      http.HandlerFunc
@@ -100,6 +101,9 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Public profiles
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
 		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
+		if deps.ProjectHistory != nil {
+			r.Get("/profiles/{userId}/project-history", deps.ProjectHistory.ListByProvider)
+		}
 
 		// Messaging routes (authenticated)
 		if deps.Messaging != nil {
