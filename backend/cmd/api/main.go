@@ -34,6 +34,7 @@ import (
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
+	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
@@ -81,6 +82,9 @@ func main() {
 	userRepo := postgres.NewUserRepository(db)
 	profileRepo := postgres.NewProfileRepository(db)
 	resetRepo := postgres.NewPasswordResetRepository(db)
+	organizationRepo := postgres.NewOrganizationRepository(db)
+	organizationMemberRepo := postgres.NewOrganizationMemberRepository(db)
+	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
 	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey)
@@ -140,7 +144,16 @@ func main() {
 	})
 
 	// Initialize application services
-	authSvc := auth.NewService(userRepo, resetRepo, hasher, tokenSvc, emailSvc, cfg.FrontendURL)
+	organizationSvc := organizationapp.NewService(organizationRepo, organizationMemberRepo, organizationInvitationRepo)
+	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
+		Users:       userRepo,
+		Resets:      resetRepo,
+		Hasher:      hasher,
+		Tokens:      tokenSvc,
+		Email:       emailSvc,
+		Orgs:        organizationSvc,
+		FrontendURL: cfg.FrontendURL,
+	})
 	profileSvc := profileapp.NewService(profileRepo)
 	messagingSvc := messaging.NewService(messaging.ServiceDeps{
 		Messages:    messageRepo,
@@ -439,7 +452,7 @@ func main() {
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc, sessionSvc, cookieCfg)
+	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)

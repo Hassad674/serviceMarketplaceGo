@@ -20,6 +20,11 @@ type OrganizationRepository interface {
 	// enforced by the UNIQUE constraint on owner_user_id).
 	Create(ctx context.Context, org *organization.Organization) error
 
+	// CreateWithOwnerMembership atomically inserts both the organization
+	// row and the corresponding Owner membership in a single transaction,
+	// so the two never get out of sync at registration time.
+	CreateWithOwnerMembership(ctx context.Context, org *organization.Organization, member *organization.Member) error
+
 	// FindByID returns the organization with the given id, or
 	// organization.ErrOrgNotFound when no row matches.
 	FindByID(ctx context.Context, id uuid.UUID) (*organization.Organization, error)

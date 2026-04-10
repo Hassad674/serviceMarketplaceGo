@@ -19,6 +19,12 @@ func Auth(tokenService service.TokenService, sessionService service.SessionServi
 					ctx := context.WithValue(r.Context(), ContextKeyUserID, session.UserID)
 					ctx = context.WithValue(ctx, ContextKeyRole, session.Role)
 					ctx = context.WithValue(ctx, ContextKeyIsAdmin, session.IsAdmin)
+					if session.OrganizationID != nil {
+						ctx = context.WithValue(ctx, ContextKeyOrganizationID, *session.OrganizationID)
+					}
+					if session.OrgRole != "" {
+						ctx = context.WithValue(ctx, ContextKeyOrgRole, session.OrgRole)
+					}
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -34,6 +40,12 @@ func Auth(tokenService service.TokenService, sessionService service.SessionServi
 						ctx := context.WithValue(r.Context(), ContextKeyUserID, claims.UserID)
 						ctx = context.WithValue(ctx, ContextKeyRole, claims.Role)
 						ctx = context.WithValue(ctx, ContextKeyIsAdmin, claims.IsAdmin)
+						if claims.OrganizationID != nil {
+							ctx = context.WithValue(ctx, ContextKeyOrganizationID, *claims.OrganizationID)
+						}
+						if claims.OrgRole != "" {
+							ctx = context.WithValue(ctx, ContextKeyOrgRole, claims.OrgRole)
+						}
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}

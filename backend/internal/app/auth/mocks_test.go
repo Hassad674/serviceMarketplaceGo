@@ -159,17 +159,17 @@ func (m *mockHasher) Compare(hashed, password string) error {
 // --- mockTokenService ---
 
 type mockTokenService struct {
-	generateAccessFn   func(userID uuid.UUID, role string, isAdmin bool) (string, error)
+	generateAccessFn   func(input service.AccessTokenInput) (string, error)
 	generateRefreshFn  func(userID uuid.UUID) (string, error)
 	validateAccessFn   func(token string) (*service.TokenClaims, error)
 	validateRefreshFn  func(token string) (*service.TokenClaims, error)
 }
 
-func (m *mockTokenService) GenerateAccessToken(userID uuid.UUID, role string, isAdmin bool) (string, error) {
+func (m *mockTokenService) GenerateAccessToken(input service.AccessTokenInput) (string, error) {
 	if m.generateAccessFn != nil {
-		return m.generateAccessFn(userID, role, isAdmin)
+		return m.generateAccessFn(input)
 	}
-	return "access_token_" + userID.String(), nil
+	return "access_token_" + input.UserID.String(), nil
 }
 
 func (m *mockTokenService) GenerateRefreshToken(userID uuid.UUID) (string, error) {

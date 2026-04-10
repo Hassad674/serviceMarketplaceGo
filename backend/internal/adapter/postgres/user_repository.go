@@ -31,13 +31,18 @@ func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	accountType := u.AccountType
+	if accountType == "" {
+		accountType = user.AccountTypeMarketplaceOwner
+	}
+
 	query := `
-		INSERT INTO users (id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)`
+		INSERT INTO users (id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`
 
 	_, err := r.db.ExecContext(ctx, query,
 		u.ID, u.Email, u.HashedPassword, u.FirstName, u.LastName, u.DisplayName,
-		string(u.Role), u.ReferrerEnabled, u.IsAdmin, string(u.Status),
+		string(u.Role), string(accountType), u.ReferrerEnabled, u.IsAdmin, string(u.Status),
 		u.SuspendedAt, u.SuspensionReason, u.SuspensionExpiresAt, u.BannedAt, u.BanReason,
 		u.OrganizationID, u.LinkedInID, u.GoogleID, u.EmailVerified, u.CreatedAt, u.UpdatedAt,
 	)
@@ -57,15 +62,15 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	defer cancel()
 
 	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
 		FROM users WHERE id = $1`
 
 	u := &user.User{}
-	var role, status string
+	var role, accountType, status string
 	var stripeAcctID sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-		&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
+		&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
 		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
@@ -78,6 +83,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	}
 
 	u.Role = user.Role(role)
+	u.AccountType = user.AccountType(accountType)
 	u.Status = user.UserStatus(status)
 	if stripeAcctID.Valid {
 		u.StripeAccountID = &stripeAcctID.String
@@ -90,15 +96,15 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	defer cancel()
 
 	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
 		FROM users WHERE email = $1`
 
 	u := &user.User{}
-	var role, status string
+	var role, accountType, status string
 	var stripeAcctID sql.NullString
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-		&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
+		&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
 		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
@@ -111,6 +117,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	}
 
 	u.Role = user.Role(role)
+	u.AccountType = user.AccountType(accountType)
 	u.Status = user.UserStatus(status)
 	if stripeAcctID.Valid {
 		u.StripeAccountID = &stripeAcctID.String
@@ -122,13 +129,18 @@ func (r *UserRepository) Update(ctx context.Context, u *user.User) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	accountType := u.AccountType
+	if accountType == "" {
+		accountType = user.AccountTypeMarketplaceOwner
+	}
+
 	query := `
-		UPDATE users SET email = $2, hashed_password = $3, first_name = $4, last_name = $5, display_name = $6, role = $7, referrer_enabled = $8, is_admin = $9, status = $10, suspended_at = $11, suspension_reason = $12, suspension_expires_at = $13, banned_at = $14, ban_reason = $15, organization_id = $16, linkedin_id = $17, google_id = $18, email_verified = $19
+		UPDATE users SET email = $2, hashed_password = $3, first_name = $4, last_name = $5, display_name = $6, role = $7, account_type = $8, referrer_enabled = $9, is_admin = $10, status = $11, suspended_at = $12, suspension_reason = $13, suspension_expires_at = $14, banned_at = $15, ban_reason = $16, organization_id = $17, linkedin_id = $18, google_id = $19, email_verified = $20
 		WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query,
 		u.ID, u.Email, u.HashedPassword, u.FirstName, u.LastName, u.DisplayName,
-		string(u.Role), u.ReferrerEnabled, u.IsAdmin, string(u.Status),
+		string(u.Role), string(accountType), u.ReferrerEnabled, u.IsAdmin, string(u.Status),
 		u.SuspendedAt, u.SuspensionReason, u.SuspensionExpiresAt, u.BannedAt, u.BanReason,
 		u.OrganizationID, u.LinkedInID, u.GoogleID, u.EmailVerified,
 	)
@@ -245,7 +257,7 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
 		FROM users %s
 		ORDER BY created_at DESC, id DESC
 		LIMIT $%d%s`, where, argIdx, offsetClause)
@@ -260,16 +272,17 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 	var users []*user.User
 	for rows.Next() {
 		u := &user.User{}
-		var role, status string
+		var role, accountType, status string
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-			&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
+			&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
 			&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 			&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
 			return nil, "", fmt.Errorf("scan admin user: %w", err)
 		}
 		u.Role = user.Role(role)
+		u.AccountType = user.AccountType(accountType)
 		u.Status = user.UserStatus(status)
 		users = append(users, u)
 	}
@@ -382,7 +395,7 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 
 	query := `
 		SELECT id, email, hashed_password, first_name, last_name, display_name,
-		       role, referrer_enabled, is_admin, status,
+		       role, account_type, referrer_enabled, is_admin, status,
 		       suspended_at, suspension_reason, suspension_expires_at,
 		       banned_at, ban_reason, organization_id, linkedin_id, google_id,
 		       email_verified, created_at, updated_at
@@ -399,10 +412,10 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 	var users []*user.User
 	for rows.Next() {
 		u := &user.User{}
-		var role, status string
+		var role, accountType, status string
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-			&role, &u.ReferrerEnabled, &u.IsAdmin, &status,
+			&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
 			&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt,
 			&u.BannedAt, &u.BanReason, &u.OrganizationID, &u.LinkedInID, &u.GoogleID,
 			&u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
@@ -410,6 +423,7 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 			return nil, fmt.Errorf("scan recent signup: %w", err)
 		}
 		u.Role = user.Role(role)
+		u.AccountType = user.AccountType(accountType)
 		u.Status = user.UserStatus(status)
 		users = append(users, u)
 	}

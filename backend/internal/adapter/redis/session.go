@@ -21,37 +21,49 @@ func NewSessionService(client *goredis.Client, ttl time.Duration) *SessionServic
 	return &SessionService{client: client, ttl: ttl}
 }
 
+// sessionData is the JSON payload stored in Redis for a session.
+// Organization fields use pointer/empty to gracefully degrade for Providers.
 type sessionData struct {
 	UserID    string    `json:"user_id"`
 	Role      string    `json:"role"`
 	IsAdmin   bool      `json:"is_admin"`
+	OrgID     string    `json:"org_id,omitempty"`
+	OrgRole   string    `json:"org_role,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-func (s *SessionService) Create(ctx context.Context, userID uuid.UUID, role string, isAdmin bool) (*service.Session, error) {
+func (s *SessionService) Create(ctx context.Context, input service.CreateSessionInput) (*service.Session, error) {
 	id := uuid.New().String()
 	now := time.Now()
 
-	data, err := json.Marshal(sessionData{
-		UserID:    userID.String(),
-		Role:      role,
-		IsAdmin:   isAdmin,
+	data := sessionData{
+		UserID:    input.UserID.String(),
+		Role:      input.Role,
+		IsAdmin:   input.IsAdmin,
+		OrgRole:   input.OrgRole,
 		CreatedAt: now,
-	})
+	}
+	if input.OrganizationID != nil {
+		data.OrgID = input.OrganizationID.String()
+	}
+
+	payload, err := json.Marshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("marshal session: %w", err)
 	}
 
-	if err := s.client.Set(ctx, "session:"+id, data, s.ttl).Err(); err != nil {
+	if err := s.client.Set(ctx, "session:"+id, payload, s.ttl).Err(); err != nil {
 		return nil, fmt.Errorf("store session: %w", err)
 	}
 
 	return &service.Session{
-		ID:        id,
-		UserID:    userID,
-		Role:      role,
-		IsAdmin:   isAdmin,
-		CreatedAt: now,
+		ID:             id,
+		UserID:         input.UserID,
+		Role:           input.Role,
+		IsAdmin:        input.IsAdmin,
+		OrganizationID: input.OrganizationID,
+		OrgRole:        input.OrgRole,
+		CreatedAt:      now,
 	}, nil
 }
 
@@ -74,13 +86,22 @@ func (s *SessionService) Get(ctx context.Context, sessionID string) (*service.Se
 		return nil, fmt.Errorf("parse user id: %w", err)
 	}
 
-	return &service.Session{
+	session := &service.Session{
 		ID:        sessionID,
 		UserID:    userID,
 		Role:      data.Role,
 		IsAdmin:   data.IsAdmin,
+		OrgRole:   data.OrgRole,
 		CreatedAt: data.CreatedAt,
-	}, nil
+	}
+	if data.OrgID != "" {
+		orgID, err := uuid.Parse(data.OrgID)
+		if err != nil {
+			return nil, fmt.Errorf("parse org id: %w", err)
+		}
+		session.OrganizationID = &orgID
+	}
+	return session, nil
 }
 
 func (s *SessionService) Delete(ctx context.Context, sessionID string) error {

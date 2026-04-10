@@ -186,7 +186,7 @@ type mockSession struct {
 	deleteByUserIDFn func(ctx context.Context, userID uuid.UUID) error
 }
 
-func (m *mockSession) Create(_ context.Context, _ uuid.UUID, _ string, _ bool) (*service.Session, error) {
+func (m *mockSession) Create(_ context.Context, _ service.CreateSessionInput) (*service.Session, error) {
 	return nil, nil
 }
 func (m *mockSession) Get(_ context.Context, _ string) (*service.Session, error) { return nil, nil }

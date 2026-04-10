@@ -21,7 +21,7 @@ type mockTokenService struct {
 	validateAccessFn func(token string) (*service.TokenClaims, error)
 }
 
-func (m *mockTokenService) GenerateAccessToken(_ uuid.UUID, _ string, _ bool) (string, error) {
+func (m *mockTokenService) GenerateAccessToken(_ service.AccessTokenInput) (string, error) {
 	return "", nil
 }
 
@@ -41,7 +41,7 @@ type mockSessionService struct {
 	getFn func(ctx context.Context, sessionID string) (*service.Session, error)
 }
 
-func (m *mockSessionService) Create(_ context.Context, _ uuid.UUID, _ string, _ bool) (*service.Session, error) {
+func (m *mockSessionService) Create(_ context.Context, _ service.CreateSessionInput) (*service.Session, error) {
 	return nil, nil
 }
 
