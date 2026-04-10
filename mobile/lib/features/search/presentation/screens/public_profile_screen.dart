@@ -11,7 +11,8 @@ import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../messaging/data/messaging_repository_impl.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
-import '../../../review/presentation/widgets/review_list_widget.dart';
+import '../../../project_history/presentation/widgets/project_history_widget.dart';
+import '../../../review/presentation/providers/review_provider.dart';
 import '../providers/search_provider.dart';
 
 /// Read-only public profile screen for any user.
@@ -143,7 +144,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
 
           // Role badge
           if (resolvedRole != null) _RoleBadge(role: resolvedRole),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+
+          // Average rating (if any)
+          _ProfileAverageRating(userId: widget.profileUserId),
+          const SizedBox(height: 16),
 
           // Send Message button
           if (showSendMessage)
@@ -202,13 +207,8 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           PortfolioGridWidget(userId: widget.profileUserId),
           const SizedBox(height: 16),
 
-          // Reviews section
-          // Portfolio section
-          PortfolioGridWidget(userId: widget.profileUserId),
-          const SizedBox(height: 16),
-
-          // Reviews section
-          ReviewListWidget(userId: widget.profileUserId),
+          // Project history (completed missions with embedded reviews)
+          ProjectHistoryWidget(userId: widget.profileUserId),
         ],
       ),
     );
@@ -629,6 +629,51 @@ class _ErrorState extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Average rating pill shown under the role badge
+// ---------------------------------------------------------------------------
+
+class _ProfileAverageRating extends ConsumerWidget {
+  final String userId;
+
+  const _ProfileAverageRating({required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncAvg = ref.watch(averageRatingProvider(userId));
+    return asyncAvg.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (avg) {
+        if (avg.count == 0) return const SizedBox.shrink();
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.star, color: Color(0xFFFBBF24), size: 16),
+            const SizedBox(width: 4),
+            Text(
+              avg.average.toStringAsFixed(1),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '(${avg.count})',
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

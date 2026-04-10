@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/review"
 	"marketplace-backend/pkg/cursor"
@@ -125,6 +126,42 @@ func (r *ReviewRepository) HasReviewed(ctx context.Context, proposalID, reviewer
 		return false, fmt.Errorf("check has reviewed: %w", err)
 	}
 	return exists, nil
+}
+
+// GetByProposalIDs fetches all (non-hidden) reviews for the given proposal IDs
+// in a single query, and returns them keyed by proposal ID.
+func (r *ReviewRepository) GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID]*review.Review, error) {
+	result := make(map[uuid.UUID]*review.Review, len(proposalIDs))
+	if len(proposalIDs) == 0 {
+		return result, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	// Convert uuid.UUID slice to string slice for pq.Array.
+	ids := make([]string, len(proposalIDs))
+	for i, id := range proposalIDs {
+		ids[i] = id.String()
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryReviewsByProposalIDs, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("reviews by proposal ids: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rv, scanErr := scanReview(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan review: %w", scanErr)
+		}
+		result[rv.ProposalID] = rv
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return result, nil
 }
 
 // scanner interface satisfied by both *sql.Row and *sql.Rows.

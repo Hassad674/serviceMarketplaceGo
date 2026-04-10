@@ -608,6 +608,7 @@
   "disputeCancellationRefusedLabel": "Annulation refusee",
 
   "disputeYourLastProposalRefused": "Votre dernière proposition a été refusée",
+  "disputeEscalatedNegotiationStillOpen": "Le litige est maintenant en médiation. Tant que l'admin n'a pas rendu sa décision, vous pouvez encore vous mettre d'accord à l'amiable.",
   "disputeCancellationRequestPending": "Demande d'annulation en attente",
   "disputeCancellationRequestWaiting": "En attente de l'accord de l'autre partie pour annuler le litige.",
   "disputeCancellationRequestConsent": "L'autre partie demande l'annulation de ce litige. Votre accord est requis.",

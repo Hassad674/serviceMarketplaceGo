@@ -3,7 +3,9 @@ package dispute
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -218,4 +220,173 @@ func buildAutoResolvedMetadata(d *disputedomain.Dispute) json.RawMessage {
 		m["resolution_amount_provider"] = *d.ResolutionAmountProvider
 	}
 	return disputedomain.MustJSON(m)
+}
+
+// ---------------------------------------------------------------------------
+// AI summary generation
+// ---------------------------------------------------------------------------
+
+// generateAISummary builds the analysis input from the dispute, its
+// proposal, the post-mission conversation messages, the counter-proposals,
+// and the dispute evidence files, then asks the configured AIAnalyzer to
+// produce a structured mediation report.
+//
+// Shared between escalate() (the canonical escalation routine) and the
+// scheduler so the result is the same whether escalation is triggered
+// automatically or manually.
+//
+// Scope of what the AI sees:
+//   - Conversation messages exchanged AFTER the mission started (i.e. after
+//     proposal.PaidAt, when funds went into escrow). Messages from the
+//     pre-mission negotiation phase are deliberately excluded by default —
+//     they are about negotiating the proposal itself, not its execution,
+//     and the admin can request them on demand via the AI chat (later).
+//   - Counter-proposals exchanged inside the dispute.
+//   - Dispute evidence file METADATA (filename, mime, size, uploader role)
+//     — not the file content; that is reserved for a later iteration.
+func (s *Service) generateAISummary(ctx context.Context, d *disputedomain.Dispute) (string, portservice.AIUsage, error) {
+	input, err := s.buildAIInput(ctx, d)
+	if err != nil {
+		return "", portservice.AIUsage{}, err
+	}
+
+	// The summary call gets the dispute's full summary budget MINUS what
+	// has already been consumed by previous summary calls (typically zero
+	// since summary is generated once on escalation, but defensive).
+	budget := d.AIBudgetSummary() - d.AISummaryUsed()
+	if budget <= 0 {
+		return "", portservice.AIUsage{}, disputedomain.ErrAIBudgetSummaryExceeded
+	}
+
+	return s.ai.AnalyzeDispute(ctx, input, budget)
+}
+
+// buildAIInput assembles the DisputeAnalysisInput shared by both summary
+// and chat calls. Loads proposal, counter-proposals, post-mission messages,
+// and evidence files; the caller decides what budget to enforce.
+func (s *Service) buildAIInput(ctx context.Context, d *disputedomain.Dispute) (portservice.DisputeAnalysisInput, error) {
+	p, err := s.proposals.GetByID(ctx, d.ProposalID)
+	if err != nil {
+		return portservice.DisputeAnalysisInput{}, fmt.Errorf("get proposal: %w", err)
+	}
+
+	cps, err := s.disputes.ListCounterProposals(ctx, d.ID)
+	if err != nil {
+		return portservice.DisputeAnalysisInput{}, fmt.Errorf("list counter-proposals: %w", err)
+	}
+
+	cpSummaries := make([]portservice.CounterProposalSummary, 0, len(cps))
+	for _, cp := range cps {
+		role := "provider"
+		if cp.ProposerID == d.ClientID {
+			role = "client"
+		}
+		cpSummaries = append(cpSummaries, portservice.CounterProposalSummary{
+			ProposerRole:   role,
+			AmountClient:   cp.AmountClient,
+			AmountProvider: cp.AmountProvider,
+			Message:        cp.Message,
+			Status:         string(cp.Status),
+		})
+	}
+
+	// Conversation messages posted after the mission actually started.
+	// Fall back to the proposal's accepted/created date if PaidAt is nil
+	// (e.g. legacy data or not-yet-paid proposals — should not happen in
+	// practice for a disputable mission, but defensive).
+	missionStart := time.Time{}
+	switch {
+	case p.PaidAt != nil:
+		missionStart = *p.PaidAt
+	case p.AcceptedAt != nil:
+		missionStart = *p.AcceptedAt
+	default:
+		missionStart = p.CreatedAt
+	}
+
+	conversationMessages := s.loadPostMissionMessages(ctx, d, missionStart)
+	evidenceSummaries := s.loadEvidenceSummaries(ctx, d)
+
+	return portservice.DisputeAnalysisInput{
+		DisputeReason:       string(d.Reason),
+		DisputeDescription:  d.Description,
+		ProposalTitle:       p.Title,
+		ProposalDescription: p.Description,
+		ProposalAmount:      d.ProposalAmount,
+		RequestedAmount:     d.RequestedAmount,
+		InitiatorRole:       d.InitiatorRole(),
+		Messages:            conversationMessages,
+		CounterProposals:    cpSummaries,
+		Evidence:            evidenceSummaries,
+	}, nil
+}
+
+// loadPostMissionMessages fetches conversation messages exchanged after
+// the mission started, mapped to the AI input format. Failures are logged
+// and degrade gracefully (empty slice) so the AI summary still runs with
+// whatever context is available.
+func (s *Service) loadPostMissionMessages(ctx context.Context, d *disputedomain.Dispute, since time.Time) []portservice.ConversationMessage {
+	if s.messageRepo == nil {
+		return nil
+	}
+	msgs, err := s.messageRepo.ListMessagesSinceTime(ctx, d.ConversationID, since, 200)
+	if err != nil {
+		slog.Warn("dispute: failed to load conversation messages for AI summary",
+			"dispute_id", d.ID, "error", err)
+		return nil
+	}
+	out := make([]portservice.ConversationMessage, 0, len(msgs))
+	for _, m := range msgs {
+		// Map sender to a role label the AI can reason about. Anything
+		// outside the two dispute parties (system messages, admin) is
+		// labelled "system" so it does not get confused with a party.
+		role := "system"
+		switch m.SenderID {
+		case d.ClientID:
+			role = "client"
+		case d.ProviderID:
+			role = "provider"
+		}
+		// Skip system messages with empty content (they only carry
+		// metadata for the UI and would just add noise to the prompt).
+		if string(m.Type) != "text" && string(m.Type) != "file" && m.Content == "" {
+			continue
+		}
+		out = append(out, portservice.ConversationMessage{
+			SenderName: role, // simple label, no DB lookup for display name
+			SenderRole: role,
+			Content:    m.Content,
+			Type:       string(m.Type),
+			CreatedAt:  m.CreatedAt.Format(time.RFC3339),
+		})
+	}
+	return out
+}
+
+// loadEvidenceSummaries fetches dispute evidence metadata for the AI input.
+// Failures degrade gracefully like loadPostMissionMessages.
+func (s *Service) loadEvidenceSummaries(ctx context.Context, d *disputedomain.Dispute) []portservice.EvidenceSummary {
+	evidence, err := s.disputes.ListEvidence(ctx, d.ID)
+	if err != nil {
+		slog.Warn("dispute: failed to load evidence for AI summary",
+			"dispute_id", d.ID, "error", err)
+		return nil
+	}
+	out := make([]portservice.EvidenceSummary, 0, len(evidence))
+	for _, e := range evidence {
+		role := "system"
+		switch e.UploaderID {
+		case d.ClientID:
+			role = "client"
+		case d.ProviderID:
+			role = "provider"
+		}
+		out = append(out, portservice.EvidenceSummary{
+			Filename:     e.Filename,
+			MimeType:     e.MimeType,
+			Size:         e.Size,
+			UploaderRole: role,
+		})
+	}
+	return out
 }

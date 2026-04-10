@@ -55,6 +55,8 @@ function createProfile(
     title: "Developer",
     photo_url: "",
     referrer_enabled: false,
+    average_rating: 0,
+    review_count: 0,
     ...overrides,
   }
 }

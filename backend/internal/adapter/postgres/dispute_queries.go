@@ -9,6 +9,9 @@ const disputeColumns = `
 	escalated_at, resolved_at, cancelled_at,
 	last_activity_at, respondent_first_reply_at,
 	cancellation_requested_by, cancellation_requested_at,
+	ai_summary_input_tokens, ai_summary_output_tokens,
+	ai_chat_input_tokens, ai_chat_output_tokens,
+	ai_budget_bonus_tokens,
 	version, created_at, updated_at`
 
 const queryInsertDispute = `
@@ -21,6 +24,9 @@ const queryInsertDispute = `
 		escalated_at, resolved_at, cancelled_at,
 		last_activity_at, respondent_first_reply_at,
 		cancellation_requested_by, cancellation_requested_at,
+		ai_summary_input_tokens, ai_summary_output_tokens,
+		ai_chat_input_tokens, ai_chat_output_tokens,
+		ai_budget_bonus_tokens,
 		version, created_at, updated_at
 	) VALUES (
 		$1, $2, $3, $4, $5,
@@ -31,7 +37,10 @@ const queryInsertDispute = `
 		$19, $20, $21,
 		$22, $23,
 		$24, $25,
-		$26, $27, $28
+		$26, $27,
+		$28, $29,
+		$30,
+		$31, $32, $33
 	)`
 
 const queryGetDisputeByID = `
@@ -52,8 +61,11 @@ const queryUpdateDispute = `
 		escalated_at = $9, resolved_at = $10, cancelled_at = $11,
 		last_activity_at = $12, respondent_first_reply_at = $13,
 		cancellation_requested_by = $14, cancellation_requested_at = $15,
+		ai_summary_input_tokens = $16, ai_summary_output_tokens = $17,
+		ai_chat_input_tokens = $18, ai_chat_output_tokens = $19,
+		ai_budget_bonus_tokens = $20,
 		version = version + 1, updated_at = NOW()
-	WHERE id = $1 AND version = $16`
+	WHERE id = $1 AND version = $21`
 
 const queryListDisputesByUserFirst = `
 	SELECT ` + disputeColumns + `
@@ -122,6 +134,18 @@ const querySupersedeAllPending = `
 	UPDATE dispute_counter_proposals
 	SET status = 'superseded'
 	WHERE dispute_id = $1 AND status = 'pending'`
+
+// AI chat message queries (admin Q/A persisted append-only)
+const queryInsertChatMessage = `
+	INSERT INTO dispute_ai_chat_messages
+		(id, dispute_id, role, content, input_tokens, output_tokens, created_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+const queryListChatMessages = `
+	SELECT id, dispute_id, role, content, input_tokens, output_tokens, created_at
+	FROM dispute_ai_chat_messages
+	WHERE dispute_id = $1
+	ORDER BY created_at ASC, id ASC`
 
 // Stats
 const queryCountDisputesByUser = `

@@ -17,12 +17,13 @@ import (
 
 // AdminDisputeHandler handles admin-only dispute endpoints.
 type AdminDisputeHandler struct {
-	svc      *disputeapp.Service
-	disputes repository.DisputeRepository
+	svc       *disputeapp.Service
+	disputes  repository.DisputeRepository
+	isDevMode bool // Enables /force-escalate for dev/staging only.
 }
 
-func NewAdminDisputeHandler(svc *disputeapp.Service, disputes repository.DisputeRepository) *AdminDisputeHandler {
-	return &AdminDisputeHandler{svc: svc, disputes: disputes}
+func NewAdminDisputeHandler(svc *disputeapp.Service, disputes repository.DisputeRepository, isDevMode bool) *AdminDisputeHandler {
+	return &AdminDisputeHandler{svc: svc, disputes: disputes, isDevMode: isDevMode}
 }
 
 func (h *AdminDisputeHandler) ListDisputes(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +60,7 @@ func (h *AdminDisputeHandler) GetAdminDispute(w http.ResponseWriter, r *http.Req
 	}
 
 	res.JSON(w, http.StatusOK, response.NewAdminDisputeResponse(
-		detail.Dispute, detail.Evidence, detail.CounterProposals))
+		detail.Dispute, detail.Evidence, detail.CounterProposals, detail.ChatMessages))
 }
 
 func (h *AdminDisputeHandler) ResolveDispute(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +94,88 @@ func (h *AdminDisputeHandler) ResolveDispute(w http.ResponseWriter, r *http.Requ
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"status": "resolved"})
+}
+
+// AskAI handles an admin chat question about a dispute. The backend
+// loads the chat history from the database — the request body only
+// carries the new question. This ensures the AI sees a tamper-proof
+// context and that multiple admins working on the same dispute share
+// the conversation seamlessly.
+func (h *AdminDisputeHandler) AskAI(w http.ResponseWriter, r *http.Request) {
+	disputeID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "invalid dispute ID")
+		return
+	}
+
+	var req request.AskAIDisputeRequest
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_body", err.Error())
+		return
+	}
+	if req.Question == "" {
+		res.Error(w, http.StatusBadRequest, "empty_question", "question is required")
+		return
+	}
+
+	out, err := h.svc.AskAI(r.Context(), disputeapp.AskAIInput{
+		DisputeID: disputeID,
+		Question:  req.Question,
+	})
+	if err != nil {
+		handleDisputeError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"answer":        out.Answer,
+		"input_tokens":  out.InputTokens,
+		"output_tokens": out.OutputTokens,
+	})
+}
+
+// IncreaseAIBudget grants the dispute extra AI tokens via the admin
+// "Augmenter le budget" button. Always adds the default increment.
+func (h *AdminDisputeHandler) IncreaseAIBudget(w http.ResponseWriter, r *http.Request) {
+	disputeID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "invalid dispute ID")
+		return
+	}
+
+	if err := h.svc.IncreaseAIBudget(r.Context(), disputeID, 0); err != nil {
+		handleDisputeError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"status":          "ok",
+		"bonus_increment": disputeapp.AIBudgetBonusIncrement,
+	})
+}
+
+// ForceEscalate is a development-only endpoint that immediately moves a
+// dispute to escalated status, bypassing the 7-day inactivity window. It
+// returns 404 in production so the route is invisible there even if the
+// caller knows the URL.
+func (h *AdminDisputeHandler) ForceEscalate(w http.ResponseWriter, r *http.Request) {
+	if !h.isDevMode {
+		res.Error(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+
+	disputeID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "invalid dispute ID")
+		return
+	}
+
+	if err := h.svc.ForceEscalate(r.Context(), disputeID); err != nil {
+		handleDisputeError(w, err)
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]string{"status": "escalated"})
 }
 
 func (h *AdminDisputeHandler) CountDisputes(w http.ResponseWriter, r *http.Request) {

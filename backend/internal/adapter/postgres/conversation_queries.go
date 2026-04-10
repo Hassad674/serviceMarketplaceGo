@@ -136,6 +136,20 @@ const queryMessagesSinceSeq = `
 	ORDER BY m.seq ASC
 	LIMIT $3`
 
+// queryListMessagesSinceTime returns messages of a conversation in
+// chronological order, starting from the given timestamp. Used by the
+// dispute AI summary which only feeds Claude messages exchanged after
+// the mission actually started (i.e. after payment was held in escrow).
+const queryListMessagesSinceTime = `
+	SELECT m.id, m.conversation_id, m.sender_id, m.content, m.msg_type, m.metadata,
+		m.reply_to_id, m.seq, m.status, m.edited_at, m.deleted_at, m.created_at, m.updated_at,
+		r.id, r.sender_id, r.content, r.msg_type
+	FROM messages m
+	LEFT JOIN messages r ON r.id = m.reply_to_id
+	WHERE m.conversation_id = $1 AND m.created_at >= $2
+	ORDER BY m.created_at ASC, m.id ASC
+	LIMIT $3`
+
 const queryUpdateMessage = `
 	UPDATE messages
 	SET content = $2, edited_at = $3, deleted_at = $4, updated_at = $5

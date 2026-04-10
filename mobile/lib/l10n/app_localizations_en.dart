@@ -1632,6 +1632,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get disputeYourLastProposalRefused => 'Your last proposal was refused';
 
   @override
+  String get disputeEscalatedNegotiationStillOpen =>
+      'The dispute is now under mediation. Until the admin renders a final decision, you can still reach an amicable agreement together.';
+
+  @override
   String get disputeCancellationRequestPending =>
       'Cancellation request pending';
 

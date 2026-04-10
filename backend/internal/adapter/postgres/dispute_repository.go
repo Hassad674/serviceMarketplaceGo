@@ -38,6 +38,9 @@ func (r *DisputeRepository) Create(ctx context.Context, d *dispute.Dispute) erro
 		d.EscalatedAt, d.ResolvedAt, d.CancelledAt,
 		d.LastActivityAt, d.RespondentFirstReplyAt,
 		d.CancellationRequestedBy, d.CancellationRequestedAt,
+		d.AISummaryInputTokens, d.AISummaryOutputTokens,
+		d.AIChatInputTokens, d.AIChatOutputTokens,
+		d.AIBudgetBonusTokens,
 		d.Version, d.CreatedAt, d.UpdatedAt,
 	)
 	if err != nil {
@@ -85,7 +88,10 @@ func (r *DisputeRepository) Update(ctx context.Context, d *dispute.Dispute) erro
 		d.EscalatedAt, d.ResolvedAt, d.CancelledAt,
 		d.LastActivityAt, d.RespondentFirstReplyAt,
 		d.CancellationRequestedBy, d.CancellationRequestedAt,
-		d.Version, // WHERE version = $16 for optimistic concurrency
+		d.AISummaryInputTokens, d.AISummaryOutputTokens,
+		d.AIChatInputTokens, d.AIChatOutputTokens,
+		d.AIBudgetBonusTokens,
+		d.Version, // WHERE version = $21 for optimistic concurrency
 	)
 	if err != nil {
 		return fmt.Errorf("update dispute: %w", err)
@@ -312,6 +318,56 @@ func (r *DisputeRepository) SupersedeAllPending(ctx context.Context, disputeID u
 }
 
 // ---------------------------------------------------------------------------
+// AI chat messages
+// ---------------------------------------------------------------------------
+
+func (r *DisputeRepository) CreateChatMessage(ctx context.Context, msg *dispute.ChatMessage) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if msg.CreatedAt.IsZero() {
+		msg.CreatedAt = time.Now()
+	}
+	_, err := r.db.ExecContext(ctx, queryInsertChatMessage,
+		msg.ID, msg.DisputeID, string(msg.Role), msg.Content,
+		msg.InputTokens, msg.OutputTokens, msg.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert chat message: %w", err)
+	}
+	return nil
+}
+
+func (r *DisputeRepository) ListChatMessages(ctx context.Context, disputeID uuid.UUID) ([]*dispute.ChatMessage, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryListChatMessages, disputeID)
+	if err != nil {
+		return nil, fmt.Errorf("list chat messages: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*dispute.ChatMessage
+	for rows.Next() {
+		m := &dispute.ChatMessage{}
+		var role string
+		if err := rows.Scan(
+			&m.ID, &m.DisputeID, &role, &m.Content,
+			&m.InputTokens, &m.OutputTokens, &m.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan chat message: %w", err)
+		}
+		m.Role = dispute.ChatMessageRole(role)
+		results = append(results, m)
+	}
+	if results == nil {
+		results = []*dispute.ChatMessage{}
+	}
+	return results, rows.Err()
+}
+
+// ---------------------------------------------------------------------------
 // Stats
 // ---------------------------------------------------------------------------
 
@@ -356,6 +412,9 @@ func scanDispute(row *sql.Row) (*dispute.Dispute, error) {
 		&d.EscalatedAt, &d.ResolvedAt, &d.CancelledAt,
 		&d.LastActivityAt, &d.RespondentFirstReplyAt,
 		&d.CancellationRequestedBy, &d.CancellationRequestedAt,
+		&d.AISummaryInputTokens, &d.AISummaryOutputTokens,
+		&d.AIChatInputTokens, &d.AIChatOutputTokens,
+		&d.AIBudgetBonusTokens,
 		&d.Version, &d.CreatedAt, &d.UpdatedAt,
 	)
 	if err != nil {
@@ -385,6 +444,9 @@ func scanDisputeFromRows(rows *sql.Rows) (*dispute.Dispute, error) {
 		&d.EscalatedAt, &d.ResolvedAt, &d.CancelledAt,
 		&d.LastActivityAt, &d.RespondentFirstReplyAt,
 		&d.CancellationRequestedBy, &d.CancellationRequestedAt,
+		&d.AISummaryInputTokens, &d.AISummaryOutputTokens,
+		&d.AIChatInputTokens, &d.AIChatOutputTokens,
+		&d.AIBudgetBonusTokens,
 		&d.Version, &d.CreatedAt, &d.UpdatedAt,
 	)
 	if err != nil {

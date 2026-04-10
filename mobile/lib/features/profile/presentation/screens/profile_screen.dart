@@ -14,6 +14,7 @@ import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
+import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../providers/profile_provider.dart';
 
 /// Premium profile screen showing user info, photo, video, about, and logout.
@@ -132,6 +133,10 @@ class ProfileScreen extends ConsumerWidget {
                   userId: profileUserId,
                   readOnly: false,
                 ),
+                const SizedBox(height: 16),
+
+                // Project history (completed missions + embedded reviews)
+                ProjectHistoryWidget(userId: profileUserId),
                 const SizedBox(height: 16),
               ],
 

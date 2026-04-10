@@ -3,7 +3,6 @@ package dispute
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -18,32 +17,37 @@ import (
 
 // SchedulerDeps groups dependencies for the dispute scheduler.
 type SchedulerDeps struct {
+	Svc           *Service // canonical escalation routine lives here
 	Disputes      repository.DisputeRepository
 	Proposals     repository.ProposalRepository
 	Messages      service.MessageSender
 	Notifications service.NotificationSender
-	AI            service.AIAnalyzer
 	Payments      service.PaymentProcessor
 }
 
 // Scheduler periodically checks for disputes that need auto-resolution
 // or escalation. Runs as a background goroutine.
+//
+// Escalation is fully delegated to Service.escalate so that timed and
+// manual (force-escalate) escalations produce strictly identical state.
+// Auto-resolution (the "ghost" path when the respondent never replies)
+// stays here because it has no manual counterpart.
 type Scheduler struct {
+	svc           *Service
 	disputes      repository.DisputeRepository
 	proposals     repository.ProposalRepository
 	messages      service.MessageSender
 	notifications service.NotificationSender
-	ai            service.AIAnalyzer
 	payments      service.PaymentProcessor
 }
 
 func NewScheduler(deps SchedulerDeps) *Scheduler {
 	return &Scheduler{
+		svc:           deps.Svc,
 		disputes:      deps.Disputes,
 		proposals:     deps.Proposals,
 		messages:      deps.Messages,
 		notifications: deps.Notifications,
-		ai:            deps.AI,
 		payments:      deps.Payments,
 	}
 }
@@ -108,33 +112,14 @@ func (s *Scheduler) autoResolve(ctx context.Context, d *disputedomain.Dispute) {
 		"dispute_id", d.ID, "initiator_id", d.InitiatorID)
 }
 
-// escalate moves the dispute to admin mediation and generates an AI summary.
+// escalate delegates to Service.escalate so the scheduler and the manual
+// force-escalate endpoint share the same code path. The scheduler keeps
+// only the "what to log when escalation is triggered by the timer" concern.
 func (s *Scheduler) escalate(ctx context.Context, d *disputedomain.Dispute) {
-	if err := d.Escalate(); err != nil {
+	if err := s.svc.escalate(ctx, d); err != nil {
 		slog.Error("dispute scheduler: escalate", "dispute_id", d.ID, "error", err)
 		return
 	}
-
-	if s.ai != nil {
-		summary, err := s.generateAISummary(ctx, d)
-		if err != nil {
-			slog.Warn("dispute scheduler: AI analysis failed", "dispute_id", d.ID, "error", err)
-		} else {
-			d.SetAISummary(summary)
-		}
-	}
-
-	if err := s.disputes.Update(ctx, d); err != nil {
-		slog.Error("dispute scheduler: update after escalate", "dispute_id", d.ID, "error", err)
-		return
-	}
-
-	s.broadcastSystemMessage(ctx, d.ConversationID,
-		message.MessageTypeDisputeEscalated, buildEscalatedMetadata(d))
-	s.notifyBoth(ctx, d, "dispute_escalated",
-		"Litige transmis a la mediation",
-		"Votre litige a ete transmis a l'equipe de mediation pour decision.")
-
 	slog.Info("dispute scheduler: escalated to admin",
 		"dispute_id", d.ID, "has_ai_summary", d.AISummary != nil)
 }
@@ -142,44 +127,6 @@ func (s *Scheduler) escalate(ctx context.Context, d *disputedomain.Dispute) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-func (s *Scheduler) generateAISummary(ctx context.Context, d *disputedomain.Dispute) (string, error) {
-	p, err := s.proposals.GetByID(ctx, d.ProposalID)
-	if err != nil {
-		return "", fmt.Errorf("get proposal: %w", err)
-	}
-
-	cps, err := s.disputes.ListCounterProposals(ctx, d.ID)
-	if err != nil {
-		return "", fmt.Errorf("list counter-proposals: %w", err)
-	}
-
-	var cpSummaries []service.CounterProposalSummary
-	for _, cp := range cps {
-		role := "provider"
-		if cp.ProposerID == d.ClientID {
-			role = "client"
-		}
-		cpSummaries = append(cpSummaries, service.CounterProposalSummary{
-			ProposerRole:   role,
-			AmountClient:   cp.AmountClient,
-			AmountProvider: cp.AmountProvider,
-			Message:        cp.Message,
-			Status:         string(cp.Status),
-		})
-	}
-
-	return s.ai.AnalyzeDispute(ctx, service.DisputeAnalysisInput{
-		DisputeReason:       string(d.Reason),
-		DisputeDescription:  d.Description,
-		ProposalTitle:       p.Title,
-		ProposalDescription: p.Description,
-		ProposalAmount:      d.ProposalAmount,
-		RequestedAmount:     d.RequestedAmount,
-		InitiatorRole:       d.InitiatorRole(),
-		CounterProposals:    cpSummaries,
-	})
-}
 
 func (s *Scheduler) restoreAndDistribute(ctx context.Context, d *disputedomain.Dispute) {
 	p, err := s.proposals.GetByID(ctx, d.ProposalID)

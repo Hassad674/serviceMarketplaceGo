@@ -2,15 +2,18 @@
 
 import { Star } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { cn } from "@/shared/lib/utils"
 import { useReviewsByUser, useAverageRating } from "../hooks/use-reviews"
-import { StarRating } from "./star-rating"
-import type { Review } from "../api/review-api"
+import { ReviewCard } from "@/shared/components/ui/review-card"
 
 interface ReviewListProps {
   userId: string
 }
 
+/**
+ * Legacy standalone reviews section. Kept for potential admin/moderation
+ * use; no longer mounted on the public profile pages — project history is
+ * now the unified entry point there.
+ */
 export function ReviewList({ userId }: ReviewListProps) {
   const t = useTranslations("review")
 
@@ -37,12 +40,7 @@ export function ReviewList({ userId }: ReviewListProps) {
 
       <div className="space-y-4">
         {reviews.map((review) => (
-          <ReviewCard key={review.id} review={review} labels={{
-            timeliness: t("timeliness"),
-            communication: t("communication"),
-            quality: t("quality"),
-            videoReview: t("videoReview"),
-          }} />
+          <ReviewCard key={review.id} review={review} />
         ))}
       </div>
     </div>
@@ -74,67 +72,6 @@ function ReviewListHeader({
           ({count} {count === 1 ? singular : plural})
         </span>
       </div>
-    </div>
-  )
-}
-
-function ReviewCard({
-  review,
-  labels,
-}: {
-  review: Review
-  labels: { timeliness: string; communication: string; quality: string; videoReview: string }
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-border/50 p-4",
-        "hover:border-border transition-colors duration-200",
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <StarRating rating={review.global_rating} size="sm" readOnly />
-        <time
-          className="text-xs text-muted-foreground"
-          dateTime={review.created_at}
-        >
-          {new Date(review.created_at).toLocaleDateString()}
-        </time>
-      </div>
-
-      {(review.timeliness || review.communication || review.quality) && (
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {review.timeliness && (
-            <span>{labels.timeliness}: {review.timeliness}/5</span>
-          )}
-          {review.communication && (
-            <span>{labels.communication}: {review.communication}/5</span>
-          )}
-          {review.quality && (
-            <span>{labels.quality}: {review.quality}/5</span>
-          )}
-        </div>
-      )}
-
-      {review.comment && (
-        <p className="mt-3 text-sm leading-relaxed text-foreground">
-          {review.comment}
-        </p>
-      )}
-
-      {review.video_url && (
-        <div className="mt-3">
-          <video
-            src={review.video_url}
-            controls
-            className="w-full rounded-lg border border-border"
-            style={{ maxHeight: 300 }}
-            preload="metadata"
-          >
-            {labels.videoReview}
-          </video>
-        </div>
-      )}
     </div>
   )
 }

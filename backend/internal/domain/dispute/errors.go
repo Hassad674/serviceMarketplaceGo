@@ -20,4 +20,6 @@ var (
 	ErrCounterProposalNotFound     = errors.New("counter-proposal not found")
 	ErrCounterProposalNotPending   = errors.New("counter-proposal is not pending")
 	ErrCannotRespondToOwnProposal  = errors.New("cannot respond to your own counter-proposal")
+	ErrAIBudgetSummaryExceeded     = errors.New("AI summary token budget exceeded for this dispute")
+	ErrAIBudgetChatExceeded        = errors.New("AI chat token budget exceeded for this dispute")
 )

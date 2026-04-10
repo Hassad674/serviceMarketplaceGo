@@ -90,6 +90,10 @@ func (m *mockMessageRepo) GetMessagesSinceSeq(ctx context.Context, conversationI
 	return nil, nil
 }
 
+func (m *mockMessageRepo) ListMessagesSinceTime(_ context.Context, _ uuid.UUID, _ time.Time, _ int) ([]*message.Message, error) {
+	return nil, nil
+}
+
 func (m *mockMessageRepo) UpdateMessage(ctx context.Context, msg *message.Message) error {
 	if m.updateMessageFn != nil {
 		return m.updateMessageFn(ctx, msg)

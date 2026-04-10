@@ -3,6 +3,7 @@ package dispute
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -289,6 +290,223 @@ func TestCancelDispute_RespondentRequest_SupersedesCPs(t *testing.T) {
 	assert.False(t, result.Cancelled, "respondent never directly cancels")
 	assert.True(t, result.Requested)
 	assert.True(t, supersedeCalled)
+}
+
+// ---------------------------------------------------------------------------
+// AskAI (admin chat)
+// ---------------------------------------------------------------------------
+
+func TestAskAI_Success_RecordsUsage(t *testing.T) {
+	svc, dr, pr, _, _, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	proposalID := uuid.New()
+	disputeID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		return &disputedomain.Dispute{
+			ID:             disputeID,
+			ProposalID:     proposalID,
+			ConversationID: uuid.New(),
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status:         disputedomain.StatusEscalated,
+			ProposalAmount: 100000, // tier M
+			Version:        1,
+		}, nil
+	}
+	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) {
+		now := time.Now().Add(-1 * time.Hour)
+		return &proposal.Proposal{
+			ID: proposalID, Title: "Test", Description: "scope",
+			Amount: 100000, PaidAt: &now,
+		}, nil
+	}
+
+	var updatedDispute *disputedomain.Dispute
+	dr.updateFn = func(_ context.Context, d *disputedomain.Dispute) error {
+		updatedDispute = d
+		return nil
+	}
+
+	out, err := svc.AskAI(context.Background(), AskAIInput{
+		DisputeID: disputeID,
+		Question:  "Is the provider at fault?",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, "Mock AI chat answer", out.Answer)
+	assert.Equal(t, 800, out.InputTokens)
+	assert.Equal(t, 150, out.OutputTokens)
+
+	// Usage was recorded on the dispute and persisted.
+	assert.NotNil(t, updatedDispute)
+	assert.Equal(t, 800, updatedDispute.AIChatInputTokens)
+	assert.Equal(t, 150, updatedDispute.AIChatOutputTokens)
+}
+
+// TestAskAI_PersistsBothTurns verifies that a successful chat call writes
+// BOTH the user question and the assistant answer to the chat messages
+// store, so the next admin who opens the dispute sees the full history.
+func TestAskAI_PersistsBothTurns(t *testing.T) {
+	svc, dr, pr, _, _, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	disputeID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		return &disputedomain.Dispute{
+			ID:             disputeID,
+			ProposalID:     uuid.New(),
+			ConversationID: uuid.New(),
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status:         disputedomain.StatusEscalated,
+			ProposalAmount: 100000,
+			Version:        1,
+		}, nil
+	}
+	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) {
+		now := time.Now().Add(-1 * time.Hour)
+		return &proposal.Proposal{
+			ID: uuid.New(), Title: "Test", Description: "scope",
+			Amount: 100000, PaidAt: &now,
+		}, nil
+	}
+
+	var persistedMessages []*disputedomain.ChatMessage
+	dr.createChatMsgFn = func(_ context.Context, m *disputedomain.ChatMessage) error {
+		persistedMessages = append(persistedMessages, m)
+		return nil
+	}
+
+	_, err := svc.AskAI(context.Background(), AskAIInput{
+		DisputeID: disputeID,
+		Question:  "Has the provider delivered anything?",
+	})
+	assert.NoError(t, err)
+
+	// Two messages persisted: the user question (0 tokens) and the
+	// assistant answer (with the mock's reported usage).
+	assert.Len(t, persistedMessages, 2)
+	assert.Equal(t, disputedomain.ChatMessageRoleUser, persistedMessages[0].Role)
+	assert.Equal(t, "Has the provider delivered anything?", persistedMessages[0].Content)
+	assert.Equal(t, 0, persistedMessages[0].InputTokens)
+	assert.Equal(t, 0, persistedMessages[0].OutputTokens)
+
+	assert.Equal(t, disputedomain.ChatMessageRoleAssistant, persistedMessages[1].Role)
+	assert.Equal(t, "Mock AI chat answer", persistedMessages[1].Content)
+	assert.Equal(t, 800, persistedMessages[1].InputTokens)
+	assert.Equal(t, 150, persistedMessages[1].OutputTokens)
+}
+
+// TestAskAI_LoadsPersistedHistory verifies that the chat history sent to
+// the AI adapter comes from the database (not from a client-provided list).
+func TestAskAI_LoadsPersistedHistory(t *testing.T) {
+	svc, dr, pr, _, _, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	disputeID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		return &disputedomain.Dispute{
+			ID:             disputeID,
+			ProposalID:     uuid.New(),
+			ConversationID: uuid.New(),
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status:         disputedomain.StatusEscalated,
+			ProposalAmount: 100000,
+			Version:        1,
+		}, nil
+	}
+	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) {
+		now := time.Now().Add(-1 * time.Hour)
+		return &proposal.Proposal{
+			ID: uuid.New(), Title: "Test", Description: "scope",
+			Amount: 100000, PaidAt: &now,
+		}, nil
+	}
+
+	listed := false
+	dr.listChatMsgsFn = func(_ context.Context, id uuid.UUID) ([]*disputedomain.ChatMessage, error) {
+		listed = true
+		assert.Equal(t, disputeID, id)
+		return []*disputedomain.ChatMessage{
+			disputedomain.NewChatMessage(disputeID, disputedomain.ChatMessageRoleUser, "previous Q", 0, 0),
+			disputedomain.NewChatMessage(disputeID, disputedomain.ChatMessageRoleAssistant, "previous A", 700, 120),
+		}, nil
+	}
+
+	_, err := svc.AskAI(context.Background(), AskAIInput{
+		DisputeID: disputeID,
+		Question:  "Follow-up question",
+	})
+	assert.NoError(t, err)
+	assert.True(t, listed, "AskAI must load chat history from the repository")
+}
+
+func TestAskAI_BudgetExceeded_Refused(t *testing.T) {
+	svc, dr, _, _, _, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		// Tier S → chat budget = 20000. Hard ceiling = 22000 (110%).
+		// Already at 22000 → refused.
+		return &disputedomain.Dispute{
+			ID:             uuid.New(),
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status:             disputedomain.StatusEscalated,
+			ProposalAmount:     10000, // tier S
+			AIChatInputTokens:  21000,
+			AIChatOutputTokens: 1000,
+			Version:            1,
+		}, nil
+	}
+
+	_, err := svc.AskAI(context.Background(), AskAIInput{
+		DisputeID: uuid.New(),
+		Question:  "Help",
+	})
+
+	assert.ErrorIs(t, err, disputedomain.ErrAIBudgetChatExceeded)
+}
+
+// ---------------------------------------------------------------------------
+// IncreaseAIBudget
+// ---------------------------------------------------------------------------
+
+func TestIncreaseAIBudget_AddsBonusAndPersists(t *testing.T) {
+	svc, dr, _, _, _, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	disputeID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		return &disputedomain.Dispute{
+			ID:             disputeID,
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status:         disputedomain.StatusEscalated,
+			ProposalAmount: 100000, // tier M: chat 25k
+			Version:        1,
+		}, nil
+	}
+
+	var updatedDispute *disputedomain.Dispute
+	dr.updateFn = func(_ context.Context, d *disputedomain.Dispute) error {
+		updatedDispute = d
+		return nil
+	}
+
+	err := svc.IncreaseAIBudget(context.Background(), disputeID, 0) // 0 → use default
+	assert.NoError(t, err)
+	assert.NotNil(t, updatedDispute)
+	assert.Equal(t, AIBudgetBonusIncrement, updatedDispute.AIBudgetBonusTokens)
+	assert.Equal(t, 25000+AIBudgetBonusIncrement, updatedDispute.AIBudgetChat())
 }
 
 // ---------------------------------------------------------------------------

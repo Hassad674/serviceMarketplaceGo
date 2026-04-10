@@ -1,28 +1,13 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Review, AverageRating } from "@/shared/types/review"
 
-export type Review = {
-  id: string
-  proposal_id: string
-  reviewer_id: string
-  reviewed_id: string
-  global_rating: number
-  timeliness: number | null
-  communication: number | null
-  quality: number | null
-  comment: string
-  video_url: string | null
-  created_at: string
-}
+// Re-export shared types for backward compatibility.
+export type { Review, AverageRating }
 
 export type ReviewListResponse = {
   data: Review[]
   next_cursor: string
   has_more: boolean
-}
-
-export type AverageRating = {
-  average: number
-  count: number
 }
 
 export type CanReviewResponse = {

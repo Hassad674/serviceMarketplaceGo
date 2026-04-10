@@ -290,6 +290,10 @@ func handleDisputeError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusConflict, "cancellation_already_requested", err.Error())
 	case errors.Is(err, disputedomain.ErrNoCancellationPending):
 		res.Error(w, http.StatusConflict, "no_cancellation_pending", err.Error())
+	case errors.Is(err, disputedomain.ErrAIBudgetSummaryExceeded):
+		res.Error(w, http.StatusTooManyRequests, "ai_budget_summary_exceeded", err.Error())
+	case errors.Is(err, disputedomain.ErrAIBudgetChatExceeded):
+		res.Error(w, http.StatusTooManyRequests, "ai_budget_chat_exceeded", err.Error())
 	case errors.Is(err, disputedomain.ErrCounterProposalNotFound):
 		res.Error(w, http.StatusNotFound, "counter_proposal_not_found", err.Error())
 	case errors.Is(err, disputedomain.ErrCounterProposalNotPending):

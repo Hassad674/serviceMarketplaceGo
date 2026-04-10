@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useParams, Link } from "react-router-dom"
 import {
   ArrowLeft, Bot, MessageSquare, Scale, Clock,
-  CheckCircle2, XCircle, Loader2, FileText,
+  CheckCircle2, XCircle, Loader2, FileText, Ban,
 } from "lucide-react"
 
 import { PageHeader } from "@/shared/components/layouts/page-header"
@@ -12,8 +12,10 @@ import { Button } from "@/shared/components/ui/button"
 import { Textarea } from "@/shared/components/ui/textarea"
 import { TableSkeleton } from "@/shared/components/ui/skeleton"
 import { formatCurrency, formatDate } from "@/shared/lib/utils"
-import { useDispute, useResolveDispute } from "../hooks/use-disputes"
-import type { AdminCounterProposal } from "../types"
+import { useDispute, useResolveDispute, useForceEscalateDispute } from "../hooks/use-disputes"
+import type { AdminCounterProposal, AdminDispute } from "../types"
+import { AIBudgetPanel } from "./ai-budget-panel"
+import { AIChatPanel } from "./ai-chat-panel"
 
 export function DisputeDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -33,6 +35,14 @@ export function DisputeDetailPage() {
         description={`Ouvert le ${formatDate(dispute.created_at)} · ${dispute.initiator_role === "client" ? "Client" : "Prestataire"}`}
       />
 
+      {/* Heads-up banner: a cancellation request is currently pending between
+          the parties. The admin should consider waiting for the other party's
+          decision before rendering a final ruling, since the dispute may
+          self-resolve in the next minutes. */}
+      {dispute.cancellation_requested_by && dispute.status === "escalated" && (
+        <CancellationPendingBanner dispute={dispute} />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content — 2 cols */}
         <div className="lg:col-span-2 space-y-6">
@@ -51,6 +61,21 @@ export function DisputeDetailPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* AI chat panel — admin can ask follow-up questions about the
+              dispute. Chat history is persisted server-side and loaded
+              with the dispute detail, so refreshes and multi-admin
+              handoffs preserve the full conversation. */}
+          {dispute.ai_budget && (
+            <AIChatPanel
+              disputeId={dispute.id}
+              history={dispute.ai_chat_history ?? []}
+              budgetExceeded={
+                dispute.ai_budget.chat_used_tokens >=
+                dispute.ai_budget.chat_max_tokens
+              }
+            />
           )}
 
           {/* Initial description */}
@@ -130,6 +155,20 @@ export function DisputeDetailPage() {
               </Link>
             </CardContent>
           </Card>
+
+          {/* AI budget panel — live token usage + cost in EUR + bonus button */}
+          {dispute.ai_budget && (
+            <AIBudgetPanel disputeId={dispute.id} budget={dispute.ai_budget} />
+          )}
+
+          {/* DEV ONLY — instant escalation to test the admin resolution flow
+              without waiting 7 days for the inactivity window. The button is
+              hidden in production builds, and the backend endpoint also
+              returns 404 in production for defense-in-depth. */}
+          {import.meta.env.MODE !== "production" &&
+            (dispute.status === "open" || dispute.status === "negotiation") && (
+              <ForceEscalateButton disputeId={dispute.id} />
+            )}
 
           {/* Resolution form (only for escalated) */}
           {dispute.status === "escalated" && (
@@ -252,6 +291,72 @@ function CounterProposalItem({ cp, dispute }: { cp: AdminCounterProposal; disput
         {cp.message && <p className="mt-1 text-xs text-muted-foreground italic">{cp.message}</p>}
       </div>
     </div>
+  )
+}
+
+function CancellationPendingBanner({ dispute }: { dispute: AdminDispute }) {
+  // Identify which role asked to cancel so the admin understands who's
+  // pushing for the dispute to drop.
+  const requesterRole =
+    dispute.cancellation_requested_by === dispute.client_id
+      ? "client"
+      : dispute.cancellation_requested_by === dispute.provider_id
+        ? "prestataire"
+        : "une partie"
+
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-xl border border-orange-300 bg-orange-50 p-4 dark:border-orange-500/30 dark:bg-orange-500/10"
+    >
+      <Ban className="mt-0.5 h-5 w-5 shrink-0 text-orange-600" aria-hidden />
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-orange-900 dark:text-orange-200">
+          Demande d&apos;annulation en attente
+        </p>
+        <p className="mt-1 text-xs text-orange-800/90 dark:text-orange-200/80">
+          Le {requesterRole} demande l&apos;annulation du litige et attend la
+          reponse de l&apos;autre partie. Le dossier peut se cloturer
+          spontanement avant votre decision — il est recommande d&apos;attendre
+          quelques minutes avant de trancher pour eviter toute action croisee.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function ForceEscalateButton({ disputeId }: { disputeId: string }) {
+  const mutation = useForceEscalateDispute(disputeId)
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-orange-700">
+          <Scale className="h-5 w-5" />
+          Outil de developpement
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-xs text-muted-foreground">
+          Force l&apos;escalation immediate de ce litige a la mediation, sans
+          attendre les 7 jours d&apos;inactivite. Visible uniquement en
+          environnement de developpement.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          Forcer l&apos;escalation (DEV)
+        </Button>
+        {mutation.isError && (
+          <p className="text-xs text-destructive">Echec de l&apos;escalation forcee.</p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

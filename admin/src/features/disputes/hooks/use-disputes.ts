@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { listDisputes, getDispute, resolveDispute, countDisputes } from "../api/disputes-api"
+import {
+  listDisputes,
+  getDispute,
+  resolveDispute,
+  countDisputes,
+  forceEscalateDispute,
+  askAIDispute,
+  increaseAIBudget,
+} from "../api/disputes-api"
 import type { DisputeFilters } from "../types"
 
 export function disputesQueryKey(filters: DisputeFilters) {
@@ -42,5 +50,38 @@ export function useDisputeCount() {
     queryKey: ["admin", "disputes", "count"],
     queryFn: countDisputes,
     staleTime: 60_000,
+  })
+}
+
+export function useForceEscalateDispute(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => forceEscalateDispute(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: disputeQueryKey(id) })
+      qc.invalidateQueries({ queryKey: ["admin", "disputes"] })
+    },
+  })
+}
+
+export function useAskAIDispute(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (question: string) => askAIDispute(id, question),
+    onSuccess: () => {
+      // Refresh the dispute so both the chat history (newly persisted)
+      // and the AI budget panel reflect the new state immediately.
+      qc.invalidateQueries({ queryKey: disputeQueryKey(id) })
+    },
+  })
+}
+
+export function useIncreaseAIBudget(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => increaseAIBudget(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: disputeQueryKey(id) })
+    },
   })
 }

@@ -14,6 +14,7 @@ type ServiceDeps struct {
 	Disputes      repository.DisputeRepository
 	Proposals     repository.ProposalRepository
 	Users         repository.UserRepository
+	MessageRepo   repository.MessageRepository // read-side, used by AI summary
 	Messages      service.MessageSender
 	Notifications service.NotificationSender
 	Payments      service.PaymentProcessor
@@ -24,6 +25,7 @@ type Service struct {
 	disputes      repository.DisputeRepository
 	proposals     repository.ProposalRepository
 	users         repository.UserRepository
+	messageRepo   repository.MessageRepository
 	messages      service.MessageSender
 	notifications service.NotificationSender
 	payments      service.PaymentProcessor
@@ -35,6 +37,7 @@ func NewService(deps ServiceDeps) *Service {
 		disputes:      deps.Disputes,
 		proposals:     deps.Proposals,
 		users:         deps.Users,
+		messageRepo:   deps.MessageRepo,
 		messages:      deps.Messages,
 		notifications: deps.Notifications,
 		payments:      deps.Payments,

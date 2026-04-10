@@ -19,11 +19,50 @@ export type AdminDispute = {
   resolution_note: string | null
   initiator_role: "client" | "provider"
   ai_summary: string | null
+  ai_budget?: AIBudgetSummary
+  ai_chat_history?: AIChatMessage[]
   evidence: AdminDisputeEvidence[]
   counter_proposals: AdminCounterProposal[]
+  // Optional to tolerate older API responses; treat missing as no request.
+  cancellation_requested_by?: string | null
+  cancellation_requested_at?: string | null
   escalated_at: string | null
   resolved_at: string | null
   created_at: string
+}
+
+// AIChatMessage is one persisted turn of the admin AI chat for a dispute,
+// loaded server-side with the rest of the dispute detail.
+export type AIChatMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  input_tokens: number
+  output_tokens: number
+  created_at: string
+}
+
+export type AIBudgetTier = "S" | "M" | "L" | "XL"
+
+export type AIBudgetSummary = {
+  tier: AIBudgetTier
+  bonus_tokens: number
+  summary_used_tokens: number
+  summary_max_tokens: number
+  chat_used_tokens: number
+  chat_max_tokens: number
+  total_used_tokens: number
+  total_cost_eur: number
+}
+
+// AskAIResponse is the immediate response of the chat endpoint. The
+// admin UI ignores its body in practice (the source of truth is the
+// dispute refetch which contains the persisted full history), but it is
+// kept here so the API function stays typed.
+export type AskAIResponse = {
+  answer: string
+  input_tokens: number
+  output_tokens: number
 }
 
 export type AdminDisputeEvidence = {

@@ -37,6 +37,10 @@ type ReviewRepository interface {
 	ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*review.Review, string, error)
 	GetAverageRating(ctx context.Context, userID uuid.UUID) (*review.AverageRating, error)
 	HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
+	// GetByProposalIDs returns a map of proposalID → review for the given
+	// proposal IDs. Missing entries mean the proposal was not yet reviewed.
+	// Hidden reviews (moderation_status = 'hidden') are excluded.
+	GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID]*review.Review, error)
 	UpdateReviewModeration(ctx context.Context, reviewID uuid.UUID, status string, score float64, labelsJSON []byte) error
 
 	// Admin operations

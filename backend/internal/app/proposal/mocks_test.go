@@ -77,6 +77,10 @@ func (m *mockProposalRepo) ListActiveProjects(ctx context.Context, userID uuid.U
 	return []*domain.Proposal{}, "", nil
 }
 
+func (m *mockProposalRepo) ListCompletedByProvider(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.Proposal, string, error) {
+	return []*domain.Proposal{}, "", nil
+}
+
 func (m *mockProposalRepo) GetDocuments(ctx context.Context, proposalID uuid.UUID) ([]*domain.ProposalDocument, error) {
 	if m.getDocumentsFn != nil {
 		return m.getDocumentsFn(ctx, proposalID)

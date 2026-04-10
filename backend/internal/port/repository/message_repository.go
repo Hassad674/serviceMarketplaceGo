@@ -43,6 +43,11 @@ type MessageRepository interface {
 	GetMessage(ctx context.Context, id uuid.UUID) (*message.Message, error)
 	ListMessages(ctx context.Context, params ListMessagesParams) ([]*message.Message, string, error)
 	GetMessagesSinceSeq(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)
+	// ListMessagesSinceTime returns messages of a conversation created at or
+	// after the given timestamp, in chronological order. Used by features
+	// that need a time-bounded slice of the history (e.g. dispute AI summary
+	// limited to messages exchanged after the mission started).
+	ListMessagesSinceTime(ctx context.Context, conversationID uuid.UUID, since time.Time, limit int) ([]*message.Message, error)
 	UpdateMessage(ctx context.Context, msg *message.Message) error
 	IncrementUnread(ctx context.Context, conversationID, senderID uuid.UUID) error
 	MarkAsRead(ctx context.Context, conversationID, userID uuid.UUID, seq int) error

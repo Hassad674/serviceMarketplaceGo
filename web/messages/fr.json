@@ -244,7 +244,10 @@
     "youtube": "YouTube",
     "twitter": "Twitter / X",
     "github": "GitHub",
-    "website": "Site Web"
+    "website": "Site Web",
+    "awaitingReview": "En attente d'avis",
+    "historyLoadError": "Impossible de charger l'historique",
+    "completedOn": "Terminée le {date}"
   },
   "upload": {
     "addPhoto": "Ajouter une photo",
@@ -683,6 +686,7 @@
     "acceptCounter": "Accepter",
     "rejectCounter": "Refuser",
     "yourLastProposalRefused": "Votre dernière proposition a été refusée",
+    "escalatedNegotiationStillOpen": "Le litige est maintenant en médiation. Tant que l'admin n'a pas rendu sa décision, vous pouvez encore vous mettre d'accord à l'amiable.",
     "cancellationRequestPending": "Demande d'annulation en attente",
     "cancellationRequestWaiting": "En attente de l'accord de l'autre partie pour annuler le litige.",
     "cancellationRequestConsent": "L'autre partie demande l'annulation de ce litige. Votre accord est requis.",

@@ -37,5 +37,7 @@ type PublicProfile struct {
 	Title           string
 	PhotoURL        string
 	ReferrerEnabled bool
+	AverageRating   float64 // average of received reviews (0 when no reviews)
+	ReviewCount     int     // number of non-hidden reviews received
 	CreatedAt       time.Time
 }

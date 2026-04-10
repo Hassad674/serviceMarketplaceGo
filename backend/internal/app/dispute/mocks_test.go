@@ -19,22 +19,24 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockDisputeRepo struct {
-	createFn             func(ctx context.Context, d *disputedomain.Dispute) error
-	getByIDFn            func(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error)
-	getByProposalIDFn    func(ctx context.Context, proposalID uuid.UUID) (*disputedomain.Dispute, error)
-	updateFn             func(ctx context.Context, d *disputedomain.Dispute) error
-	listByUserIDFn       func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error)
-	listPendingFn        func(ctx context.Context) ([]*disputedomain.Dispute, error)
-	listAllFn            func(ctx context.Context, cursor string, limit int, statusFilter string) ([]*disputedomain.Dispute, string, error)
-	createEvidenceFn     func(ctx context.Context, e *disputedomain.Evidence) error
-	listEvidenceFn       func(ctx context.Context, disputeID uuid.UUID) ([]*disputedomain.Evidence, error)
-	createCPFn           func(ctx context.Context, cp *disputedomain.CounterProposal) error
-	getCPByIDFn          func(ctx context.Context, id uuid.UUID) (*disputedomain.CounterProposal, error)
-	updateCPFn           func(ctx context.Context, cp *disputedomain.CounterProposal) error
-	listCPsFn            func(ctx context.Context, disputeID uuid.UUID) ([]*disputedomain.CounterProposal, error)
-	supersedeAllFn       func(ctx context.Context, disputeID uuid.UUID) error
-	countByUserIDFn      func(ctx context.Context, userID uuid.UUID) (int, error)
-	countAllFn           func(ctx context.Context) (int, int, int, error)
+	createFn           func(ctx context.Context, d *disputedomain.Dispute) error
+	getByIDFn          func(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error)
+	getByProposalIDFn  func(ctx context.Context, proposalID uuid.UUID) (*disputedomain.Dispute, error)
+	updateFn           func(ctx context.Context, d *disputedomain.Dispute) error
+	listByUserIDFn     func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error)
+	listPendingFn      func(ctx context.Context) ([]*disputedomain.Dispute, error)
+	listAllFn          func(ctx context.Context, cursor string, limit int, statusFilter string) ([]*disputedomain.Dispute, string, error)
+	createEvidenceFn   func(ctx context.Context, e *disputedomain.Evidence) error
+	listEvidenceFn     func(ctx context.Context, disputeID uuid.UUID) ([]*disputedomain.Evidence, error)
+	createCPFn         func(ctx context.Context, cp *disputedomain.CounterProposal) error
+	getCPByIDFn        func(ctx context.Context, id uuid.UUID) (*disputedomain.CounterProposal, error)
+	updateCPFn         func(ctx context.Context, cp *disputedomain.CounterProposal) error
+	listCPsFn          func(ctx context.Context, disputeID uuid.UUID) ([]*disputedomain.CounterProposal, error)
+	supersedeAllFn     func(ctx context.Context, disputeID uuid.UUID) error
+	createChatMsgFn    func(ctx context.Context, m *disputedomain.ChatMessage) error
+	listChatMsgsFn     func(ctx context.Context, disputeID uuid.UUID) ([]*disputedomain.ChatMessage, error)
+	countByUserIDFn    func(ctx context.Context, userID uuid.UUID) (int, error)
+	countAllFn         func(ctx context.Context) (int, int, int, error)
 }
 
 func (m *mockDisputeRepo) Create(ctx context.Context, d *disputedomain.Dispute) error {
@@ -121,6 +123,18 @@ func (m *mockDisputeRepo) SupersedeAllPending(ctx context.Context, disputeID uui
 	}
 	return nil
 }
+func (m *mockDisputeRepo) CreateChatMessage(ctx context.Context, msg *disputedomain.ChatMessage) error {
+	if m.createChatMsgFn != nil {
+		return m.createChatMsgFn(ctx, msg)
+	}
+	return nil
+}
+func (m *mockDisputeRepo) ListChatMessages(ctx context.Context, disputeID uuid.UUID) ([]*disputedomain.ChatMessage, error) {
+	if m.listChatMsgsFn != nil {
+		return m.listChatMsgsFn(ctx, disputeID)
+	}
+	return []*disputedomain.ChatMessage{}, nil
+}
 func (m *mockDisputeRepo) CountByUserID(ctx context.Context, userID uuid.UUID) (int, error) {
 	if m.countByUserIDFn != nil {
 		return m.countByUserIDFn(ctx, userID)
@@ -166,6 +180,9 @@ func (m *mockProposalRepo) ListByConversation(context.Context, uuid.UUID) ([]*pr
 	return nil, nil
 }
 func (m *mockProposalRepo) ListActiveProjects(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
+	return nil, "", nil
+}
+func (m *mockProposalRepo) ListCompletedByProvider(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
 func (m *mockProposalRepo) GetDocuments(context.Context, uuid.UUID) ([]*proposal.ProposalDocument, error) {
@@ -281,8 +298,12 @@ func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ 
 
 type mockAIAnalyzer struct{}
 
-func (m *mockAIAnalyzer) AnalyzeDispute(_ context.Context, _ service.DisputeAnalysisInput) (string, error) {
-	return "Mock AI analysis: test summary", nil
+func (m *mockAIAnalyzer) AnalyzeDispute(_ context.Context, _ service.DisputeAnalysisInput, _ int) (string, service.AIUsage, error) {
+	return "Mock AI analysis: test summary", service.AIUsage{InputTokens: 1000, OutputTokens: 200}, nil
+}
+
+func (m *mockAIAnalyzer) ChatAboutDispute(_ context.Context, _ service.DisputeAnalysisInput, _ []service.ChatTurn, _ string, _ int) (string, service.AIUsage, error) {
+	return "Mock AI chat answer", service.AIUsage{InputTokens: 800, OutputTokens: 150}, nil
 }
 
 // ---------------------------------------------------------------------------

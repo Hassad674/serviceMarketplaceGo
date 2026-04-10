@@ -1,5 +1,6 @@
 "use client"
 
+import { Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
@@ -102,6 +103,21 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
           <p className="mt-0.5 truncate text-sm text-gray-500 dark:text-gray-400">
             {profile.title || t("noTitle")}
           </p>
+          {profile.review_count > 0 && (
+            <div className="mt-1.5 flex items-center gap-1 text-xs">
+              <Star
+                className="h-3 w-3 fill-amber-400 text-amber-400"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {profile.average_rating.toFixed(1)}
+              </span>
+              <span className="text-gray-500 dark:text-gray-400">
+                ({profile.review_count})
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </Link>

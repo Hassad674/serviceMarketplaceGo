@@ -38,7 +38,11 @@ class DisputeBannerWidget extends StatelessWidget {
     final appColors = theme.extension<AppColors>();
 
     final isOpen = dispute.status == 'open' || dispute.status == 'negotiation';
+    final isEscalated = dispute.status == 'escalated';
     final isResolved = dispute.status == 'resolved';
+    // The full negotiation surface (action buttons, cancellation request,
+    // refused-feedback) stays available all the way through admin mediation.
+    final canStillNegotiate = isOpen || isEscalated;
 
     final color = _statusColor(dispute.status);
     final bgColor = color.withValues(alpha: 0.08);
@@ -121,6 +125,10 @@ class DisputeBannerWidget extends StatelessWidget {
               ],
             ),
           ],
+          if (isEscalated) ...[
+            const SizedBox(height: 10),
+            const _EscalatedNegotiationStillOpenBlock(),
+          ],
           if (lastPendingCp != null) ...[
             const SizedBox(height: 12),
             _ProposalSummary(
@@ -133,7 +141,7 @@ class DisputeBannerWidget extends StatelessWidget {
             const SizedBox(height: 12),
             _RefusedProposalBlock(proposal: latestCp),
           ],
-          if (hasCancellationRequest && isOpen) ...[
+          if (hasCancellationRequest && canStillNegotiate) ...[
             const SizedBox(height: 12),
             _CancellationRequestBlock(
               isRequester: isCancellationRequester,
@@ -145,7 +153,7 @@ class DisputeBannerWidget extends StatelessWidget {
             const SizedBox(height: 12),
             _ResolutionSummary(dispute: dispute, borderColor: borderColor),
           ],
-          if (isOpen) ...[
+          if (canStillNegotiate) ...[
             const SizedBox(height: 14),
             if (canRespondToCancellation &&
                 onAcceptCancellation != null &&
@@ -497,6 +505,36 @@ class _CancelButton extends StatelessWidget {
     return TextButton(
       onPressed: onPressed,
       child: Text(label),
+    );
+  }
+}
+
+class _EscalatedNegotiationStillOpenBlock extends StatelessWidget {
+  const _EscalatedNegotiationStillOpenBlock();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    const orangeBorder = Color(0xFFFED7AA); // orange-200
+    const orangeBg = Color(0xFFFFF7ED); // orange-50
+    const orangeFg = Color(0xFF9A3412); // orange-800
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: orangeBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+        border: Border.all(color: orangeBorder),
+      ),
+      child: Text(
+        l10n.disputeEscalatedNegotiationStillOpen,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: orangeFg,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 }

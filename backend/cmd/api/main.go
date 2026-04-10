@@ -37,6 +37,7 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
+	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
@@ -183,6 +184,14 @@ func main() {
 		Portfolios: portfolioRepo,
 	})
 	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
+
+	// Project history feature (orchestrates proposal + review reads for the
+	// public provider profile page).
+	projectHistorySvc := projecthistoryapp.NewService(projecthistoryapp.ServiceDeps{
+		Proposals: proposalRepo,
+		Reviews:   reviewRepo,
+	})
+	projectHistoryHandler := handler.NewProjectHistoryHandler(projectHistorySvc)
 
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
@@ -473,21 +482,25 @@ func main() {
 		Disputes:      disputeRepo,
 		Proposals:     proposalRepo,
 		Users:         userRepo,
+		MessageRepo:   messageRepo,
 		Messages:      messagingSvc,
 		Notifications: notifSvc,
 		Payments:      paymentInfoSvc,
 		AI:            aiAnalyzer,
 	})
 	disputeHandler := handler.NewDisputeHandler(disputeSvc)
-	adminDisputeHandler := handler.NewAdminDisputeHandler(disputeSvc, disputeRepo)
+	adminDisputeHandler := handler.NewAdminDisputeHandler(disputeSvc, disputeRepo, cfg.Env != "production")
 
-	// Dispute scheduler — auto-resolve ghost (7d) + escalate to admin
+	// Dispute scheduler — auto-resolve ghost (7d) + escalate to admin.
+	// Escalation logic itself is fully delegated to disputeSvc.escalate so
+	// the scheduler and the manual force-escalate endpoint share the same
+	// code path (AI summary, system message, notifications all included).
 	disputeScheduler := disputeapp.NewScheduler(disputeapp.SchedulerDeps{
+		Svc:           disputeSvc,
 		Disputes:      disputeRepo,
 		Proposals:     proposalRepo,
 		Messages:      messagingSvc,
 		Notifications: notifSvc,
-		AI:            aiAnalyzer,
 		Payments:      paymentInfoSvc,
 	})
 	disputeCtx, disputeCancel := context.WithCancel(context.Background())
@@ -529,6 +542,7 @@ func main() {
 		Wallet:         walletHandler,
 		Admin:          adminHandler,
 		Portfolio:      portfolioHandler,
+		ProjectHistory: projectHistoryHandler,
 		Dispute:        disputeHandler,
 		AdminDispute:   adminDisputeHandler,
 		WSHandler:      wsHandler,

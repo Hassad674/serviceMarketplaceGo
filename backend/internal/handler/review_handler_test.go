@@ -89,6 +89,10 @@ func (m *mockReviewRepo) UpdateReviewModeration(_ context.Context, _ uuid.UUID, 
 	return nil
 }
 
+func (m *mockReviewRepo) GetByProposalIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]*reviewdomain.Review, error) {
+	return map[uuid.UUID]*reviewdomain.Review{}, nil
+}
+
 // Compile-time check.
 var _ repository.ReviewRepository = (*mockReviewRepo)(nil)
 
@@ -150,6 +154,10 @@ func (m *mockProposalRepo) ListActiveProjects(ctx context.Context, userID uuid.U
 	if m.listActiveProjectsFn != nil {
 		return m.listActiveProjectsFn(ctx, userID, cursor, limit)
 	}
+	return nil, "", nil
+}
+
+func (m *mockProposalRepo) ListCompletedByProvider(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
 

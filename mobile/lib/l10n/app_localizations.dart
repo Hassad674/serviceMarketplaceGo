@@ -3200,6 +3200,12 @@ abstract class AppLocalizations {
   /// **'Your last proposal was refused'**
   String get disputeYourLastProposalRefused;
 
+  /// No description provided for @disputeEscalatedNegotiationStillOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'The dispute is now under mediation. Until the admin renders a final decision, you can still reach an amicable agreement together.'**
+  String get disputeEscalatedNegotiationStillOpen;
+
   /// No description provided for @disputeCancellationRequestPending.
   ///
   /// In en, this message translates to:

@@ -145,3 +145,11 @@ func parseFloat(s string) float64 {
 	}
 	return v
 }
+
+func parseInt(s string, fallback int) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return fallback
+	}
+	return v
+}

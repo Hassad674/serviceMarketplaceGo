@@ -615,6 +615,7 @@
   "disputeCancellationRefusedLabel": "Cancellation refused",
 
   "disputeYourLastProposalRefused": "Your last proposal was refused",
+  "disputeEscalatedNegotiationStillOpen": "The dispute is now under mediation. Until the admin renders a final decision, you can still reach an amicable agreement together.",
   "disputeCancellationRequestPending": "Cancellation request pending",
   "disputeCancellationRequestWaiting": "Waiting for the other party to accept or refuse your cancellation request.",
   "disputeCancellationRequestConsent": "The other party is asking to cancel this dispute. Your consent is required.",

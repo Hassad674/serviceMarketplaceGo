@@ -329,6 +329,90 @@ func TestDispute_ClearCancellationRequest(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// AI budget tier and tracking
+// ---------------------------------------------------------------------------
+
+func TestDispute_AITier(t *testing.T) {
+	cases := []struct {
+		name           string
+		proposalCents  int64
+		wantTier       AITier
+		wantSummaryCap int
+		wantChatCap    int
+	}{
+		{"tier S below 500 EUR", 10000, AITierS, 30000, 20000},      // 100 EUR
+		{"tier S edge just below 500 EUR", 49999, AITierS, 30000, 20000}, // 499.99 EUR
+		{"tier M at 500 EUR", 50000, AITierM, 40000, 25000},          // 500 EUR
+		{"tier M middle of band", 250000, AITierM, 40000, 25000},     // 2500 EUR
+		{"tier L at 5000 EUR", 500000, AITierL, 60000, 40000},        // 5000 EUR
+		{"tier L middle of band", 1500000, AITierL, 60000, 40000},    // 15000 EUR
+		{"tier XL at 20000 EUR", 2000000, AITierXL, 90000, 60000},    // 20000 EUR
+		{"tier XL high", 10000000, AITierXL, 90000, 60000},           // 100000 EUR
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := &Dispute{ProposalAmount: tc.proposalCents}
+			assert.Equal(t, tc.wantTier, d.AITier())
+			assert.Equal(t, tc.wantSummaryCap, d.AIBudgetSummary())
+			assert.Equal(t, tc.wantChatCap, d.AIBudgetChat())
+		})
+	}
+}
+
+func TestDispute_AIBudget_BonusAddedToBothCaps(t *testing.T) {
+	d := &Dispute{ProposalAmount: 100000} // tier M: 40k summary, 25k chat
+	assert.Equal(t, 40000, d.AIBudgetSummary())
+	assert.Equal(t, 25000, d.AIBudgetChat())
+
+	d.AddAIBudgetBonus(25000)
+	assert.Equal(t, 65000, d.AIBudgetSummary(), "bonus must add to summary cap")
+	assert.Equal(t, 50000, d.AIBudgetChat(), "bonus must add to chat cap")
+
+	// Multiple bonuses accumulate.
+	d.AddAIBudgetBonus(10000)
+	assert.Equal(t, 75000, d.AIBudgetSummary())
+	assert.Equal(t, 60000, d.AIBudgetChat())
+}
+
+func TestDispute_AddAIBudgetBonus_IgnoresNonPositive(t *testing.T) {
+	d := &Dispute{ProposalAmount: 100000}
+	d.AddAIBudgetBonus(0)
+	d.AddAIBudgetBonus(-500)
+	assert.Equal(t, 0, d.AIBudgetBonusTokens)
+}
+
+func TestDispute_RecordAISummaryUsage(t *testing.T) {
+	d := &Dispute{ProposalAmount: 100000}
+	d.RecordAISummaryUsage(2500, 800)
+	assert.Equal(t, 2500, d.AISummaryInputTokens)
+	assert.Equal(t, 800, d.AISummaryOutputTokens)
+	assert.Equal(t, 3300, d.AISummaryUsed())
+	assert.Equal(t, 40000-3300, d.AISummaryRemaining())
+
+	// Subsequent calls accumulate.
+	d.RecordAISummaryUsage(1500, 200)
+	assert.Equal(t, 4000, d.AISummaryInputTokens)
+	assert.Equal(t, 1000, d.AISummaryOutputTokens)
+	assert.Equal(t, 5000, d.AISummaryUsed())
+}
+
+func TestDispute_RecordAIChatUsage(t *testing.T) {
+	d := &Dispute{ProposalAmount: 100000} // tier M: chat cap 25k
+	d.RecordAIChatUsage(3000, 600)
+	assert.Equal(t, 3600, d.AIChatUsed())
+	assert.Equal(t, 25000-3600, d.AIChatRemaining())
+}
+
+func TestDispute_RecordAIUsage_NegativeIgnored(t *testing.T) {
+	d := &Dispute{ProposalAmount: 100000}
+	d.RecordAISummaryUsage(-100, -50)
+	d.RecordAIChatUsage(-200, -75)
+	assert.Equal(t, 0, d.AISummaryUsed())
+	assert.Equal(t, 0, d.AIChatUsed())
+}
+
+// ---------------------------------------------------------------------------
 // Counter-proposal
 // ---------------------------------------------------------------------------
 

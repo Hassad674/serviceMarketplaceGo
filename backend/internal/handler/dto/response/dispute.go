@@ -38,7 +38,35 @@ type DisputeResponse struct {
 
 type AdminDisputeResponse struct {
 	DisputeResponse
-	AISummary *string `json:"ai_summary"`
+	AISummary      *string                 `json:"ai_summary"`
+	AIBudget       AIBudgetSummary         `json:"ai_budget"`
+	AIChatHistory  []AIChatMessageResponse `json:"ai_chat_history"`
+}
+
+// AIChatMessageResponse is one persisted turn of the admin AI chat.
+// Loaded with the dispute detail and rendered chronologically by the
+// admin frontend.
+type AIChatMessageResponse struct {
+	ID           string `json:"id"`
+	Role         string `json:"role"` // "user" or "assistant"
+	Content      string `json:"content"`
+	InputTokens  int    `json:"input_tokens"`
+	OutputTokens int    `json:"output_tokens"`
+	CreatedAt    string `json:"created_at"`
+}
+
+// AIBudgetSummary describes the cumulative AI usage and remaining budget
+// for a dispute. Computed from the dispute's tier + tracked tokens, sent
+// to the admin frontend so it can render the live cost panel.
+type AIBudgetSummary struct {
+	Tier                string  `json:"tier"`         // "S" | "M" | "L" | "XL"
+	BonusTokens         int     `json:"bonus_tokens"` // cumulative bonus from "Augmenter le budget"
+	SummaryUsedTokens   int     `json:"summary_used_tokens"`
+	SummaryMaxTokens    int     `json:"summary_max_tokens"`
+	ChatUsedTokens      int     `json:"chat_used_tokens"`
+	ChatMaxTokens       int     `json:"chat_max_tokens"`
+	TotalUsedTokens     int     `json:"total_used_tokens"`
+	TotalCostEUR        float64 `json:"total_cost_eur"` // 4-decimal precision
 }
 
 type EvidenceResponse struct {
@@ -130,10 +158,50 @@ func NewDisputeResponse(d *dispute.Dispute, ev []*dispute.Evidence, cps []*dispu
 	return resp
 }
 
-func NewAdminDisputeResponse(d *dispute.Dispute, ev []*dispute.Evidence, cps []*dispute.CounterProposal) AdminDisputeResponse {
+func NewAdminDisputeResponse(d *dispute.Dispute, ev []*dispute.Evidence, cps []*dispute.CounterProposal, chats []*dispute.ChatMessage) AdminDisputeResponse {
+	chatHistory := make([]AIChatMessageResponse, 0, len(chats))
+	for _, c := range chats {
+		chatHistory = append(chatHistory, AIChatMessageResponse{
+			ID:           c.ID.String(),
+			Role:         string(c.Role),
+			Content:      c.Content,
+			InputTokens:  c.InputTokens,
+			OutputTokens: c.OutputTokens,
+			CreatedAt:    c.CreatedAt.Format(time.RFC3339),
+		})
+	}
 	return AdminDisputeResponse{
 		DisputeResponse: NewDisputeResponse(d, ev, cps),
 		AISummary:       d.AISummary,
+		AIBudget:        buildAIBudgetSummary(d),
+		AIChatHistory:   chatHistory,
+	}
+}
+
+// AI cost constants — Claude Haiku 4.5 pricing as of 2026.
+// Input: $1 per million tokens. Output: $5 per million tokens.
+// USD→EUR conversion is a fixed estimate; precise enough for an admin
+// dashboard display, easy to swap out if pricing changes.
+const (
+	AnthropicHaikuInputUSDPerMillion  = 1.0
+	AnthropicHaikuOutputUSDPerMillion = 5.0
+	USDToEURRate                      = 0.92
+)
+
+func buildAIBudgetSummary(d *dispute.Dispute) AIBudgetSummary {
+	totalInput := d.AISummaryInputTokens + d.AIChatInputTokens
+	totalOutput := d.AISummaryOutputTokens + d.AIChatOutputTokens
+	costUSD := (float64(totalInput)*AnthropicHaikuInputUSDPerMillion +
+		float64(totalOutput)*AnthropicHaikuOutputUSDPerMillion) / 1_000_000
+	return AIBudgetSummary{
+		Tier:              string(d.AITier()),
+		BonusTokens:       d.AIBudgetBonusTokens,
+		SummaryUsedTokens: d.AISummaryUsed(),
+		SummaryMaxTokens:  d.AIBudgetSummary(),
+		ChatUsedTokens:    d.AIChatUsed(),
+		ChatMaxTokens:     d.AIBudgetChat(),
+		TotalUsedTokens:   totalInput + totalOutput,
+		TotalCostEUR:      costUSD * USDToEURRate,
 	}
 }
 

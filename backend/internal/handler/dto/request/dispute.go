@@ -36,3 +36,11 @@ type AdminResolveDisputeRequest struct {
 	AmountProvider int64  `json:"amount_provider"`
 	Note           string `json:"note"`
 }
+
+// AskAIDisputeRequest is the body of the admin AI chat endpoint. The
+// chat history is loaded from the database by the backend (not from the
+// request body) so admins cannot tamper with the context the AI sees and
+// so multiple admins on the same dispute share state automatically.
+type AskAIDisputeRequest struct {
+	Question string `json:"question"`
+}

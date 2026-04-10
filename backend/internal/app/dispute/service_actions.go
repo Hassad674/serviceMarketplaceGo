@@ -10,6 +10,7 @@ import (
 	disputedomain "marketplace-backend/internal/domain/dispute"
 	"marketplace-backend/internal/domain/message"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
+	portservice "marketplace-backend/internal/port/service"
 )
 
 // ---------------------------------------------------------------------------
@@ -186,7 +187,11 @@ func (s *Service) CounterPropose(ctx context.Context, in CounterProposeInput) (*
 	if err != nil {
 		return nil, err
 	}
-	if d.Status != disputedomain.StatusOpen && d.Status != disputedomain.StatusNegotiation {
+	// Counter-proposals stay open through admin mediation: parties can still
+	// reach an amicable agreement until the admin issues a final decision.
+	if d.Status != disputedomain.StatusOpen &&
+		d.Status != disputedomain.StatusNegotiation &&
+		d.Status != disputedomain.StatusEscalated {
 		return nil, disputedomain.ErrInvalidStatus
 	}
 	if !d.IsParticipant(in.ProposerID) {
@@ -466,6 +471,201 @@ func (s *Service) RespondToCancellation(ctx context.Context, in RespondToCancell
 }
 
 // ---------------------------------------------------------------------------
+// ForceEscalate (dev/testing)
+// ---------------------------------------------------------------------------
+
+// ForceEscalate immediately escalates a dispute to admin mediation,
+// bypassing the 7-day inactivity window. Intended for development and
+// manual testing — the handler that exposes it MUST gate the route on
+// non-production environments.
+//
+// Internally this is a thin wrapper around escalate(), the same code path
+// the scheduler uses, so the test result is fully identical to production.
+func (s *Service) ForceEscalate(ctx context.Context, disputeID uuid.UUID) error {
+	d, err := s.disputes.GetByID(ctx, disputeID)
+	if err != nil {
+		return err
+	}
+	return s.escalate(ctx, d)
+}
+
+// escalate is the canonical escalation routine: transition to escalated,
+// generate the AI summary (best-effort), persist, broadcast a system
+// message to the conversation and notify both parties. It is shared
+// between the scheduler (timed escalation after 7 days of inactivity)
+// and ForceEscalate (manual dev trigger) so both produce identical state.
+func (s *Service) escalate(ctx context.Context, d *disputedomain.Dispute) error {
+	if err := d.Escalate(); err != nil {
+		return err
+	}
+
+	// AI summary is best-effort: a failure here is logged but does not
+	// abort the escalation. The admin can still mediate without it.
+	if s.ai != nil {
+		summary, usage, err := s.generateAISummary(ctx, d)
+		if err != nil {
+			slog.Warn("dispute: AI analysis failed", "dispute_id", d.ID, "error", err)
+		} else {
+			d.SetAISummary(summary)
+			// Record the actual token usage from the API response so the
+			// dispute carries an accurate cost trail for the admin UI.
+			d.RecordAISummaryUsage(usage.InputTokens, usage.OutputTokens)
+		}
+	}
+
+	if err := s.disputes.Update(ctx, d); err != nil {
+		return fmt.Errorf("update dispute: %w", err)
+	}
+
+	s.sendSystemMessage(ctx, d.ConversationID, uuid.Nil,
+		message.MessageTypeDisputeEscalated, buildEscalatedMetadata(d))
+	s.notifyBothParties(ctx, d, "dispute_escalated",
+		"Litige transmis a la mediation",
+		"Votre litige a ete transmis a l'equipe de mediation pour decision.")
+
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat (admin Q&A on a dispute)
+// ---------------------------------------------------------------------------
+
+// AskAIInput groups the parameters for an admin chat question. The chat
+// history is NOT in this struct on purpose: the backend loads it from
+// dispute_ai_chat_messages so the admin frontend can't tamper with what
+// the AI sees, and so multiple admins on the same dispute share state.
+type AskAIInput struct {
+	DisputeID uuid.UUID
+	Question  string
+}
+
+// AskAIOutput is what the chat call returns to the handler.
+type AskAIOutput struct {
+	Answer       string
+	InputTokens  int
+	OutputTokens int
+}
+
+// AskAI processes an admin chat question on an escalated dispute.
+//
+//   - Loads the dispute, the persisted chat history, and verifies the AI
+//     chat budget has not been exceeded (with the +10% overshoot tolerance).
+//   - Builds the dispute context and forwards the persisted history (NOT
+//     a client-supplied one) so admins cannot tamper with what the AI sees.
+//   - Calls the AIAnalyzer with the remaining chat budget.
+//   - Persists BOTH the user question and the assistant answer as
+//     append-only rows in dispute_ai_chat_messages, then updates the
+//     dispute's cumulative chat token counters.
+//
+// Returns ErrAIBudgetChatExceeded when the cumulative chat usage has
+// reached 110% of the dispute's chat budget. The admin can resolve this
+// by clicking "Augmenter le budget" which calls IncreaseAIBudget.
+func (s *Service) AskAI(ctx context.Context, in AskAIInput) (*AskAIOutput, error) {
+	if s.ai == nil {
+		return nil, fmt.Errorf("AI analyzer not configured")
+	}
+	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Hard ceiling at 110% of the chat budget. We allow a small overshoot
+	// because the char/4 estimator is imprecise — refusing only past +10%
+	// avoids false rejections on borderline cases.
+	chatBudget := d.AIBudgetChat()
+	overshootCeiling := chatBudget + chatBudget/10
+	if d.AIChatUsed() >= overshootCeiling {
+		return nil, disputedomain.ErrAIBudgetChatExceeded
+	}
+
+	// Load the persisted chat history from DB. This is the source of
+	// truth — the admin frontend never sends history in the request body.
+	persistedHistory, err := s.disputes.ListChatMessages(ctx, d.ID)
+	if err != nil {
+		return nil, fmt.Errorf("load chat history: %w", err)
+	}
+
+	input, err := s.buildAIInput(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+
+	// Pass the REMAINING chat budget to the adapter so the input
+	// truncation logic targets the right ceiling for this specific call.
+	remaining := chatBudget - d.AIChatUsed()
+	if remaining < 1500 {
+		// Floor: even at the very edge, give the adapter enough room to
+		// build a minimal prompt + reserve the output cap. The overshoot
+		// tolerance above already gates against truly empty budgets.
+		remaining = 1500
+	}
+
+	// Convert persisted history to the port-layer ChatTurn shape.
+	portHistory := make([]portservice.ChatTurn, 0, len(persistedHistory))
+	for _, m := range persistedHistory {
+		portHistory = append(portHistory, portservice.ChatTurn{
+			Role:    string(m.Role),
+			Content: m.Content,
+		})
+	}
+
+	answer, usage, err := s.ai.ChatAboutDispute(ctx, input, portHistory, in.Question, remaining)
+	if err != nil {
+		return nil, fmt.Errorf("ai chat: %w", err)
+	}
+
+	// Persist both turns. The user question records 0 tokens (it isn't
+	// charged on its own — the API call that includes it is). The
+	// assistant answer carries the actual usage from the API response.
+	userMsg := disputedomain.NewChatMessage(d.ID, disputedomain.ChatMessageRoleUser, in.Question, 0, 0)
+	if err := s.disputes.CreateChatMessage(ctx, userMsg); err != nil {
+		return nil, fmt.Errorf("persist user chat message: %w", err)
+	}
+	assistantMsg := disputedomain.NewChatMessage(d.ID, disputedomain.ChatMessageRoleAssistant, answer, usage.InputTokens, usage.OutputTokens)
+	if err := s.disputes.CreateChatMessage(ctx, assistantMsg); err != nil {
+		return nil, fmt.Errorf("persist assistant chat message: %w", err)
+	}
+
+	d.RecordAIChatUsage(usage.InputTokens, usage.OutputTokens)
+	if err := s.disputes.Update(ctx, d); err != nil {
+		return nil, fmt.Errorf("update dispute after ai chat: %w", err)
+	}
+
+	return &AskAIOutput{
+		Answer:       answer,
+		InputTokens:  usage.InputTokens,
+		OutputTokens: usage.OutputTokens,
+	}, nil
+}
+
+// IncreaseAIBudget grants extra AI budget on the dispute via the admin
+// "Augmenter le budget" button. Each call adds the configured amount;
+// the admin can click multiple times if they need more.
+func (s *Service) IncreaseAIBudget(ctx context.Context, disputeID uuid.UUID, amount int) error {
+	if amount <= 0 {
+		amount = AIBudgetBonusIncrement
+	}
+	d, err := s.disputes.GetByID(ctx, disputeID)
+	if err != nil {
+		return err
+	}
+	d.AddAIBudgetBonus(amount)
+	if err := s.disputes.Update(ctx, d); err != nil {
+		return fmt.Errorf("update dispute after budget increase: %w", err)
+	}
+	slog.Info("dispute AI budget increased",
+		"dispute_id", d.ID, "amount_tokens", amount,
+		"new_summary_cap", d.AIBudgetSummary(),
+		"new_chat_cap", d.AIBudgetChat(),
+	)
+	return nil
+}
+
+// AIBudgetBonusIncrement is the amount of tokens added to a dispute's
+// AI budget each time the admin clicks "Augmenter le budget".
+const AIBudgetBonusIncrement = 25000
+
+// ---------------------------------------------------------------------------
 // AdminResolve
 // ---------------------------------------------------------------------------
 
@@ -508,6 +708,7 @@ type DisputeDetail struct {
 	Dispute          *disputedomain.Dispute
 	Evidence         []*disputedomain.Evidence
 	CounterProposals []*disputedomain.CounterProposal
+	ChatMessages     []*disputedomain.ChatMessage
 }
 
 func (s *Service) GetDispute(ctx context.Context, userID, disputeID uuid.UUID) (*DisputeDetail, error) {
@@ -538,7 +739,20 @@ func (s *Service) loadDetail(ctx context.Context, d *disputedomain.Dispute) (*Di
 	if err != nil {
 		return nil, fmt.Errorf("load counter-proposals: %w", err)
 	}
-	return &DisputeDetail{Dispute: d, Evidence: evidence, CounterProposals: cps}, nil
+	// Chat history is best-effort: a load failure does not block the
+	// detail page (the rest of the dispute is still useful). The admin
+	// just sees an empty chat panel they can re-populate.
+	chats, err := s.disputes.ListChatMessages(ctx, d.ID)
+	if err != nil {
+		slog.Warn("dispute: failed to load chat messages", "dispute_id", d.ID, "error", err)
+		chats = nil
+	}
+	return &DisputeDetail{
+		Dispute:          d,
+		Evidence:         evidence,
+		CounterProposals: cps,
+		ChatMessages:     chats,
+	}, nil
 }
 
 func (s *Service) ListMyDisputes(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error) {

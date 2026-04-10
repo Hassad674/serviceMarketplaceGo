@@ -358,6 +358,37 @@ func (r *ConversationRepository) GetMessagesSinceSeq(ctx context.Context, conver
 	return results, nil
 }
 
+func (r *ConversationRepository) ListMessagesSinceTime(ctx context.Context, conversationID uuid.UUID, since time.Time, limit int) ([]*message.Message, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryListMessagesSinceTime, conversationID, since, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list messages since time: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*message.Message
+	for rows.Next() {
+		msg, err := scanMessageFromRows(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan message: %w", err)
+		}
+		results = append(results, msg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	if results == nil {
+		results = []*message.Message{}
+	}
+	return results, nil
+}
+
 func (r *ConversationRepository) UpdateMessage(ctx context.Context, msg *message.Message) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

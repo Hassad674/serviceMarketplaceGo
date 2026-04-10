@@ -59,7 +59,9 @@ export default function ProjectDetailPage({
               respondMutation.mutate({ cpId, accept: false }, { onSuccess: () => refetchDispute() })
             }
             onCancel={
-              dispute.status === "open" || dispute.status === "negotiation"
+              dispute.status === "open" ||
+              dispute.status === "negotiation" ||
+              dispute.status === "escalated"
                 ? () => cancelMutation.mutate(dispute.id, { onSuccess: () => refetchDispute() })
                 : undefined
             }

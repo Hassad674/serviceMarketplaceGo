@@ -31,6 +31,10 @@ type DisputeRepository interface {
 	ListCounterProposals(ctx context.Context, disputeID uuid.UUID) ([]*dispute.CounterProposal, error)
 	SupersedeAllPending(ctx context.Context, disputeID uuid.UUID) error
 
+	// AI chat history (admin Q/A persisted append-only per dispute)
+	CreateChatMessage(ctx context.Context, msg *dispute.ChatMessage) error
+	ListChatMessages(ctx context.Context, disputeID uuid.UUID) ([]*dispute.ChatMessage, error)
+
 	// Stats
 	CountByUserID(ctx context.Context, userID uuid.UUID) (int, error)
 	CountAll(ctx context.Context) (total int, open int, escalated int, err error)

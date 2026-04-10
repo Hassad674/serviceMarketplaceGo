@@ -94,6 +94,14 @@ export function DisputeBanner({
             </div>
           ) : null}
 
+          {dispute.status === "escalated" && (
+            <div className="mt-2 rounded-lg border border-orange-200 bg-orange-50/60 p-3 text-xs dark:border-orange-500/30 dark:bg-orange-500/10">
+              <p className="text-orange-800 dark:text-orange-200">
+                {t("escalatedNegotiationStillOpen")}
+              </p>
+            </div>
+          )}
+
           {lastCP && (
             <div className="mt-2 rounded-lg bg-white/60 dark:bg-slate-800/60 p-3 text-sm">
               <p className="font-medium text-slate-700 dark:text-slate-300">{t("lastProposal")}</p>
@@ -155,7 +163,9 @@ export function DisputeBanner({
         </div>
       </div>
 
-      {(dispute.status === "open" || dispute.status === "negotiation") && (
+      {(dispute.status === "open" ||
+        dispute.status === "negotiation" ||
+        dispute.status === "escalated") && (
         <div className="mt-3 flex flex-wrap gap-2 pl-8">
           {/* Cancellation request actions take priority — respondent must accept or refuse */}
           {canRespondToCancellation && onAcceptCancellation && onRefuseCancellation ? (

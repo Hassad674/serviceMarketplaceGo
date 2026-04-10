@@ -12,6 +12,7 @@ import { ProfileAbout } from "./profile-about"
 import { ProfileHistory } from "./profile-history"
 import { ProfileSkeleton } from "./profile-skeleton"
 import { PublicPortfolioSection } from "./portfolio-grid"
+import { useProfileRating } from "../hooks/use-profile-rating"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
 
@@ -41,6 +42,7 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
     queryFn: () => apiClient<Profile>(`/api/v1/profiles/${userId}`),
     staleTime: 5 * 60 * 1000,
   })
+  const { data: rating } = useProfileRating(userId)
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -82,6 +84,8 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
           displayName={displayName}
           roleContext={roleContext}
           readOnly
+          averageRating={rating?.average}
+          reviewCount={rating?.count}
         />
 
         <ProfileVideo
@@ -95,7 +99,7 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
         />
 
         <PublicPortfolioSection userId={userId} />
-        <ProfileHistory readOnly />
+        <ProfileHistory userId={userId} readOnly />
       </div>
     </div>
   )

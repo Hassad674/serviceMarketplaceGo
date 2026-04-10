@@ -167,6 +167,9 @@ func (m *mockMessageRepo) ListMessages(_ context.Context, _ repository.ListMessa
 func (m *mockMessageRepo) GetMessagesSinceSeq(_ context.Context, _ uuid.UUID, _ int, _ int) ([]*messagedomain.Message, error) {
 	return nil, nil
 }
+func (m *mockMessageRepo) ListMessagesSinceTime(_ context.Context, _ uuid.UUID, _ time.Time, _ int) ([]*messagedomain.Message, error) {
+	return nil, nil
+}
 func (m *mockMessageRepo) UpdateMessage(_ context.Context, _ *messagedomain.Message) error {
 	return nil
 }
