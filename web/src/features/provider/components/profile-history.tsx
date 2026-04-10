@@ -22,8 +22,11 @@ export function ProfileHistory({ userId, readOnly = false }: ProfileHistoryProps
   const entries = data?.data ?? []
   const count = entries.length
 
-  // Public profile: hide the entire section if empty — no value to a visitor.
-  if (readOnly && !isLoading && count === 0) return null
+  // Public profile: hide the entire section when there's nothing to show
+  // (empty result or error) — a visitor doesn't care about a load failure.
+  // On the private profile (readOnly === false) we always render so the
+  // owner sees the empty/error state and can act on it.
+  if (readOnly && !isLoading && (isError || count === 0)) return null
 
   return (
     <section className="bg-card border border-border rounded-xl p-4 shadow-sm sm:p-6">
