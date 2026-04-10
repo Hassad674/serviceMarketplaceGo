@@ -1,5 +1,9 @@
 package postgres
 
+// organization_id is resolved at INSERT time from organization_members,
+// keyed on the client (the business side of the proposal). Agencies/
+// Enterprises have a row there and get denormalized. Provider-only
+// proposals keep NULL.
 const queryInsertProposal = `
 	INSERT INTO proposals (
 		id, conversation_id, sender_id, recipient_id,
@@ -8,7 +12,7 @@ const queryInsertProposal = `
 		client_id, provider_id, metadata,
 		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
-		created_at, updated_at
+		created_at, updated_at, organization_id
 	) VALUES (
 		$1, $2, $3, $4,
 		$5, $6, $7, $8,
@@ -16,7 +20,8 @@ const queryInsertProposal = `
 		$12, $13, $14,
 		$15, $16,
 		$17, $18, $19, $20,
-		$21, $22
+		$21, $22,
+		(SELECT organization_id FROM organization_members WHERE user_id = $12 LIMIT 1)
 	)`
 
 const queryGetProposalByID = `

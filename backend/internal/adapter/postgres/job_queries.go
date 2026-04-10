@@ -6,15 +6,23 @@ const jobColumns = `id, creator_id, title, description, skills,
 		payment_frequency, duration_weeks, is_indefinite,
 		description_type, video_url`
 
+// organization_id is resolved at INSERT time from organization_members,
+// which is the source of truth for membership. Providers have no row in
+// organization_members, so the column stays NULL for them. Agencies/
+// Enterprises (including operators acting on behalf of the org) get the
+// org denormalized onto the job, which lets operators list the org's
+// jobs in later phases without touching the domain entity.
 const queryInsertJob = `
 	INSERT INTO jobs (
-		id, creator_id, title, description, skills,
+		id, creator_id, organization_id, title, description, skills,
 		applicant_type, budget_type, min_budget, max_budget,
 		status, created_at, updated_at, closed_at,
 		payment_frequency, duration_weeks, is_indefinite,
 		description_type, video_url
 	) VALUES (
-		$1, $2, $3, $4, $5,
+		$1, $2,
+		(SELECT organization_id FROM organization_members WHERE user_id = $2 LIMIT 1),
+		$3, $4, $5,
 		$6, $7, $8, $9,
 		$10, $11, $12, $13,
 		$14, $15, $16,

@@ -61,6 +61,10 @@ func (r *ConversationRepository) FindOrCreateConversation(ctx context.Context, u
 		return uuid.UUID{}, false, fmt.Errorf("insert participant B: %w", err)
 	}
 
+	if _, err := tx.ExecContext(ctx, queryBackfillConversationOrg, conv.ID); err != nil {
+		return uuid.UUID{}, false, fmt.Errorf("backfill conversation org: %w", err)
+	}
+
 	if err := tx.Commit(); err != nil {
 		// On serialization failure, retry once: the other transaction likely created it
 		if isSerializationError(err) {

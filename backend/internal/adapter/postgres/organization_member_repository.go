@@ -208,19 +208,39 @@ func (r *OrganizationMemberRepository) Delete(ctx context.Context, id uuid.UUID)
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, "DELETE FROM organization_members WHERE id = $1", id)
+	// Delete the membership row and clear the denormalized
+	// users.organization_id in one transaction. The WHERE guard on the
+	// UPDATE prevents clobbering a user who has already been re-assigned
+	// to a different org concurrently.
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var (
+		deletedUserID uuid.UUID
+		deletedOrgID  uuid.UUID
+	)
+	if err := tx.QueryRowContext(ctx,
+		`DELETE FROM organization_members WHERE id = $1 RETURNING user_id, organization_id`,
+		id,
+	).Scan(&deletedUserID, &deletedOrgID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return organization.ErrMemberNotFound
+		}
 		return fmt.Errorf("delete organization member: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("check rows affected: %w", err)
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE users SET organization_id = NULL, updated_at = now()
+		 WHERE id = $1 AND organization_id = $2`,
+		deletedUserID, deletedOrgID,
+	); err != nil {
+		return fmt.Errorf("clear user organization_id: %w", err)
 	}
-	if rows == 0 {
-		return organization.ErrMemberNotFound
-	}
-	return nil
+
+	return tx.Commit()
 }
 
 // scanOne scans a single row (from QueryRowContext) into a Member.
