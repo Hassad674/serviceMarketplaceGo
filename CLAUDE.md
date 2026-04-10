@@ -606,6 +606,17 @@ cd admin && npm run dev
 6. **Revert**: each task is a separate commit on main. If a commit breaks something → `git revert <commit>` without affecting other work.
 7. **Golden rule**: never merge work that doesn't compile. Verify before every merge.
 
+### Branch ownership rule (mandatory)
+
+**An agent must NEVER commit on a branch it did not create itself.** Every Claude agent owns exactly the branch(es) it created in its current session — nothing else.
+
+- **At session start**: always run `git branch --show-current` and `git status` first thing. If HEAD is not on `main` and not on a branch you created in this session, STOP.
+- **Before any work**: switch to `main`, then create your own dedicated branch: `git switch main && git switch -c feat/<your-task>`. Never reuse another agent's branch even if HEAD happens to land on it.
+- **If the working tree contains uncommitted changes you did not make** (another agent's WIP from a shared checkout): do NOT switch branches — those changes will follow you. Ask the user to have the other agent stash or commit first, then switch cleanly.
+- **A branch "looking like yours" is not enough** — if you didn't create it in this session, it's not yours. Treat it as foreign.
+
+**Why:** During a parallel session, an agent's HEAD landed on another agent's `feat/team-management` branch (shared checkout). The agent committed there by mistake, polluting the other agent's branch and complicating its merge. Branch ownership must be strictly respected — every agent works exclusively on branches it owns.
+
 ### Naming conventions
 - Feature branches: `feat/<feature-name>`
 - Bug fix branches: `fix/<description>`
