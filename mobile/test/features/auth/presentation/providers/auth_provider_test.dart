@@ -147,7 +147,12 @@ Response<dynamic> _successMeResponse() {
   return Response(
     requestOptions: RequestOptions(path: '/api/v1/auth/me'),
     statusCode: 200,
-    data: _testUser,
+    // Match the backend { user, organization } envelope introduced by the
+    // team management phases. Provider (solo) → organization is null.
+    data: {
+      'user': _testUser,
+      'organization': null,
+    },
   );
 }
 

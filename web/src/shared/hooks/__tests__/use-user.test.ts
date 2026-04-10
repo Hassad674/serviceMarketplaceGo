@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createElement } from "react"
-import { useUser, useLogout } from "../use-user"
+import { useUser, useOrganization, useSession, useLogout } from "../use-user"
 
 const mockFetch = vi.fn()
 vi.stubGlobal("fetch", mockFetch)
@@ -26,34 +26,54 @@ function createWrapper() {
     createElement(QueryClientProvider, { client: queryClient }, children)
 }
 
+const agencyUser = {
+  id: "user-1",
+  email: "test@example.com",
+  first_name: "Test",
+  last_name: "User",
+  display_name: "Test User",
+  role: "agency",
+  referrer_enabled: false,
+  email_verified: true,
+  created_at: "2026-03-20T10:00:00Z",
+}
+
+const agencyOrg = {
+  id: "org-1",
+  type: "agency",
+  owner_user_id: "user-1",
+  member_role: "owner",
+  member_title: "",
+  permissions: ["jobs.create", "jobs.view", "team.invite"],
+}
+
+const providerUser = {
+  ...agencyUser,
+  id: "user-2",
+  role: "provider",
+}
+
+function mockMe(body: unknown) {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve(body),
+  })
+}
+
 describe("useUser", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it("fetches current user from /api/v1/auth/me", async () => {
-    const user = {
-      id: "user-1",
-      email: "test@example.com",
-      first_name: "Test",
-      last_name: "User",
-      display_name: "Test User",
-      role: "provider",
-      referrer_enabled: false,
-      email_verified: true,
-      created_at: "2026-03-20T10:00:00Z",
-    }
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(user),
-    })
+  it("returns just the user slice from /api/v1/auth/me", async () => {
+    mockMe({ user: agencyUser, organization: agencyOrg })
 
     const { result } = renderHook(() => useUser(), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual(user)
+    expect(result.current.data).toEqual(agencyUser)
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/v1/auth/me"),
       expect.objectContaining({ credentials: "include" }),
@@ -68,6 +88,70 @@ describe("useUser", () => {
     })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+})
+
+describe("useOrganization", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("returns the organization slice for an agency user", async () => {
+    mockMe({ user: agencyUser, organization: agencyOrg })
+
+    const { result } = renderHook(() => useOrganization(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual(agencyOrg)
+  })
+
+  it("returns null for a solo provider", async () => {
+    mockMe({ user: providerUser, organization: null })
+
+    const { result } = renderHook(() => useOrganization(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toBeNull()
+  })
+})
+
+describe("useSession", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("returns the full { user, organization } payload", async () => {
+    mockMe({ user: agencyUser, organization: agencyOrg })
+
+    const { result } = renderHook(() => useSession(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toEqual({
+      user: agencyUser,
+      organization: agencyOrg,
+    })
+  })
+
+  it("issues a single fetch even when useUser + useOrganization + useSession are mounted together", async () => {
+    mockMe({ user: agencyUser, organization: agencyOrg })
+
+    const wrapper = createWrapper()
+    renderHook(
+      () => {
+        useUser()
+        useOrganization()
+        useSession()
+      },
+      { wrapper },
+    )
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1))
   })
 })
 

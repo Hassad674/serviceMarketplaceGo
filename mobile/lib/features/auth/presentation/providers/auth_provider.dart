@@ -79,8 +79,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       // Verify the token is still valid by hitting /auth/me.
+      // Backend returns { user, organization } — read the user slice.
+      // Organization is intentionally ignored here until the mobile team
+      // management UI lands (phases 5-8).
       final response = await _api.get('/api/v1/auth/me');
-      final user = response.data as Map<String, dynamic>;
+      final body = response.data as Map<String, dynamic>;
+      final user = body['user'] as Map<String, dynamic>;
       await _storage.saveUser(user);
 
       state = AuthState(

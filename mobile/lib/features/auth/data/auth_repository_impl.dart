@@ -75,7 +75,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<User> getMe() async {
     final response = await _apiClient.get('/api/v1/auth/me');
-    return _parseUser(response.data);
+    // Backend returns { user, organization } — read the user slice.
+    // Organization is intentionally dropped at this layer until the mobile
+    // team management UI lands (phases 5-8) and introduces its own entity.
+    return _parseUser(response.data['user']);
   }
 
   @override
