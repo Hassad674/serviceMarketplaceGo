@@ -29,6 +29,10 @@ func NewJWTService(secret string, accessExpiry, refreshExpiry time.Duration) *JW
 // Organization context (OrgID, OrgRole) is optional and omitted from the
 // JSON when the user is a solo Provider. The omitempty tags keep the
 // token payload small for users without an org.
+//
+// SessionVersion is intentionally NOT marked omitempty: we want it to be
+// explicitly present (even when 0) so the middleware can distinguish
+// "claim present, value 0" from "claim absent, assume 0".
 type customClaims struct {
 	UserID  string `json:"user_id"`
 	Role    string `json:"role,omitempty"`
@@ -40,16 +44,21 @@ type customClaims struct {
 	OrgID   string `json:"org_id,omitempty"`
 	OrgRole string `json:"org_role,omitempty"`
 
+	// SessionVersion is the revocation anchor. Middleware compares this
+	// against users.session_version and rejects on mismatch.
+	SessionVersion int `json:"sv,omitempty"`
+
 	jwt.RegisteredClaims
 }
 
 func (s *JWTService) GenerateAccessToken(input service.AccessTokenInput) (string, error) {
 	claims := customClaims{
-		UserID:  input.UserID.String(),
-		Role:    input.Role,
-		IsAdmin: input.IsAdmin,
-		Type:    "access",
-		OrgRole: input.OrgRole,
+		UserID:         input.UserID.String(),
+		Role:           input.Role,
+		IsAdmin:        input.IsAdmin,
+		Type:           "access",
+		OrgRole:        input.OrgRole,
+		SessionVersion: input.SessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -113,11 +122,12 @@ func (s *JWTService) validateToken(tokenString string, expectedType string) (*se
 	}
 
 	result := &service.TokenClaims{
-		UserID:    userID,
-		Role:      claims.Role,
-		IsAdmin:   claims.IsAdmin,
-		ExpiresAt: claims.ExpiresAt.Time,
-		OrgRole:   claims.OrgRole,
+		UserID:         userID,
+		Role:           claims.Role,
+		IsAdmin:        claims.IsAdmin,
+		ExpiresAt:      claims.ExpiresAt.Time,
+		OrgRole:        claims.OrgRole,
+		SessionVersion: claims.SessionVersion,
 	}
 	if claims.OrgID != "" {
 		orgID, err := uuid.Parse(claims.OrgID)

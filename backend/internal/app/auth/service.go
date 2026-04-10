@@ -205,12 +205,15 @@ func (s *Service) provisionOrgForNewUser(ctx context.Context, u *user.User) (*or
 }
 
 // buildAccessInput prepares the TokenService input from a user and an
-// optional org context.
+// optional org context. The session_version is copied from the user's
+// current value so the auth middleware has a reference to compare
+// future requests against.
 func buildAccessInput(u *user.User, orgCtx *orgContext) service.AccessTokenInput {
 	input := service.AccessTokenInput{
-		UserID:  u.ID,
-		Role:    u.Role.String(),
-		IsAdmin: u.IsAdmin,
+		UserID:         u.ID,
+		Role:           u.Role.String(),
+		IsAdmin:        u.IsAdmin,
+		SessionVersion: u.SessionVersion,
 	}
 	if orgCtx != nil && orgCtx.Organization != nil && orgCtx.Member != nil {
 		orgID := orgCtx.Organization.ID

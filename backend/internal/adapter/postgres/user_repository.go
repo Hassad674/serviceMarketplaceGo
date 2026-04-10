@@ -62,7 +62,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	defer cancel()
 
 	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, session_version, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
 		FROM users WHERE id = $1`
 
 	u := &user.User{}
@@ -70,7 +70,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	var stripeAcctID sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-		&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
+		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
 		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
@@ -96,7 +96,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	defer cancel()
 
 	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, session_version, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
 		FROM users WHERE email = $1`
 
 	u := &user.User{}
@@ -104,7 +104,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	var stripeAcctID sql.NullString
 	err := r.db.QueryRowContext(ctx, query, email).Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-		&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
+		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
 		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
@@ -181,6 +181,59 @@ func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// BumpSessionVersion atomically increments the user's session_version
+// counter by one and returns the new value. Every mutation that changes
+// the user's effective permissions (role change, membership removal,
+// suspension, password change, token theft recovery) MUST call this
+// method so the auth middleware knows to reject any in-flight JWT that
+// was issued with the previous version.
+//
+// The operation is idempotent with respect to external caches: the
+// middleware always compares the JWT's session_version against the
+// fresh value returned by this method (cached for a short TTL in
+// Redis), so a bump takes effect on the next request.
+func (r *UserRepository) BumpSessionVersion(ctx context.Context, userID uuid.UUID) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var newVersion int
+	err := r.db.QueryRowContext(ctx,
+		`UPDATE users
+		 SET session_version = session_version + 1, updated_at = now()
+		 WHERE id = $1
+		 RETURNING session_version`,
+		userID,
+	).Scan(&newVersion)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, user.ErrUserNotFound
+		}
+		return 0, fmt.Errorf("bump session version: %w", err)
+	}
+	return newVersion, nil
+}
+
+// GetSessionVersion reads the current session_version for a user. Used
+// by the auth middleware's revocation check — typically cached in Redis
+// with a short TTL so it doesn't add a DB round-trip to every request.
+func (r *UserRepository) GetSessionVersion(ctx context.Context, userID uuid.UUID) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var version int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT session_version FROM users WHERE id = $1`,
+		userID,
+	).Scan(&version)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, user.ErrUserNotFound
+		}
+		return 0, fmt.Errorf("get session version: %w", err)
+	}
+	return version, nil
 }
 
 func (r *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {

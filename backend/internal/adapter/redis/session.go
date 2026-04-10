@@ -24,12 +24,13 @@ func NewSessionService(client *goredis.Client, ttl time.Duration) *SessionServic
 // sessionData is the JSON payload stored in Redis for a session.
 // Organization fields use pointer/empty to gracefully degrade for Providers.
 type sessionData struct {
-	UserID    string    `json:"user_id"`
-	Role      string    `json:"role"`
-	IsAdmin   bool      `json:"is_admin"`
-	OrgID     string    `json:"org_id,omitempty"`
-	OrgRole   string    `json:"org_role,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	UserID         string    `json:"user_id"`
+	Role           string    `json:"role"`
+	IsAdmin        bool      `json:"is_admin"`
+	OrgID          string    `json:"org_id,omitempty"`
+	OrgRole        string    `json:"org_role,omitempty"`
+	SessionVersion int       `json:"sv,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 func (s *SessionService) Create(ctx context.Context, input service.CreateSessionInput) (*service.Session, error) {
@@ -37,11 +38,12 @@ func (s *SessionService) Create(ctx context.Context, input service.CreateSession
 	now := time.Now()
 
 	data := sessionData{
-		UserID:    input.UserID.String(),
-		Role:      input.Role,
-		IsAdmin:   input.IsAdmin,
-		OrgRole:   input.OrgRole,
-		CreatedAt: now,
+		UserID:         input.UserID.String(),
+		Role:           input.Role,
+		IsAdmin:        input.IsAdmin,
+		OrgRole:        input.OrgRole,
+		SessionVersion: input.SessionVersion,
+		CreatedAt:      now,
 	}
 	if input.OrganizationID != nil {
 		data.OrgID = input.OrganizationID.String()
@@ -63,6 +65,7 @@ func (s *SessionService) Create(ctx context.Context, input service.CreateSession
 		IsAdmin:        input.IsAdmin,
 		OrganizationID: input.OrganizationID,
 		OrgRole:        input.OrgRole,
+		SessionVersion: input.SessionVersion,
 		CreatedAt:      now,
 	}, nil
 }
@@ -87,12 +90,13 @@ func (s *SessionService) Get(ctx context.Context, sessionID string) (*service.Se
 	}
 
 	session := &service.Session{
-		ID:        sessionID,
-		UserID:    userID,
-		Role:      data.Role,
-		IsAdmin:   data.IsAdmin,
-		OrgRole:   data.OrgRole,
-		CreatedAt: data.CreatedAt,
+		ID:             sessionID,
+		UserID:         userID,
+		Role:           data.Role,
+		IsAdmin:        data.IsAdmin,
+		OrgRole:        data.OrgRole,
+		SessionVersion: data.SessionVersion,
+		CreatedAt:      data.CreatedAt,
 	}
 	if data.OrgID != "" {
 		orgID, err := uuid.Parse(data.OrgID)

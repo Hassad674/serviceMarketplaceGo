@@ -18,6 +18,11 @@ type CreateSessionInput struct {
 	// Organization context — nil / empty for Providers.
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// SessionVersion mirrors the one in AccessTokenInput. Copied from
+	// users.session_version at login so the cookie session stays in
+	// sync with the JWT issued for mobile clients.
+	SessionVersion int
 }
 
 // Session is the decoded content of a persisted session record.
@@ -31,6 +36,11 @@ type Session struct {
 	// Organization context — nil / empty for solo users.
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// SessionVersion at the time the session was created. The auth
+	// middleware compares this against the current value in the DB
+	// and rejects stale sessions the same way it handles stale JWTs.
+	SessionVersion int
 }
 
 type SessionService interface {

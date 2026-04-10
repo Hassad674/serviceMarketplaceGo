@@ -639,3 +639,11 @@ func TestCheckAutoSuspension_NilUserRepo_NoAction(t *testing.T) {
 func (m *mockUserRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.Time) error { return nil }
 func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, error) { return nil, nil }
 func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error { return nil }
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}

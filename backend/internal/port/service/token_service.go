@@ -20,6 +20,13 @@ type AccessTokenInput struct {
 	// OrganizationID = nil and OrgRole = "".
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// SessionVersion is copied from user.session_version at issuance
+	// time. The auth middleware compares this against the current value
+	// on every request — a mismatch means the user's effective
+	// permissions have changed and any in-flight token must be rejected.
+	// Defaults to 0 for fresh accounts.
+	SessionVersion int
 }
 
 // TokenClaims is the decoded payload of a validated token.
@@ -34,6 +41,11 @@ type TokenClaims struct {
 	// Organization context — nil / empty for solo users (Providers).
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// SessionVersion from the decoded access token. Auth middleware
+	// compares this against the current users.session_version and
+	// rejects the request if they differ.
+	SessionVersion int
 }
 
 type TokenService interface {

@@ -156,6 +156,11 @@ func main() {
 		RateLimiter: invitationRateLimiter,
 		FrontendURL: cfg.FrontendURL,
 	})
+	membershipSvc := organizationapp.NewMembershipService(organizationapp.MembershipServiceDeps{
+		Orgs:    organizationRepo,
+		Members: organizationMemberRepo,
+		Users:   userRepo,
+	})
 	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
 		Users:       userRepo,
 		Resets:      resetRepo,
@@ -471,6 +476,7 @@ func main() {
 		SessionService:    sessionSvc,
 		Cookie:            cookieCfg,
 	})
+	teamHandler := handler.NewTeamHandler(membershipSvc, organizationSvc)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
@@ -557,6 +563,7 @@ func main() {
 	r := handler.NewRouter(handler.RouterDeps{
 		Auth:           authHandler,
 		Invitation:     invitationHandler,
+		Team:           teamHandler,
 		Profile:        profileHandler,
 		Upload:         uploadHandler,
 		Health:         healthHandler,

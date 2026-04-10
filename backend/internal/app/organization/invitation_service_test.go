@@ -533,3 +533,11 @@ func TestInvitationService_CancelInvitation_Success(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, organization.InvitationStatusCancelled, invRepo.storedInvitations[inv.ID].Status)
 }
+
+// --- Session version stubs (migration 056, Phase 3) ---
+func (m *mockUserRepoForInvites) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepoForInvites) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}

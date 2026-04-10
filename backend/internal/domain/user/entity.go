@@ -74,6 +74,16 @@ type User struct {
 	Role            Role
 	AccountType     AccountType
 	ReferrerEnabled bool
+
+	// SessionVersion is incremented every time the user's effective
+	// permissions change (role bumped/demoted, removed from org,
+	// suspended, password changed). The JWT carries the session version
+	// at issuance time, and the auth middleware compares against the
+	// current value on every request. A mismatch triggers immediate 401
+	// — this is the revocation mechanism that gives us "immediate"
+	// effect on sensitive security actions.
+	SessionVersion int
+
 	IsAdmin             bool
 	Status              UserStatus
 	SuspendedAt         *time.Time
