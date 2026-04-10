@@ -623,5 +623,21 @@
   "disputeAcceptCancellation": "Accept cancellation",
   "disputeRefuseCancellation": "Refuse",
 
+  "disputeDecisionTitle": "Mediation decision",
+  "disputeDecisionYourShare": "You receive {percent}% — {amount}",
+  "@disputeDecisionYourShare": {
+    "placeholders": {
+      "percent": { "type": "int" },
+      "amount": { "type": "String" }
+    }
+  },
+  "disputeDecisionMessage": "Message from the admin",
+  "disputeDecisionRenderedOn": "Rendered on {date}",
+  "@disputeDecisionRenderedOn": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "disputeCancelledTitle": "Dispute cancelled",
+  "disputeCancelledSubtitle": "The dispute was cancelled by mutual agreement.",
+
   "projectStatusDisputed": "Disputed"
 }

@@ -8,6 +8,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../dispute/presentation/providers/dispute_provider.dart';
 import '../../../dispute/presentation/widgets/dispute_banner_widget.dart';
+import '../../../dispute/presentation/widgets/dispute_resolution_card.dart';
 import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../types/proposal.dart';
@@ -112,6 +113,15 @@ class _ProposalDetailBody extends ConsumerWidget {
               disputeId: proposal.activeDisputeId!,
               currentUserId: currentUserId,
               proposalAmount: proposal.amount,
+            ),
+
+          // Historical resolution card — when a past dispute exists but
+          // there is no active one. Lets both parties always see how the
+          // dispute ended (split + admin note + date).
+          if (proposal.activeDisputeId == null && proposal.lastDisputeId != null)
+            _DisputeResolutionSection(
+              disputeId: proposal.lastDisputeId!,
+              currentUserId: currentUserId,
             ),
 
           // Report a problem button (only when no active dispute and mission active)
@@ -721,6 +731,29 @@ class _DisputeBannerSection extends ConsumerWidget {
             );
           }
         },
+      ),
+    );
+  }
+}
+
+class _DisputeResolutionSection extends ConsumerWidget {
+  const _DisputeResolutionSection({
+    required this.disputeId,
+    required this.currentUserId,
+  });
+
+  final String disputeId;
+  final String currentUserId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncDispute = ref.watch(disputeByIdProvider(disputeId));
+    return asyncDispute.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (dispute) => DisputeResolutionCard(
+        dispute: dispute,
+        currentUserId: currentUserId,
       ),
     );
   }

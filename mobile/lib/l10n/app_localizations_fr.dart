@@ -1666,5 +1666,28 @@ class AppLocalizationsFr extends AppLocalizations {
   String get disputeRefuseCancellation => 'Refuser';
 
   @override
+  String get disputeDecisionTitle => 'Décision de médiation';
+
+  @override
+  String disputeDecisionYourShare(int percent, String amount) {
+    return 'Vous recevez $percent% — $amount';
+  }
+
+  @override
+  String get disputeDecisionMessage => 'Message de l\'admin';
+
+  @override
+  String disputeDecisionRenderedOn(String date) {
+    return 'Rendue le $date';
+  }
+
+  @override
+  String get disputeCancelledTitle => 'Litige annulé';
+
+  @override
+  String get disputeCancelledSubtitle =>
+      'Le litige a été annulé par accord mutuel.';
+
+  @override
   String get projectStatusDisputed => 'En litige';
 }

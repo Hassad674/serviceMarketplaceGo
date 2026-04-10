@@ -6,7 +6,7 @@ const queryInsertProposal = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	) VALUES (
@@ -14,9 +14,9 @@ const queryInsertProposal = `
 		$5, $6, $7, $8,
 		$9, $10, $11,
 		$12, $13, $14,
-		$15,
-		$16, $17, $18, $19,
-		$20, $21
+		$15, $16,
+		$17, $18, $19, $20,
+		$21, $22
 	)`
 
 const queryGetProposalByID = `
@@ -24,7 +24,7 @@ const queryGetProposalByID = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals
@@ -39,7 +39,8 @@ const queryUpdateProposal = `
 		completed_at = $6,
 		metadata = $7,
 		active_dispute_id = $8,
-		updated_at = $9
+		last_dispute_id = $9,
+		updated_at = $10
 	WHERE id = $1`
 
 const queryGetLatestVersion = `
@@ -47,7 +48,7 @@ const queryGetLatestVersion = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals
@@ -60,7 +61,7 @@ const queryListByConversation = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals
@@ -72,7 +73,7 @@ const queryListActiveProjectsFirst = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals
@@ -86,7 +87,7 @@ const queryListActiveProjectsWithCursor = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals
@@ -101,7 +102,7 @@ const queryListCompletedByProviderFirst = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals
@@ -116,7 +117,7 @@ const queryListCompletedByProviderWithCursor = `
 		title, description, amount, deadline,
 		status, parent_id, version,
 		client_id, provider_id, metadata,
-		active_dispute_id,
+		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
 		created_at, updated_at
 	FROM proposals

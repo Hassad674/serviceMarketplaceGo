@@ -691,7 +691,13 @@
     "cancellationRequestWaiting": "Waiting for the other party to accept or refuse your cancellation request.",
     "cancellationRequestConsent": "The other party is asking to cancel this dispute. Your consent is required.",
     "acceptCancellation": "Accept cancellation",
-    "refuseCancellation": "Refuse"
+    "refuseCancellation": "Refuse",
+    "decisionTitle": "Mediation decision",
+    "decisionYourShare": "You receive {percent}% — {amount}",
+    "decisionMessage": "Message from the admin",
+    "decisionRenderedOn": "Rendered on {date}",
+    "disputeCancelledTitle": "Dispute cancelled",
+    "disputeCancelledSubtitle": "The dispute was cancelled by mutual agreement."
   },
   "paymentInfo": {
     "header": "Payment information",

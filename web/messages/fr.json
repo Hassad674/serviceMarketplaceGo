@@ -691,7 +691,13 @@
     "cancellationRequestWaiting": "En attente de l'accord de l'autre partie pour annuler le litige.",
     "cancellationRequestConsent": "L'autre partie demande l'annulation de ce litige. Votre accord est requis.",
     "acceptCancellation": "Accepter l'annulation",
-    "refuseCancellation": "Refuser"
+    "refuseCancellation": "Refuser",
+    "decisionTitle": "Décision de médiation",
+    "decisionYourShare": "Vous recevez {percent}% — {amount}",
+    "decisionMessage": "Message de l'admin",
+    "decisionRenderedOn": "Rendue le {date}",
+    "disputeCancelledTitle": "Litige annulé",
+    "disputeCancelledSubtitle": "Le litige a été annulé par accord mutuel."
   },
   "paymentInfo": {
     "header": "Informations de paiement",

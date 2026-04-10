@@ -10,6 +10,7 @@ import { useProposal } from "@/features/proposal/hooks/use-proposals"
 import { DisputeBanner } from "@/features/dispute/components/dispute-banner"
 import { DisputeForm } from "@/features/dispute/components/dispute-form"
 import { DisputeCounterForm } from "@/features/dispute/components/dispute-counter-form"
+import { DisputeResolutionCard } from "@/features/dispute/components/dispute-resolution-card"
 import {
   useDispute,
   useCancelDispute,
@@ -27,6 +28,14 @@ export default function ProjectDetailPage({
   const { data: user } = useUser()
   const { data: proposal } = useProposal(id)
   const { data: dispute, refetch: refetchDispute } = useDispute(proposal?.active_dispute_id ?? undefined)
+  // Historical dispute fetch — only triggered when there is NO active
+  // dispute but a past one exists. Used to render the resolution card so
+  // both parties can always see how the dispute ended (split + admin note).
+  const historicalDisputeId =
+    !proposal?.active_dispute_id && proposal?.last_dispute_id
+      ? proposal.last_dispute_id
+      : undefined
+  const { data: historicalDispute } = useDispute(historicalDisputeId)
   const cancelMutation = useCancelDispute()
   const respondMutation = useRespondToCounter(dispute?.id ?? "")
   const cancelResponseMutation = useRespondToCancellation(dispute?.id ?? "")
@@ -87,6 +96,15 @@ export default function ProjectDetailPage({
               />
             </div>
           )}
+        </div>
+      )}
+
+      {/* Historical resolution card — shown when there's no active dispute
+          but a past one exists. Lets both parties always see how the
+          dispute ended (split + admin note + date). */}
+      {historicalDispute && user && (
+        <div className="mx-auto max-w-5xl px-4 pt-8">
+          <DisputeResolutionCard dispute={historicalDispute} currentUserId={user.id} />
         </div>
       )}
 

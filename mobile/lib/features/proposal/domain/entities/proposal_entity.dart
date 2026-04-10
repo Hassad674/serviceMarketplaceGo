@@ -20,6 +20,7 @@ class ProposalEntity {
     required this.providerId,
     this.documents = const [],
     this.activeDisputeId,
+    this.lastDisputeId,
     this.acceptedAt,
     this.paidAt,
     required this.createdAt,
@@ -40,6 +41,10 @@ class ProposalEntity {
   final String providerId;
   final List<ProposalDocumentEntity> documents;
   final String? activeDisputeId;
+  // Most recent dispute ever opened on this proposal, regardless of its
+  // current status. Set when a dispute is created, NEVER cleared, so the
+  // project page can render the historical decision after restoration.
+  final String? lastDisputeId;
   final String? acceptedAt;
   final String? paidAt;
   final String createdAt;
@@ -70,6 +75,7 @@ class ProposalEntity {
       providerId: json['provider_id'] as String,
       documents: docs,
       activeDisputeId: json['active_dispute_id'] as String?,
+      lastDisputeId: json['last_dispute_id'] as String?,
       acceptedAt: json['accepted_at'] as String?,
       paidAt: json['paid_at'] as String?,
       createdAt: json['created_at'] as String,

@@ -49,7 +49,15 @@ type Proposal struct {
 	ClientID       uuid.UUID
 	ProviderID     uuid.UUID
 	Metadata        json.RawMessage
+	// ActiveDisputeID points to the dispute currently in progress on this
+	// proposal (status open/negotiation/escalated). Cleared on resolution
+	// or cancellation by RestoreFromDispute.
 	ActiveDisputeID *uuid.UUID
+	// LastDisputeID is the most recent dispute that has ever existed on
+	// this proposal, regardless of its current status. Set when a dispute
+	// is opened and NEVER cleared, so the project page can always show
+	// the historical decision (split + admin note) after resolution.
+	LastDisputeID  *uuid.UUID
 	AcceptedAt     *time.Time
 	DeclinedAt     *time.Time
 	PaidAt         *time.Time
@@ -247,18 +255,24 @@ func (p *Proposal) RejectCompletion(userID uuid.UUID) error {
 
 // MarkDisputed transitions the proposal to disputed status and records the
 // dispute ID. Only active or completion_requested proposals can be disputed.
+//
+// Both ActiveDisputeID (cleared later by RestoreFromDispute) and
+// LastDisputeID (kept forever) are set to the same value, so the project
+// page can keep displaying the historical decision after restoration.
 func (p *Proposal) MarkDisputed(disputeID uuid.UUID) error {
 	if p.Status != StatusActive && p.Status != StatusCompletionRequested {
 		return ErrInvalidStatus
 	}
 	p.ActiveDisputeID = &disputeID
+	p.LastDisputeID = &disputeID
 	p.Status = StatusDisputed
 	p.UpdatedAt = time.Now()
 	return nil
 }
 
 // RestoreFromDispute returns the proposal to the given target status after a
-// dispute is resolved or cancelled. Clears the active dispute reference.
+// dispute is resolved or cancelled. Clears the active dispute reference but
+// keeps LastDisputeID intact for the historical display.
 func (p *Proposal) RestoreFromDispute(target ProposalStatus) error {
 	if p.Status != StatusDisputed {
 		return ErrInvalidStatus

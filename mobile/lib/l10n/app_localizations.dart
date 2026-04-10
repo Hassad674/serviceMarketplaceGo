@@ -3242,6 +3242,42 @@ abstract class AppLocalizations {
   /// **'Refuse'**
   String get disputeRefuseCancellation;
 
+  /// No description provided for @disputeDecisionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Mediation decision'**
+  String get disputeDecisionTitle;
+
+  /// No description provided for @disputeDecisionYourShare.
+  ///
+  /// In en, this message translates to:
+  /// **'You receive {percent}% — {amount}'**
+  String disputeDecisionYourShare(int percent, String amount);
+
+  /// No description provided for @disputeDecisionMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Message from the admin'**
+  String get disputeDecisionMessage;
+
+  /// No description provided for @disputeDecisionRenderedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Rendered on {date}'**
+  String disputeDecisionRenderedOn(String date);
+
+  /// No description provided for @disputeCancelledTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispute cancelled'**
+  String get disputeCancelledTitle;
+
+  /// No description provided for @disputeCancelledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The dispute was cancelled by mutual agreement.'**
+  String get disputeCancelledSubtitle;
+
   /// No description provided for @projectStatusDisputed.
   ///
   /// In en, this message translates to:

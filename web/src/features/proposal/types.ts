@@ -34,6 +34,10 @@ export type ProposalResponse = {
   client_name: string
   provider_name: string
   active_dispute_id: string | null
+  // Most recent dispute ever opened on this proposal, regardless of its
+  // current status. Set when a dispute is created, NEVER cleared, so the
+  // project page can render the historical decision after restoration.
+  last_dispute_id?: string | null
   documents: ProposalDocument[]
   accepted_at: string | null
   paid_at: string | null

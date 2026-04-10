@@ -616,5 +616,21 @@
   "disputeAcceptCancellation": "Accepter l'annulation",
   "disputeRefuseCancellation": "Refuser",
 
+  "disputeDecisionTitle": "Décision de médiation",
+  "disputeDecisionYourShare": "Vous recevez {percent}% — {amount}",
+  "@disputeDecisionYourShare": {
+    "placeholders": {
+      "percent": { "type": "int" },
+      "amount": { "type": "String" }
+    }
+  },
+  "disputeDecisionMessage": "Message de l'admin",
+  "disputeDecisionRenderedOn": "Rendue le {date}",
+  "@disputeDecisionRenderedOn": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "disputeCancelledTitle": "Litige annulé",
+  "disputeCancelledSubtitle": "Le litige a été annulé par accord mutuel.",
+
   "projectStatusDisputed": "En litige"
 }

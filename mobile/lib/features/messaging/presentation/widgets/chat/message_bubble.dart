@@ -301,7 +301,6 @@ class MessageBubble extends StatelessWidget {
         type == 'call_missed' ||
         type == 'dispute_counter_accepted' ||
         type == 'dispute_escalated' ||
-        type == 'dispute_resolved' ||
         type == 'dispute_cancelled' ||
         type == 'dispute_auto_resolved' ||
         type == 'dispute_cancellation_refused';
@@ -313,6 +312,7 @@ class MessageBubble extends StatelessWidget {
     return type == 'dispute_opened' ||
         type == 'dispute_counter_proposal' ||
         type == 'dispute_counter_rejected' ||
+        type == 'dispute_resolved' ||
         type == 'dispute_cancellation_requested';
   }
 
@@ -461,11 +461,6 @@ class MessageBubble extends StatelessWidget {
           Icons.shield_outlined,
           l10n.disputeEscalatedLabel,
           const Color(0xFFEA580C),
-        ),
-      'dispute_resolved' => (
-          Icons.check_circle_outline,
-          l10n.disputeResolvedLabel,
-          const Color(0xFF16A34A),
         ),
       'dispute_cancelled' => (
           Icons.cancel_outlined,

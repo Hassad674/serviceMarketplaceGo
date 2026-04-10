@@ -23,14 +23,23 @@ class DisputeCard extends StatelessWidget {
     final metadata = message.metadata ?? const {};
     final reason = metadata['reason'] as String? ?? '';
     final requestedAmount = (metadata['requested_amount'] as num?)?.toInt() ?? 0;
-    final amountClient = (metadata['amount_client'] as num?)?.toInt() ?? 0;
-    final amountProvider = (metadata['amount_provider'] as num?)?.toInt() ?? 0;
-    final partyMessage = metadata['message'] as String? ?? '';
+    // Counter-proposal amounts vs final resolution amounts — use whichever
+    // the metadata has so the same card can render both flows.
+    final amountClient = (metadata['amount_client'] as num?)?.toInt() ??
+        (metadata['resolution_amount_client'] as num?)?.toInt() ??
+        0;
+    final amountProvider = (metadata['amount_provider'] as num?)?.toInt() ??
+        (metadata['resolution_amount_provider'] as num?)?.toInt() ??
+        0;
+    final partyMessage = metadata['message'] as String? ??
+        metadata['resolution_note'] as String? ??
+        '';
     final proposalId = metadata['proposal_id'] as String? ?? '';
 
     final isOpened = message.type == 'dispute_opened';
     final isCancellationRequest = message.type == 'dispute_cancellation_requested';
     final isCounterRejected = message.type == 'dispute_counter_rejected';
+    final isResolved = message.type == 'dispute_resolved';
 
     final Color color;
     if (isOpened) {
@@ -39,6 +48,8 @@ class DisputeCard extends StatelessWidget {
       color = const Color(0xFFD97706); // amber-600
     } else if (isCounterRejected) {
       color = const Color(0xFFEF4444); // red-500
+    } else if (isResolved) {
+      color = const Color(0xFF059669); // emerald-600
     } else {
       color = const Color(0xFFD97706); // default: amber for counter_proposal
     }
@@ -51,8 +62,8 @@ class DisputeCard extends StatelessWidget {
     } else if (isCancellationRequest) {
       subtitle = l10n.disputeCancellationRequestConsent;
     } else {
-      // counter_proposal + counter_rejected both expose the amounts so the
-      // chat history stays self-explanatory even after the proposal dies.
+      // counter_proposal + counter_rejected + resolved all expose the
+      // amounts so the chat history is self-explanatory.
       final clientStr = _formatEur(amountClient);
       final providerStr = _formatEur(amountProvider);
       subtitle = l10n.disputeSplit(clientStr, providerStr);
@@ -65,6 +76,8 @@ class DisputeCard extends StatelessWidget {
       title = l10n.disputeCancellationRequestedLabel;
     } else if (isCounterRejected) {
       title = l10n.disputeCounterRejectedLabel;
+    } else if (isResolved) {
+      title = l10n.disputeResolvedLabel;
     } else {
       title = l10n.disputeCounterProposalLabel;
     }
@@ -76,6 +89,8 @@ class DisputeCard extends StatelessWidget {
       iconData = Icons.block_outlined;
     } else if (isCounterRejected) {
       iconData = Icons.cancel_outlined;
+    } else if (isResolved) {
+      iconData = Icons.balance;
     } else {
       iconData = Icons.swap_horiz;
     }
