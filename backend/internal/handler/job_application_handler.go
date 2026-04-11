@@ -186,13 +186,16 @@ func (h *JobApplicationHandler) ListOpenJobs(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *JobApplicationHandler) GetCredits(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	// R12 — credits live on the organization row, so the handler reads
+	// the caller's org from the JWT context. Every operator of the same
+	// team sees the same number (shared-workspace semantics).
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
-	credits, err := h.jobSvc.GetCredits(r.Context(), userID)
+	credits, err := h.jobSvc.GetCredits(r.Context(), orgID)
 	if err != nil {
 		handleJobError(w, err)
 		return

@@ -272,19 +272,22 @@ func (s *Service) ReopenJob(ctx context.Context, jobID, userID uuid.UUID) error 
 	return nil
 }
 
-// GetCredits returns the current application credit balance for the user.
-func (s *Service) GetCredits(ctx context.Context, userID uuid.UUID) (int, error) {
+// GetCredits returns the shared application credit balance for the
+// given organization. Every operator of the same org sees the same
+// number — that is the whole point of R12.
+func (s *Service) GetCredits(ctx context.Context, orgID uuid.UUID) (int, error) {
 	if s.credits == nil {
 		return domain.WeeklyQuota, nil
 	}
-	credits, err := s.credits.GetOrCreate(ctx, userID)
+	credits, err := s.credits.GetOrCreate(ctx, orgID)
 	if err != nil {
 		return 0, fmt.Errorf("get credits: %w", err)
 	}
 	return credits, nil
 }
 
-// ResetWeeklyCredits resets all users below the weekly quota back to the quota.
+// ResetWeeklyCredits resets every org below the weekly quota back to
+// the quota. Triggered by the external weekly cron.
 func (s *Service) ResetWeeklyCredits(ctx context.Context) error {
 	if s.credits == nil {
 		return nil
@@ -292,11 +295,23 @@ func (s *Service) ResetWeeklyCredits(ctx context.Context) error {
 	return s.credits.ResetWeekly(ctx, domain.WeeklyQuota)
 }
 
+// ResetCreditsForUser accepts a user id for admin UX convenience
+// (admins click "reset this user's credits" on a user row), but
+// resolves the user's org under the hood and resets the shared pool —
+// because that is where credits actually live after R12. If the user
+// has no org, the call is a no-op.
 func (s *Service) ResetCreditsForUser(ctx context.Context, userID uuid.UUID) error {
 	if s.credits == nil {
 		return nil
 	}
-	return s.credits.ResetForUser(ctx, userID, domain.WeeklyQuota)
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user for credit reset: %w", err)
+	}
+	if u.OrganizationID == nil {
+		return nil
+	}
+	return s.credits.ResetForOrg(ctx, *u.OrganizationID, domain.WeeklyQuota)
 }
 
 func canCreateJob(role user.Role) bool {

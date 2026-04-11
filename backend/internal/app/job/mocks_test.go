@@ -290,36 +290,53 @@ func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*user.User, er
 }
 
 // --- mockJobCreditRepo ---
+//
+// R12 — credit ops are now keyed by org id. The mock keeps the same
+// shape as the old per-user mock so existing tests only need minor
+// rewiring (the same `uuid.UUID` slot is now semantically "orgID").
 
 type mockJobCreditRepo struct {
-	getOrCreateFn func(ctx context.Context, userID uuid.UUID) (int, error)
-	decrementFn   func(ctx context.Context, userID uuid.UUID) error
-	addBonusFn    func(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error
+	getOrCreateFn func(ctx context.Context, orgID uuid.UUID) (int, error)
+	decrementFn   func(ctx context.Context, orgID uuid.UUID) error
+	refundFn      func(ctx context.Context, orgID uuid.UUID) error
+	addBonusFn    func(ctx context.Context, orgID uuid.UUID, amount int, maxTokens int) error
 	resetWeeklyFn func(ctx context.Context, minCredits int) error
+
+	decrementCalls []uuid.UUID
+	refundCalls    []uuid.UUID
 }
 
-func (m *mockJobCreditRepo) GetOrCreate(ctx context.Context, userID uuid.UUID) (int, error) {
+func (m *mockJobCreditRepo) GetOrCreate(ctx context.Context, orgID uuid.UUID) (int, error) {
 	if m.getOrCreateFn != nil {
-		return m.getOrCreateFn(ctx, userID)
+		return m.getOrCreateFn(ctx, orgID)
 	}
 	return domain.WeeklyQuota, nil
 }
 
-func (m *mockJobCreditRepo) Decrement(ctx context.Context, userID uuid.UUID) error {
+func (m *mockJobCreditRepo) Decrement(ctx context.Context, orgID uuid.UUID) error {
+	m.decrementCalls = append(m.decrementCalls, orgID)
 	if m.decrementFn != nil {
-		return m.decrementFn(ctx, userID)
+		return m.decrementFn(ctx, orgID)
 	}
 	return nil
 }
 
-func (m *mockJobCreditRepo) AddBonus(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error {
+func (m *mockJobCreditRepo) Refund(ctx context.Context, orgID uuid.UUID) error {
+	m.refundCalls = append(m.refundCalls, orgID)
+	if m.refundFn != nil {
+		return m.refundFn(ctx, orgID)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) AddBonus(ctx context.Context, orgID uuid.UUID, amount int, maxTokens int) error {
 	if m.addBonusFn != nil {
-		return m.addBonusFn(ctx, userID, amount, maxTokens)
+		return m.addBonusFn(ctx, orgID, amount, maxTokens)
 	}
 	return nil
 }
 
-func (m *mockJobCreditRepo) ResetForUser(_ context.Context, _ uuid.UUID, _ int) error { return nil }
+func (m *mockJobCreditRepo) ResetForOrg(_ context.Context, _ uuid.UUID, _ int) error { return nil }
 
 func (m *mockJobCreditRepo) ResetWeekly(ctx context.Context, minCredits int) error {
 	if m.resetWeeklyFn != nil {

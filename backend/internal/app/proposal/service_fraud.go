@@ -115,13 +115,29 @@ func (s *Service) evaluateFraudPatterns(ctx context.Context, p *domain.Proposal)
 }
 
 // awardBonusDirect adds bonus credits without fraud check (used as fallback).
+//
+// R12 — Credits live on organizations now, so the bonus lands on the
+// provider's org (shared by all of its operators) rather than on the
+// provider's user row. Resolving the org goes through the existing
+// OrganizationRepository dependency — no new wiring needed.
 func (s *Service) awardBonusDirect(ctx context.Context, providerID uuid.UUID) {
 	if s.credits == nil {
 		return
 	}
-	if err := s.credits.AddBonus(ctx, providerID, jobdomain.BonusPerMission, jobdomain.MaxTokens); err != nil {
-		slog.Error("failed to add bonus credits",
+	if s.orgs == nil {
+		slog.Warn("skipping bonus credit award: organization repository not configured",
+			"provider_id", providerID)
+		return
+	}
+	org, err := s.orgs.FindByUserID(ctx, providerID)
+	if err != nil {
+		slog.Error("failed to resolve org for bonus credit award",
 			"provider_id", providerID, "error", err)
+		return
+	}
+	if err := s.credits.AddBonus(ctx, org.ID, jobdomain.BonusPerMission, jobdomain.MaxTokens); err != nil {
+		slog.Error("failed to add bonus credits",
+			"provider_id", providerID, "org_id", org.ID, "error", err)
 	}
 }
 

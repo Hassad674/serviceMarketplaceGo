@@ -92,6 +92,13 @@ func newTestServiceWithBonusLog(
 	deps := ServiceDeps{
 		Proposals:     proposalRepo,
 		Users:         userRepo,
+		// R12 — bonus credits now land on the provider's org, so the
+		// fraud service must have access to the org repository. The
+		// default mockOrgRepo returns org IDs that equal the user id,
+		// so existing assertions of the form
+		// `assert.Equal(t, providerID, credits.addBonusCalls[0].UserID)`
+		// keep working without modification.
+		Organizations: &mockOrgRepo{},
 		Messages:      msgSender,
 		Storage:       &mockStorageService{},
 		Notifications: &mockNotificationSender{},
