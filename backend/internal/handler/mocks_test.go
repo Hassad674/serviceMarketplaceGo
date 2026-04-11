@@ -38,7 +38,11 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
-	return nil, user.ErrUserNotFound
+	// Default: return a stub user with an organization so flows that
+	// resolve the caller's org (reviews, disputes, messaging) don't
+	// crash in tests that don't override getByIDFn.
+	stubOrg := uuid.New()
+	return &user.User{ID: id, OrganizationID: &stubOrg}, nil
 }
 
 func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (*user.User, error) {

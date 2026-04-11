@@ -84,7 +84,7 @@ type mockJobApplicationRepo struct {
 	getByJobAndApplicantFn func(ctx context.Context, jobID, applicantID uuid.UUID) (*domain.JobApplication, error)
 	deleteFn              func(ctx context.Context, id uuid.UUID) error
 	listByJobFn           func(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
-	listByApplicantFn     func(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
+	listByApplicantOrgFn  func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
 	countByJobFn          func(ctx context.Context, jobID uuid.UUID) (int, error)
 }
 
@@ -123,9 +123,9 @@ func (m *mockJobApplicationRepo) ListByJob(ctx context.Context, jobID uuid.UUID,
 	return []*domain.JobApplication{}, "", nil
 }
 
-func (m *mockJobApplicationRepo) ListByApplicant(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error) {
-	if m.listByApplicantFn != nil {
-		return m.listByApplicantFn(ctx, applicantID, cursor, limit)
+func (m *mockJobApplicationRepo) ListByApplicantOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error) {
+	if m.listByApplicantOrgFn != nil {
+		return m.listByApplicantOrgFn(ctx, orgID, cursor, limit)
 	}
 	return []*domain.JobApplication{}, "", nil
 }
@@ -208,7 +208,8 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
-	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test"}, nil
+	stubOrg := uuid.New()
+	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test", OrganizationID: &stubOrg}, nil
 }
 
 func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {

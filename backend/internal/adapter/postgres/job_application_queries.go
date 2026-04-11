@@ -1,10 +1,10 @@
 package postgres
 
-const jobAppColumns = `id, job_id, applicant_id, message, video_url, created_at, updated_at`
+const jobAppColumns = `id, job_id, applicant_id, applicant_organization_id, message, video_url, created_at, updated_at`
 
 const queryInsertJobApplication = `
-	INSERT INTO job_applications (id, job_id, applicant_id, message, video_url, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	INSERT INTO job_applications (id, job_id, applicant_id, applicant_organization_id, message, video_url, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 const queryGetJobApplicationByID = `
 	SELECT ` + jobAppColumns + `
@@ -35,17 +35,17 @@ const queryListJobAppsByJobWithCursor = `
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`
 
-const queryListJobAppsByApplicantFirst = `
+const queryListJobAppsByApplicantOrgFirst = `
 	SELECT ` + jobAppColumns + `
 	FROM job_applications
-	WHERE applicant_id = $1
+	WHERE applicant_organization_id = $1
 	ORDER BY created_at DESC, id DESC
 	LIMIT $2`
 
-const queryListJobAppsByApplicantWithCursor = `
+const queryListJobAppsByApplicantOrgWithCursor = `
 	SELECT ` + jobAppColumns + `
 	FROM job_applications
-	WHERE applicant_id = $1
+	WHERE applicant_organization_id = $1
 		AND (created_at, id) < ($2, $3)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`

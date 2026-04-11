@@ -221,9 +221,9 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Review routes (mixed: public reads, authenticated writes)
 		if deps.Review != nil {
 			r.Route("/reviews", func(r chi.Router) {
-				// Public: read reviews and average ratings
-				r.Get("/user/{userId}", deps.Review.ListByUser)
-				r.Get("/average/{userId}", deps.Review.GetAverageRating)
+				// Public: read reviews and average ratings (keyed by org)
+				r.Get("/org/{orgId}", deps.Review.ListByOrganization)
+				r.Get("/average/{orgId}", deps.Review.GetAverageRating)
 
 				// Authenticated: create reviews and check eligibility
 				r.Group(func(r chi.Router) {

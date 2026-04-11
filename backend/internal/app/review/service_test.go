@@ -16,7 +16,7 @@ func TestService_CreateReview_Success(t *testing.T) {
 	providerID := uuid.New()
 
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{
 			hasReviewedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 				return false, nil
@@ -52,7 +52,7 @@ func TestService_CreateReview_Success(t *testing.T) {
 
 func TestService_CreateReview_NotCompleted(t *testing.T) {
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{},
 		Proposals: &mockProposalRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {
@@ -72,7 +72,7 @@ func TestService_CreateReview_NotCompleted(t *testing.T) {
 
 func TestService_CreateReview_NotParticipant(t *testing.T) {
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{},
 		Proposals: &mockProposalRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {
@@ -98,7 +98,7 @@ func TestService_CreateReview_AlreadyReviewed(t *testing.T) {
 	clientID := uuid.New()
 
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{
 			hasReviewedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 				return true, nil
@@ -130,7 +130,7 @@ func TestService_CanReview(t *testing.T) {
 	providerID := uuid.New()
 
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{
 			hasReviewedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 				return false, nil
@@ -158,7 +158,7 @@ func TestService_CreateReview_ProviderCannotReview(t *testing.T) {
 	providerID := uuid.New()
 
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{},
 		Proposals: &mockProposalRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {
@@ -186,7 +186,7 @@ func TestService_CanReview_ProviderCannotReview(t *testing.T) {
 	providerID := uuid.New()
 
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{},
 		Proposals: &mockProposalRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {
@@ -206,7 +206,7 @@ func TestService_CanReview_ProviderCannotReview(t *testing.T) {
 
 func TestService_CanReview_NotCompleted(t *testing.T) {
 	svc := NewService(ServiceDeps{
-		Notifications: &mockNotificationSender{},
+		Notifications: &mockNotificationSender{}, Users: &mockUserRepo{},
 		Reviews: &mockReviewRepo{},
 		Proposals: &mockProposalRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*mockProposal, error) {

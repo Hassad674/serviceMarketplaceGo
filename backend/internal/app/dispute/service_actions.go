@@ -104,17 +104,34 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 		respondentID = p.ClientID
 	}
 
+	// Resolve both parties' current organizations so the dispute is
+	// visible to every operator of either org, not just the user who
+	// opened it (Stripe Dashboard shared workspace).
+	clientUser, err := s.users.GetByID(ctx, p.ClientID)
+	if err != nil {
+		return nil, fmt.Errorf("lookup client user: %w", err)
+	}
+	providerUser, err := s.users.GetByID(ctx, p.ProviderID)
+	if err != nil {
+		return nil, fmt.Errorf("lookup provider user: %w", err)
+	}
+	if clientUser.OrganizationID == nil || providerUser.OrganizationID == nil {
+		return nil, fmt.Errorf("open dispute: participants must belong to an organization")
+	}
+
 	d, err := disputedomain.NewDispute(disputedomain.NewDisputeInput{
-		ProposalID:      p.ID,
-		ConversationID:  p.ConversationID,
-		InitiatorID:     in.InitiatorID,
-		RespondentID:    respondentID,
-		ClientID:        p.ClientID,
-		ProviderID:      p.ProviderID,
-		Reason:          disputedomain.Reason(in.Reason),
-		Description:     in.Description,
-		RequestedAmount: in.RequestedAmount,
-		ProposalAmount:  p.Amount,
+		ProposalID:             p.ID,
+		ConversationID:         p.ConversationID,
+		InitiatorID:            in.InitiatorID,
+		RespondentID:           respondentID,
+		ClientID:               p.ClientID,
+		ProviderID:             p.ProviderID,
+		ClientOrganizationID:   *clientUser.OrganizationID,
+		ProviderOrganizationID: *providerUser.OrganizationID,
+		Reason:                 disputedomain.Reason(in.Reason),
+		Description:            in.Description,
+		RequestedAmount:        in.RequestedAmount,
+		ProposalAmount:         p.Amount,
 	})
 	if err != nil {
 		return nil, err
@@ -763,6 +780,9 @@ func (s *Service) loadDetail(ctx context.Context, d *disputedomain.Dispute) (*Di
 	}, nil
 }
 
-func (s *Service) ListMyDisputes(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error) {
-	return s.disputes.ListByUserID(ctx, userID, cursor, limit)
+// ListOrgDisputes returns the disputes where the caller's organization
+// is either the client or the provider side. All operators of the
+// same org see the same list (Stripe Dashboard shared workspace).
+func (s *Service) ListOrgDisputes(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error) {
+	return s.disputes.ListByOrganization(ctx, orgID, cursor, limit)
 }

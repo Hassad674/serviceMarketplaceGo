@@ -29,6 +29,7 @@ func (r *ReviewRepository) Create(ctx context.Context, rv *review.Review) error 
 
 	_, err := r.db.ExecContext(ctx, queryInsertReview,
 		rv.ID, rv.ProposalID, rv.ReviewerID, rv.ReviewedID,
+		rv.ReviewerOrganizationID, rv.ReviewedOrganizationID,
 		rv.GlobalRating, rv.Timeliness, rv.Communication, rv.Quality,
 		rv.Comment, rv.VideoURL, rv.TitleVisible, rv.CreatedAt, rv.UpdatedAt,
 	)
@@ -52,7 +53,9 @@ func (r *ReviewRepository) GetByID(ctx context.Context, id uuid.UUID) (*review.R
 	return rv, nil
 }
 
-func (r *ReviewRepository) ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*review.Review, string, error) {
+// ListByReviewedOrganization returns the non-hidden reviews received by
+// the given organization, ordered by created_at DESC.
+func (r *ReviewRepository) ListByReviewedOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*review.Review, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -60,16 +63,16 @@ func (r *ReviewRepository) ListByReviewedUser(ctx context.Context, userID uuid.U
 	var err error
 
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListReviewsByReviewedFirst, userID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListReviewsByReviewedOrgFirst, orgID, limit+1)
 	} else {
 		c, decErr := cursor.Decode(cursorStr)
 		if decErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", decErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListReviewsByReviewedWithCursor, userID, c.CreatedAt, c.ID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListReviewsByReviewedOrgWithCursor, orgID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("list reviews: %w", err)
+		return nil, "", fmt.Errorf("list reviews by organization: %w", err)
 	}
 	defer rows.Close()
 
@@ -92,15 +95,17 @@ func (r *ReviewRepository) ListByReviewedUser(ctx context.Context, userID uuid.U
 	return reviews, nextCursor, nil
 }
 
-func (r *ReviewRepository) GetAverageRating(ctx context.Context, userID uuid.UUID) (*review.AverageRating, error) {
+// GetAverageRatingByOrganization returns the aggregated rating for an
+// organization (non-hidden reviews only).
+func (r *ReviewRepository) GetAverageRatingByOrganization(ctx context.Context, orgID uuid.UUID) (*review.AverageRating, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	var avg float64
 	var count int
-	err := r.db.QueryRowContext(ctx, queryAverageRating, userID).Scan(&avg, &count)
+	err := r.db.QueryRowContext(ctx, queryAverageRatingByOrg, orgID).Scan(&avg, &count)
 	if err != nil {
-		return nil, fmt.Errorf("get average rating: %w", err)
+		return nil, fmt.Errorf("get average rating by organization: %w", err)
 	}
 	return &review.AverageRating{Average: avg, Count: count}, nil
 }
@@ -139,7 +144,6 @@ func (r *ReviewRepository) GetByProposalIDs(ctx context.Context, proposalIDs []u
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	// Convert uuid.UUID slice to string slice for pq.Array.
 	ids := make([]string, len(proposalIDs))
 	for i, id := range proposalIDs {
 		ids[i] = id.String()
@@ -173,6 +177,7 @@ func scanReview(s reviewScanner) (*review.Review, error) {
 	var rv review.Review
 	err := s.Scan(
 		&rv.ID, &rv.ProposalID, &rv.ReviewerID, &rv.ReviewedID,
+		&rv.ReviewerOrganizationID, &rv.ReviewedOrganizationID,
 		&rv.GlobalRating, &rv.Timeliness, &rv.Communication, &rv.Quality,
 		&rv.Comment, &rv.VideoURL, &rv.TitleVisible, &rv.CreatedAt, &rv.UpdatedAt,
 	)
@@ -181,3 +186,7 @@ func scanReview(s reviewScanner) (*review.Review, error) {
 	}
 	return &rv, nil
 }
+
+// ListAdmin, CountAdmin, GetAdminByID, DeleteAdmin — admin operations are
+// delegated to review_admin.go to keep this repo file focused on the
+// org-facing surface.

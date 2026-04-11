@@ -352,6 +352,7 @@ func main() {
 	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       reviewRepo,
 		Proposals:     proposalRepo,
+		Users:         userRepo,
 		Notifications: notifSvc,
 	})
 

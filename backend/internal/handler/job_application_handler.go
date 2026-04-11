@@ -102,17 +102,20 @@ func (h *JobApplicationHandler) ListJobApplications(w http.ResponseWriter, r *ht
 	res.JSON(w, http.StatusOK, response.NewApplicationListResponse(items, nextCursor))
 }
 
+// ListMyApplications returns the applications submitted by the
+// authenticated user's organization (every operator of the org sees
+// the same list — the Stripe Dashboard shared-workspace model).
 func (h *JobApplicationHandler) ListMyApplications(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
 	cursor := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	items, nextCursor, err := h.jobSvc.ListMyApplications(r.Context(), userID, cursor, limit)
+	items, nextCursor, err := h.jobSvc.ListOrgApplications(r.Context(), orgID, cursor, limit)
 	if err != nil {
 		handleJobError(w, err)
 		return

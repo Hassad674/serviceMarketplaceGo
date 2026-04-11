@@ -79,11 +79,16 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 		return nil, fmt.Errorf("check existing application: %w", err)
 	}
 
+	if applicant.OrganizationID == nil {
+		return nil, fmt.Errorf("apply to job: applicant must belong to an organization")
+	}
+
 	app, err := domain.NewJobApplication(domain.NewApplicationInput{
-		JobID:       input.JobID,
-		ApplicantID: input.ApplicantID,
-		Message:     input.Message,
-		VideoURL:    input.VideoURL,
+		JobID:                   input.JobID,
+		ApplicantID:             input.ApplicantID,
+		ApplicantOrganizationID: *applicant.OrganizationID,
+		Message:                 input.Message,
+		VideoURL:                input.VideoURL,
 	})
 	if err != nil {
 		return nil, err
@@ -152,11 +157,13 @@ func (s *Service) ListJobApplications(ctx context.Context, jobID, ownerID uuid.U
 	return results, nextCursor, nil
 }
 
-// ListMyApplications returns the current user's applications with job details.
-func (s *Service) ListMyApplications(ctx context.Context, applicantID uuid.UUID, cursorStr string, limit int) ([]ApplicationWithJob, string, error) {
-	apps, nextCursor, err := s.applications.ListByApplicant(ctx, applicantID, cursorStr, limit)
+// ListOrgApplications returns the applications submitted by the
+// caller's organization, each enriched with the target job.
+// All operators of the same org see the same list (shared workspace).
+func (s *Service) ListOrgApplications(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]ApplicationWithJob, string, error) {
+	apps, nextCursor, err := s.applications.ListByApplicantOrganization(ctx, orgID, cursorStr, limit)
 	if err != nil {
-		return nil, "", fmt.Errorf("list my applications: %w", err)
+		return nil, "", fmt.Errorf("list org applications: %w", err)
 	}
 	if len(apps) == 0 {
 		return []ApplicationWithJob{}, "", nil

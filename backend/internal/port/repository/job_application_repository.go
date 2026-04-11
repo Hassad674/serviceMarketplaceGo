@@ -15,7 +15,10 @@ type JobApplicationRepository interface {
 	GetByJobAndApplicant(ctx context.Context, jobID, applicantID uuid.UUID) (*job.JobApplication, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListByJob(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
-	ListByApplicant(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
+	// ListByApplicantOrganization returns job applications submitted by
+	// any member of the given organization. All operators of the same
+	// applying org see the same list.
+	ListByApplicantOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*job.JobApplication, string, error)
 	CountByJob(ctx context.Context, jobID uuid.UUID) (int, error)
 
 	// Admin methods

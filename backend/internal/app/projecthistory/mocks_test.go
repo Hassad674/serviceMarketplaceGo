@@ -59,10 +59,10 @@ func (m *mockReviewRepo) Create(context.Context, *reviewdomain.Review) error { r
 func (m *mockReviewRepo) GetByID(context.Context, uuid.UUID) (*reviewdomain.Review, error) {
 	return nil, nil
 }
-func (m *mockReviewRepo) ListByReviewedUser(context.Context, uuid.UUID, string, int) ([]*reviewdomain.Review, string, error) {
+func (m *mockReviewRepo) ListByReviewedOrganization(context.Context, uuid.UUID, string, int) ([]*reviewdomain.Review, string, error) {
 	return nil, "", nil
 }
-func (m *mockReviewRepo) GetAverageRating(context.Context, uuid.UUID) (*reviewdomain.AverageRating, error) {
+func (m *mockReviewRepo) GetAverageRatingByOrganization(context.Context, uuid.UUID) (*reviewdomain.AverageRating, error) {
 	return &reviewdomain.AverageRating{}, nil
 }
 func (m *mockReviewRepo) HasReviewed(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
