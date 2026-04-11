@@ -310,6 +310,7 @@ func TestAuthHandler_Me(t *testing.T) {
 		userID     *uuid.UUID
 		setupMocks func(*mockUserRepo)
 		wantStatus int
+		wantCode   string
 	}{
 		{
 			name:   "success",
@@ -325,6 +326,22 @@ func TestAuthHandler_Me(t *testing.T) {
 			name:       "no user in context",
 			userID:     nil,
 			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			// R16: when /auth/me is called with a still-valid JWT but the
+			// backing user row has been deleted (e.g. the caller is an
+			// operator who just left their org), we must respond with 401
+			// session_invalid — NOT 404 — so the client interprets it as
+			// "log me out" instead of "retry later".
+			name:   "user deleted returns 401 session_invalid",
+			userID: &uid,
+			setupMocks: func(ur *mockUserRepo) {
+				ur.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
+					return nil, user.ErrUserNotFound
+				}
+			},
+			wantStatus: http.StatusUnauthorized,
+			wantCode:   "session_invalid",
 		},
 	}
 
@@ -347,6 +364,11 @@ func TestAuthHandler_Me(t *testing.T) {
 
 			h.Me(rec, req)
 			assert.Equal(t, tc.wantStatus, rec.Code)
+			if tc.wantCode != "" {
+				var body map[string]string
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+				assert.Equal(t, tc.wantCode, body["error"])
+			}
 		})
 	}
 }
