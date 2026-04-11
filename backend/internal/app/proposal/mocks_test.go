@@ -120,7 +120,11 @@ func (m *mockOrgRepo) FindByUserID(ctx context.Context, userID uuid.UUID) (*orga
 	if m.findByUserIDFn != nil {
 		return m.findByUserIDFn(ctx, userID)
 	}
-	return &organization.Organization{ID: uuid.New(), Type: organization.OrgTypeProviderPersonal}, nil
+	// Deterministic default: the org's ID equals the user id so tests
+	// asserting that "the bonus landed on providerID" keep working
+	// unchanged after R12 (credits are keyed by org id — but in this
+	// default stub every user IS their own org).
+	return &organization.Organization{ID: userID, Type: organization.OrgTypeProviderPersonal}, nil
 }
 func (m *mockOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
 func (m *mockOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
@@ -271,48 +275,67 @@ func (m *mockNotificationSender) Send(ctx context.Context, input service.Notific
 }
 
 // --- mockJobCreditRepo ---
+//
+// R12 — the repository now takes org ids. Existing proposal tests
+// assert on `addBonusCall.UserID` — we keep the field name for minimal
+// diff, but it now carries an org id under the hood. Callers that
+// match on a specific value must be updated (done via stubs so the
+// provider->org resolution returns a deterministic id).
 
 type mockJobCreditRepo struct {
-	getOrCreateFn  func(ctx context.Context, userID uuid.UUID) (int, error)
-	decrementFn    func(ctx context.Context, userID uuid.UUID) error
-	addBonusFn     func(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error
-	resetForUserFn func(ctx context.Context, userID uuid.UUID, minCredits int) error
+	getOrCreateFn  func(ctx context.Context, orgID uuid.UUID) (int, error)
+	decrementFn    func(ctx context.Context, orgID uuid.UUID) error
+	refundFn       func(ctx context.Context, orgID uuid.UUID) error
+	addBonusFn     func(ctx context.Context, orgID uuid.UUID, amount int, maxTokens int) error
+	resetForOrgFn  func(ctx context.Context, orgID uuid.UUID, minCredits int) error
 	resetWeeklyFn  func(ctx context.Context, minCredits int) error
 
 	addBonusCalls []addBonusCall
 }
 
+// addBonusCall captures a single AddBonus invocation. The `UserID`
+// field is a legacy name — after R12 it actually holds the ORG id.
+// Keeping the name to avoid churning every call site in one go; the
+// tests that need to assert on a specific provider's org set the
+// mockOrgRepo stub so the resolved org id is predictable.
 type addBonusCall struct {
 	UserID    uuid.UUID
 	Amount    int
 	MaxTokens int
 }
 
-func (m *mockJobCreditRepo) GetOrCreate(ctx context.Context, userID uuid.UUID) (int, error) {
+func (m *mockJobCreditRepo) GetOrCreate(ctx context.Context, orgID uuid.UUID) (int, error) {
 	if m.getOrCreateFn != nil {
-		return m.getOrCreateFn(ctx, userID)
+		return m.getOrCreateFn(ctx, orgID)
 	}
 	return 10, nil
 }
 
-func (m *mockJobCreditRepo) Decrement(ctx context.Context, userID uuid.UUID) error {
+func (m *mockJobCreditRepo) Decrement(ctx context.Context, orgID uuid.UUID) error {
 	if m.decrementFn != nil {
-		return m.decrementFn(ctx, userID)
+		return m.decrementFn(ctx, orgID)
 	}
 	return nil
 }
 
-func (m *mockJobCreditRepo) AddBonus(ctx context.Context, userID uuid.UUID, amount int, maxTokens int) error {
-	m.addBonusCalls = append(m.addBonusCalls, addBonusCall{UserID: userID, Amount: amount, MaxTokens: maxTokens})
+func (m *mockJobCreditRepo) Refund(ctx context.Context, orgID uuid.UUID) error {
+	if m.refundFn != nil {
+		return m.refundFn(ctx, orgID)
+	}
+	return nil
+}
+
+func (m *mockJobCreditRepo) AddBonus(ctx context.Context, orgID uuid.UUID, amount int, maxTokens int) error {
+	m.addBonusCalls = append(m.addBonusCalls, addBonusCall{UserID: orgID, Amount: amount, MaxTokens: maxTokens})
 	if m.addBonusFn != nil {
-		return m.addBonusFn(ctx, userID, amount, maxTokens)
+		return m.addBonusFn(ctx, orgID, amount, maxTokens)
 	}
 	return nil
 }
 
-func (m *mockJobCreditRepo) ResetForUser(ctx context.Context, userID uuid.UUID, minCredits int) error {
-	if m.resetForUserFn != nil {
-		return m.resetForUserFn(ctx, userID, minCredits)
+func (m *mockJobCreditRepo) ResetForOrg(ctx context.Context, orgID uuid.UUID, minCredits int) error {
+	if m.resetForOrgFn != nil {
+		return m.resetForOrgFn(ctx, orgID, minCredits)
 	}
 	return nil
 }
