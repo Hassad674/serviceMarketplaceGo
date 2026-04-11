@@ -23,32 +23,15 @@ vi.mock("@i18n/navigation", () => ({
   Link: ({ children, ...props }: Record<string, unknown>) => <a {...props}>{children as React.ReactNode}</a>,
 }))
 
-// Mock lucide-react icons
-vi.mock("lucide-react", () => ({
-  MessageSquare: (props: Record<string, unknown>) => <span data-testid="message-square-icon" {...props} />,
-  MoreHorizontal: (props: Record<string, unknown>) => <span data-testid="more-icon" {...props} />,
-  Pencil: (props: Record<string, unknown>) => <span data-testid="pencil-icon" {...props} />,
-  Trash2: (props: Record<string, unknown>) => <span data-testid="trash-icon" {...props} />,
-  Clock: (props: Record<string, unknown>) => <span data-testid="clock-icon" {...props} />,
-  Check: (props: Record<string, unknown>) => <span data-testid="check-icon" {...props} />,
-  CheckCheck: (props: Record<string, unknown>) => <span data-testid="checkcheck-icon" {...props} />,
-  Download: (props: Record<string, unknown>) => <span data-testid="download-icon" {...props} />,
-  FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
-  CheckCircle2: (props: Record<string, unknown>) => <span data-testid="check-circle-icon" {...props} />,
-  XCircle: (props: Record<string, unknown>) => <span data-testid="x-circle-icon" {...props} />,
-  CreditCard: (props: Record<string, unknown>) => <span data-testid="credit-card-icon" {...props} />,
-  DollarSign: (props: Record<string, unknown>) => <span data-testid="dollar-icon" {...props} />,
-  Reply: (props: Record<string, unknown>) => <span data-testid="reply-icon" {...props} />,
-  RotateCcw: (props: Record<string, unknown>) => <span data-testid="rotate-icon" {...props} />,
-  Star: (props: Record<string, unknown>) => <span data-testid="star-icon" {...props} />,
-  Trophy: (props: Record<string, unknown>) => <span data-testid="trophy-icon" {...props} />,
-  ArrowRight: (props: Record<string, unknown>) => <span data-testid="arrow-right-icon" {...props} />,
-  Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
-  Calendar: (props: Record<string, unknown>) => <span data-testid="calendar-icon" {...props} />,
-  Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
-  Handshake: (props: Record<string, unknown>) => <span data-testid="handshake-icon" {...props} />,
-  ExternalLink: (props: Record<string, unknown>) => <span data-testid="external-link-icon" {...props} />,
-}))
+// Mock lucide-react icons. The message area pulls in the proposal +
+// dispute system-message components, which each import a handful of
+// extra icons. We delegate to importOriginal() so any future icon
+// usage "just works" without touching this file again.
+vi.mock("lucide-react", async () => {
+  const actual =
+    await vi.importActual<typeof import("lucide-react")>("lucide-react")
+  return actual
+})
 
 // Mock sub-components that are imported
 vi.mock("../message-status-icon", () => ({
@@ -62,12 +45,33 @@ vi.mock("../file-message", () => ({
 }))
 
 vi.mock("../message-context-menu", () => ({
-  MessageContextMenu: ({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) => (
-    <span data-testid="context-menu">
-      <button onClick={onEdit} data-testid="edit-btn">edit</button>
-      <button onClick={onDelete} data-testid="delete-btn">delete</button>
-    </span>
-  ),
+  // The real component wraps edit/delete/reply/report actions; we
+  // mirror its API by only rendering buttons for the handlers that
+  // were passed. The outer `context-menu` wrapper is rendered only
+  // when at least one actionable handler is available, so queries
+  // like `queryByTestId("context-menu")` stay meaningful in tests
+  // that assert no context menu for other-user messages.
+  MessageContextMenu: ({
+    onEdit,
+    onDelete,
+    onReply,
+    onReport,
+  }: {
+    onEdit?: () => void
+    onDelete?: () => void
+    onReply?: () => void
+    onReport?: () => void
+  }) => {
+    if (!onEdit && !onDelete && !onReply && !onReport) return null
+    return (
+      <span data-testid="context-menu">
+        {onReply && <button onClick={onReply} data-testid="reply-btn">reply</button>}
+        {onEdit && <button onClick={onEdit} data-testid="edit-btn">edit</button>}
+        {onDelete && <button onClick={onDelete} data-testid="delete-btn">delete</button>}
+        {onReport && <button onClick={onReport} data-testid="report-btn">report</button>}
+      </span>
+    )
+  },
 }))
 
 vi.mock("../proposal-card", () => ({
@@ -311,7 +315,9 @@ describe("MessageArea", () => {
     expect(screen.queryByTestId("context-menu")).toBeNull()
   })
 
-  it("does not show context menu for other user messages", () => {
+  it("does not show edit/delete actions for other user messages", () => {
+    // Other-user messages still surface a context menu (for reply /
+    // report), but the edit and delete actions are gated on isOwn.
     const messages = [
       createMessage({ id: "msg-1", sender_id: "user-2", content: "Their message" }),
     ]
@@ -319,7 +325,8 @@ describe("MessageArea", () => {
       <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
     )
 
-    expect(screen.queryByTestId("context-menu")).toBeNull()
+    expect(screen.queryByTestId("edit-btn")).toBeNull()
+    expect(screen.queryByTestId("delete-btn")).toBeNull()
   })
 
   it("treats optimistic sender as own message", () => {
