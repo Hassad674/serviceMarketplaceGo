@@ -1,11 +1,13 @@
-// Package kyc enforces the KYC deadline for providers/agencies.
+// Package kyc enforces the KYC deadline for marketplace orgs.
 //
-// After a mission completes and funds become available, the provider has
-// 14 days to complete Stripe KYC. If they don't, their account is
-// restricted (cannot create proposals, accept proposals, or apply to jobs).
+// After a mission completes and funds become available, the merchant
+// org has 14 days to complete Stripe KYC. If they don't, the team's
+// wallet is restricted (cannot create proposals, accept proposals, or
+// apply to jobs on behalf of that org).
 //
-// The Scheduler runs as a background goroutine (1h ticker), queries users
-// with pending funds but no KYC, and emits notifications at day 0/3/7/14.
+// The Scheduler runs as a background goroutine (1h ticker), queries
+// orgs with pending funds but no KYC, and emits notifications at day
+// 0/3/7/14. The notification is sent to the org's current owner.
 package kyc
 
 import (
@@ -57,20 +59,20 @@ var tiers = []struct {
 }
 
 type SchedulerDeps struct {
-	Users         repository.UserRepository
+	Organizations repository.OrganizationRepository
 	Records       repository.PaymentRecordRepository
 	Notifications portservice.NotificationSender
 }
 
 type Scheduler struct {
-	users         repository.UserRepository
+	orgs          repository.OrganizationRepository
 	records       repository.PaymentRecordRepository
 	notifications portservice.NotificationSender
 }
 
 func NewScheduler(deps SchedulerDeps) *Scheduler {
 	return &Scheduler{
-		users:         deps.Users,
+		orgs:          deps.Organizations,
 		records:       deps.Records,
 		notifications: deps.Notifications,
 	}
@@ -93,25 +95,25 @@ func (s *Scheduler) Run(ctx context.Context, interval time.Duration) {
 }
 
 func (s *Scheduler) tick(ctx context.Context) {
-	users, err := s.users.GetKYCPendingUsers(ctx)
+	orgs, err := s.orgs.ListKYCPending(ctx)
 	if err != nil {
-		slog.Error("kyc scheduler: get pending users", "error", err)
+		slog.Error("kyc scheduler: list pending orgs", "error", err)
 		return
 	}
-	if len(users) == 0 {
+	if len(orgs) == 0 {
 		return
 	}
 
-	slog.Debug("kyc scheduler: processing", "pending_users", len(users))
+	slog.Debug("kyc scheduler: processing", "pending_orgs", len(orgs))
 
-	for _, u := range users {
-		if u.KYCFirstEarningAt == nil {
+	for _, org := range orgs {
+		if org.KYCFirstEarningAt == nil {
 			continue
 		}
-		elapsed := time.Since(*u.KYCFirstEarningAt)
+		elapsed := time.Since(*org.KYCFirstEarningAt)
 		elapsedDays := int(elapsed.Hours() / 24)
 
-		notified := u.KYCRestrictionNotifiedAt
+		notified := org.KYCRestrictionNotifiedAt
 		if notified == nil {
 			notified = make(map[string]time.Time)
 		}
@@ -125,12 +127,7 @@ func (s *Scheduler) tick(ctx context.Context) {
 				continue
 			}
 
-			// Compute pending amount for the notification body. After R1
-			// every user has an org, so OrganizationID is safe to deref.
-			var amount int64
-			if u.OrganizationID != nil {
-				amount = s.computePendingAmount(ctx, *u.OrganizationID)
-			}
+			amount := s.computePendingAmount(ctx, org.ID)
 
 			title := tier.titleEN
 			body := tier.bodyEN
@@ -138,28 +135,34 @@ func (s *Scheduler) tick(ctx context.Context) {
 				body = fmt.Sprintf("%s (%d€ pending)", body, amount/100)
 			}
 
+			// Notifications target the org owner (inbox is per-user).
 			if err := s.notifications.Send(ctx, portservice.NotificationInput{
-				UserID: u.ID,
+				UserID: org.OwnerUserID,
 				Type:   string(tier.notifType),
 				Title:  title,
 				Body:   body,
-				Data:   mustJSON(map[string]any{"tier": tier.key, "amount": amount, "days_elapsed": elapsedDays}),
+				Data: mustJSON(map[string]any{
+					"tier":         tier.key,
+					"amount":       amount,
+					"days_elapsed": elapsedDays,
+					"org_id":       org.ID.String(),
+				}),
 			}); err != nil {
 				slog.Warn("kyc scheduler: send notification failed",
-					"user_id", u.ID, "tier", tier.key, "error", err)
+					"org_id", org.ID, "tier", tier.key, "error", err)
 				continue
 			}
 
 			notified[tier.key] = time.Now()
 			changed = true
 			slog.Info("kyc scheduler: notification sent",
-				"user_id", u.ID, "tier", tier.key, "days_elapsed", elapsedDays)
+				"org_id", org.ID, "tier", tier.key, "days_elapsed", elapsedDays)
 		}
 
 		if changed {
-			if err := s.users.SaveKYCNotificationState(ctx, u.ID, notified); err != nil {
+			if err := s.orgs.SaveKYCNotificationState(ctx, org.ID, notified); err != nil {
 				slog.Warn("kyc scheduler: save notification state failed",
-					"user_id", u.ID, "error", err)
+					"org_id", org.ID, "error", err)
 			}
 		}
 	}

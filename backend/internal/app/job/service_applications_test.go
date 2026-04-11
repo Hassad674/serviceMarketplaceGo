@@ -9,24 +9,32 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	domain "marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
 )
 
 func newTestApplyService() (*Service, *mockJobRepo, *mockJobApplicationRepo, *mockUserRepo, *mockProfileRepo, *mockMsgSender) {
+	svc, jr, ar, ur, pr, ms, _ := newTestApplyServiceFull()
+	return svc, jr, ar, ur, pr, ms
+}
+
+func newTestApplyServiceFull() (*Service, *mockJobRepo, *mockJobApplicationRepo, *mockUserRepo, *mockProfileRepo, *mockMsgSender, *mockOrgRepo) {
 	jr := &mockJobRepo{}
 	ar := &mockJobApplicationRepo{}
 	ur := &mockUserRepo{}
+	or := &mockOrgRepo{}
 	pr := &mockProfileRepo{}
 	ms := &mockMsgSender{}
 	svc := NewService(ServiceDeps{
-		Jobs:         jr,
-		Applications: ar,
-		Users:        ur,
-		Profiles:     pr,
-		Messages:     ms,
+		Jobs:          jr,
+		Applications:  ar,
+		Users:         ur,
+		Organizations: or,
+		Profiles:      pr,
+		Messages:      ms,
 	})
-	return svc, jr, ar, ur, pr, ms
+	return svc, jr, ar, ur, pr, ms, or
 }
 
 func openJob(creatorID uuid.UUID) *domain.Job {
@@ -309,7 +317,7 @@ func TestGetCredits_NilRepo(t *testing.T) {
 // --- KYC enforcement tests ---
 
 func TestApplyToJob_KYCBlocked(t *testing.T) {
-	svc, jr, _, ur, _, _ := newTestApplyService()
+	svc, jr, _, ur, _, _, or := newTestApplyServiceFull()
 	creatorID := uuid.New()
 	applicantID := uuid.New()
 	j := openJob(creatorID)
@@ -317,9 +325,14 @@ func TestApplyToJob_KYCBlocked(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		u := &user.User{ID: id, Role: user.RoleProvider}
-		u.KYCFirstEarningAt = &past15
-		return u, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil
+	}
+	or.findByUserIDFn = func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+		return &organization.Organization{
+			ID:                uuid.New(),
+			Type:              organization.OrgTypeProviderPersonal,
+			KYCFirstEarningAt: &past15,
+		}, nil
 	}
 
 	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -329,7 +342,7 @@ func TestApplyToJob_KYCBlocked(t *testing.T) {
 }
 
 func TestApplyToJob_KYCNotBlocked_OK(t *testing.T) {
-	svc, jr, _, ur, _, _ := newTestApplyService()
+	svc, jr, _, ur, _, _, or := newTestApplyServiceFull()
 	creatorID := uuid.New()
 	applicantID := uuid.New()
 	j := openJob(creatorID)
@@ -338,9 +351,15 @@ func TestApplyToJob_KYCNotBlocked_OK(t *testing.T) {
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
 		stubOrg := uuid.New()
-		u := &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg}
-		u.KYCFirstEarningAt = &past5
-		return u, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg}, nil
+	}
+	or.findByUserIDFn = func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+		// 5 days elapsed — below the 14-day deadline, should still pass.
+		return &organization.Organization{
+			ID:                uuid.New(),
+			Type:              organization.OrgTypeProviderPersonal,
+			KYCFirstEarningAt: &past5,
+		}, nil
 	}
 
 	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{

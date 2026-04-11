@@ -97,6 +97,10 @@ func makeRequestWithUser(method, path string, body []byte, userID uuid.UUID) *ht
 		r = httptest.NewRequest(method, path, nil)
 	}
 	ctx := context.WithValue(r.Context(), middleware.ContextKeyUserID, userID)
+	// Since phase R5, the embedded handler reads org_id from the
+	// context — the tests use the same UUID for both so existing
+	// assertions (last-seen id) keep working.
+	ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, userID)
 	return r.WithContext(ctx)
 }
 
@@ -309,7 +313,10 @@ func TestCreateAccountSession_EmptyBodyLength_NoExistingAccount_Returns500(t *te
 	r := httptest.NewRequest("POST", "/account-session", bytes.NewReader([]byte{}))
 	r.Header.Set("Content-Type", "application/json")
 	r.ContentLength = 0
-	r = r.WithContext(context.WithValue(r.Context(), middleware.ContextKeyUserID, uuid.New()))
+	uid := uuid.New()
+	ctx := context.WithValue(r.Context(), middleware.ContextKeyUserID, uid)
+	ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, uid)
+	r = r.WithContext(ctx)
 
 	rec := httptest.NewRecorder()
 	h.CreateAccountSession(rec, r)

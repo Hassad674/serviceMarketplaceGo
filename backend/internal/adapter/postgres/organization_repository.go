@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -26,6 +28,13 @@ func NewOrganizationRepository(db *sql.DB) *OrganizationRepository {
 	return &OrganizationRepository{db: db}
 }
 
+const orgColumns = `
+	id, owner_user_id, type, name,
+	stripe_account_id, stripe_account_country, stripe_last_state,
+	kyc_first_earning_at, kyc_restriction_notified_at,
+	pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
+	created_at, updated_at`
+
 // Create inserts a new organization row. Returns ErrOrgAlreadyExists-style
 // error (ErrOwnerAlreadyExists) when the owner already has an organization,
 // enforced by the UNIQUE(owner_user_id) constraint in migration 053.
@@ -33,16 +42,25 @@ func (r *OrganizationRepository) Create(ctx context.Context, org *organization.O
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	kycNotified, err := marshalKYCNotified(org.KYCRestrictionNotifiedAt)
+	if err != nil {
+		return fmt.Errorf("marshal kyc notified: %w", err)
+	}
+
 	query := `
 		INSERT INTO organizations (
 			id, owner_user_id, type, name,
+			stripe_account_id, stripe_account_country, stripe_last_state,
+			kyc_first_earning_at, kyc_restriction_notified_at,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err = r.db.ExecContext(ctx, query,
 		org.ID, org.OwnerUserID, string(org.Type), org.Name,
+		org.StripeAccountID, org.StripeAccountCountry, org.StripeLastState,
+		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 		org.CreatedAt, org.UpdatedAt,
 	)
@@ -61,12 +79,7 @@ func (r *OrganizationRepository) FindByID(ctx context.Context, id uuid.UUID) (*o
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	query := `
-		SELECT id, owner_user_id, type, name,
-		       pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
-		       created_at, updated_at
-		FROM organizations WHERE id = $1`
-
+	query := `SELECT ` + orgColumns + ` FROM organizations WHERE id = $1`
 	return r.scanOne(r.db.QueryRowContext(ctx, query, id))
 }
 
@@ -77,34 +90,65 @@ func (r *OrganizationRepository) FindByOwnerUserID(ctx context.Context, ownerUse
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	query := `
-		SELECT id, owner_user_id, type, name,
-		       pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
-		       created_at, updated_at
-		FROM organizations WHERE owner_user_id = $1`
-
+	query := `SELECT ` + orgColumns + ` FROM organizations WHERE owner_user_id = $1`
 	return r.scanOne(r.db.QueryRowContext(ctx, query, ownerUserID))
 }
 
-// Update persists changes to the organization. The primary use is to
-// record an ownership transfer (pending_transfer_* fields) or to commit
-// a transfer (OwnerUserID change + clear pending_transfer).
+// FindByUserID returns the organization the given user currently
+// belongs to. Single JOIN: users.organization_id → organizations.
+func (r *OrganizationRepository) FindByUserID(ctx context.Context, userID uuid.UUID) (*organization.Organization, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `
+		SELECT ` + orgColumns + `
+		FROM organizations o
+		JOIN users u ON u.organization_id = o.id
+		WHERE u.id = $1`
+	return r.scanOne(r.db.QueryRowContext(ctx, query, userID))
+}
+
+// FindByStripeAccountID returns the organization that owns the given
+// Stripe Connect account. Used by webhooks routing Stripe events back
+// to the merchant org.
+func (r *OrganizationRepository) FindByStripeAccountID(ctx context.Context, accountID string) (*organization.Organization, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `SELECT ` + orgColumns + ` FROM organizations WHERE stripe_account_id = $1`
+	return r.scanOne(r.db.QueryRowContext(ctx, query, accountID))
+}
+
+// Update persists changes to the organization. Covers renames,
+// Stripe account onboarding, KYC bookkeeping, and ownership transfers.
 func (r *OrganizationRepository) Update(ctx context.Context, org *organization.Organization) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
+
+	kycNotified, err := marshalKYCNotified(org.KYCRestrictionNotifiedAt)
+	if err != nil {
+		return fmt.Errorf("marshal kyc notified: %w", err)
+	}
 
 	query := `
 		UPDATE organizations
 		SET owner_user_id                 = $2,
 		    type                          = $3,
 		    name                          = $4,
-		    pending_transfer_to_user_id   = $5,
-		    pending_transfer_initiated_at = $6,
-		    pending_transfer_expires_at   = $7
+		    stripe_account_id             = $5,
+		    stripe_account_country        = $6,
+		    stripe_last_state             = $7,
+		    kyc_first_earning_at          = $8,
+		    kyc_restriction_notified_at   = $9,
+		    pending_transfer_to_user_id   = $10,
+		    pending_transfer_initiated_at = $11,
+		    pending_transfer_expires_at   = $12
 		WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query,
 		org.ID, org.OwnerUserID, string(org.Type), org.Name,
+		org.StripeAccountID, org.StripeAccountCountry, org.StripeLastState,
+		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 	)
 	if err != nil {
@@ -158,6 +202,39 @@ func (r *OrganizationRepository) CountAll(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// ListKYCPending returns all orgs that have earned at least once and
+// have not yet completed KYC. The caller (scheduler) sweeps this list
+// to decide when to send a reminder or block the team's wallet.
+func (r *OrganizationRepository) ListKYCPending(ctx context.Context) ([]*organization.Organization, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	query := `SELECT ` + orgColumns + `
+		FROM organizations
+		WHERE kyc_first_earning_at IS NOT NULL
+		  AND stripe_account_id IS NULL
+		ORDER BY kyc_first_earning_at ASC`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list kyc pending orgs: %w", err)
+	}
+	defer rows.Close()
+
+	var orgs []*organization.Organization
+	for rows.Next() {
+		org, scanErr := r.scanRow(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan kyc pending org: %w", scanErr)
+		}
+		orgs = append(orgs, org)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return orgs, nil
+}
+
 // CreateWithOwnerMembership is the atomic convenience method used at
 // account registration. It creates the organization row and the
 // corresponding Owner membership in a single transaction so both sides
@@ -174,6 +251,11 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	kycNotified, err := marshalKYCNotified(org.KYCRestrictionNotifiedAt)
+	if err != nil {
+		return fmt.Errorf("marshal kyc notified: %w", err)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -183,11 +265,15 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO organizations (
 			id, owner_user_id, type, name,
+			stripe_account_id, stripe_account_country, stripe_last_state,
+			kyc_first_earning_at, kyc_restriction_notified_at,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
 		org.ID, org.OwnerUserID, string(org.Type), org.Name,
+		org.StripeAccountID, org.StripeAccountCountry, org.StripeLastState,
+		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 		org.CreatedAt, org.UpdatedAt,
 	); err != nil {
@@ -227,24 +313,226 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 	return tx.Commit()
 }
 
+// orgRowScanner is satisfied by both *sql.Row and *sql.Rows.
+type orgRowScanner interface {
+	Scan(dest ...any) error
+}
+
 // scanOne turns a sql.Row into a domain Organization, mapping common
 // errors to domain sentinels.
 func (r *OrganizationRepository) scanOne(row *sql.Row) (*organization.Organization, error) {
-	var (
-		org     organization.Organization
-		orgType string
-	)
-	err := row.Scan(
-		&org.ID, &org.OwnerUserID, &orgType, &org.Name,
-		&org.PendingTransferToUserID, &org.PendingTransferInitiatedAt, &org.PendingTransferExpiresAt,
-		&org.CreatedAt, &org.UpdatedAt,
-	)
+	org, err := r.scanRow(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, organization.ErrOrgNotFound
 		}
 		return nil, fmt.Errorf("scan organization: %w", err)
 	}
+	return org, nil
+}
+
+func (r *OrganizationRepository) scanRow(s orgRowScanner) (*organization.Organization, error) {
+	var (
+		org         organization.Organization
+		orgType     string
+		kycNotified []byte
+	)
+	err := s.Scan(
+		&org.ID, &org.OwnerUserID, &orgType, &org.Name,
+		&org.StripeAccountID, &org.StripeAccountCountry, &org.StripeLastState,
+		&org.KYCFirstEarningAt, &kycNotified,
+		&org.PendingTransferToUserID, &org.PendingTransferInitiatedAt, &org.PendingTransferExpiresAt,
+		&org.CreatedAt, &org.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
 	org.Type = organization.OrgType(orgType)
+	org.KYCRestrictionNotifiedAt = unmarshalKYCNotified(kycNotified)
 	return &org, nil
+}
+
+// ---------------------------------------------------------------------------
+// Stripe Connect + KYC (org-keyed since phase R5)
+// ---------------------------------------------------------------------------
+
+// GetStripeAccount returns the org's Stripe Connect account id and country.
+// Empty strings (not an error) when the org has not started KYC yet —
+// callers should interpret the empty account id as "needs onboarding".
+func (r *OrganizationRepository) GetStripeAccount(ctx context.Context, orgID uuid.UUID) (string, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var accountID, country sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		`SELECT stripe_account_id, stripe_account_country FROM organizations WHERE id = $1`,
+		orgID,
+	).Scan(&accountID, &country)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", organization.ErrOrgNotFound
+		}
+		return "", "", fmt.Errorf("get stripe account: %w", err)
+	}
+	return accountID.String, country.String, nil
+}
+
+// GetStripeAccountByUserID returns the stripe account of the org the
+// given user currently belongs to. Used by payment flows that carry a
+// user_id (proposal.client_id / provider_id) and need to resolve the
+// merchant-of-record in one query.
+func (r *OrganizationRepository) GetStripeAccountByUserID(ctx context.Context, userID uuid.UUID) (string, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var accountID, country sql.NullString
+	err := r.db.QueryRowContext(ctx, `
+		SELECT o.stripe_account_id, o.stripe_account_country
+		FROM organizations o
+		JOIN users u ON u.organization_id = o.id
+		WHERE u.id = $1`,
+		userID,
+	).Scan(&accountID, &country)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", organization.ErrOrgNotFound
+		}
+		return "", "", fmt.Errorf("get stripe account by user id: %w", err)
+	}
+	return accountID.String, country.String, nil
+}
+
+// SetStripeAccount persists the Stripe Connect account id + country
+// after a successful onboarding. Both values are stored together so
+// the merchant-of-record info stays consistent.
+func (r *OrganizationRepository) SetStripeAccount(ctx context.Context, orgID uuid.UUID, accountID, country string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE organizations
+		SET stripe_account_id = $2, stripe_account_country = $3, updated_at = now()
+		WHERE id = $1`,
+		orgID, accountID, country,
+	)
+	if err != nil {
+		return fmt.Errorf("set stripe account: %w", err)
+	}
+	return nil
+}
+
+// ClearStripeAccount removes the Stripe account link from the org.
+// Used by the dev reset flow.
+func (r *OrganizationRepository) ClearStripeAccount(ctx context.Context, orgID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE organizations
+		SET stripe_account_id = NULL,
+		    stripe_account_country = NULL,
+		    stripe_last_state = NULL,
+		    updated_at = now()
+		WHERE id = $1`,
+		orgID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear stripe account: %w", err)
+	}
+	return nil
+}
+
+// GetStripeLastState returns the opaque JSON snapshot of the org's
+// last-seen Stripe account state. Used by the embedded Notifier to
+// diff incoming webhooks.
+func (r *OrganizationRepository) GetStripeLastState(ctx context.Context, orgID uuid.UUID) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var state []byte
+	err := r.db.QueryRowContext(ctx,
+		`SELECT stripe_last_state FROM organizations WHERE id = $1`,
+		orgID,
+	).Scan(&state)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, organization.ErrOrgNotFound
+		}
+		return nil, fmt.Errorf("get stripe last state: %w", err)
+	}
+	return state, nil
+}
+
+// SaveStripeLastState persists the opaque JSON snapshot after a
+// successful webhook diff.
+func (r *OrganizationRepository) SaveStripeLastState(ctx context.Context, orgID uuid.UUID, state []byte) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE organizations SET stripe_last_state = $2, updated_at = now() WHERE id = $1`,
+		orgID, state,
+	)
+	if err != nil {
+		return fmt.Errorf("save stripe last state: %w", err)
+	}
+	return nil
+}
+
+// SetKYCFirstEarning records the first moment the org received
+// withdrawable funds. Idempotent: subsequent calls are a no-op because
+// only a NULL target is updated.
+func (r *OrganizationRepository) SetKYCFirstEarning(ctx context.Context, orgID uuid.UUID, at time.Time) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE organizations
+		SET kyc_first_earning_at = $2, updated_at = now()
+		WHERE id = $1 AND kyc_first_earning_at IS NULL`,
+		orgID, at,
+	)
+	if err != nil {
+		return fmt.Errorf("set kyc first earning: %w", err)
+	}
+	return nil
+}
+
+// SaveKYCNotificationState persists the tier→timestamp map tracked by
+// the KYC scheduler. Stored as JSONB.
+func (r *OrganizationRepository) SaveKYCNotificationState(ctx context.Context, orgID uuid.UUID, state map[string]time.Time) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	payload, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("marshal kyc notification state: %w", err)
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		UPDATE organizations
+		SET kyc_restriction_notified_at = $2, updated_at = now()
+		WHERE id = $1`,
+		orgID, payload,
+	)
+	if err != nil {
+		return fmt.Errorf("save kyc notification state: %w", err)
+	}
+	return nil
+}
+
+func marshalKYCNotified(m map[string]time.Time) ([]byte, error) {
+	if m == nil {
+		return []byte(`{}`), nil
+	}
+	return json.Marshal(m)
+}
+
+func unmarshalKYCNotified(data []byte) map[string]time.Time {
+	out := map[string]time.Time{}
+	if len(data) == 0 {
+		return out
+	}
+	_ = json.Unmarshal(data, &out)
+	return out
 }

@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -57,36 +56,41 @@ func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
 	return nil
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+const userColumns = `id, email, hashed_password, first_name, last_name, display_name,
+		role, account_type, session_version, referrer_enabled, is_admin, status,
+		suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason,
+		organization_id, linkedin_id, google_id, email_verified, created_at, updated_at`
 
-	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, session_version, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
-		FROM users WHERE id = $1`
-
+func (r *UserRepository) scanUserRow(scanner interface{ Scan(...any) error }) (*user.User, error) {
 	u := &user.User{}
 	var role, accountType, status string
-	var stripeAcctID sql.NullString
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := scanner.Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
 		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
-		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
+		&u.CreatedAt, &u.UpdatedAt,
 	)
+	if err != nil {
+		return nil, err
+	}
+	u.Role = user.Role(role)
+	u.AccountType = user.AccountType(accountType)
+	u.Status = user.UserStatus(status)
+	return u, nil
+}
+
+func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `SELECT ` + userColumns + ` FROM users WHERE id = $1`
+	u, err := r.scanUserRow(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, user.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by id: %w", err)
-	}
-
-	u.Role = user.Role(role)
-	u.AccountType = user.AccountType(accountType)
-	u.Status = user.UserStatus(status)
-	if stripeAcctID.Valid {
-		u.StripeAccountID = &stripeAcctID.String
 	}
 	return u, nil
 }
@@ -95,32 +99,13 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	query := `
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, session_version, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, stripe_account_id, kyc_first_earning_at, created_at, updated_at
-		FROM users WHERE email = $1`
-
-	u := &user.User{}
-	var role, accountType, status string
-	var stripeAcctID sql.NullString
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
-		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.IsAdmin, &status,
-		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
-		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
-		&stripeAcctID, &u.KYCFirstEarningAt, &u.CreatedAt, &u.UpdatedAt,
-	)
+	query := `SELECT ` + userColumns + ` FROM users WHERE email = $1`
+	u, err := r.scanUserRow(r.db.QueryRowContext(ctx, query, email))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, user.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
-	}
-
-	u.Role = user.Role(role)
-	u.AccountType = user.AccountType(accountType)
-	u.Status = user.UserStatus(status)
-	if stripeAcctID.Valid {
-		u.StripeAccountID = &stripeAcctID.String
 	}
 	return u, nil
 }
@@ -483,191 +468,8 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 	return users, rows.Err()
 }
 
-// ---------------------------------------------------------------------------
-// Stripe account operations (migration 040)
-//
-// These methods manipulate the stripe_* columns on users added in
-// migration 040. They live on UserRepository because the Stripe account
-// is a 1-1 attribute of the user, not a separate entity.
-// ---------------------------------------------------------------------------
-
-// GetStripeAccount returns the Stripe account_id + country for a user.
-// Returns empty strings + sql.ErrNoRows if the user has no Stripe account yet.
-func (r *UserRepository) GetStripeAccount(ctx context.Context, userID uuid.UUID) (string, string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	var accountID sql.NullString
-	var country sql.NullString
-	err := r.db.QueryRowContext(ctx,
-		`SELECT stripe_account_id, stripe_account_country FROM users WHERE id = $1`,
-		userID,
-	).Scan(&accountID, &country)
-	if err != nil {
-		return "", "", err
-	}
-	if !accountID.Valid {
-		return "", "", sql.ErrNoRows
-	}
-	return accountID.String, country.String, nil
-}
-
-// FindUserIDByStripeAccount reverse-lookup: Stripe account_id → user_id.
-// Used by the embedded Notifier to route webhooks to the right user.
-func (r *UserRepository) FindUserIDByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	var userID uuid.UUID
-	err := r.db.QueryRowContext(ctx,
-		`SELECT id FROM users WHERE stripe_account_id = $1`,
-		accountID,
-	).Scan(&userID)
-	return userID, err
-}
-
-// SetStripeAccount persists the Stripe account_id + country for a user.
-// Idempotent — safe to call on every /account-session to refresh.
-func (r *UserRepository) SetStripeAccount(ctx context.Context, userID uuid.UUID, accountID, country string) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE users
-		 SET stripe_account_id      = $2,
-		     stripe_account_country = $3,
-		     updated_at             = now()
-		 WHERE id = $1`,
-		userID, accountID, country,
-	)
-	return err
-}
-
-// ClearStripeAccount wipes the Stripe account mapping for a user.
-// Used by the test reset flow to allow recreating with a different country.
-func (r *UserRepository) ClearStripeAccount(ctx context.Context, userID uuid.UUID) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE users
-		 SET stripe_account_id      = NULL,
-		     stripe_account_country = NULL,
-		     stripe_last_state      = NULL,
-		     updated_at             = now()
-		 WHERE id = $1`,
-		userID,
-	)
-	return err
-}
-
-// GetStripeLastState returns the raw JSONB snapshot the Notifier uses
-// to diff incoming webhooks. Returns (nil, nil) when no state is stored.
-func (r *UserRepository) GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	var raw sql.NullString
-	err := r.db.QueryRowContext(ctx,
-		`SELECT stripe_last_state FROM users WHERE id = $1`,
-		userID,
-	).Scan(&raw)
-	if err != nil {
-		return nil, err
-	}
-	if !raw.Valid || raw.String == "" {
-		return nil, nil
-	}
-	return []byte(raw.String), nil
-}
-
-// SaveStripeLastState persists the Notifier's last-seen state for a user.
-func (r *UserRepository) SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE users
-		 SET stripe_last_state = $2::jsonb,
-		     updated_at        = now()
-		 WHERE id = $1`,
-		userID, string(state),
-	)
-	return err
-}
-
-// ---------------------------------------------------------------------------
-// KYC enforcement (migration 044)
-// ---------------------------------------------------------------------------
-
-// SetKYCFirstEarning records when the user first had funds available for
-// withdrawal. Idempotent: only writes if kyc_first_earning_at is NULL.
-func (r *UserRepository) SetKYCFirstEarning(ctx context.Context, userID uuid.UUID, at time.Time) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE users
-		 SET kyc_first_earning_at = $2, updated_at = now()
-		 WHERE id = $1 AND kyc_first_earning_at IS NULL`,
-		userID, at,
-	)
-	return err
-}
-
-// GetKYCPendingUsers returns all users who have earned money but have NOT
-// completed KYC (no stripe_account_id). Used by the KYC scheduler.
-func (r *UserRepository) GetKYCPendingUsers(ctx context.Context) ([]*user.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, email, display_name, role, stripe_account_id,
-		        kyc_first_earning_at, kyc_restriction_notified_at
-		 FROM users
-		 WHERE kyc_first_earning_at IS NOT NULL
-		   AND stripe_account_id IS NULL`)
-	if err != nil {
-		return nil, fmt.Errorf("get kyc pending users: %w", err)
-	}
-	defer rows.Close()
-
-	var users []*user.User
-	for rows.Next() {
-		u := &user.User{}
-		var role string
-		var stripeID sql.NullString
-		var notifiedRaw sql.NullString
-		if err := rows.Scan(
-			&u.ID, &u.Email, &u.DisplayName, &role, &stripeID,
-			&u.KYCFirstEarningAt, &notifiedRaw,
-		); err != nil {
-			return nil, fmt.Errorf("scan kyc pending user: %w", err)
-		}
-		u.Role = user.Role(role)
-		if stripeID.Valid {
-			u.StripeAccountID = &stripeID.String
-		}
-		if notifiedRaw.Valid && notifiedRaw.String != "" {
-			_ = json.Unmarshal([]byte(notifiedRaw.String), &u.KYCRestrictionNotifiedAt)
-		}
-		users = append(users, u)
-	}
-	return users, rows.Err()
-}
-
-// SaveKYCNotificationState persists the notification tier state JSONB.
-func (r *UserRepository) SaveKYCNotificationState(ctx context.Context, userID uuid.UUID, state map[string]time.Time) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	raw, err := json.Marshal(state)
-	if err != nil {
-		return fmt.Errorf("marshal kyc notification state: %w", err)
-	}
-	_, err = r.db.ExecContext(ctx,
-		`UPDATE users SET kyc_restriction_notified_at = $2::jsonb, updated_at = now() WHERE id = $1`,
-		userID, string(raw),
-	)
-	return err
-}
+// Stripe Connect and KYC enforcement used to live on UserRepository via
+// the stripe_* and kyc_* columns (migrations 040 / 044). Phase R5 moved
+// them onto the organization row — the merchant of record is the team,
+// not an individual user — so those methods have been removed from this
+// file and their equivalents live in OrganizationRepository.

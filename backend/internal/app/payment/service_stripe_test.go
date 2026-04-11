@@ -31,13 +31,17 @@ func (f *fakeRecords) Update(_ context.Context, r *domain.PaymentRecord) error {
 	return nil
 }
 
-// fakeUsers stubs UserRepository; only GetStripeAccount is exercised.
-type fakeUsers struct {
-	repository.UserRepository
+// fakeOrgs stubs OrganizationRepository; only GetStripeAccountByUserID
+// is exercised by the payment service tests.
+type fakeOrgs struct {
+	repository.OrganizationRepository
 	stripeAccountID string
 }
 
-func (f *fakeUsers) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
+func (f *fakeOrgs) GetStripeAccountByUserID(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return f.stripeAccountID, "FR", nil
+}
+func (f *fakeOrgs) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
 	return f.stripeAccountID, "FR", nil
 }
 
@@ -78,12 +82,12 @@ func baseRecord() *domain.PaymentRecord {
 func TestTransferPartialToProvider_NoStripeAccount_PersistsSplitAmount(t *testing.T) {
 	rec := baseRecord()
 	records := &fakeRecords{record: rec}
-	users := &fakeUsers{stripeAccountID: ""} // KYC not done
+	orgs := &fakeOrgs{stripeAccountID: ""} // KYC not done
 	stripe := &fakeStripe{}
 
 	svc := NewService(ServiceDeps{
 		Records: records,
-		Users:   users,
+		Organizations: orgs,
 		Stripe:  stripe,
 	})
 
@@ -104,12 +108,12 @@ func TestTransferPartialToProvider_NoStripeAccount_PersistsSplitAmount(t *testin
 func TestTransferPartialToProvider_FullRefund_MarksCompletedZeroPayout(t *testing.T) {
 	rec := baseRecord()
 	records := &fakeRecords{record: rec}
-	users := &fakeUsers{stripeAccountID: ""} // KYC status is irrelevant here
+	orgs := &fakeOrgs{stripeAccountID: ""} // KYC status is irrelevant here
 	stripe := &fakeStripe{}
 
 	svc := NewService(ServiceDeps{
 		Records: records,
-		Users:   users,
+		Organizations: orgs,
 		Stripe:  stripe,
 	})
 
@@ -126,12 +130,12 @@ func TestTransferPartialToProvider_FullRefund_MarksCompletedZeroPayout(t *testin
 func TestTransferPartialToProvider_KYCReady_TransfersAndMarksCompleted(t *testing.T) {
 	rec := baseRecord()
 	records := &fakeRecords{record: rec}
-	users := &fakeUsers{stripeAccountID: "acct_test_123"}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_123"}
 	stripe := &fakeStripe{}
 
 	svc := NewService(ServiceDeps{
 		Records: records,
-		Users:   users,
+		Organizations: orgs,
 		Stripe:  stripe,
 	})
 
@@ -151,12 +155,12 @@ func TestTransferPartialToProvider_RecordNotSucceeded_Rejected(t *testing.T) {
 	rec := baseRecord()
 	rec.Status = domain.RecordStatusPending
 	records := &fakeRecords{record: rec}
-	users := &fakeUsers{stripeAccountID: "acct_test_123"}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_123"}
 	stripe := &fakeStripe{}
 
 	svc := NewService(ServiceDeps{
 		Records: records,
-		Users:   users,
+		Organizations: orgs,
 		Stripe:  stripe,
 	})
 

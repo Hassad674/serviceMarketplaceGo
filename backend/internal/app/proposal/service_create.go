@@ -22,9 +22,13 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 	if err != nil {
 		return nil, fmt.Errorf("get sender: %w", err)
 	}
-	// KYC enforcement: blocked providers/agencies cannot create proposals
-	if sender.IsKYCBlocked() {
-		return nil, user.ErrKYCRestricted
+	// KYC enforcement: the sender's org must not be blocked (14-day
+	// deadline without Stripe onboarding). Fails closed if the org
+	// lookup errors so the flow never proceeds on ambiguous state.
+	if s.orgs != nil {
+		if org, oErr := s.orgs.FindByUserID(ctx, input.SenderID); oErr == nil && org.IsKYCBlocked() {
+			return nil, user.ErrKYCRestricted
+		}
 	}
 
 	recipient, err := s.users.GetByID(ctx, input.RecipientID)

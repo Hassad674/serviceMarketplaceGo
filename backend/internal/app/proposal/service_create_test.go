@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 )
@@ -524,13 +525,23 @@ func TestCreateProposal_KYCBlocked(t *testing.T) {
 			if id == enterpriseID {
 				return makeUser(id, user.RoleEnterprise), nil
 			}
-			// Provider is KYC-blocked: has earnings, no Stripe account, 15 days elapsed
-			u := makeUser(id, user.RoleProvider)
-			u.KYCFirstEarningAt = &past15
-			return u, nil
+			return makeUser(id, user.RoleProvider), nil
 		},
 	}
-	svc := newTestService(nil, userRepo, nil, nil)
+	orgRepo := &mockOrgRepo{
+		findByUserIDFn: func(_ context.Context, uid uuid.UUID) (*organization.Organization, error) {
+			// The provider's org is blocked (15 days elapsed without Stripe).
+			if uid == providerID {
+				return &organization.Organization{
+					ID:                uuid.New(),
+					Type:              organization.OrgTypeProviderPersonal,
+					KYCFirstEarningAt: &past15,
+				}, nil
+			}
+			return &organization.Organization{ID: uuid.New(), Type: organization.OrgTypeEnterprise}, nil
+		},
+	}
+	svc := newTestServiceWithCreditsAndOrgs(nil, userRepo, orgRepo, nil, nil, nil)
 
 	_, err := svc.CreateProposal(context.Background(), CreateProposalInput{
 		ConversationID: uuid.New(),
@@ -555,14 +566,22 @@ func TestCreateProposal_KYCCompleted_OK(t *testing.T) {
 			if id == enterpriseID {
 				return makeUser(id, user.RoleEnterprise), nil
 			}
-			u := makeUser(id, user.RoleProvider)
-			u.KYCFirstEarningAt = &past15
-			u.StripeAccountID = &stripeID
-			return u, nil
+			return makeUser(id, user.RoleProvider), nil
+		},
+	}
+	orgRepo := &mockOrgRepo{
+		findByUserIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+			// Stripe account exists → KYC completed, not blocked even after 15 days.
+			return &organization.Organization{
+				ID:                uuid.New(),
+				Type:              organization.OrgTypeProviderPersonal,
+				KYCFirstEarningAt: &past15,
+				StripeAccountID:   &stripeID,
+			}, nil
 		},
 	}
 	proposalRepo := &mockProposalRepo{}
-	svc := newTestService(proposalRepo, userRepo, nil, nil)
+	svc := newTestServiceWithCreditsAndOrgs(proposalRepo, userRepo, orgRepo, nil, nil, nil)
 
 	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
 		ConversationID: uuid.New(),

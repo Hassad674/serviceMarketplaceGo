@@ -147,7 +147,7 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 		return domain.ErrTransferAlreadyDone
 	}
 
-	stripeAccountID, _, err := s.users.GetStripeAccount(ctx, record.ProviderID)
+	stripeAccountID, _, err := s.orgs.GetStripeAccountByUserID(ctx, record.ProviderID)
 	if err != nil || stripeAccountID == "" {
 		return domain.ErrStripeAccountNotFound
 	}
@@ -215,7 +215,7 @@ func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid
 	// payout but keep TransferPending so a post-KYC RequestPayout completes
 	// the transfer with the correct (split) amount. This is a valid state,
 	// not an error: the dispute flow continues normally.
-	stripeAccountID, _, accErr := s.users.GetStripeAccount(ctx, record.ProviderID)
+	stripeAccountID, _, accErr := s.orgs.GetStripeAccountByUserID(ctx, record.ProviderID)
 	if accErr != nil || stripeAccountID == "" {
 		slog.Info("dispute: transfer deferred pending provider KYC",
 			"proposal_id", proposalID,
@@ -308,9 +308,10 @@ type WalletRecord struct {
 
 // GetWalletOverview returns the organization's wallet state. Every
 // member of the same org sees the same wallet (Stripe Dashboard model).
-// Stripe account + KYC state are still stored per user until phase R5.
+// Since phase R5 the Stripe account + KYC bookkeeping live on the org.
 func (s *Service) GetWalletOverview(ctx context.Context, userID, orgID uuid.UUID) (*WalletOverview, error) {
-	stripeAccountID, _, _ := s.users.GetStripeAccount(ctx, userID)
+	stripeAccountID, _, _ := s.orgs.GetStripeAccount(ctx, orgID)
+	_ = userID // kept for audit / future per-operator fields
 	wallet := &WalletOverview{StripeAccountID: stripeAccountID}
 
 	// Fetch account capabilities from Stripe so wallet shows if charges/payouts are active
@@ -359,7 +360,8 @@ type PayoutResult struct {
 // RequestPayout triggers manual transfers for all pending payments
 // belonging to the caller's organization.
 func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*PayoutResult, error) {
-	stripeAccountID, _, err := s.users.GetStripeAccount(ctx, userID)
+	_ = userID // audit hook
+	stripeAccountID, _, err := s.orgs.GetStripeAccount(ctx, orgID)
 	if err != nil || stripeAccountID == "" {
 		if errors.Is(err, sql.ErrNoRows) || stripeAccountID == "" {
 			return nil, domain.ErrStripeAccountNotFound
