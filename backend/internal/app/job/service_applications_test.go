@@ -169,14 +169,16 @@ func TestListJobApplications_WithProfiles(t *testing.T) {
 	ar.listByJobFn = func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.JobApplication, string, error) {
 		return []*domain.JobApplication{{ID: uuid.New(), JobID: j.ID, ApplicantID: applicantID, Message: "hi"}}, "", nil
 	}
-	pr.getPublicProfilesByUserIDsFn = func(_ context.Context, ids []uuid.UUID) ([]*profile.PublicProfile, error) {
-		return []*profile.PublicProfile{{UserID: applicantID, DisplayName: "Test"}}, nil
+	pr.orgProfilesByUserIDsFn = func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
+		return map[uuid.UUID]*profile.PublicProfile{
+			applicantID: {OrganizationID: uuid.New(), Name: "Test Org"},
+		}, nil
 	}
 
 	items, _, err := svc.ListJobApplications(context.Background(), j.ID, creatorID, "", 20)
 	assert.NoError(t, err)
 	assert.Len(t, items, 1)
-	assert.Equal(t, "Test", items[0].Profile.DisplayName)
+	assert.Equal(t, "Test Org", items[0].Profile.Name)
 }
 
 func TestHasApplied_True(t *testing.T) {

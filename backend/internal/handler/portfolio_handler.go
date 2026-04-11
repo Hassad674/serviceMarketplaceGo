@@ -30,9 +30,9 @@ func NewPortfolioHandler(svc *portfolioapp.Service) *PortfolioHandler {
 
 // CreatePortfolioItem handles POST /api/v1/portfolio.
 func (h *PortfolioHandler) CreatePortfolioItem(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -53,12 +53,12 @@ func (h *PortfolioHandler) CreatePortfolioItem(w http.ResponseWriter, r *http.Re
 	}
 
 	item, err := h.portfolioSvc.CreateItem(r.Context(), portfolioapp.CreateItemInput{
-		UserID:      userID,
-		Title:       req.Title,
-		Description: req.Description,
-		LinkURL:     req.LinkURL,
-		Position:    req.Position,
-		Media:       media,
+		OrganizationID: orgID,
+		Title:          req.Title,
+		Description:    req.Description,
+		LinkURL:        req.LinkURL,
+		Position:       req.Position,
+		Media:          media,
 	})
 	if err != nil {
 		handlePortfolioError(w, err)
@@ -89,20 +89,21 @@ func (h *PortfolioHandler) GetPortfolioItem(w http.ResponseWriter, r *http.Reque
 	})
 }
 
-// ListPortfolioByUser handles GET /api/v1/portfolio/user/{userId}.
-func (h *PortfolioHandler) ListPortfolioByUser(w http.ResponseWriter, r *http.Request) {
-	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+// ListPortfolioByOrganization handles GET /api/v1/portfolio/org/{orgId}.
+// Public endpoint — anyone can browse any org's portfolio.
+func (h *PortfolioHandler) ListPortfolioByOrganization(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(chi.URLParam(r, "orgId"))
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_user_id", "userId must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "orgId must be a valid UUID")
 		return
 	}
 
 	cursor := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	items, nextCursor, err := h.portfolioSvc.ListByUser(r.Context(), userID, cursor, limit)
+	items, nextCursor, err := h.portfolioSvc.ListByOrganization(r.Context(), orgID, cursor, limit)
 	if err != nil {
-		slog.Error("list portfolio by user", "error", err)
+		slog.Error("list portfolio by organization", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list portfolio")
 		return
 	}
@@ -116,9 +117,9 @@ func (h *PortfolioHandler) ListPortfolioByUser(w http.ResponseWriter, r *http.Re
 
 // UpdatePortfolioItem handles PUT /api/v1/portfolio/{id}.
 func (h *PortfolioHandler) UpdatePortfolioItem(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -147,7 +148,7 @@ func (h *PortfolioHandler) UpdatePortfolioItem(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	item, err := h.portfolioSvc.UpdateItem(r.Context(), userID, id, portfolioapp.UpdateItemInput{
+	item, err := h.portfolioSvc.UpdateItem(r.Context(), orgID, id, portfolioapp.UpdateItemInput{
 		Title:       req.Title,
 		Description: req.Description,
 		LinkURL:     req.LinkURL,
@@ -165,9 +166,9 @@ func (h *PortfolioHandler) UpdatePortfolioItem(w http.ResponseWriter, r *http.Re
 
 // DeletePortfolioItem handles DELETE /api/v1/portfolio/{id}.
 func (h *PortfolioHandler) DeletePortfolioItem(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -177,7 +178,7 @@ func (h *PortfolioHandler) DeletePortfolioItem(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.portfolioSvc.DeleteItem(r.Context(), userID, id); err != nil {
+	if err := h.portfolioSvc.DeleteItem(r.Context(), orgID, id); err != nil {
 		handlePortfolioError(w, err)
 		return
 	}
@@ -187,9 +188,9 @@ func (h *PortfolioHandler) DeletePortfolioItem(w http.ResponseWriter, r *http.Re
 
 // ReorderPortfolio handles PUT /api/v1/portfolio/reorder.
 func (h *PortfolioHandler) ReorderPortfolio(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -209,7 +210,7 @@ func (h *PortfolioHandler) ReorderPortfolio(w http.ResponseWriter, r *http.Reque
 		itemIDs[i] = id
 	}
 
-	if err := h.portfolioSvc.ReorderItems(r.Context(), userID, itemIDs); err != nil {
+	if err := h.portfolioSvc.ReorderItems(r.Context(), orgID, itemIDs); err != nil {
 		slog.Error("reorder portfolio", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to reorder")
 		return

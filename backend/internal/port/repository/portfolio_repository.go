@@ -16,9 +16,9 @@ type PortfolioRepository interface {
 	// GetByID returns a single item with all its media loaded.
 	GetByID(ctx context.Context, id uuid.UUID) (*portfolio.PortfolioItem, error)
 
-	// ListByUser returns items ordered by position ASC with cursor pagination.
-	// Each item includes its media.
-	ListByUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*portfolio.PortfolioItem, string, error)
+	// ListByOrganization returns items ordered by position ASC with
+	// cursor pagination. Each item includes its media.
+	ListByOrganization(ctx context.Context, organizationID uuid.UUID, cursor string, limit int) ([]*portfolio.PortfolioItem, string, error)
 
 	// Update updates title, description, link_url and updated_at.
 	Update(ctx context.Context, item *portfolio.PortfolioItem) error
@@ -26,11 +26,11 @@ type PortfolioRepository interface {
 	// Delete removes an item. CASCADE deletes its media.
 	Delete(ctx context.Context, id uuid.UUID) error
 
-	// CountByUser returns the number of portfolio items for a user.
-	CountByUser(ctx context.Context, userID uuid.UUID) (int, error)
+	// CountByOrganization returns the number of portfolio items for an org.
+	CountByOrganization(ctx context.Context, organizationID uuid.UUID) (int, error)
 
 	// ReorderItems batch-updates positions. Index in the slice = new position.
-	ReorderItems(ctx context.Context, userID uuid.UUID, itemIDs []uuid.UUID) error
+	ReorderItems(ctx context.Context, organizationID uuid.UUID, itemIDs []uuid.UUID) error
 
 	// ReplaceMedia deletes all existing media for an item and inserts new ones.
 	ReplaceMedia(ctx context.Context, itemID uuid.UUID, media []*portfolio.PortfolioMedia) error

@@ -13,21 +13,21 @@ import (
 
 // mockSocialLinkRepo is a manual mock for repository.SocialLinkRepository.
 type mockSocialLinkRepo struct {
-	listByUserFn func(ctx context.Context, userID uuid.UUID) ([]*profile.SocialLink, error)
-	upsertFn     func(ctx context.Context, link *profile.SocialLink) error
-	deleteFn     func(ctx context.Context, userID uuid.UUID, platform string) error
+	listByOrgFn func(ctx context.Context, orgID uuid.UUID) ([]*profile.SocialLink, error)
+	upsertFn    func(ctx context.Context, link *profile.SocialLink) error
+	deleteFn    func(ctx context.Context, orgID uuid.UUID, platform string) error
 }
 
-func (m *mockSocialLinkRepo) ListByUser(ctx context.Context, userID uuid.UUID) ([]*profile.SocialLink, error) {
-	return m.listByUserFn(ctx, userID)
+func (m *mockSocialLinkRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*profile.SocialLink, error) {
+	return m.listByOrgFn(ctx, orgID)
 }
 
 func (m *mockSocialLinkRepo) Upsert(ctx context.Context, link *profile.SocialLink) error {
 	return m.upsertFn(ctx, link)
 }
 
-func (m *mockSocialLinkRepo) Delete(ctx context.Context, userID uuid.UUID, platform string) error {
-	return m.deleteFn(ctx, userID, platform)
+func (m *mockSocialLinkRepo) Delete(ctx context.Context, orgID uuid.UUID, platform string) error {
+	return m.deleteFn(ctx, orgID, platform)
 }
 
 func TestSocialLinkService_Upsert_ValidPlatform(t *testing.T) {
@@ -99,20 +99,20 @@ func TestSocialLinkService_Delete_InvalidPlatform(t *testing.T) {
 	assert.ErrorIs(t, err, profile.ErrInvalidPlatform)
 }
 
-func TestSocialLinkService_ListByUser(t *testing.T) {
-	userID := uuid.New()
+func TestSocialLinkService_ListByOrganization(t *testing.T) {
+	orgID := uuid.New()
 	expected := []*profile.SocialLink{
-		{UserID: userID, Platform: "github", URL: "https://github.com/user"},
-		{UserID: userID, Platform: "linkedin", URL: "https://linkedin.com/in/user"},
+		{OrganizationID: orgID, Platform: "github", URL: "https://github.com/user"},
+		{OrganizationID: orgID, Platform: "linkedin", URL: "https://linkedin.com/in/user"},
 	}
 	repo := &mockSocialLinkRepo{
-		listByUserFn: func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
+		listByOrgFn: func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
 			return expected, nil
 		},
 	}
 	svc := NewSocialLinkService(repo)
 
-	links, err := svc.ListByUser(context.Background(), userID)
+	links, err := svc.ListByOrganization(context.Background(), orgID)
 
 	require.NoError(t, err)
 	assert.Len(t, links, 2)

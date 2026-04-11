@@ -5,7 +5,7 @@ import (
 )
 
 type ProfileResponse struct {
-	UserID               string `json:"user_id"`
+	OrganizationID       string `json:"organization_id"`
 	Title                string `json:"title"`
 	About                string `json:"about"`
 	PhotoURL             string `json:"photo_url"`
@@ -16,12 +16,14 @@ type ProfileResponse struct {
 	UpdatedAt            string `json:"updated_at"`
 }
 
+// PublicProfileSummary is the shape surfaced to marketplace search /
+// discovery. Since phase R2, it describes an organization (the team
+// behind the offering), not an individual user — the name is the
+// org's display name and the role is the org type.
 type PublicProfileSummary struct {
-	UserID          string  `json:"user_id"`
-	DisplayName     string  `json:"display_name"`
-	FirstName       string  `json:"first_name"`
-	LastName        string  `json:"last_name"`
-	Role            string  `json:"role"`
+	OrganizationID  string  `json:"organization_id"`
+	Name            string  `json:"name"`
+	OrgType         string  `json:"org_type"`
 	Title           string  `json:"title"`
 	PhotoURL        string  `json:"photo_url"`
 	ReferrerEnabled bool    `json:"referrer_enabled"`
@@ -31,11 +33,9 @@ type PublicProfileSummary struct {
 
 func NewPublicProfileSummary(p *profile.PublicProfile) PublicProfileSummary {
 	return PublicProfileSummary{
-		UserID:          p.UserID.String(),
-		DisplayName:     p.DisplayName,
-		FirstName:       p.FirstName,
-		LastName:        p.LastName,
-		Role:            p.Role,
+		OrganizationID:  p.OrganizationID.String(),
+		Name:            p.Name,
+		OrgType:         p.OrgType,
 		Title:           p.Title,
 		PhotoURL:        p.PhotoURL,
 		ReferrerEnabled: p.ReferrerEnabled,
@@ -54,7 +54,7 @@ func NewPublicProfileSummaryList(profiles []*profile.PublicProfile) []PublicProf
 
 func NewProfileResponse(p *profile.Profile) ProfileResponse {
 	return ProfileResponse{
-		UserID:               p.UserID.String(),
+		OrganizationID:       p.OrganizationID.String(),
 		Title:                p.Title,
 		About:                p.About,
 		PhotoURL:             p.PhotoURL,

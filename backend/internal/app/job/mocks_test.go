@@ -148,21 +148,27 @@ func (m *mockJobApplicationRepo) CountAdmin(_ context.Context, _ repository.Admi
 // --- mockProfileRepo ---
 
 type mockProfileRepo struct {
-	getPublicProfilesByUserIDsFn func(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error)
+	orgProfilesByUserIDsFn func(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error)
 }
 
-func (m *mockProfileRepo) Create(_ context.Context, _ *profile.Profile) error               { return nil }
-func (m *mockProfileRepo) GetByUserID(_ context.Context, _ uuid.UUID) (*profile.Profile, error) { return nil, nil }
-func (m *mockProfileRepo) Update(_ context.Context, _ *profile.Profile) error               { return nil }
+func (m *mockProfileRepo) Create(_ context.Context, _ *profile.Profile) error { return nil }
+func (m *mockProfileRepo) GetByOrganizationID(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+	return nil, nil
+}
+func (m *mockProfileRepo) Update(_ context.Context, _ *profile.Profile) error { return nil }
 func (m *mockProfileRepo) SearchPublic(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
 	return nil, "", nil
 }
 
-func (m *mockProfileRepo) GetPublicProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error) {
-	if m.getPublicProfilesByUserIDsFn != nil {
-		return m.getPublicProfilesByUserIDsFn(ctx, userIDs)
+func (m *mockProfileRepo) GetPublicProfilesByOrgIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
+	return nil, nil
+}
+
+func (m *mockProfileRepo) OrgProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
+	if m.orgProfilesByUserIDsFn != nil {
+		return m.orgProfilesByUserIDsFn(ctx, userIDs)
 	}
-	return []*profile.PublicProfile{}, nil
+	return map[uuid.UUID]*profile.PublicProfile{}, nil
 }
 
 // --- mockMsgSender ---

@@ -1,7 +1,7 @@
 package postgres
 
 const queryInsertPortfolioItem = `
-INSERT INTO portfolio_items (id, user_id, title, description, link_url, position, created_at, updated_at)
+INSERT INTO portfolio_items (id, organization_id, title, description, link_url, position, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 const queryInsertPortfolioMedia = `
@@ -9,7 +9,7 @@ INSERT INTO portfolio_media (id, portfolio_item_id, media_url, media_type, thumb
 VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 const queryGetPortfolioItemByID = `
-SELECT id, user_id, title, description, link_url, position, created_at, updated_at
+SELECT id, organization_id, title, description, link_url, position, created_at, updated_at
 FROM portfolio_items
 WHERE id = $1`
 
@@ -19,17 +19,17 @@ FROM portfolio_media
 WHERE portfolio_item_id = $1
 ORDER BY position ASC`
 
-const queryListPortfolioByUserFirst = `
-SELECT id, user_id, title, description, link_url, position, created_at, updated_at
+const queryListPortfolioByOrgFirst = `
+SELECT id, organization_id, title, description, link_url, position, created_at, updated_at
 FROM portfolio_items
-WHERE user_id = $1
+WHERE organization_id = $1
 ORDER BY position ASC, created_at DESC
 LIMIT $2`
 
-const queryListPortfolioByUserWithCursor = `
-SELECT id, user_id, title, description, link_url, position, created_at, updated_at
+const queryListPortfolioByOrgWithCursor = `
+SELECT id, organization_id, title, description, link_url, position, created_at, updated_at
 FROM portfolio_items
-WHERE user_id = $1
+WHERE organization_id = $1
   AND (position, id) > ($2, $3)
 ORDER BY position ASC, created_at DESC
 LIMIT $4`
@@ -48,12 +48,12 @@ WHERE id = $1`
 const queryDeletePortfolioItem = `
 DELETE FROM portfolio_items WHERE id = $1`
 
-const queryCountPortfolioByUser = `
-SELECT COUNT(*) FROM portfolio_items WHERE user_id = $1`
+const queryCountPortfolioByOrg = `
+SELECT COUNT(*) FROM portfolio_items WHERE organization_id = $1`
 
 const queryDeleteMediaByItemID = `
 DELETE FROM portfolio_media WHERE portfolio_item_id = $1`
 
 const queryUpdatePortfolioPosition = `
 UPDATE portfolio_items SET position = $2, updated_at = now()
-WHERE id = $1 AND user_id = $3`
+WHERE id = $1 AND organization_id = $3`

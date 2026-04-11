@@ -137,10 +137,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
 		})
 
-		// Public profiles
+		// Public profiles (keyed by organization id since phase R2)
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
-		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
+		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 		if deps.ProjectHistory != nil {
+			// project_history still anchors on user_id; R3 flips it to org.
 			r.Get("/profiles/{userId}/project-history", deps.ProjectHistory.ListByProvider)
 		}
 
@@ -248,7 +249,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Social link routes
 		if deps.SocialLink != nil {
 			// Public: read social links
-			r.Get("/profiles/{userId}/social-links", deps.SocialLink.ListPublicSocialLinks)
+			r.Get("/profiles/{orgId}/social-links", deps.SocialLink.ListPublicSocialLinks)
 
 			// Authenticated: manage own social links
 			r.Route("/profile/social-links", func(r chi.Router) {
@@ -262,8 +263,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Portfolio routes (mixed: public reads, authenticated writes)
 		if deps.Portfolio != nil {
-			// Public: read portfolio
-			r.Get("/portfolio/user/{userId}", deps.Portfolio.ListPortfolioByUser)
+			// Public: read portfolio for an organization
+			r.Get("/portfolio/org/{orgId}", deps.Portfolio.ListPortfolioByOrganization)
 			r.Get("/portfolio/{id}", deps.Portfolio.GetPortfolioItem)
 
 			// Authenticated: manage own portfolio

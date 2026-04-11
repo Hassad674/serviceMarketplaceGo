@@ -25,32 +25,32 @@ func newTestProfileHandler(repo *mockProfileRepo) *ProfileHandler {
 }
 
 func TestProfileHandler_GetMyProfile(t *testing.T) {
-	uid := uuid.New()
+	oid := uuid.New()
 
 	tests := []struct {
 		name       string
-		userID     *uuid.UUID
+		orgID      *uuid.UUID
 		setupMock  func(*mockProfileRepo)
 		wantStatus int
 	}{
 		{
-			name:   "success",
-			userID: &uid,
+			name:  "success",
+			orgID: &oid,
 			setupMock: func(r *mockProfileRepo) {
-				r.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
-					return testProfile(uid), nil
+				r.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+					return testProfile(oid), nil
 				}
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "unauthenticated",
-			userID:     nil,
+			orgID:      nil,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "profile not found",
-			userID:     &uid,
+			orgID:      &oid,
 			wantStatus: http.StatusNotFound,
 		},
 	}
@@ -64,8 +64,8 @@ func TestProfileHandler_GetMyProfile(t *testing.T) {
 			h := newTestProfileHandler(repo)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/me", nil)
-			if tc.userID != nil {
-				ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, *tc.userID)
+			if tc.orgID != nil {
+				ctx := context.WithValue(req.Context(), middleware.ContextKeyOrganizationID, *tc.orgID)
 				req = req.WithContext(ctx)
 			}
 			rec := httptest.NewRecorder()
@@ -77,35 +77,35 @@ func TestProfileHandler_GetMyProfile(t *testing.T) {
 }
 
 func TestProfileHandler_UpdateMyProfile(t *testing.T) {
-	uid := uuid.New()
+	oid := uuid.New()
 
 	tests := []struct {
 		name       string
-		userID     *uuid.UUID
+		orgID      *uuid.UUID
 		body       map[string]string
 		setupMock  func(*mockProfileRepo)
 		wantStatus int
 	}{
 		{
-			name:   "success",
-			userID: &uid,
-			body:   map[string]string{"title": "Go Expert", "about": "I build APIs"},
+			name:  "success",
+			orgID: &oid,
+			body:  map[string]string{"title": "Go Expert", "about": "I build APIs"},
 			setupMock: func(r *mockProfileRepo) {
-				r.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
-					return testProfile(uid), nil
+				r.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+					return testProfile(oid), nil
 				}
 			},
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "unauthenticated",
-			userID:     nil,
+			orgID:      nil,
 			body:       map[string]string{"title": "X"},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
 			name:       "invalid json",
-			userID:     &uid,
+			orgID:      &oid,
 			wantStatus: http.StatusBadRequest,
 		},
 	}
@@ -127,8 +127,8 @@ func TestProfileHandler_UpdateMyProfile(t *testing.T) {
 			}
 			req := httptest.NewRequest(http.MethodPut, "/api/v1/profiles/me", bodyReader)
 			req.Header.Set("Content-Type", "application/json")
-			if tc.userID != nil {
-				ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, *tc.userID)
+			if tc.orgID != nil {
+				ctx := context.WithValue(req.Context(), middleware.ContextKeyOrganizationID, *tc.orgID)
 				req = req.WithContext(ctx)
 			}
 			rec := httptest.NewRecorder()
@@ -152,7 +152,7 @@ func TestProfileHandler_GetPublicProfile(t *testing.T) {
 			name:     "success",
 			urlParam: uid.String(),
 			setupMock: func(r *mockProfileRepo) {
-				r.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				r.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return testProfile(uid), nil
 				}
 			},
@@ -180,7 +180,7 @@ func TestProfileHandler_GetPublicProfile(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/profiles/%s", tc.urlParam), nil)
 			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("userId", tc.urlParam)
+			rctx.URLParams.Add("orgId", tc.urlParam)
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 			rec := httptest.NewRecorder()
 
@@ -205,7 +205,7 @@ func TestProfileHandler_SearchProfiles(t *testing.T) {
 			setupMock: func(r *mockProfileRepo) {
 				r.searchPublicFn = func(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
 					return []*profile.PublicProfile{{
-						UserID: uuid.New(), DisplayName: "Jane", Role: "provider",
+						OrganizationID: uuid.New(), Name: "Jane", OrgType: "provider_personal",
 					}}, "", nil
 				}
 			},

@@ -232,15 +232,7 @@ func (s *Service) fetchProfileMap(ctx context.Context, apps []*domain.JobApplica
 	for i, a := range apps {
 		ids[i] = a.ApplicantID
 	}
-	profiles, err := s.profiles.GetPublicProfilesByUserIDs(ctx, ids)
-	if err != nil {
-		return nil, fmt.Errorf("fetch profiles: %w", err)
-	}
-	m := make(map[uuid.UUID]*profile.PublicProfile, len(profiles))
-	for _, p := range profiles {
-		m[p.UserID] = p
-	}
-	return m, nil
+	return s.profiles.OrgProfilesByUserIDs(ctx, ids)
 }
 
 func canApply(applicantType domain.ApplicantType, role user.Role) bool {

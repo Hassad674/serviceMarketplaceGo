@@ -274,9 +274,9 @@ func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamI
 
 type mockProfileRepo struct {
 	createFn       func(ctx context.Context, p *profile.Profile) error
-	getByUserIDFn  func(ctx context.Context, userID uuid.UUID) (*profile.Profile, error)
+	getByOrgIDFn   func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
 	updateFn       func(ctx context.Context, p *profile.Profile) error
-	searchPublicFn func(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
+	searchPublicFn func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -286,9 +286,9 @@ func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error 
 	return nil
 }
 
-func (m *mockProfileRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*profile.Profile, error) {
-	if m.getByUserIDFn != nil {
-		return m.getByUserIDFn(ctx, userID)
+func (m *mockProfileRepo) GetByOrganizationID(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error) {
+	if m.getByOrgIDFn != nil {
+		return m.getByOrgIDFn(ctx, orgID)
 	}
 	return nil, profile.ErrProfileNotFound
 }
@@ -300,15 +300,19 @@ func (m *mockProfileRepo) Update(ctx context.Context, p *profile.Profile) error 
 	return nil
 }
 
-func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
+func (m *mockProfileRepo) SearchPublic(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
 	if m.searchPublicFn != nil {
-		return m.searchPublicFn(ctx, roleFilter, referrerOnly, cursor, limit)
+		return m.searchPublicFn(ctx, orgTypeFilter, referrerOnly, cursor, limit)
 	}
 	return []*profile.PublicProfile{}, "", nil
 }
 
-func (m *mockProfileRepo) GetPublicProfilesByUserIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
+func (m *mockProfileRepo) GetPublicProfilesByOrgIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
 	return []*profile.PublicProfile{}, nil
+}
+
+func (m *mockProfileRepo) OrgProfilesByUserIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
+	return map[uuid.UUID]*profile.PublicProfile{}, nil
 }
 
 // --- mockJobRepo ---
@@ -426,13 +430,13 @@ func testUser(id uuid.UUID, role user.Role) *user.User {
 	}
 }
 
-func testProfile(userID uuid.UUID) *profile.Profile {
+func testProfile(orgID uuid.UUID) *profile.Profile {
 	return &profile.Profile{
-		UserID:    userID,
-		Title:     "Software Developer",
-		About:     "Hello world",
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		OrganizationID: orgID,
+		Title:          "Software Developer",
+		About:          "Hello world",
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 }
 
