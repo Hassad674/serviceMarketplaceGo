@@ -29,12 +29,23 @@ func NewNotificationJobQueue(client *goredis.Client, consumerID string) *Notific
 }
 
 // EnsureGroup creates the consumer group if it doesn't exist.
+//
+// Returns nil when the group was freshly created AND when Redis reports
+// BUSYGROUP (the group already exists from a previous boot). Both cases
+// are logged at INFO so startup logs stay clean.
 func (q *NotificationJobQueue) EnsureGroup(ctx context.Context) error {
 	err := q.client.XGroupCreateMkStream(ctx, notifJobStream, notifJobGroup, "$").Err()
-	if err != nil && err.Error() != "BUSYGROUP Consumer Group name already used" {
-		return fmt.Errorf("create notification job group: %w", err)
+	if err == nil {
+		slog.Info("redis consumer group created",
+			"stream", notifJobStream, "group", notifJobGroup)
+		return nil
 	}
-	return nil
+	if isBusyGroupErr(err) {
+		slog.Info("redis consumer group already exists",
+			"stream", notifJobStream, "group", notifJobGroup)
+		return nil
+	}
+	return fmt.Errorf("create notification job group: %w", err)
 }
 
 // Enqueue adds a delivery job to the Redis Stream.
