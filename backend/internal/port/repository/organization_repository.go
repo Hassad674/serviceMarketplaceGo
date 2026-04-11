@@ -43,4 +43,10 @@ type OrganizationRepository interface {
 	// invitations. V1 blocks this from the UI — provided here for admin
 	// use and for the /remove-feature tooling.
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// CountAll returns the total number of organizations on the
+	// platform. Used by the admin dashboard to surface a team-aware
+	// "Organisations" tile. O(n) scan — acceptable for V1 volumes
+	// and refreshed at most once per dashboard page load.
+	CountAll(ctx context.Context) (int, error)
 }

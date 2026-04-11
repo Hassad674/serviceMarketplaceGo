@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	organizationapp "marketplace-backend/internal/app/organization"
 	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -16,16 +17,18 @@ import (
 
 // DashboardStats holds aggregated statistics for the admin dashboard.
 type DashboardStats struct {
-	TotalUsers      int
-	UsersByRole     map[string]int
-	ActiveUsers     int
-	SuspendedUsers  int
-	BannedUsers     int
-	TotalProposals  int
-	ActiveProposals int
-	TotalJobs       int
-	OpenJobs        int
-	RecentSignups   []*user.User
+	TotalUsers         int
+	UsersByRole        map[string]int
+	ActiveUsers        int
+	SuspendedUsers     int
+	BannedUsers        int
+	TotalProposals     int
+	ActiveProposals    int
+	TotalJobs          int
+	OpenJobs           int
+	TotalOrganizations int
+	PendingInvitations int
+	RecentSignups      []*user.User
 }
 
 // ServiceDeps groups dependencies for the admin Service.
@@ -43,6 +46,15 @@ type ServiceDeps struct {
 	SessionSvc         portservice.SessionService
 	Broadcaster        portservice.MessageBroadcaster
 	AdminNotifier      portservice.AdminNotifierService
+
+	// Organization team management (Phase 6). All four are optional
+	// at build time but must be set together for the admin team
+	// endpoints to work; otherwise the handlers return a 500.
+	Orgs           repository.OrganizationRepository
+	OrgMembers     repository.OrganizationMemberRepository
+	OrgInvitations repository.OrganizationInvitationRepository
+	Membership     *organizationapp.MembershipService
+	Invitation     *organizationapp.InvitationService
 }
 
 type Service struct {
@@ -59,6 +71,12 @@ type Service struct {
 	sessionSvc         portservice.SessionService
 	broadcaster        portservice.MessageBroadcaster
 	adminNotifier      portservice.AdminNotifierService
+
+	orgs           repository.OrganizationRepository
+	orgMembers     repository.OrganizationMemberRepository
+	orgInvitations repository.OrganizationInvitationRepository
+	membership     *organizationapp.MembershipService
+	invitation     *organizationapp.InvitationService
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -76,6 +94,11 @@ func NewService(deps ServiceDeps) *Service {
 		sessionSvc:         deps.SessionSvc,
 		broadcaster:        deps.Broadcaster,
 		adminNotifier:      deps.AdminNotifier,
+		orgs:               deps.Orgs,
+		orgMembers:         deps.OrgMembers,
+		orgInvitations:     deps.OrgInvitations,
+		membership:         deps.Membership,
+		invitation:         deps.Invitation,
 	}
 }
 
@@ -128,22 +151,42 @@ func (s *Service) GetDashboardStats(ctx context.Context) (*DashboardStats, error
 		return nil, fmt.Errorf("dashboard stats: jobs: %w", err)
 	}
 
+	// Phase 6 — team stats. Both counts are optional at the wiring
+	// level (s.orgs / s.orgInvitations may be nil on a minimal
+	// deployment), so we degrade gracefully to zero rather than
+	// failing the whole dashboard when the feature is not wired.
+	var totalOrgs, pendingInvites int
+	if s.orgs != nil {
+		totalOrgs, err = s.orgs.CountAll(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("dashboard stats: organizations: %w", err)
+		}
+	}
+	if s.orgInvitations != nil {
+		pendingInvites, err = s.orgInvitations.CountPending(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("dashboard stats: pending invitations: %w", err)
+		}
+	}
+
 	totalUsers := 0
 	for _, c := range roleCount {
 		totalUsers += c
 	}
 
 	return &DashboardStats{
-		TotalUsers:      totalUsers,
-		UsersByRole:     roleCount,
-		ActiveUsers:     statusCount["active"],
-		SuspendedUsers:  statusCount["suspended"],
-		BannedUsers:     statusCount["banned"],
-		TotalProposals:  totalProposals,
-		ActiveProposals: activeProposals,
-		TotalJobs:       totalJobs,
-		OpenJobs:        openJobs,
-		RecentSignups:   recent,
+		TotalUsers:         totalUsers,
+		UsersByRole:        roleCount,
+		ActiveUsers:        statusCount["active"],
+		SuspendedUsers:     statusCount["suspended"],
+		BannedUsers:        statusCount["banned"],
+		TotalProposals:     totalProposals,
+		ActiveProposals:    activeProposals,
+		TotalJobs:          totalJobs,
+		OpenJobs:           openJobs,
+		TotalOrganizations: totalOrgs,
+		PendingInvitations: pendingInvites,
+		RecentSignups:      recent,
 	}, nil
 }
 

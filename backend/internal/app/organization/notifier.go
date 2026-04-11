@@ -73,6 +73,17 @@ func orgLabel(org *organization.Organization) string {
 	}
 }
 
+// actorIDString returns a safe string form of the actor's user id.
+// Admin force overrides pass nil actor (see admin_overrides.go) —
+// this helper lets notifier helpers blindly include actor_id in
+// their payload without dereferencing a nil pointer.
+func actorIDString(u *user.User) string {
+	if u == nil {
+		return ""
+	}
+	return u.ID.String()
+}
+
 // actorDisplayName returns a friendly name for the user who performed
 // the action. Falls back to "Someone" if the lookup fails so the notif
 // copy stays intelligible even when the user repository is flaky.
@@ -160,11 +171,14 @@ func notifyMemberRoleChanged(
 	org *organization.Organization,
 	oldRole, newRole organization.Role,
 ) {
+	if org == nil {
+		return
+	}
 	actorName := actorDisplayName(actor)
 	data := marshalData(map[string]any{
 		"organization_id":   org.ID.String(),
 		"organization_type": string(org.Type),
-		"actor_id":          actor.ID.String(),
+		"actor_id":          actorIDString(actor),
 		"actor_name":        actorName,
 		"old_role":          string(oldRole),
 		"new_role":          string(newRole),
@@ -188,11 +202,14 @@ func notifyMemberTitleChanged(
 	org *organization.Organization,
 	newTitle string,
 ) {
+	if org == nil {
+		return
+	}
 	actorName := actorDisplayName(actor)
 	data := marshalData(map[string]any{
 		"organization_id":   org.ID.String(),
 		"organization_type": string(org.Type),
-		"actor_id":          actor.ID.String(),
+		"actor_id":          actorIDString(actor),
 		"actor_name":        actorName,
 		"new_title":         newTitle,
 		"title_only":        true,
@@ -216,11 +233,14 @@ func notifyMemberRemoved(
 	actor *user.User,
 	org *organization.Organization,
 ) {
+	if org == nil {
+		return
+	}
 	actorName := actorDisplayName(actor)
 	data := marshalData(map[string]any{
 		"organization_id":   org.ID.String(),
 		"organization_type": string(org.Type),
-		"actor_id":          actor.ID.String(),
+		"actor_id":          actorIDString(actor),
 		"actor_name":        actorName,
 	})
 	dispatch(ctx, sender, targetUserID,
