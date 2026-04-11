@@ -17,6 +17,8 @@ import (
 type Service struct {
 	messages       repository.MessageRepository
 	users          repository.UserRepository
+	orgs           repository.OrganizationRepository
+	orgMembers     repository.OrganizationMemberRepository
 	presence       service.PresenceService
 	broadcaster    service.MessageBroadcaster
 	storage        service.StorageService
@@ -29,6 +31,8 @@ type Service struct {
 type ServiceDeps struct {
 	Messages      repository.MessageRepository
 	Users         repository.UserRepository
+	Organizations repository.OrganizationRepository
+	OrgMembers    repository.OrganizationMemberRepository
 	Presence      service.PresenceService
 	Broadcaster   service.MessageBroadcaster
 	Storage       service.StorageService
@@ -40,6 +44,8 @@ func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		messages:      deps.Messages,
 		users:         deps.Users,
+		orgs:          deps.Organizations,
+		orgMembers:    deps.OrgMembers,
 		presence:      deps.Presence,
 		broadcaster:   deps.Broadcaster,
 		storage:       deps.Storage,
@@ -65,21 +71,32 @@ func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
 }
 
 type StartConversationInput struct {
-	SenderID    uuid.UUID
-	RecipientID uuid.UUID
-	Content     string
-	Type        message.MessageType
-	Metadata    json.RawMessage
+	SenderID       uuid.UUID
+	RecipientOrgID uuid.UUID
+	Content        string
+	Type           message.MessageType
+	Metadata       json.RawMessage
 }
 
+// StartConversation opens (or reuses) a conversation between the sender
+// and the Owner of the target organization. Under the Stripe Dashboard
+// model all operators of the target org share the same inbox, so we
+// always anchor the conversation to the Owner's user id — whichever
+// operator is on call will answer from the shared thread.
 func (s *Service) StartConversation(ctx context.Context, input StartConversationInput) (*message.Message, uuid.UUID, error) {
-	if input.SenderID == input.RecipientID {
+	org, err := s.orgs.FindByID(ctx, input.RecipientOrgID)
+	if err != nil {
+		return nil, uuid.UUID{}, fmt.Errorf("get recipient org: %w", err)
+	}
+	recipientUserID := org.OwnerUserID
+
+	if input.SenderID == recipientUserID {
 		return nil, uuid.UUID{}, message.ErrSelfConversation
 	}
 
 	input.Content = sanitize.StripHTML(input.Content)
 
-	if _, err := s.users.GetByID(ctx, input.RecipientID); err != nil {
+	if _, err := s.users.GetByID(ctx, recipientUserID); err != nil {
 		return nil, uuid.UUID{}, fmt.Errorf("get recipient: %w", err)
 	}
 
@@ -91,7 +108,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 		return nil, uuid.UUID{}, message.ErrRateLimitExceeded
 	}
 
-	convID, _, err := s.messages.FindOrCreateConversation(ctx, input.SenderID, input.RecipientID)
+	convID, _, err := s.messages.FindOrCreateConversation(ctx, input.SenderID, recipientUserID)
 	if err != nil {
 		return nil, uuid.UUID{}, fmt.Errorf("find or create conversation: %w", err)
 	}
@@ -182,11 +199,16 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 	return msg, nil
 }
 
-func (s *Service) ListConversations(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]repository.ConversationSummary, string, error) {
+// ListConversations returns conversations visible to the caller's
+// organization. Every operator of the same org sees the same list
+// (Stripe Dashboard shared workspace), but each carries their own
+// personal unread counter from their participants row.
+func (s *Service) ListConversations(ctx context.Context, orgID, userID uuid.UUID, cursorStr string, limit int) ([]repository.ConversationSummary, string, error) {
 	params := repository.ListConversationsParams{
-		UserID: userID,
-		Cursor: cursorStr,
-		Limit:  limit,
+		OrganizationID: orgID,
+		UserID:         userID,
+		Cursor:         cursorStr,
+		Limit:          limit,
 	}
 
 	summaries, nextCursor, err := s.messages.ListConversations(ctx, params)

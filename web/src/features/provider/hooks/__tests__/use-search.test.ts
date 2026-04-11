@@ -46,24 +46,24 @@ describe("useSearchProfiles", () => {
     mockSearchProfiles.mockResolvedValue({
       data: [
         {
-          user_id: "user-1",
-          display_name: "Alice Dupont",
-          first_name: "Alice",
-          last_name: "Dupont",
-          role: "provider",
+          organization_id: "org-1",
+          name: "Alice Dupont",
+          org_type: "provider_personal",
           title: "Full-Stack Developer",
           photo_url: "https://storage.example.com/photos/alice.jpg",
           referrer_enabled: false,
+          average_rating: 0,
+          review_count: 0,
         },
         {
-          user_id: "user-2",
-          display_name: "Bob Martin",
-          first_name: "Bob",
-          last_name: "Martin",
-          role: "provider",
+          organization_id: "org-2",
+          name: "Bob Martin",
+          org_type: "provider_personal",
           title: "UX Designer",
           photo_url: "",
-          referrer_enabled: true,
+          referrer_enabled: false,
+          average_rating: 0,
+          review_count: 0,
         },
       ],
       next_cursor: "",
@@ -77,7 +77,7 @@ describe("useSearchProfiles", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     const profiles = result.current.data?.pages.flatMap((p) => p.data) ?? []
     expect(profiles).toHaveLength(2)
-    expect(profiles[0].display_name).toBe("Alice Dupont")
+    expect(profiles[0].name).toBe("Alice Dupont")
     expect(profiles[1].title).toBe("UX Designer")
   })
 
@@ -85,14 +85,14 @@ describe("useSearchProfiles", () => {
     mockSearchProfiles.mockResolvedValue({
       data: [
         {
-          user_id: "agency-1",
-          display_name: "Tech Agency",
-          first_name: "",
-          last_name: "",
-          role: "agency",
+          organization_id: "agency-1",
+          name: "Tech Agency",
+          org_type: "agency",
           title: "Digital Agency",
           photo_url: "",
           referrer_enabled: false,
+          average_rating: 0,
+          review_count: 0,
         },
       ],
       next_cursor: "",
@@ -106,21 +106,21 @@ describe("useSearchProfiles", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(mockSearchProfiles).toHaveBeenCalledWith("agency", undefined)
     const profiles = result.current.data?.pages.flatMap((p) => p.data) ?? []
-    expect(profiles[0].role).toBe("agency")
+    expect(profiles[0].org_type).toBe("agency")
   })
 
   it("searches with referrer type", async () => {
     mockSearchProfiles.mockResolvedValue({
       data: [
         {
-          user_id: "ref-1",
-          display_name: "Claire Referrer",
-          first_name: "Claire",
-          last_name: "Referrer",
-          role: "provider",
+          organization_id: "ref-1",
+          name: "Claire Referrer",
+          org_type: "provider_personal",
           title: "Business Consultant",
           photo_url: "",
           referrer_enabled: true,
+          average_rating: 0,
+          review_count: 0,
         },
       ],
       next_cursor: "",

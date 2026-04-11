@@ -7,30 +7,31 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "../types"
 
-const ROLE_FILTERS = [
+// Filter values are org types, matching Conversation.other_org_type.
+const ORG_TYPE_FILTERS = [
   { key: "all", labelKey: "allRoles" },
   { key: "agency", labelKey: "agency" },
-  { key: "provider", labelKey: "freelancer" },
+  { key: "provider_personal", labelKey: "freelancer" },
   { key: "enterprise", labelKey: "enterprise" },
 ]
 
-const ROLE_PILL_STYLES: Record<string, string> = {
+const ORG_PILL_STYLES: Record<string, string> = {
   all: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300",
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
-  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
+  provider_personal: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
   enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
 }
 
-const ROLE_PILL_ACTIVE: Record<string, string> = {
+const ORG_PILL_ACTIVE: Record<string, string> = {
   all: "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900",
   agency: "bg-blue-600 text-white dark:bg-blue-500 dark:text-white",
-  provider: "bg-rose-600 text-white dark:bg-rose-500 dark:text-white",
+  provider_personal: "bg-rose-600 text-white dark:bg-rose-500 dark:text-white",
   enterprise: "bg-purple-600 text-white dark:bg-purple-500 dark:text-white",
 }
 
-const ROLE_BORDER_COLORS: Record<string, string> = {
+const ORG_BORDER_COLORS: Record<string, string> = {
   agency: "border-l-blue-500",
-  provider: "border-l-rose-500",
+  provider_personal: "border-l-rose-500",
   enterprise: "border-l-purple-500",
 }
 
@@ -57,33 +58,33 @@ type TypingState = Record<string, TypingEntry>
 interface ConversationListProps {
   conversations: Conversation[]
   activeId: string | null
-  roleFilter: string
+  orgTypeFilter: string
   searchQuery: string
   typingUsers: TypingState
   onSelect: (id: string) => void
-  onRoleFilterChange: (role: string) => void
+  onOrgTypeFilterChange: (orgType: string) => void
   onSearchChange: (query: string) => void
 }
 
 export const ConversationList = memo(function ConversationList({
   conversations,
   activeId,
-  roleFilter,
+  orgTypeFilter,
   searchQuery,
   typingUsers,
   onSelect,
-  onRoleFilterChange,
+  onOrgTypeFilterChange,
   onSearchChange,
 }: ConversationListProps) {
   const t = useTranslations("messaging")
 
   const filtered = useMemo(() => conversations.filter((c) => {
-    const matchesRole = roleFilter === "all" || c.other_user_role === roleFilter
+    const matchesType = orgTypeFilter === "all" || c.other_org_type === orgTypeFilter
     const matchesSearch =
       !searchQuery ||
-      c.other_user_name.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesRole && matchesSearch
-  }), [conversations, roleFilter, searchQuery])
+      c.other_org_name.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchesType && matchesSearch
+  }), [conversations, orgTypeFilter, searchQuery])
 
   return (
     <div className="flex h-full flex-col">
@@ -94,17 +95,17 @@ export const ConversationList = memo(function ConversationList({
         </h1>
       </div>
 
-      {/* Role filter tabs */}
+      {/* Org-type filter tabs */}
       <div className="flex gap-1.5 px-5 pb-3">
-        {ROLE_FILTERS.map((filter) => (
+        {ORG_TYPE_FILTERS.map((filter) => (
           <button
             key={filter.key}
-            onClick={() => onRoleFilterChange(filter.key)}
+            onClick={() => onOrgTypeFilterChange(filter.key)}
             className={cn(
               "rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200",
-              roleFilter === filter.key
-                ? ROLE_PILL_ACTIVE[filter.key]
-                : cn(ROLE_PILL_STYLES[filter.key], "hover:opacity-80"),
+              orgTypeFilter === filter.key
+                ? ORG_PILL_ACTIVE[filter.key]
+                : cn(ORG_PILL_STYLES[filter.key], "hover:opacity-80"),
             )}
           >
             {t(filter.labelKey)}
@@ -174,15 +175,15 @@ function ConversationItem({
   onSelect,
 }: ConversationItemProps) {
   const t = useTranslations("messaging")
-  const initials = conversation.other_user_name
+  const initials = conversation.other_org_name
     .split(" ")
-    .map((w) => w.charAt(0))
+    .map((w: string) => w.charAt(0))
     .join("")
     .slice(0, 2)
     .toUpperCase()
 
   const borderColor =
-    ROLE_BORDER_COLORS[conversation.other_user_role] ?? "border-l-gray-300"
+    ORG_BORDER_COLORS[conversation.other_org_type] ?? "border-l-gray-300"
 
   return (
     <button
@@ -201,7 +202,7 @@ function ConversationItem({
         {conversation.other_photo_url ? (
           <Image
             src={conversation.other_photo_url}
-            alt={conversation.other_user_name}
+            alt={conversation.other_org_name}
             width={40}
             height={40}
             className="h-10 w-10 rounded-full object-cover"
@@ -226,7 +227,7 @@ function ConversationItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
           <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-            {conversation.other_user_name}
+            {conversation.other_org_name}
           </p>
           {conversation.last_message_at && (
             <span className="ml-2 shrink-0 text-xs text-gray-400 dark:text-gray-500">

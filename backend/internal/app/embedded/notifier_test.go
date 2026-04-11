@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	notifdomain "marketplace-backend/internal/domain/notification"
+	"marketplace-backend/internal/domain/organization"
 	portservice "marketplace-backend/internal/port/service"
 )
 
@@ -35,17 +36,27 @@ func (f *fakeSink) Send(_ context.Context, userID uuid.UUID, t notifdomain.Notif
 	return f.err
 }
 
-// fakeUserStore implements UserStore — combines the old fakeLookup +
-// fakeStateStore into one fake backed by user_id keys.
+// fakeUserStore implements OrgStore (named *UserStore for backward
+// compatibility with existing test fixtures). Since phase R5 the
+// notifier is keyed on the organization, not the user — this fake
+// returns a stub Organization that carries both the org id used for
+// state storage and the owner id used as the notification recipient.
 type fakeUserStore struct {
-	userID   uuid.UUID
-	lookupErr error
-	prev     *LastAccountState
-	saved    *LastAccountState
+	orgID        uuid.UUID
+	ownerUserID  uuid.UUID
+	lookupErr    error
+	prev         *LastAccountState
+	saved        *LastAccountState
 }
 
-func (f *fakeUserStore) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
-	return f.userID, f.lookupErr
+func (f *fakeUserStore) FindByStripeAccountID(_ context.Context, _ string) (*organization.Organization, error) {
+	if f.lookupErr != nil {
+		return nil, f.lookupErr
+	}
+	return &organization.Organization{
+		ID:          f.orgID,
+		OwnerUserID: f.ownerUserID,
+	}, nil
 }
 
 func (f *fakeUserStore) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
@@ -74,7 +85,11 @@ func snapshot(accountID string) *portservice.StripeAccountSnapshot {
 
 func newTestNotifier(prev *LastAccountState) (*Notifier, *fakeSink, *fakeUserStore) {
 	sink := &fakeSink{}
-	store := &fakeUserStore{userID: uuid.New(), prev: prev}
+	store := &fakeUserStore{
+		orgID:       uuid.New(),
+		ownerUserID: uuid.New(),
+		prev:        prev,
+	}
 	n := NewNotifier(
 		sink,
 		store,
@@ -430,7 +445,7 @@ func TestNotifier_Cooldown_SuppressesSecondCall(t *testing.T) {
 
 func TestNotifier_Cooldown_ExpiresAfterTTL(t *testing.T) {
 	sink := &fakeSink{}
-	store := &fakeUserStore{userID: uuid.New(), prev: &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}}
+	store := &fakeUserStore{orgID: uuid.New(), ownerUserID: uuid.New(), prev: &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}}
 	n := NewNotifier(sink, store, 10*time.Millisecond)
 
 	snap := snapshot("acct_1")
@@ -451,7 +466,7 @@ func TestNotifier_Cooldown_ExpiresAfterTTL(t *testing.T) {
 
 func TestNotifier_SinkFailure_DoesNotCrash(t *testing.T) {
 	sink := &fakeSink{err: errors.New("sink down")}
-	store := &fakeUserStore{userID: uuid.New()}
+	store := &fakeUserStore{orgID: uuid.New(), ownerUserID: uuid.New()}
 	n := NewNotifier(sink, store, time.Minute)
 
 	snap := snapshot("acct_1")
@@ -465,7 +480,7 @@ func TestNotifier_SinkFailure_DoesNotCrash(t *testing.T) {
 
 func TestNotifier_DefaultCooldown_ZeroMeansFiveMinutes(t *testing.T) {
 	sink := &fakeSink{}
-	store := &fakeUserStore{userID: uuid.New()}
+	store := &fakeUserStore{orgID: uuid.New(), ownerUserID: uuid.New()}
 	n := NewNotifier(sink, store, 0)
 	assert.Equal(t, 5*time.Minute, n.ttl)
 }

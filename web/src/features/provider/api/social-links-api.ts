@@ -12,8 +12,8 @@ export async function getMySocialLinks(): Promise<SocialLink[]> {
   return apiClient<SocialLink[]>("/api/v1/profile/social-links")
 }
 
-export async function getPublicSocialLinks(userId: string): Promise<SocialLink[]> {
-  return apiClient<SocialLink[]>(`/api/v1/profiles/${userId}/social-links`)
+export async function getPublicSocialLinks(orgId: string): Promise<SocialLink[]> {
+  return apiClient<SocialLink[]>(`/api/v1/profiles/${orgId}/social-links`)
 }
 
 export async function upsertSocialLink(platform: string, url: string): Promise<void> {

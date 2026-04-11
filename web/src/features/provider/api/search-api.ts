@@ -1,11 +1,12 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+// PublicProfileSummary describes the organization surfaced by
+// marketplace search / directory pages: the team's display name,
+// org type, photo, and review metrics.
 export type PublicProfileSummary = {
-  user_id: string
-  display_name: string
-  first_name: string
-  last_name: string
-  role: string
+  organization_id: string
+  name: string
+  org_type: string
   title: string
   photo_url: string
   referrer_enabled: boolean
@@ -13,7 +14,7 @@ export type PublicProfileSummary = {
   review_count: number
 }
 
-export type SearchType = "freelancer" | "agency" | "referrer"
+export type SearchType = "freelancer" | "agency" | "enterprise" | "referrer"
 
 export type SearchResponse = {
   data: PublicProfileSummary[]
@@ -33,7 +34,7 @@ export async function searchProfiles(
 }
 
 export async function getPublicProfile(
-  userId: string,
+  orgId: string,
 ): Promise<PublicProfileSummary> {
-  return apiClient<PublicProfileSummary>(`/api/v1/profiles/${userId}`)
+  return apiClient<PublicProfileSummary>(`/api/v1/profiles/${orgId}`)
 }

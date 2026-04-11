@@ -1,7 +1,7 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { useUser } from "@/shared/hooks/use-user"
+import { useUser, useOrganization } from "@/shared/hooks/use-user"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useProfileRating } from "@/features/provider/hooks/use-profile-rating"
 import { useUploadPhoto, useUploadVideo, useDeleteVideo } from "@/features/provider/hooks/use-upload"
@@ -13,24 +13,16 @@ import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
 import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
 
-function getDisplayName(
-  user: { first_name: string; last_name: string; display_name: string; role: string } | null,
-): string {
-  if (!user) return ""
-  if (user.role === "provider") return `${user.first_name} ${user.last_name}`
-  return user.display_name ?? ""
-}
-
-function getRoleContext(role: string): "agency" | "provider" | "referrer" {
-  if (role === "agency") return "agency"
-  if (role === "provider") return "provider"
+function orgTypeToRoleContext(orgType: string | undefined): "agency" | "provider" | "referrer" {
+  if (orgType === "agency") return "agency"
   return "provider"
 }
 
 export default function ProfilePage() {
   const { data: user } = useUser()
+  const { data: org } = useOrganization()
   const { data: profile, isLoading, error } = useProfile()
-  const { data: rating } = useProfileRating(user?.id)
+  const { data: rating } = useProfileRating(org?.id)
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
@@ -49,12 +41,12 @@ export default function ProfilePage() {
     )
   }
 
-  const role = user?.role ?? "provider"
-  const displayName = getDisplayName(user ?? null)
-  const roleContext = getRoleContext(role)
-  const aboutLabel = role === "agency" ? t("aboutAgency") : t("about")
-  const aboutPlaceholder = role === "agency" ? t("aboutAgencyPlaceholder") : t("aboutPlaceholder")
-  const videoDesc = role === "agency" ? t("addVideoDescAgency") : undefined
+  const orgType = org?.type ?? "provider_personal"
+  const displayName = user?.display_name ?? `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
+  const roleContext = orgTypeToRoleContext(orgType)
+  const aboutLabel = orgType === "agency" ? t("aboutAgency") : t("about")
+  const aboutPlaceholder = orgType === "agency" ? t("aboutAgencyPlaceholder") : t("aboutPlaceholder")
+  const videoDesc = orgType === "agency" ? t("addVideoDescAgency") : undefined
 
   return (
     <div className="space-y-6">
@@ -87,7 +79,7 @@ export default function ProfilePage() {
       />
       <SocialLinksSection />
       <PortfolioSection />
-      <ProfileHistory userId={user?.id} />
+      <ProfileHistory orgId={org?.id} />
     </div>
   )
 }

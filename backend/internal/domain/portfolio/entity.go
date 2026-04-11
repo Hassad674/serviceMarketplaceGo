@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	MaxItemsPerUser    = 30
-	MaxMediaPerItem    = 8
-	MaxTitleLength     = 200
-	MaxDescriptionLen  = 2000
-	MaxLinkURLLength   = 500
+	MaxItemsPerOrg    = 30
+	MaxMediaPerItem   = 8
+	MaxTitleLength    = 200
+	MaxDescriptionLen = 2000
+	MaxLinkURLLength  = 500
 )
 
 // MediaType distinguishes images from videos in the gallery.
@@ -27,17 +27,20 @@ func (t MediaType) IsValid() bool {
 	return t == MediaTypeImage || t == MediaTypeVideo
 }
 
-// PortfolioItem represents a single portfolio project entry.
+// PortfolioItem represents a single portfolio project entry owned by
+// an organization. Phase R2 moves the anchor from user_id to
+// organization_id so operators invited into the same org see and
+// edit the same portfolio.
 type PortfolioItem struct {
-	ID          uuid.UUID
-	UserID      uuid.UUID
-	Title       string
-	Description string
-	LinkURL     string
-	Position    int
-	Media       []*PortfolioMedia
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	Title          string
+	Description    string
+	LinkURL        string
+	Position       int
+	Media          []*PortfolioMedia
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // PortfolioMedia is a single image or video in a portfolio item gallery.
@@ -82,12 +85,12 @@ func (p *PortfolioItem) CoverURL() string {
 
 // NewItemInput contains all data needed to create a portfolio item.
 type NewItemInput struct {
-	UserID      uuid.UUID
-	Title       string
-	Description string
-	LinkURL     string
-	Position    int
-	Media       []NewMediaInput
+	OrganizationID uuid.UUID
+	Title          string
+	Description    string
+	LinkURL        string
+	Position       int
+	Media          []NewMediaInput
 }
 
 // NewMediaInput describes a single media to attach.
@@ -100,8 +103,8 @@ type NewMediaInput struct {
 
 // NewPortfolioItem creates and validates a new PortfolioItem.
 func NewPortfolioItem(in NewItemInput) (*PortfolioItem, error) {
-	if in.UserID == uuid.Nil {
-		return nil, ErrMissingUserID
+	if in.OrganizationID == uuid.Nil {
+		return nil, ErrMissingOrganizationID
 	}
 	if in.Title == "" {
 		return nil, ErrMissingTitle
@@ -148,15 +151,15 @@ func NewPortfolioItem(in NewItemInput) (*PortfolioItem, error) {
 	}
 
 	return &PortfolioItem{
-		ID:          itemID,
-		UserID:      in.UserID,
-		Title:       in.Title,
-		Description: in.Description,
-		LinkURL:     in.LinkURL,
-		Position:    in.Position,
-		Media:       media,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             itemID,
+		OrganizationID: in.OrganizationID,
+		Title:          in.Title,
+		Description:    in.Description,
+		LinkURL:        in.LinkURL,
+		Position:       in.Position,
+		Media:          media,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}, nil
 }
 

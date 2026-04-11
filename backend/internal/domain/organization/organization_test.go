@@ -21,7 +21,7 @@ func TestNewOrganization_ValidInputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			org, err := NewOrganization(owner, tt.orgType)
+			org, err := NewOrganization(owner, tt.orgType, "Test Org")
 			require.NoError(t, err)
 			require.NotNil(t, org)
 			assert.NotEqual(t, uuid.Nil, org.ID)
@@ -47,7 +47,7 @@ func TestNewOrganization_InvalidInputs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			org, err := NewOrganization(tt.owner, tt.orgType)
+			org, err := NewOrganization(tt.owner, tt.orgType, "Test Org")
 			assert.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, org)
 		})
@@ -56,7 +56,7 @@ func TestNewOrganization_InvalidInputs(t *testing.T) {
 
 func TestOrganization_InitiateTransfer(t *testing.T) {
 	owner := uuid.New()
-	org, err := NewOrganization(owner, OrgTypeAgency)
+	org, err := NewOrganization(owner, OrgTypeAgency, "Acme")
 	require.NoError(t, err)
 
 	target := uuid.New()
@@ -73,7 +73,7 @@ func TestOrganization_InitiateTransfer(t *testing.T) {
 
 func TestOrganization_InitiateTransfer_Invalid(t *testing.T) {
 	owner := uuid.New()
-	org, _ := NewOrganization(owner, OrgTypeAgency)
+	org, _ := NewOrganization(owner, OrgTypeAgency, "Acme")
 
 	// Cannot transfer to self
 	err := org.InitiateTransfer(owner, time.Hour)
@@ -91,7 +91,7 @@ func TestOrganization_InitiateTransfer_Invalid(t *testing.T) {
 
 func TestOrganization_CancelTransfer(t *testing.T) {
 	owner := uuid.New()
-	org, _ := NewOrganization(owner, OrgTypeAgency)
+	org, _ := NewOrganization(owner, OrgTypeAgency, "Acme")
 
 	// Cancel on empty state is a no-op
 	org.CancelTransfer()
@@ -110,7 +110,7 @@ func TestOrganization_CancelTransfer(t *testing.T) {
 func TestOrganization_CompleteTransfer(t *testing.T) {
 	originalOwner := uuid.New()
 	newOwner := uuid.New()
-	org, _ := NewOrganization(originalOwner, OrgTypeAgency)
+	org, _ := NewOrganization(originalOwner, OrgTypeAgency, "Acme")
 	require.NoError(t, org.InitiateTransfer(newOwner, time.Hour))
 
 	err := org.CompleteTransfer(newOwner)
@@ -125,13 +125,13 @@ func TestOrganization_CompleteTransfer_Errors(t *testing.T) {
 	target := uuid.New()
 
 	t.Run("no pending transfer", func(t *testing.T) {
-		org, _ := NewOrganization(owner, OrgTypeAgency)
+		org, _ := NewOrganization(owner, OrgTypeAgency, "Acme")
 		err := org.CompleteTransfer(target)
 		assert.ErrorIs(t, err, ErrNoPendingTransfer)
 	})
 
 	t.Run("wrong accepter", func(t *testing.T) {
-		org, _ := NewOrganization(owner, OrgTypeAgency)
+		org, _ := NewOrganization(owner, OrgTypeAgency, "Acme")
 		_ = org.InitiateTransfer(target, time.Hour)
 		wrongUser := uuid.New()
 		err := org.CompleteTransfer(wrongUser)
@@ -139,7 +139,7 @@ func TestOrganization_CompleteTransfer_Errors(t *testing.T) {
 	})
 
 	t.Run("expired", func(t *testing.T) {
-		org, _ := NewOrganization(owner, OrgTypeAgency)
+		org, _ := NewOrganization(owner, OrgTypeAgency, "Acme")
 		_ = org.InitiateTransfer(target, -time.Hour) // already expired
 		assert.True(t, org.IsTransferExpired())
 		err := org.CompleteTransfer(target)
@@ -150,6 +150,22 @@ func TestOrganization_CompleteTransfer_Errors(t *testing.T) {
 func TestOrgType_IsValid(t *testing.T) {
 	assert.True(t, OrgTypeAgency.IsValid())
 	assert.True(t, OrgTypeEnterprise.IsValid())
+	assert.True(t, OrgTypeProviderPersonal.IsValid())
 	assert.False(t, OrgType("").IsValid())
 	assert.False(t, OrgType("provider").IsValid())
+}
+
+func TestNewOrganization_BlankName(t *testing.T) {
+	org, err := NewOrganization(uuid.New(), OrgTypeAgency, "   ")
+	assert.ErrorIs(t, err, ErrNameRequired)
+	assert.Nil(t, org)
+}
+
+func TestOrganization_Rename(t *testing.T) {
+	org, _ := NewOrganization(uuid.New(), OrgTypeAgency, "Old")
+	require.NoError(t, org.Rename("New Name"))
+	assert.Equal(t, "New Name", org.Name)
+
+	err := org.Rename("  ")
+	assert.ErrorIs(t, err, ErrNameRequired)
 }

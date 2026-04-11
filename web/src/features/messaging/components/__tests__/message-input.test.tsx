@@ -13,6 +13,11 @@ vi.mock("lucide-react", () => ({
   Send: (props: Record<string, unknown>) => <span data-testid="send-icon" {...props} />,
   Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
   FileText: (props: Record<string, unknown>) => <span data-testid="filetext-icon" {...props} />,
+  X: (props: Record<string, unknown>) => <span data-testid="x-icon" {...props} />,
+  Mic: (props: Record<string, unknown>) => <span data-testid="mic-icon" {...props} />,
+  Square: (props: Record<string, unknown>) => <span data-testid="square-icon" {...props} />,
+  Plus: (props: Record<string, unknown>) => <span data-testid="plus-icon" {...props} />,
+  Trash2: (props: Record<string, unknown>) => <span data-testid="trash-icon" {...props} />,
 }))
 
 // Mock i18n navigation
@@ -28,7 +33,7 @@ vi.mock("../../api/messaging-api", () => ({
 function defaultProps(overrides: Partial<Parameters<typeof MessageInput>[0]> = {}) {
   return {
     conversationId: "conv-123",
-    otherUserId: "user-456",
+    otherOrgId: "org-456",
     onSend: vi.fn(),
     onSendFile: vi.fn(),
     onTyping: vi.fn(),

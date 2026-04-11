@@ -29,20 +29,20 @@ const TYPE_BACK_LABELS: Record<ProfileType, string> = {
 }
 
 interface PublicProfileProps {
-  userId: string
+  orgId: string
   type: ProfileType
 }
 
-export function PublicProfile({ userId, type }: PublicProfileProps) {
+export function PublicProfile({ orgId, type }: PublicProfileProps) {
   const t = useTranslations("publicProfile")
   const router = useRouter()
 
   const { data: profile, isLoading, error } = useQuery({
-    queryKey: ["public-profile", userId],
-    queryFn: () => apiClient<Profile>(`/api/v1/profiles/${userId}`),
+    queryKey: ["public-profile", orgId],
+    queryFn: () => apiClient<Profile>(`/api/v1/profiles/${orgId}`),
     staleTime: 5 * 60 * 1000,
   })
-  const { data: rating } = useProfileRating(userId)
+  const { data: rating } = useProfileRating(orgId)
 
   if (isLoading) return <ProfileSkeleton />
 
@@ -98,8 +98,8 @@ export function PublicProfile({ userId, type }: PublicProfileProps) {
           readOnly
         />
 
-        <PublicPortfolioSection userId={userId} />
-        <ProfileHistory userId={userId} readOnly />
+        <PublicPortfolioSection orgId={orgId} />
+        <ProfileHistory orgId={orgId} readOnly />
       </div>
     </div>
   )

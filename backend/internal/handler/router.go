@@ -137,11 +137,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
 		})
 
-		// Public profiles
+		// Public profiles (keyed by organization id since phase R2)
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
-		r.Get("/profiles/{userId}", deps.Profile.GetPublicProfile)
+		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 		if deps.ProjectHistory != nil {
-			r.Get("/profiles/{userId}/project-history", deps.ProjectHistory.ListByProvider)
+			r.Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
 		}
 
 		// Messaging routes (authenticated)
@@ -221,9 +221,9 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Review routes (mixed: public reads, authenticated writes)
 		if deps.Review != nil {
 			r.Route("/reviews", func(r chi.Router) {
-				// Public: read reviews and average ratings
-				r.Get("/user/{userId}", deps.Review.ListByUser)
-				r.Get("/average/{userId}", deps.Review.GetAverageRating)
+				// Public: read reviews and average ratings (keyed by org)
+				r.Get("/org/{orgId}", deps.Review.ListByOrganization)
+				r.Get("/average/{orgId}", deps.Review.GetAverageRating)
 
 				// Authenticated: create reviews and check eligibility
 				r.Group(func(r chi.Router) {
@@ -248,7 +248,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Social link routes
 		if deps.SocialLink != nil {
 			// Public: read social links
-			r.Get("/profiles/{userId}/social-links", deps.SocialLink.ListPublicSocialLinks)
+			r.Get("/profiles/{orgId}/social-links", deps.SocialLink.ListPublicSocialLinks)
 
 			// Authenticated: manage own social links
 			r.Route("/profile/social-links", func(r chi.Router) {
@@ -262,8 +262,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Portfolio routes (mixed: public reads, authenticated writes)
 		if deps.Portfolio != nil {
-			// Public: read portfolio
-			r.Get("/portfolio/user/{userId}", deps.Portfolio.ListPortfolioByUser)
+			// Public: read portfolio for an organization
+			r.Get("/portfolio/org/{orgId}", deps.Portfolio.ListPortfolioByOrganization)
 			r.Get("/portfolio/{id}", deps.Portfolio.GetPortfolioItem)
 
 			// Authenticated: manage own portfolio

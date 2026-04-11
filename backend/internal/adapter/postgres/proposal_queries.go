@@ -73,64 +73,77 @@ const queryListByConversation = `
 	WHERE conversation_id = $1
 	ORDER BY created_at DESC`
 
-const queryListActiveProjectsFirst = `
-	SELECT id, conversation_id, sender_id, recipient_id,
-		title, description, amount, deadline,
-		status, parent_id, version,
-		client_id, provider_id, metadata,
-		active_dispute_id, last_dispute_id,
-		accepted_at, declined_at, paid_at, completed_at,
-		created_at, updated_at
-	FROM proposals
-	WHERE (client_id = $1 OR provider_id = $1)
-		AND status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')
-	ORDER BY created_at DESC, id DESC
+// ListActiveProjectsByOrg queries filter by the caller's organization
+// from BOTH perspectives: the client's side (proposals.organization_id
+// denormalized in phase 4) and the provider's side (resolved via a
+// JOIN on users.organization_id, the R1 column). Every operator of
+// the same org sees the same active projects — the Stripe Dashboard
+// shared-workspace model.
+const queryListActiveProjectsByOrgFirst = `
+	SELECT p.id, p.conversation_id, p.sender_id, p.recipient_id,
+		p.title, p.description, p.amount, p.deadline,
+		p.status, p.parent_id, p.version,
+		p.client_id, p.provider_id, p.metadata,
+		p.active_dispute_id, p.last_dispute_id,
+		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
+		p.created_at, p.updated_at
+	FROM proposals p
+	LEFT JOIN users provider_user ON provider_user.id = p.provider_id
+	WHERE (p.organization_id = $1 OR provider_user.organization_id = $1)
+		AND p.status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')
+	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $2`
 
-const queryListActiveProjectsWithCursor = `
-	SELECT id, conversation_id, sender_id, recipient_id,
-		title, description, amount, deadline,
-		status, parent_id, version,
-		client_id, provider_id, metadata,
-		active_dispute_id, last_dispute_id,
-		accepted_at, declined_at, paid_at, completed_at,
-		created_at, updated_at
-	FROM proposals
-	WHERE (client_id = $1 OR provider_id = $1)
-		AND status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')
-		AND (created_at, id) < ($2, $3)
-	ORDER BY created_at DESC, id DESC
+const queryListActiveProjectsByOrgWithCursor = `
+	SELECT p.id, p.conversation_id, p.sender_id, p.recipient_id,
+		p.title, p.description, p.amount, p.deadline,
+		p.status, p.parent_id, p.version,
+		p.client_id, p.provider_id, p.metadata,
+		p.active_dispute_id, p.last_dispute_id,
+		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
+		p.created_at, p.updated_at
+	FROM proposals p
+	LEFT JOIN users provider_user ON provider_user.id = p.provider_id
+	WHERE (p.organization_id = $1 OR provider_user.organization_id = $1)
+		AND p.status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')
+		AND (p.created_at, p.id) < ($2, $3)
+	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $4`
 
-const queryListCompletedByProviderFirst = `
-	SELECT id, conversation_id, sender_id, recipient_id,
-		title, description, amount, deadline,
-		status, parent_id, version,
-		client_id, provider_id, metadata,
-		active_dispute_id, last_dispute_id,
-		accepted_at, declined_at, paid_at, completed_at,
-		created_at, updated_at
-	FROM proposals
-	WHERE provider_id = $1
-		AND status = 'completed'
-		AND completed_at IS NOT NULL
-	ORDER BY completed_at DESC, id DESC
+// ListCompletedByOrg is provider-side only (the "my completed
+// deliverables" view used by public project-history). Keyed on the
+// provider's org resolved via users.
+const queryListCompletedByOrgFirst = `
+	SELECT p.id, p.conversation_id, p.sender_id, p.recipient_id,
+		p.title, p.description, p.amount, p.deadline,
+		p.status, p.parent_id, p.version,
+		p.client_id, p.provider_id, p.metadata,
+		p.active_dispute_id, p.last_dispute_id,
+		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
+		p.created_at, p.updated_at
+	FROM proposals p
+	JOIN users provider_user ON provider_user.id = p.provider_id
+	WHERE provider_user.organization_id = $1
+		AND p.status = 'completed'
+		AND p.completed_at IS NOT NULL
+	ORDER BY p.completed_at DESC, p.id DESC
 	LIMIT $2`
 
-const queryListCompletedByProviderWithCursor = `
-	SELECT id, conversation_id, sender_id, recipient_id,
-		title, description, amount, deadline,
-		status, parent_id, version,
-		client_id, provider_id, metadata,
-		active_dispute_id, last_dispute_id,
-		accepted_at, declined_at, paid_at, completed_at,
-		created_at, updated_at
-	FROM proposals
-	WHERE provider_id = $1
-		AND status = 'completed'
-		AND completed_at IS NOT NULL
-		AND (completed_at, id) < ($2, $3)
-	ORDER BY completed_at DESC, id DESC
+const queryListCompletedByOrgWithCursor = `
+	SELECT p.id, p.conversation_id, p.sender_id, p.recipient_id,
+		p.title, p.description, p.amount, p.deadline,
+		p.status, p.parent_id, p.version,
+		p.client_id, p.provider_id, p.metadata,
+		p.active_dispute_id, p.last_dispute_id,
+		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
+		p.created_at, p.updated_at
+	FROM proposals p
+	JOIN users provider_user ON provider_user.id = p.provider_id
+	WHERE provider_user.organization_id = $1
+		AND p.status = 'completed'
+		AND p.completed_at IS NOT NULL
+		AND (p.completed_at, p.id) < ($2, $3)
+	ORDER BY p.completed_at DESC, p.id DESC
 	LIMIT $4`
 
 const queryGetProposalDocuments = `

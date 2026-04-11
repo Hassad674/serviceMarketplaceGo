@@ -9,6 +9,7 @@ import type { SearchType } from "../api/search-api"
 const TYPE_TITLES: Record<SearchType, string> = {
   freelancer: "findFreelancers",
   agency: "findAgencies",
+  enterprise: "findEnterprises",
   referrer: "findReferrers",
 }
 
@@ -54,7 +55,7 @@ export function SearchPage({ type }: SearchPageProps) {
       {profiles.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {profiles.map((profile) => (
-            <ProviderCard key={profile.user_id} profile={profile} type={type} />
+            <ProviderCard key={profile.organization_id} profile={profile} type={type} />
           ))}
         </div>
       )}

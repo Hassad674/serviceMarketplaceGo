@@ -11,7 +11,7 @@ import (
 
 func validInput() NewItemInput {
 	return NewItemInput{
-		UserID:      uuid.New(),
+		OrganizationID: uuid.New(),
 		Title:       "E-commerce Redesign",
 		Description: "Full redesign for a fashion brand.",
 		LinkURL:     "https://example.com/project",
@@ -26,7 +26,7 @@ func TestNewPortfolioItem_Valid(t *testing.T) {
 	assert.Equal(t, in.Title, item.Title)
 	assert.Equal(t, in.Description, item.Description)
 	assert.Equal(t, in.LinkURL, item.LinkURL)
-	assert.Equal(t, in.UserID, item.UserID)
+	assert.Equal(t, in.OrganizationID, item.OrganizationID)
 	assert.NotEqual(t, uuid.Nil, item.ID)
 	assert.Empty(t, item.Media)
 }
@@ -45,11 +45,11 @@ func TestNewPortfolioItem_ValidWithMedia(t *testing.T) {
 	assert.Equal(t, item.ID, item.Media[0].PortfolioItemID)
 }
 
-func TestNewPortfolioItem_MissingUserID(t *testing.T) {
+func TestNewPortfolioItem_MissingOrganizationID(t *testing.T) {
 	in := validInput()
-	in.UserID = uuid.Nil
+	in.OrganizationID = uuid.Nil
 	_, err := NewPortfolioItem(in)
-	assert.ErrorIs(t, err, ErrMissingUserID)
+	assert.ErrorIs(t, err, ErrMissingOrganizationID)
 }
 
 func TestNewPortfolioItem_MissingTitle(t *testing.T) {

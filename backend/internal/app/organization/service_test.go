@@ -100,13 +100,24 @@ func TestService_CreateForOwner_Enterprise(t *testing.T) {
 	assert.Equal(t, organization.OrgTypeEnterprise, capturedOrg.Type)
 }
 
-func TestService_CreateForOwner_RejectsProvider(t *testing.T) {
-	svc := newTestService(nil, nil)
+func TestService_CreateForOwner_ProviderPersonal(t *testing.T) {
+	var capturedOrg *organization.Organization
+	orgs := &mockOrgRepo{
+		createWithOwnerMembershipFn: func(_ context.Context, org *organization.Organization, _ *organization.Member) error {
+			capturedOrg = org
+			return nil
+		},
+	}
+
+	svc := newTestService(orgs, nil)
 	u := newProviderUser()
 
 	ctx, err := svc.CreateForOwner(context.Background(), u)
-	assert.ErrorIs(t, err, organization.ErrProviderCannotOwnOrg)
-	assert.Nil(t, ctx)
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+	require.NotNil(t, capturedOrg)
+	assert.Equal(t, organization.OrgTypeProviderPersonal, capturedOrg.Type)
+	assert.NotEmpty(t, capturedOrg.Name)
 }
 
 func TestService_CreateForOwner_NilUser(t *testing.T) {
@@ -120,7 +131,7 @@ func TestService_ResolveContext_UserIsMember(t *testing.T) {
 	orgID := uuid.New()
 	userID := uuid.New()
 	member, _ := organization.NewMember(orgID, userID, organization.RoleAdmin, "Lead Designer")
-	org, _ := organization.NewOrganization(uuid.New(), organization.OrgTypeAgency)
+	org, _ := organization.NewOrganization(uuid.New(), organization.OrgTypeAgency, "Acme")
 	org.ID = orgID
 
 	orgs := &mockOrgRepo{
@@ -162,7 +173,7 @@ func TestService_HasPermission_Owner(t *testing.T) {
 	orgID := uuid.New()
 	userID := uuid.New()
 	member, _ := organization.NewMember(orgID, userID, organization.RoleOwner, "")
-	org, _ := organization.NewOrganization(userID, organization.OrgTypeAgency)
+	org, _ := organization.NewOrganization(userID, organization.OrgTypeAgency, "Acme")
 	org.ID = orgID
 
 	svc := newTestService(
@@ -187,7 +198,7 @@ func TestService_HasPermission_Viewer_ReadOnly(t *testing.T) {
 	orgID := uuid.New()
 	userID := uuid.New()
 	member, _ := organization.NewMember(orgID, userID, organization.RoleViewer, "")
-	org, _ := organization.NewOrganization(uuid.New(), organization.OrgTypeAgency)
+	org, _ := organization.NewOrganization(uuid.New(), organization.OrgTypeAgency, "Acme")
 	org.ID = orgID
 
 	svc := newTestService(

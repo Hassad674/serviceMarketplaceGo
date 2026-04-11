@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	notifdomain "marketplace-backend/internal/domain/notification"
+	"marketplace-backend/internal/domain/organization"
 	portservice "marketplace-backend/internal/port/service"
 )
 
@@ -52,16 +53,17 @@ func (c *capturingSink) Send(_ context.Context, userID uuid.UUID, t notifdomain.
 	return nil
 }
 
-// memoryUserStore is a single in-memory UserStore combining the
+// memoryUserStore is a single in-memory OrgStore combining the
 // account lookup + state persistence. Used by integration tests to
-// simulate a real user_repository without a DB.
+// simulate a real org_repository without a DB.
 type memoryUserStore struct {
-	userID uuid.UUID
-	state  *LastAccountState
+	orgID       uuid.UUID
+	ownerUserID uuid.UUID
+	state       *LastAccountState
 }
 
-func (m *memoryUserStore) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
-	return m.userID, nil
+func (m *memoryUserStore) FindByStripeAccountID(_ context.Context, _ string) (*organization.Organization, error) {
+	return &organization.Organization{ID: m.orgID, OwnerUserID: m.ownerUserID}, nil
 }
 
 func (m *memoryUserStore) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
@@ -83,8 +85,9 @@ func (m *memoryUserStore) SaveStripeLastState(_ context.Context, _ uuid.UUID, ra
 func setupChain(prev *LastAccountState) (*Notifier, *capturingSink, *memoryUserStore) {
 	sink := &capturingSink{}
 	store := &memoryUserStore{
-		userID: uuid.MustParse("51a9b3e7-1dae-45ee-913a-d73733b20aae"),
-		state:  prev,
+		orgID:       uuid.New(),
+		ownerUserID: uuid.MustParse("51a9b3e7-1dae-45ee-913a-d73733b20aae"),
+		state:       prev,
 	}
 	n := NewNotifier(sink, store, 5*time.Minute)
 	return n, sink, store

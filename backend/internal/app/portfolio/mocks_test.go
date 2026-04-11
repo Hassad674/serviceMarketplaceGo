@@ -9,14 +9,14 @@ import (
 )
 
 type mockPortfolioRepo struct {
-	CreateFunc       func(ctx context.Context, item *portfolio.PortfolioItem) error
-	GetByIDFunc      func(ctx context.Context, id uuid.UUID) (*portfolio.PortfolioItem, error)
-	ListByUserFunc   func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*portfolio.PortfolioItem, string, error)
-	UpdateFunc       func(ctx context.Context, item *portfolio.PortfolioItem) error
-	DeleteFunc       func(ctx context.Context, id uuid.UUID) error
-	CountByUserFunc  func(ctx context.Context, userID uuid.UUID) (int, error)
-	ReorderItemsFunc func(ctx context.Context, userID uuid.UUID, itemIDs []uuid.UUID) error
-	ReplaceMediaFunc func(ctx context.Context, itemID uuid.UUID, media []*portfolio.PortfolioMedia) error
+	CreateFunc             func(ctx context.Context, item *portfolio.PortfolioItem) error
+	GetByIDFunc            func(ctx context.Context, id uuid.UUID) (*portfolio.PortfolioItem, error)
+	ListByOrganizationFunc func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*portfolio.PortfolioItem, string, error)
+	UpdateFunc             func(ctx context.Context, item *portfolio.PortfolioItem) error
+	DeleteFunc             func(ctx context.Context, id uuid.UUID) error
+	CountByOrgFunc         func(ctx context.Context, orgID uuid.UUID) (int, error)
+	ReorderItemsFunc       func(ctx context.Context, orgID uuid.UUID, itemIDs []uuid.UUID) error
+	ReplaceMediaFunc       func(ctx context.Context, itemID uuid.UUID, media []*portfolio.PortfolioMedia) error
 }
 
 func (m *mockPortfolioRepo) Create(ctx context.Context, item *portfolio.PortfolioItem) error {
@@ -27,8 +27,8 @@ func (m *mockPortfolioRepo) GetByID(ctx context.Context, id uuid.UUID) (*portfol
 	return m.GetByIDFunc(ctx, id)
 }
 
-func (m *mockPortfolioRepo) ListByUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*portfolio.PortfolioItem, string, error) {
-	return m.ListByUserFunc(ctx, userID, cursor, limit)
+func (m *mockPortfolioRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*portfolio.PortfolioItem, string, error) {
+	return m.ListByOrganizationFunc(ctx, orgID, cursor, limit)
 }
 
 func (m *mockPortfolioRepo) Update(ctx context.Context, item *portfolio.PortfolioItem) error {
@@ -39,12 +39,12 @@ func (m *mockPortfolioRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return m.DeleteFunc(ctx, id)
 }
 
-func (m *mockPortfolioRepo) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
-	return m.CountByUserFunc(ctx, userID)
+func (m *mockPortfolioRepo) CountByOrganization(ctx context.Context, orgID uuid.UUID) (int, error) {
+	return m.CountByOrgFunc(ctx, orgID)
 }
 
-func (m *mockPortfolioRepo) ReorderItems(ctx context.Context, userID uuid.UUID, itemIDs []uuid.UUID) error {
-	return m.ReorderItemsFunc(ctx, userID, itemIDs)
+func (m *mockPortfolioRepo) ReorderItems(ctx context.Context, orgID uuid.UUID, itemIDs []uuid.UUID) error {
+	return m.ReorderItemsFunc(ctx, orgID, itemIDs)
 }
 
 func (m *mockPortfolioRepo) ReplaceMedia(ctx context.Context, itemID uuid.UUID, media []*portfolio.PortfolioMedia) error {

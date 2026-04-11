@@ -10,9 +10,10 @@ import (
 
 func validApplicationInput() NewApplicationInput {
 	return NewApplicationInput{
-		JobID:       uuid.New(),
-		ApplicantID: uuid.New(),
-		Message:     "I am very interested in this position and have 5 years of experience.",
+		JobID:                   uuid.New(),
+		ApplicantID:             uuid.New(),
+		ApplicantOrganizationID: uuid.New(),
+		Message:                 "I am very interested in this position and have 5 years of experience.",
 	}
 }
 

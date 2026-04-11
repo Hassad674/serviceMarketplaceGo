@@ -19,31 +19,31 @@ func newTestService(repo *mockPortfolioRepo) *portfolioapp.Service {
 	})
 }
 
-func existingItem(userID uuid.UUID) *domain.PortfolioItem {
+func existingItem(orgID uuid.UUID) *domain.PortfolioItem {
 	return &domain.PortfolioItem{
-		ID:          uuid.New(),
-		UserID:      userID,
-		Title:       "Existing Project",
-		Description: "A project",
-		LinkURL:     "https://example.com",
-		Position:    0,
-		Media:       []*domain.PortfolioMedia{},
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		Title:          "Existing Project",
+		Description:    "A project",
+		LinkURL:        "https://example.com",
+		Position:       0,
+		Media:          []*domain.PortfolioMedia{},
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 }
 
 func TestService_CreateItem_Success(t *testing.T) {
 	repo := &mockPortfolioRepo{
-		CountByUserFunc: func(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil },
-		CreateFunc:      func(_ context.Context, _ *domain.PortfolioItem) error { return nil },
+		CountByOrgFunc: func(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil },
+		CreateFunc:     func(_ context.Context, _ *domain.PortfolioItem) error { return nil },
 	}
 	svc := newTestService(repo)
 
 	item, err := svc.CreateItem(context.Background(), portfolioapp.CreateItemInput{
-		UserID:   uuid.New(),
-		Title:    "My Project",
-		Position: 0,
+		OrganizationID: uuid.New(),
+		Title:          "My Project",
+		Position:       0,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "My Project", item.Title)
@@ -52,37 +52,37 @@ func TestService_CreateItem_Success(t *testing.T) {
 
 func TestService_CreateItem_TooManyItems(t *testing.T) {
 	repo := &mockPortfolioRepo{
-		CountByUserFunc: func(_ context.Context, _ uuid.UUID) (int, error) {
-			return domain.MaxItemsPerUser, nil
+		CountByOrgFunc: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return domain.MaxItemsPerOrg, nil
 		},
 	}
 	svc := newTestService(repo)
 
 	_, err := svc.CreateItem(context.Background(), portfolioapp.CreateItemInput{
-		UserID:   uuid.New(),
-		Title:    "One Too Many",
-		Position: 0,
+		OrganizationID: uuid.New(),
+		Title:          "One Too Many",
+		Position:       0,
 	})
 	assert.ErrorIs(t, err, domain.ErrTooManyItems)
 }
 
 func TestService_CreateItem_ValidationError(t *testing.T) {
 	repo := &mockPortfolioRepo{
-		CountByUserFunc: func(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil },
+		CountByOrgFunc: func(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil },
 	}
 	svc := newTestService(repo)
 
 	_, err := svc.CreateItem(context.Background(), portfolioapp.CreateItemInput{
-		UserID:   uuid.New(),
-		Title:    "", // empty
-		Position: 0,
+		OrganizationID: uuid.New(),
+		Title:          "",
+		Position:       0,
 	})
 	assert.ErrorIs(t, err, domain.ErrMissingTitle)
 }
 
 func TestService_UpdateItem_Success(t *testing.T) {
-	userID := uuid.New()
-	item := existingItem(userID)
+	orgID := uuid.New()
+	item := existingItem(orgID)
 
 	repo := &mockPortfolioRepo{
 		GetByIDFunc: func(_ context.Context, _ uuid.UUID) (*domain.PortfolioItem, error) {
@@ -93,7 +93,7 @@ func TestService_UpdateItem_Success(t *testing.T) {
 	svc := newTestService(repo)
 
 	newTitle := "Updated Title"
-	updated, err := svc.UpdateItem(context.Background(), userID, item.ID, portfolioapp.UpdateItemInput{
+	updated, err := svc.UpdateItem(context.Background(), orgID, item.ID, portfolioapp.UpdateItemInput{
 		Title: &newTitle,
 	})
 	require.NoError(t, err)
@@ -101,9 +101,9 @@ func TestService_UpdateItem_Success(t *testing.T) {
 }
 
 func TestService_UpdateItem_NotOwner(t *testing.T) {
-	ownerID := uuid.New()
-	otherID := uuid.New()
-	item := existingItem(ownerID)
+	ownerOrg := uuid.New()
+	otherOrg := uuid.New()
+	item := existingItem(ownerOrg)
 
 	repo := &mockPortfolioRepo{
 		GetByIDFunc: func(_ context.Context, _ uuid.UUID) (*domain.PortfolioItem, error) {
@@ -112,7 +112,7 @@ func TestService_UpdateItem_NotOwner(t *testing.T) {
 	}
 	svc := newTestService(repo)
 
-	_, err := svc.UpdateItem(context.Background(), otherID, item.ID, portfolioapp.UpdateItemInput{})
+	_, err := svc.UpdateItem(context.Background(), otherOrg, item.ID, portfolioapp.UpdateItemInput{})
 	assert.ErrorIs(t, err, domain.ErrNotOwner)
 }
 
@@ -129,8 +129,8 @@ func TestService_UpdateItem_NotFound(t *testing.T) {
 }
 
 func TestService_DeleteItem_Success(t *testing.T) {
-	userID := uuid.New()
-	item := existingItem(userID)
+	orgID := uuid.New()
+	item := existingItem(orgID)
 
 	repo := &mockPortfolioRepo{
 		GetByIDFunc: func(_ context.Context, _ uuid.UUID) (*domain.PortfolioItem, error) {
@@ -140,14 +140,14 @@ func TestService_DeleteItem_Success(t *testing.T) {
 	}
 	svc := newTestService(repo)
 
-	err := svc.DeleteItem(context.Background(), userID, item.ID)
+	err := svc.DeleteItem(context.Background(), orgID, item.ID)
 	require.NoError(t, err)
 }
 
 func TestService_DeleteItem_NotOwner(t *testing.T) {
-	ownerID := uuid.New()
-	otherID := uuid.New()
-	item := existingItem(ownerID)
+	ownerOrg := uuid.New()
+	otherOrg := uuid.New()
+	item := existingItem(ownerOrg)
 
 	repo := &mockPortfolioRepo{
 		GetByIDFunc: func(_ context.Context, _ uuid.UUID) (*domain.PortfolioItem, error) {
@@ -156,37 +156,37 @@ func TestService_DeleteItem_NotOwner(t *testing.T) {
 	}
 	svc := newTestService(repo)
 
-	err := svc.DeleteItem(context.Background(), otherID, item.ID)
+	err := svc.DeleteItem(context.Background(), otherOrg, item.ID)
 	assert.ErrorIs(t, err, domain.ErrNotOwner)
 }
 
-func TestService_ListByUser_Success(t *testing.T) {
+func TestService_ListByOrganization_Success(t *testing.T) {
 	items := []*domain.PortfolioItem{existingItem(uuid.New())}
 
 	repo := &mockPortfolioRepo{
-		ListByUserFunc: func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.PortfolioItem, string, error) {
+		ListByOrganizationFunc: func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.PortfolioItem, string, error) {
 			return items, "", nil
 		},
 	}
 	svc := newTestService(repo)
 
-	result, cursor, err := svc.ListByUser(context.Background(), uuid.New(), "", 20)
+	result, cursor, err := svc.ListByOrganization(context.Background(), uuid.New(), "", 20)
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
 	assert.Empty(t, cursor)
 }
 
-func TestService_ListByUser_DefaultLimit(t *testing.T) {
+func TestService_ListByOrganization_DefaultLimit(t *testing.T) {
 	var capturedLimit int
 	repo := &mockPortfolioRepo{
-		ListByUserFunc: func(_ context.Context, _ uuid.UUID, _ string, limit int) ([]*domain.PortfolioItem, string, error) {
+		ListByOrganizationFunc: func(_ context.Context, _ uuid.UUID, _ string, limit int) ([]*domain.PortfolioItem, string, error) {
 			capturedLimit = limit
 			return nil, "", nil
 		},
 	}
 	svc := newTestService(repo)
 
-	_, _, _ = svc.ListByUser(context.Background(), uuid.New(), "", 0)
+	_, _, _ = svc.ListByOrganization(context.Background(), uuid.New(), "", 0)
 	assert.Equal(t, 20, capturedLimit)
 }
 
@@ -203,8 +203,8 @@ func TestService_ReorderItems_Success(t *testing.T) {
 }
 
 func TestService_UpdateItem_WithMedia(t *testing.T) {
-	userID := uuid.New()
-	item := existingItem(userID)
+	orgID := uuid.New()
+	item := existingItem(orgID)
 
 	repo := &mockPortfolioRepo{
 		GetByIDFunc: func(_ context.Context, _ uuid.UUID) (*domain.PortfolioItem, error) {
@@ -215,7 +215,7 @@ func TestService_UpdateItem_WithMedia(t *testing.T) {
 	}
 	svc := newTestService(repo)
 
-	updated, err := svc.UpdateItem(context.Background(), userID, item.ID, portfolioapp.UpdateItemInput{
+	updated, err := svc.UpdateItem(context.Background(), orgID, item.ID, portfolioapp.UpdateItemInput{
 		Media: []portfolioapp.MediaInput{
 			{MediaURL: "https://r2.example.com/img.jpg", MediaType: "image", Position: 0},
 		},

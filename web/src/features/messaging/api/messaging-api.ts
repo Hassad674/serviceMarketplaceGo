@@ -50,10 +50,10 @@ export function sendMessage(
   )
 }
 
-export function startConversation(otherUserId: string, content: string): Promise<StartConversationResponse> {
+export function startConversation(otherOrgId: string, content: string): Promise<StartConversationResponse> {
   return apiClient<StartConversationResponse>("/api/v1/messaging/conversations", {
     method: "POST",
-    body: { recipient_id: otherUserId, content },
+    body: { recipient_org_id: otherOrgId, content },
   })
 }
 

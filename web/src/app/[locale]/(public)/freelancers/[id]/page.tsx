@@ -21,9 +21,9 @@ export default async function FreelancerProfilePage({ params }: Props) {
   const { id } = await params
   return (
     <div className="space-y-6">
-      <PublicProfile userId={id} type="freelancer" />
+      <PublicProfile orgId={id} type="freelancer" />
       <div className="flex justify-center">
-        <SendMessageButton targetUserId={id} />
+        <SendMessageButton targetOrgId={id} />
       </div>
     </div>
   )

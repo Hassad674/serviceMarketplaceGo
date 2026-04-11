@@ -60,4 +60,10 @@ type OrganizationMemberRepository interface {
 	// is the service layer's call when the removed member is an operator
 	// whose only purpose was to belong to this org.
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// ListMemberUserIDsByOrgIDs returns the user ids of the active
+	// members of each given org, keyed by org id. Used by features
+	// that need to project an org-level concept onto the underlying
+	// users (e.g. aggregating presence across the team).
+	ListMemberUserIDsByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
 }

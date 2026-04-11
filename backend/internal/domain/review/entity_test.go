@@ -14,14 +14,16 @@ func TestNewReview_Valid(t *testing.T) {
 	quality := 3
 
 	r, err := NewReview(NewReviewInput{
-		ProposalID:    uuid.New(),
-		ReviewerID:    uuid.New(),
-		ReviewedID:    uuid.New(),
-		GlobalRating:  5,
-		Timeliness:    &timeliness,
-		Communication: &communication,
-		Quality:       &quality,
-		Comment:       "Great work!",
+		ProposalID:             uuid.New(),
+		ReviewerID:             uuid.New(),
+		ReviewedID:             uuid.New(),
+		ReviewerOrganizationID: uuid.New(),
+		ReviewedOrganizationID: uuid.New(),
+		GlobalRating:           5,
+		Timeliness:             &timeliness,
+		Communication:          &communication,
+		Quality:                &quality,
+		Comment:                "Great work!",
 	})
 
 	assert.NoError(t, err)
@@ -33,10 +35,12 @@ func TestNewReview_Valid(t *testing.T) {
 
 func TestNewReview_MinimalValid(t *testing.T) {
 	r, err := NewReview(NewReviewInput{
-		ProposalID:   uuid.New(),
-		ReviewerID:   uuid.New(),
-		ReviewedID:   uuid.New(),
-		GlobalRating: 1,
+		ProposalID:             uuid.New(),
+		ReviewerID:             uuid.New(),
+		ReviewedID:             uuid.New(),
+		ReviewerOrganizationID: uuid.New(),
+		ReviewedOrganizationID: uuid.New(),
+		GlobalRating:           1,
 	})
 
 	assert.NoError(t, err)

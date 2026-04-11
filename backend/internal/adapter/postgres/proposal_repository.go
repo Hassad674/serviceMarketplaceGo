@@ -141,7 +141,7 @@ func (r *ProposalRepository) ListByConversation(ctx context.Context, conversatio
 	return scanProposalList(rows)
 }
 
-func (r *ProposalRepository) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*proposal.Proposal, string, error) {
+func (r *ProposalRepository) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*proposal.Proposal, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -153,24 +153,24 @@ func (r *ProposalRepository) ListActiveProjects(ctx context.Context, userID uuid
 	var err error
 
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListActiveProjectsFirst, userID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListActiveProjectsByOrgFirst, orgID, limit+1)
 	} else {
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListActiveProjectsWithCursor,
-			userID, c.CreatedAt, c.ID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListActiveProjectsByOrgWithCursor,
+			orgID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("list active projects: %w", err)
+		return nil, "", fmt.Errorf("list active projects by organization: %w", err)
 	}
 	defer rows.Close()
 
 	return scanProposalListWithCursor(rows, limit)
 }
 
-func (r *ProposalRepository) ListCompletedByProvider(ctx context.Context, providerID uuid.UUID, cursorStr string, limit int) ([]*proposal.Proposal, string, error) {
+func (r *ProposalRepository) ListCompletedByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*proposal.Proposal, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -182,17 +182,17 @@ func (r *ProposalRepository) ListCompletedByProvider(ctx context.Context, provid
 	var err error
 
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListCompletedByProviderFirst, providerID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListCompletedByOrgFirst, orgID, limit+1)
 	} else {
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListCompletedByProviderWithCursor,
-			providerID, c.CreatedAt, c.ID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListCompletedByOrgWithCursor,
+			orgID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("list completed by provider: %w", err)
+		return nil, "", fmt.Errorf("list completed by organization: %w", err)
 	}
 	defer rows.Close()
 

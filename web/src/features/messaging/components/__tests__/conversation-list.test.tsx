@@ -24,9 +24,9 @@ vi.mock("lucide-react", () => ({
 function createConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     id: "conv-1",
-    other_user_id: "user-2",
-    other_user_name: "Alice Smith",
-    other_user_role: "provider",
+    other_org_id: "org-2",
+    other_org_name: "Alice Smith",
+    other_org_type: "provider_personal",
     other_photo_url: "",
     last_message: "Hello there",
     last_message_at: "2026-03-26T10:00:00Z",
@@ -41,11 +41,11 @@ function defaultProps(overrides: Partial<Parameters<typeof ConversationList>[0]>
   return {
     conversations: [] as Conversation[],
     activeId: null as string | null,
-    roleFilter: "all",
+    orgTypeFilter: "all",
     searchQuery: "",
     typingUsers: {} as Record<string, { userId: string }>,
     onSelect: vi.fn(),
-    onRoleFilterChange: vi.fn(),
+    onOrgTypeFilterChange: vi.fn(),
     onSearchChange: vi.fn(),
     ...overrides,
   }
@@ -79,10 +79,10 @@ describe("ConversationList", () => {
     expect(screen.getByText("noConversations")).toBeDefined()
   })
 
-  it("renders conversations with other_user_name", () => {
+  it("renders conversations with other_org_name", () => {
     const conversations = [
-      createConversation({ id: "conv-1", other_user_name: "Alice Smith" }),
-      createConversation({ id: "conv-2", other_user_name: "Bob Jones" }),
+      createConversation({ id: "conv-1", other_org_name: "Alice Smith" }),
+      createConversation({ id: "conv-2", other_org_name: "Bob Jones" }),
     ]
     render(<ConversationList {...defaultProps({ conversations })} />)
 
@@ -141,7 +141,7 @@ describe("ConversationList", () => {
 
   it("renders initials when no photo_url", () => {
     const conversations = [
-      createConversation({ other_user_name: "Alice Smith", other_photo_url: "" }),
+      createConversation({ other_org_name: "Alice Smith", other_photo_url: "" }),
     ]
     render(<ConversationList {...defaultProps({ conversations })} />)
 
@@ -160,13 +160,13 @@ describe("ConversationList", () => {
     expect(onSelect).toHaveBeenCalledWith("conv-123")
   })
 
-  it("calls onRoleFilterChange when role tab clicked", () => {
-    const onRoleFilterChange = vi.fn()
-    render(<ConversationList {...defaultProps({ onRoleFilterChange })} />)
+  it("calls onOrgTypeFilterChange when org type tab clicked", () => {
+    const onOrgTypeFilterChange = vi.fn()
+    render(<ConversationList {...defaultProps({ onOrgTypeFilterChange })} />)
 
     fireEvent.click(screen.getByText("agency"))
 
-    expect(onRoleFilterChange).toHaveBeenCalledWith("agency")
+    expect(onOrgTypeFilterChange).toHaveBeenCalledWith("agency")
   })
 
   it("calls onSearchChange when search input changes", () => {
@@ -179,13 +179,13 @@ describe("ConversationList", () => {
     expect(onSearchChange).toHaveBeenCalledWith("Alice")
   })
 
-  it("filters conversations by role", () => {
+  it("filters conversations by org type", () => {
     const conversations = [
-      createConversation({ id: "conv-1", other_user_name: "Alice", other_user_role: "provider" }),
-      createConversation({ id: "conv-2", other_user_name: "Bob", other_user_role: "agency" }),
+      createConversation({ id: "conv-1", other_org_name: "Alice", other_org_type: "provider_personal" }),
+      createConversation({ id: "conv-2", other_org_name: "Bob", other_org_type: "agency" }),
     ]
     render(
-      <ConversationList {...defaultProps({ conversations, roleFilter: "provider" })} />,
+      <ConversationList {...defaultProps({ conversations, orgTypeFilter: "provider_personal" })} />,
     )
 
     expect(screen.getByText("Alice")).toBeDefined()
@@ -194,8 +194,8 @@ describe("ConversationList", () => {
 
   it("filters conversations by search query", () => {
     const conversations = [
-      createConversation({ id: "conv-1", other_user_name: "Alice Smith" }),
-      createConversation({ id: "conv-2", other_user_name: "Bob Jones" }),
+      createConversation({ id: "conv-1", other_org_name: "Alice Smith" }),
+      createConversation({ id: "conv-2", other_org_name: "Bob Jones" }),
     ]
     render(
       <ConversationList {...defaultProps({ conversations, searchQuery: "alice" })} />,

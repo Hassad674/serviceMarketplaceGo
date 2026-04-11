@@ -53,17 +53,17 @@ const queryUpdateJob = `
 		updated_at = $16
 	WHERE id = $1`
 
-const queryListJobsByCreatorFirst = `
+const queryListJobsByOrgFirst = `
 	SELECT ` + jobColumns + `
 	FROM jobs
-	WHERE creator_id = $1
+	WHERE organization_id = $1
 	ORDER BY created_at DESC, id DESC
 	LIMIT $2`
 
-const queryListJobsByCreatorWithCursor = `
+const queryListJobsByOrgWithCursor = `
 	SELECT ` + jobColumns + `
 	FROM jobs
-	WHERE creator_id = $1
+	WHERE organization_id = $1
 		AND (created_at, id) < ($2, $3)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`

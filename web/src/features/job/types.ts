@@ -77,6 +77,8 @@ export type JobWithCountsListResponse = {
 
 // --- Job Application types ---
 
+// Since phase R3, a job application is owned by an organization, not
+// an individual user. applicant_id is the applicant org id.
 export type JobApplicationResponse = {
   id: string
   job_id: string
@@ -86,15 +88,17 @@ export type JobApplicationResponse = {
   created_at: string
 }
 
+// Mirror of backend/internal/handler/dto/response/profile.go. Describes
+// the org behind the application, not a user.
 export type PublicProfileSummary = {
-  user_id: string
-  display_name: string
-  first_name: string
-  last_name: string
-  role: string
+  organization_id: string
+  name: string
+  org_type: string
   title: string
   photo_url: string
   referrer_enabled: boolean
+  average_rating: number
+  review_count: number
 }
 
 export type ApplicationWithProfile = {

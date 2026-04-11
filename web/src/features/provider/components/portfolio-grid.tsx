@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { Plus, Briefcase, Sparkles, ImagePlus } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useMyPortfolio, usePortfolioByUser, useDeletePortfolioItem } from "../hooks/use-portfolio"
+import { useMyPortfolio, usePortfolioByOrganization, useDeletePortfolioItem } from "../hooks/use-portfolio"
 import { PortfolioItemCard } from "./portfolio-item-card"
 import { PortfolioDetailModal } from "./portfolio-detail-modal"
 import { PortfolioFormModal } from "./portfolio-form-modal"
@@ -162,11 +162,11 @@ function PortfolioGridSkeleton() {
 // --- Read-only mode (public profile) ---
 
 interface PublicPortfolioSectionProps {
-  userId: string
+  orgId: string
 }
 
-export function PublicPortfolioSection({ userId }: PublicPortfolioSectionProps) {
-  const { data, isLoading } = usePortfolioByUser(userId)
+export function PublicPortfolioSection({ orgId }: PublicPortfolioSectionProps) {
+  const { data, isLoading } = usePortfolioByOrganization(orgId)
   const [viewItem, setViewItem] = useState<PortfolioItem | null>(null)
   const t = useTranslations("portfolio")
 

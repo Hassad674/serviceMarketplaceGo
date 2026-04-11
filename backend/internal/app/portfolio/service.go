@@ -30,12 +30,12 @@ func NewService(deps ServiceDeps) *Service {
 
 // CreateItemInput holds data for creating a portfolio item.
 type CreateItemInput struct {
-	UserID      uuid.UUID
-	Title       string
-	Description string
-	LinkURL     string
-	Position    int
-	Media       []MediaInput
+	OrganizationID uuid.UUID
+	Title          string
+	Description    string
+	LinkURL        string
+	Position       int
+	Media          []MediaInput
 }
 
 // MediaInput describes a single media attachment.
@@ -48,11 +48,11 @@ type MediaInput struct {
 
 // CreateItem creates a new portfolio item after validating limits.
 func (s *Service) CreateItem(ctx context.Context, in CreateItemInput) (*domain.PortfolioItem, error) {
-	count, err := s.portfolios.CountByUser(ctx, in.UserID)
+	count, err := s.portfolios.CountByOrganization(ctx, in.OrganizationID)
 	if err != nil {
 		return nil, fmt.Errorf("count items: %w", err)
 	}
-	if count >= domain.MaxItemsPerUser {
+	if count >= domain.MaxItemsPerOrg {
 		return nil, domain.ErrTooManyItems
 	}
 
@@ -67,12 +67,12 @@ func (s *Service) CreateItem(ctx context.Context, in CreateItemInput) (*domain.P
 	}
 
 	item, err := domain.NewPortfolioItem(domain.NewItemInput{
-		UserID:      in.UserID,
-		Title:       in.Title,
-		Description: in.Description,
-		LinkURL:     in.LinkURL,
-		Position:    in.Position,
-		Media:       mediaInputs,
+		OrganizationID: in.OrganizationID,
+		Title:          in.Title,
+		Description:    in.Description,
+		LinkURL:        in.LinkURL,
+		Position:       in.Position,
+		Media:          mediaInputs,
 	})
 	if err != nil {
 		return nil, err
@@ -90,12 +90,12 @@ func (s *Service) GetByID(ctx context.Context, id uuid.UUID) (*domain.PortfolioI
 	return s.portfolios.GetByID(ctx, id)
 }
 
-// ListByUser returns portfolio items for a user with pagination.
-func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.PortfolioItem, string, error) {
+// ListByOrganization returns portfolio items for an org with pagination.
+func (s *Service) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.PortfolioItem, string, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	return s.portfolios.ListByUser(ctx, userID, cursor, limit)
+	return s.portfolios.ListByOrganization(ctx, orgID, cursor, limit)
 }
 
 // UpdateItemInput holds data for updating a portfolio item.
@@ -107,12 +107,13 @@ type UpdateItemInput struct {
 }
 
 // UpdateItem updates a portfolio item after ownership verification.
-func (s *Service) UpdateItem(ctx context.Context, userID, itemID uuid.UUID, in UpdateItemInput) (*domain.PortfolioItem, error) {
+// The item must belong to the caller's organization.
+func (s *Service) UpdateItem(ctx context.Context, orgID, itemID uuid.UUID, in UpdateItemInput) (*domain.PortfolioItem, error) {
 	item, err := s.portfolios.GetByID(ctx, itemID)
 	if err != nil {
 		return nil, err
 	}
-	if item.UserID != userID {
+	if item.OrganizationID != orgID {
 		return nil, domain.ErrNotOwner
 	}
 
@@ -171,12 +172,12 @@ func (s *Service) UpdateItem(ctx context.Context, userID, itemID uuid.UUID, in U
 }
 
 // DeleteItem deletes a portfolio item after ownership verification.
-func (s *Service) DeleteItem(ctx context.Context, userID, itemID uuid.UUID) error {
+func (s *Service) DeleteItem(ctx context.Context, orgID, itemID uuid.UUID) error {
 	item, err := s.portfolios.GetByID(ctx, itemID)
 	if err != nil {
 		return err
 	}
-	if item.UserID != userID {
+	if item.OrganizationID != orgID {
 		return domain.ErrNotOwner
 	}
 	if err := s.portfolios.Delete(ctx, itemID); err != nil {
@@ -185,7 +186,7 @@ func (s *Service) DeleteItem(ctx context.Context, userID, itemID uuid.UUID) erro
 	return nil
 }
 
-// ReorderItems updates the positions of all items for a user.
-func (s *Service) ReorderItems(ctx context.Context, userID uuid.UUID, itemIDs []uuid.UUID) error {
-	return s.portfolios.ReorderItems(ctx, userID, itemIDs)
+// ReorderItems updates the positions of all items for an org.
+func (s *Service) ReorderItems(ctx context.Context, orgID uuid.UUID, itemIDs []uuid.UUID) error {
+	return s.portfolios.ReorderItems(ctx, orgID, itemIDs)
 }

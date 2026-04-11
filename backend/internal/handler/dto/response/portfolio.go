@@ -6,16 +6,16 @@ import (
 
 // PortfolioItemResponse is the API representation of a portfolio item.
 type PortfolioItemResponse struct {
-	ID          string                   `json:"id"`
-	UserID      string                   `json:"user_id"`
-	Title       string                   `json:"title"`
-	Description string                   `json:"description"`
-	LinkURL     string                   `json:"link_url"`
-	CoverURL    string                   `json:"cover_url"`
-	Position    int                      `json:"position"`
-	Media       []PortfolioMediaResponse `json:"media"`
-	CreatedAt   string                   `json:"created_at"`
-	UpdatedAt   string                   `json:"updated_at"`
+	ID             string                   `json:"id"`
+	OrganizationID string                   `json:"organization_id"`
+	Title          string                   `json:"title"`
+	Description    string                   `json:"description"`
+	LinkURL        string                   `json:"link_url"`
+	CoverURL       string                   `json:"cover_url"`
+	Position       int                      `json:"position"`
+	Media          []PortfolioMediaResponse `json:"media"`
+	CreatedAt      string                   `json:"created_at"`
+	UpdatedAt      string                   `json:"updated_at"`
 }
 
 // PortfolioMediaResponse is the API representation of a portfolio media.
@@ -43,16 +43,16 @@ func PortfolioItemFromDomain(item *portfolio.PortfolioItem) PortfolioItemRespons
 	}
 
 	return PortfolioItemResponse{
-		ID:          item.ID.String(),
-		UserID:      item.UserID.String(),
-		Title:       item.Title,
-		Description: item.Description,
-		LinkURL:     item.LinkURL,
-		CoverURL:    item.CoverURL(),
-		Position:    item.Position,
-		Media:       media,
-		CreatedAt:   item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:   item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		ID:             item.ID.String(),
+		OrganizationID: item.OrganizationID.String(),
+		Title:          item.Title,
+		Description:    item.Description,
+		LinkURL:        item.LinkURL,
+		CoverURL:       item.CoverURL(),
+		Position:       item.Position,
+		Media:          media,
+		CreatedAt:      item.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:      item.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
 }
 

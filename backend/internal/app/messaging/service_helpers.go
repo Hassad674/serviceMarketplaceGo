@@ -274,23 +274,63 @@ func (s *Service) populateReplyPreview(ctx context.Context, msg *message.Message
 	}
 }
 
+// enrichWithPresence marks a conversation as "online" when any member
+// of the org on the other side is currently connected. We collect the
+// other-side orgs, expand them into their member user ids in one query,
+// then bulk-check presence for all those users at once. Best-effort:
+// a failure at any step leaves Online=false on the summaries.
 func (s *Service) enrichWithPresence(ctx context.Context, summaries []repository.ConversationSummary) {
-	if len(summaries) == 0 {
+	if len(summaries) == 0 || s.orgMembers == nil {
 		return
 	}
 
-	userIDs := make([]uuid.UUID, len(summaries))
-	for i, sm := range summaries {
-		userIDs[i] = sm.OtherUserID
+	orgIDs := make([]uuid.UUID, 0, len(summaries))
+	seen := make(map[uuid.UUID]bool, len(summaries))
+	for _, sm := range summaries {
+		if sm.OtherOrgID == uuid.Nil || seen[sm.OtherOrgID] {
+			continue
+		}
+		seen[sm.OtherOrgID] = true
+		orgIDs = append(orgIDs, sm.OtherOrgID)
+	}
+	if len(orgIDs) == 0 {
+		return
 	}
 
-	// Best-effort: don't fail the whole request if presence is unavailable
+	membersByOrg, err := s.orgMembers.ListMemberUserIDsByOrgIDs(ctx, orgIDs)
+	if err != nil {
+		return
+	}
+
+	// Reverse-index: user -> org, and collect unique user ids for the
+	// presence bulk check.
+	userIDs := make([]uuid.UUID, 0)
+	userToOrg := make(map[uuid.UUID]uuid.UUID, len(summaries))
+	for orgID, ids := range membersByOrg {
+		for _, uid := range ids {
+			if _, exists := userToOrg[uid]; !exists {
+				userIDs = append(userIDs, uid)
+			}
+			userToOrg[uid] = orgID
+		}
+	}
+	if len(userIDs) == 0 {
+		return
+	}
+
 	onlineMap, err := s.presence.BulkIsOnline(ctx, userIDs)
 	if err != nil {
 		return
 	}
 
+	orgOnline := make(map[uuid.UUID]bool, len(orgIDs))
+	for uid, online := range onlineMap {
+		if online {
+			orgOnline[userToOrg[uid]] = true
+		}
+	}
+
 	for i := range summaries {
-		summaries[i].Online = onlineMap[summaries[i].OtherUserID]
+		summaries[i].Online = orgOnline[summaries[i].OtherOrgID]
 	}
 }

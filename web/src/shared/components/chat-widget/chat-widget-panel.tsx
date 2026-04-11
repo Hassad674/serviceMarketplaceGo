@@ -58,7 +58,7 @@ export function ChatWidgetPanel({
   useEffect(() => {
     if (!pendingRecipient || activeConversationId) return
     const existing = conversations.find(
-      (c: Conversation) => c.other_user_id === pendingRecipient.userId,
+      (c: Conversation) => c.other_org_id === pendingRecipient.orgId,
     )
     if (existing) {
       onPendingConversationResolved(existing.id)
@@ -139,7 +139,7 @@ export function ChatWidgetPanel({
       // Pending recipient: create conversation with first message
       if (!activeConversationId && pendingRecipient) {
         try {
-          const result = await startConversation(pendingRecipient.userId, content)
+          const result = await startConversation(pendingRecipient.orgId, content)
           queryClient.invalidateQueries({ queryKey: conversationsQueryKey(user?.id) })
           queryClient.invalidateQueries({ queryKey: unreadCountQueryKey(user?.id) })
           onPendingConversationResolved(result.conversation_id)

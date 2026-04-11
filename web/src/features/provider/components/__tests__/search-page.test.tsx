@@ -47,11 +47,9 @@ function createProfile(
   overrides: Partial<PublicProfileSummary> = {},
 ): PublicProfileSummary {
   return {
-    user_id: "user-1",
-    display_name: "Test User",
-    first_name: "Test",
-    last_name: "User",
-    role: "provider",
+    organization_id: "org-1",
+    name: "Test Org",
+    org_type: "provider_personal",
     title: "Developer",
     photo_url: "",
     referrer_enabled: false,
@@ -117,15 +115,13 @@ describe("SearchPage", () => {
   it("shows provider cards when results exist", () => {
     const profiles = [
       createProfile({
-        user_id: "1",
-        first_name: "Alice",
-        last_name: "Smith",
+        organization_id: "1",
+        name: "Alice Smith",
         title: "UX Designer",
       }),
       createProfile({
-        user_id: "2",
-        first_name: "Bob",
-        last_name: "Jones",
+        organization_id: "2",
+        name: "Bob Jones",
         title: "Backend Dev",
       }),
     ]
@@ -195,9 +191,9 @@ describe("SearchPage", () => {
 
   it("renders correct number of cards for results", () => {
     const profiles = [
-      createProfile({ user_id: "1", first_name: "A", last_name: "One" }),
-      createProfile({ user_id: "2", first_name: "B", last_name: "Two" }),
-      createProfile({ user_id: "3", first_name: "C", last_name: "Three" }),
+      createProfile({ organization_id: "1" }),
+      createProfile({ organization_id: "2" }),
+      createProfile({ organization_id: "3" }),
     ]
 
     mockUseSearchProfiles.mockReturnValue(mockInfiniteResult(profiles))
@@ -210,7 +206,7 @@ describe("SearchPage", () => {
 
   it("shows load more button when hasNextPage is true", () => {
     const profiles = [
-      createProfile({ user_id: "1", first_name: "A", last_name: "One" }),
+      createProfile({ organization_id: "1" }),
     ]
 
     mockUseSearchProfiles.mockReturnValue(

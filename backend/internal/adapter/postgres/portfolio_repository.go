@@ -36,7 +36,7 @@ func (r *PortfolioRepository) Create(ctx context.Context, item *portfolio.Portfo
 	defer tx.Rollback()
 
 	_, err = tx.ExecContext(ctx, queryInsertPortfolioItem,
-		item.ID, item.UserID, item.Title, item.Description,
+		item.ID, item.OrganizationID, item.Title, item.Description,
 		item.LinkURL, item.Position, item.CreatedAt, item.UpdatedAt,
 	)
 	if err != nil {
@@ -78,8 +78,8 @@ func (r *PortfolioRepository) GetByID(ctx context.Context, id uuid.UUID) (*portf
 	return item, nil
 }
 
-// ListByUser returns items ordered by position ASC with cursor pagination.
-func (r *PortfolioRepository) ListByUser(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*portfolio.PortfolioItem, string, error) {
+// ListByOrganization returns items ordered by position ASC with cursor pagination.
+func (r *PortfolioRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*portfolio.PortfolioItem, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -87,13 +87,13 @@ func (r *PortfolioRepository) ListByUser(ctx context.Context, userID uuid.UUID, 
 	var err error
 
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListPortfolioByUserFirst, userID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListPortfolioByOrgFirst, orgID, limit+1)
 	} else {
 		pos, cID, decErr := decodePositionCursor(cursorStr)
 		if decErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", decErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListPortfolioByUserWithCursor, userID, pos, cID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListPortfolioByOrgWithCursor, orgID, pos, cID, limit+1)
 	}
 	if err != nil {
 		return nil, "", fmt.Errorf("list portfolio items: %w", err)
@@ -152,13 +152,13 @@ func (r *PortfolioRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// CountByUser returns the total number of portfolio items for a user.
-func (r *PortfolioRepository) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+// CountByOrganization returns the total number of portfolio items for an org.
+func (r *PortfolioRepository) CountByOrganization(ctx context.Context, orgID uuid.UUID) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	var count int
-	err := r.db.QueryRowContext(ctx, queryCountPortfolioByUser, userID).Scan(&count)
+	err := r.db.QueryRowContext(ctx, queryCountPortfolioByOrg, orgID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count portfolio items: %w", err)
 	}
@@ -166,7 +166,7 @@ func (r *PortfolioRepository) CountByUser(ctx context.Context, userID uuid.UUID)
 }
 
 // ReorderItems batch-updates positions in a transaction.
-func (r *PortfolioRepository) ReorderItems(ctx context.Context, userID uuid.UUID, itemIDs []uuid.UUID) error {
+func (r *PortfolioRepository) ReorderItems(ctx context.Context, orgID uuid.UUID, itemIDs []uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -177,7 +177,7 @@ func (r *PortfolioRepository) ReorderItems(ctx context.Context, userID uuid.UUID
 	defer tx.Rollback()
 
 	for i, id := range itemIDs {
-		_, err := tx.ExecContext(ctx, queryUpdatePortfolioPosition, id, i, userID)
+		_, err := tx.ExecContext(ctx, queryUpdatePortfolioPosition, id, i, orgID)
 		if err != nil {
 			return fmt.Errorf("update position %d: %w", i, err)
 		}
@@ -271,7 +271,7 @@ type portfolioScanner interface {
 func scanPortfolioItem(s portfolioScanner) (*portfolio.PortfolioItem, error) {
 	var item portfolio.PortfolioItem
 	err := s.Scan(
-		&item.ID, &item.UserID, &item.Title, &item.Description,
+		&item.ID, &item.OrganizationID, &item.Title, &item.Description,
 		&item.LinkURL, &item.Position, &item.CreatedAt, &item.UpdatedAt,
 	)
 	if err != nil {

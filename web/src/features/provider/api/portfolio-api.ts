@@ -9,9 +9,11 @@ export type PortfolioMedia = {
   created_at: string
 }
 
+// A portfolio item belongs to an organization, shared across every
+// operator on the team.
 export type PortfolioItem = {
   id: string
-  user_id: string
+  organization_id: string
   title: string
   description: string
   link_url: string
@@ -50,11 +52,11 @@ type UpdatePortfolioPayload = {
   media?: MediaPayload[]
 }
 
-export async function fetchPortfolioByUser(
-  userId: string,
+export async function fetchPortfolioByOrganization(
+  orgId: string,
 ): Promise<PortfolioListResponse> {
   return apiClient<PortfolioListResponse>(
-    `/api/v1/portfolio/user/${userId}?limit=30`,
+    `/api/v1/portfolio/org/${orgId}?limit=30`,
   )
 }
 

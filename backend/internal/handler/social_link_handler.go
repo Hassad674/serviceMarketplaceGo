@@ -26,15 +26,15 @@ func NewSocialLinkHandler(svc *profileapp.SocialLinkService) *SocialLinkHandler 
 	return &SocialLinkHandler{socialLinkSvc: svc}
 }
 
-// ListMySocialLinks returns social links for the authenticated user.
+// ListMySocialLinks returns social links for the authenticated user's org.
 func (h *SocialLinkHandler) ListMySocialLinks(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
-	links, err := h.socialLinkSvc.ListByUser(r.Context(), userID)
+	links, err := h.socialLinkSvc.ListByOrganization(r.Context(), orgID)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 		return
@@ -43,11 +43,11 @@ func (h *SocialLinkHandler) ListMySocialLinks(w http.ResponseWriter, r *http.Req
 	res.JSON(w, http.StatusOK, response.NewSocialLinkListResponse(links))
 }
 
-// UpsertSocialLink creates or updates a social link for the authenticated user.
+// UpsertSocialLink creates or updates a social link for the authenticated user's org.
 func (h *SocialLinkHandler) UpsertSocialLink(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -61,7 +61,7 @@ func (h *SocialLinkHandler) UpsertSocialLink(w http.ResponseWriter, r *http.Requ
 	}
 
 	input := profileapp.UpsertInput{Platform: req.Platform, URL: req.URL}
-	if err := h.socialLinkSvc.Upsert(r.Context(), userID, input); err != nil {
+	if err := h.socialLinkSvc.Upsert(r.Context(), orgID, input); err != nil {
 		handleSocialLinkError(w, err)
 		return
 	}
@@ -69,16 +69,16 @@ func (h *SocialLinkHandler) UpsertSocialLink(w http.ResponseWriter, r *http.Requ
 	res.NoContent(w)
 }
 
-// DeleteSocialLink removes a social link for the authenticated user.
+// DeleteSocialLink removes a social link for the authenticated user's org.
 func (h *SocialLinkHandler) DeleteSocialLink(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
 	platform := chi.URLParam(r, "platform")
-	if err := h.socialLinkSvc.Delete(r.Context(), userID, platform); err != nil {
+	if err := h.socialLinkSvc.Delete(r.Context(), orgID, platform); err != nil {
 		handleSocialLinkError(w, err)
 		return
 	}
@@ -86,16 +86,16 @@ func (h *SocialLinkHandler) DeleteSocialLink(w http.ResponseWriter, r *http.Requ
 	res.NoContent(w)
 }
 
-// ListPublicSocialLinks returns social links for any user (public).
+// ListPublicSocialLinks returns social links for any organization (public).
 func (h *SocialLinkHandler) ListPublicSocialLinks(w http.ResponseWriter, r *http.Request) {
-	userIDParam := chi.URLParam(r, "userId")
-	userID, err := uuid.Parse(userIDParam)
+	orgIDParam := chi.URLParam(r, "orgId")
+	orgID, err := uuid.Parse(orgIDParam)
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_user_id", "user ID must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "organization ID must be a valid UUID")
 		return
 	}
 
-	links, err := h.socialLinkSvc.ListByUser(r.Context(), userID)
+	links, err := h.socialLinkSvc.ListByOrganization(r.Context(), orgID)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 		return

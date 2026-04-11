@@ -17,11 +17,11 @@ export type ProjectHistoryResponse = {
 }
 
 export async function fetchProjectHistory(
-  userId: string,
+  orgId: string,
   cursor?: string,
 ): Promise<ProjectHistoryResponse> {
   const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""
   return apiClient<ProjectHistoryResponse>(
-    `/api/v1/profiles/${userId}/project-history${qs}`,
+    `/api/v1/profiles/${orgId}/project-history${qs}`,
   )
 }

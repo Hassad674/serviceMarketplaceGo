@@ -244,7 +244,7 @@ func buildMembershipHarness(t *testing.T) *membershipHarness {
 	adminID := uuid.New()
 	memberID := uuid.New()
 
-	org, err := organization.NewOrganization(ownerID, organization.OrgTypeAgency)
+	org, err := organization.NewOrganization(ownerID, organization.OrgTypeAgency, "Acme")
 	require.NoError(t, err)
 
 	ownerMember, err := organization.NewMember(org.ID, ownerID, organization.RoleOwner, "Founder")

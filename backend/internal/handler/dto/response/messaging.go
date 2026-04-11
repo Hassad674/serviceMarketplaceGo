@@ -31,11 +31,14 @@ type ReplyToResponse struct {
 	Type     string `json:"type"`
 }
 
+// ConversationResponse describes a conversation from the caller org's
+// perspective. The "other" side is the organization on the other end
+// of the conversation (Stripe Dashboard semantics).
 type ConversationResponse struct {
 	ConversationID string  `json:"id"`
-	OtherUserID    string  `json:"other_user_id"`
-	OtherUserName  string  `json:"other_user_name"`
-	OtherUserRole  string  `json:"other_user_role"`
+	OtherOrgID     string  `json:"other_org_id"`
+	OtherOrgName   string  `json:"other_org_name"`
+	OtherOrgType   string  `json:"other_org_type"`
 	OtherPhotoURL  string  `json:"other_photo_url"`
 	LastMessage    *string `json:"last_message"`
 	LastMessageAt  *string `json:"last_message_at,omitempty"`
@@ -109,9 +112,9 @@ func NewMessageListResponse(msgs []*message.Message) []MessageResponse {
 func NewConversationResponse(s repository.ConversationSummary) ConversationResponse {
 	resp := ConversationResponse{
 		ConversationID: s.ConversationID.String(),
-		OtherUserID:    s.OtherUserID.String(),
-		OtherUserName:  s.OtherUserName,
-		OtherUserRole:  s.OtherUserRole,
+		OtherOrgID:     s.OtherOrgID.String(),
+		OtherOrgName:   s.OtherOrgName,
+		OtherOrgType:   s.OtherOrgType,
 		OtherPhotoURL:  s.OtherPhotoURL,
 		LastMessage:    s.LastMessage,
 		LastMessageSeq: s.LastMessageSeq,

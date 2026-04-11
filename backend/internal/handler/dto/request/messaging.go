@@ -3,10 +3,10 @@ package request
 import "encoding/json"
 
 type StartConversationRequest struct {
-	RecipientID string          `json:"recipient_id"`
-	Content     string          `json:"content"`
-	Type        string          `json:"type"`
-	Metadata    json.RawMessage `json:"metadata,omitempty"`
+	RecipientOrgID string          `json:"recipient_org_id"`
+	Content        string          `json:"content"`
+	Type           string          `json:"type"`
+	Metadata       json.RawMessage `json:"metadata,omitempty"`
 }
 
 type SendMessageRequest struct {

@@ -42,6 +42,11 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxPhotoSize)
 	if err := r.ParseMultipartForm(maxPhotoSize); err != nil {
@@ -63,7 +68,7 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("profiles/%s/photo_%s%s", userID.String(), uuid.New().String(), ext)
+	key := fmt.Sprintf("profiles/%s/photo_%s%s", orgID.String(), uuid.New().String(), ext)
 
 	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
 	if err != nil {
@@ -72,7 +77,7 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	profile, err := h.profiles.GetByOrganizationID(r.Context(), orgID)
 	if err != nil {
 		slog.Error("get profile failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")
@@ -99,6 +104,11 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxVideoSize)
 	if err := r.ParseMultipartForm(maxVideoSize); err != nil {
@@ -120,7 +130,7 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("profiles/%s/video_%s%s", userID.String(), uuid.New().String(), ext)
+	key := fmt.Sprintf("profiles/%s/video_%s%s", orgID.String(), uuid.New().String(), ext)
 
 	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
 	if err != nil {
@@ -129,7 +139,7 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	profile, err := h.profiles.GetByOrganizationID(r.Context(), orgID)
 	if err != nil {
 		slog.Error("get profile failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")
@@ -156,6 +166,11 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxVideoSize)
 	if err := r.ParseMultipartForm(maxVideoSize); err != nil {
@@ -177,7 +192,7 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 	}
 
 	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("profiles/%s/referrer_video_%s%s", userID.String(), uuid.New().String(), ext)
+	key := fmt.Sprintf("profiles/%s/referrer_video_%s%s", orgID.String(), uuid.New().String(), ext)
 
 	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
 	if err != nil {
@@ -186,7 +201,7 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	profile, err := h.profiles.GetByOrganizationID(r.Context(), orgID)
 	if err != nil {
 		slog.Error("get profile failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")
@@ -258,8 +273,13 @@ func (h *UploadHandler) DeleteVideo(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
-	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	profile, err := h.profiles.GetByOrganizationID(r.Context(), orgID)
 	if err != nil {
 		slog.Error("get profile failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")
@@ -282,8 +302,13 @@ func (h *UploadHandler) DeleteReferrerVideo(w http.ResponseWriter, r *http.Reque
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
-	profile, err := h.profiles.GetByUserID(r.Context(), userID)
+	profile, err := h.profiles.GetByOrganizationID(r.Context(), orgID)
 	if err != nil {
 		slog.Error("get profile failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "profile_error", "failed to get profile")

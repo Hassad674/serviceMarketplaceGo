@@ -23,7 +23,7 @@ type mockDisputeRepo struct {
 	getByIDFn          func(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error)
 	getByProposalIDFn  func(ctx context.Context, proposalID uuid.UUID) (*disputedomain.Dispute, error)
 	updateFn           func(ctx context.Context, d *disputedomain.Dispute) error
-	listByUserIDFn     func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error)
+	listByOrganizationFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error)
 	listPendingFn      func(ctx context.Context) ([]*disputedomain.Dispute, error)
 	listAllFn          func(ctx context.Context, cursor string, limit int, statusFilter string) ([]*disputedomain.Dispute, string, error)
 	createEvidenceFn   func(ctx context.Context, e *disputedomain.Evidence) error
@@ -63,9 +63,9 @@ func (m *mockDisputeRepo) Update(ctx context.Context, d *disputedomain.Dispute) 
 	}
 	return nil
 }
-func (m *mockDisputeRepo) ListByUserID(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error) {
-	if m.listByUserIDFn != nil {
-		return m.listByUserIDFn(ctx, userID, cursor, limit)
+func (m *mockDisputeRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error) {
+	if m.listByOrganizationFn != nil {
+		return m.listByOrganizationFn(ctx, orgID, cursor, limit)
 	}
 	return nil, "", nil
 }
@@ -179,10 +179,10 @@ func (m *mockProposalRepo) GetLatestVersion(context.Context, uuid.UUID) (*propos
 func (m *mockProposalRepo) ListByConversation(context.Context, uuid.UUID) ([]*proposal.Proposal, error) {
 	return nil, nil
 }
-func (m *mockProposalRepo) ListActiveProjects(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
-func (m *mockProposalRepo) ListCompletedByProvider(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
+func (m *mockProposalRepo) ListCompletedByOrganization(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
 func (m *mockProposalRepo) GetDocuments(context.Context, uuid.UUID) ([]*proposal.ProposalDocument, error) {
@@ -201,12 +201,15 @@ type mockUserRepo struct {
 	getByIDFn func(ctx context.Context, id uuid.UUID) (*user.User, error)
 }
 
-func (m *mockUserRepo) Create(context.Context, *user.User) error       { return nil }
+func (m *mockUserRepo) Create(context.Context, *user.User) error { return nil }
 func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
-	return &user.User{ID: id, DisplayName: "Test User"}, nil
+	// Every user in tests has a stub personal org so the OpenDispute
+	// flow (which resolves both parties' orgs) can proceed.
+	stubOrgID := uuid.New()
+	return &user.User{ID: id, DisplayName: "Test User", OrganizationID: &stubOrgID}, nil
 }
 func (m *mockUserRepo) GetByEmail(context.Context, string) (*user.User, error) { return nil, nil }
 func (m *mockUserRepo) Update(context.Context, *user.User) error               { return nil }

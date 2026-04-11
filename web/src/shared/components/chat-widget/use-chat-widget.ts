@@ -4,8 +4,11 @@ import { useState, useCallback, useEffect } from "react"
 
 type ChatWidgetView = "list" | "chat"
 
+// A pending recipient is an organization the user is about to start a
+// conversation with. The backend resolves it to the org's Owner user
+// id at send time — operators of that org all share the thread.
 export type PendingRecipient = {
-  userId: string
+  orgId: string
   displayName: string
 }
 
@@ -23,13 +26,12 @@ const INITIAL_STATE: ChatWidgetState = {
   pendingRecipient: null,
 }
 
-// Custom event name for global "open chat with user" trigger
-const OPEN_CHAT_EVENT = "chat-widget:open-with-user"
+const OPEN_CHAT_EVENT = "chat-widget:open-with-org"
 
-/** Dispatch from anywhere to open the chat widget with a specific user (lazy conversation). */
-export function openChatWithUser(userId: string, displayName: string) {
+/** Dispatch from anywhere to open the chat widget with a specific organization (lazy conversation). */
+export function openChatWithOrg(orgId: string, displayName: string) {
   window.dispatchEvent(
-    new CustomEvent(OPEN_CHAT_EVENT, { detail: { userId, displayName } }),
+    new CustomEvent(OPEN_CHAT_EVENT, { detail: { orgId, displayName } }),
   )
 }
 
@@ -65,11 +67,10 @@ export function useChatWidget() {
     }))
   }, [])
 
-  // Listen for global "open chat with user" events
   useEffect(() => {
     function handler(e: Event) {
-      const { userId, displayName } = (e as CustomEvent).detail
-      openWithRecipient({ userId, displayName })
+      const { orgId, displayName } = (e as CustomEvent).detail
+      openWithRecipient({ orgId, displayName })
     }
     window.addEventListener(OPEN_CHAT_EVENT, handler)
     return () => window.removeEventListener(OPEN_CHAT_EVENT, handler)

@@ -74,15 +74,23 @@ func (h *JobHandler) GetJob(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewJobResponse(j))
 }
 
+// ListMyJobs returns the jobs belonging to the authenticated user's
+// organization. All operators of the same org see the same list —
+// the Stripe Dashboard shared-workspace model.
 func (h *JobHandler) ListMyJobs(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
-	jobs, nextCursor, err := h.jobSvc.ListMyJobsWithCounts(r.Context(), userID, cursorStr, limit)
+	jobs, nextCursor, err := h.jobSvc.ListOrgJobsWithCounts(r.Context(), orgID, userID, cursorStr, limit)
 	if err != nil {
 		handleJobError(w, err)
 		return

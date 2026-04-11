@@ -20,10 +20,12 @@ func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput)
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	// KYC enforcement: blocked provider cannot accept proposals
-	acceptor, uErr := s.users.GetByID(ctx, input.UserID)
-	if uErr == nil && acceptor.IsKYCBlocked() {
-		return user.ErrKYCRestricted
+	// KYC enforcement: if the acceptor's org is blocked (14 days
+	// elapsed without Stripe onboarding), they cannot accept proposals.
+	if s.orgs != nil {
+		if org, oErr := s.orgs.FindByUserID(ctx, input.UserID); oErr == nil && org.IsKYCBlocked() {
+			return user.ErrKYCRestricted
+		}
 	}
 
 	if err := p.Accept(input.UserID); err != nil {
@@ -278,11 +280,19 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		}
 	}
 
-	// Record first earning for KYC enforcement — triggers the 14-day countdown.
-	// Idempotent: only writes if kyc_first_earning_at is NULL.
-	if s.users != nil {
-		if err := s.users.SetKYCFirstEarning(ctx, p.ProviderID, time.Now()); err != nil {
-			slog.Warn("kyc: failed to record first earning", "provider_id", p.ProviderID, "error", err)
+	// Record first earning for KYC enforcement — triggers the 14-day
+	// countdown on the provider's organization (the merchant of record
+	// since phase R5). Idempotent: only writes when the org row still
+	// has a NULL kyc_first_earning_at.
+	if s.orgs != nil && s.users != nil {
+		providerUser, lookupErr := s.users.GetByID(ctx, p.ProviderID)
+		if lookupErr == nil && providerUser.OrganizationID != nil {
+			if err := s.orgs.SetKYCFirstEarning(ctx, *providerUser.OrganizationID, time.Now()); err != nil {
+				slog.Warn("kyc: failed to record first earning",
+					"provider_id", p.ProviderID,
+					"org_id", providerUser.OrganizationID,
+					"error", err)
+			}
 		}
 	}
 
@@ -337,8 +347,10 @@ func (s *Service) GetParticipantNames(ctx context.Context, clientID, providerID 
 	return clientName, providerName
 }
 
-func (s *Service) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {
-	return s.proposals.ListActiveProjects(ctx, userID, cursorStr, limit)
+// ListActiveProjectsByOrganization returns the non-completed/active
+// proposals where the caller's organization is either side.
+func (s *Service) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {
+	return s.proposals.ListActiveProjectsByOrganization(ctx, orgID, cursorStr, limit)
 }
 
 // sendEvaluationRequest sends an evaluation_request system message enriched

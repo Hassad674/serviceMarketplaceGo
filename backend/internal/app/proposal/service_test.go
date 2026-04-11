@@ -31,11 +31,25 @@ func newTestServiceWithCredits(
 	storage *mockStorageService,
 	credits *mockJobCreditRepo,
 ) *Service {
+	return newTestServiceWithCreditsAndOrgs(proposalRepo, userRepo, nil, msgSender, storage, credits)
+}
+
+func newTestServiceWithCreditsAndOrgs(
+	proposalRepo *mockProposalRepo,
+	userRepo *mockUserRepo,
+	orgRepo *mockOrgRepo,
+	msgSender *mockMessageSender,
+	storage *mockStorageService,
+	credits *mockJobCreditRepo,
+) *Service {
 	if proposalRepo == nil {
 		proposalRepo = &mockProposalRepo{}
 	}
 	if userRepo == nil {
 		userRepo = &mockUserRepo{}
+	}
+	if orgRepo == nil {
+		orgRepo = &mockOrgRepo{}
 	}
 	if msgSender == nil {
 		msgSender = &mockMessageSender{}
@@ -46,6 +60,7 @@ func newTestServiceWithCredits(
 	deps := ServiceDeps{
 		Proposals:     proposalRepo,
 		Users:         userRepo,
+		Organizations: orgRepo,
 		Messages:      msgSender,
 		Storage:       storage,
 		Notifications: &mockNotificationSender{},
