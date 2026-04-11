@@ -11,18 +11,18 @@ final reviewRepositoryProvider = Provider<ReviewRepository>((ref) {
   return ReviewRepositoryImpl(api);
 });
 
-/// Fetches reviews received by a user.
-final reviewsByUserProvider =
-    FutureProvider.family<List<Review>, String>((ref, userId) async {
+/// Fetches reviews received by an organization.
+final reviewsByOrgProvider =
+    FutureProvider.family<List<Review>, String>((ref, orgId) async {
   final repo = ref.watch(reviewRepositoryProvider);
-  return repo.getReviewsByUser(userId);
+  return repo.getReviewsByOrganization(orgId);
 });
 
-/// Fetches the average rating for a user.
+/// Fetches the average rating for an organization.
 final averageRatingProvider =
-    FutureProvider.family<AverageRating, String>((ref, userId) async {
+    FutureProvider.family<AverageRating, String>((ref, orgId) async {
   final repo = ref.watch(reviewRepositoryProvider);
-  return repo.getAverageRating(userId);
+  return repo.getAverageRating(orgId);
 });
 
 /// Checks whether the current user can review a given proposal.

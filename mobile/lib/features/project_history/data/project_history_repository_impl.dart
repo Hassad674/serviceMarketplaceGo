@@ -9,9 +9,9 @@ class ProjectHistoryRepositoryImpl implements ProjectHistoryRepository {
   ProjectHistoryRepositoryImpl(this._api);
 
   @override
-  Future<List<ProjectHistoryEntry>> getByProvider(String userId) async {
+  Future<List<ProjectHistoryEntry>> getByOrganization(String orgId) async {
     final response = await _api.get(
-      '/api/v1/profiles/$userId/project-history',
+      '/api/v1/profiles/$orgId/project-history',
     );
     final list = response.data['data'] as List<dynamic>? ?? [];
     return list

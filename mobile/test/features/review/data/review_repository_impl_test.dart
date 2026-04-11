@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marketplace_mobile/features/review/data/review_repository_impl.dart';
 
@@ -13,9 +12,9 @@ void main() {
     repo = ReviewRepositoryImpl(fakeApi);
   });
 
-  group('ReviewRepositoryImpl.getReviewsByUser', () {
+  group('ReviewRepositoryImpl.getReviewsByOrganization', () {
     test('returns list of reviews', () async {
-      fakeApi.getHandlers['/api/v1/reviews/user/user-1'] = (_) async {
+      fakeApi.getHandlers['/api/v1/reviews/org/org-1'] = (_) async {
         return FakeApiClient.ok({
           'data': [
             {
@@ -39,7 +38,7 @@ void main() {
         });
       };
 
-      final reviews = await repo.getReviewsByUser('user-1');
+      final reviews = await repo.getReviewsByOrganization('org-1');
 
       expect(reviews.length, 2);
       expect(reviews[0].id, 'rev-1');
@@ -48,11 +47,11 @@ void main() {
     });
 
     test('returns empty list when no data', () async {
-      fakeApi.getHandlers['/api/v1/reviews/user/user-99'] = (_) async {
+      fakeApi.getHandlers['/api/v1/reviews/org/org-99'] = (_) async {
         return FakeApiClient.ok({'data': null});
       };
 
-      final reviews = await repo.getReviewsByUser('user-99');
+      final reviews = await repo.getReviewsByOrganization('org-99');
 
       expect(reviews, isEmpty);
     });
@@ -60,13 +59,13 @@ void main() {
 
   group('ReviewRepositoryImpl.getAverageRating', () {
     test('parses average rating', () async {
-      fakeApi.getHandlers['/api/v1/reviews/average/user-1'] = (_) async {
+      fakeApi.getHandlers['/api/v1/reviews/average/org-1'] = (_) async {
         return FakeApiClient.ok({
           'data': {'average': 4.5, 'count': 10},
         });
       };
 
-      final rating = await repo.getAverageRating('user-1');
+      final rating = await repo.getAverageRating('org-1');
 
       expect(rating.average, 4.5);
       expect(rating.count, 10);

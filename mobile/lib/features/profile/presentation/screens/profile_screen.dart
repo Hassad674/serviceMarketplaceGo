@@ -44,8 +44,8 @@ class ProfileScreen extends ConsumerWidget {
     final profileAbout = profileAsync.whenOrNull(
       data: (p) => p['about'] as String?,
     );
-    final profileUserId = profileAsync.whenOrNull(
-      data: (p) => p['user_id'] as String?,
+    final profileOrgId = profileAsync.whenOrNull(
+      data: (p) => p['organization_id'] as String?,
     );
 
     return Scaffold(
@@ -128,15 +128,15 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               // Portfolio section
-              if (profileUserId != null) ...[
+              if (profileOrgId != null) ...[
                 PortfolioGridWidget(
-                  userId: profileUserId,
+                  orgId: profileOrgId,
                   readOnly: false,
                 ),
                 const SizedBox(height: 16),
 
                 // Project history (completed missions + embedded reviews)
-                ProjectHistoryWidget(userId: profileUserId),
+                ProjectHistoryWidget(orgId: profileOrgId),
                 const SizedBox(height: 16),
               ],
 

@@ -56,7 +56,9 @@ export function ConversationHeader({
     .toUpperCase()
 
   function handleStartProject() {
-    router.push(`/projects/new?to=${conversation.other_org_id}&conversation=${conversation.id}`)
+    // Proposals still target the other participant user id (the
+    // proposal subsystem hasn't migrated to org-anchored yet).
+    router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
   }
 
   // Providers cannot view an enterprise's public profile — the

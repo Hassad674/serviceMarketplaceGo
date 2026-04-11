@@ -82,8 +82,14 @@ export type Message = {
 // thread, not a specific user. Every operator of the sender's org
 // sees the same thread, and it targets whichever operator of the
 // recipient org is on call — the Stripe Dashboard inbox model.
+//
+// other_user_id is surfaced alongside the org fields because the
+// proposal + call subsystems still anchor on user ids — the
+// conversation's "other participant" is a stable user handle those
+// flows need to target the right row.
 export type Conversation = {
   id: string
+  other_user_id: string
   other_org_id: string
   other_org_name: string
   other_org_type: string

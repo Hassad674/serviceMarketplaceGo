@@ -33,9 +33,12 @@ type ReplyToResponse struct {
 
 // ConversationResponse describes a conversation from the caller org's
 // perspective. The "other" side is the organization on the other end
-// of the conversation (Stripe Dashboard semantics).
+// of the conversation (Stripe Dashboard semantics). OtherUserID is the
+// other participant's user id, still needed by the proposal + call
+// subsystems which haven't migrated away from user-anchored targeting.
 type ConversationResponse struct {
 	ConversationID string  `json:"id"`
+	OtherUserID    string  `json:"other_user_id"`
 	OtherOrgID     string  `json:"other_org_id"`
 	OtherOrgName   string  `json:"other_org_name"`
 	OtherOrgType   string  `json:"other_org_type"`
@@ -112,6 +115,7 @@ func NewMessageListResponse(msgs []*message.Message) []MessageResponse {
 func NewConversationResponse(s repository.ConversationSummary) ConversationResponse {
 	resp := ConversationResponse{
 		ConversationID: s.ConversationID.String(),
+		OtherUserID:    s.OtherUserID.String(),
 		OtherOrgID:     s.OtherOrgID.String(),
 		OtherOrgName:   s.OtherOrgName,
 		OtherOrgType:   s.OtherOrgType,

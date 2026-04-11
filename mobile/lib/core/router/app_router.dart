@@ -168,14 +168,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // --- Public profile route (accessible without bottom nav) ---
+      // The path param is an org id — profiles describe the team's
+      // shared marketplace identity since phase R2.
       GoRoute(
         path: '/profiles/:id',
         builder: (context, state) {
           final extras = state.extra as Map<String, dynamic>?;
           return PublicProfileScreen(
-            userId: state.pathParameters['id'] ?? '',
+            orgId: state.pathParameters['id'] ?? '',
             displayName: extras?['display_name'] as String?,
-            role: extras?['role'] as String?,
+            orgType: extras?['org_type'] as String?,
           );
         },
       ),
@@ -197,12 +199,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // --- New chat route (lazy conversation — no conversation until first message) ---
+      // The path param is an organization id: public profile URLs
+      // surface the org, and the messaging backend resolves the Owner
+      // user id internally.
       GoRoute(
-        path: '${RoutePaths.newChat}/:recipientId',
+        path: '${RoutePaths.newChat}/:recipientOrgId',
         builder: (context, state) {
           final extras = state.extra as Map<String, String>? ?? {};
           return NewChatScreen(
-            recipientId: state.pathParameters['recipientId'] ?? '',
+            recipientOrgId: state.pathParameters['recipientOrgId'] ?? '',
             recipientName: extras['name'] ?? '',
           );
         },

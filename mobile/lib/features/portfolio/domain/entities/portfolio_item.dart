@@ -33,9 +33,13 @@ class PortfolioMedia {
 }
 
 /// Represents a portfolio project entry.
+///
+/// Since phase R2 a portfolio item belongs to an organization — the
+/// team's shared showcase. The anchor is [organizationId], not a
+/// specific user id.
 class PortfolioItem {
   final String id;
-  final String userId;
+  final String organizationId;
   final String title;
   final String description;
   final String linkUrl;
@@ -47,7 +51,7 @@ class PortfolioItem {
 
   const PortfolioItem({
     required this.id,
-    required this.userId,
+    required this.organizationId,
     required this.title,
     this.description = '',
     this.linkUrl = '',
@@ -66,7 +70,7 @@ class PortfolioItem {
 
     return PortfolioItem(
       id: json['id'] as String,
-      userId: json['user_id'] as String,
+      organizationId: json['organization_id'] as String,
       title: json['title'] as String,
       description: json['description'] as String? ?? '',
       linkUrl: json['link_url'] as String? ?? '',

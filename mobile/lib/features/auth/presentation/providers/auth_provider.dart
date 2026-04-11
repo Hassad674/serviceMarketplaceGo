@@ -14,17 +14,25 @@ import '../../../../core/storage/secure_storage.dart';
 enum AuthStatus { loading, authenticated, unauthenticated }
 
 /// Immutable snapshot of the authentication state.
+///
+/// Since the team refactor, `organization` holds the operator's
+/// current org context (id, type, owner_user_id, member_role,
+/// member_title, permissions). It is `null` for users who belong to
+/// no organization — that case no longer exists in practice post
+/// phase R1 but the shape still allows it for safety.
 @immutable
 class AuthState {
   const AuthState({
     required this.status,
     this.user,
+    this.organization,
     this.errorMessage,
     this.isSubmitting = false,
   });
 
   final AuthStatus status;
   final Map<String, dynamic>? user;
+  final Map<String, dynamic>? organization;
   final String? errorMessage;
 
   /// True while a login/register request is in-flight.
@@ -33,18 +41,21 @@ class AuthState {
   const AuthState.initial()
       : status = AuthStatus.loading,
         user = null,
+        organization = null,
         errorMessage = null,
         isSubmitting = false;
 
   AuthState copyWith({
     AuthStatus? status,
     Map<String, dynamic>? user,
+    Map<String, dynamic>? organization,
     String? errorMessage,
     bool? isSubmitting,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
+      organization: organization ?? this.organization,
       errorMessage: errorMessage,
       isSubmitting: isSubmitting ?? this.isSubmitting,
     );
@@ -79,17 +90,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       // Verify the token is still valid by hitting /auth/me.
-      // Backend returns { user, organization } — read the user slice.
-      // Organization is intentionally ignored here until the mobile team
-      // management UI lands (phases 5-8).
+      // Backend returns { user, organization } — we keep both so the
+      // chat app bar, KYC banner, and team screens can read the
+      // operator's org context without a second round-trip.
       final response = await _api.get('/api/v1/auth/me');
       final body = response.data as Map<String, dynamic>;
       final user = body['user'] as Map<String, dynamic>;
+      final org = body['organization'] as Map<String, dynamic>?;
       await _storage.saveUser(user);
 
       state = AuthState(
         status: AuthStatus.authenticated,
         user: user,
+        organization: org,
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
@@ -130,6 +143,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
       final user = data['user'] as Map<String, dynamic>;
+      final org = data['organization'] as Map<String, dynamic>?;
 
       await _storage.saveTokens(accessToken, refreshToken);
       await _storage.saveUser(user);
@@ -137,6 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.authenticated,
         user: user,
+        organization: org,
       );
       return true;
     } on DioException catch (e) {
@@ -192,6 +207,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final accessToken = data['access_token'] as String;
       final refreshToken = data['refresh_token'] as String;
       final user = data['user'] as Map<String, dynamic>;
+      final org = data['organization'] as Map<String, dynamic>?;
 
       await _storage.saveTokens(accessToken, refreshToken);
       await _storage.saveUser(user);
@@ -199,6 +215,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.authenticated,
         user: user,
+        organization: org,
       );
       return true;
     } on DioException catch (e) {

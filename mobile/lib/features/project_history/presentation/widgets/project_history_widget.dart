@@ -4,16 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/project_history_provider.dart';
 import 'project_history_entry_card.dart';
 
-/// Displays the project history (completed missions + reviews) of a
-/// provider. Used on both the own profile and the public profile screens.
+/// Displays the project history (completed missions + reviews) of an
+/// organization. Used on both the own profile and public profile screens.
 class ProjectHistoryWidget extends ConsumerWidget {
-  final String userId;
+  final String orgId;
 
-  const ProjectHistoryWidget({super.key, required this.userId});
+  const ProjectHistoryWidget({super.key, required this.orgId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncEntries = ref.watch(projectHistoryProvider(userId));
+    final asyncEntries = ref.watch(projectHistoryProvider(orgId));
     final theme = Theme.of(context);
 
     return asyncEntries.when(

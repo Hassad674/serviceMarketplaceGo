@@ -11,9 +11,9 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
   PortfolioRepositoryImpl(this._api);
 
   @override
-  Future<List<PortfolioItem>> getPortfolioByUser(String userId) async {
+  Future<List<PortfolioItem>> getPortfolioByOrganization(String orgId) async {
     final response =
-        await _api.get('/api/v1/portfolio/user/$userId?limit=30');
+        await _api.get('/api/v1/portfolio/org/$orgId?limit=30');
     final list = response.data['data'] as List<dynamic>? ?? [];
     return list
         .map((json) => PortfolioItem.fromJson(json as Map<String, dynamic>))

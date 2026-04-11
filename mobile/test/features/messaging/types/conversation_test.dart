@@ -8,22 +8,24 @@ void main() {
       const conversation = ConversationEntity(
         id: 'conv-1',
         otherUserId: 'user-2',
-        otherUserName: 'Alice Martin',
-        otherUserRole: 'provider',
+        otherOrgId: 'org-2',
+        otherOrgName: 'Alice Martin',
+        otherOrgType: 'provider_personal',
         otherPhotoUrl: '',
       );
 
       expect(conversation.id, 'conv-1');
-      expect(conversation.otherUserName, 'Alice Martin');
-      expect(conversation.otherUserRole, 'provider');
+      expect(conversation.otherOrgName, 'Alice Martin');
+      expect(conversation.otherOrgType, 'provider_personal');
     });
 
     test('optional fields default to null or zero', () {
       const conversation = ConversationEntity(
         id: 'conv-2',
         otherUserId: 'user-3',
-        otherUserName: 'Bob Agency',
-        otherUserRole: 'agency',
+        otherOrgId: 'org-3',
+        otherOrgName: 'Bob Agency',
+        otherOrgType: 'agency',
         otherPhotoUrl: '',
       );
 
@@ -37,8 +39,9 @@ void main() {
       const conversation = ConversationEntity(
         id: 'conv-3',
         otherUserId: 'user-4',
-        otherUserName: 'Corp Enterprise',
-        otherUserRole: 'enterprise',
+        otherOrgId: 'org-4',
+        otherOrgName: 'Corp Enterprise',
+        otherOrgType: 'enterprise',
         otherPhotoUrl: 'https://example.com/photo.jpg',
         lastMessage: 'See you tomorrow!',
         lastMessageAt: '2026-03-26T14:30:00Z',
@@ -48,8 +51,8 @@ void main() {
       );
 
       expect(conversation.id, 'conv-3');
-      expect(conversation.otherUserName, 'Corp Enterprise');
-      expect(conversation.otherUserRole, 'enterprise');
+      expect(conversation.otherOrgName, 'Corp Enterprise');
+      expect(conversation.otherOrgType, 'enterprise');
       expect(conversation.lastMessage, 'See you tomorrow!');
       expect(conversation.lastMessageAt, '2026-03-26T14:30:00Z');
       expect(conversation.unreadCount, 3);
@@ -61,8 +64,9 @@ void main() {
       final json = {
         'id': 'conv-10',
         'other_user_id': 'user-20',
-        'other_user_name': 'Test User',
-        'other_user_role': 'provider',
+        'other_org_id': 'org-20',
+        'other_org_name': 'Test Org',
+        'other_org_type': 'provider_personal',
         'other_photo_url': '',
         'last_message': 'Hello',
         'last_message_at': '2026-03-26T10:00:00Z',
@@ -73,7 +77,7 @@ void main() {
 
       final conversation = ConversationEntity.fromJson(json);
       expect(conversation.id, 'conv-10');
-      expect(conversation.otherUserName, 'Test User');
+      expect(conversation.otherOrgName, 'Test Org');
       expect(conversation.unreadCount, 5);
       expect(conversation.online, true);
     });

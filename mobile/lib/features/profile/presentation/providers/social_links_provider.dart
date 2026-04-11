@@ -17,12 +17,14 @@ final socialLinksProvider =
   return [];
 });
 
-/// Fetches another user's social links (public endpoint).
+/// Fetches another organization's social links (public endpoint).
+/// Since phase R2 the path param is an organization id — social
+/// links are part of the team's shared marketplace identity.
 final publicSocialLinksProvider = FutureProvider.autoDispose
-    .family<List<Map<String, dynamic>>, String>((ref, userId) async {
+    .family<List<Map<String, dynamic>>, String>((ref, orgId) async {
   final apiClient = ref.watch(apiClientProvider);
   final response =
-      await apiClient.get('/api/v1/profiles/$userId/social-links');
+      await apiClient.get('/api/v1/profiles/$orgId/social-links');
   final data = response.data;
   if (data is List) {
     return data.cast<Map<String, dynamic>>();

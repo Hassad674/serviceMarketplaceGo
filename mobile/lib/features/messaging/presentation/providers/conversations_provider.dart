@@ -266,21 +266,15 @@ class ConversationsNotifier extends StateNotifier<ConversationsState> {
   }
 
   void _handlePresence(Map<String, dynamic> event) {
+    // WS presence frames are user-scoped, but since phase R4 the
+    // conversation list is org-scoped (any member online = org
+    // online). Mapping a user to an org requires membership data the
+    // mobile client does not cache, so the cheapest correct option
+    // is to refetch the list and let the backend fan-out do its work
+    // again.
     final payload = event['payload'] as Map<String, dynamic>?;
     if (payload == null) return;
-
-    final userId = payload['user_id'] as String?;
-    final online = payload['online'] as bool? ?? false;
-    if (userId == null) return;
-
-    final updated = state.conversations.map((c) {
-      if (c.otherUserId == userId) {
-        return c.copyWith(online: online);
-      }
-      return c;
-    }).toList();
-
-    state = state.copyWith(conversations: updated);
+    loadConversations();
   }
 
   /// Sets the currently active (viewed) conversation.

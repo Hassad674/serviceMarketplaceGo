@@ -24,6 +24,7 @@ vi.mock("lucide-react", () => ({
 function createConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     id: "conv-1",
+    other_user_id: "user-2",
     other_org_id: "org-2",
     other_org_name: "Alice Smith",
     other_org_type: "provider_personal",

@@ -35,12 +35,12 @@ class _LocalMedia {
 class PortfolioFormSheet extends ConsumerStatefulWidget {
   const PortfolioFormSheet({
     super.key,
-    required this.userId,
+    required this.orgId,
     this.item,
     required this.nextPosition,
   });
 
-  final String userId;
+  final String orgId;
   final PortfolioItem? item;
   final int nextPosition;
 
@@ -212,7 +212,7 @@ class _PortfolioFormSheetState extends ConsumerState<PortfolioFormSheet> {
     PortfolioItem? result;
     if (_isEdit) {
       result = await notifier.updateItem(
-        userId: widget.userId,
+        orgId: widget.orgId,
         id: widget.item!.id,
         title: title,
         description: _descController.text.trim(),
@@ -221,7 +221,7 @@ class _PortfolioFormSheetState extends ConsumerState<PortfolioFormSheet> {
       );
     } else {
       result = await notifier.createItem(
-        userId: widget.userId,
+        orgId: widget.orgId,
         title: title,
         description: _descController.text.trim(),
         linkUrl: _normalizeUrl(_linkController.text),

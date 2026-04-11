@@ -12,9 +12,9 @@ final projectHistoryRepositoryProvider =
   return ProjectHistoryRepositoryImpl(api);
 });
 
-/// Fetches the project history entries of a provider.
+/// Fetches the project history entries of an organization.
 final projectHistoryProvider =
-    FutureProvider.family<List<ProjectHistoryEntry>, String>((ref, userId) async {
+    FutureProvider.family<List<ProjectHistoryEntry>, String>((ref, orgId) async {
   final repo = ref.watch(projectHistoryRepositoryProvider);
-  return repo.getByProvider(userId);
+  return repo.getByOrganization(orgId);
 });

@@ -11,8 +11,8 @@ class ReviewRepositoryImpl implements ReviewRepository {
   ReviewRepositoryImpl(this._api);
 
   @override
-  Future<List<Review>> getReviewsByUser(String userId) async {
-    final response = await _api.get('/api/v1/reviews/user/$userId');
+  Future<List<Review>> getReviewsByOrganization(String orgId) async {
+    final response = await _api.get('/api/v1/reviews/org/$orgId');
     final list = response.data['data'] as List<dynamic>? ?? [];
     return list
         .map((json) => Review.fromJson(json as Map<String, dynamic>))
@@ -20,8 +20,8 @@ class ReviewRepositoryImpl implements ReviewRepository {
   }
 
   @override
-  Future<AverageRating> getAverageRating(String userId) async {
-    final response = await _api.get('/api/v1/reviews/average/$userId');
+  Future<AverageRating> getAverageRating(String orgId) async {
+    final response = await _api.get('/api/v1/reviews/average/$orgId');
     return AverageRating.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );

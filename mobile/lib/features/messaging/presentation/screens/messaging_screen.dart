@@ -11,12 +11,12 @@ import '../../domain/entities/conversation_entity.dart';
 import '../providers/messaging_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Role color mapping -- matches web role badge colors
+// Org-type color mapping -- matches web badge colors
 // ---------------------------------------------------------------------------
 
 const _roleColors = {
   'agency': Color(0xFF2563EB), // blue-600
-  'provider': Color(0xFFF43F5E), // rose-500
+  'provider_personal': Color(0xFFF43F5E), // rose-500
   'enterprise': Color(0xFF8B5CF6), // purple-500
 };
 
@@ -35,19 +35,19 @@ class MessagingScreen extends ConsumerStatefulWidget {
 
 class _MessagingScreenState extends ConsumerState<MessagingScreen> {
   String _searchQuery = '';
-  String _roleFilter = 'all';
+  String _orgTypeFilter = 'all';
 
   List<ConversationEntity> _applyFilters(
     List<ConversationEntity> conversations,
   ) {
     return conversations.where((c) {
-      final matchesRole =
-          _roleFilter == 'all' || c.otherUserRole == _roleFilter;
+      final matchesType = _orgTypeFilter == 'all' ||
+          c.otherOrgType == _orgTypeFilter;
       final matchesSearch = _searchQuery.isEmpty ||
-          c.otherUserName
+          c.otherOrgName
               .toLowerCase()
               .contains(_searchQuery.toLowerCase());
-      return matchesRole && matchesSearch;
+      return matchesType && matchesSearch;
     }).toList();
   }
 
@@ -88,10 +88,10 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
             ),
           ),
 
-          // Role filter chips
-          _RoleFilterRow(
-            selected: _roleFilter,
-            onChanged: (role) => setState(() => _roleFilter = role),
+          // Org-type filter chips
+          _OrgTypeFilterRow(
+            selected: _orgTypeFilter,
+            onChanged: (type) => setState(() => _orgTypeFilter = type),
           ),
 
           const SizedBox(height: 4),
@@ -162,11 +162,11 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Role filter row
+// Org-type filter row
 // ---------------------------------------------------------------------------
 
-class _RoleFilterRow extends StatelessWidget {
-  const _RoleFilterRow({
+class _OrgTypeFilterRow extends StatelessWidget {
+  const _OrgTypeFilterRow({
     required this.selected,
     required this.onChanged,
   });
@@ -180,7 +180,7 @@ class _RoleFilterRow extends StatelessWidget {
     final filters = [
       ('all', l10n.messagingAllRoles, null),
       ('agency', l10n.messagingAgency, const Color(0xFF2563EB)),
-      ('provider', l10n.messagingFreelancer, const Color(0xFFF43F5E)),
+      ('provider_personal', l10n.messagingFreelancer, const Color(0xFFF43F5E)),
       ('enterprise', l10n.messagingEnterprise, const Color(0xFF8B5CF6)),
     ];
 
@@ -244,10 +244,10 @@ class _ConversationTile extends StatelessWidget {
   final VoidCallback onTap;
   final bool isTyping;
 
-  String get _initials => conversation.otherUserName.initials;
+  String get _initials => conversation.otherOrgName.initials;
 
   Color get _roleColor =>
-      _roleColors[conversation.otherUserRole] ?? Colors.grey;
+      _roleColors[conversation.otherOrgType] ?? Colors.grey;
 
   String _formatTime(BuildContext context) {
     final raw = conversation.lastMessageAt;
@@ -302,7 +302,7 @@ class _ConversationTile extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.otherUserName,
+                          conversation.otherOrgName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontSize: 14,
                             fontWeight: conversation.unreadCount > 0

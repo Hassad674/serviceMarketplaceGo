@@ -32,11 +32,14 @@ class UploadUrlResponse {
 /// Implemented by [MessagingRepositoryImpl] which calls the Go backend
 /// via [ApiClient].
 abstract class MessagingRepository {
-  /// Creates a new conversation with [recipientId] and an initial [content].
+  /// Creates a new conversation with the organization identified by
+  /// [recipientOrgId] and an initial [content]. The backend resolves
+  /// that org to its Owner user id server-side and threads messages to
+  /// whichever member is on call.
   ///
   /// POST /api/v1/messaging/conversations
   Future<({String conversationId, MessageEntity message})> startConversation({
-    required String recipientId,
+    required String recipientOrgId,
     required String content,
   });
 

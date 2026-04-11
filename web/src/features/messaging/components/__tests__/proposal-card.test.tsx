@@ -269,7 +269,7 @@ describe("ProposalCard", () => {
     )
 
     fireEvent.click(screen.getByText("accept"))
-    expect(acceptMutateFn).toHaveBeenCalledWith("proposal-42", expect.objectContaining({ onSuccess: expect.any(Function) }))
+    expect(acceptMutateFn).toHaveBeenCalledWith("proposal-42")
   })
 
   it("calls decline mutation when Decline clicked", () => {

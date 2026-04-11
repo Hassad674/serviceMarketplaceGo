@@ -8,17 +8,20 @@ import '../../../../l10n/app_localizations.dart';
 
 /// Lightweight screen for starting a new conversation (lazy pattern).
 ///
-/// Shows a header with the recipient's name and an input bar.
+/// Shows a header with the recipient's org name and an input bar.
 /// No conversation is created until the user actually sends a message.
 /// If the user navigates back without sending, nothing is persisted.
+///
+/// Since phase R5 the backend resolves the target org to its Owner
+/// user id server-side, so we only need to carry the org handle here.
 class NewChatScreen extends ConsumerStatefulWidget {
   const NewChatScreen({
     super.key,
-    required this.recipientId,
+    required this.recipientOrgId,
     required this.recipientName,
   });
 
-  final String recipientId;
+  final String recipientOrgId;
   final String recipientName;
 
   @override
@@ -32,7 +35,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Check if a conversation already exists with this user
+    // Check if a conversation already exists with this org
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkExistingConversation());
   }
 
@@ -40,7 +43,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     final convState = ref.read(conversationsProvider);
     final conversations = convState.conversations;
     for (final conv in conversations) {
-      if (conv.otherUserId == widget.recipientId) {
+      if (conv.otherOrgId == widget.recipientOrgId) {
         // Existing conversation found — navigate to it directly
         context.pushReplacement('/chat/${conv.id}');
         return;
@@ -63,7 +66,7 @@ class _NewChatScreenState extends ConsumerState<NewChatScreen> {
     try {
       final repo = ref.read(messagingRepositoryProvider);
       final result = await repo.startConversation(
-        recipientId: widget.recipientId,
+        recipientOrgId: widget.recipientOrgId,
         content: text,
       );
       if (mounted) {

@@ -33,7 +33,7 @@ vi.mock("../../api/messaging-api", () => ({
 function defaultProps(overrides: Partial<Parameters<typeof MessageInput>[0]> = {}) {
   return {
     conversationId: "conv-123",
-    otherOrgId: "org-456",
+    otherUserId: "user-456",
     onSend: vi.fn(),
     onSendFile: vi.fn(),
     onTyping: vi.fn(),
@@ -62,9 +62,12 @@ describe("MessageInput", () => {
   it("renders file attachment button", () => {
     render(<MessageInput {...defaultProps()} />)
 
-    // The button has aria-label="fileUpload"
-    const button = screen.getByRole("button", { name: "fileUpload" })
-    expect(button).toBeDefined()
+    // The component renders two buttons with aria-label="fileUpload":
+    // one for desktop (hidden md:flex) and one for the mobile "+" menu
+    // trigger (md:hidden). jsdom keeps both in the DOM since md: is
+    // CSS-only, so we use getAllByRole.
+    const buttons = screen.getAllByRole("button", { name: "fileUpload" })
+    expect(buttons.length).toBeGreaterThan(0)
   })
 
   it("send button is disabled when input is empty", () => {
@@ -165,9 +168,13 @@ describe("MessageInput", () => {
     expect(input.disabled).toBe(true)
   })
 
-  it("shows loader icon when isSending", () => {
+  it("disables the send button when isSending is true", () => {
+    // Since the WhatsApp-style voice UX refactor the send icon stays
+    // visible during isSending — only the submit button itself is
+    // disabled. The previous "loader icon when isSending" assertion
+    // was stale drift from the earlier UI.
     render(<MessageInput {...defaultProps({ isSending: true })} />)
-
-    expect(screen.getByTestId("loader-icon")).toBeDefined()
+    const sendButton = screen.getByLabelText("sendMessage")
+    expect(sendButton).toHaveProperty("disabled", true)
   })
 })

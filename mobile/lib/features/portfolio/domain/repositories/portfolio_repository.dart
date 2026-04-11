@@ -2,8 +2,10 @@ import '../entities/portfolio_item.dart';
 
 /// Abstract repository for portfolio operations.
 abstract class PortfolioRepository {
-  /// Fetches all portfolio items for a user.
-  Future<List<PortfolioItem>> getPortfolioByUser(String userId);
+  /// Fetches all portfolio items for an organization. Since phase R2
+  /// the portfolio is org-scoped — every operator of the team edits
+  /// the same collection.
+  Future<List<PortfolioItem>> getPortfolioByOrganization(String orgId);
 
   /// Fetches a single portfolio item by ID.
   Future<PortfolioItem> getPortfolioItem(String id);

@@ -4,10 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 
-/// A card displaying a provider's public profile summary.
+/// A card displaying an organization's public marketplace summary.
 ///
-/// Shows avatar (photo or initials), display name, title, and a colored
-/// role badge. Tapping navigates to the public profile screen.
+/// Shows avatar (photo or initials), org name, title, and a colored
+/// org-type badge. Tapping navigates to the public profile screen.
+///
+/// Since phase R2 this row describes the organization behind the
+/// offering, not an individual user — the payload follows the web
+/// PublicProfileSummary shape (organization_id / name / org_type / …).
 class ProviderCard extends StatelessWidget {
   const ProviderCard({super.key, required this.profile});
 
@@ -18,19 +22,19 @@ class ProviderCard extends StatelessWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
 
-    final userId = profile['user_id'] as String? ?? '';
+    final orgId = profile['organization_id'] as String? ?? '';
     final displayName = _resolveDisplayName();
     final title = profile['title'] as String?;
     final photoUrl = profile['photo_url'] as String?;
-    final role = profile['role'] as String?;
+    final orgType = profile['org_type'] as String?;
     final initials = _buildInitials(displayName);
 
     return GestureDetector(
       onTap: () => context.push(
-        '/profiles/$userId',
+        '/profiles/$orgId',
         extra: <String, dynamic>{
           'display_name': displayName,
-          'role': role,
+          'org_type': orgType,
         },
       ),
       child: Container(
@@ -48,7 +52,7 @@ class ProviderCard extends StatelessWidget {
             _Avatar(
               photoUrl: photoUrl,
               initials: initials,
-              roleColor: _roleColor(role),
+              roleColor: _roleColor(orgType),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -108,7 +112,7 @@ class ProviderCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            _RoleBadge(role: role),
+            _OrgTypeBadge(orgType: orgType),
           ],
         ),
       ),
@@ -116,13 +120,8 @@ class ProviderCard extends StatelessWidget {
   }
 
   String _resolveDisplayName() {
-    final displayName = profile['display_name'] as String?;
-    if (displayName != null && displayName.isNotEmpty) return displayName;
-
-    final firstName = profile['first_name'] as String? ?? '';
-    final lastName = profile['last_name'] as String? ?? '';
-    final fullName = '$firstName $lastName'.trim();
-    return fullName.isNotEmpty ? fullName : 'Unknown';
+    final name = profile['name'] as String?;
+    return (name != null && name.isNotEmpty) ? name : 'Unknown';
   }
 
   String _buildInitials(String name) {
@@ -132,13 +131,13 @@ class ProviderCard extends StatelessWidget {
     return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
   }
 
-  Color _roleColor(String? role) {
-    switch (role) {
+  Color _roleColor(String? orgType) {
+    switch (orgType) {
       case 'agency':
         return const Color(0xFF2563EB); // blue-600
       case 'enterprise':
         return const Color(0xFF8B5CF6); // violet-500
-      case 'provider':
+      case 'provider_personal':
         return const Color(0xFFF43F5E); // rose-500
       default:
         return const Color(0xFF64748B); // slate-500
@@ -220,13 +219,13 @@ class _InitialsAvatar extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Role badge — colored pill
+// Org-type badge — colored pill
 // ---------------------------------------------------------------------------
 
-class _RoleBadge extends StatelessWidget {
-  const _RoleBadge({required this.role});
+class _OrgTypeBadge extends StatelessWidget {
+  const _OrgTypeBadge({required this.orgType});
 
-  final String? role;
+  final String? orgType;
 
   @override
   Widget build(BuildContext context) {
@@ -248,25 +247,25 @@ class _RoleBadge extends StatelessWidget {
   }
 
   String get _label {
-    switch (role) {
+    switch (orgType) {
       case 'agency':
         return 'Agency';
       case 'enterprise':
         return 'Enterprise';
-      case 'provider':
+      case 'provider_personal':
         return 'Freelance';
       default:
-        return role ?? 'Unknown';
+        return orgType ?? 'Unknown';
     }
   }
 
   Color get _color {
-    switch (role) {
+    switch (orgType) {
       case 'agency':
         return const Color(0xFF2563EB);
       case 'enterprise':
         return const Color(0xFF8B5CF6);
-      case 'provider':
+      case 'provider_personal':
         return const Color(0xFFF43F5E);
       default:
         return const Color(0xFF64748B);

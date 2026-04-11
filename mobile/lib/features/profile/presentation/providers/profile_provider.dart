@@ -2,16 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
 
-/// Fetches the authenticated user's profile from GET /api/v1/profile.
+/// Fetches the caller's organization profile from GET /api/v1/profile.
+///
+/// Since phase R2 the authenticated "my profile" endpoint returns the
+/// org's shared marketplace identity — every operator of the team
+/// reads and edits the same row.
 ///
 /// Response shape:
 /// ```json
 /// {
-///   "user_id": "...",
+///   "organization_id": "...",
 ///   "title": "...",
 ///   "photo_url": "...",
 ///   "presentation_video_url": "...",
 ///   "referrer_video_url": "...",
+///   "about": "...",
+///   "referrer_about": "...",
 ///   "created_at": "...",
 ///   "updated_at": "..."
 /// }

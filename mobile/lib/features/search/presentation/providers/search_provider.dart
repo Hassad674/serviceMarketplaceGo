@@ -113,10 +113,12 @@ final searchProvider = StateNotifierProvider.autoDispose
   return notifier;
 });
 
-/// Fetches a single public profile from GET /api/v1/profiles/{userId}.
+/// Fetches a single public profile from GET /api/v1/profiles/{orgId}.
+/// Since phase R2 the path param is an organization id — profiles
+/// describe the team's shared marketplace identity.
 final publicProfileProvider = FutureProvider.autoDispose
-    .family<Map<String, dynamic>, String>((ref, userId) async {
+    .family<Map<String, dynamic>, String>((ref, orgId) async {
   final apiClient = ref.watch(apiClientProvider);
-  final response = await apiClient.get('/api/v1/profiles/$userId');
+  final response = await apiClient.get('/api/v1/profiles/$orgId');
   return response.data as Map<String, dynamic>;
 });

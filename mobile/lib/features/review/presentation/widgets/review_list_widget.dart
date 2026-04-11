@@ -9,14 +9,14 @@ import '../providers/review_provider.dart';
 /// use; no longer mounted on the public profile screens — project history
 /// is now the unified entry point there.
 class ReviewListWidget extends ConsumerWidget {
-  final String userId;
+  final String orgId;
 
-  const ReviewListWidget({super.key, required this.userId});
+  const ReviewListWidget({super.key, required this.orgId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reviewsAsync = ref.watch(reviewsByUserProvider(userId));
-    final avgAsync = ref.watch(averageRatingProvider(userId));
+    final reviewsAsync = ref.watch(reviewsByOrgProvider(orgId));
+    final avgAsync = ref.watch(averageRatingProvider(orgId));
 
     return avgAsync.when(
       loading: () => const SizedBox.shrink(),
