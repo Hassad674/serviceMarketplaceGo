@@ -142,6 +142,21 @@ func (r *OrganizationRepository) Delete(ctx context.Context, id uuid.UUID) error
 	return nil
 }
 
+// CountAll returns the total number of organizations on the platform.
+// Used by the admin dashboard to surface an "Organisations" stat tile.
+// Single aggregate query — no filters.
+func (r *OrganizationRepository) CountAll(ctx context.Context) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var count int
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM organizations`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count organizations: %w", err)
+	}
+	return count, nil
+}
+
 // CreateWithOwnerMembership is the atomic convenience method used at
 // account registration. It creates the organization row and the
 // corresponding Owner membership in a single transaction so both sides

@@ -475,6 +475,17 @@ func main() {
 		SessionSvc:         sessionSvc,
 		Broadcaster:        streamBroadcaster,
 		AdminNotifier:      adminNotifierSvc,
+		// Phase 6 team admin wiring — these power the GET team detail
+		// endpoint and the four force actions. Repositories come from
+		// the organization wiring block above. The membership +
+		// invitation services already carry notifSvc so team events
+		// triggered by force actions still land in the notifications
+		// table through the same pipeline as user-driven actions.
+		Orgs:           organizationRepo,
+		OrgMembers:     organizationMemberRepo,
+		OrgInvitations: organizationInvitationRepo,
+		Membership:     membershipSvc,
+		Invitation:     invitationSvc,
 	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 

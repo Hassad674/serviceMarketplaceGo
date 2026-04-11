@@ -58,6 +58,12 @@ type OrganizationInvitationRepository interface {
 	// the number of rows affected for observability.
 	ExpireStale(ctx context.Context) (int, error)
 
+	// CountPending returns the total number of pending invitations
+	// across all organizations. Powers the admin dashboard tile so
+	// support can spot a spike in abandoned flows. A single indexed
+	// aggregate, no pagination.
+	CountPending(ctx context.Context) (int, error)
+
 	// AcceptInvitationTx atomically creates the operator user, creates
 	// the corresponding organization membership, and marks the invitation
 	// as accepted — all inside a single database transaction so the

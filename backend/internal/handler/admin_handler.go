@@ -43,16 +43,18 @@ func (h *AdminHandler) GetDashboardStats(w http.ResponseWriter, r *http.Request)
 	}
 
 	res.JSON(w, http.StatusOK, response.DashboardStatsResponse{
-		TotalUsers:      stats.TotalUsers,
-		UsersByRole:     stats.UsersByRole,
-		ActiveUsers:     stats.ActiveUsers,
-		SuspendedUsers:  stats.SuspendedUsers,
-		BannedUsers:     stats.BannedUsers,
-		TotalProposals:  stats.TotalProposals,
-		ActiveProposals: stats.ActiveProposals,
-		TotalJobs:       stats.TotalJobs,
-		OpenJobs:        stats.OpenJobs,
-		RecentSignups:   recentSignups,
+		TotalUsers:         stats.TotalUsers,
+		UsersByRole:        stats.UsersByRole,
+		ActiveUsers:        stats.ActiveUsers,
+		SuspendedUsers:     stats.SuspendedUsers,
+		BannedUsers:        stats.BannedUsers,
+		TotalProposals:     stats.TotalProposals,
+		ActiveProposals:    stats.ActiveProposals,
+		TotalJobs:          stats.TotalJobs,
+		OpenJobs:           stats.OpenJobs,
+		TotalOrganizations: stats.TotalOrganizations,
+		PendingInvitations: stats.PendingInvitations,
+		RecentSignups:      recentSignups,
 	})
 }
 

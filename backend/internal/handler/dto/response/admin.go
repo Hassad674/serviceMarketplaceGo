@@ -13,16 +13,18 @@ import (
 
 // DashboardStatsResponse is the JSON response for GET /api/v1/admin/dashboard/stats.
 type DashboardStatsResponse struct {
-	TotalUsers      int                    `json:"total_users"`
-	UsersByRole     map[string]int         `json:"users_by_role"`
-	ActiveUsers     int                    `json:"active_users"`
-	SuspendedUsers  int                    `json:"suspended_users"`
-	BannedUsers     int                    `json:"banned_users"`
-	TotalProposals  int                    `json:"total_proposals"`
-	ActiveProposals int                    `json:"active_proposals"`
-	TotalJobs       int                    `json:"total_jobs"`
-	OpenJobs        int                    `json:"open_jobs"`
-	RecentSignups   []RecentSignupResponse `json:"recent_signups"`
+	TotalUsers         int                    `json:"total_users"`
+	UsersByRole        map[string]int         `json:"users_by_role"`
+	ActiveUsers        int                    `json:"active_users"`
+	SuspendedUsers     int                    `json:"suspended_users"`
+	BannedUsers        int                    `json:"banned_users"`
+	TotalProposals     int                    `json:"total_proposals"`
+	ActiveProposals    int                    `json:"active_proposals"`
+	TotalJobs          int                    `json:"total_jobs"`
+	OpenJobs           int                    `json:"open_jobs"`
+	TotalOrganizations int                    `json:"total_organizations"`
+	PendingInvitations int                    `json:"pending_invitations"`
+	RecentSignups      []RecentSignupResponse `json:"recent_signups"`
 }
 
 // RecentSignupResponse is a lightweight user representation for recent signups.
@@ -55,6 +57,15 @@ type AdminUserResponse struct {
 	LastName            string  `json:"last_name"`
 	DisplayName         string  `json:"display_name"`
 	Role                string  `json:"role"`
+	// AccountType tells the admin UI whether this user is a marketplace
+	// owner (self-registered agency/enterprise/provider) or an operator
+	// invited into an organization. The team management UI is only
+	// rendered when the user has the right account_type + org_id.
+	AccountType string `json:"account_type"`
+	// OrganizationID is the denormalized pointer maintained by the
+	// organization app service. Null for solo providers and for
+	// marketplace owners who have not yet created an org.
+	OrganizationID      *string `json:"organization_id,omitempty"`
 	ReferrerEnabled     bool    `json:"referrer_enabled"`
 	IsAdmin             bool    `json:"is_admin"`
 	Status              string  `json:"status"`
@@ -69,6 +80,12 @@ type AdminUserResponse struct {
 }
 
 func NewAdminUserResponse(u *user.User) AdminUserResponse {
+	accountType := string(u.AccountType)
+	if accountType == "" {
+		// Legacy rows that predate migration 055 have an empty string;
+		// treat them as marketplace owners (the historical default).
+		accountType = string(user.AccountTypeMarketplaceOwner)
+	}
 	r := AdminUserResponse{
 		ID:               u.ID.String(),
 		Email:            u.Email,
@@ -76,6 +93,7 @@ func NewAdminUserResponse(u *user.User) AdminUserResponse {
 		LastName:         u.LastName,
 		DisplayName:      u.DisplayName,
 		Role:             string(u.Role),
+		AccountType:      accountType,
 		ReferrerEnabled:  u.ReferrerEnabled,
 		IsAdmin:          u.IsAdmin,
 		Status:           string(u.Status),
@@ -84,6 +102,10 @@ func NewAdminUserResponse(u *user.User) AdminUserResponse {
 		EmailVerified:    u.EmailVerified,
 		CreatedAt:        u.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        u.UpdatedAt.Format(time.RFC3339),
+	}
+	if u.OrganizationID != nil {
+		s := u.OrganizationID.String()
+		r.OrganizationID = &s
 	}
 	if u.SuspendedAt != nil {
 		s := u.SuspendedAt.Format(time.RFC3339)

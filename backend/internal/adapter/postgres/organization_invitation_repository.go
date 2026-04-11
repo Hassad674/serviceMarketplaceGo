@@ -280,6 +280,22 @@ func (r *OrganizationInvitationRepository) AcceptInvitationTx(
 	return tx.Commit()
 }
 
+// CountPending returns the global count of pending invitations across
+// all organizations. Powers the admin dashboard tile and is intended
+// to surface abandoned or abusive invite flows at a glance.
+func (r *OrganizationInvitationRepository) CountPending(ctx context.Context) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM organization_invitations WHERE status = 'pending'`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count pending invitations: %w", err)
+	}
+	return count, nil
+}
+
 // ExpireStale marks pending invitations with expires_at < now as expired.
 // Runs as a bulk UPDATE so a background sweeper can call it periodically
 // without iterating row-by-row.

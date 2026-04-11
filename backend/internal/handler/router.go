@@ -440,6 +440,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 					r.Post("/credits/reset/{userId}", deps.JobApplication.ResetCreditsForUser)
 				}
 
+				// Team admin endpoints (Phase 6).
+				// All five are gated by the same RequireAdmin middleware
+				// applied to this whole group. Reads live under /users,
+				// mutations live under /organizations.
+				r.Get("/users/{id}/organization", deps.Admin.GetUserOrganization)
+				r.Post("/organizations/{id}/force-transfer", deps.Admin.ForceTransferOwnership)
+				r.Patch("/organizations/{id}/members/{userID}", deps.Admin.ForceUpdateMemberRole)
+				r.Delete("/organizations/{id}/members/{userID}", deps.Admin.ForceRemoveMember)
+				r.Delete("/organizations/{id}/invitations/{invID}", deps.Admin.ForceCancelInvitation)
+
 				// Credit bonus fraud log endpoints
 				if deps.Proposal != nil {
 					r.Get("/credits/bonus-log", deps.Proposal.AdminListBonusLog)

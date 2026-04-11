@@ -18,6 +18,11 @@ export type DashboardStats = {
   active_proposals: number
   total_jobs: number
   open_jobs: number
+  // Phase 6 — team management stats. Zero when the backend has not
+  // been redeployed with the new wiring, so the UI still renders
+  // a valid card (0 organisations) instead of "undefined".
+  total_organizations: number
+  pending_invitations: number
   recent_signups: RecentSignup[]
 }
 

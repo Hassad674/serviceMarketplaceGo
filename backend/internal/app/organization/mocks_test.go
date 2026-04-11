@@ -64,6 +64,10 @@ func (m *mockOrgRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (m *mockOrgRepo) CountAll(_ context.Context) (int, error) {
+	return 0, nil
+}
+
 // mockMemberRepo is a minimal mock of repository.OrganizationMemberRepository.
 type mockMemberRepo struct {
 	createFn              func(ctx context.Context, member *organization.Member) error
@@ -176,6 +180,10 @@ func (m *mockInvitationRepo) Delete(_ context.Context, _ uuid.UUID) error {
 }
 
 func (m *mockInvitationRepo) ExpireStale(_ context.Context) (int, error) {
+	return 0, nil
+}
+
+func (m *mockInvitationRepo) CountPending(_ context.Context) (int, error) {
 	return 0, nil
 }
 

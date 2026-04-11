@@ -6,6 +6,8 @@ import {
   UserCheck,
   FolderKanban,
   AlertTriangle,
+  Users2,
+  Mail,
 } from "lucide-react"
 import { Card } from "@/shared/components/ui/card"
 import { PageHeader } from "@/shared/components/layouts/page-header"
@@ -197,7 +199,7 @@ export function DashboardPage() {
       <div className="space-y-8">
         <PageHeader title="Tableau de bord" />
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+          {Array.from({ length: 7 }).map((_, i) => (
             <StatCardSkeleton key={i} />
           ))}
         </div>
@@ -240,6 +242,20 @@ export function DashboardPage() {
           value={stats.active_proposals}
           icon={FolderKanban}
           color="emerald"
+        />
+        {/* Phase 6 — Team management tiles. Appear on the second
+            row at xl+ and wrap naturally on smaller screens. */}
+        <StatCard
+          label="Organisations"
+          value={stats.total_organizations ?? 0}
+          icon={Users2}
+          color="violet"
+        />
+        <StatCard
+          label="Invitations en attente"
+          value={stats.pending_invitations ?? 0}
+          icon={Mail}
+          color="primary"
         />
       </div>
 
