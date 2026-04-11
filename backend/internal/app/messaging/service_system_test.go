@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
 )
 
@@ -92,17 +93,25 @@ func TestSendSystemMessage_CreateError(t *testing.T) {
 }
 
 func TestSendSystemMessage_IncrementUnreadError(t *testing.T) {
+	senderID := uuid.New()
+	senderOrgID := uuid.New()
+
 	msgRepo := &mockMessageRepo{
-		incrementUnreadFn: func(_ context.Context, _, _ uuid.UUID) error {
+		incrementUnreadForRecipientsFn: func(_ context.Context, _, _, _ uuid.UUID) error {
 			return fmt.Errorf("redis error")
 		},
 	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			return &user.User{ID: id, OrganizationID: &senderOrgID}, nil
+		},
+	}
 
-	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
+	svc := newTestServiceWithDeps(testServiceDeps{msgRepo: msgRepo, userRepo: userRepo})
 
 	err := svc.SendSystemMessage(context.Background(), service.SystemMessageInput{
 		ConversationID: uuid.New(),
-		SenderID:       uuid.New(),
+		SenderID:       senderID,
 		Content:        "Proposal declined",
 		Type:           string(message.MessageTypeProposalDeclined),
 	})
