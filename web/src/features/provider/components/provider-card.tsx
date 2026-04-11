@@ -6,45 +6,46 @@ import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { PublicProfileSummary, SearchType } from "../api/search-api"
 
-const ROLE_BADGE_STYLES: Record<string, string> = {
+// Badge styling is keyed on search type (the "what directory am I in"
+// dimension), not the raw org type, because provider_personal orgs
+// surface in both the freelancer and referrer directories with
+// different labels.
+const BADGE_STYLES: Record<SearchType, string> = {
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400",
-  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
+  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400",
+  freelancer: "bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-400",
   referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
 }
 
-const ROLE_LABELS: Record<string, string> = {
+const BADGE_LABELS: Record<SearchType, string> = {
   agency: "Agency",
-  provider: "Freelancer",
+  enterprise: "Enterprise",
+  freelancer: "Freelancer",
   referrer: "Referrer",
 }
 
 function getProfileHref(profile: PublicProfileSummary, type: SearchType): string {
   switch (type) {
     case "agency":
-      return `/agencies/${profile.user_id}`
+      return `/agencies/${profile.organization_id}`
+    case "enterprise":
+      return `/enterprises/${profile.organization_id}`
     case "referrer":
-      return `/referrers/${profile.user_id}`
+      return `/referrers/${profile.organization_id}`
     case "freelancer":
     default:
-      return `/freelancers/${profile.user_id}`
+      return `/freelancers/${profile.organization_id}`
   }
-}
-
-function getDisplayName(profile: PublicProfileSummary, type: SearchType): string {
-  if (type === "agency") {
-    return profile.display_name || `${profile.first_name} ${profile.last_name}`
-  }
-  return `${profile.first_name} ${profile.last_name}`.trim() || profile.display_name
 }
 
 function getInitials(profile: PublicProfileSummary): string {
-  if (profile.first_name && profile.last_name) {
-    return `${profile.first_name.charAt(0)}${profile.last_name.charAt(0)}`
+  const trimmed = profile.name.trim()
+  if (!trimmed) return "?"
+  const parts = trimmed.split(/\s+/)
+  if (parts.length >= 2) {
+    return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase()
   }
-  if (profile.display_name) {
-    return profile.display_name.charAt(0).toUpperCase()
-  }
-  return "?"
+  return trimmed.charAt(0).toUpperCase()
 }
 
 interface ProviderCardProps {
@@ -54,9 +55,8 @@ interface ProviderCardProps {
 
 export function ProviderCard({ profile, type }: ProviderCardProps) {
   const t = useTranslations("search")
-  const displayRole = type === "referrer" ? "referrer" : profile.role
-  const badgeStyle = ROLE_BADGE_STYLES[displayRole] ?? ROLE_BADGE_STYLES.provider
-  const badgeLabel = ROLE_LABELS[displayRole] ?? displayRole
+  const badgeStyle = BADGE_STYLES[type] ?? BADGE_STYLES.freelancer
+  const badgeLabel = BADGE_LABELS[type] ?? type
 
   return (
     <Link
@@ -73,7 +73,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
           {profile.photo_url ? (
             <img
               src={profile.photo_url}
-              alt={getDisplayName(profile, type)}
+              alt={profile.name}
               width={48}
               height={48}
               className="h-12 w-12 rounded-full object-cover"
@@ -89,7 +89,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="truncate text-sm font-semibold text-gray-900 dark:text-white group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
-              {getDisplayName(profile, type)}
+              {profile.name || t("noTitle")}
             </h3>
             <span
               className={cn(

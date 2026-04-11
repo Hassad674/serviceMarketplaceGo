@@ -78,11 +78,15 @@ export type Message = {
   created_at: string
 }
 
+// A conversation is now identified by the "other organization" on the
+// thread, not a specific user. Every operator of the sender's org
+// sees the same thread, and it targets whichever operator of the
+// recipient org is on call — the Stripe Dashboard inbox model.
 export type Conversation = {
   id: string
-  other_user_id: string
-  other_user_name: string
-  other_user_role: string
+  other_org_id: string
+  other_org_name: string
+  other_org_type: string
   other_photo_url: string
   last_message: string | null
   last_message_at: string | null

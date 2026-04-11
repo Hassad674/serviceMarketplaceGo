@@ -11,7 +11,7 @@ import { TypingIndicator } from "./typing-indicator"
 
 interface ConversationHeaderProps {
   conversation: Conversation
-  currentUserRole?: string
+  currentOrgType?: string
   onBack?: () => void
   typingUserName?: string
   isConnected: boolean
@@ -21,7 +21,7 @@ interface ConversationHeaderProps {
 
 export function ConversationHeader({
   conversation,
-  currentUserRole,
+  currentOrgType,
   onBack,
   typingUserName,
   isConnected,
@@ -48,24 +48,28 @@ export function ConversationHeader({
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [menuOpen])
 
-  const initials = conversation.other_user_name
+  const initials = conversation.other_org_name
     .split(" ")
-    .map((w) => w.charAt(0))
+    .map((w: string) => w.charAt(0))
     .join("")
     .slice(0, 2)
     .toUpperCase()
 
   function handleStartProject() {
-    router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
+    router.push(`/projects/new?to=${conversation.other_org_id}&conversation=${conversation.id}`)
   }
 
-  // Provider/freelancer cannot view agency profile (agency is the client)
-  const canViewProfile = !(currentUserRole === "provider" && conversation.other_user_role === "agency")
+  // Providers cannot view an enterprise's public profile — the
+  // enterprise is the client, not a marketplace listing.
+  const canViewProfile = !(
+    currentOrgType === "provider_personal" && conversation.other_org_type === "enterprise"
+  )
 
   const profileHref = (() => {
-    const role = conversation.other_user_role
-    const id = conversation.other_user_id
-    if (role === "agency") return `/agencies/${id}`
+    const orgType = conversation.other_org_type
+    const id = conversation.other_org_id
+    if (orgType === "agency") return `/agencies/${id}`
+    if (orgType === "enterprise") return `/enterprises/${id}`
     return `/freelancers/${id}`
   })()
 
@@ -85,11 +89,11 @@ export function ConversationHeader({
       {/* Avatar */}
       {canViewProfile ? (
         <Link href={profileHref} className="relative shrink-0">
-          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_user_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
+          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_org_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
         </Link>
       ) : (
         <div className="relative shrink-0">
-          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_user_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
+          <AvatarContent photo={conversation.other_photo_url} name={conversation.other_org_name} initials={initials} online={conversation.online} onlineLabel={t("online")} />
         </div>
       )}
 
@@ -97,11 +101,11 @@ export function ConversationHeader({
       <div className="min-w-0 flex-1">
         {canViewProfile ? (
           <Link href={profileHref} className="truncate text-sm font-semibold text-gray-900 hover:underline dark:text-white">
-            {conversation.other_user_name}
+            {conversation.other_org_name}
           </Link>
         ) : (
           <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
-            {conversation.other_user_name}
+            {conversation.other_org_name}
           </p>
         )}
         {typingUserName ? (

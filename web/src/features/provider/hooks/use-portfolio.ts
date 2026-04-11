@@ -1,9 +1,9 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
+import { useOrganization } from "@/shared/hooks/use-user"
 import {
-  fetchPortfolioByUser,
+  fetchPortfolioByOrganization,
   createPortfolioItem,
   updatePortfolioItem,
   deletePortfolioItem,
@@ -18,36 +18,38 @@ type MediaPayload = {
   position: number
 }
 
-function myPortfolioKey(uid: string | undefined) {
-  return ["user", uid, "my-portfolio"] as const
+function myPortfolioKey(orgId: string | undefined) {
+  return ["portfolio", "org", orgId, "mine"] as const
 }
 
 export function useMyPortfolio() {
-  const uid = useCurrentUserId()
+  const { data: org } = useOrganization()
+  const orgId = org?.id
 
   return useQuery({
-    queryKey: myPortfolioKey(uid),
+    queryKey: myPortfolioKey(orgId),
     queryFn: async () => {
-      if (!uid) return { data: [], next_cursor: "", has_more: false }
-      return fetchPortfolioByUser(uid)
+      if (!orgId) return { data: [], next_cursor: "", has_more: false }
+      return fetchPortfolioByOrganization(orgId)
     },
     staleTime: 2 * 60 * 1000,
-    enabled: !!uid,
+    enabled: !!orgId,
   })
 }
 
-export function usePortfolioByUser(userId: string) {
+export function usePortfolioByOrganization(orgId: string) {
   return useQuery({
-    queryKey: ["portfolio", "user", userId],
-    queryFn: () => fetchPortfolioByUser(userId),
+    queryKey: ["portfolio", "org", orgId],
+    queryFn: () => fetchPortfolioByOrganization(orgId),
     staleTime: 2 * 60 * 1000,
-    enabled: !!userId,
+    enabled: !!orgId,
   })
 }
 
 export function useCreatePortfolioItem() {
   const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
+  const { data: org } = useOrganization()
+  const orgId = org?.id
 
   return useMutation({
     mutationFn: (payload: {
@@ -58,13 +60,14 @@ export function useCreatePortfolioItem() {
       media?: MediaPayload[]
     }) => createPortfolioItem(payload),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myPortfolioKey(uid) }),
+      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) }),
   })
 }
 
 export function useUpdatePortfolioItem() {
   const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
+  const { data: org } = useOrganization()
+  const orgId = org?.id
 
   return useMutation({
     mutationFn: ({
@@ -78,29 +81,31 @@ export function useUpdatePortfolioItem() {
       media?: MediaPayload[]
     }) => updatePortfolioItem(id, payload),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myPortfolioKey(uid) }),
+      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) }),
   })
 }
 
 export function useDeletePortfolioItem() {
   const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
+  const { data: org } = useOrganization()
+  const orgId = org?.id
 
   return useMutation({
     mutationFn: (id: string) => deletePortfolioItem(id),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myPortfolioKey(uid) }),
+      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) }),
   })
 }
 
 export function useReorderPortfolio() {
   const queryClient = useQueryClient()
-  const uid = useCurrentUserId()
+  const { data: org } = useOrganization()
+  const orgId = org?.id
 
   return useMutation({
     mutationFn: (itemIds: string[]) => reorderPortfolio(itemIds),
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: myPortfolioKey(uid) }),
+      queryClient.invalidateQueries({ queryKey: myPortfolioKey(orgId) }),
   })
 }
 

@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/shared/lib/utils"
-import { useUser } from "@/shared/hooks/use-user"
+import { useUser, useOrganization } from "@/shared/hooks/use-user"
 import { useCallContext } from "@/shared/hooks/use-call-context"
 import { ConversationList } from "./conversation-list"
 import { ConversationHeader } from "./conversation-header"
@@ -27,12 +27,13 @@ export function MessagingPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { data: user } = useUser()
+  const { data: org } = useOrganization()
   const initializedFromUrl = useRef(false)
 
   const [activeId, setActiveId] = useState<string | null>(
     searchParams.get("id"),
   )
-  const [roleFilter, setRoleFilter] = useState<"all" | string>("all")
+  const [orgTypeFilter, setOrgTypeFilter] = useState<"all" | string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
   const [replyTo, setReplyTo] = useState<{ id: string; senderId: string; senderName: string; content: string; type: string } | null>(null)
@@ -159,10 +160,10 @@ export function MessagingPage() {
     (message: Message) => {
       const senderName = message.sender_id === user?.id
         ? (user?.display_name ?? "You")
-        : (activeConversation?.other_user_name ?? "")
+        : (activeConversation?.other_org_name ?? "")
       setReplyTo({ id: message.id, senderId: message.sender_id, senderName, content: message.content, type: message.type })
     },
-    [user?.id, user?.display_name, activeConversation?.other_user_name],
+    [user?.id, user?.display_name, activeConversation?.other_org_name],
   )
 
   const clearReply = useCallback(() => setReplyTo(null), [])
@@ -197,8 +198,8 @@ export function MessagingPage() {
     if (!activeConversation || !callCtx) return
     callCtx.startCall(
       activeConversation.id,
-      activeConversation.other_user_id,
-      activeConversation.other_user_name,
+      activeConversation.other_org_id,
+      activeConversation.other_org_name,
       callType,
     )
   }, [activeConversation, callCtx])
@@ -227,7 +228,7 @@ export function MessagingPage() {
 
   const handleReportUser = useCallback(() => {
     if (activeConversation) {
-      setReportTarget({ type: "user", id: activeConversation.other_user_id })
+      setReportTarget({ type: "user", id: activeConversation.other_org_id })
     }
   }, [activeConversation])
 
@@ -249,11 +250,11 @@ export function MessagingPage() {
           <ConversationList
             conversations={conversations}
             activeId={activeId}
-            roleFilter={roleFilter}
+            orgTypeFilter={orgTypeFilter}
             searchQuery={searchQuery}
             typingUsers={typingUsers}
             onSelect={handleSelect}
-            onRoleFilterChange={setRoleFilter}
+            onOrgTypeFilterChange={setOrgTypeFilter}
             onSearchChange={setSearchQuery}
           />
         )}
@@ -270,9 +271,9 @@ export function MessagingPage() {
           <>
             <ConversationHeader
               conversation={activeConversation}
-              currentUserRole={user?.role}
+              currentOrgType={org?.type}
               onBack={handleBack}
-              typingUserName={typingUserForConversation ? activeConversation.other_user_name : undefined}
+              typingUserName={typingUserForConversation ? activeConversation.other_org_name : undefined}
               isConnected={isConnected}
               onStartCall={handleStartCall}
               onReportUser={handleReportUser}
@@ -292,7 +293,7 @@ export function MessagingPage() {
             />
             <MessageInput
               conversationId={activeId ?? ""}
-              otherUserId={activeConversation?.other_user_id ?? ""}
+              otherOrgId={activeConversation?.other_org_id ?? ""}
               onSend={handleSend}
               onSendFile={handleSendFile}
               onSendVoice={handleSendVoice}

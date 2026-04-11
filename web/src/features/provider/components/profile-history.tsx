@@ -6,18 +6,13 @@ import { useProjectHistory } from "../hooks/use-project-history"
 import { ProjectHistoryCard } from "./project-history-card"
 
 interface ProfileHistoryProps {
-  userId: string | undefined
+  orgId: string | undefined
   readOnly?: boolean
 }
 
-/**
- * Project history section — unified view of completed missions with their
- * (optional) reviews. Replaces the previous standalone placeholder AND the
- * separate reviews section.
- */
-export function ProfileHistory({ userId, readOnly = false }: ProfileHistoryProps) {
+export function ProfileHistory({ orgId, readOnly = false }: ProfileHistoryProps) {
   const t = useTranslations("profile")
-  const { data, isLoading, isError } = useProjectHistory(userId)
+  const { data, isLoading, isError } = useProjectHistory(orgId)
 
   const entries = data?.data ?? []
   const count = entries.length

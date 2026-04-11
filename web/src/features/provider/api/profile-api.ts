@@ -1,7 +1,11 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+// Profile is the organization's shared marketplace identity: the same
+// photo, video, about text, and title that every team member edits
+// collaboratively. Since the team refactor the anchor is the org id,
+// not an individual user id.
 export type Profile = {
-  user_id: string
+  organization_id: string
   title: string
   photo_url: string
   presentation_video_url: string

@@ -6,13 +6,21 @@ import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
-import { openChatWithUser } from "@/shared/components/chat-widget/use-chat-widget"
+import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { ApplicationWithProfile } from "../types"
 
-const ROLE_COLORS: Record<string, string> = {
-  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
+const ORG_TYPE_COLORS: Record<string, string> = {
+  provider_personal: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400",
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 interface CandidateDetailPanelProps {
@@ -80,12 +88,12 @@ export function CandidateDetailPanel({
   if (!candidate) return null
 
   const { application, profile } = candidate
-  const initials = (profile.first_name?.[0] ?? "") + (profile.last_name?.[0] ?? "")
-  const displayName = profile.display_name || `${profile.first_name} ${profile.last_name}`
+  const displayName = profile.name
+  const initials = initialsFromName(displayName)
 
   function handleSendMessage() {
     if (isDesktop) {
-      openChatWithUser(application.applicant_id, displayName)
+      openChatWithOrg(application.applicant_id, displayName)
     } else {
       router.push(`/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`)
     }
@@ -175,7 +183,7 @@ export function CandidateDetailPanel({
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-          {/* Header: Avatar + Name + Role + Title */}
+          {/* Header: Avatar + Name + Org type + Title */}
           <div className="flex items-start gap-4">
             {profile.photo_url ? (
               <img
@@ -185,7 +193,7 @@ export function CandidateDetailPanel({
               />
             ) : (
               <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-rose-100 text-base font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-400 ring-2 ring-white dark:ring-slate-800 shadow-sm">
-                {initials || "?"}
+                {initials}
               </div>
             )}
             <div className="min-w-0">
@@ -196,10 +204,10 @@ export function CandidateDetailPanel({
                 <span
                   className={cn(
                     "rounded-full px-2.5 py-0.5 text-[11px] font-medium shrink-0",
-                    ROLE_COLORS[profile.role] ?? "bg-slate-100 text-slate-600",
+                    ORG_TYPE_COLORS[profile.org_type] ?? "bg-slate-100 text-slate-600",
                   )}
                 >
-                  {profile.role}
+                  {profile.org_type}
                 </span>
               </div>
               {profile.title && (

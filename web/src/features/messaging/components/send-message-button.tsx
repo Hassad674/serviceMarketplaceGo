@@ -5,14 +5,14 @@ import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
-import { openChatWithUser } from "@/shared/components/chat-widget/use-chat-widget"
+import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 
 interface SendMessageButtonProps {
-  targetUserId: string
+  targetOrgId: string
   targetDisplayName?: string
 }
 
-export function SendMessageButton({ targetUserId, targetDisplayName }: SendMessageButtonProps) {
+export function SendMessageButton({ targetOrgId, targetDisplayName }: SendMessageButtonProps) {
   const t = useTranslations("messaging")
   const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
@@ -20,9 +20,9 @@ export function SendMessageButton({ targetUserId, targetDisplayName }: SendMessa
   function handleClick() {
     const name = targetDisplayName || ""
     if (isDesktop) {
-      openChatWithUser(targetUserId, name)
+      openChatWithOrg(targetOrgId, name)
     } else {
-      router.push(`/messages?to=${targetUserId}&name=${encodeURIComponent(name)}`)
+      router.push(`/messages?to=${targetOrgId}&name=${encodeURIComponent(name)}`)
     }
   }
 
