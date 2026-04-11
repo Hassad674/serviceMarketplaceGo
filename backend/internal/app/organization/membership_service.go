@@ -10,6 +10,7 @@ import (
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // MembershipService owns the day-to-day membership operations on an
@@ -20,24 +21,32 @@ import (
 // target's users.session_version so any in-flight JWT is immediately
 // invalidated by the auth middleware on the next request — that is the
 // "immediate revocation" guarantee we committed to.
+//
+// After each successful commit the service dispatches an in-app
+// notification to the affected user via the NotificationSender port;
+// dispatch is best-effort and cannot block the main flow (see
+// notifier.go).
 type MembershipService struct {
-	orgs    repository.OrganizationRepository
-	members repository.OrganizationMemberRepository
-	users   repository.UserRepository
+	orgs          repository.OrganizationRepository
+	members       repository.OrganizationMemberRepository
+	users         repository.UserRepository
+	notifications service.NotificationSender // nil disables notifications
 }
 
 // MembershipServiceDeps groups the constructor arguments for NewMembershipService.
 type MembershipServiceDeps struct {
-	Orgs    repository.OrganizationRepository
-	Members repository.OrganizationMemberRepository
-	Users   repository.UserRepository
+	Orgs          repository.OrganizationRepository
+	Members       repository.OrganizationMemberRepository
+	Users         repository.UserRepository
+	Notifications service.NotificationSender // optional
 }
 
 func NewMembershipService(deps MembershipServiceDeps) *MembershipService {
 	return &MembershipService{
-		orgs:    deps.Orgs,
-		members: deps.Members,
-		users:   deps.Users,
+		orgs:          deps.Orgs,
+		members:       deps.Members,
+		users:         deps.Users,
+		notifications: deps.Notifications,
 	}
 }
 
@@ -111,6 +120,7 @@ func (s *MembershipService) UpdateMemberRole(
 		return nil, organization.ErrPermissionDenied
 	}
 
+	oldRole := target.Role
 	if err := target.ChangeRole(newRole); err != nil {
 		return nil, err
 	}
@@ -121,6 +131,14 @@ func (s *MembershipService) UpdateMemberRole(
 	if _, err := s.users.BumpSessionVersion(ctx, targetUserID); err != nil {
 		return nil, fmt.Errorf("update member role: bump session: %w", err)
 	}
+
+	// Notify the target their role changed. Fetching the actor + org for
+	// the payload is best-effort — if either lookup fails the helper
+	// degrades gracefully to a "Someone" label.
+	actorUser, _ := s.users.GetByID(ctx, actorID)
+	org, _ := s.orgs.FindByID(ctx, orgID)
+	notifyMemberRoleChanged(ctx, s.notifications, targetUserID, actorUser, org, oldRole, newRole)
+
 	return target, nil
 }
 
@@ -150,6 +168,14 @@ func (s *MembershipService) UpdateMemberTitle(
 	}
 	if err := s.members.Update(ctx, target); err != nil {
 		return nil, fmt.Errorf("update member title: persist: %w", err)
+	}
+
+	// Skip notification when the user updated their own title — no one
+	// else is involved so a notification would be noise.
+	if actorID != targetUserID {
+		actorUser, _ := s.users.GetByID(ctx, actorID)
+		org, _ := s.orgs.FindByID(ctx, orgID)
+		notifyMemberTitleChanged(ctx, s.notifications, targetUserID, actorUser, org, newTitle)
 	}
 	return target, nil
 }
@@ -212,6 +238,14 @@ func (s *MembershipService) RemoveMember(
 		_ = err
 	}
 
+	// Notify the target BEFORE the operator delete below, so the
+	// notifications row has a valid user_id FK. Marketplace owners
+	// keep their user row so the order doesn't strictly matter for
+	// them, but we emit in the same spot for consistency.
+	actorUser, _ := s.users.GetByID(ctx, actorID)
+	org, _ := s.orgs.FindByID(ctx, orgID)
+	notifyMemberRemoved(ctx, s.notifications, targetUserID, actorUser, org)
+
 	// Operator accounts are deleted entirely. Marketplace owners keep
 	// their accounts since they have a life outside this org.
 	targetUser, err := s.users.GetByID(ctx, targetUserID)
@@ -252,6 +286,15 @@ func (s *MembershipService) LeaveOrganization(
 
 	if _, err := s.users.BumpSessionVersion(ctx, userID); err != nil {
 		_ = err
+	}
+
+	// Notify the Owner that this user walked out. Lookup the leaver
+	// user BEFORE any operator delete below so the display name is
+	// still available. Lookup the org to resolve the Owner user id.
+	leaver, _ := s.users.GetByID(ctx, userID)
+	org, _ := s.orgs.FindByID(ctx, orgID)
+	if org != nil && org.OwnerUserID != userID {
+		notifyMemberLeft(ctx, s.notifications, org.OwnerUserID, leaver, org)
 	}
 
 	u, err := s.users.GetByID(ctx, userID)

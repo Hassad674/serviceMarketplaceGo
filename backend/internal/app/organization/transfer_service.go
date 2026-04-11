@@ -64,6 +64,12 @@ func (s *MembershipService) InitiateTransferOwnership(
 	if err := s.orgs.Update(ctx, org); err != nil {
 		return nil, fmt.Errorf("initiate transfer: persist org: %w", err)
 	}
+
+	// Notify the target so they see the pending transfer in their
+	// inbox immediately. The actor lookup is best-effort.
+	actorUser, _ := s.users.GetByID(ctx, actorID)
+	notifyTransferInitiated(ctx, s.notifications, targetUserID, actorUser, org)
+
 	return org, nil
 }
 
@@ -91,9 +97,21 @@ func (s *MembershipService) CancelTransferOwnership(
 		return organization.ErrNoPendingTransfer
 	}
 
+	// Capture the target before we clear the pending_* fields so we
+	// can still notify them about the cancellation.
+	var targetUserID uuid.UUID
+	if org.PendingTransferToUserID != nil {
+		targetUserID = *org.PendingTransferToUserID
+	}
+
 	org.CancelTransfer()
 	if err := s.orgs.Update(ctx, org); err != nil {
 		return fmt.Errorf("cancel transfer: persist org: %w", err)
+	}
+
+	if targetUserID != uuid.Nil {
+		actorUser, _ := s.users.GetByID(ctx, actorID)
+		notifyTransferCancelled(ctx, s.notifications, targetUserID, actorUser, org)
 	}
 	return nil
 }
@@ -117,10 +135,17 @@ func (s *MembershipService) DeclineTransferOwnership(
 		return organization.ErrPermissionDenied
 	}
 
+	// Grab the current Owner (who initiated the transfer) so we can
+	// notify them of the decline before we clear the pending fields.
+	currentOwnerID := org.OwnerUserID
+
 	org.CancelTransfer()
 	if err := s.orgs.Update(ctx, org); err != nil {
 		return fmt.Errorf("decline transfer: persist org: %w", err)
 	}
+
+	target, _ := s.users.GetByID(ctx, userID)
+	notifyTransferDeclined(ctx, s.notifications, currentOwnerID, target, org)
 	return nil
 }
 
@@ -210,6 +235,12 @@ func (s *MembershipService) AcceptTransferOwnership(
 	if _, err := s.users.BumpSessionVersion(ctx, userID); err != nil {
 		_ = err
 	}
+
+	// Notify the previous Owner that the transfer landed. They were
+	// demoted to Admin in step 1 so this double-confirms the state
+	// change and explains why their role badge just changed.
+	newOwner, _ := s.users.GetByID(ctx, userID)
+	notifyTransferAccepted(ctx, s.notifications, oldOwnerID, newOwner, org)
 
 	return org, nil
 }

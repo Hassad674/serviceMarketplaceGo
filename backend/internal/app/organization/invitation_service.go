@@ -27,41 +27,45 @@ type InvitationRateLimiter interface {
 //
 // It reuses the organization & member repositories from the sibling
 // Service but adds the user repository, the hasher (for password
-// hashing at acceptance time), the email adapter, and the rate limiter.
+// hashing at acceptance time), the email adapter, the rate limiter,
+// and the notification sender for the org_invitation_accepted event.
 type InvitationService struct {
-	orgs        repository.OrganizationRepository
-	members     repository.OrganizationMemberRepository
-	invitations repository.OrganizationInvitationRepository
-	users       repository.UserRepository
-	hasher      service.HasherService
-	email       service.EmailService
-	rateLimiter InvitationRateLimiter
-	frontendURL string
+	orgs          repository.OrganizationRepository
+	members       repository.OrganizationMemberRepository
+	invitations   repository.OrganizationInvitationRepository
+	users         repository.UserRepository
+	hasher        service.HasherService
+	email         service.EmailService
+	rateLimiter   InvitationRateLimiter
+	notifications service.NotificationSender // nil when feature disabled
+	frontendURL   string
 }
 
-// InvitationServiceDeps groups constructor arguments. Seven fields
+// InvitationServiceDeps groups constructor arguments. Eight fields
 // exceeds the project's 4-param rule, so we use a struct.
 type InvitationServiceDeps struct {
-	Orgs        repository.OrganizationRepository
-	Members     repository.OrganizationMemberRepository
-	Invitations repository.OrganizationInvitationRepository
-	Users       repository.UserRepository
-	Hasher      service.HasherService
-	Email       service.EmailService
-	RateLimiter InvitationRateLimiter
-	FrontendURL string
+	Orgs          repository.OrganizationRepository
+	Members       repository.OrganizationMemberRepository
+	Invitations   repository.OrganizationInvitationRepository
+	Users         repository.UserRepository
+	Hasher        service.HasherService
+	Email         service.EmailService
+	RateLimiter   InvitationRateLimiter
+	Notifications service.NotificationSender // optional — nil disables team notifications
+	FrontendURL   string
 }
 
 func NewInvitationService(deps InvitationServiceDeps) *InvitationService {
 	return &InvitationService{
-		orgs:        deps.Orgs,
-		members:     deps.Members,
-		invitations: deps.Invitations,
-		users:       deps.Users,
-		hasher:      deps.Hasher,
-		email:       deps.Email,
-		rateLimiter: deps.RateLimiter,
-		frontendURL: deps.FrontendURL,
+		orgs:          deps.Orgs,
+		members:       deps.Members,
+		invitations:   deps.Invitations,
+		users:         deps.Users,
+		hasher:        deps.Hasher,
+		email:         deps.Email,
+		rateLimiter:   deps.RateLimiter,
+		notifications: deps.Notifications,
+		frontendURL:   deps.FrontendURL,
 	}
 }
 
@@ -277,6 +281,10 @@ func (s *InvitationService) AcceptInvitation(ctx context.Context, in AcceptInvit
 	if err := s.invitations.AcceptInvitationTx(ctx, inv, newOperator, newMember); err != nil {
 		return nil, fmt.Errorf("accept invitation: persist: %w", err)
 	}
+
+	// Notify the original inviter (Owner or Admin who sent it).
+	// Best-effort: failures are swallowed inside notifyInvitationAccepted.
+	notifyInvitationAccepted(ctx, s.notifications, inv.InvitedByUserID, newOperator, org, inv.ID)
 
 	return &AcceptInvitationResult{
 		User:         newOperator,
