@@ -132,6 +132,14 @@ func (m *mockProposalRepo) CreateDocument(ctx context.Context, doc *proposaldoma
 	return nil
 }
 
+// IsOrgAuthorizedForProposal is stubbed for review tests — review service
+// fetches proposals directly via GetByID and does not rely on this gate
+// (the review side validates via proposal status + reviewer id). Always
+// returning true keeps the review unit tests focused on review logic.
+func (m *mockProposalRepo) IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error) {
+	return true, nil
+}
+
 // --- mockNotificationSender ---
 
 type mockNotificationSender struct {

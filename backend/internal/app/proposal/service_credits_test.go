@@ -222,6 +222,7 @@ func TestConfirmPaymentAndActivate_BonusErrorDoesNotBlockActivation(t *testing.T
 func TestSimulatePayment_AwardsBonusCredits(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
 	now := time.Now()
 
 	repo := &mockProposalRepo{
@@ -244,12 +245,14 @@ func TestSimulatePayment_AwardsBonusCredits(t *testing.T) {
 	msgs := &mockMessageSender{}
 	credits := &mockJobCreditRepo{}
 
-	// No payments service = simulation mode
-	svc := newTestServiceWithCredits(repo, nil, msgs, nil, credits)
+	// No payments service = simulation mode. Provide an org-aware user
+	// repo so the new client-side directional check passes.
+	svc := newTestServiceWithCredits(repo, orgAwareUserRepo(clientOrgID), msgs, nil, credits)
 
 	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 
 	require.NoError(t, err)

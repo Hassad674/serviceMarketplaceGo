@@ -21,11 +21,31 @@ func TestAcceptProposal_TableDriven(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
 	outsiderID := uuid.New()
+	senderOrgID := uuid.New()
+	recipientOrgID := uuid.New()
+	outsiderOrgID := uuid.New()
+
+	// orgLookup returns, for every requested user id, a user whose
+	// OrganizationID matches the side they represent. Keeps the table
+	// compact while still exercising the new org-directional checks.
+	orgLookup := func(id uuid.UUID) *user.User {
+		var o uuid.UUID
+		switch id {
+		case senderID:
+			o = senderOrgID
+		case recipientID:
+			o = recipientOrgID
+		default:
+			o = outsiderOrgID
+		}
+		return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}
+	}
 
 	tests := []struct {
 		name      string
 		status    domain.ProposalStatus
 		actorID   uuid.UUID
+		actorOrg  uuid.UUID
 		wantErr   error
 		wantMsgs  int
 		wantTypes []string
@@ -34,44 +54,51 @@ func TestAcceptProposal_TableDriven(t *testing.T) {
 			name:      "recipient accepts pending proposal",
 			status:    domain.StatusPending,
 			actorID:   recipientID,
+			actorOrg:  recipientOrgID,
 			wantMsgs:  2,
 			wantTypes: []string{"proposal_accepted", "proposal_payment_requested"},
 		},
 		{
-			name:    "sender cannot accept own proposal",
-			status:  domain.StatusPending,
-			actorID: senderID,
-			wantErr: domain.ErrNotAuthorized,
+			name:     "sender cannot accept own proposal",
+			status:   domain.StatusPending,
+			actorID:  senderID,
+			actorOrg: senderOrgID,
+			wantErr:  domain.ErrNotAuthorized,
 		},
 		{
-			name:    "outsider cannot accept proposal",
-			status:  domain.StatusPending,
-			actorID: outsiderID,
-			wantErr: domain.ErrNotAuthorized,
+			name:     "outsider cannot accept proposal",
+			status:   domain.StatusPending,
+			actorID:  outsiderID,
+			actorOrg: outsiderOrgID,
+			wantErr:  domain.ErrNotAuthorized,
 		},
 		{
-			name:    "cannot accept already accepted proposal",
-			status:  domain.StatusAccepted,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot accept already accepted proposal",
+			status:   domain.StatusAccepted,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot accept declined proposal",
-			status:  domain.StatusDeclined,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot accept declined proposal",
+			status:   domain.StatusDeclined,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot accept withdrawn proposal",
-			status:  domain.StatusWithdrawn,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot accept withdrawn proposal",
+			status:   domain.StatusWithdrawn,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot accept active proposal",
-			status:  domain.StatusActive,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot accept active proposal",
+			status:   domain.StatusActive,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 	}
 
@@ -83,11 +110,17 @@ func TestAcceptProposal_TableDriven(t *testing.T) {
 				},
 			}
 			msgs := &mockMessageSender{}
-			svc := newTestService(repo, nil, msgs, nil)
+			userRepo := &mockUserRepo{
+				getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+					return orgLookup(id), nil
+				},
+			}
+			svc := newTestService(repo, userRepo, msgs, nil)
 
 			err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 				ProposalID: uuid.New(),
 				UserID:     tt.actorID,
+				OrgID:      tt.actorOrg,
 			})
 
 			if tt.wantErr != nil {
@@ -123,6 +156,7 @@ func TestAcceptProposal_RepoGetError(t *testing.T) {
 func TestAcceptProposal_RepoUpdateError(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 
 	repo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -132,11 +166,12 @@ func TestAcceptProposal_RepoUpdateError(t *testing.T) {
 			return errors.New("write failed")
 		},
 	}
-	svc := newTestService(repo, nil, nil, nil)
+	svc := newTestService(repo, orgAwareUserRepo(recipientOrgID), nil, nil)
 
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     recipientID,
+		OrgID:      recipientOrgID,
 	})
 
 	assert.Error(t, err)
@@ -149,47 +184,70 @@ func TestDeclineProposal_TableDriven(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
 	outsiderID := uuid.New()
+	senderOrgID := uuid.New()
+	recipientOrgID := uuid.New()
+	outsiderOrgID := uuid.New()
+
+	orgLookup := func(id uuid.UUID) *user.User {
+		var o uuid.UUID
+		switch id {
+		case senderID:
+			o = senderOrgID
+		case recipientID:
+			o = recipientOrgID
+		default:
+			o = outsiderOrgID
+		}
+		return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}
+	}
 
 	tests := []struct {
-		name    string
-		status  domain.ProposalStatus
-		actorID uuid.UUID
-		wantErr error
+		name     string
+		status   domain.ProposalStatus
+		actorID  uuid.UUID
+		actorOrg uuid.UUID
+		wantErr  error
 	}{
 		{
-			name:    "recipient declines pending proposal",
-			status:  domain.StatusPending,
-			actorID: recipientID,
+			name:     "recipient declines pending proposal",
+			status:   domain.StatusPending,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
 		},
 		{
-			name:    "sender cannot decline own proposal",
-			status:  domain.StatusPending,
-			actorID: senderID,
-			wantErr: domain.ErrNotAuthorized,
+			name:     "sender cannot decline own proposal",
+			status:   domain.StatusPending,
+			actorID:  senderID,
+			actorOrg: senderOrgID,
+			wantErr:  domain.ErrNotAuthorized,
 		},
 		{
-			name:    "outsider cannot decline proposal",
-			status:  domain.StatusPending,
-			actorID: outsiderID,
-			wantErr: domain.ErrNotAuthorized,
+			name:     "outsider cannot decline proposal",
+			status:   domain.StatusPending,
+			actorID:  outsiderID,
+			actorOrg: outsiderOrgID,
+			wantErr:  domain.ErrNotAuthorized,
 		},
 		{
-			name:    "cannot decline accepted proposal",
-			status:  domain.StatusAccepted,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot decline accepted proposal",
+			status:   domain.StatusAccepted,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot decline already declined proposal",
-			status:  domain.StatusDeclined,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot decline already declined proposal",
+			status:   domain.StatusDeclined,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot decline active proposal",
-			status:  domain.StatusActive,
-			actorID: recipientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot decline active proposal",
+			status:   domain.StatusActive,
+			actorID:  recipientID,
+			actorOrg: recipientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 	}
 
@@ -201,11 +259,17 @@ func TestDeclineProposal_TableDriven(t *testing.T) {
 				},
 			}
 			msgs := &mockMessageSender{}
-			svc := newTestService(repo, nil, msgs, nil)
+			userRepo := &mockUserRepo{
+				getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+					return orgLookup(id), nil
+				},
+			}
+			svc := newTestService(repo, userRepo, msgs, nil)
 
 			err := svc.DeclineProposal(context.Background(), DeclineProposalInput{
 				ProposalID: uuid.New(),
 				UserID:     tt.actorID,
+				OrgID:      tt.actorOrg,
 			})
 
 			if tt.wantErr != nil {
@@ -230,6 +294,7 @@ func TestDeclineProposal_RepoGetError(t *testing.T) {
 	err := svc.DeclineProposal(context.Background(), DeclineProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     uuid.New(),
+		OrgID:      uuid.New(),
 	})
 
 	assert.Error(t, err)
@@ -308,47 +373,64 @@ func TestWithdrawProposal_TableDriven(t *testing.T) {
 func TestRequestCompletion_TableDriven(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+
+	orgLookup := func(id uuid.UUID) *user.User {
+		o := providerOrgID
+		if id == clientID {
+			o = clientOrgID
+		}
+		return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}
+	}
 
 	tests := []struct {
-		name    string
-		status  domain.ProposalStatus
-		actorID uuid.UUID
-		wantErr error
+		name     string
+		status   domain.ProposalStatus
+		actorID  uuid.UUID
+		actorOrg uuid.UUID
+		wantErr  error
 	}{
 		{
-			name:    "provider requests completion on active",
-			status:  domain.StatusActive,
-			actorID: providerID,
+			name:     "provider requests completion on active",
+			status:   domain.StatusActive,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
 		},
 		{
-			name:    "client cannot request completion",
-			status:  domain.StatusActive,
-			actorID: clientID,
-			wantErr: domain.ErrNotProvider,
+			name:     "client cannot request completion",
+			status:   domain.StatusActive,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrNotProvider,
 		},
 		{
-			name:    "cannot request completion on pending",
-			status:  domain.StatusPending,
-			actorID: providerID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot request completion on pending",
+			status:   domain.StatusPending,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot request completion on accepted",
-			status:  domain.StatusAccepted,
-			actorID: providerID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot request completion on accepted",
+			status:   domain.StatusAccepted,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot request completion on completed",
-			status:  domain.StatusCompleted,
-			actorID: providerID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot request completion on completed",
+			status:   domain.StatusCompleted,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot request completion on already requested",
-			status:  domain.StatusCompletionRequested,
-			actorID: providerID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot request completion on already requested",
+			status:   domain.StatusCompletionRequested,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 	}
 
@@ -363,11 +445,17 @@ func TestRequestCompletion_TableDriven(t *testing.T) {
 				},
 			}
 			msgs := &mockMessageSender{}
-			svc := newTestService(repo, nil, msgs, nil)
+			userRepo := &mockUserRepo{
+				getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+					return orgLookup(id), nil
+				},
+			}
+			svc := newTestService(repo, userRepo, msgs, nil)
 
 			err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
 				ProposalID: uuid.New(),
 				UserID:     tt.actorID,
+				OrgID:      tt.actorOrg,
 			})
 
 			if tt.wantErr != nil {
@@ -386,41 +474,57 @@ func TestRequestCompletion_TableDriven(t *testing.T) {
 func TestCompleteProposal_TableDriven(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+
+	orgLookup := func(id uuid.UUID) *user.User {
+		o := providerOrgID
+		if id == clientID {
+			o = clientOrgID
+		}
+		return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}
+	}
 
 	tests := []struct {
-		name    string
-		status  domain.ProposalStatus
-		actorID uuid.UUID
-		wantErr error
+		name     string
+		status   domain.ProposalStatus
+		actorID  uuid.UUID
+		actorOrg uuid.UUID
+		wantErr  error
 	}{
 		{
-			name:    "client confirms completion",
-			status:  domain.StatusCompletionRequested,
-			actorID: clientID,
+			name:     "client confirms completion",
+			status:   domain.StatusCompletionRequested,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
 		},
 		{
-			name:    "provider cannot confirm completion",
-			status:  domain.StatusCompletionRequested,
-			actorID: providerID,
-			wantErr: domain.ErrNotClient,
+			name:     "provider cannot confirm completion",
+			status:   domain.StatusCompletionRequested,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
+			wantErr:  domain.ErrNotClient,
 		},
 		{
-			name:    "cannot complete from active status",
-			status:  domain.StatusActive,
-			actorID: clientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot complete from active status",
+			status:   domain.StatusActive,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot complete from pending status",
-			status:  domain.StatusPending,
-			actorID: clientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot complete from pending status",
+			status:   domain.StatusPending,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot complete already completed",
-			status:  domain.StatusCompleted,
-			actorID: clientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot complete already completed",
+			status:   domain.StatusCompleted,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 	}
 
@@ -435,11 +539,17 @@ func TestCompleteProposal_TableDriven(t *testing.T) {
 				},
 			}
 			msgs := &mockMessageSender{}
-			svc := newTestService(repo, nil, msgs, nil)
+			userRepo := &mockUserRepo{
+				getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+					return orgLookup(id), nil
+				},
+			}
+			svc := newTestService(repo, userRepo, msgs, nil)
 
 			err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 				ProposalID: uuid.New(),
 				UserID:     tt.actorID,
+				OrgID:      tt.actorOrg,
 			})
 
 			if tt.wantErr != nil {
@@ -458,6 +568,7 @@ func TestCompleteProposal_TableDriven(t *testing.T) {
 func TestCompleteProposal_RepoUpdateError(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
 
 	repo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -470,11 +581,12 @@ func TestCompleteProposal_RepoUpdateError(t *testing.T) {
 			return errors.New("disk full")
 		},
 	}
-	svc := newTestService(repo, nil, nil, nil)
+	svc := newTestService(repo, orgAwareUserRepo(clientOrgID), nil, nil)
 
 	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 
 	assert.Error(t, err)
@@ -486,41 +598,57 @@ func TestCompleteProposal_RepoUpdateError(t *testing.T) {
 func TestRejectCompletion_TableDriven(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+
+	orgLookup := func(id uuid.UUID) *user.User {
+		o := providerOrgID
+		if id == clientID {
+			o = clientOrgID
+		}
+		return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}
+	}
 
 	tests := []struct {
-		name    string
-		status  domain.ProposalStatus
-		actorID uuid.UUID
-		wantErr error
+		name     string
+		status   domain.ProposalStatus
+		actorID  uuid.UUID
+		actorOrg uuid.UUID
+		wantErr  error
 	}{
 		{
-			name:    "client rejects completion",
-			status:  domain.StatusCompletionRequested,
-			actorID: clientID,
+			name:     "client rejects completion",
+			status:   domain.StatusCompletionRequested,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
 		},
 		{
-			name:    "provider cannot reject completion",
-			status:  domain.StatusCompletionRequested,
-			actorID: providerID,
-			wantErr: domain.ErrNotClient,
+			name:     "provider cannot reject completion",
+			status:   domain.StatusCompletionRequested,
+			actorID:  providerID,
+			actorOrg: providerOrgID,
+			wantErr:  domain.ErrNotClient,
 		},
 		{
-			name:    "cannot reject from active status",
-			status:  domain.StatusActive,
-			actorID: clientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot reject from active status",
+			status:   domain.StatusActive,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot reject from pending status",
-			status:  domain.StatusPending,
-			actorID: clientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot reject from pending status",
+			status:   domain.StatusPending,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 		{
-			name:    "cannot reject from completed status",
-			status:  domain.StatusCompleted,
-			actorID: clientID,
-			wantErr: domain.ErrInvalidStatus,
+			name:     "cannot reject from completed status",
+			status:   domain.StatusCompleted,
+			actorID:  clientID,
+			actorOrg: clientOrgID,
+			wantErr:  domain.ErrInvalidStatus,
 		},
 	}
 
@@ -535,11 +663,17 @@ func TestRejectCompletion_TableDriven(t *testing.T) {
 				},
 			}
 			msgs := &mockMessageSender{}
-			svc := newTestService(repo, nil, msgs, nil)
+			userRepo := &mockUserRepo{
+				getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+					return orgLookup(id), nil
+				},
+			}
+			svc := newTestService(repo, userRepo, msgs, nil)
 
 			err := svc.RejectCompletion(context.Background(), RejectCompletionInput{
 				ProposalID: uuid.New(),
 				UserID:     tt.actorID,
+				OrgID:      tt.actorOrg,
 			})
 
 			if tt.wantErr != nil {
@@ -564,6 +698,7 @@ func TestRejectCompletion_RepoGetError(t *testing.T) {
 	err := svc.RejectCompletion(context.Background(), RejectCompletionInput{
 		ProposalID: uuid.New(),
 		UserID:     uuid.New(),
+		OrgID:      uuid.New(),
 	})
 
 	assert.Error(t, err)
@@ -577,6 +712,7 @@ func TestRejectCompletion_RepoGetError(t *testing.T) {
 func TestAcceptProposal_KYCBlocked(t *testing.T) {
 	senderID := uuid.New()
 	providerID := uuid.New()
+	providerOrgID := uuid.New()
 	past15 := time.Now().Add(-15 * 24 * time.Hour)
 
 	p := newStubProposal(senderID, providerID, domain.StatusPending)
@@ -586,7 +722,10 @@ func TestAcceptProposal_KYCBlocked(t *testing.T) {
 	}
 	userRepo := &mockUserRepo{
 		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
-			return makeUser(id, user.RoleProvider), nil
+			u := makeUser(id, user.RoleProvider)
+			o := providerOrgID
+			u.OrganizationID = &o
+			return u, nil
 		},
 	}
 	orgRepo := &mockOrgRepo{
@@ -603,6 +742,7 @@ func TestAcceptProposal_KYCBlocked(t *testing.T) {
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: p.ID,
 		UserID:     providerID,
+		OrgID:      providerOrgID,
 	})
 
 	assert.ErrorIs(t, err, user.ErrKYCRestricted)
@@ -611,6 +751,7 @@ func TestAcceptProposal_KYCBlocked(t *testing.T) {
 func TestAcceptProposal_KYCNotBlocked_Passes(t *testing.T) {
 	senderID := uuid.New()
 	providerID := uuid.New()
+	providerOrgID := uuid.New()
 	past5 := time.Now().Add(-5 * 24 * time.Hour)
 
 	p := newStubProposal(senderID, providerID, domain.StatusPending)
@@ -620,7 +761,10 @@ func TestAcceptProposal_KYCNotBlocked_Passes(t *testing.T) {
 	}
 	userRepo := &mockUserRepo{
 		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
-			return makeUser(id, user.RoleProvider), nil
+			u := makeUser(id, user.RoleProvider)
+			o := providerOrgID
+			u.OrganizationID = &o
+			return u, nil
 		},
 	}
 	orgRepo := &mockOrgRepo{
@@ -638,6 +782,7 @@ func TestAcceptProposal_KYCNotBlocked_Passes(t *testing.T) {
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: p.ID,
 		UserID:     providerID,
+		OrgID:      providerOrgID,
 	})
 
 	assert.NoError(t, err)

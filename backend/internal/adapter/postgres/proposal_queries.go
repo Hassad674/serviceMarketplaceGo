@@ -146,6 +146,21 @@ const queryListCompletedByOrgWithCursor = `
 	ORDER BY p.completed_at DESC, p.id DESC
 	LIMIT $4`
 
+// queryIsOrgAuthorizedForProposal returns TRUE if the proposal has the
+// given org on either side — client side (via the denormalized
+// proposals.organization_id column) OR provider side (resolved via
+// users.organization_id JOIN on provider_id). Mirrors exactly the
+// two-sided predicate used by queryListActiveProjectsByOrgFirst so
+// the read/list views stay in sync.
+const queryIsOrgAuthorizedForProposal = `
+	SELECT EXISTS (
+		SELECT 1
+		FROM proposals p
+		LEFT JOIN users provider_user ON provider_user.id = p.provider_id
+		WHERE p.id = $1
+			AND (p.organization_id = $2 OR provider_user.organization_id = $2)
+	)`
+
 const queryGetProposalDocuments = `
 	SELECT id, proposal_id, filename, url, size, mime_type, created_at
 	FROM proposal_documents

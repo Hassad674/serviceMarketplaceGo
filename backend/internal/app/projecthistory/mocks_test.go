@@ -45,6 +45,9 @@ func (m *mockProposalRepo) GetDocuments(context.Context, uuid.UUID) ([]*proposal
 func (m *mockProposalRepo) CreateDocument(context.Context, *proposaldomain.ProposalDocument) error {
 	return nil
 }
+func (m *mockProposalRepo) IsOrgAuthorizedForProposal(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return true, nil
+}
 func (m *mockProposalRepo) CountAll(context.Context) (int, int, error) { return 0, 0, nil }
 
 var _ repository.ProposalRepository = (*mockProposalRepo)(nil)

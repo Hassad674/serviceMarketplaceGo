@@ -27,6 +27,7 @@ type mockProposalRepo struct {
 	listActiveProjectsFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
 	getDocumentsFn       func(ctx context.Context, proposalID uuid.UUID) ([]*domain.ProposalDocument, error)
 	createDocumentFn     func(ctx context.Context, doc *domain.ProposalDocument) error
+	isOrgAuthorizedFn    func(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error)
 }
 
 func (m *mockProposalRepo) Create(ctx context.Context, p *domain.Proposal) error {
@@ -96,9 +97,23 @@ func (m *mockProposalRepo) CreateDocument(ctx context.Context, doc *domain.Propo
 	return nil
 }
 
+// IsOrgAuthorizedForProposal mirrors the real adapter method used to
+// gate GetProposal reads at org granularity. Default behaviour when
+// no stub is set: deny — tests that exercise org auth MUST set the
+// callback explicitly, so that a forgotten stub is surfaced as an
+// ErrNotAuthorized rather than silently passing.
+func (m *mockProposalRepo) IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error) {
+	if m.isOrgAuthorizedFn != nil {
+		return m.isOrgAuthorizedFn(ctx, proposalID, orgID)
+	}
+	return false, nil
+}
+
 func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) {
 	return 0, 0, nil
 }
+
+var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
 
 // --- mockOrgRepo (KYC-aware stub) ---
 
