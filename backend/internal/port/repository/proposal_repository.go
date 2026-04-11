@@ -26,5 +26,14 @@ type ProposalRepository interface {
 	ListCompletedByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposal.Proposal, string, error)
 	GetDocuments(ctx context.Context, proposalID uuid.UUID) ([]*proposal.ProposalDocument, error)
 	CreateDocument(ctx context.Context, doc *proposal.ProposalDocument) error
+	// IsOrgAuthorizedForProposal returns true if the given organization is a
+	// party to the proposal on either side: the client side (via the
+	// denormalized proposals.organization_id column set from
+	// organization_members on insert) OR the provider side (via
+	// users.organization_id JOIN on the proposal's provider_id). Any
+	// operator of such an org can read the proposal — the Stripe Dashboard
+	// shared-workspace model. Directional mutations (accept, pay, complete)
+	// are still narrowed to a single side at the service layer.
+	IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error)
 	CountAll(ctx context.Context) (total int, active int, err error)
 }

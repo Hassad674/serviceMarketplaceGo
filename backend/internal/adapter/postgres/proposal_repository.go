@@ -246,6 +246,21 @@ func (r *ProposalRepository) CreateDocument(ctx context.Context, doc *proposal.P
 	return nil
 }
 
+// IsOrgAuthorizedForProposal checks whether the given organization has
+// any stake in the proposal — either as the client-side org (denormalized
+// in proposals.organization_id since phase 4) or as the provider-side org
+// (resolved via users.organization_id on the proposal's provider_id).
+func (r *ProposalRepository) IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var exists bool
+	if err := r.db.QueryRowContext(ctx, queryIsOrgAuthorizedForProposal, proposalID, orgID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("is org authorized for proposal: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *ProposalRepository) CountAll(ctx context.Context) (total int, active int, err error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

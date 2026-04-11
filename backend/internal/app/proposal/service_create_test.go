@@ -410,6 +410,7 @@ func TestCreateProposal_ClientProviderAssignment(t *testing.T) {
 func TestModifyProposal_PersistError(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -430,11 +431,12 @@ func TestModifyProposal_PersistError(t *testing.T) {
 			return errors.New("write failed")
 		},
 	}
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(recipientOrgID), nil, nil)
 
 	_, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  uuid.New(),
 		UserID:      recipientID,
+		OrgID:       recipientOrgID,
 		Title:       "Counter",
 		Description: "Counter desc",
 		Amount:      5000,
@@ -447,6 +449,7 @@ func TestModifyProposal_PersistError(t *testing.T) {
 func TestModifyProposal_WithDocuments(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 	deadline := time.Now().Add(60 * 24 * time.Hour)
 
 	var capturedDocs []*domain.ProposalDocument
@@ -471,11 +474,12 @@ func TestModifyProposal_WithDocuments(t *testing.T) {
 		},
 	}
 	msgs := &mockMessageSender{}
-	svc := newTestService(proposalRepo, nil, msgs, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(recipientOrgID), msgs, nil)
 
 	modified, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  uuid.New(),
 		UserID:      recipientID,
+		OrgID:       recipientOrgID,
 		Title:       "Counter with docs",
 		Description: "With attached spec",
 		Amount:      5000,
@@ -504,6 +508,7 @@ func TestModifyProposal_GetError(t *testing.T) {
 	_, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  uuid.New(),
 		UserID:      uuid.New(),
+		OrgID:       uuid.New(),
 		Title:       "Test",
 		Description: "Test",
 		Amount:      5000,

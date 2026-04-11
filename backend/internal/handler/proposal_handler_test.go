@@ -539,15 +539,26 @@ func TestProposalHandler_ListActiveProjects(t *testing.T) {
 // Shared test helpers
 // ---------------------------------------------------------------------------
 
+// userByIDLookup returns user records whose OrganizationID is set to
+// the user's own id. That matches the convention used throughout the
+// handler tests, where proposalCtx stores orgID := userID in the
+// request context. It lets the new R14 org-directional checks in the
+// proposal service (requireOrgIsSide) succeed when the test actor is
+// on the correct side of the proposal.
 func userByIDLookup(enterpriseID, providerID uuid.UUID) func(context.Context, uuid.UUID) (*user.User, error) {
 	return func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		o := id // 1 user = its own org, matching proposalCtx convention
 		switch id {
 		case enterpriseID:
-			return enterpriseUser(enterpriseID), nil
+			u := enterpriseUser(enterpriseID)
+			u.OrganizationID = &o
+			return u, nil
 		case providerID:
-			return providerUser(providerID), nil
+			u := providerUser(providerID)
+			u.OrganizationID = &o
+			return u, nil
 		default:
-			return &user.User{ID: id, DisplayName: "Unknown"}, nil
+			return &user.User{ID: id, DisplayName: "Unknown", OrganizationID: &o}, nil
 		}
 	}
 }

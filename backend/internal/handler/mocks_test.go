@@ -39,10 +39,14 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
-	// Default: return a stub user with an organization so flows that
-	// resolve the caller's org (reviews, disputes, messaging) don't
-	// crash in tests that don't override getByIDFn.
-	stubOrg := uuid.New()
+	// Default: return a stub user whose organization id is identical
+	// to the user's own id. This matches the convention used by
+	// proposalCtx (test helper) which stores orgID := userID in the
+	// request context — so when the R14 proposal service resolves a
+	// side's org and compares it to the caller's orgID, both sides
+	// look like the same uuid and the directional check passes.
+	// Tests that want a mismatch override getByIDFn explicitly.
+	stubOrg := id
 	return &user.User{ID: id, OrganizationID: &stubOrg}, nil
 }
 

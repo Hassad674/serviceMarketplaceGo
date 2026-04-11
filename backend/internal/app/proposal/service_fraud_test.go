@@ -454,6 +454,7 @@ func TestRejectBonusEntry_NotPendingReview_Fails(t *testing.T) {
 func TestSimulatePayment_WithFraudCheck_Awarded(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
 	now := time.Now()
 
 	repo := &mockProposalRepo{
@@ -477,11 +478,12 @@ func TestSimulatePayment_WithFraudCheck_Awarded(t *testing.T) {
 	credits := &mockJobCreditRepo{}
 	bonusLog := &mockBonusLogRepo{}
 
-	svc := newTestServiceWithBonusLog(repo, nil, nil, credits, bonusLog)
+	svc := newTestServiceWithBonusLog(repo, orgAwareUserRepo(clientOrgID), nil, credits, bonusLog)
 
 	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 	require.NoError(t, err)
 
