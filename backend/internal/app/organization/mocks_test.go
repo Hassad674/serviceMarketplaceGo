@@ -146,6 +146,10 @@ func (m *mockMemberRepo) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (m *mockMemberRepo) ListMemberUserIDsByOrgIDs(_ context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	return map[uuid.UUID][]uuid.UUID{}, nil
+}
+
 // mockInvitationRepo is a minimal stub; invitation logic lands in Phase 2.
 type mockInvitationRepo struct{}
 

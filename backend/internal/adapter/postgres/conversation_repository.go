@@ -160,9 +160,9 @@ func scanConversationSummaries(rows *sql.Rows, limit int) ([]repository.Conversa
 
 		if err := rows.Scan(
 			&s.ConversationID,
-			&s.OtherUserID,
-			&s.OtherUserName,
-			&s.OtherUserRole,
+			&s.OtherOrgID,
+			&s.OtherOrgName,
+			&s.OtherOrgType,
 			&s.OtherPhotoURL,
 			&lastMsg,
 			&lastMsgAt,

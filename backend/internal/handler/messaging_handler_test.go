@@ -300,8 +300,8 @@ func TestMessagingHandler_ListConversations(t *testing.T) {
 				mr.listConversationsFn = func(_ context.Context, _ repository.ListConversationsParams) ([]repository.ConversationSummary, string, error) {
 					return []repository.ConversationSummary{{
 						ConversationID: uuid.New(),
-						OtherUserID:    otherID,
-						OtherUserName:  "Alice",
+						OtherOrgID:    otherID,
+						OtherOrgName:  "Alice",
 						LastMessage:    &lastMsg,
 						LastMessageAt:  &now,
 						UnreadCount:    2,

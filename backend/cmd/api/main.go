@@ -163,6 +163,7 @@ func main() {
 	messagingSvc := messaging.NewService(messaging.ServiceDeps{
 		Messages:    messageRepo,
 		Users:       userRepo,
+		OrgMembers:  organizationMemberRepo,
 		Presence:    presenceSvc,
 		Broadcaster: streamBroadcaster,
 		Storage:     storageSvc,

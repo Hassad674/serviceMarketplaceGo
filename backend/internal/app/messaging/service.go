@@ -17,6 +17,7 @@ import (
 type Service struct {
 	messages       repository.MessageRepository
 	users          repository.UserRepository
+	orgMembers     repository.OrganizationMemberRepository
 	presence       service.PresenceService
 	broadcaster    service.MessageBroadcaster
 	storage        service.StorageService
@@ -29,6 +30,7 @@ type Service struct {
 type ServiceDeps struct {
 	Messages      repository.MessageRepository
 	Users         repository.UserRepository
+	OrgMembers    repository.OrganizationMemberRepository
 	Presence      service.PresenceService
 	Broadcaster   service.MessageBroadcaster
 	Storage       service.StorageService
@@ -40,6 +42,7 @@ func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		messages:      deps.Messages,
 		users:         deps.Users,
+		orgMembers:    deps.OrgMembers,
 		presence:      deps.Presence,
 		broadcaster:   deps.Broadcaster,
 		storage:       deps.Storage,

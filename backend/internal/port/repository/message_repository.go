@@ -28,11 +28,16 @@ type ListMessagesParams struct {
 	Limit          int
 }
 
+// ConversationSummary is the enriched row returned by ListConversations.
+// Since phase R4 it describes the *other organization* on the other side
+// of the conversation (the Stripe Dashboard model: teams chat with teams).
+// Online state still reflects any individual user from that org being
+// currently connected.
 type ConversationSummary struct {
 	ConversationID uuid.UUID
-	OtherUserID    uuid.UUID
-	OtherUserName  string
-	OtherUserRole  string
+	OtherOrgID     uuid.UUID
+	OtherOrgName   string
+	OtherOrgType   string
 	OtherPhotoURL  string
 	LastMessage    *string
 	LastMessageAt  *time.Time

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 )
@@ -245,6 +246,40 @@ func (m *mockUserRepo) CountByStatus(_ context.Context) (map[string]int, error) 
 
 func (m *mockUserRepo) RecentSignups(_ context.Context, _ int) ([]*user.User, error) {
 	return nil, nil
+}
+
+// --- mockOrgMemberRepo ---
+
+type mockOrgMemberRepo struct {
+	listMemberUserIDsByOrgIDsFn func(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
+}
+
+func (m *mockOrgMemberRepo) Create(_ context.Context, _ *organization.Member) error { return nil }
+func (m *mockOrgMemberRepo) FindByID(_ context.Context, _ uuid.UUID) (*organization.Member, error) {
+	return nil, organization.ErrMemberNotFound
+}
+func (m *mockOrgMemberRepo) FindByOrgAndUser(_ context.Context, _, _ uuid.UUID) (*organization.Member, error) {
+	return nil, organization.ErrMemberNotFound
+}
+func (m *mockOrgMemberRepo) FindOwner(_ context.Context, _ uuid.UUID) (*organization.Member, error) {
+	return nil, organization.ErrMemberNotFound
+}
+func (m *mockOrgMemberRepo) FindUserPrimaryOrg(_ context.Context, _ uuid.UUID) (*organization.Member, error) {
+	return nil, organization.ErrMemberNotFound
+}
+func (m *mockOrgMemberRepo) List(_ context.Context, _ repository.ListMembersParams) ([]*organization.Member, string, error) {
+	return nil, "", nil
+}
+func (m *mockOrgMemberRepo) CountByRole(_ context.Context, _ uuid.UUID) (map[organization.Role]int, error) {
+	return nil, nil
+}
+func (m *mockOrgMemberRepo) Update(_ context.Context, _ *organization.Member) error { return nil }
+func (m *mockOrgMemberRepo) Delete(_ context.Context, _ uuid.UUID) error            { return nil }
+func (m *mockOrgMemberRepo) ListMemberUserIDsByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	if m.listMemberUserIDsByOrgIDsFn != nil {
+		return m.listMemberUserIDsByOrgIDsFn(ctx, orgIDs)
+	}
+	return map[uuid.UUID][]uuid.UUID{}, nil
 }
 
 // --- mockPresenceService ---
