@@ -5,11 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
 )
+
+// isBusyGroupErr reports whether err is Redis's benign "consumer group
+// already exists" response to XGROUP CREATE. Redis has used several
+// wordings across versions ("already used", "already exists"), so we
+// match on the BUSYGROUP prefix rather than the exact sentence.
+func isBusyGroupErr(err error) bool {
+	return err != nil && strings.HasPrefix(err.Error(), "BUSYGROUP")
+}
 
 const (
 	streamKey     = "messaging:events"
@@ -112,14 +121,25 @@ func (b *StreamBroadcaster) publish(ctx context.Context, eventType string, recip
 
 // EnsureConsumerGroup creates the consumer group if it does not already exist.
 // Uses MKSTREAM so the stream is created automatically if missing.
+//
+// On every backend restart this call will predictably return BUSYGROUP —
+// the group was created on the first boot and Redis keeps it until the
+// stream is deleted. That path is benign and is logged at INFO. A genuine
+// failure (connectivity, permissions) is still logged at ERROR.
 func (b *StreamBroadcaster) EnsureConsumerGroup(ctx context.Context) {
 	err := b.client.XGroupCreateMkStream(ctx, streamKey, consumerGroup, "$").Err()
-	if err != nil {
-		// "BUSYGROUP" means the group already exists — not an error.
-		if err.Error() != "BUSYGROUP Consumer Group name already used" {
-			slog.Error("failed to create consumer group", "error", err)
-		}
+	if err == nil {
+		slog.Info("redis consumer group created",
+			"stream", streamKey, "group", consumerGroup)
+		return
 	}
+	if isBusyGroupErr(err) {
+		slog.Info("redis consumer group already exists",
+			"stream", streamKey, "group", consumerGroup)
+		return
+	}
+	slog.Error("failed to create consumer group",
+		"stream", streamKey, "group", consumerGroup, "error", err)
 }
 
 // ackMessage acknowledges a message so it is removed from the pending list.

@@ -247,11 +247,20 @@ func main() {
 	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
 
 	// Push notification service (optional — only when FCM is configured)
+	// FCM push notifications are optional — the backend starts with pushSvc
+	// left nil when credentials are missing or invalid. Startup must log at
+	// INFO in both the "disabled" and the "init failed" paths so operators
+	// can tell the app booted without push without seeing scary ERRORs in
+	// their console. Only truly unexpected failures would ever need ERROR,
+	// and none of the current init paths qualify.
 	var pushSvc service.PushService
-	if cfg.FCMConfigured() {
+	if !cfg.FCMConfigured() {
+		slog.Info("push notification service disabled (FCM_CREDENTIALS_PATH not set)")
+	} else {
 		fcmSvc, fcmErr := fcm.NewPushService(cfg.FCMCredentialsPath)
 		if fcmErr != nil {
-			slog.Error("failed to init FCM push service", "error", fcmErr)
+			slog.Info("push notification service disabled (FCM init failed)",
+				"error", fcmErr)
 		} else {
 			pushSvc = fcmSvc
 			slog.Info("push notification service enabled (FCM)")
