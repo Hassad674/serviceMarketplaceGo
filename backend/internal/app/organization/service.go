@@ -56,10 +56,13 @@ type Context struct {
 // user, creating both the org row and the Owner membership in a single
 // DB transaction.
 //
-// Only users with marketplace role Agency or Enterprise can own an org.
-// Providers are solo and calling this for them is a logic error — it
-// returns ErrProviderCannotOwnOrg, which the auth service branches on
-// to decide whether to create an org at registration time.
+// Every user gets an organization at registration — agencies and
+// enterprises get a company org, providers get a provider_personal org
+// so that invitations and shared-account operators work identically
+// across all marketplace roles (Stripe Dashboard semantics).
+//
+// The default org name is the user's display name (falling back to
+// first+last). The owner can rename it from the team settings UI.
 //
 // The user's OwnerUserID on the returned Organization matches u.ID.
 // The caller should reuse the returned Context when issuing the user's
@@ -74,19 +77,19 @@ func (s *Service) CreateForOwner(ctx context.Context, u *user.User) (*Context, e
 		return nil, fmt.Errorf("create organization for owner: %w", err)
 	}
 
+	defaultName := firstNonEmpty(u.DisplayName, u.FirstName+" "+u.LastName, u.Email)
+
 	// Construct the domain entities first — validation happens here, so
 	// a bad input fails before we touch the database.
-	org, err := organization.NewOrganization(u.ID, orgType)
+	org, err := organization.NewOrganization(u.ID, orgType, defaultName)
 	if err != nil {
 		return nil, fmt.Errorf("create organization for owner: build org: %w", err)
 	}
 
-	displayName := firstNonEmpty(u.DisplayName, u.FirstName+" "+u.LastName)
 	ownerMember, err := organization.NewMember(org.ID, u.ID, organization.RoleOwner, "")
 	if err != nil {
 		return nil, fmt.Errorf("create organization for owner: build owner member: %w", err)
 	}
-	_ = displayName // reserved for future use (e.g. default title)
 
 	// Persist atomically.
 	if err := s.orgs.CreateWithOwnerMembership(ctx, org, ownerMember); err != nil {
@@ -146,8 +149,9 @@ func (s *Service) HasPermission(ctx context.Context, userID uuid.UUID, perm orga
 }
 
 // orgTypeFromMarketplaceRole maps the user's marketplace role to the
-// corresponding organization type. Only Agency and Enterprise users can
-// own an organization in V1.
+// corresponding organization type. Providers get a provider_personal
+// org since phase R1 — the Stripe Dashboard model requires every user
+// to act through an org so invited operators can join.
 func orgTypeFromMarketplaceRole(role user.Role) (organization.OrgType, error) {
 	switch role {
 	case user.RoleAgency:
@@ -155,7 +159,7 @@ func orgTypeFromMarketplaceRole(role user.Role) (organization.OrgType, error) {
 	case user.RoleEnterprise:
 		return organization.OrgTypeEnterprise, nil
 	case user.RoleProvider:
-		return "", organization.ErrProviderCannotOwnOrg
+		return organization.OrgTypeProviderPersonal, nil
 	default:
 		return "", organization.ErrInvalidOrgType
 	}
