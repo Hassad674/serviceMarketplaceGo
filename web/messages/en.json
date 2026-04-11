@@ -61,6 +61,39 @@
       "member": "Member",
       "viewer": "Viewer"
     },
+    "roleDescriptions": {
+      "owner": "Full control of the organization. The owner is the only role that can transfer ownership, delete the organization, and request payouts. Exactly one owner per organization.",
+      "admin": "Trusted operator with full operational rights: can manage the team, jobs, proposals, KYC, billing settings, and respond to reviews. Cannot transfer ownership, delete the organization, or move money out of the wallet.",
+      "member": "Daily operator. Can create and edit jobs, send and respond to proposals, message clients, and view the wallet balance. Cannot manage the team or touch finances beyond viewing.",
+      "viewer": "Read-only access across all organization resources. Used for observers, external accountants, and trainees who need visibility without the ability to act."
+    },
+    "permissionGroups": {
+      "team": "Team",
+      "org_profile": "Public profile",
+      "jobs": "Jobs",
+      "proposals": "Proposals",
+      "messaging": "Messaging",
+      "reviews": "Reviews",
+      "wallet": "Wallet",
+      "billing": "Billing",
+      "kyc": "KYC",
+      "danger": "Danger zone",
+      "other": "Other"
+    },
+    "aboutRoles": {
+      "title": "About roles",
+      "subtitle": "What each role can do in the organization. Use this as a reference when assigning a role to a member.",
+      "permissionsLabel": "Permissions granted",
+      "expand": "Show details",
+      "collapse": "Hide details"
+    },
+    "editMember": {
+      "rolePreviewLabel": "Permissions granted to {role}",
+      "rolePreviewEmpty": "No permissions"
+    },
+    "toasts": {
+      "memberUpdated": "Member updated"
+    },
     "emptyMembers": "No members",
     "emptyInvitations": "No pending invitations",
     "memberFallbackName": "Member",

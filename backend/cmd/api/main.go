@@ -504,7 +504,7 @@ func main() {
 		SessionService:    sessionSvc,
 		Cookie:            cookieCfg,
 	})
-	teamHandler := handler.NewTeamHandler(membershipSvc, organizationSvc)
+	teamHandler := handler.NewTeamHandler(membershipSvc, organizationSvc, userRepo)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)

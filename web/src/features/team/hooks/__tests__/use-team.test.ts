@@ -35,6 +35,9 @@ vi.mock("../../api/team-api", () => ({
   cancelTransferOwnership: vi.fn(),
   acceptTransferOwnership: vi.fn(),
   declineTransferOwnership: vi.fn(),
+  validateInvitation: vi.fn(),
+  acceptInvitation: vi.fn(),
+  getRoleDefinitions: vi.fn(),
 }))
 
 function createWrapper(client?: QueryClient) {

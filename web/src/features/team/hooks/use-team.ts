@@ -16,6 +16,7 @@ import {
   declineTransferOwnership,
   validateInvitation,
   acceptInvitation,
+  getRoleDefinitions,
 } from "../api/team-api"
 import type {
   SendInvitationPayload,
@@ -75,6 +76,20 @@ export function useTeamInvitations(orgID: string | undefined) {
     queryFn: () => listInvitations(orgID as string),
     enabled: !!orgID,
     staleTime: 30 * 1000,
+  })
+}
+
+// useRoleDefinitions reads the static catalogue of roles and
+// permissions exposed by the backend (R13). The result is cached for
+// the lifetime of the page because the catalogue only changes when
+// the backend ships a new permission constant — refetching it on
+// every team page visit is wasteful.
+export function useRoleDefinitions() {
+  return useQuery({
+    queryKey: ["team", "role-definitions"] as const,
+    queryFn: () => getRoleDefinitions(),
+    staleTime: Infinity,
+    gcTime: Infinity,
   })
 }
 
