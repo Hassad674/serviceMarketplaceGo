@@ -48,14 +48,14 @@ func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*reviewdoma
 	return nil, reviewdomain.ErrNotFound
 }
 
-func (m *mockReviewRepo) ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*reviewdomain.Review, string, error) {
+func (m *mockReviewRepo) ListByReviewedOrganization(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*reviewdomain.Review, string, error) {
 	if m.listByReviewedFn != nil {
 		return m.listByReviewedFn(ctx, userID, cursor, limit)
 	}
 	return []*reviewdomain.Review{}, "", nil
 }
 
-func (m *mockReviewRepo) GetAverageRating(ctx context.Context, userID uuid.UUID) (*reviewdomain.AverageRating, error) {
+func (m *mockReviewRepo) GetAverageRatingByOrganization(ctx context.Context, userID uuid.UUID) (*reviewdomain.AverageRating, error) {
 	if m.getAverageRatingFn != nil {
 		return m.getAverageRatingFn(ctx, userID)
 	}
@@ -204,6 +204,7 @@ func newTestReviewHandler(
 	svc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       rr,
 		Proposals:     pr,
+		Users:         &mockUserRepo{},
 		Notifications: ns,
 	})
 	return NewReviewHandler(svc)
@@ -373,11 +374,11 @@ func TestReviewHandler_ListByUser(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/reviews/user/"+tc.urlParam, nil)
 			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("userId", tc.urlParam)
+			rctx.URLParams.Add("orgId", tc.urlParam)
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 			rec := httptest.NewRecorder()
 
-			h.ListByUser(rec, req)
+			h.ListByOrganization(rec, req)
 			assert.Equal(t, tc.wantStatus, rec.Code)
 			if tc.wantStatus == http.StatusOK {
 				var resp map[string]any
@@ -390,7 +391,7 @@ func TestReviewHandler_ListByUser(t *testing.T) {
 	}
 }
 
-func TestReviewHandler_GetAverageRating(t *testing.T) {
+func TestReviewHandler_GetAverageRatingByOrganization(t *testing.T) {
 	userID := uuid.New()
 
 	tests := []struct {
@@ -428,7 +429,7 @@ func TestReviewHandler_GetAverageRating(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/reviews/average/"+tc.urlParam, nil)
 			rctx := chi.NewRouteContext()
-			rctx.URLParams.Add("userId", tc.urlParam)
+			rctx.URLParams.Add("orgId", tc.urlParam)
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
 			rec := httptest.NewRecorder()
 

@@ -18,6 +18,7 @@ import (
 type ServiceDeps struct {
 	Reviews       repository.ReviewRepository
 	Proposals     repository.ProposalRepository
+	Users         repository.UserRepository
 	Notifications service.NotificationSender
 }
 
@@ -25,6 +26,7 @@ type ServiceDeps struct {
 type Service struct {
 	reviews        repository.ReviewRepository
 	proposals      repository.ProposalRepository
+	users          repository.UserRepository
 	notifications  service.NotificationSender
 	textModeration service.TextModerationService
 	adminNotifier  service.AdminNotifierService
@@ -40,6 +42,7 @@ func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		reviews:       deps.Reviews,
 		proposals:     deps.Proposals,
+		users:         deps.Users,
 		notifications: deps.Notifications,
 	}
 }
@@ -92,18 +95,35 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		return nil, domain.ErrAlreadyReviewed
 	}
 
+	// Resolve both parties' current organizations so the review is
+	// visible to every operator of the reviewed org + tagged by the
+	// reviewer's org (Stripe Dashboard shared workspace).
+	reviewerUser, err := s.users.GetByID(ctx, in.ReviewerID)
+	if err != nil {
+		return nil, fmt.Errorf("lookup reviewer user: %w", err)
+	}
+	reviewedUser, err := s.users.GetByID(ctx, reviewedID)
+	if err != nil {
+		return nil, fmt.Errorf("lookup reviewed user: %w", err)
+	}
+	if reviewerUser.OrganizationID == nil || reviewedUser.OrganizationID == nil {
+		return nil, fmt.Errorf("create review: participants must belong to an organization")
+	}
+
 	// Create domain entity
 	r, err := domain.NewReview(domain.NewReviewInput{
-		ProposalID:    in.ProposalID,
-		ReviewerID:    in.ReviewerID,
-		ReviewedID:    reviewedID,
-		GlobalRating:  in.GlobalRating,
-		Timeliness:    in.Timeliness,
-		Communication: in.Communication,
-		Quality:       in.Quality,
-		Comment:       in.Comment,
-		VideoURL:      in.VideoURL,
-		TitleVisible:  in.TitleVisible,
+		ProposalID:             in.ProposalID,
+		ReviewerID:             in.ReviewerID,
+		ReviewedID:             reviewedID,
+		ReviewerOrganizationID: *reviewerUser.OrganizationID,
+		ReviewedOrganizationID: *reviewedUser.OrganizationID,
+		GlobalRating:           in.GlobalRating,
+		Timeliness:             in.Timeliness,
+		Communication:          in.Communication,
+		Quality:                in.Quality,
+		Comment:                in.Comment,
+		VideoURL:               in.VideoURL,
+		TitleVisible:           in.TitleVisible,
 	})
 	if err != nil {
 		return nil, err
@@ -180,17 +200,17 @@ func (s *Service) runReviewModeration(reviewID uuid.UUID, comment string) {
 	}
 }
 
-// ListByUser returns reviews received by a user (public).
-func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error) {
+// ListByOrganization returns reviews received by an organization (public).
+func (s *Service) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	return s.reviews.ListByReviewedUser(ctx, userID, cursor, limit)
+	return s.reviews.ListByReviewedOrganization(ctx, orgID, cursor, limit)
 }
 
-// GetAverageRating returns the average rating for a user.
-func (s *Service) GetAverageRating(ctx context.Context, userID uuid.UUID) (*domain.AverageRating, error) {
-	return s.reviews.GetAverageRating(ctx, userID)
+// GetAverageRatingByOrganization returns the average rating for an org.
+func (s *Service) GetAverageRatingByOrganization(ctx context.Context, orgID uuid.UUID) (*domain.AverageRating, error) {
+	return s.reviews.GetAverageRatingByOrganization(ctx, orgID)
 }
 
 // CanReview checks if the current user can review a given proposal.

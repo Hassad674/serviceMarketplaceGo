@@ -27,7 +27,7 @@ func (r *JobApplicationRepository) Create(ctx context.Context, app *job.JobAppli
 	defer cancel()
 
 	_, err := r.db.ExecContext(ctx, queryInsertJobApplication,
-		app.ID, app.JobID, app.ApplicantID, app.Message, app.VideoURL,
+		app.ID, app.JobID, app.ApplicantID, app.ApplicantOrganizationID, app.Message, app.VideoURL,
 		app.CreatedAt, app.UpdatedAt,
 	)
 	if err != nil {
@@ -111,7 +111,7 @@ func (r *JobApplicationRepository) ListByJob(ctx context.Context, jobID uuid.UUI
 	return scanJobAppListWithCursor(rows, limit)
 }
 
-func (r *JobApplicationRepository) ListByApplicant(ctx context.Context, applicantID uuid.UUID, cursorStr string, limit int) ([]*job.JobApplication, string, error) {
+func (r *JobApplicationRepository) ListByApplicantOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*job.JobApplication, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	if limit <= 0 || limit > 100 {
@@ -121,16 +121,16 @@ func (r *JobApplicationRepository) ListByApplicant(ctx context.Context, applican
 	var rows *sql.Rows
 	var err error
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListJobAppsByApplicantFirst, applicantID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListJobAppsByApplicantOrgFirst, orgID, limit+1)
 	} else {
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListJobAppsByApplicantWithCursor, applicantID, c.CreatedAt, c.ID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListJobAppsByApplicantOrgWithCursor, orgID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("list job applications by applicant: %w", err)
+		return nil, "", fmt.Errorf("list job applications by applicant organization: %w", err)
 	}
 	defer rows.Close()
 	return scanJobAppListWithCursor(rows, limit)
@@ -151,7 +151,7 @@ func (r *JobApplicationRepository) CountByJob(ctx context.Context, jobID uuid.UU
 func scanJobApp(row *sql.Row) (*job.JobApplication, error) {
 	app := &job.JobApplication{}
 	err := row.Scan(
-		&app.ID, &app.JobID, &app.ApplicantID, &app.Message,
+		&app.ID, &app.JobID, &app.ApplicantID, &app.ApplicantOrganizationID, &app.Message,
 		&app.VideoURL, &app.CreatedAt, &app.UpdatedAt,
 	)
 	if err != nil {
@@ -163,7 +163,7 @@ func scanJobApp(row *sql.Row) (*job.JobApplication, error) {
 func scanJobAppFromRows(rows *sql.Rows) (*job.JobApplication, error) {
 	app := &job.JobApplication{}
 	err := rows.Scan(
-		&app.ID, &app.JobID, &app.ApplicantID, &app.Message,
+		&app.ID, &app.JobID, &app.ApplicantID, &app.ApplicantOrganizationID, &app.Message,
 		&app.VideoURL, &app.CreatedAt, &app.UpdatedAt,
 	)
 	if err != nil {

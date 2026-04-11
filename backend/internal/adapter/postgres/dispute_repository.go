@@ -31,7 +31,8 @@ func (r *DisputeRepository) Create(ctx context.Context, d *dispute.Dispute) erro
 
 	_, err := r.db.ExecContext(ctx, queryInsertDispute,
 		d.ID, d.ProposalID, d.ConversationID, d.InitiatorID, d.RespondentID,
-		d.ClientID, d.ProviderID, string(d.Reason), d.Description,
+		d.ClientID, d.ProviderID, d.ClientOrganizationID, d.ProviderOrganizationID,
+		string(d.Reason), d.Description,
 		d.RequestedAmount, d.ProposalAmount, string(d.Status),
 		d.ResolutionType, d.ResolutionAmountClient, d.ResolutionAmountProvider,
 		d.ResolvedBy, d.ResolutionNote, d.AISummary,
@@ -111,7 +112,7 @@ func (r *DisputeRepository) Update(ctx context.Context, d *dispute.Dispute) erro
 // Listings
 // ---------------------------------------------------------------------------
 
-func (r *DisputeRepository) ListByUserID(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*dispute.Dispute, string, error) {
+func (r *DisputeRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*dispute.Dispute, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -122,16 +123,16 @@ func (r *DisputeRepository) ListByUserID(ctx context.Context, userID uuid.UUID, 
 	var rows *sql.Rows
 	var err error
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListDisputesByUserFirst, userID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListDisputesByOrgFirst, orgID, limit+1)
 	} else {
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListDisputesByUserWithCursor, userID, c.CreatedAt, c.ID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListDisputesByOrgWithCursor, orgID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("list disputes by user: %w", err)
+		return nil, "", fmt.Errorf("list disputes by organization: %w", err)
 	}
 	defer rows.Close()
 
@@ -405,7 +406,8 @@ func scanDispute(row *sql.Row) (*dispute.Dispute, error) {
 
 	err := row.Scan(
 		&d.ID, &d.ProposalID, &d.ConversationID, &d.InitiatorID, &d.RespondentID,
-		&d.ClientID, &d.ProviderID, &reason, &d.Description,
+		&d.ClientID, &d.ProviderID, &d.ClientOrganizationID, &d.ProviderOrganizationID,
+		&reason, &d.Description,
 		&d.RequestedAmount, &d.ProposalAmount, &status,
 		&resType, &d.ResolutionAmountClient, &d.ResolutionAmountProvider,
 		&d.ResolvedBy, &d.ResolutionNote, &d.AISummary,
@@ -437,7 +439,8 @@ func scanDisputeFromRows(rows *sql.Rows) (*dispute.Dispute, error) {
 
 	err := rows.Scan(
 		&d.ID, &d.ProposalID, &d.ConversationID, &d.InitiatorID, &d.RespondentID,
-		&d.ClientID, &d.ProviderID, &reason, &d.Description,
+		&d.ClientID, &d.ProviderID, &d.ClientOrganizationID, &d.ProviderOrganizationID,
+		&reason, &d.Description,
 		&d.RequestedAmount, &d.ProposalAmount, &status,
 		&resType, &d.ResolutionAmountClient, &d.ResolutionAmountProvider,
 		&d.ResolvedBy, &d.ResolutionNote, &d.AISummary,

@@ -2,11 +2,13 @@ package review
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domain "marketplace-backend/internal/domain/review"
+	userdomain "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
@@ -37,14 +39,14 @@ func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Rev
 	return nil, domain.ErrNotFound
 }
 
-func (m *mockReviewRepo) ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error) {
+func (m *mockReviewRepo) ListByReviewedOrganization(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error) {
 	if m.listByUserFn != nil {
 		return m.listByUserFn(ctx, userID, cursor, limit)
 	}
 	return nil, "", nil
 }
 
-func (m *mockReviewRepo) GetAverageRating(ctx context.Context, userID uuid.UUID) (*domain.AverageRating, error) {
+func (m *mockReviewRepo) GetAverageRatingByOrganization(ctx context.Context, userID uuid.UUID) (*domain.AverageRating, error) {
 	if m.getAverageFn != nil {
 		return m.getAverageFn(ctx, userID)
 	}
@@ -145,3 +147,60 @@ func (m *mockNotificationSender) Send(ctx context.Context, input service.Notific
 	return nil
 }
 func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) { return 0, 0, nil }
+
+// --- mockUserRepo (minimal, org-aware) ---
+
+type mockUserRepo struct{}
+
+func (m *mockUserRepo) Create(context.Context, *userdomain.User) error { return nil }
+func (m *mockUserRepo) GetByID(_ context.Context, id uuid.UUID) (*userdomain.User, error) {
+	// Every user in review tests has a stub personal org so CreateReview
+	// can resolve both parties' orgs without requiring explicit wiring
+	// in every test case.
+	stubOrg := uuid.New()
+	return &userdomain.User{ID: id, OrganizationID: &stubOrg}, nil
+}
+func (m *mockUserRepo) GetByEmail(context.Context, string) (*userdomain.User, error) {
+	return nil, userdomain.ErrUserNotFound
+}
+func (m *mockUserRepo) Update(context.Context, *userdomain.User) error          { return nil }
+func (m *mockUserRepo) Delete(context.Context, uuid.UUID) error                 { return nil }
+func (m *mockUserRepo) ExistsByEmail(context.Context, string) (bool, error)     { return false, nil }
+func (m *mockUserRepo) ListAdmin(context.Context, repository.AdminUserFilters) ([]*userdomain.User, string, error) {
+	return nil, "", nil
+}
+func (m *mockUserRepo) CountAdmin(context.Context, repository.AdminUserFilters) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) CountByRole(context.Context) (map[string]int, error) { return nil, nil }
+func (m *mockUserRepo) CountByStatus(context.Context) (map[string]int, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) RecentSignups(context.Context, int) ([]*userdomain.User, error) {
+	return nil, nil
+}
+func (m *mockUserRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockUserRepo) FindUserIDByStripeAccount(context.Context, string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *mockUserRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
+	return nil
+}
+func (m *mockUserRepo) ClearStripeAccount(context.Context, uuid.UUID) error           { return nil }
+func (m *mockUserRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) { return nil, nil }
+func (m *mockUserRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error  { return nil }
+func (m *mockUserRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
+	return nil
+}
+func (m *mockUserRepo) GetKYCPendingUsers(context.Context) ([]*userdomain.User, error) { return nil, nil }
+func (m *mockUserRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+	return nil
+}
+func (m *mockUserRepo) BumpSessionVersion(context.Context, uuid.UUID) (int, error) {
+	return 0, nil
+}
+func (m *mockUserRepo) GetSessionVersion(context.Context, uuid.UUID) (int, error) {
+	return 0, nil
+}

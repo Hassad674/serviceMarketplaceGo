@@ -92,6 +92,13 @@ type Dispute struct {
 	ClientID       uuid.UUID
 	ProviderID     uuid.UUID
 
+	// Denormalized org anchors (R3 extended): the client's and
+	// provider's current organization at the moment the dispute was
+	// opened. Used to scope ListByOrganization so every operator of
+	// either org sees the dispute in their list.
+	ClientOrganizationID   uuid.UUID
+	ProviderOrganizationID uuid.UUID
+
 	Reason          Reason
 	Description     string
 	RequestedAmount int64
@@ -138,16 +145,18 @@ type Dispute struct {
 // ---------------------------------------------------------------------------
 
 type NewDisputeInput struct {
-	ProposalID      uuid.UUID
-	ConversationID  uuid.UUID
-	InitiatorID     uuid.UUID
-	RespondentID    uuid.UUID
-	ClientID        uuid.UUID
-	ProviderID      uuid.UUID
-	Reason          Reason
-	Description     string
-	RequestedAmount int64
-	ProposalAmount  int64
+	ProposalID             uuid.UUID
+	ConversationID         uuid.UUID
+	InitiatorID            uuid.UUID
+	RespondentID           uuid.UUID
+	ClientID               uuid.UUID
+	ProviderID             uuid.UUID
+	ClientOrganizationID   uuid.UUID
+	ProviderOrganizationID uuid.UUID
+	Reason                 Reason
+	Description            string
+	RequestedAmount        int64
+	ProposalAmount         int64
 }
 
 func NewDispute(in NewDisputeInput) (*Dispute, error) {
@@ -168,22 +177,24 @@ func NewDispute(in NewDisputeInput) (*Dispute, error) {
 
 	now := time.Now()
 	return &Dispute{
-		ID:              uuid.New(),
-		ProposalID:      in.ProposalID,
-		ConversationID:  in.ConversationID,
-		InitiatorID:     in.InitiatorID,
-		RespondentID:    in.RespondentID,
-		ClientID:        in.ClientID,
-		ProviderID:      in.ProviderID,
-		Reason:          in.Reason,
-		Description:     in.Description,
-		RequestedAmount: in.RequestedAmount,
-		ProposalAmount:  in.ProposalAmount,
-		Status:          StatusOpen,
-		LastActivityAt:  now,
-		Version:         1,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                     uuid.New(),
+		ProposalID:             in.ProposalID,
+		ConversationID:         in.ConversationID,
+		InitiatorID:            in.InitiatorID,
+		RespondentID:           in.RespondentID,
+		ClientID:               in.ClientID,
+		ProviderID:             in.ProviderID,
+		ClientOrganizationID:   in.ClientOrganizationID,
+		ProviderOrganizationID: in.ProviderOrganizationID,
+		Reason:                 in.Reason,
+		Description:            in.Description,
+		RequestedAmount:        in.RequestedAmount,
+		ProposalAmount:         in.ProposalAmount,
+		Status:                 StatusOpen,
+		LastActivityAt:         now,
+		Version:                1,
+		CreatedAt:              now,
+		UpdatedAt:              now,
 	}, nil
 }
 

@@ -34,8 +34,13 @@ type AdminReview struct {
 type ReviewRepository interface {
 	Create(ctx context.Context, r *review.Review) error
 	GetByID(ctx context.Context, id uuid.UUID) (*review.Review, error)
-	ListByReviewedUser(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*review.Review, string, error)
-	GetAverageRating(ctx context.Context, userID uuid.UUID) (*review.AverageRating, error)
+	// ListByReviewedOrganization returns the reviews received by the
+	// given org (provider side), ordered by created_at DESC. Hidden
+	// reviews are excluded at the SQL level.
+	ListByReviewedOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*review.Review, string, error)
+	// GetAverageRatingByOrganization returns the aggregated rating for
+	// an organization.
+	GetAverageRatingByOrganization(ctx context.Context, orgID uuid.UUID) (*review.AverageRating, error)
 	HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
 	// GetByProposalIDs returns a map of proposalID → review for the given
 	// proposal IDs. Missing entries mean the proposal was not yet reviewed.

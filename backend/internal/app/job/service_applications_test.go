@@ -51,7 +51,8 @@ func TestApplyToJob_Success(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, id uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider}, nil
+		stubOrg := uuid.New()
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg}, nil
 	}
 
 	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -96,7 +97,7 @@ func TestApplyToJob_AlreadyApplied(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider}, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil
 	}
 	ar.getByJobAndApplicantFn = func(_ context.Context, _, _ uuid.UUID) (*domain.JobApplication, error) {
 		return &domain.JobApplication{}, nil // found — already applied
@@ -116,7 +117,7 @@ func TestApplyToJob_TypeMismatch(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider}, nil // provider trying to apply
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil // provider trying to apply
 	}
 
 	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -227,7 +228,7 @@ func TestApplyToJob_NoCreditsLeft(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider}, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil
 	}
 
 	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -254,7 +255,7 @@ func TestApplyToJob_CreditsDecremented(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider}, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil
 	}
 
 	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -274,7 +275,7 @@ func TestApplyToJob_NilCreditsRepo(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider}, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil
 	}
 
 	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -336,7 +337,8 @@ func TestApplyToJob_KYCNotBlocked_OK(t *testing.T) {
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		u := &user.User{ID: id, Role: user.RoleProvider}
+		stubOrg := uuid.New()
+		u := &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &stubOrg}
 		u.KYCFirstEarningAt = &past5
 		return u, nil
 	}
