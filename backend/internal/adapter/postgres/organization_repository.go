@@ -35,14 +35,14 @@ func (r *OrganizationRepository) Create(ctx context.Context, org *organization.O
 
 	query := `
 		INSERT INTO organizations (
-			id, owner_user_id, type,
+			id, owner_user_id, type, name,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err := r.db.ExecContext(ctx, query,
-		org.ID, org.OwnerUserID, string(org.Type),
+		org.ID, org.OwnerUserID, string(org.Type), org.Name,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 		org.CreatedAt, org.UpdatedAt,
 	)
@@ -62,7 +62,7 @@ func (r *OrganizationRepository) FindByID(ctx context.Context, id uuid.UUID) (*o
 	defer cancel()
 
 	query := `
-		SELECT id, owner_user_id, type,
+		SELECT id, owner_user_id, type, name,
 		       pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 		       created_at, updated_at
 		FROM organizations WHERE id = $1`
@@ -78,7 +78,7 @@ func (r *OrganizationRepository) FindByOwnerUserID(ctx context.Context, ownerUse
 	defer cancel()
 
 	query := `
-		SELECT id, owner_user_id, type,
+		SELECT id, owner_user_id, type, name,
 		       pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 		       created_at, updated_at
 		FROM organizations WHERE owner_user_id = $1`
@@ -97,13 +97,14 @@ func (r *OrganizationRepository) Update(ctx context.Context, org *organization.O
 		UPDATE organizations
 		SET owner_user_id                 = $2,
 		    type                          = $3,
-		    pending_transfer_to_user_id   = $4,
-		    pending_transfer_initiated_at = $5,
-		    pending_transfer_expires_at   = $6
+		    name                          = $4,
+		    pending_transfer_to_user_id   = $5,
+		    pending_transfer_initiated_at = $6,
+		    pending_transfer_expires_at   = $7
 		WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query,
-		org.ID, org.OwnerUserID, string(org.Type),
+		org.ID, org.OwnerUserID, string(org.Type), org.Name,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 	)
 	if err != nil {
@@ -181,12 +182,12 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO organizations (
-			id, owner_user_id, type,
+			id, owner_user_id, type, name,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		org.ID, org.OwnerUserID, string(org.Type),
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		org.ID, org.OwnerUserID, string(org.Type), org.Name,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 		org.CreatedAt, org.UpdatedAt,
 	); err != nil {
@@ -234,7 +235,7 @@ func (r *OrganizationRepository) scanOne(row *sql.Row) (*organization.Organizati
 		orgType string
 	)
 	err := row.Scan(
-		&org.ID, &org.OwnerUserID, &orgType,
+		&org.ID, &org.OwnerUserID, &orgType, &org.Name,
 		&org.PendingTransferToUserID, &org.PendingTransferInitiatedAt, &org.PendingTransferExpiresAt,
 		&org.CreatedAt, &org.UpdatedAt,
 	)

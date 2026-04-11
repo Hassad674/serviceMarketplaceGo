@@ -224,7 +224,7 @@ func newTestInvitationService(
 
 func buildOrgAndOwnerMember(t *testing.T, ownerID uuid.UUID) (*organization.Organization, *organization.Member) {
 	t.Helper()
-	org, err := organization.NewOrganization(ownerID, organization.OrgTypeAgency)
+	org, err := organization.NewOrganization(ownerID, organization.OrgTypeAgency, "Acme")
 	require.NoError(t, err)
 	owner, err := organization.NewMember(org.ID, ownerID, organization.RoleOwner, "")
 	require.NoError(t, err)

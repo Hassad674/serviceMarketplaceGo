@@ -1,24 +1,32 @@
 package organization
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-// OrgType identifies the nature of the organization. Mirrors the user's
-// marketplace role (agency or enterprise). Providers are solo and never
-// have an organization.
+// OrgType identifies the nature of the organization. Three values exist
+// post phase R1: agency and enterprise are created by a self-registering
+// founder, and provider_personal is the auto-created org for every solo
+// user (providers, admins) so that invited operators can join them under
+// the same Stripe Dashboard semantics as companies.
 type OrgType string
 
 const (
-	OrgTypeAgency     OrgType = "agency"
-	OrgTypeEnterprise OrgType = "enterprise"
+	OrgTypeAgency           OrgType = "agency"
+	OrgTypeEnterprise       OrgType = "enterprise"
+	OrgTypeProviderPersonal OrgType = "provider_personal"
 )
 
 // IsValid reports whether the org type is a known value.
 func (t OrgType) IsValid() bool {
-	return t == OrgTypeAgency || t == OrgTypeEnterprise
+	switch t {
+	case OrgTypeAgency, OrgTypeEnterprise, OrgTypeProviderPersonal:
+		return true
+	}
+	return false
 }
 
 // String implements fmt.Stringer.
@@ -41,6 +49,7 @@ type Organization struct {
 	ID          uuid.UUID
 	OwnerUserID uuid.UUID
 	Type        OrgType
+	Name        string
 
 	PendingTransferToUserID    *uuid.UUID
 	PendingTransferInitiatedAt *time.Time
@@ -55,16 +64,20 @@ type Organization struct {
 // matching organization_members row with role='owner' inside the same
 // transaction, so the single-Owner invariant is maintained at all times.
 //
-// Providers cannot own an organization — the app layer must verify the
-// user's marketplace role before calling this constructor. The check
-// isn't duplicated here because it would require importing the user
-// package, which would violate the domain isolation rule.
-func NewOrganization(ownerUserID uuid.UUID, orgType OrgType) (*Organization, error) {
+// Every user — Agency founder, Enterprise founder, Provider, admin — gets
+// exactly one organization they own. Providers and admins receive a
+// provider_personal org so that team invitations (operators) work the
+// same way across all marketplace roles.
+func NewOrganization(ownerUserID uuid.UUID, orgType OrgType, name string) (*Organization, error) {
 	if ownerUserID == uuid.Nil {
 		return nil, ErrNameRequired // misuse — owner must exist
 	}
 	if !orgType.IsValid() {
 		return nil, ErrInvalidOrgType
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrNameRequired
 	}
 
 	now := time.Now()
@@ -72,9 +85,23 @@ func NewOrganization(ownerUserID uuid.UUID, orgType OrgType) (*Organization, err
 		ID:          uuid.New(),
 		OwnerUserID: ownerUserID,
 		Type:        orgType,
+		Name:        name,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}, nil
+}
+
+// Rename changes the organization's display name. Used by the team
+// owner to turn the auto-generated personal name into a company name.
+// Returns ErrNameRequired when the new name is blank.
+func (o *Organization) Rename(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ErrNameRequired
+	}
+	o.Name = name
+	o.UpdatedAt = time.Now()
+	return nil
 }
 
 // IsTransferPending reports whether an ownership transfer has been
