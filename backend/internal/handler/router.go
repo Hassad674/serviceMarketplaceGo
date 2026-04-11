@@ -99,6 +99,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// ownership. All protected by auth middleware; each method
 		// enforces its own permission checks at the service layer.
 		if deps.Team != nil {
+			// Static org-scoped routes that do NOT take an orgID URL
+			// param go above the {orgID} route group so chi resolves
+			// them correctly. role-definitions is a global catalogue
+			// (R13: team page "About roles" panel + edit modal preview).
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/organizations/role-definitions", deps.Team.RoleDefinitions)
+			})
+
 			r.Route("/organizations/{orgID}", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
