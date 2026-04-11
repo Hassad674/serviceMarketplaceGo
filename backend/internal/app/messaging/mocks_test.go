@@ -378,6 +378,9 @@ func (m *mockOrgMemberRepo) List(_ context.Context, _ repository.ListMembersPara
 func (m *mockOrgMemberRepo) CountByRole(_ context.Context, _ uuid.UUID) (map[organization.Role]int, error) {
 	return nil, nil
 }
+func (m *mockOrgMemberRepo) CountByUser(_ context.Context, _ uuid.UUID) (int, error) {
+	return 0, nil
+}
 func (m *mockOrgMemberRepo) Update(_ context.Context, _ *organization.Member) error { return nil }
 func (m *mockOrgMemberRepo) Delete(_ context.Context, _ uuid.UUID) error            { return nil }
 func (m *mockOrgMemberRepo) ListMemberUserIDsByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {

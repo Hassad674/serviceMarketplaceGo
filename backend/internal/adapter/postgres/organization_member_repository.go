@@ -175,6 +175,26 @@ func (r *OrganizationMemberRepository) CountByRole(ctx context.Context, orgID uu
 	return result, rows.Err()
 }
 
+// CountByUser counts how many organization_members rows a given user
+// currently has. A value of 0 means the user is either brand new or an
+// orphan operator whose membership was removed without their user row
+// being cleaned up — callers can use that signal to safely reclaim the
+// email address before creating a new invitation.
+func (r *OrganizationMemberRepository) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var count int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM organization_members WHERE user_id = $1`,
+		userID,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count organization members by user: %w", err)
+	}
+	return count, nil
+}
+
 func (r *OrganizationMemberRepository) Update(ctx context.Context, member *organization.Member) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

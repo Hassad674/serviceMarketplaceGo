@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -425,14 +426,30 @@ func (s *InvitationService) requirePermission(ctx context.Context, actorID, orgI
 //   - already a member of THIS org           → ErrAlreadyMember
 //   - already has a pending invitation here  → ErrAlreadyInvited
 //   - already has a marketplace account      → ErrAlreadyMember (V1: use different email)
+//
+// Exception: if the existing user is an orphan operator (account_type =
+// operator, no organization_id, and zero rows in organization_members),
+// the row is a zombie left behind by a previous LeaveOrganization or
+// RemoveMember whose user delete failed. We clean it up in-line so the
+// new invitation can proceed and the owner does not need to chase a DB
+// admin. The cleanup is best-effort — if the delete still fails we fall
+// through and return the usual ErrAlreadyMember so the frontend sees the
+// same consistent error message it did before.
 func (s *InvitationService) checkEmailCollision(ctx context.Context, orgID uuid.UUID, email string) error {
 	// 1. Existing user check (any account with this email)
 	existing, err := s.users.GetByEmail(ctx, email)
 	if err == nil && existing != nil {
-		// The email belongs to an existing account. V1 forbids
-		// reusing it as an operator (enforces "one email = one
-		// account" invariant). The user must use a different email.
-		return organization.ErrAlreadyMember
+		if s.tryReclaimOrphanOperator(ctx, existing, orgID, email) {
+			// Orphan cleanup succeeded — fall through as if the user
+			// never existed. The caller can now create a fresh
+			// invitation with this email.
+		} else {
+			// The email belongs to an existing, non-orphan account. V1
+			// forbids reusing it as an operator (enforces "one email =
+			// one account" invariant). The user must use a different
+			// email.
+			return organization.ErrAlreadyMember
+		}
 	}
 	// user.ErrUserNotFound is expected and fine — we want "no existing user"
 
@@ -441,6 +458,53 @@ func (s *InvitationService) checkEmailCollision(ctx context.Context, orgID uuid.
 		return organization.ErrAlreadyInvited
 	}
 	return nil
+}
+
+// tryReclaimOrphanOperator hard-deletes the given user row IF and ONLY
+// IF the row matches the orphan-operator signature: account_type =
+// operator, no denormalized organization_id, and zero rows in
+// organization_members. Returns true when the delete succeeded and the
+// caller can safely treat the email as reclaimable, false in every other
+// case (including when the user is NOT an orphan, when the count query
+// fails, or when the delete itself fails).
+func (s *InvitationService) tryReclaimOrphanOperator(
+	ctx context.Context,
+	existing *user.User,
+	orgID uuid.UUID,
+	email string,
+) bool {
+	if existing.AccountType != user.AccountTypeOperator || existing.OrganizationID != nil {
+		return false
+	}
+
+	activeMemberCount, countErr := s.members.CountByUser(ctx, existing.ID)
+	if countErr != nil {
+		slog.Warn("invitation: orphan operator check failed",
+			"orphan_user_id", existing.ID,
+			"target_org_id", orgID,
+			"error", countErr,
+		)
+		return false
+	}
+	if activeMemberCount != 0 {
+		return false
+	}
+
+	if delErr := s.users.Delete(ctx, existing.ID); delErr != nil {
+		slog.Warn("invitation: failed to clean up orphan operator before re-invite",
+			"orphan_user_id", existing.ID,
+			"target_org_id", orgID,
+			"error", delErr,
+		)
+		return false
+	}
+
+	slog.Info("invitation: cleaned up orphan operator before re-invite",
+		"orphan_user_id", existing.ID,
+		"orphan_email", email,
+		"target_org_id", orgID,
+	)
+	return true
 }
 
 // sendInvitationEmail renders and dispatches the invitation email. The

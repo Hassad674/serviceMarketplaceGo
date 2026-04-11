@@ -477,6 +477,7 @@
     "deleteMessage": "Supprimer",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce message ?",
     "messageDeleted": "Ce message a été supprimé",
+    "deletedUser": "Utilisateur supprimé",
     "callEnded": "Appel",
     "callMissed": "Appel manqué",
     "messageEdited": "modifié",

@@ -113,6 +113,7 @@ type mockMemberRepo struct {
 	findUserPrimaryOrgFn  func(ctx context.Context, userID uuid.UUID) (*organization.Member, error)
 	listFn                func(ctx context.Context, params repository.ListMembersParams) ([]*organization.Member, string, error)
 	countByRoleFn         func(ctx context.Context, orgID uuid.UUID) (map[organization.Role]int, error)
+	countByUserFn         func(ctx context.Context, userID uuid.UUID) (int, error)
 	updateFn              func(ctx context.Context, member *organization.Member) error
 	deleteFn              func(ctx context.Context, id uuid.UUID) error
 }
@@ -166,6 +167,13 @@ func (m *mockMemberRepo) CountByRole(ctx context.Context, orgID uuid.UUID) (map[
 		return m.countByRoleFn(ctx, orgID)
 	}
 	return nil, nil
+}
+
+func (m *mockMemberRepo) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	if m.countByUserFn != nil {
+		return m.countByUserFn(ctx, userID)
+	}
+	return 0, nil
 }
 
 func (m *mockMemberRepo) Update(ctx context.Context, member *organization.Member) error {

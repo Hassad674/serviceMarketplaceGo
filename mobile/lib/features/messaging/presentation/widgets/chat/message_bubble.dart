@@ -626,6 +626,10 @@ class _ReplyPreviewWidget extends StatelessWidget {
         ? '${replyTo.content.substring(0, 50)}...'
         : replyTo.content;
 
+    final captionColor = isOwn
+        ? Colors.white.withValues(alpha: 0.8)
+        : const Color(0xFF64748B);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -638,18 +642,29 @@ class _ReplyPreviewWidget extends StatelessWidget {
             : const Color(0xFFF43F5E).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Text(
-        truncated.isEmpty
-            ? AppLocalizations.of(context)!.messagingDeleted
-            : truncated,
-        style: TextStyle(
-          fontSize: 12,
-          color: isOwn
-              ? Colors.white.withValues(alpha: 0.8)
-              : const Color(0xFF64748B),
-        ),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (replyTo.hasDeletedSender)
+            Text(
+              'Deleted user',
+              style: TextStyle(
+                fontSize: 10,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w600,
+                color: captionColor,
+              ),
+            ),
+          Text(
+            truncated.isEmpty
+                ? AppLocalizations.of(context)!.messagingDeleted
+                : truncated,
+            style: TextStyle(fontSize: 12, color: captionColor),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }

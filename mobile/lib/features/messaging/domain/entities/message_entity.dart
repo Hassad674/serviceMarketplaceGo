@@ -1,7 +1,12 @@
 /// Lightweight preview of a replied-to message.
 class ReplyToInfo {
   final String id;
-  final String senderId;
+
+  /// Sender of the quoted message. Nullable because Postgres sets
+  /// `messages.sender_id` to NULL when the original user is hard-deleted
+  /// (e.g. an operator who left their organization). The UI shows a
+  /// "Deleted user" label in that case.
+  final String? senderId;
   final String content;
   final String type;
 
@@ -12,10 +17,12 @@ class ReplyToInfo {
     required this.type,
   });
 
+  bool get hasDeletedSender => senderId == null;
+
   factory ReplyToInfo.fromJson(Map<String, dynamic> json) {
     return ReplyToInfo(
       id: json['id'] as String,
-      senderId: json['sender_id'] as String,
+      senderId: json['sender_id'] as String?,
       content: json['content'] as String? ?? '',
       type: json['type'] as String? ?? 'text',
     );
@@ -29,7 +36,13 @@ class ReplyToInfo {
 class MessageEntity {
   final String id;
   final String conversationId;
-  final String senderId;
+
+  /// Nullable: see `ReplyToInfo.senderId`. A null value means the
+  /// message was sent by a user whose account has since been hard-
+  /// deleted (operator removed / left org path). The UI renders such
+  /// messages as "from a deleted user" — NOT as the current viewer's
+  /// own message.
+  final String? senderId;
   final String content;
   final String type; // "text" | "file" | "voice" | "proposal_*" | "call_*" | ...
   final Map<String, dynamic>? metadata;
@@ -59,7 +72,7 @@ class MessageEntity {
     return MessageEntity(
       id: json['id'] as String,
       conversationId: json['conversation_id'] as String,
-      senderId: json['sender_id'] as String,
+      senderId: json['sender_id'] as String?,
       content: json['content'] as String? ?? '',
       type: json['type'] as String? ?? 'text',
       metadata: json['metadata'] as Map<String, dynamic>?,
@@ -97,6 +110,11 @@ class MessageEntity {
       'created_at': createdAt,
     };
   }
+
+  /// True when the message's original sender has been hard-deleted.
+  /// UI layers can use this to show a "Deleted user" label and a
+  /// silhouette avatar instead of treating it as an own/other message.
+  bool get hasDeletedSender => senderId == null;
 
   bool get isDeleted => deletedAt != null;
   bool get isEdited => editedAt != null;

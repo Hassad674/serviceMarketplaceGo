@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -248,10 +249,29 @@ func (s *MembershipService) RemoveMember(
 
 	// Operator accounts are deleted entirely. Marketplace owners keep
 	// their accounts since they have a life outside this org.
+	//
+	// IMPORTANT: the membership row is already gone by the time we get
+	// here. If the users.Delete call fails (e.g. a legacy FK constraint
+	// blocks the cascade), returning an error would cause the HTTP
+	// handler to respond 5xx and leave the user in an orphan state —
+	// users row still present, organization_members row absent,
+	// organization_id NULL. The owner would then be unable to re-invite
+	// that email because checkEmailCollision would see the zombie user.
+	//
+	// We swallow the error on purpose and log it with a greppable tag
+	// ("orphan_operator_after_delete_failure"). The next time someone
+	// tries to re-invite that email, checkEmailCollision detects the
+	// orphan and cleans it up automatically, so the bug is self-healing.
 	targetUser, err := s.users.GetByID(ctx, targetUserID)
 	if err == nil && targetUser.AccountType == user.AccountTypeOperator {
 		if err := s.users.Delete(ctx, targetUserID); err != nil {
-			return fmt.Errorf("remove member: delete operator user: %w", err)
+			slog.Warn("orphan_operator_after_delete_failure",
+				"source", "remove_member",
+				"user_id", targetUserID,
+				"org_id", orgID,
+				"actor_id", actorID,
+				"error", err,
+			)
 		}
 	}
 	return nil
@@ -297,10 +317,20 @@ func (s *MembershipService) LeaveOrganization(
 		notifyMemberLeft(ctx, s.notifications, org.OwnerUserID, leaver, org)
 	}
 
+	// See RemoveMember for the rationale — we swallow the delete error
+	// and log it with a greppable tag so operators can audit orphan
+	// creation without blocking the leave flow for the end user. The
+	// membership row is already gone at this point; returning a 5xx
+	// here would leave the user trapped in a broken state.
 	u, err := s.users.GetByID(ctx, userID)
 	if err == nil && u.AccountType == user.AccountTypeOperator {
 		if err := s.users.Delete(ctx, userID); err != nil {
-			return fmt.Errorf("leave organization: delete operator user: %w", err)
+			slog.Warn("orphan_operator_after_delete_failure",
+				"source", "leave_organization",
+				"user_id", userID,
+				"org_id", orgID,
+				"error", err,
+			)
 		}
 	}
 	return nil

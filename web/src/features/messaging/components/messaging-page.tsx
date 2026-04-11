@@ -36,7 +36,7 @@ export function MessagingPage() {
   const [orgTypeFilter, setOrgTypeFilter] = useState<"all" | string>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
-  const [replyTo, setReplyTo] = useState<{ id: string; senderId: string; senderName: string; content: string; type: string } | null>(null)
+  const [replyTo, setReplyTo] = useState<{ id: string; senderId: string | null; senderName: string; content: string; type: string } | null>(null)
   const [reviewTarget, setReviewTarget] = useState<{ proposalId: string; proposalTitle: string } | null>(null)
   const [reportTarget, setReportTarget] = useState<{ type: "message" | "user"; id: string } | null>(null)
 
@@ -158,12 +158,21 @@ export function MessagingPage() {
 
   const handleReply = useCallback(
     (message: Message) => {
-      const senderName = message.sender_id === user?.id
-        ? (user?.display_name ?? "You")
-        : (activeConversation?.other_org_name ?? "")
+      // When message.sender_id is null the original sender was hard-
+      // deleted (e.g. an operator who left their org). Render a
+      // "Deleted user" label instead of falling back to the other
+      // conversation participant's name — that would be misleading.
+      let senderName: string
+      if (message.sender_id === null) {
+        senderName = t("deletedUser")
+      } else if (message.sender_id === user?.id) {
+        senderName = user?.display_name ?? "You"
+      } else {
+        senderName = activeConversation?.other_org_name ?? ""
+      }
       setReplyTo({ id: message.id, senderId: message.sender_id, senderName, content: message.content, type: message.type })
     },
-    [user?.id, user?.display_name, activeConversation?.other_org_name],
+    [user?.id, user?.display_name, activeConversation?.other_org_name, t],
   )
 
   const clearReply = useCallback(() => setReplyTo(null), [])

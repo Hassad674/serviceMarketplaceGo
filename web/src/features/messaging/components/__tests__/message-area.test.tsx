@@ -329,6 +329,55 @@ describe("MessageArea", () => {
     expect(screen.queryByTestId("delete-btn")).toBeNull()
   })
 
+  it("renders messages whose sender was hard-deleted as not-own", () => {
+    // After migration 076 operator hard-delete is possible: when a
+    // former operator is removed, the user row disappears but their
+    // messages stay with sender_id = null. They must not look like
+    // "own" messages.
+    const messages = [
+      createMessage({ id: "msg-1", sender_id: null, content: "from a deleted user" }),
+    ]
+    const { container } = render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    // Content still rendered…
+    expect(screen.getByText("from a deleted user")).toBeDefined()
+    // …but layout is "other user" (no flex-row-reverse on the group row).
+    const groupDivs = Array.from(container.querySelectorAll("div")).filter((el) =>
+      el.className.includes("group"),
+    )
+    expect(groupDivs.length).toBeGreaterThan(0)
+    expect(groupDivs[0].className).not.toContain("flex-row-reverse")
+    // No own-only controls
+    expect(screen.queryByTestId("edit-btn")).toBeNull()
+    expect(screen.queryByTestId("delete-btn")).toBeNull()
+  })
+
+  it("labels reply previews whose original sender was deleted", () => {
+    const messages = [
+      createMessage({
+        id: "msg-2",
+        sender_id: "user-1",
+        content: "replying to nobody",
+        reply_to: {
+          id: "msg-1",
+          sender_id: null, // original author was hard-deleted
+          content: "gone forever",
+          type: "text",
+        },
+      }),
+    ]
+    render(
+      <MessageArea {...defaultProps({ messages, currentUserId: "user-1" })} />,
+    )
+
+    // The "deletedUser" i18n key is rendered (the mock just returns the key).
+    expect(screen.getByText("deletedUser")).toBeDefined()
+    // Reply content preview still shows alongside.
+    expect(screen.getByText(/gone forever/)).toBeDefined()
+  })
+
   it("treats optimistic sender as own message", () => {
     const messages = [
       createMessage({ id: "temp-123", sender_id: "optimistic", content: "Sending..." }),

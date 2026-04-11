@@ -46,7 +46,7 @@ export function useSendMessage(conversationId: string | null) {
       type?: "text" | "file" | "voice"
       metadata?: FileMessageMetadata | VoiceMessageMetadata
       replyToId?: string
-      replyToInfo?: { id: string; sender_id: string; content: string; type: string }
+      replyToInfo?: { id: string; sender_id: string | null; content: string; type: string }
     }) => sendMessage(conversationId!, content, type, metadata, replyToId),
 
     onMutate: async ({ content, type = "text", metadata, replyToInfo }) => {

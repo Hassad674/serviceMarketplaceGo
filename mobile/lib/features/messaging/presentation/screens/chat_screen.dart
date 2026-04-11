@@ -643,10 +643,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             onAttach: _pickAndSendFile,
             onProposal: _openProposalScreen,
             onVoiceRecorded: _sendVoiceMessage,
+            // Three-way label for the reply preview: own user, deleted
+            // user (senderId == null because the former operator was
+            // hard-deleted), or the other conversation participant.
             replyToName: _replyToMessage != null
-                ? (_replyToMessage!.senderId == currentUserId
-                    ? 'You'
-                    : conversation?.otherOrgName ?? '')
+                ? (_replyToMessage!.hasDeletedSender
+                    ? 'Deleted user'
+                    : _replyToMessage!.senderId == currentUserId
+                        ? 'You'
+                        : conversation?.otherOrgName ?? '')
                 : null,
             replyToContent: _replyToMessage?.content,
             onCancelReply: _cancelReply,

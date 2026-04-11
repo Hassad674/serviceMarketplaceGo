@@ -53,6 +53,14 @@ type OrganizationMemberRepository interface {
 	// the last Owner".
 	CountByRole(ctx context.Context, orgID uuid.UUID) (map[organization.Role]int, error)
 
+	// CountByUser returns how many organization_members rows exist for
+	// the given user across ALL organizations. Used by the invitation
+	// service to detect orphan operators — users whose users row still
+	// exists but who are members of no organization (usually because a
+	// previous LeaveOrganization / RemoveMember could not hard-delete
+	// the user). Returns 0 when the user has no memberships at all.
+	CountByUser(ctx context.Context, userID uuid.UUID) (int, error)
+
 	// Update persists changes (role, title) on an existing membership.
 	Update(ctx context.Context, member *organization.Member) error
 

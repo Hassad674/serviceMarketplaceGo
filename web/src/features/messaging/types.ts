@@ -58,7 +58,11 @@ export type ProposalMessageMetadata = {
 
 export type ReplyToInfo = {
   id: string
-  sender_id: string
+  // sender_id is nullable: when the original sender's account has been
+  // hard-deleted (e.g. an operator who left an organization), Postgres
+  // sets the column to NULL via ON DELETE SET NULL. The UI renders
+  // "Deleted user" for those rows.
+  sender_id: string | null
   content: string
   type: string
 }
@@ -66,7 +70,11 @@ export type ReplyToInfo = {
 export type Message = {
   id: string
   conversation_id: string
-  sender_id: string
+  // sender_id is nullable for the same reason as ReplyToInfo.sender_id:
+  // a hard-deleted user (operator removed/left) leaves their message
+  // history behind with a NULL sender pointer. See migration 076 and
+  // the messaging CLAUDE notes for the rationale.
+  sender_id: string | null
   content: string
   type: MessageType
   metadata: FileMetadata | VoiceMetadata | ProposalMessageMetadata | null

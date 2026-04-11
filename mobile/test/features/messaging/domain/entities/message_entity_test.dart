@@ -205,6 +205,64 @@ void main() {
       expect(restored.createdAt, original.createdAt);
     });
 
+    // ---- nullable senderId (R18) ---------------------------------
+    test('fromJson accepts null sender_id', () {
+      final json = {
+        'id': 'msg-40',
+        'conversation_id': 'conv-20',
+        'sender_id': null,
+        'content': 'left behind by a deleted operator',
+        'created_at': '2026-04-10T08:00:00Z',
+      };
+
+      final message = MessageEntity.fromJson(json);
+      expect(message.senderId, isNull);
+      expect(message.hasDeletedSender, isTrue);
+      expect(message.content, 'left behind by a deleted operator');
+    });
+
+    test('fromJson preserves sender_id when present', () {
+      final json = {
+        'id': 'msg-41',
+        'conversation_id': 'conv-20',
+        'sender_id': 'user-9',
+        'content': 'alive and well',
+        'created_at': '2026-04-10T08:00:00Z',
+      };
+
+      final message = MessageEntity.fromJson(json);
+      expect(message.senderId, 'user-9');
+      expect(message.hasDeletedSender, isFalse);
+    });
+
+    test('toJson serializes null senderId as null', () {
+      const message = MessageEntity(
+        id: 'msg-42',
+        conversationId: 'conv-21',
+        senderId: null,
+        content: 'ghost message',
+        createdAt: '2026-04-10T08:00:00Z',
+      );
+
+      final json = message.toJson();
+      expect(json.containsKey('sender_id'), isTrue);
+      expect(json['sender_id'], isNull);
+    });
+
+    test('ReplyToInfo.fromJson accepts null sender_id', () {
+      final json = {
+        'id': 'reply-1',
+        'sender_id': null,
+        'content': 'original from a deleted user',
+        'type': 'text',
+      };
+
+      final reply = ReplyToInfo.fromJson(json);
+      expect(reply.senderId, isNull);
+      expect(reply.hasDeletedSender, isTrue);
+      expect(reply.content, 'original from a deleted user');
+    });
+
     test('copyWith overrides specified fields only', () {
       const original = MessageEntity(
         id: 'msg-1',

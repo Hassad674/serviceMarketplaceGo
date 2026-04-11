@@ -669,9 +669,16 @@ function ReplyPreviewBlock({
   replyTo: ReplyToInfo
   isOwn: boolean
 }) {
+  const t = useTranslations("messaging")
   const truncated = replyTo.content.length > 80
     ? replyTo.content.slice(0, 80) + "..."
     : replyTo.content
+
+  // When the original sender was hard-deleted (e.g. an operator who
+  // left their org) the replyTo.sender_id is null. Surface that in the
+  // reply header so nobody can mistake the quote for someone else's
+  // words.
+  const isDeletedAuthor = replyTo.sender_id === null
 
   return (
     <div
@@ -682,6 +689,18 @@ function ReplyPreviewBlock({
           : "bg-rose-500/8 dark:bg-rose-400/10",
       )}
     >
+      {isDeletedAuthor && (
+        <p
+          className={cn(
+            "text-[10px] font-semibold italic",
+            isOwn
+              ? "text-white/80"
+              : "text-slate-500 dark:text-slate-400",
+          )}
+        >
+          {t("deletedUser")}
+        </p>
+      )}
       <p
         className={cn(
           "truncate text-xs",

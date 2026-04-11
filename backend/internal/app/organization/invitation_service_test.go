@@ -24,6 +24,8 @@ type mockUserRepoForInvites struct {
 	getByEmailFn    func(ctx context.Context, email string) (*user.User, error)
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*user.User, error)
 	existsByEmailFn func(ctx context.Context, email string) (bool, error)
+	deleteFn        func(ctx context.Context, id uuid.UUID) error
+	deleteCalls     []uuid.UUID
 }
 
 var _ repository.UserRepository = (*mockUserRepoForInvites)(nil)
@@ -42,7 +44,13 @@ func (m *mockUserRepoForInvites) GetByEmail(ctx context.Context, email string) (
 	return nil, user.ErrUserNotFound
 }
 func (m *mockUserRepoForInvites) Update(_ context.Context, _ *user.User) error { return nil }
-func (m *mockUserRepoForInvites) Delete(_ context.Context, _ uuid.UUID) error  { return nil }
+func (m *mockUserRepoForInvites) Delete(ctx context.Context, id uuid.UUID) error {
+	m.deleteCalls = append(m.deleteCalls, id)
+	if m.deleteFn != nil {
+		return m.deleteFn(ctx, id)
+	}
+	return nil
+}
 func (m *mockUserRepoForInvites) ExistsByEmail(ctx context.Context, email string) (bool, error) {
 	if m.existsByEmailFn != nil {
 		return m.existsByEmailFn(ctx, email)
@@ -367,6 +375,164 @@ func TestInvitationService_SendInvitation_RejectsExistingEmail(t *testing.T) {
 		Role:           organization.RoleMember,
 	})
 	assert.ErrorIs(t, err, organization.ErrAlreadyMember)
+}
+
+// TestInvitationService_SendInvitation_ReclaimsOrphanOperator verifies
+// that an orphan operator (account_type=operator, no org, zero active
+// memberships) is auto-deleted before the invitation flow proceeds,
+// allowing the email to be re-invited in one call instead of requiring
+// a manual DB cleanup. This is the self-healing path for the R18 bug.
+func TestInvitationService_SendInvitation_ReclaimsOrphanOperator(t *testing.T) {
+	ownerID := uuid.New()
+	org, owner := buildOrgAndOwnerMember(t, ownerID)
+
+	orphanID := uuid.New()
+	orphan := &user.User{
+		ID:             orphanID,
+		Email:          "orphan@example.test",
+		AccountType:    user.AccountTypeOperator,
+		OrganizationID: nil, // no org — zombie state
+	}
+
+	orgs := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) { return org, nil },
+	}
+	members := &mockMemberRepo{
+		findByOrgAndUserFn: func(_ context.Context, _, userID uuid.UUID) (*organization.Member, error) {
+			if userID == ownerID {
+				return owner, nil
+			}
+			return nil, organization.ErrMemberNotFound
+		},
+		countByUserFn: func(_ context.Context, userID uuid.UUID) (int, error) {
+			if userID == orphanID {
+				return 0, nil // orphan — zero memberships
+			}
+			return 0, nil
+		},
+	}
+	users := &mockUserRepoForInvites{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return orphan, nil
+		},
+	}
+	invRepo := newTrackingInvitationRepo()
+	svc := newTestInvitationService(orgs, members, invRepo, users, nil, nil)
+
+	inv, err := svc.SendInvitation(context.Background(), SendInvitationInput{
+		InviterUserID:  ownerID,
+		OrganizationID: org.ID,
+		Email:          "orphan@example.test",
+		FirstName:      "Re",
+		LastName:       "Invited",
+		Role:           organization.RoleMember,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, inv)
+
+	// Orphan delete happened before the new invitation was created.
+	require.Len(t, users.deleteCalls, 1)
+	assert.Equal(t, orphanID, users.deleteCalls[0])
+	// The new invitation was persisted.
+	assert.Len(t, invRepo.createdInvitations, 1)
+}
+
+// TestInvitationService_SendInvitation_KeepsBlockingNonOrphanOperator
+// verifies that when an existing operator still has active memberships,
+// we do NOT delete them — we fall through to ErrAlreadyMember. This
+// protects users who are legitimately operators in another org.
+func TestInvitationService_SendInvitation_KeepsBlockingNonOrphanOperator(t *testing.T) {
+	ownerID := uuid.New()
+	org, owner := buildOrgAndOwnerMember(t, ownerID)
+
+	activeID := uuid.New()
+	active := &user.User{
+		ID:          activeID,
+		Email:       "active@example.test",
+		AccountType: user.AccountTypeOperator,
+	}
+
+	orgs := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) { return org, nil },
+	}
+	members := &mockMemberRepo{
+		findByOrgAndUserFn: func(_ context.Context, _, userID uuid.UUID) (*organization.Member, error) {
+			if userID == ownerID {
+				return owner, nil
+			}
+			return nil, organization.ErrMemberNotFound
+		},
+		countByUserFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 1, nil // still a member somewhere
+		},
+	}
+	users := &mockUserRepoForInvites{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return active, nil
+		},
+	}
+	svc := newTestInvitationService(orgs, members, nil, users, nil, nil)
+
+	_, err := svc.SendInvitation(context.Background(), SendInvitationInput{
+		InviterUserID:  ownerID,
+		OrganizationID: org.ID,
+		Email:          "active@example.test",
+		FirstName:      "X",
+		LastName:       "Y",
+		Role:           organization.RoleMember,
+	})
+	assert.ErrorIs(t, err, organization.ErrAlreadyMember)
+	// Must NOT delete an active operator.
+	assert.Empty(t, users.deleteCalls)
+}
+
+// TestInvitationService_SendInvitation_OrphanDeleteFailureStillBlocks
+// verifies that when the orphan cleanup delete fails, the frontend
+// still sees ErrAlreadyMember (the consistent error message stays).
+func TestInvitationService_SendInvitation_OrphanDeleteFailureStillBlocks(t *testing.T) {
+	ownerID := uuid.New()
+	org, owner := buildOrgAndOwnerMember(t, ownerID)
+
+	orphanID := uuid.New()
+	orphan := &user.User{
+		ID:          orphanID,
+		Email:       "orphan@example.test",
+		AccountType: user.AccountTypeOperator,
+	}
+
+	orgs := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) { return org, nil },
+	}
+	members := &mockMemberRepo{
+		findByOrgAndUserFn: func(_ context.Context, _, userID uuid.UUID) (*organization.Member, error) {
+			if userID == ownerID {
+				return owner, nil
+			}
+			return nil, organization.ErrMemberNotFound
+		},
+		countByUserFn: func(_ context.Context, _ uuid.UUID) (int, error) { return 0, nil },
+	}
+	users := &mockUserRepoForInvites{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return orphan, nil
+		},
+		deleteFn: func(_ context.Context, _ uuid.UUID) error {
+			return errors.New("fk constraint: messages_sender_fkey")
+		},
+	}
+	svc := newTestInvitationService(orgs, members, nil, users, nil, nil)
+
+	_, err := svc.SendInvitation(context.Background(), SendInvitationInput{
+		InviterUserID:  ownerID,
+		OrganizationID: org.ID,
+		Email:          "orphan@example.test",
+		FirstName:      "X",
+		LastName:       "Y",
+		Role:           organization.RoleMember,
+	})
+	assert.ErrorIs(t, err, organization.ErrAlreadyMember)
+	// We tried to delete once (and failed).
+	assert.Len(t, users.deleteCalls, 1)
 }
 
 func TestInvitationService_SendInvitation_RateLimited(t *testing.T) {
