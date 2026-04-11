@@ -105,8 +105,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
         organization: org,
       );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        // Token expired and refresh failed — clear and go to login.
+      // 401: access token expired AND refresh failed (normal sign-out).
+      // 404: R16 fallback — some older backends returned 404 when the
+      //      user row was deleted (e.g. operator who left their org)
+      //      instead of the correct 401 session_invalid. Treat it the
+      //      same so the app doesn't get stuck in a zombie "logged-in
+      //      but deleted" state if it ever talks to such a backend.
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 404) {
         await _storage.clearAll();
         state = state.copyWith(status: AuthStatus.unauthenticated);
       } else {

@@ -2,18 +2,30 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// --- mock session version checker ---
+
+type mockSessionVersionChecker struct {
+	getFn func(ctx context.Context, userID uuid.UUID) (int, error)
+}
+
+func (m *mockSessionVersionChecker) GetSessionVersion(ctx context.Context, userID uuid.UUID) (int, error) {
+	return m.getFn(ctx, userID)
+}
 
 // --- mock types (local to this test file) ---
 
@@ -281,4 +293,182 @@ func TestAuth_SessionTakesPriorityOverBearer(t *testing.T) {
 
 	assert.Equal(t, sessionUID, ctxUID, "session user must take priority")
 	assert.Equal(t, "agency", ctxRole, "session role must take priority")
+}
+
+// R16: when the session version checker reports that the backing user
+// row no longer exists (e.g. an operator who left their org was hard-
+// deleted), the middleware must reject the request with 401
+// session_invalid so the client knows to clear its state and log out.
+// This prevents the "zombie logged-in-but-deleted" state where a
+// frontend keeps polling /auth/me and getting 404.
+func TestAuth_BearerToken_UserDeletedReturns401SessionInvalid(t *testing.T) {
+	userID := uuid.New()
+	tokenSvc := &mockTokenService{
+		validateAccessFn: func(_ string) (*service.TokenClaims, error) {
+			return &service.TokenClaims{
+				UserID:         userID,
+				Role:           "provider",
+				SessionVersion: 1,
+				ExpiresAt:      time.Now().Add(15 * time.Minute),
+			}, nil
+		},
+	}
+	sessionSvc := &mockSessionService{
+		getFn: func(_ context.Context, _ string) (*service.Session, error) {
+			return nil, errors.New("no session")
+		},
+	}
+	checker := &mockSessionVersionChecker{
+		getFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 0, user.ErrUserNotFound
+		},
+	}
+
+	nextCalled := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		nextCalled = true
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.False(t, nextCalled, "next must NOT be called when user is deleted")
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "session_invalid", body["error"],
+		"deleted user must produce 'session_invalid' (not 'session_revoked') so the client logs out")
+}
+
+// Mirror of the bearer test above for the session cookie path (web clients).
+func TestAuth_SessionCookie_UserDeletedReturns401SessionInvalid(t *testing.T) {
+	userID := uuid.New()
+	sessionSvc := &mockSessionService{
+		getFn: func(_ context.Context, _ string) (*service.Session, error) {
+			return &service.Session{
+				ID:             "sess-zombie",
+				UserID:         userID,
+				Role:           "provider",
+				SessionVersion: 1,
+			}, nil
+		},
+	}
+	tokenSvc := &mockTokenService{
+		validateAccessFn: func(_ string) (*service.TokenClaims, error) {
+			return nil, errors.New("should not be called")
+		},
+	}
+	checker := &mockSessionVersionChecker{
+		getFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 0, user.ErrUserNotFound
+		},
+	}
+
+	nextCalled := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		nextCalled = true
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: "sess-zombie"})
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.False(t, nextCalled, "next must NOT be called when user is deleted")
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "session_invalid", body["error"])
+}
+
+// Transient errors from the session version checker must still fall
+// through (fail-open), otherwise a DB blip would lock out every user.
+// Only user.ErrUserNotFound is treated as a hard revocation signal.
+func TestAuth_BearerToken_TransientCheckerErrorFailsOpen(t *testing.T) {
+	userID := uuid.New()
+	tokenSvc := &mockTokenService{
+		validateAccessFn: func(_ string) (*service.TokenClaims, error) {
+			return &service.TokenClaims{
+				UserID:         userID,
+				Role:           "provider",
+				SessionVersion: 1,
+			}, nil
+		},
+	}
+	sessionSvc := &mockSessionService{
+		getFn: func(_ context.Context, _ string) (*service.Session, error) {
+			return nil, errors.New("no session")
+		},
+	}
+	checker := &mockSessionVersionChecker{
+		getFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 0, errors.New("redis connection refused")
+		},
+	}
+
+	nextCalled := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		nextCalled = true
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.True(t, nextCalled, "transient checker error must fail open")
+}
+
+// An explicit session_version bump (carried != current) must still
+// produce the classic 401 session_revoked response.
+func TestAuth_BearerToken_VersionMismatchReturnsSessionRevoked(t *testing.T) {
+	userID := uuid.New()
+	tokenSvc := &mockTokenService{
+		validateAccessFn: func(_ string) (*service.TokenClaims, error) {
+			return &service.TokenClaims{
+				UserID:         userID,
+				Role:           "provider",
+				SessionVersion: 1,
+			}, nil
+		},
+	}
+	sessionSvc := &mockSessionService{
+		getFn: func(_ context.Context, _ string) (*service.Session, error) {
+			return nil, errors.New("no session")
+		},
+	}
+	checker := &mockSessionVersionChecker{
+		getFn: func(_ context.Context, _ uuid.UUID) (int, error) {
+			return 2, nil // DB version 2, token carries 1 → revoked
+		},
+	}
+
+	nextCalled := false
+	next := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		nextCalled = true
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer valid-token")
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	assert.False(t, nextCalled)
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "session_revoked", body["error"])
 }

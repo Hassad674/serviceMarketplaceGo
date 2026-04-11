@@ -14,6 +14,18 @@ const API_URL = API_BASE_URL
 
 const SESSION_QUERY_KEY = ["session"] as const
 
+// Paths that should never trigger the "session died — redirect to login"
+// behaviour. On unauthenticated pages we legitimately expect /auth/me to
+// return 401 (the user isn't logged in yet), and forcing a redirect
+// would break the /login and /register flows.
+const AUTH_PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"]
+
+function isOnPublicAuthPath(): boolean {
+  if (typeof window === "undefined") return true // SSR — never redirect
+  const path = window.location.pathname
+  return AUTH_PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`) || path.includes(p))
+}
+
 export type CurrentUser = {
   id: string
   email: string
@@ -53,7 +65,25 @@ async function fetchSession(): Promise<SessionResponse> {
   const res = await fetch(`${API_URL}/api/v1/auth/me`, {
     credentials: "include",
   })
-  if (!res.ok) throw new Error("Not authenticated")
+  if (!res.ok) {
+    // R16 zombie-session fix: when the backend tells us the session is
+    // no longer valid (401), hard-redirect to /login. This catches two
+    // cases the old "throw new Error" handling swallowed silently:
+    //   1. access cookie expired / not present (normal sign-out flow)
+    //   2. the user account has been deleted (e.g. operator who left
+    //      their org) — backend now returns 401 "session_invalid"
+    //      instead of 404 so the frontend knows to log out instead of
+    //      retrying forever.
+    // We also redirect on 404 as belt-and-braces for older backends
+    // that might still return 404 for this case.
+    if ((res.status === 401 || res.status === 404) && !isOnPublicAuthPath()) {
+      // Hard-redirect destroys the in-memory React tree and the
+      // TanStack Query cache — cheaper and safer than manually
+      // invalidating every query. Mirrors useLogout().
+      window.location.href = "/login"
+    }
+    throw new Error("Not authenticated")
+  }
   return res.json()
 }
 
