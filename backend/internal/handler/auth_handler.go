@@ -177,6 +177,19 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 
 	u, err := h.authService.GetMe(r.Context(), userID)
 	if err != nil {
+		// A missing user row on /auth/me means the authenticated caller's
+		// account has been deleted between the time the session/token was
+		// issued and now — typically when an operator leaves their org
+		// and their account is hard-deleted (see R16). The JWT is still
+		// cryptographically valid, but semantically the session is dead.
+		// Return 401 session_invalid so the client clears state and
+		// redirects to login, instead of 404 which frontends treat as a
+		// benign "not found" and keep polling, leaving the user stuck in
+		// a zombie "logged-in-but-deleted" state.
+		if errors.Is(err, user.ErrUserNotFound) {
+			res.Error(w, http.StatusUnauthorized, "session_invalid", "session is no longer valid — please sign in again")
+			return
+		}
 		handleAuthError(w, err)
 		return
 	}

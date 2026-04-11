@@ -7,12 +7,15 @@ import { useUser, useOrganization, useSession, useLogout } from "../use-user"
 const mockFetch = vi.fn()
 vi.stubGlobal("fetch", mockFetch)
 
-// Mock window.location
+// Mock window.location. We need `pathname` explicitly because
+// fetchSession inspects it to decide whether a 401 should trigger a
+// hard redirect to /login (skipped on the /login and /register pages
+// themselves, where an unauthenticated 401 is expected).
 const originalLocation = window.location
 beforeEach(() => {
   Object.defineProperty(window, "location", {
     writable: true,
-    value: { ...originalLocation, href: "" },
+    value: { ...originalLocation, href: "", pathname: "/dashboard" },
   })
 })
 
@@ -88,6 +91,53 @@ describe("useUser", () => {
     })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
+  })
+
+  // R16 zombie-session fix: when /auth/me returns 401 from a protected
+  // page, the hook must hard-redirect to /login so the stuck "logged-in
+  // but deleted" state is cleared. This is the web side of the backend
+  // fix that maps ErrUserNotFound to 401 session_invalid.
+  it("redirects to /login on 401 from a protected page", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+    const { result } = renderHook(() => useUser(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(window.location.href).toBe("/login")
+  })
+
+  // Belt and braces: older backends might still return 404 for a
+  // deleted-user /auth/me call. Treat 404 identically to 401 so the
+  // fix is forward- and backward-compatible.
+  it("redirects to /login on 404 from a protected page", async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 404 })
+
+    const { result } = renderHook(() => useUser(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(window.location.href).toBe("/login")
+  })
+
+  // On /login and /register, a 401 from /auth/me is the expected
+  // "you're not logged in" state — triggering a redirect here would
+  // produce an infinite loop or block the login form from rendering.
+  it("does NOT redirect on 401 from /login", async () => {
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: { ...originalLocation, href: "", pathname: "/login" },
+    })
+    mockFetch.mockResolvedValue({ ok: false, status: 401 })
+
+    const { result } = renderHook(() => useUser(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(window.location.href).toBe("")
   })
 })
 
