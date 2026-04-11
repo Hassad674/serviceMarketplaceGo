@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../../data/dispute_repository_impl.dart';
 import '../../domain/entities/dispute_entity.dart';
 import '../../domain/repositories/dispute_repository.dart';
@@ -20,6 +21,11 @@ final disputeByIdProvider =
 });
 
 /// Helper to open a new dispute. Returns the created entity or null on error.
+///
+/// Invalidates the proposal and projects providers after success so the
+/// project detail page shows the banner immediately and the projects list
+/// status badge updates without a manual refresh (parity with web, which
+/// invalidates PROJECTS_KEY via TanStack Query).
 Future<Dispute?> openDispute(
   WidgetRef ref, {
   required String proposalId,
@@ -31,7 +37,7 @@ Future<Dispute?> openDispute(
 }) async {
   try {
     final repo = ref.read(disputeRepositoryProvider);
-    return await repo.openDispute(
+    final dispute = await repo.openDispute(
       proposalId: proposalId,
       reason: reason,
       description: description,
@@ -39,6 +45,9 @@ Future<Dispute?> openDispute(
       requestedAmount: requestedAmount,
       attachments: attachments,
     );
+    ref.invalidate(proposalByIdProvider(proposalId));
+    ref.invalidate(projectsProvider);
+    return dispute;
   } catch (e) {
     debugPrint('[DisputeProvider] openDispute error: $e');
     return null;

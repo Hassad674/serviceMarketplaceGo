@@ -149,9 +149,15 @@ func buildCounterMetadata(d *disputedomain.Dispute, cp *disputedomain.CounterPro
 }
 
 // buildResolvedMetadata creates JSON metadata for the dispute_resolved message.
+// Includes client_id/provider_id/resolved_at so the chat bubble can render a
+// rich resolution card with "your share" highlight, matching the project page
+// decision card — without having to refetch the dispute.
 func buildResolvedMetadata(d *disputedomain.Dispute) json.RawMessage {
 	m := map[string]any{
 		"dispute_id":                 d.ID.String(),
+		"proposal_id":                d.ProposalID.String(),
+		"client_id":                  d.ClientID.String(),
+		"provider_id":                d.ProviderID.String(),
 		"resolution_type":            "",
 		"resolution_amount_client":   int64(0),
 		"resolution_amount_provider": int64(0),
@@ -167,6 +173,9 @@ func buildResolvedMetadata(d *disputedomain.Dispute) json.RawMessage {
 	}
 	if d.ResolutionNote != nil {
 		m["resolution_note"] = *d.ResolutionNote
+	}
+	if d.ResolvedAt != nil {
+		m["resolved_at"] = d.ResolvedAt.Format(time.RFC3339)
 	}
 	return disputedomain.MustJSON(m)
 }
