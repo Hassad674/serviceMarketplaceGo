@@ -1,4 +1,35 @@
 {
+  "acceptInvitation": {
+    "loading": "Loading invitation...",
+    "title": "You're invited",
+    "invitedAs": "{name}, you have been invited to join an {orgType} as {role}.",
+    "invitedTitle": "Proposed title: {title}",
+    "orgTypeAgency": "agency",
+    "orgTypeEnterprise": "enterprise",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
+    "passwordLabel": "Create a password",
+    "passwordPlaceholder": "At least 8 characters",
+    "confirmPasswordLabel": "Confirm password",
+    "acceptButton": "Join organization",
+    "submitting": "Creating your account...",
+    "expiresOn": "This invitation expires on {date}",
+    "expiredTitle": "Invitation expired or invalid",
+    "expiredDescription": "This invitation link is no longer valid. Ask the organization to resend a new invitation.",
+    "genericErrorTitle": "Could not load the invitation",
+    "genericErrorDescription": "Something went wrong. Please try again in a moment or contact the organization that invited you.",
+    "errors": {
+      "passwordTooShort": "Password must be at least {min} characters",
+      "passwordWeak": "Password must contain an uppercase letter, a lowercase letter, a digit and a special character",
+      "passwordMismatch": "Passwords do not match",
+      "emailAlreadyTaken": "An account already exists with this email. Ask the organization to invite you with a different address.",
+      "genericAccept": "Could not accept the invitation. Try again in a moment."
+    }
+  },
   "team": {
     "title": "My team",
     "agencyType": "Agency",
