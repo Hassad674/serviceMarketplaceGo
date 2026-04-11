@@ -9,14 +9,16 @@ import (
 	"github.com/google/uuid"
 )
 
-// SocialLink represents a social network link associated with a user profile.
+// SocialLink represents a social network link displayed on the
+// organization's public profile. Phase R2 anchors social links on the
+// org rather than on an individual user.
 type SocialLink struct {
-	ID        uuid.UUID
-	UserID    uuid.UUID
-	Platform  string
-	URL       string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
+	Platform       string
+	URL            string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 // ValidPlatforms lists all accepted social link platform identifiers.

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	orgapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 )
 
@@ -62,7 +63,7 @@ func NewUserResponse(u *user.User) UserResponse {
 	if accountType == "" {
 		accountType = string(user.AccountTypeMarketplaceOwner)
 	}
-	resp := UserResponse{
+	return UserResponse{
 		ID:              u.ID.String(),
 		Email:           u.Email,
 		FirstName:       u.FirstName,
@@ -73,14 +74,24 @@ func NewUserResponse(u *user.User) UserResponse {
 		ReferrerEnabled: u.ReferrerEnabled,
 		IsAdmin:         u.IsAdmin,
 		EmailVerified:   u.EmailVerified,
-		KYCStatus:       kycStatus(u),
 		CreatedAt:       u.CreatedAt.Format("2006-01-02T15:04:05Z"),
 	}
-	if u.KYCFirstEarningAt != nil && !u.HasKYCCompleted() {
-		deadline := u.KYCFirstEarningAt.Add(14 * 24 * time.Hour).Format(time.RFC3339)
+}
+
+// applyOrgKYCToUser injects the org's KYC state onto the user response.
+// Called when the /me handler has loaded the caller's org — the
+// frontend still reads kyc_status/kyc_deadline off the user object,
+// but since phase R5 these values come from the merchant org.
+func applyOrgKYCToUser(resp *UserResponse, org *organization.Organization) {
+	if org == nil {
+		resp.KYCStatus = "none"
+		return
+	}
+	resp.KYCStatus = orgKYCStatus(org)
+	if org.KYCFirstEarningAt != nil && !org.HasKYCCompleted() {
+		deadline := org.KYCFirstEarningAt.Add(14 * 24 * time.Hour).Format(time.RFC3339)
 		resp.KYCDeadline = &deadline
 	}
-	return resp
 }
 
 // NewOrganizationResponse converts an app-layer org context into the HTTP
@@ -117,27 +128,35 @@ func NewOrganizationResponse(ctx *orgapp.Context) *OrganizationResponse {
 }
 
 // NewMeResponse assembles the /me payload from a user and an optional
-// org context.
+// org context. The org's KYC state is projected onto the user response
+// so existing frontends keep reading kyc_status / kyc_deadline without
+// changes.
 func NewMeResponse(u *user.User, orgCtx *orgapp.Context) MeResponse {
+	userResp := NewUserResponse(u)
+	if orgCtx != nil && orgCtx.Organization != nil {
+		applyOrgKYCToUser(&userResp, orgCtx.Organization)
+	} else {
+		userResp.KYCStatus = "none"
+	}
 	return MeResponse{
-		User:         NewUserResponse(u),
+		User:         userResp,
 		Organization: NewOrganizationResponse(orgCtx),
 	}
 }
 
-// kycStatus computes the KYC status string for the auth response.
+// orgKYCStatus computes the KYC status string for an organization.
 //   - "completed" — Stripe account exists
 //   - "restricted" — 14 days elapsed, no KYC
 //   - "pending" — first earning recorded, KYC deadline running
 //   - "none" — no earnings yet (no KYC required)
-func kycStatus(u *user.User) string {
-	if u.HasKYCCompleted() {
+func orgKYCStatus(o *organization.Organization) string {
+	if o.HasKYCCompleted() {
 		return "completed"
 	}
-	if u.IsKYCBlocked() {
+	if o.IsKYCBlocked() {
 		return "restricted"
 	}
-	if u.KYCFirstEarningAt != nil {
+	if o.KYCFirstEarningAt != nil {
 		return "pending"
 	}
 	return "none"

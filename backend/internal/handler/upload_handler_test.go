@@ -82,7 +82,7 @@ func TestUploadHandler_UploadPhoto(t *testing.T) {
 				s.uploadFn = func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
 					return "https://storage.example.com/photo.jpg", nil
 				}
-				p.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				p.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return testProfile(uid), nil
 				}
 			},
@@ -129,7 +129,7 @@ func TestUploadHandler_UploadPhoto(t *testing.T) {
 				s.uploadFn = func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
 					return "https://storage.example.com/photo.jpg", nil
 				}
-				p.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				p.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return nil, profile.ErrProfileNotFound
 				}
 			},
@@ -146,7 +146,7 @@ func TestUploadHandler_UploadPhoto(t *testing.T) {
 				s.uploadFn = func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
 					return "https://storage.example.com/photo.jpg", nil
 				}
-				p.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				p.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return testProfile(uid), nil
 				}
 				p.updateFn = func(_ context.Context, _ *profile.Profile) error {
@@ -173,6 +173,7 @@ func TestUploadHandler_UploadPhoto(t *testing.T) {
 			)
 			if tc.userID != nil {
 				ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, *tc.userID)
+				ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, *tc.userID)
 				req = req.WithContext(ctx)
 			}
 			rec := httptest.NewRecorder()
@@ -213,6 +214,7 @@ func TestUploadHandler_UploadPhoto_FileTooLarge(t *testing.T) {
 		"file", "big.jpg", "image/jpeg", oversized,
 	)
 	ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, uid)
+	ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, uid)
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 
@@ -248,7 +250,7 @@ func TestUploadHandler_UploadVideo(t *testing.T) {
 				s.uploadFn = func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
 					return "https://storage.example.com/intro.mp4", nil
 				}
-				p.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				p.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return testProfile(uid), nil
 				}
 			},
@@ -295,7 +297,7 @@ func TestUploadHandler_UploadVideo(t *testing.T) {
 				s.uploadFn = func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
 					return "https://storage.example.com/intro.mp4", nil
 				}
-				p.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				p.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return nil, profile.ErrProfileNotFound
 				}
 			},
@@ -312,7 +314,7 @@ func TestUploadHandler_UploadVideo(t *testing.T) {
 				s.uploadFn = func(_ context.Context, _ string, _ io.Reader, _ string, _ int64) (string, error) {
 					return "https://storage.example.com/intro.mp4", nil
 				}
-				p.getByUserIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+				p.getByOrgIDFn = func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 					return testProfile(uid), nil
 				}
 				p.updateFn = func(_ context.Context, _ *profile.Profile) error {
@@ -339,6 +341,7 @@ func TestUploadHandler_UploadVideo(t *testing.T) {
 			)
 			if tc.userID != nil {
 				ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, *tc.userID)
+				ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, *tc.userID)
 				req = req.WithContext(ctx)
 			}
 			rec := httptest.NewRecorder()

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 )
@@ -585,12 +586,19 @@ func TestAcceptProposal_KYCBlocked(t *testing.T) {
 	}
 	userRepo := &mockUserRepo{
 		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
-			u := makeUser(id, user.RoleProvider)
-			u.KYCFirstEarningAt = &past15
-			return u, nil
+			return makeUser(id, user.RoleProvider), nil
 		},
 	}
-	svc := newTestService(proposalRepo, userRepo, nil, nil)
+	orgRepo := &mockOrgRepo{
+		findByUserIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{
+				ID:                uuid.New(),
+				Type:              organization.OrgTypeProviderPersonal,
+				KYCFirstEarningAt: &past15,
+			}, nil
+		},
+	}
+	svc := newTestServiceWithCreditsAndOrgs(proposalRepo, userRepo, orgRepo, nil, nil, nil)
 
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: p.ID,
@@ -612,12 +620,20 @@ func TestAcceptProposal_KYCNotBlocked_Passes(t *testing.T) {
 	}
 	userRepo := &mockUserRepo{
 		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
-			u := makeUser(id, user.RoleProvider)
-			u.KYCFirstEarningAt = &past5
-			return u, nil
+			return makeUser(id, user.RoleProvider), nil
 		},
 	}
-	svc := newTestService(proposalRepo, userRepo, nil, nil)
+	orgRepo := &mockOrgRepo{
+		findByUserIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+			// 5 days elapsed — still within the 14-day deadline.
+			return &organization.Organization{
+				ID:                uuid.New(),
+				Type:              organization.OrgTypeProviderPersonal,
+				KYCFirstEarningAt: &past5,
+			}, nil
+		},
+	}
+	svc := newTestServiceWithCreditsAndOrgs(proposalRepo, userRepo, orgRepo, nil, nil, nil)
 
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: p.ID,

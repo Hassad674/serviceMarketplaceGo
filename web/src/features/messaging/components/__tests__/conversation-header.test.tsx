@@ -45,9 +45,9 @@ vi.mock("../typing-indicator", () => ({
 function createConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     id: "conv-1",
-    other_user_id: "user-2",
-    other_user_name: "Alice Smith",
-    other_user_role: "provider",
+    other_org_id: "org-2",
+    other_org_name: "Alice Smith",
+    other_org_type: "provider_personal",
     other_photo_url: "",
     last_message: "Hello",
     last_message_at: "2026-03-26T10:00:00Z",
@@ -62,7 +62,7 @@ describe("ConversationHeader", () => {
   it("renders other user name", () => {
     render(
       <ConversationHeader
-        conversation={createConversation({ other_user_name: "Alice Smith" })}
+        conversation={createConversation({ other_org_name: "Alice Smith" })}
         isConnected={true}
       />,
     )
@@ -183,7 +183,7 @@ describe("ConversationHeader", () => {
   it("renders initials when no photo url", () => {
     render(
       <ConversationHeader
-        conversation={createConversation({ other_user_name: "Bob Jones", other_photo_url: "" })}
+        conversation={createConversation({ other_org_name: "Bob Jones", other_photo_url: "" })}
         isConnected={true}
       />,
     )

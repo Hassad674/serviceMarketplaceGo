@@ -49,12 +49,12 @@ describe("useStartConversation", () => {
     })
 
     await act(async () => {
-      result.current.mutate({ otherUserId: "user-2", content: "Hello!" })
+      result.current.mutate({ otherOrgId: "org-2", content: "Hello!" })
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
-    expect(mockStartConversation).toHaveBeenCalledWith("user-2", "Hello!")
+    expect(mockStartConversation).toHaveBeenCalledWith("org-2", "Hello!")
   })
 
   it("navigates to conversation on success", async () => {
@@ -68,7 +68,7 @@ describe("useStartConversation", () => {
     })
 
     await act(async () => {
-      result.current.mutate({ otherUserId: "user-2", content: "Hi!" })
+      result.current.mutate({ otherOrgId: "org-2", content: "Hi!" })
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
@@ -84,7 +84,7 @@ describe("useStartConversation", () => {
     })
 
     await act(async () => {
-      result.current.mutate({ otherUserId: "user-2", content: "Hello!" })
+      result.current.mutate({ otherOrgId: "org-2", content: "Hello!" })
     })
 
     await waitFor(() => expect(result.current.isError).toBe(true))

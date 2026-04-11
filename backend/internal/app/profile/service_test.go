@@ -15,10 +15,10 @@ import (
 // --- mock ---
 
 type mockProfileRepo struct {
-	getByUserIDFn   func(ctx context.Context, userID uuid.UUID) (*profile.Profile, error)
-	updateFn        func(ctx context.Context, p *profile.Profile) error
-	createFn        func(ctx context.Context, p *profile.Profile) error
-	searchPublicFn  func(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
+	getByOrgIDFn   func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
+	updateFn       func(ctx context.Context, p *profile.Profile) error
+	createFn       func(ctx context.Context, p *profile.Profile) error
+	searchPublicFn func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -28,9 +28,9 @@ func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error 
 	return nil
 }
 
-func (m *mockProfileRepo) GetByUserID(ctx context.Context, userID uuid.UUID) (*profile.Profile, error) {
-	if m.getByUserIDFn != nil {
-		return m.getByUserIDFn(ctx, userID)
+func (m *mockProfileRepo) GetByOrganizationID(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error) {
+	if m.getByOrgIDFn != nil {
+		return m.getByOrgIDFn(ctx, orgID)
 	}
 	return nil, fmt.Errorf("profile not found")
 }
@@ -42,15 +42,19 @@ func (m *mockProfileRepo) Update(ctx context.Context, p *profile.Profile) error 
 	return nil
 }
 
-func (m *mockProfileRepo) SearchPublic(ctx context.Context, roleFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
+func (m *mockProfileRepo) SearchPublic(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
 	if m.searchPublicFn != nil {
-		return m.searchPublicFn(ctx, roleFilter, referrerOnly, cursor, limit)
+		return m.searchPublicFn(ctx, orgTypeFilter, referrerOnly, cursor, limit)
 	}
 	return nil, "", nil
 }
 
-func (m *mockProfileRepo) GetPublicProfilesByUserIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
+func (m *mockProfileRepo) GetPublicProfilesByOrgIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
 	return []*profile.PublicProfile{}, nil
+}
+
+func (m *mockProfileRepo) OrgProfilesByUserIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
+	return map[uuid.UUID]*profile.PublicProfile{}, nil
 }
 
 // --- helpers ---
@@ -62,8 +66,8 @@ func newTestProfileService(repo *mockProfileRepo) *Service {
 	return NewService(repo)
 }
 
-func existingProfile(userID uuid.UUID) *profile.Profile {
-	p := profile.NewProfile(userID)
+func existingProfile(orgID uuid.UUID) *profile.Profile {
+	p := profile.NewProfile(orgID)
 	p.Title = "Go Developer"
 	p.About = "I build backend systems"
 	return p
@@ -72,12 +76,12 @@ func existingProfile(userID uuid.UUID) *profile.Profile {
 // --- GetProfile tests ---
 
 func TestProfileService_GetProfile_Success(t *testing.T) {
-	userID := uuid.New()
-	expected := existingProfile(userID)
+	orgID := uuid.New()
+	expected := existingProfile(orgID)
 
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, id uuid.UUID) (*profile.Profile, error) {
-			if id == userID {
+		getByOrgIDFn: func(_ context.Context, id uuid.UUID) (*profile.Profile, error) {
+			if id == orgID {
 				return expected, nil
 			}
 			return nil, fmt.Errorf("profile not found")
@@ -86,18 +90,18 @@ func TestProfileService_GetProfile_Success(t *testing.T) {
 
 	svc := newTestProfileService(repo)
 
-	result, err := svc.GetProfile(context.Background(), userID)
+	result, err := svc.GetProfile(context.Background(), orgID)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	assert.Equal(t, userID, result.UserID)
+	assert.Equal(t, orgID, result.OrganizationID)
 	assert.Equal(t, "Go Developer", result.Title)
 	assert.Equal(t, "I build backend systems", result.About)
 }
 
 func TestProfileService_GetProfile_NotFound(t *testing.T) {
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 			return nil, fmt.Errorf("profile not found")
 		},
 	}
@@ -114,13 +118,13 @@ func TestProfileService_GetProfile_NotFound(t *testing.T) {
 // --- UpdateProfile tests ---
 
 func TestProfileService_UpdateProfile_Success(t *testing.T) {
-	userID := uuid.New()
-	existing := existingProfile(userID)
+	orgID := uuid.New()
+	existing := existingProfile(orgID)
 	var updatedProfile *profile.Profile
 
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, id uuid.UUID) (*profile.Profile, error) {
-			if id == userID {
+		getByOrgIDFn: func(_ context.Context, id uuid.UUID) (*profile.Profile, error) {
+			if id == orgID {
 				return existing, nil
 			}
 			return nil, fmt.Errorf("profile not found")
@@ -138,7 +142,7 @@ func TestProfileService_UpdateProfile_Success(t *testing.T) {
 		About: "Experienced backend engineer",
 	}
 
-	result, err := svc.UpdateProfile(context.Background(), userID, input)
+	result, err := svc.UpdateProfile(context.Background(), orgID, input)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -148,23 +152,22 @@ func TestProfileService_UpdateProfile_Success(t *testing.T) {
 }
 
 func TestProfileService_UpdateProfile_PartialUpdate(t *testing.T) {
-	userID := uuid.New()
-	existing := existingProfile(userID)
+	orgID := uuid.New()
+	existing := existingProfile(orgID)
 
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 			return existing, nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	// Only update title, leave about unchanged
 	input := UpdateProfileInput{
 		Title: "Updated Title",
 	}
 
-	result, err := svc.UpdateProfile(context.Background(), userID, input)
+	result, err := svc.UpdateProfile(context.Background(), orgID, input)
 
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Title", result.Title)
@@ -172,21 +175,20 @@ func TestProfileService_UpdateProfile_PartialUpdate(t *testing.T) {
 }
 
 func TestProfileService_UpdateProfile_EmptyInputKeepsExisting(t *testing.T) {
-	userID := uuid.New()
-	existing := existingProfile(userID)
+	orgID := uuid.New()
+	existing := existingProfile(orgID)
 
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 			return existing, nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	// Empty input should leave everything as-is
 	input := UpdateProfileInput{}
 
-	result, err := svc.UpdateProfile(context.Background(), userID, input)
+	result, err := svc.UpdateProfile(context.Background(), orgID, input)
 
 	require.NoError(t, err)
 	assert.Equal(t, "Go Developer", result.Title, "title should remain unchanged")
@@ -195,7 +197,7 @@ func TestProfileService_UpdateProfile_EmptyInputKeepsExisting(t *testing.T) {
 
 func TestProfileService_UpdateProfile_ProfileNotFound(t *testing.T) {
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 			return nil, fmt.Errorf("profile not found")
 		},
 	}
@@ -212,11 +214,11 @@ func TestProfileService_UpdateProfile_ProfileNotFound(t *testing.T) {
 }
 
 func TestProfileService_UpdateProfile_PersistenceFailure(t *testing.T) {
-	userID := uuid.New()
-	existing := existingProfile(userID)
+	orgID := uuid.New()
+	existing := existingProfile(orgID)
 
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 			return existing, nil
 		},
 		updateFn: func(_ context.Context, _ *profile.Profile) error {
@@ -226,7 +228,7 @@ func TestProfileService_UpdateProfile_PersistenceFailure(t *testing.T) {
 
 	svc := newTestProfileService(repo)
 
-	result, err := svc.UpdateProfile(context.Background(), userID, UpdateProfileInput{
+	result, err := svc.UpdateProfile(context.Background(), orgID, UpdateProfileInput{
 		Title: "New Title",
 	})
 
@@ -236,11 +238,11 @@ func TestProfileService_UpdateProfile_PersistenceFailure(t *testing.T) {
 }
 
 func TestProfileService_UpdateProfile_ReferrerFields(t *testing.T) {
-	userID := uuid.New()
-	existing := existingProfile(userID)
+	orgID := uuid.New()
+	existing := existingProfile(orgID)
 
 	repo := &mockProfileRepo{
-		getByUserIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
 			return existing, nil
 		},
 	}
@@ -252,7 +254,7 @@ func TestProfileService_UpdateProfile_ReferrerFields(t *testing.T) {
 		ReferrerVideoURL: "https://example.com/referrer-video.mp4",
 	}
 
-	result, err := svc.UpdateProfile(context.Background(), userID, input)
+	result, err := svc.UpdateProfile(context.Background(), orgID, input)
 
 	require.NoError(t, err)
 	assert.Equal(t, "I connect talent with opportunity", result.ReferrerAbout)
@@ -264,16 +266,16 @@ func TestProfileService_UpdateProfile_ReferrerFields(t *testing.T) {
 func TestProfileService_SearchPublic_Success(t *testing.T) {
 	expected := []*profile.PublicProfile{
 		{
-			UserID:      uuid.New(),
-			DisplayName: "John Doe",
-			Role:        "provider",
-			Title:       "Go Developer",
+			OrganizationID: uuid.New(),
+			Name:           "John Doe",
+			OrgType:        "provider_personal",
+			Title:          "Go Developer",
 		},
 		{
-			UserID:      uuid.New(),
-			DisplayName: "Jane Agency",
-			Role:        "agency",
-			Title:       "Full Stack Agency",
+			OrganizationID: uuid.New(),
+			Name:           "Jane Agency",
+			OrgType:        "agency",
+			Title:          "Full Stack Agency",
 		},
 	}
 
@@ -289,27 +291,27 @@ func TestProfileService_SearchPublic_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, results, 2)
-	assert.Equal(t, "John Doe", results[0].DisplayName)
-	assert.Equal(t, "Jane Agency", results[1].DisplayName)
+	assert.Equal(t, "John Doe", results[0].Name)
+	assert.Equal(t, "Jane Agency", results[1].Name)
 	assert.Empty(t, nextCursor)
 }
 
-func TestProfileService_SearchPublic_WithRoleFilter(t *testing.T) {
-	var capturedRole string
+func TestProfileService_SearchPublic_WithOrgTypeFilter(t *testing.T) {
+	var capturedOrgType string
 
 	repo := &mockProfileRepo{
-		searchPublicFn: func(_ context.Context, roleFilter string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
-			capturedRole = roleFilter
+		searchPublicFn: func(_ context.Context, orgTypeFilter string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
+			capturedOrgType = orgTypeFilter
 			return []*profile.PublicProfile{}, "", nil
 		},
 	}
 
 	svc := newTestProfileService(repo)
 
-	_, _, err := svc.SearchPublic(context.Background(), "provider", false, "", 20)
+	_, _, err := svc.SearchPublic(context.Background(), "provider_personal", false, "", 20)
 
 	require.NoError(t, err)
-	assert.Equal(t, "provider", capturedRole)
+	assert.Equal(t, "provider_personal", capturedOrgType)
 }
 
 func TestProfileService_SearchPublic_ReferrerOnly(t *testing.T) {

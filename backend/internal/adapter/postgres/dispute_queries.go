@@ -67,17 +67,17 @@ const queryUpdateDispute = `
 		version = version + 1, updated_at = NOW()
 	WHERE id = $1 AND version = $21`
 
-const queryListDisputesByUserFirst = `
+const queryListDisputesByOrgFirst = `
 	SELECT ` + disputeColumns + `
 	FROM disputes
-	WHERE initiator_id = $1 OR respondent_id = $1
+	WHERE client_organization_id = $1 OR provider_organization_id = $1
 	ORDER BY created_at DESC, id DESC
 	LIMIT $2`
 
-const queryListDisputesByUserWithCursor = `
+const queryListDisputesByOrgWithCursor = `
 	SELECT ` + disputeColumns + `
 	FROM disputes
-	WHERE (initiator_id = $1 OR respondent_id = $1)
+	WHERE (client_organization_id = $1 OR provider_organization_id = $1)
 		AND (created_at, id) < ($2, $3)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`

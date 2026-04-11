@@ -25,14 +25,17 @@ func NewProfileHandler(profileService *profileapp.Service) *ProfileHandler {
 	return &ProfileHandler{profileService: profileService}
 }
 
+// GetMyProfile returns the org profile of the authenticated user's
+// current organization. All operators in the same org see the same
+// profile — this is the Stripe Dashboard shared-workspace model.
 func (h *ProfileHandler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
-	p, err := h.profileService.GetProfile(r.Context(), userID)
+	p, err := h.profileService.GetProfile(r.Context(), orgID)
 	if err != nil {
 		handleProfileError(w, err)
 		return
@@ -41,10 +44,11 @@ func (h *ProfileHandler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewProfileResponse(p))
 }
 
+// UpdateMyProfile updates the authenticated user's org profile.
 func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -71,7 +75,7 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 		ReferrerVideoURL:     req.ReferrerVideoURL,
 	}
 
-	p, err := h.profileService.UpdateProfile(r.Context(), userID, input)
+	p, err := h.profileService.UpdateProfile(r.Context(), orgID, input)
 	if err != nil {
 		handleProfileError(w, err)
 		return
@@ -80,22 +84,28 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	res.JSON(w, http.StatusOK, response.NewProfileResponse(p))
 }
 
+// SearchProfiles surfaces org-level public profiles for discovery.
+// `type` query param filters by org type: freelancer = provider_personal,
+// agency = agency, enterprise = enterprise, referrer = provider_personal
+// with referrer flag enabled.
 func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) {
 	typeFilter := r.URL.Query().Get("type")
 
-	var roleFilter string
+	var orgTypeFilter string
 	var referrerOnly bool
 
 	switch typeFilter {
 	case "freelancer":
-		roleFilter = "provider"
+		orgTypeFilter = "provider_personal"
 	case "agency":
-		roleFilter = "agency"
+		orgTypeFilter = "agency"
+	case "enterprise":
+		orgTypeFilter = "enterprise"
 	case "referrer":
-		roleFilter = "provider"
+		orgTypeFilter = "provider_personal"
 		referrerOnly = true
 	default:
-		roleFilter = ""
+		orgTypeFilter = ""
 	}
 
 	limit := 20
@@ -107,7 +117,7 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 
 	cursor := r.URL.Query().Get("cursor")
 
-	profiles, nextCursor, err := h.profileService.SearchPublic(r.Context(), roleFilter, referrerOnly, cursor, limit)
+	profiles, nextCursor, err := h.profileService.SearchPublic(r.Context(), orgTypeFilter, referrerOnly, cursor, limit)
 	if err != nil {
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 		return
@@ -120,15 +130,17 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// GetPublicProfile returns any organization's public profile.
+// Route param is the organization id.
 func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request) {
-	userIDParam := chi.URLParam(r, "userId")
-	userID, err := uuid.Parse(userIDParam)
+	orgIDParam := chi.URLParam(r, "orgId")
+	orgID, err := uuid.Parse(orgIDParam)
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_user_id", "user ID must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "organization ID must be a valid UUID")
 		return
 	}
 
-	p, err := h.profileService.GetProfile(r.Context(), userID)
+	p, err := h.profileService.GetProfile(r.Context(), orgID)
 	if err != nil {
 		handleProfileError(w, err)
 		return

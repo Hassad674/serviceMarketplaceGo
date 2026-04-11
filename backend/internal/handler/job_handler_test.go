@@ -175,18 +175,21 @@ func TestJobHandler_GetJob(t *testing.T) {
 
 func TestJobHandler_ListMyJobs(t *testing.T) {
 	uid := uuid.New()
+	oid := uuid.New()
 
 	tests := []struct {
 		name       string
 		userID     *uuid.UUID
+		orgID      *uuid.UUID
 		setupMock  func(*mockJobRepo)
 		wantStatus int
 	}{
 		{
 			name:   "success with results",
 			userID: &uid,
+			orgID:  &oid,
 			setupMock: func(r *mockJobRepo) {
-				r.listByCreatorFn = func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*jobdomain.Job, string, error) {
+				r.listByOrgFn = func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*jobdomain.Job, string, error) {
 					return []*jobdomain.Job{testJob(uid)}, "next_123", nil
 				}
 			},
@@ -195,11 +198,18 @@ func TestJobHandler_ListMyJobs(t *testing.T) {
 		{
 			name:       "success empty",
 			userID:     &uid,
+			orgID:      &oid,
 			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "unauthenticated",
 			userID:     nil,
+			wantStatus: http.StatusUnauthorized,
+		},
+		{
+			name:       "missing org",
+			userID:     &uid,
+			orgID:      nil,
 			wantStatus: http.StatusUnauthorized,
 		},
 	}
@@ -213,10 +223,14 @@ func TestJobHandler_ListMyJobs(t *testing.T) {
 			h := newTestJobHandler(jobRepo, &mockUserRepo{})
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil)
+			ctx := req.Context()
 			if tc.userID != nil {
-				ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, *tc.userID)
-				req = req.WithContext(ctx)
+				ctx = context.WithValue(ctx, middleware.ContextKeyUserID, *tc.userID)
 			}
+			if tc.orgID != nil {
+				ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, *tc.orgID)
+			}
+			req = req.WithContext(ctx)
 			rec := httptest.NewRecorder()
 
 			h.ListMyJobs(rec, req)

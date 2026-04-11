@@ -9,12 +9,12 @@ import (
 )
 
 func TestNewProfile_CreatesWithCorrectDefaults(t *testing.T) {
-	userID := uuid.New()
+	orgID := uuid.New()
 
-	p := NewProfile(userID)
+	p := NewProfile(orgID)
 
 	require.NotNil(t, p)
-	assert.Equal(t, userID, p.UserID)
+	assert.Equal(t, orgID, p.OrganizationID)
 	assert.Empty(t, p.Title, "title should be empty by default")
 	assert.Empty(t, p.About, "about should be empty by default")
 	assert.Empty(t, p.PhotoURL, "photo url should be empty by default")
@@ -27,17 +27,15 @@ func TestNewProfile_CreatesWithCorrectDefaults(t *testing.T) {
 
 func TestNewProfile_TimestampsAreClose(t *testing.T) {
 	p := NewProfile(uuid.New())
-
-	// created_at and updated_at should be set to the same time on creation
 	assert.Equal(t, p.CreatedAt, p.UpdatedAt, "timestamps should match on creation")
 }
 
-func TestNewProfile_DifferentUsersGetDifferentProfiles(t *testing.T) {
-	userA := uuid.New()
-	userB := uuid.New()
+func TestNewProfile_DifferentOrgsGetDifferentProfiles(t *testing.T) {
+	orgA := uuid.New()
+	orgB := uuid.New()
 
-	pA := NewProfile(userA)
-	pB := NewProfile(userB)
+	pA := NewProfile(orgA)
+	pB := NewProfile(orgB)
 
-	assert.NotEqual(t, pA.UserID, pB.UserID)
+	assert.NotEqual(t, pA.OrganizationID, pB.OrganizationID)
 }

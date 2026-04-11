@@ -74,20 +74,20 @@ func (h *ReviewHandler) CreateReview(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ListByUser handles GET /api/v1/reviews/user/{userId}.
-func (h *ReviewHandler) ListByUser(w http.ResponseWriter, r *http.Request) {
-	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+// ListByOrganization handles GET /api/v1/reviews/org/{orgId}.
+func (h *ReviewHandler) ListByOrganization(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(chi.URLParam(r, "orgId"))
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_user_id", "userId must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "orgId must be a valid UUID")
 		return
 	}
 
 	cursor := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	reviews, nextCursor, err := h.reviewSvc.ListByUser(r.Context(), userID, cursor, limit)
+	reviews, nextCursor, err := h.reviewSvc.ListByOrganization(r.Context(), orgID, cursor, limit)
 	if err != nil {
-		slog.Error("list reviews by user", "error", err)
+		slog.Error("list reviews by organization", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list reviews")
 		return
 	}
@@ -104,17 +104,17 @@ func (h *ReviewHandler) ListByUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetAverageRating handles GET /api/v1/reviews/average/{userId}.
+// GetAverageRating handles GET /api/v1/reviews/average/{orgId}.
 func (h *ReviewHandler) GetAverageRating(w http.ResponseWriter, r *http.Request) {
-	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+	orgID, err := uuid.Parse(chi.URLParam(r, "orgId"))
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_user_id", "userId must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "orgId must be a valid UUID")
 		return
 	}
 
-	avg, err := h.reviewSvc.GetAverageRating(r.Context(), userID)
+	avg, err := h.reviewSvc.GetAverageRatingByOrganization(r.Context(), orgID)
 	if err != nil {
-		slog.Error("get average rating", "error", err)
+		slog.Error("get average rating by organization", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get average rating")
 		return
 	}

@@ -300,21 +300,13 @@ export function useMessagingWS(userId: string | undefined) {
           break
         }
         case "presence": {
-          const { user_id: presenceUserId, online } = frame.payload
-          queryClient.setQueryData(
-            conversationsQueryKey(uid),
-            (old: ConversationListResponse | undefined) => {
-              if (!old) return old
-              return {
-                ...old,
-                data: old.data.map((c) =>
-                  c.other_user_id === presenceUserId
-                    ? { ...c, online }
-                    : c,
-                ),
-              }
-            },
-          )
+          // WS presence frames are user-scoped, but the conversation
+          // list is org-scoped post phase R4 (any org member online =
+          // org online). Mapping a user → org requires membership data
+          // the client doesn't cache, so the cheapest correct option
+          // is to refetch the list and let the backend fan-out do its
+          // work again.
+          queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
           break
         }
       }

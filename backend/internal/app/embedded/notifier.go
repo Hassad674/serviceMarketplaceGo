@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 
 	notifdomain "marketplace-backend/internal/domain/notification"
+	"marketplace-backend/internal/domain/organization"
 	portservice "marketplace-backend/internal/port/service"
 )
 
@@ -28,16 +29,20 @@ type NotificationSink interface {
 	Send(ctx context.Context, userID uuid.UUID, t notifdomain.NotificationType, title, body string, metadata map[string]any) error
 }
 
-// UserStore gives the Notifier the 3 user-table operations it needs.
-// This is a trimmed view of repository.UserRepository — we duck-type it
-// so tests don't need to implement the full UserRepository interface.
+// OrgStore gives the Notifier the org-keyed Stripe state operations it
+// needs. Since phase R5 the Stripe Connect account is owned by the
+// organization, so the notifier resolves incoming webhooks against an
+// org id and persists the diffing snapshot under the same key.
 //
-// Production: wire with repository.UserRepository (satisfies this).
+// Production: wire with repository.OrganizationRepository.
 // Tests: implement with an in-memory fake.
-type UserStore interface {
-	FindUserIDByStripeAccount(ctx context.Context, accountID string) (uuid.UUID, error)
-	GetStripeLastState(ctx context.Context, userID uuid.UUID) ([]byte, error)
-	SaveStripeLastState(ctx context.Context, userID uuid.UUID, state []byte) error
+type OrgStore interface {
+	// FindByStripeAccountID returns enough of the org to identify its
+	// owner (so a notification can be sent to a real user id) plus the
+	// id itself (so state reads / writes know which row to touch).
+	FindByStripeAccountID(ctx context.Context, accountID string) (*organization.Organization, error)
+	GetStripeLastState(ctx context.Context, orgID uuid.UUID) ([]byte, error)
+	SaveStripeLastState(ctx context.Context, orgID uuid.UUID, state []byte) error
 }
 
 // LastAccountState mirrors the fields of StripeAccountSnapshot we compare on.
@@ -56,22 +61,22 @@ type LastAccountState struct {
 // events. Thread-safe: holds an in-memory cooldown map shared across calls.
 type Notifier struct {
 	notifications NotificationSink
-	users         UserStore
+	orgs          OrgStore
 
-	cooldown sync.Map // key: userID|type, val: time.Time (last sent)
+	cooldown sync.Map // key: orgID|type, val: time.Time (last sent)
 	ttl      time.Duration
 }
 
 // NewNotifier wires the notifier. ttl sets the minimum interval between
-// two identical notifications for the same user (to avoid spam when Stripe
-// fires multiple account.updated webhooks back-to-back).
-func NewNotifier(sink NotificationSink, users UserStore, ttl time.Duration) *Notifier {
+// two identical notifications for the same org (to avoid spam when
+// Stripe fires multiple account.updated webhooks back-to-back).
+func NewNotifier(sink NotificationSink, orgs OrgStore, ttl time.Duration) *Notifier {
 	if ttl <= 0 {
 		ttl = 5 * time.Minute
 	}
 	return &Notifier{
 		notifications: sink,
-		users:         users,
+		orgs:          orgs,
 		ttl:           ttl,
 	}
 }
@@ -89,38 +94,45 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 		return fmt.Errorf("nil or empty snapshot")
 	}
 
-	userID, err := n.users.FindUserIDByStripeAccount(ctx, snap.AccountID)
+	org, err := n.orgs.FindByStripeAccountID(ctx, snap.AccountID)
 	if err != nil {
-		return fmt.Errorf("resolve user for account %s: %w", snap.AccountID, err)
+		return fmt.Errorf("resolve org for account %s: %w", snap.AccountID, err)
 	}
 
-	prev := n.loadPrevState(ctx, userID)
+	prev := n.loadPrevState(ctx, org.ID)
+
+	// Notifications still target a user (the notification inbox is
+	// per-operator). V1: route to the org's current owner. R6+ can
+	// fan out to all members with the wallet.view permission.
+	recipientUserID := org.OwnerUserID
 
 	events := n.diff(prev, snap)
 	for _, ev := range events {
-		if !n.shouldSend(userID, ev.Key) {
+		if !n.shouldSend(org.ID, ev.Key) {
 			slog.Debug("embedded: notification skipped (cooldown)",
-				"user_id", userID, "key", ev.Key)
+				"org_id", org.ID, "key", ev.Key)
 			continue
 		}
-		if err := n.notifications.Send(ctx, userID, ev.Type, ev.Title, ev.Body, ev.Meta); err != nil {
+		if err := n.notifications.Send(ctx, recipientUserID, ev.Type, ev.Title, ev.Body, ev.Meta); err != nil {
 			slog.Warn("embedded: send notification failed",
-				"user_id", userID, "type", ev.Type, "error", err)
+				"org_id", org.ID, "type", ev.Type, "error", err)
 			continue
 		}
-		n.markSent(userID, ev.Key)
+		n.markSent(org.ID, ev.Key)
 	}
 
-	// Persist new state (marshal to JSON for the users.stripe_last_state column)
-	n.savePrevState(ctx, userID, snapshotToState(snap))
+	// Persist the new state on the org row so the next webhook can
+	// diff against it.
+	n.savePrevState(ctx, org.ID, snapshotToState(snap))
 	return nil
 }
 
-// loadPrevState reads the user's last snapshot from UserStore and unmarshals
-// it. Returns nil on any error (first webhook, corrupt JSON, etc.) — the
-// diff() helper treats nil as "no prior state, emit notifs".
-func (n *Notifier) loadPrevState(ctx context.Context, userID uuid.UUID) *LastAccountState {
-	raw, err := n.users.GetStripeLastState(ctx, userID)
+// loadPrevState reads the org's last snapshot from OrgStore and
+// unmarshals it. Returns nil on any error (first webhook, corrupt
+// JSON, etc.) — the diff() helper treats nil as "no prior state,
+// emit notifs".
+func (n *Notifier) loadPrevState(ctx context.Context, orgID uuid.UUID) *LastAccountState {
+	raw, err := n.orgs.GetStripeLastState(ctx, orgID)
 	if err != nil || len(raw) == 0 {
 		return nil
 	}
@@ -133,14 +145,14 @@ func (n *Notifier) loadPrevState(ctx context.Context, userID uuid.UUID) *LastAcc
 
 // savePrevState marshals and persists the current snapshot. Best-effort:
 // logs a warning on failure but never fails the webhook dispatch.
-func (n *Notifier) savePrevState(ctx context.Context, userID uuid.UUID, state *LastAccountState) {
+func (n *Notifier) savePrevState(ctx context.Context, orgID uuid.UUID, state *LastAccountState) {
 	raw, err := json.Marshal(state)
 	if err != nil {
-		slog.Warn("embedded: marshal last_state", "user_id", userID, "error", err)
+		slog.Warn("embedded: marshal last_state", "org_id", orgID, "error", err)
 		return
 	}
-	if err := n.users.SaveStripeLastState(ctx, userID, raw); err != nil {
-		slog.Warn("embedded: persist last_state", "user_id", userID, "error", err)
+	if err := n.orgs.SaveStripeLastState(ctx, orgID, raw); err != nil {
+		slog.Warn("embedded: persist last_state", "org_id", orgID, "error", err)
 	}
 }
 
@@ -286,8 +298,8 @@ func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSn
 
 /* --------------------------- Cooldown map --------------------------- */
 
-func (n *Notifier) shouldSend(userID uuid.UUID, key string) bool {
-	k := userID.String() + "|" + key
+func (n *Notifier) shouldSend(orgID uuid.UUID, key string) bool {
+	k := orgID.String() + "|" + key
 	v, ok := n.cooldown.Load(k)
 	if !ok {
 		return true
@@ -296,8 +308,8 @@ func (n *Notifier) shouldSend(userID uuid.UUID, key string) bool {
 	return time.Since(last) >= n.ttl
 }
 
-func (n *Notifier) markSent(userID uuid.UUID, key string) {
-	k := userID.String() + "|" + key
+func (n *Notifier) markSent(orgID uuid.UUID, key string) {
+	k := orgID.String() + "|" + key
 	n.cooldown.Store(k, time.Now())
 }
 

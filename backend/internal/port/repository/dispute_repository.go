@@ -16,7 +16,7 @@ type DisputeRepository interface {
 	Update(ctx context.Context, d *dispute.Dispute) error
 
 	// Listings
-	ListByUserID(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*dispute.Dispute, string, error)
+	ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*dispute.Dispute, string, error)
 	ListPendingForScheduler(ctx context.Context) ([]*dispute.Dispute, error)
 	ListAll(ctx context.Context, cursor string, limit int, statusFilter string) ([]*dispute.Dispute, string, error)
 

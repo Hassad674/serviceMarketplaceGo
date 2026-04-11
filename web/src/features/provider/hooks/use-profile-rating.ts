@@ -6,18 +6,15 @@ import type { AverageRating } from "@/shared/types/review"
 
 type AverageRatingResponse = { data: AverageRating }
 
-/**
- * Local provider-feature hook that fetches the average rating of a user.
- * Duplicates the shape of `useAverageRating` from the review feature to
- * avoid a cross-feature import (features never import each other).
- */
-export function useProfileRating(userId: string | undefined) {
+// Fetches the average rating of an organization.
+// Backend route: GET /api/v1/reviews/average/{orgId}
+export function useProfileRating(orgId: string | undefined) {
   return useQuery({
-    queryKey: ["profiles", userId, "average-rating"],
+    queryKey: ["profiles", "org", orgId, "average-rating"],
     queryFn: () =>
-      apiClient<AverageRatingResponse>(`/api/v1/reviews/average/${userId}`),
+      apiClient<AverageRatingResponse>(`/api/v1/reviews/average/${orgId}`),
     staleTime: 2 * 60 * 1000,
-    enabled: !!userId,
+    enabled: !!orgId,
     select: (res) => res.data,
   })
 }

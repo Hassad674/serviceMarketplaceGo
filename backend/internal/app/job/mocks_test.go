@@ -7,11 +7,68 @@ import (
 	"github.com/google/uuid"
 
 	domain "marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	portservice "marketplace-backend/internal/port/service"
 )
+
+// --- mockOrgRepo (minimal, KYC-aware) ---
+
+type mockOrgRepo struct {
+	findByUserIDFn func(ctx context.Context, userID uuid.UUID) (*organization.Organization, error)
+}
+
+func (m *mockOrgRepo) Create(context.Context, *organization.Organization) error { return nil }
+func (m *mockOrgRepo) CreateWithOwnerMembership(context.Context, *organization.Organization, *organization.Member) error {
+	return nil
+}
+func (m *mockOrgRepo) FindByID(context.Context, uuid.UUID) (*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) FindByOwnerUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) FindByUserID(ctx context.Context, userID uuid.UUID) (*organization.Organization, error) {
+	if m.findByUserIDFn != nil {
+		return m.findByUserIDFn(ctx, userID)
+	}
+	// Default: return a stub non-blocked provider_personal org so any
+	// test that doesn't care about KYC passes through the check.
+	return &organization.Organization{ID: uuid.New(), Type: organization.OrgTypeProviderPersonal}, nil
+}
+func (m *mockOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
+func (m *mockOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
+func (m *mockOrgRepo) CountAll(context.Context) (int, error)                    { return 0, nil }
+func (m *mockOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) GetStripeAccountByUserID(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
+	return nil
+}
+func (m *mockOrgRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
+func (m *mockOrgRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error { return nil }
+func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
+	return nil
+}
+func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+	return nil
+}
+
+var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 
 // --- mockJobRepo ---
 
@@ -19,7 +76,7 @@ type mockJobRepo struct {
 	createFn        func(ctx context.Context, j *domain.Job) error
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.Job, error)
 	updateFn        func(ctx context.Context, j *domain.Job) error
-	listByCreatorFn func(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error)
+	listByOrgFn     func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error)
 	listOpenFn      func(ctx context.Context, filters repository.JobListFilters, cursor string, limit int) ([]*domain.Job, string, error)
 }
 
@@ -44,9 +101,9 @@ func (m *mockJobRepo) Update(ctx context.Context, j *domain.Job) error {
 	return nil
 }
 
-func (m *mockJobRepo) ListByCreator(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error) {
-	if m.listByCreatorFn != nil {
-		return m.listByCreatorFn(ctx, creatorID, cursor, limit)
+func (m *mockJobRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error) {
+	if m.listByOrgFn != nil {
+		return m.listByOrgFn(ctx, orgID, cursor, limit)
 	}
 	return []*domain.Job{}, "", nil
 }
@@ -84,7 +141,7 @@ type mockJobApplicationRepo struct {
 	getByJobAndApplicantFn func(ctx context.Context, jobID, applicantID uuid.UUID) (*domain.JobApplication, error)
 	deleteFn              func(ctx context.Context, id uuid.UUID) error
 	listByJobFn           func(ctx context.Context, jobID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
-	listByApplicantFn     func(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
+	listByApplicantOrgFn  func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error)
 	countByJobFn          func(ctx context.Context, jobID uuid.UUID) (int, error)
 }
 
@@ -123,9 +180,9 @@ func (m *mockJobApplicationRepo) ListByJob(ctx context.Context, jobID uuid.UUID,
 	return []*domain.JobApplication{}, "", nil
 }
 
-func (m *mockJobApplicationRepo) ListByApplicant(ctx context.Context, applicantID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error) {
-	if m.listByApplicantFn != nil {
-		return m.listByApplicantFn(ctx, applicantID, cursor, limit)
+func (m *mockJobApplicationRepo) ListByApplicantOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.JobApplication, string, error) {
+	if m.listByApplicantOrgFn != nil {
+		return m.listByApplicantOrgFn(ctx, orgID, cursor, limit)
 	}
 	return []*domain.JobApplication{}, "", nil
 }
@@ -148,21 +205,27 @@ func (m *mockJobApplicationRepo) CountAdmin(_ context.Context, _ repository.Admi
 // --- mockProfileRepo ---
 
 type mockProfileRepo struct {
-	getPublicProfilesByUserIDsFn func(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error)
+	orgProfilesByUserIDsFn func(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error)
 }
 
-func (m *mockProfileRepo) Create(_ context.Context, _ *profile.Profile) error               { return nil }
-func (m *mockProfileRepo) GetByUserID(_ context.Context, _ uuid.UUID) (*profile.Profile, error) { return nil, nil }
-func (m *mockProfileRepo) Update(_ context.Context, _ *profile.Profile) error               { return nil }
+func (m *mockProfileRepo) Create(_ context.Context, _ *profile.Profile) error { return nil }
+func (m *mockProfileRepo) GetByOrganizationID(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+	return nil, nil
+}
+func (m *mockProfileRepo) Update(_ context.Context, _ *profile.Profile) error { return nil }
 func (m *mockProfileRepo) SearchPublic(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
 	return nil, "", nil
 }
 
-func (m *mockProfileRepo) GetPublicProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) ([]*profile.PublicProfile, error) {
-	if m.getPublicProfilesByUserIDsFn != nil {
-		return m.getPublicProfilesByUserIDsFn(ctx, userIDs)
+func (m *mockProfileRepo) GetPublicProfilesByOrgIDs(_ context.Context, _ []uuid.UUID) ([]*profile.PublicProfile, error) {
+	return nil, nil
+}
+
+func (m *mockProfileRepo) OrgProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
+	if m.orgProfilesByUserIDsFn != nil {
+		return m.orgProfilesByUserIDsFn(ctx, userIDs)
 	}
-	return []*profile.PublicProfile{}, nil
+	return map[uuid.UUID]*profile.PublicProfile{}, nil
 }
 
 // --- mockMsgSender ---
@@ -202,7 +265,8 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
-	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test"}, nil
+	stubOrg := uuid.New()
+	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test", OrganizationID: &stubOrg}, nil
 }
 
 func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {

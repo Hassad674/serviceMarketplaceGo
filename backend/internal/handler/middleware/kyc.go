@@ -8,14 +8,16 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
-// RequireKYCCompliant blocks providers/agencies who have earned available
-// funds but haven't completed Stripe KYC within 14 days. Must be chained
-// AFTER middleware.Auth.
+// RequireKYCCompliant blocks providers/agencies whose organization has
+// earned available funds but hasn't completed Stripe KYC within 14
+// days. Must be chained AFTER middleware.Auth. Since phase R5 the KYC
+// state lives on the organization (the merchant of record), so the
+// check resolves the caller's org and inspects its KYC deadline.
 //
 // Enterprises pass through unconditionally (they pay, they don't receive).
-// Users with no earnings pass through (no KYC deadline started).
-// Users who completed KYC pass through.
-func RequireKYCCompliant(users repository.UserRepository) func(http.Handler) http.Handler {
+// Orgs with no earnings pass through (no KYC deadline started).
+// Orgs that have completed KYC pass through.
+func RequireKYCCompliant(orgs repository.OrganizationRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			role := GetRole(r.Context())
@@ -25,22 +27,22 @@ func RequireKYCCompliant(users repository.UserRepository) func(http.Handler) htt
 				return
 			}
 
-			userID, ok := GetUserID(r.Context())
+			orgID, ok := GetOrganizationID(r.Context())
 			if !ok {
-				res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+				res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 				return
 			}
 
-			u, err := users.GetByID(r.Context(), userID)
+			org, err := orgs.FindByID(r.Context(), orgID)
 			if err != nil {
 				// Fail open: if we can't check, let the request through
-				// rather than blocking legitimate users.
+				// rather than blocking legitimate operators.
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			if u.IsKYCBlocked() {
-				deadline := u.KYCFirstEarningAt.Add(14 * 24 * time.Hour)
+			if org.IsKYCBlocked() {
+				deadline := org.KYCFirstEarningAt.Add(14 * 24 * time.Hour)
 				res.JSON(w, http.StatusForbidden, map[string]any{
 					"error": map[string]any{
 						"code":    "kyc_restricted",

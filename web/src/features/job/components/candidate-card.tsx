@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
-import { openChatWithUser } from "@/shared/components/chat-widget/use-chat-widget"
+import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import type { ApplicationWithProfile } from "../types"
 
 interface CandidateCardProps {
@@ -14,9 +14,17 @@ interface CandidateCardProps {
   onClick?: () => void
 }
 
-const ROLE_COLORS: Record<string, string> = {
-  provider: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
+const ORG_TYPE_COLORS: Record<string, string> = {
+  provider_personal: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
   agency: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
+  enterprise: "bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400",
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
 export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps) {
@@ -25,13 +33,13 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const { application, profile } = item
 
-  const initials = (profile.first_name?.[0] ?? "") + (profile.last_name?.[0] ?? "")
-  const displayName = profile.display_name || `${profile.first_name} ${profile.last_name}`
+  const displayName = profile.name
+  const initials = initialsFromName(displayName)
 
   function handleSendMessage(e: React.MouseEvent) {
     e.stopPropagation()
     if (isDesktop) {
-      openChatWithUser(application.applicant_id, displayName)
+      openChatWithOrg(application.applicant_id, displayName)
     } else {
       router.push(`/messages?to=${application.applicant_id}&name=${encodeURIComponent(displayName)}`)
     }
@@ -64,18 +72,18 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
           />
         ) : (
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-sm font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-400">
-            {initials || "?"}
+            {initials}
           </div>
         )}
 
-        {/* Name + role */}
+        {/* Name + org type */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
               {displayName}
             </p>
-            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0", ROLE_COLORS[profile.role] ?? "bg-slate-100 text-slate-600")}>
-              {profile.role}
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0", ORG_TYPE_COLORS[profile.org_type] ?? "bg-slate-100 text-slate-600")}>
+              {profile.org_type}
             </span>
             {application.video_url && (
               <span className="flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500 dark:bg-slate-700 dark:text-slate-400 shrink-0">

@@ -278,3 +278,42 @@ func scanMemberRow(rows *sql.Rows) (*organization.Member, error) {
 	m.Role = organization.Role(role)
 	return &m, nil
 }
+
+// ListMemberUserIDsByOrgIDs returns a map org_id → []user_id for every
+// given org. Used to project org-level concepts (presence, fan-out)
+// onto their underlying team users with a single query.
+func (r *OrganizationMemberRepository) ListMemberUserIDsByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	out := make(map[uuid.UUID][]uuid.UUID, len(orgIDs))
+	if len(orgIDs) == 0 {
+		return out, nil
+	}
+
+	ids := make([]string, len(orgIDs))
+	for i, id := range orgIDs {
+		ids[i] = id.String()
+	}
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT organization_id, user_id
+		FROM organization_members
+		WHERE organization_id = ANY($1)`, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("list member user ids by org ids: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var orgID, userID uuid.UUID
+		if err := rows.Scan(&orgID, &userID); err != nil {
+			return nil, fmt.Errorf("scan member row: %w", err)
+		}
+		out[orgID] = append(out[orgID], userID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return out, nil
+}

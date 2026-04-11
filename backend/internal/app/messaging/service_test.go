@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 )
@@ -25,31 +26,81 @@ func newTestService(
 	storage *mockStorageService,
 	rateLimiter *mockRateLimiter,
 ) *Service {
-	if msgRepo == nil {
-		msgRepo = &mockMessageRepo{}
+	return newTestServiceWithDeps(testServiceDeps{
+		msgRepo:     msgRepo,
+		userRepo:    userRepo,
+		presence:    presence,
+		broadcaster: broadcaster,
+		storage:     storage,
+		rateLimiter: rateLimiter,
+	})
+}
+
+func newTestServiceWithOrgMembers(
+	msgRepo *mockMessageRepo,
+	userRepo *mockUserRepo,
+	orgMembers *mockOrgMemberRepo,
+	presence *mockPresenceService,
+	broadcaster *mockBroadcaster,
+	storage *mockStorageService,
+	rateLimiter *mockRateLimiter,
+) *Service {
+	return newTestServiceWithDeps(testServiceDeps{
+		msgRepo:     msgRepo,
+		userRepo:    userRepo,
+		orgMembers:  orgMembers,
+		presence:    presence,
+		broadcaster: broadcaster,
+		storage:     storage,
+		rateLimiter: rateLimiter,
+	})
+}
+
+type testServiceDeps struct {
+	msgRepo     *mockMessageRepo
+	userRepo    *mockUserRepo
+	orgRepo     *mockOrgRepo
+	orgMembers  *mockOrgMemberRepo
+	presence    *mockPresenceService
+	broadcaster *mockBroadcaster
+	storage     *mockStorageService
+	rateLimiter *mockRateLimiter
+}
+
+func newTestServiceWithDeps(d testServiceDeps) *Service {
+	if d.msgRepo == nil {
+		d.msgRepo = &mockMessageRepo{}
 	}
-	if userRepo == nil {
-		userRepo = &mockUserRepo{}
+	if d.userRepo == nil {
+		d.userRepo = &mockUserRepo{}
 	}
-	if presence == nil {
-		presence = &mockPresenceService{}
+	if d.orgRepo == nil {
+		d.orgRepo = &mockOrgRepo{}
 	}
-	if broadcaster == nil {
-		broadcaster = &mockBroadcaster{}
+	if d.orgMembers == nil {
+		d.orgMembers = &mockOrgMemberRepo{}
 	}
-	if storage == nil {
-		storage = &mockStorageService{}
+	if d.presence == nil {
+		d.presence = &mockPresenceService{}
 	}
-	if rateLimiter == nil {
-		rateLimiter = &mockRateLimiter{}
+	if d.broadcaster == nil {
+		d.broadcaster = &mockBroadcaster{}
+	}
+	if d.storage == nil {
+		d.storage = &mockStorageService{}
+	}
+	if d.rateLimiter == nil {
+		d.rateLimiter = &mockRateLimiter{}
 	}
 	return NewService(ServiceDeps{
-		Messages:    msgRepo,
-		Users:       userRepo,
-		Presence:    presence,
-		Broadcaster: broadcaster,
-		Storage:     storage,
-		RateLimiter: rateLimiter,
+		Messages:      d.msgRepo,
+		Users:         d.userRepo,
+		Organizations: d.orgRepo,
+		OrgMembers:    d.orgMembers,
+		Presence:      d.presence,
+		Broadcaster:   d.broadcaster,
+		Storage:       d.storage,
+		RateLimiter:   d.rateLimiter,
 	})
 }
 
@@ -57,7 +108,8 @@ func newTestService(
 
 func TestStartConversation_Success(t *testing.T) {
 	senderID := uuid.New()
-	recipientID := uuid.New()
+	recipientUserID := uuid.New()
+	recipientOrgID := uuid.New()
 	convID := uuid.New()
 
 	var createdMsg *message.Message
@@ -70,7 +122,7 @@ func TestStartConversation_Success(t *testing.T) {
 			return nil
 		},
 		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
-			return []uuid.UUID{senderID, recipientID}, nil
+			return []uuid.UUID{senderID, recipientUserID}, nil
 		},
 	}
 	userRepo := &mockUserRepo{
@@ -78,14 +130,23 @@ func TestStartConversation_Success(t *testing.T) {
 			return &user.User{ID: id}, nil
 		},
 	}
+	orgRepo := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{ID: id, OwnerUserID: recipientUserID}, nil
+		},
+	}
 
-	svc := newTestService(msgRepo, userRepo, nil, nil, nil, nil)
+	svc := newTestServiceWithDeps(testServiceDeps{
+		msgRepo:  msgRepo,
+		userRepo: userRepo,
+		orgRepo:  orgRepo,
+	})
 
 	msg, returnedConvID, err := svc.StartConversation(context.Background(), StartConversationInput{
-		SenderID:    senderID,
-		RecipientID: recipientID,
-		Content:     "Hello!",
-		Type:        message.MessageTypeText,
+		SenderID:       senderID,
+		RecipientOrgID: recipientOrgID,
+		Content:        "Hello!",
+		Type:           message.MessageTypeText,
 	})
 
 	require.NoError(t, err)
@@ -97,13 +158,21 @@ func TestStartConversation_Success(t *testing.T) {
 
 func TestStartConversation_SelfConversation(t *testing.T) {
 	selfID := uuid.New()
-	svc := newTestService(nil, nil, nil, nil, nil, nil)
+	selfOrgID := uuid.New()
+
+	orgRepo := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{ID: id, OwnerUserID: selfID}, nil
+		},
+	}
+
+	svc := newTestServiceWithDeps(testServiceDeps{orgRepo: orgRepo})
 
 	msg, _, err := svc.StartConversation(context.Background(), StartConversationInput{
-		SenderID:    selfID,
-		RecipientID: selfID,
-		Content:     "talking to myself",
-		Type:        message.MessageTypeText,
+		SenderID:       selfID,
+		RecipientOrgID: selfOrgID,
+		Content:        "talking to myself",
+		Type:           message.MessageTypeText,
 	})
 
 	assert.ErrorIs(t, err, message.ErrSelfConversation)
@@ -116,14 +185,25 @@ func TestStartConversation_RecipientNotFound(t *testing.T) {
 			return nil, user.ErrUserNotFound
 		},
 	}
+	// Org resolves successfully but its Owner user_id is missing — the
+	// underlying user row is gone, which is the scenario we want to
+	// cover.
+	orgRepo := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{ID: id, OwnerUserID: uuid.New()}, nil
+		},
+	}
 
-	svc := newTestService(nil, userRepo, nil, nil, nil, nil)
+	svc := newTestServiceWithDeps(testServiceDeps{
+		userRepo: userRepo,
+		orgRepo:  orgRepo,
+	})
 
 	msg, _, err := svc.StartConversation(context.Background(), StartConversationInput{
-		SenderID:    uuid.New(),
-		RecipientID: uuid.New(),
-		Content:     "hello",
-		Type:        message.MessageTypeText,
+		SenderID:       uuid.New(),
+		RecipientOrgID: uuid.New(),
+		Content:        "hello",
+		Type:           message.MessageTypeText,
 	})
 
 	assert.Error(t, err)
@@ -143,13 +223,16 @@ func TestStartConversation_RateLimited(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(nil, userRepo, nil, nil, nil, rateLimiter)
+	svc := newTestServiceWithDeps(testServiceDeps{
+		userRepo:    userRepo,
+		rateLimiter: rateLimiter,
+	})
 
 	msg, _, err := svc.StartConversation(context.Background(), StartConversationInput{
-		SenderID:    uuid.New(),
-		RecipientID: uuid.New(),
-		Content:     "spam",
-		Type:        message.MessageTypeText,
+		SenderID:       uuid.New(),
+		RecipientOrgID: uuid.New(),
+		Content:        "spam",
+		Type:           message.MessageTypeText,
 	})
 
 	assert.ErrorIs(t, err, message.ErrRateLimitExceeded)
@@ -505,9 +588,9 @@ func TestListConversations_Success(t *testing.T) {
 	summaries := []repository.ConversationSummary{
 		{
 			ConversationID: uuid.New(),
-			OtherUserID:    otherUserID,
-			OtherUserName:  "Alice",
-			OtherUserRole:  "provider",
+			OtherOrgID:    otherUserID,
+			OtherOrgName:  "Alice",
+			OtherOrgType:  "provider",
 			UnreadCount:    3,
 		},
 	}
@@ -521,11 +604,11 @@ func TestListConversations_Success(t *testing.T) {
 
 	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
 
-	result, nextCursor, err := svc.ListConversations(context.Background(), userID, "", 20)
+	result, nextCursor, err := svc.ListConversations(context.Background(), uuid.New(), userID, "", 20)
 
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
-	assert.Equal(t, "Alice", result[0].OtherUserName)
+	assert.Equal(t, "Alice", result[0].OtherOrgName)
 	assert.Equal(t, "next", nextCursor)
 }
 
@@ -680,7 +763,8 @@ func TestDeliverMessage_NotParticipant(t *testing.T) {
 
 func TestStartConversation_ExistingConversation(t *testing.T) {
 	senderID := uuid.New()
-	recipientID := uuid.New()
+	recipientUserID := uuid.New()
+	recipientOrgID := uuid.New()
 	existingConvID := uuid.New()
 
 	var createdMsg *message.Message
@@ -693,7 +777,7 @@ func TestStartConversation_ExistingConversation(t *testing.T) {
 			return nil
 		},
 		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
-			return []uuid.UUID{senderID, recipientID}, nil
+			return []uuid.UUID{senderID, recipientUserID}, nil
 		},
 	}
 	userRepo := &mockUserRepo{
@@ -701,14 +785,23 @@ func TestStartConversation_ExistingConversation(t *testing.T) {
 			return &user.User{ID: id}, nil
 		},
 	}
+	orgRepo := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{ID: id, OwnerUserID: recipientUserID}, nil
+		},
+	}
 
-	svc := newTestService(msgRepo, userRepo, nil, nil, nil, nil)
+	svc := newTestServiceWithDeps(testServiceDeps{
+		msgRepo:  msgRepo,
+		userRepo: userRepo,
+		orgRepo:  orgRepo,
+	})
 
 	msg, returnedConvID, err := svc.StartConversation(context.Background(), StartConversationInput{
-		SenderID:    senderID,
-		RecipientID: recipientID,
-		Content:     "Hey again!",
-		Type:        message.MessageTypeText,
+		SenderID:       senderID,
+		RecipientOrgID: recipientOrgID,
+		Content:        "Hey again!",
+		Type:           message.MessageTypeText,
 	})
 
 	require.NoError(t, err)
@@ -867,12 +960,14 @@ func TestGetMessagesSinceSeq_NotParticipant(t *testing.T) {
 
 func TestListConversations_PresenceEnrichment(t *testing.T) {
 	userID := uuid.New()
-	otherUserID1 := uuid.New()
-	otherUserID2 := uuid.New()
+	aliceOrgID := uuid.New()
+	bobOrgID := uuid.New()
+	aliceUserID := uuid.New()
+	bobUserID := uuid.New()
 
 	summaries := []repository.ConversationSummary{
-		{ConversationID: uuid.New(), OtherUserID: otherUserID1, OtherUserName: "Alice"},
-		{ConversationID: uuid.New(), OtherUserID: otherUserID2, OtherUserName: "Bob"},
+		{ConversationID: uuid.New(), OtherOrgID: aliceOrgID, OtherOrgName: "Alice"},
+		{ConversationID: uuid.New(), OtherOrgID: bobOrgID, OtherOrgName: "Bob"},
 	}
 
 	msgRepo := &mockMessageRepo{
@@ -880,23 +975,31 @@ func TestListConversations_PresenceEnrichment(t *testing.T) {
 			return summaries, "", nil
 		},
 	}
+	orgMembers := &mockOrgMemberRepo{
+		listMemberUserIDsByOrgIDsFn: func(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+			return map[uuid.UUID][]uuid.UUID{
+				aliceOrgID: {aliceUserID},
+				bobOrgID:   {bobUserID},
+			}, nil
+		},
+	}
 	presence := &mockPresenceService{
-		bulkIsOnlineFn: func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+		bulkIsOnlineFn: func(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]bool, error) {
 			return map[uuid.UUID]bool{
-				otherUserID1: true,
-				otherUserID2: false,
+				aliceUserID: true,
+				bobUserID:   false,
 			}, nil
 		},
 	}
 
-	svc := newTestService(msgRepo, nil, presence, nil, nil, nil)
+	svc := newTestServiceWithOrgMembers(msgRepo, nil, orgMembers, presence, nil, nil, nil)
 
-	result, _, err := svc.ListConversations(context.Background(), userID, "", 20)
+	result, _, err := svc.ListConversations(context.Background(), uuid.New(), userID, "", 20)
 
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
-	assert.True(t, result[0].Online, "Alice should be online")
-	assert.False(t, result[1].Online, "Bob should be offline")
+	assert.True(t, result[0].Online, "Alice's org should be online")
+	assert.False(t, result[1].Online, "Bob's org should be offline")
 }
 
 // --- ListConversations: presence error is graceful ---
@@ -905,7 +1008,7 @@ func TestListConversations_PresenceErrorGraceful(t *testing.T) {
 	userID := uuid.New()
 
 	summaries := []repository.ConversationSummary{
-		{ConversationID: uuid.New(), OtherUserID: uuid.New(), OtherUserName: "Alice"},
+		{ConversationID: uuid.New(), OtherOrgID: uuid.New(), OtherOrgName: "Alice"},
 	}
 
 	msgRepo := &mockMessageRepo{
@@ -921,7 +1024,7 @@ func TestListConversations_PresenceErrorGraceful(t *testing.T) {
 
 	svc := newTestService(msgRepo, nil, presence, nil, nil, nil)
 
-	result, _, err := svc.ListConversations(context.Background(), userID, "", 20)
+	result, _, err := svc.ListConversations(context.Background(), uuid.New(), userID, "", 20)
 
 	require.NoError(t, err, "presence errors should not fail the request")
 	assert.Len(t, result, 1)

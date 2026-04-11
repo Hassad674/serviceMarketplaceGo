@@ -1,24 +1,32 @@
 package organization
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-// OrgType identifies the nature of the organization. Mirrors the user's
-// marketplace role (agency or enterprise). Providers are solo and never
-// have an organization.
+// OrgType identifies the nature of the organization. Three values exist
+// post phase R1: agency and enterprise are created by a self-registering
+// founder, and provider_personal is the auto-created org for every solo
+// user (providers, admins) so that invited operators can join them under
+// the same Stripe Dashboard semantics as companies.
 type OrgType string
 
 const (
-	OrgTypeAgency     OrgType = "agency"
-	OrgTypeEnterprise OrgType = "enterprise"
+	OrgTypeAgency           OrgType = "agency"
+	OrgTypeEnterprise       OrgType = "enterprise"
+	OrgTypeProviderPersonal OrgType = "provider_personal"
 )
 
 // IsValid reports whether the org type is a known value.
 func (t OrgType) IsValid() bool {
-	return t == OrgTypeAgency || t == OrgTypeEnterprise
+	switch t {
+	case OrgTypeAgency, OrgTypeEnterprise, OrgTypeProviderPersonal:
+		return true
+	}
+	return false
 }
 
 // String implements fmt.Stringer.
@@ -41,6 +49,20 @@ type Organization struct {
 	ID          uuid.UUID
 	OwnerUserID uuid.UUID
 	Type        OrgType
+	Name        string
+
+	// Stripe Connect (moved from users in phase R5). The org is the
+	// merchant of record: transfers, payouts and the KYC state all
+	// live here so every operator of the team sees the same Stripe
+	// Dashboard.
+	StripeAccountID      *string
+	StripeAccountCountry *string
+	StripeLastState      []byte // jsonb raw — opaque at the domain level
+
+	// KYC enforcement bookkeeping (migration 044 semantics, now
+	// org-scoped).
+	KYCFirstEarningAt        *time.Time
+	KYCRestrictionNotifiedAt map[string]time.Time // tier → notified timestamp
 
 	PendingTransferToUserID    *uuid.UUID
 	PendingTransferInitiatedAt *time.Time
@@ -50,21 +72,57 @@ type Organization struct {
 	UpdatedAt time.Time
 }
 
+// HasKYCCompleted returns true when a Stripe account exists for the org.
+func (o *Organization) HasKYCCompleted() bool {
+	return o.StripeAccountID != nil && *o.StripeAccountID != ""
+}
+
+// IsKYCBlocked returns true if the org has earned available funds, has
+// NOT completed KYC, and 14 days have elapsed since the first earning.
+// Mirrors the 14-day deadline enforced by the KYC scheduler.
+func (o *Organization) IsKYCBlocked() bool {
+	if o.HasKYCCompleted() {
+		return false
+	}
+	if o.KYCFirstEarningAt == nil {
+		return false
+	}
+	return time.Since(*o.KYCFirstEarningAt) >= 14*24*time.Hour
+}
+
+// KYCDaysRemaining returns the number of days before restriction kicks
+// in. -1 when not applicable (no earnings or KYC done), 0 when already
+// restricted.
+func (o *Organization) KYCDaysRemaining() int {
+	if o.HasKYCCompleted() || o.KYCFirstEarningAt == nil {
+		return -1
+	}
+	remaining := 14*24*time.Hour - time.Since(*o.KYCFirstEarningAt)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Hours() / 24)
+}
+
 // NewOrganization creates a fresh organization for the given owner.
 // The caller is responsible for persisting it AND for creating the
 // matching organization_members row with role='owner' inside the same
 // transaction, so the single-Owner invariant is maintained at all times.
 //
-// Providers cannot own an organization — the app layer must verify the
-// user's marketplace role before calling this constructor. The check
-// isn't duplicated here because it would require importing the user
-// package, which would violate the domain isolation rule.
-func NewOrganization(ownerUserID uuid.UUID, orgType OrgType) (*Organization, error) {
+// Every user — Agency founder, Enterprise founder, Provider, admin — gets
+// exactly one organization they own. Providers and admins receive a
+// provider_personal org so that team invitations (operators) work the
+// same way across all marketplace roles.
+func NewOrganization(ownerUserID uuid.UUID, orgType OrgType, name string) (*Organization, error) {
 	if ownerUserID == uuid.Nil {
 		return nil, ErrNameRequired // misuse — owner must exist
 	}
 	if !orgType.IsValid() {
 		return nil, ErrInvalidOrgType
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, ErrNameRequired
 	}
 
 	now := time.Now()
@@ -72,9 +130,23 @@ func NewOrganization(ownerUserID uuid.UUID, orgType OrgType) (*Organization, err
 		ID:          uuid.New(),
 		OwnerUserID: ownerUserID,
 		Type:        orgType,
+		Name:        name,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}, nil
+}
+
+// Rename changes the organization's display name. Used by the team
+// owner to turn the auto-generated personal name into a company name.
+// Returns ErrNameRequired when the new name is blank.
+func (o *Organization) Rename(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ErrNameRequired
+	}
+	o.Name = name
+	o.UpdatedAt = time.Now()
+	return nil
 }
 
 // IsTransferPending reports whether an ownership transfer has been

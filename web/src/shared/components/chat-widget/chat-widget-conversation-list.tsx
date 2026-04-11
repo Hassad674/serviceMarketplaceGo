@@ -48,7 +48,7 @@ export function ChatWidgetConversationList({
       conversations.filter(
         (c) =>
           !searchQuery ||
-          c.other_user_name.toLowerCase().includes(searchQuery.toLowerCase()),
+          c.other_org_name.toLowerCase().includes(searchQuery.toLowerCase()),
       ),
     [conversations, searchQuery],
   )
@@ -135,9 +135,9 @@ function CompactConversationItem({
   onSelect,
 }: CompactConversationItemProps) {
   const t = useTranslations("messaging")
-  const initials = conversation.other_user_name
+  const initials = conversation.other_org_name
     .split(" ")
-    .map((w) => w.charAt(0))
+    .map((w: string) => w.charAt(0))
     .join("")
     .slice(0, 2)
     .toUpperCase()
@@ -157,7 +157,7 @@ function CompactConversationItem({
         {conversation.other_photo_url ? (
           <Image
             src={conversation.other_photo_url}
-            alt={conversation.other_user_name}
+            alt={conversation.other_org_name}
             width={36}
             height={36}
             className="h-9 w-9 rounded-full object-cover"
@@ -177,7 +177,7 @@ function CompactConversationItem({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
           <p className="truncate text-xs font-semibold text-gray-900 dark:text-white">
-            {conversation.other_user_name}
+            {conversation.other_org_name}
           </p>
           {conversation.last_message_at && (
             <span className="ml-2 shrink-0 text-[10px] text-gray-400 dark:text-gray-500">

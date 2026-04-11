@@ -104,19 +104,25 @@ func (r *PaymentRecordRepository) Update(ctx context.Context, rec *payment.Payme
 	return nil
 }
 
-func (r *PaymentRecordRepository) ListByProviderID(ctx context.Context, providerID uuid.UUID) ([]*payment.PaymentRecord, error) {
+// ListByOrganization returns payment records where the caller's
+// organization is either the client or the provider. Phase 4
+// denormalized payment_records.organization_id to the client side;
+// the provider side is resolved via the user→org link.
+func (r *PaymentRecordRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*payment.PaymentRecord, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, proposal_id, client_id, provider_id,
-			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
-			proposal_amount, stripe_fee_amount, platform_fee_amount,
-			client_total_amount, provider_payout,
-			currency, status, transfer_status,
-			paid_at, transferred_at, created_at, updated_at
-		FROM payment_records WHERE provider_id = $1
-		ORDER BY created_at DESC`, providerID)
+		SELECT pr.id, pr.proposal_id, pr.client_id, pr.provider_id,
+			COALESCE(pr.stripe_payment_intent_id, ''), COALESCE(pr.stripe_transfer_id, ''),
+			pr.proposal_amount, pr.stripe_fee_amount, pr.platform_fee_amount,
+			pr.client_total_amount, pr.provider_payout,
+			pr.currency, pr.status, pr.transfer_status,
+			pr.paid_at, pr.transferred_at, pr.created_at, pr.updated_at
+		FROM payment_records pr
+		LEFT JOIN users provider_user ON provider_user.id = pr.provider_id
+		WHERE pr.organization_id = $1 OR provider_user.organization_id = $1
+		ORDER BY pr.created_at DESC`, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("list payment records: %w", err)
 	}

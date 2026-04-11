@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -23,7 +24,7 @@ type mockProposalRepo struct {
 	updateFn             func(ctx context.Context, p *domain.Proposal) error
 	getLatestVersionFn   func(ctx context.Context, rootProposalID uuid.UUID) (*domain.Proposal, error)
 	listByConversationFn func(ctx context.Context, conversationID uuid.UUID) ([]*domain.Proposal, error)
-	listActiveProjectsFn func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
+	listActiveProjectsFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
 	getDocumentsFn       func(ctx context.Context, proposalID uuid.UUID) ([]*domain.ProposalDocument, error)
 	createDocumentFn     func(ctx context.Context, doc *domain.ProposalDocument) error
 }
@@ -70,14 +71,14 @@ func (m *mockProposalRepo) ListByConversation(ctx context.Context, conversationI
 	return nil, nil
 }
 
-func (m *mockProposalRepo) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error) {
 	if m.listActiveProjectsFn != nil {
-		return m.listActiveProjectsFn(ctx, userID, cursor, limit)
+		return m.listActiveProjectsFn(ctx, orgID, cursor, limit)
 	}
 	return []*domain.Proposal{}, "", nil
 }
 
-func (m *mockProposalRepo) ListCompletedByProvider(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.Proposal, string, error) {
+func (m *mockProposalRepo) ListCompletedByOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.Proposal, string, error) {
 	return []*domain.Proposal{}, "", nil
 }
 
@@ -98,6 +99,60 @@ func (m *mockProposalRepo) CreateDocument(ctx context.Context, doc *domain.Propo
 func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) {
 	return 0, 0, nil
 }
+
+// --- mockOrgRepo (KYC-aware stub) ---
+
+type mockOrgRepo struct {
+	findByUserIDFn func(ctx context.Context, userID uuid.UUID) (*organization.Organization, error)
+}
+
+func (m *mockOrgRepo) Create(context.Context, *organization.Organization) error { return nil }
+func (m *mockOrgRepo) CreateWithOwnerMembership(context.Context, *organization.Organization, *organization.Member) error {
+	return nil
+}
+func (m *mockOrgRepo) FindByID(context.Context, uuid.UUID) (*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) FindByOwnerUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) FindByUserID(ctx context.Context, userID uuid.UUID) (*organization.Organization, error) {
+	if m.findByUserIDFn != nil {
+		return m.findByUserIDFn(ctx, userID)
+	}
+	return &organization.Organization{ID: uuid.New(), Type: organization.OrgTypeProviderPersonal}, nil
+}
+func (m *mockOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
+func (m *mockOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
+func (m *mockOrgRepo) CountAll(context.Context) (int, error)                    { return 0, nil }
+func (m *mockOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) GetStripeAccountByUserID(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
+	return nil
+}
+func (m *mockOrgRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
+func (m *mockOrgRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error { return nil }
+func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
+	return nil
+}
+func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+	return nil
+}
+
+var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 
 // --- mockUserRepo ---
 

@@ -53,9 +53,9 @@ describe("useConversations", () => {
       data: [
         {
           id: "conv-1",
-          other_user_id: "user-2",
-          other_user_name: "Alice",
-          other_user_role: "provider",
+          other_org_id: "org-2",
+          other_org_name: "Alice",
+          other_org_type: "provider_personal",
           other_photo_url: "",
           last_message: "Hello",
           last_message_at: "2026-03-26T10:00:00Z",
@@ -74,7 +74,7 @@ describe("useConversations", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(result.current.data?.data).toHaveLength(1)
-    expect(result.current.data?.data[0].other_user_name).toBe("Alice")
+    expect(result.current.data?.data[0].other_org_name).toBe("Alice")
   })
 
   it("builds user-scoped query key", () => {

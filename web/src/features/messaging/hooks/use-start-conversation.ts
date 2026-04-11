@@ -12,8 +12,8 @@ export function useStartConversation() {
   const uid = useCurrentUserId()
 
   return useMutation({
-    mutationFn: ({ otherUserId, content }: { otherUserId: string; content: string }) =>
-      startConversation(otherUserId, content),
+    mutationFn: ({ otherOrgId, content }: { otherOrgId: string; content: string }) =>
+      startConversation(otherOrgId, content),
 
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })

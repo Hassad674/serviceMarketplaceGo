@@ -13,19 +13,21 @@ import (
 )
 
 type ServiceDeps struct {
-	Jobs         repository.JobRepository
-	Applications repository.JobApplicationRepository
-	Users        repository.UserRepository
-	Profiles     repository.ProfileRepository
-	Messages     service.MessageSender
-	JobViews     repository.JobViewRepository
-	Credits      repository.JobCreditRepository
+	Jobs          repository.JobRepository
+	Applications  repository.JobApplicationRepository
+	Users         repository.UserRepository
+	Organizations repository.OrganizationRepository
+	Profiles      repository.ProfileRepository
+	Messages      service.MessageSender
+	JobViews      repository.JobViewRepository
+	Credits       repository.JobCreditRepository
 }
 
 type Service struct {
 	jobs         repository.JobRepository
 	applications repository.JobApplicationRepository
 	users        repository.UserRepository
+	orgs         repository.OrganizationRepository
 	profiles     repository.ProfileRepository
 	messages     service.MessageSender
 	jobViews     repository.JobViewRepository
@@ -37,6 +39,7 @@ func NewService(deps ServiceDeps) *Service {
 		jobs:         deps.Jobs,
 		applications: deps.Applications,
 		users:        deps.Users,
+		orgs:         deps.Organizations,
 		profiles:     deps.Profiles,
 		messages:     deps.Messages,
 		jobViews:     deps.JobViews,
@@ -115,19 +118,25 @@ type JobWithCounts struct {
 	NewApplicants    int
 }
 
-func (s *Service) ListMyJobs(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*domain.Job, string, error) {
-	jobs, nextCursor, err := s.jobs.ListByCreator(ctx, userID, cursorStr, limit)
+// ListOrgJobs returns the jobs posted by the caller's organization.
+// Every operator of the same org sees the exact same list — the
+// Stripe Dashboard shared-workspace semantics.
+func (s *Service) ListOrgJobs(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*domain.Job, string, error) {
+	jobs, nextCursor, err := s.jobs.ListByOrganization(ctx, orgID, cursorStr, limit)
 	if err != nil {
-		return nil, "", fmt.Errorf("list my jobs: %w", err)
+		return nil, "", fmt.Errorf("list org jobs: %w", err)
 	}
 	return jobs, nextCursor, nil
 }
 
-// ListMyJobsWithCounts returns jobs enriched with application counts.
-func (s *Service) ListMyJobsWithCounts(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]JobWithCounts, string, error) {
-	jobs, nextCursor, err := s.jobs.ListByCreator(ctx, userID, cursorStr, limit)
+// ListOrgJobsWithCounts returns org jobs enriched with application counts.
+// Application view state (new-since-last-viewed) stays per-user since
+// each operator's personal "I last looked at this at X" marker is still
+// meaningful inside a shared org.
+func (s *Service) ListOrgJobsWithCounts(ctx context.Context, orgID, viewerUserID uuid.UUID, cursorStr string, limit int) ([]JobWithCounts, string, error) {
+	jobs, nextCursor, err := s.jobs.ListByOrganization(ctx, orgID, cursorStr, limit)
 	if err != nil {
-		return nil, "", fmt.Errorf("list my jobs: %w", err)
+		return nil, "", fmt.Errorf("list org jobs: %w", err)
 	}
 	if len(jobs) == 0 || s.jobViews == nil {
 		result := make([]JobWithCounts, len(jobs))
@@ -141,7 +150,7 @@ func (s *Service) ListMyJobsWithCounts(ctx context.Context, userID uuid.UUID, cu
 	for i, j := range jobs {
 		ids[i] = j.ID
 	}
-	counts, err := s.jobViews.GetApplicationCountsBatch(ctx, ids, userID)
+	counts, err := s.jobViews.GetApplicationCountsBatch(ctx, ids, viewerUserID)
 	if err != nil {
 		return nil, "", fmt.Errorf("get application counts: %w", err)
 	}

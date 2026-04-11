@@ -76,7 +76,7 @@ export function ChatWidgetChatView({
     )
   }
 
-  const headerName = conversation?.other_user_name ?? pendingRecipient?.displayName ?? ""
+  const headerName = conversation?.other_org_name ?? pendingRecipient?.displayName ?? ""
   const isOnline = conversation?.online ?? false
 
   return (
@@ -108,7 +108,7 @@ export function ChatWidgetChatView({
       {/* Full-featured input with file + proposal + voice buttons */}
       <WidgetMessageInput
         conversationId={conversationId}
-        otherUserId={conversation?.other_user_id ?? pendingRecipient?.userId ?? ""}
+        otherOrgId={conversation?.other_org_id ?? pendingRecipient?.orgId ?? ""}
         onSend={onSend}
         onSendFile={onSendFile}
         onSendVoice={onSendVoice}
@@ -187,7 +187,7 @@ function formatRecordingDuration(seconds: number): string {
 
 interface WidgetMessageInputProps {
   conversationId: string | null
-  otherUserId: string
+  otherOrgId: string
   onSend: (content: string) => void
   onSendFile: (files: File[]) => Promise<void>
   onSendVoice?: (content: string, metadata: { url: string; duration: number; size: number; mime_type: string }) => void
@@ -197,7 +197,7 @@ interface WidgetMessageInputProps {
 
 function WidgetMessageInput({
   conversationId,
-  otherUserId,
+  otherOrgId,
   onSend,
   onSendFile,
   onSendVoice,
@@ -252,7 +252,7 @@ function WidgetMessageInput({
 
   function handleProposal() {
     if (conversationId) {
-      router.push(`/projects/new?to=${otherUserId}&conversation=${conversationId}`)
+      router.push(`/projects/new?to=${otherOrgId}&conversation=${conversationId}`)
     }
     setMobileMenuOpen(false)
   }

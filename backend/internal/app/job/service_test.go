@@ -187,9 +187,9 @@ func TestCloseJob_AlreadyClosed(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrAlreadyClosed)
 }
 
-func TestListMyJobs_Empty(t *testing.T) {
+func TestListOrgJobs_Empty(t *testing.T) {
 	svc := newTestService(&mockJobRepo{}, &mockUserRepo{})
-	jobs, cursor, err := svc.ListMyJobs(context.Background(), uuid.New(), "", 20)
+	jobs, cursor, err := svc.ListOrgJobs(context.Background(), uuid.New(), "", 20)
 	assert.NoError(t, err)
 	assert.Empty(t, jobs)
 	assert.Empty(t, cursor)

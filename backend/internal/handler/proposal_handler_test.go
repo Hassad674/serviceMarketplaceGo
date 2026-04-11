@@ -115,6 +115,10 @@ func proposalCtx(r *http.Request, userID *uuid.UUID, urlParamID string) *http.Re
 	}
 	if userID != nil {
 		ctx = context.WithValue(ctx, middleware.ContextKeyUserID, *userID)
+		// Also expose the user id as an org id so tests exercising
+		// org-scoped list queries (ListActiveProjects) pass the
+		// middleware check.
+		ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, *userID)
 	}
 	return r.WithContext(ctx)
 }

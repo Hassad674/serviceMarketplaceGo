@@ -236,15 +236,18 @@ func (h *DisputeHandler) RespondToCancellation(w http.ResponseWriter, r *http.Re
 	res.JSON(w, http.StatusOK, map[string]string{"status": status})
 }
 
+// ListMyDisputes returns the disputes belonging to the authenticated
+// user's organization. Every operator of the same org sees the same
+// list — the Stripe Dashboard shared-workspace model.
 func (h *DisputeHandler) ListMyDisputes(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
 	cursor := r.URL.Query().Get("cursor")
-	disputes, nextCursor, err := h.svc.ListMyDisputes(r.Context(), userID, cursor, 20)
+	disputes, nextCursor, err := h.svc.ListOrgDisputes(r.Context(), orgID, cursor, 20)
 	if err != nil {
 		handleDisputeError(w, err)
 		return

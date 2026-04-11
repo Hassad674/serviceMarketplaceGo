@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	orgapp "marketplace-backend/internal/app/organization"
-	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -22,11 +20,11 @@ import (
 // port to the outside world.
 //
 // A nil OrgProvisioner is allowed for tests that don't exercise the
-// org provisioning path (typical Provider tests). Production code
-// always wires a real one.
+// org provisioning path. Production code always wires a real one.
 type OrgProvisioner interface {
 	// CreateForOwner provisions a new organization owned by the given user.
-	// Returns organization.ErrProviderCannotOwnOrg if the user is a Provider.
+	// Every user gets an org (agency/enterprise/provider_personal) since
+	// phase R1.
 	CreateForOwner(ctx context.Context, u *user.User) (*orgapp.Context, error)
 
 	// ResolveContext returns the user's org membership and computed
@@ -183,22 +181,17 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
 }
 
-// provisionOrgForNewUser creates an organization for a newly registered
-// Agency or Enterprise user. Returns nil when the user is a Provider
-// (solo by design) or when no provisioner is wired (tests).
+// provisionOrgForNewUser creates an organization for every newly
+// registered user. Agencies and enterprises get a company org (type
+// mirrors the role), providers get a provider_personal org. Returns
+// nil only when no provisioner is wired (tests).
 func (s *Service) provisionOrgForNewUser(ctx context.Context, u *user.User) (*orgContext, error) {
 	if s.orgs == nil {
-		return nil, nil
-	}
-	if u.Role == user.RoleProvider {
 		return nil, nil
 	}
 
 	orgCtx, err := s.orgs.CreateForOwner(ctx, u)
 	if err != nil {
-		if errors.Is(err, organization.ErrProviderCannotOwnOrg) {
-			return nil, nil // shouldn't happen given the role check above
-		}
 		return nil, fmt.Errorf("provision organization: %w", err)
 	}
 	return orgCtx, nil
