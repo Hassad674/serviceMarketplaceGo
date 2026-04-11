@@ -20,6 +20,15 @@ func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput)
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
+	// Org-level authorization: the caller must belong to the recipient's
+	// organization. Only the recipient side can accept a proposal —
+	// directionality is preserved even though the user-level check has
+	// been replaced with an org-level one (any operator of the recipient
+	// org can accept on behalf of the team).
+	if err := s.requireOrgIsSide(ctx, p.RecipientID, input.OrgID, domain.ErrNotAuthorized); err != nil {
+		return err
+	}
+
 	// KYC enforcement: if the acceptor's org is blocked (14 days
 	// elapsed without Stripe onboarding), they cannot accept proposals.
 	if s.orgs != nil {
@@ -28,7 +37,10 @@ func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput)
 		}
 	}
 
-	if err := p.Accept(input.UserID); err != nil {
+	// Pass the canonical recipient id to the domain method so its own
+	// user-level invariant still holds. The real authorization has
+	// already been performed at the org level above.
+	if err := p.Accept(p.RecipientID); err != nil {
 		return err
 	}
 
@@ -39,8 +51,11 @@ func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput)
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_accepted", metadata)
 
-	// If the acceptor is the provider, send a payment request to the client
-	if input.UserID == p.ProviderID {
+	// If the recipient side is the provider, send a payment request to
+	// the client side. We key on the proposal's own ProviderID — not on
+	// the acting operator — so the message is posted whenever the
+	// provider org accepted, regardless of which team member clicked.
+	if p.RecipientID == p.ProviderID {
 		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_payment_requested", metadata)
 	}
 
@@ -57,7 +72,12 @@ func (s *Service) DeclineProposal(ctx context.Context, input DeclineProposalInpu
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	if err := p.Decline(input.UserID); err != nil {
+	// Recipient-only directional check at org granularity.
+	if err := s.requireOrgIsSide(ctx, p.RecipientID, input.OrgID, domain.ErrNotAuthorized); err != nil {
+		return err
+	}
+
+	if err := p.Decline(p.RecipientID); err != nil {
 		return err
 	}
 
@@ -81,7 +101,13 @@ func (s *Service) ModifyProposal(ctx context.Context, input ModifyProposalInput)
 		return nil, fmt.Errorf("get proposal: %w", err)
 	}
 
-	if !original.CanBeModifiedBy(input.UserID) {
+	// Only the recipient SIDE can counter — any operator of the
+	// recipient's org can create the counter-version. Status must still
+	// be pending, which CanBeModifiedBy enforces via p.RecipientID.
+	if err := s.requireOrgIsSide(ctx, original.RecipientID, input.OrgID, domain.ErrCannotModify); err != nil {
+		return nil, err
+	}
+	if !original.CanBeModifiedBy(original.RecipientID) {
 		return nil, domain.ErrCannotModify
 	}
 
@@ -135,8 +161,13 @@ func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (
 		return nil, fmt.Errorf("get proposal: %w", err)
 	}
 
-	if input.UserID != p.ClientID {
-		return nil, domain.ErrNotAuthorized
+	// Payment is a strictly CLIENT-side action. The caller must belong
+	// to the client's organization. The recipient side (provider org)
+	// must NOT be able to pay on behalf of the client, even though they
+	// are a party to the proposal — this directional check is the only
+	// thing standing between a buggy operator and double-charging.
+	if err := s.requireOrgIsSide(ctx, p.ClientID, input.OrgID, domain.ErrNotAuthorized); err != nil {
+		return nil, err
 	}
 
 	if p.Status != domain.StatusAccepted {
@@ -223,13 +254,32 @@ func (s *Service) GetProposalByID(ctx context.Context, id uuid.UUID) (*domain.Pr
 	return s.proposals.GetByID(ctx, id)
 }
 
+// AuthorizeClientOrg returns nil if the caller's org owns the client
+// side of the proposal, or domain.ErrNotAuthorized otherwise. Used by
+// the ConfirmPayment handler, which still executes several payment
+// service calls in sequence after authorization — hence this method
+// is exposed as a standalone gate instead of being bundled with the
+// status transition.
+func (s *Service) AuthorizeClientOrg(ctx context.Context, proposalID, orgID uuid.UUID) error {
+	p, err := s.proposals.GetByID(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+	return s.requireOrgIsSide(ctx, p.ClientID, orgID, domain.ErrNotAuthorized)
+}
+
 func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletionInput) error {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	if err := p.RequestCompletion(input.UserID); err != nil {
+	// Provider-only directional check at org granularity.
+	if err := s.requireOrgIsSide(ctx, p.ProviderID, input.OrgID, domain.ErrNotProvider); err != nil {
+		return err
+	}
+
+	if err := p.RequestCompletion(p.ProviderID); err != nil {
 		return err
 	}
 
@@ -253,7 +303,14 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	if err := p.ConfirmCompletion(input.UserID); err != nil {
+	// Client-only directional check at org granularity — only the
+	// client side can confirm that the mission is done (because they
+	// release the escrowed funds).
+	if err := s.requireOrgIsSide(ctx, p.ClientID, input.OrgID, domain.ErrNotClient); err != nil {
+		return err
+	}
+
+	if err := p.ConfirmCompletion(p.ClientID); err != nil {
 		return err
 	}
 
@@ -305,7 +362,12 @@ func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionIn
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	if err := p.RejectCompletion(input.UserID); err != nil {
+	// Client-only directional check at org granularity.
+	if err := s.requireOrgIsSide(ctx, p.ClientID, input.OrgID, domain.ErrNotClient); err != nil {
+		return err
+	}
+
+	if err := p.RejectCompletion(p.ClientID); err != nil {
 		return err
 	}
 
@@ -319,13 +381,24 @@ func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionIn
 	return nil
 }
 
-func (s *Service) GetProposal(ctx context.Context, userID, proposalID uuid.UUID) (*domain.Proposal, []*domain.ProposalDocument, error) {
+// GetProposal fetches a proposal along with its documents and verifies
+// that the calling organization (not just the user) has access. Either
+// the client-side org or the provider-side org is authorized — any
+// operator inside those orgs can read the proposal. userID is kept in
+// the signature for audit/logging consistency but is no longer used
+// for the authorization check itself.
+func (s *Service) GetProposal(ctx context.Context, userID, orgID, proposalID uuid.UUID) (*domain.Proposal, []*domain.ProposalDocument, error) {
+	_ = userID // reserved for future audit logging; auth now uses orgID
 	p, err := s.proposals.GetByID(ctx, proposalID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get proposal: %w", err)
 	}
 
-	if !isParticipant(p, userID) {
+	authorized, err := s.proposals.IsOrgAuthorizedForProposal(ctx, proposalID, orgID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("authorize proposal for org: %w", err)
+	}
+	if !authorized {
 		return nil, nil, domain.ErrNotAuthorized
 	}
 
@@ -365,11 +438,35 @@ func (s *Service) sendEvaluationRequest(ctx context.Context, convID, clientID uu
 	s.sendProposalMessage(ctx, convID, clientID, "evaluation_request", enriched)
 }
 
-func isParticipant(p *domain.Proposal, userID uuid.UUID) bool {
-	return userID == p.SenderID ||
-		userID == p.RecipientID ||
-		userID == p.ClientID ||
-		userID == p.ProviderID
+// requireOrgIsSide resolves the user identified by sideUserID (which
+// represents one specific directional side of the proposal — sender,
+// recipient, client, or provider) and checks whether their
+// organization matches the caller's org. Returns notAllowedErr if the
+// side is not associated with the caller's org, preserving whichever
+// sentinel error the calling method wants to surface (ErrNotAuthorized,
+// ErrCannotModify, ErrNotClient, ErrNotProvider).
+//
+// This is how directional checks ("only the recipient side can
+// accept", "only the client side can pay") are enforced at the org
+// level while still letting any operator within the winning org act
+// on behalf of the team.
+func (s *Service) requireOrgIsSide(
+	ctx context.Context,
+	sideUserID uuid.UUID,
+	callerOrgID uuid.UUID,
+	notAllowedErr error,
+) error {
+	if s.users == nil {
+		return notAllowedErr
+	}
+	sideUser, err := s.users.GetByID(ctx, sideUserID)
+	if err != nil {
+		return fmt.Errorf("resolve side user: %w", err)
+	}
+	if sideUser.OrganizationID == nil || *sideUser.OrganizationID != callerOrgID {
+		return notAllowedErr
+	}
+	return nil
 }
 
 func buildStatusMetadata(p *domain.Proposal) json.RawMessage {

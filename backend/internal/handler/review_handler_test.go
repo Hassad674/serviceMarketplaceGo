@@ -106,6 +106,7 @@ type mockProposalRepo struct {
 	listActiveProjectsFn  func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*proposal.Proposal, string, error)
 	getDocumentsFn        func(ctx context.Context, proposalID uuid.UUID) ([]*proposal.ProposalDocument, error)
 	createDocumentFn      func(ctx context.Context, doc *proposal.ProposalDocument) error
+	isOrgAuthorizedFn     func(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error)
 }
 
 func (m *mockProposalRepo) Create(ctx context.Context, p *proposal.Proposal) error {
@@ -173,6 +174,17 @@ func (m *mockProposalRepo) CreateDocument(ctx context.Context, doc *proposal.Pro
 		return m.createDocumentFn(ctx, doc)
 	}
 	return nil
+}
+
+// IsOrgAuthorizedForProposal: the handler-layer mock defaults to
+// allow (true) because most existing tests passing a userID = orgID
+// expect the new org check to succeed trivially. Tests that want to
+// verify a denial set isOrgAuthorizedFn explicitly.
+func (m *mockProposalRepo) IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error) {
+	if m.isOrgAuthorizedFn != nil {
+		return m.isOrgAuthorizedFn(ctx, proposalID, orgID)
+	}
+	return true, nil
 }
 
 // Compile-time check.

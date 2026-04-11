@@ -75,6 +75,25 @@ func makeUser(id uuid.UUID, role user.Role) *user.User {
 	return &user.User{ID: id, Role: role, DisplayName: "Test " + string(role)}
 }
 
+// orgAwareUserRepo builds a mockUserRepo that returns, for every
+// requested id, a user whose OrganizationID is set to the given
+// orgID. Used by the authorization tests to simulate a proposal's
+// side users (client/provider/recipient) all belonging to the same
+// organization — the Stripe Dashboard shared-workspace shape.
+func orgAwareUserRepo(orgID uuid.UUID) *mockUserRepo {
+	return &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := orgID
+			return &user.User{
+				ID:             id,
+				Role:           user.RoleEnterprise,
+				DisplayName:    "Member of " + orgID.String()[:8],
+				OrganizationID: &o,
+			}, nil
+		},
+	}
+}
+
 // --- CreateProposal tests ---
 
 func TestCreateProposal_Success(t *testing.T) {
@@ -238,6 +257,7 @@ func TestCreateProposal_WithDeadline(t *testing.T) {
 func TestModifyProposal_VersionChain(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 	rootProposalID := uuid.New()
 	// Simulate modifying a version 2 proposal that already has a parent
 	proposalRepo := &mockProposalRepo{
@@ -259,11 +279,12 @@ func TestModifyProposal_VersionChain(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(recipientOrgID), msgSender, nil)
 
 	modified, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  uuid.New(),
 		UserID:      recipientID,
+		OrgID:       recipientOrgID,
 		Title:       "V3 counter",
 		Description: "Third version",
 		Amount:      3000,
@@ -281,6 +302,7 @@ func TestModifyProposal_VersionChain(t *testing.T) {
 func TestAcceptProposal_ByRecipient(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	orgID := uuid.New()
 	proposalID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
@@ -300,11 +322,12 @@ func TestAcceptProposal_ByRecipient(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(orgID), msgSender, nil)
 
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: proposalID,
 		UserID:     recipientID,
+		OrgID:      orgID,
 	})
 
 	require.NoError(t, err)
@@ -317,6 +340,8 @@ func TestAcceptProposal_ByRecipient(t *testing.T) {
 func TestAcceptProposal_BySender_Fails(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	senderOrgID := uuid.New()
+	recipientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -331,11 +356,24 @@ func TestAcceptProposal_BySender_Fails(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	// Sender's org is NOT the recipient's org — the org-level directional
+	// check must reject the accept attempt.
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := recipientOrgID
+			if id == senderID {
+				o = senderOrgID
+			}
+			return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}, nil
+		},
+	}
+
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
 
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     senderID,
+		OrgID:      senderOrgID, // caller is on sender side — wrong for accept
 	})
 
 	assert.ErrorIs(t, err, domain.ErrNotAuthorized)
@@ -344,6 +382,7 @@ func TestAcceptProposal_BySender_Fails(t *testing.T) {
 func TestAcceptProposal_ProviderAccepts_SendsPaymentRequest(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	providerOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -362,11 +401,12 @@ func TestAcceptProposal_ProviderAccepts_SendsPaymentRequest(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(providerOrgID), msgSender, nil)
 
 	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     providerID,
+		OrgID:      providerOrgID,
 	})
 
 	require.NoError(t, err)
@@ -379,6 +419,7 @@ func TestAcceptProposal_ProviderAccepts_SendsPaymentRequest(t *testing.T) {
 func TestDeclineProposal_Success(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -397,11 +438,12 @@ func TestDeclineProposal_Success(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(recipientOrgID), msgSender, nil)
 
 	err := svc.DeclineProposal(context.Background(), DeclineProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     recipientID,
+		OrgID:      recipientOrgID,
 	})
 
 	require.NoError(t, err)
@@ -414,6 +456,7 @@ func TestDeclineProposal_Success(t *testing.T) {
 func TestModifyProposal_Success(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 	proposalID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
@@ -434,11 +477,12 @@ func TestModifyProposal_Success(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(recipientOrgID), msgSender, nil)
 
 	modified, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  proposalID,
 		UserID:      recipientID,
+		OrgID:       recipientOrgID,
 		Title:       "Counter proposal",
 		Description: "Different terms",
 		Amount:      800000,
@@ -456,6 +500,8 @@ func TestModifyProposal_Success(t *testing.T) {
 func TestModifyProposal_BySender_Fails(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	senderOrgID := uuid.New()
+	recipientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -463,16 +509,31 @@ func TestModifyProposal_BySender_Fails(t *testing.T) {
 				ID:          uuid.New(),
 				SenderID:    senderID,
 				RecipientID: recipientID,
+				ClientID:    senderID,
+				ProviderID:  recipientID,
 				Status:      domain.StatusPending,
 			}, nil
 		},
 	}
+	// Sender and recipient live in different orgs; caller presents the
+	// sender's org, which is NOT the recipient side that ModifyProposal
+	// requires.
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := recipientOrgID
+			if id == senderID {
+				o = senderOrgID
+			}
+			return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}, nil
+		},
+	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
 
 	_, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  uuid.New(),
 		UserID:      senderID,
+		OrgID:       senderOrgID,
 		Title:       "Test",
 		Description: "Test",
 		Amount:      5000,
@@ -484,6 +545,7 @@ func TestModifyProposal_BySender_Fails(t *testing.T) {
 func TestModifyProposal_NotPending_Fails(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	recipientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -491,16 +553,21 @@ func TestModifyProposal_NotPending_Fails(t *testing.T) {
 				ID:          uuid.New(),
 				SenderID:    senderID,
 				RecipientID: recipientID,
+				ClientID:    senderID,
+				ProviderID:  recipientID,
 				Status:      domain.StatusAccepted,
 			}, nil
 		},
 	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	// Correct org on recipient side, but status is already accepted
+	// so the modify must still fail with ErrCannotModify.
+	svc := newTestService(proposalRepo, orgAwareUserRepo(recipientOrgID), nil, nil)
 
 	_, err := svc.ModifyProposal(context.Background(), ModifyProposalInput{
 		ProposalID:  uuid.New(),
 		UserID:      recipientID,
+		OrgID:       recipientOrgID,
 		Title:       "Test",
 		Description: "Test",
 		Amount:      5000,
@@ -514,6 +581,7 @@ func TestModifyProposal_NotPending_Fails(t *testing.T) {
 func TestSimulatePayment_Success(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
 	now := time.Now()
 
 	proposalRepo := &mockProposalRepo{
@@ -534,11 +602,12 @@ func TestSimulatePayment_Success(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(clientOrgID), msgSender, nil)
 
 	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 
 	require.NoError(t, err)
@@ -549,6 +618,8 @@ func TestSimulatePayment_Success(t *testing.T) {
 func TestInitiatePayment_ByProvider_Fails(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
 	now := time.Now()
 
 	proposalRepo := &mockProposalRepo{
@@ -562,12 +633,22 @@ func TestInitiatePayment_ByProvider_Fails(t *testing.T) {
 			}, nil
 		},
 	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := providerOrgID
+			if id == clientID {
+				o = clientOrgID
+			}
+			return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}, nil
+		},
+	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
 
 	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     providerID,
+		OrgID:      providerOrgID, // caller is on provider side — wrong for pay
 	})
 
 	assert.ErrorIs(t, err, domain.ErrNotAuthorized)
@@ -575,22 +656,28 @@ func TestInitiatePayment_ByProvider_Fails(t *testing.T) {
 
 func TestInitiatePayment_NotAccepted_Fails(t *testing.T) {
 	clientID := uuid.New()
+	providerID := uuid.New()
+	clientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
 			return &domain.Proposal{
-				ID:       uuid.New(),
-				ClientID: clientID,
-				Status:   domain.StatusPending,
+				ID:         uuid.New(),
+				ClientID:   clientID,
+				ProviderID: providerID,
+				Status:     domain.StatusPending,
 			}, nil
 		},
 	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	// Caller IS on the client side — auth passes — but the status check
+	// must still reject because the proposal isn't accepted yet.
+	svc := newTestService(proposalRepo, orgAwareUserRepo(clientOrgID), nil, nil)
 
 	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrInvalidStatus)
@@ -601,6 +688,7 @@ func TestInitiatePayment_NotAccepted_Fails(t *testing.T) {
 func TestGetProposal_Authorized(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
+	orgID := uuid.New()
 	proposalID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
@@ -618,21 +706,169 @@ func TestGetProposal_Authorized(t *testing.T) {
 		getDocumentsFn: func(_ context.Context, _ uuid.UUID) ([]*domain.ProposalDocument, error) {
 			return []*domain.ProposalDocument{}, nil
 		},
+		isOrgAuthorizedFn: func(_ context.Context, _ uuid.UUID, got uuid.UUID) (bool, error) {
+			return got == orgID, nil
+		},
 	}
 
 	svc := newTestService(proposalRepo, nil, nil, nil)
 
-	p, docs, err := svc.GetProposal(context.Background(), senderID, proposalID)
+	p, docs, err := svc.GetProposal(context.Background(), senderID, orgID, proposalID)
 
 	require.NoError(t, err)
 	assert.Equal(t, proposalID, p.ID)
 	assert.NotNil(t, docs)
 }
 
+// TestGetProposal_OrgOperatorCanRead is the direct regression test for
+// R14: an operator who is neither the original sender nor the original
+// recipient, but whose organization DOES own one of the sides, must
+// be able to fetch the proposal. Before R14 this returned 404 / not
+// authorized; after R14 it returns the proposal.
+func TestGetProposal_OrgOperatorCanRead(t *testing.T) {
+	senderID := uuid.New()      // Alice, the original sender
+	recipientID := uuid.New()   // Charlie, the original recipient
+	bobUserID := uuid.New()     // Bob, an operator of Alice's org
+	agencyOrgID := uuid.New()   // Alice's agency X — now also Bob's org
+	proposalID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:          proposalID,
+				SenderID:    senderID,
+				RecipientID: recipientID,
+				ClientID:    senderID,
+				ProviderID:  recipientID,
+				Title:       "Active project",
+				Amount:      500000,
+			}, nil
+		},
+		getDocumentsFn: func(_ context.Context, _ uuid.UUID) ([]*domain.ProposalDocument, error) {
+			return []*domain.ProposalDocument{}, nil
+		},
+		isOrgAuthorizedFn: func(_ context.Context, _ uuid.UUID, got uuid.UUID) (bool, error) {
+			// Agency X is a party on the client side — anyone from
+			// that org (including Bob, who joined after the proposal
+			// was sent) can read the row.
+			return got == agencyOrgID, nil
+		},
+	}
+
+	svc := newTestService(proposalRepo, nil, nil, nil)
+
+	p, docs, err := svc.GetProposal(context.Background(), bobUserID, agencyOrgID, proposalID)
+
+	require.NoError(t, err)
+	assert.Equal(t, proposalID, p.ID)
+	assert.NotNil(t, docs)
+}
+
+// TestAcceptProposal_OrgOperatorOfRecipientOrgCanAccept verifies that
+// Dave — a team member of Charlie's personal org who was NOT the
+// original recipient — can still accept the proposal on behalf of
+// Charlie's side. The org-level directional check must pass because
+// Dave's org matches the recipient user's org.
+func TestAcceptProposal_OrgOperatorOfRecipientOrgCanAccept(t *testing.T) {
+	senderID := uuid.New()      // Alice (sender)
+	recipientID := uuid.New()   // Charlie (original recipient)
+	daveUserID := uuid.New()    // Dave, member of Charlie's org
+	charlieOrgID := uuid.New()  // Shared org: Charlie + Dave
+	proposalID := uuid.New()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             proposalID,
+				ConversationID: uuid.New(),
+				SenderID:       senderID,
+				RecipientID:    recipientID,
+				ClientID:       senderID,
+				ProviderID:     recipientID,
+				Status:         domain.StatusPending,
+				Title:          "Shared proposal",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			// Every user we look up during this test resolves to
+			// Charlie's org — sender side users are not looked up
+			// on this code path so the lookup is keyed on recipient
+			// id. The helper returns a matching org by default.
+			_ = id
+			o := charlieOrgID
+			return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &o}, nil
+		},
+	}
+	msgSender := &mockMessageSender{}
+
+	svc := newTestService(proposalRepo, userRepo, msgSender, nil)
+
+	err := svc.AcceptProposal(context.Background(), AcceptProposalInput{
+		ProposalID: proposalID,
+		UserID:     daveUserID, // Dave is not the original recipient
+		OrgID:      charlieOrgID,
+	})
+
+	require.NoError(t, err)
+	// Recipient is the provider, so 2 messages are sent.
+	require.Len(t, msgSender.calls, 2)
+	assert.Equal(t, "proposal_accepted", msgSender.calls[0].Type)
+	assert.Equal(t, "proposal_payment_requested", msgSender.calls[1].Type)
+}
+
+// TestInitiatePayment_OrgOperatorOfProviderOrgCannotPay is the
+// directional safety test: payment is a client-only action, so an
+// operator on the PROVIDER side (even though they are a party to the
+// proposal and can read it) must NOT be able to initiate the payment.
+// Protects against a bug where the any-side org check replaces the
+// directional check — that would let the provider's team pay on
+// behalf of the client, which is catastrophic for escrow.
+func TestInitiatePayment_OrgOperatorOfProviderOrgCannotPay(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+	now := time.Now()
+
+	proposalRepo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:         uuid.New(),
+				ClientID:   clientID,
+				ProviderID: providerID,
+				Status:     domain.StatusAccepted,
+				AcceptedAt: &now,
+			}, nil
+		},
+	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := providerOrgID
+			if id == clientID {
+				o = clientOrgID
+			}
+			return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}, nil
+		},
+	}
+
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
+
+	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
+		ProposalID: uuid.New(),
+		UserID:     uuid.New(),     // some operator of provider org
+		OrgID:      providerOrgID,  // provider-side org — wrong for pay
+	})
+
+	assert.ErrorIs(t, err, domain.ErrNotAuthorized)
+}
+
 func TestGetProposal_NotAuthorized(t *testing.T) {
 	senderID := uuid.New()
 	recipientID := uuid.New()
-	outsiderID := uuid.New()
+	outsiderOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -644,11 +880,12 @@ func TestGetProposal_NotAuthorized(t *testing.T) {
 				ProviderID:  recipientID,
 			}, nil
 		},
+		// isOrgAuthorizedFn left nil → default denies.
 	}
 
 	svc := newTestService(proposalRepo, nil, nil, nil)
 
-	_, _, err := svc.GetProposal(context.Background(), outsiderID, uuid.New())
+	_, _, err := svc.GetProposal(context.Background(), uuid.New(), outsiderOrgID, uuid.New())
 
 	assert.ErrorIs(t, err, domain.ErrNotAuthorized)
 }
@@ -658,6 +895,7 @@ func TestGetProposal_NotAuthorized(t *testing.T) {
 func TestRequestCompletion_Success(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	providerOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -676,11 +914,12 @@ func TestRequestCompletion_Success(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(providerOrgID), msgSender, nil)
 
 	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
 		ProposalID: uuid.New(),
 		UserID:     providerID,
+		OrgID:      providerOrgID,
 	})
 
 	require.NoError(t, err)
@@ -691,6 +930,8 @@ func TestRequestCompletion_Success(t *testing.T) {
 func TestRequestCompletion_NotProvider(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -702,12 +943,22 @@ func TestRequestCompletion_NotProvider(t *testing.T) {
 			}, nil
 		},
 	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := providerOrgID
+			if id == clientID {
+				o = clientOrgID
+			}
+			return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}, nil
+		},
+	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
 
 	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID, // client org cannot request completion
 	})
 
 	assert.ErrorIs(t, err, domain.ErrNotProvider)
@@ -715,6 +966,7 @@ func TestRequestCompletion_NotProvider(t *testing.T) {
 
 func TestRequestCompletion_NotActive(t *testing.T) {
 	providerID := uuid.New()
+	providerOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -727,11 +979,13 @@ func TestRequestCompletion_NotActive(t *testing.T) {
 		},
 	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	// Provider-side auth passes — status check must still reject.
+	svc := newTestService(proposalRepo, orgAwareUserRepo(providerOrgID), nil, nil)
 
 	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
 		ProposalID: uuid.New(),
 		UserID:     providerID,
+		OrgID:      providerOrgID,
 	})
 
 	assert.ErrorIs(t, err, domain.ErrInvalidStatus)
@@ -742,6 +996,7 @@ func TestRequestCompletion_NotActive(t *testing.T) {
 func TestCompleteProposal_Success(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -760,11 +1015,12 @@ func TestCompleteProposal_Success(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(clientOrgID), msgSender, nil)
 
 	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 
 	require.NoError(t, err)
@@ -776,6 +1032,8 @@ func TestCompleteProposal_Success(t *testing.T) {
 func TestCompleteProposal_NotClient(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -787,12 +1045,22 @@ func TestCompleteProposal_NotClient(t *testing.T) {
 			}, nil
 		},
 	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := providerOrgID
+			if id == clientID {
+				o = clientOrgID
+			}
+			return &user.User{ID: id, Role: user.RoleEnterprise, OrganizationID: &o}, nil
+		},
+	}
 
-	svc := newTestService(proposalRepo, nil, nil, nil)
+	svc := newTestService(proposalRepo, userRepo, nil, nil)
 
 	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 		ProposalID: uuid.New(),
 		UserID:     providerID,
+		OrgID:      providerOrgID, // provider org cannot confirm completion
 	})
 
 	assert.ErrorIs(t, err, domain.ErrNotClient)
@@ -803,6 +1071,7 @@ func TestCompleteProposal_NotClient(t *testing.T) {
 func TestRejectCompletion_Success(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
+	clientOrgID := uuid.New()
 
 	proposalRepo := &mockProposalRepo{
 		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
@@ -821,11 +1090,12 @@ func TestRejectCompletion_Success(t *testing.T) {
 	}
 	msgSender := &mockMessageSender{}
 
-	svc := newTestService(proposalRepo, nil, msgSender, nil)
+	svc := newTestService(proposalRepo, orgAwareUserRepo(clientOrgID), msgSender, nil)
 
 	err := svc.RejectCompletion(context.Background(), RejectCompletionInput{
 		ProposalID: uuid.New(),
 		UserID:     clientID,
+		OrgID:      clientOrgID,
 	})
 
 	require.NoError(t, err)

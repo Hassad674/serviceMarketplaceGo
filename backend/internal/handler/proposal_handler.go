@@ -94,6 +94,11 @@ func (h *ProposalHandler) GetProposal(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -101,7 +106,7 @@ func (h *ProposalHandler) GetProposal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, docs, err := h.proposalSvc.GetProposal(r.Context(), userID, proposalID)
+	p, docs, err := h.proposalSvc.GetProposal(r.Context(), userID, orgID, proposalID)
 	if err != nil {
 		handleProposalError(w, err)
 		return
@@ -117,6 +122,11 @@ func (h *ProposalHandler) AcceptProposal(w http.ResponseWriter, r *http.Request)
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -127,6 +137,7 @@ func (h *ProposalHandler) AcceptProposal(w http.ResponseWriter, r *http.Request)
 	err = h.proposalSvc.AcceptProposal(r.Context(), proposalapp.AcceptProposalInput{
 		ProposalID: proposalID,
 		UserID:     userID,
+		OrgID:      orgID,
 	})
 	if err != nil {
 		handleProposalError(w, err)
@@ -142,6 +153,11 @@ func (h *ProposalHandler) DeclineProposal(w http.ResponseWriter, r *http.Request
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -152,6 +168,7 @@ func (h *ProposalHandler) DeclineProposal(w http.ResponseWriter, r *http.Request
 	err = h.proposalSvc.DeclineProposal(r.Context(), proposalapp.DeclineProposalInput{
 		ProposalID: proposalID,
 		UserID:     userID,
+		OrgID:      orgID,
 	})
 	if err != nil {
 		handleProposalError(w, err)
@@ -165,6 +182,11 @@ func (h *ProposalHandler) ModifyProposal(w http.ResponseWriter, r *http.Request)
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -198,6 +220,7 @@ func (h *ProposalHandler) ModifyProposal(w http.ResponseWriter, r *http.Request)
 	p, err := h.proposalSvc.ModifyProposal(r.Context(), proposalapp.ModifyProposalInput{
 		ProposalID:  proposalID,
 		UserID:      userID,
+		OrgID:       orgID,
 		Title:       req.Title,
 		Description: req.Description,
 		Amount:      req.Amount,
@@ -218,6 +241,11 @@ func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -228,6 +256,7 @@ func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
 	result, err := h.proposalSvc.InitiatePayment(r.Context(), proposalapp.PayProposalInput{
 		ProposalID: proposalID,
 		UserID:     userID,
+		OrgID:      orgID,
 	})
 	if err != nil {
 		handleProposalError(w, err)
@@ -271,9 +300,14 @@ func (h *ProposalHandler) AdminActivateProposal(w http.ResponseWriter, r *http.R
 }
 
 func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -283,14 +317,13 @@ func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Verify the user is the client
-	p, err := h.proposalSvc.GetProposalByID(r.Context(), proposalID)
-	if err != nil {
+	// Verify the caller's org is on the client side — any operator of
+	// the client org can confirm payment on behalf of their team. Only
+	// the client side is authorized because they are the party who
+	// released the funds. The provider-side org must NOT be able to
+	// bounce the payment record to "succeeded" on its own.
+	if err := h.proposalSvc.AuthorizeClientOrg(r.Context(), proposalID, orgID); err != nil {
 		handleProposalError(w, err)
-		return
-	}
-	if p.ClientID != userID {
-		res.Error(w, http.StatusForbidden, "not_authorized", "only the client can confirm payment")
 		return
 	}
 
@@ -316,6 +349,11 @@ func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Reque
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -326,6 +364,7 @@ func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Reque
 	err = h.proposalSvc.RequestCompletion(r.Context(), proposalapp.RequestCompletionInput{
 		ProposalID: proposalID,
 		UserID:     userID,
+		OrgID:      orgID,
 	})
 	if err != nil {
 		handleProposalError(w, err)
@@ -341,6 +380,11 @@ func (h *ProposalHandler) CompleteProposal(w http.ResponseWriter, r *http.Reques
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -351,6 +395,7 @@ func (h *ProposalHandler) CompleteProposal(w http.ResponseWriter, r *http.Reques
 	err = h.proposalSvc.CompleteProposal(r.Context(), proposalapp.CompleteProposalInput{
 		ProposalID: proposalID,
 		UserID:     userID,
+		OrgID:      orgID,
 	})
 	if err != nil {
 		handleProposalError(w, err)
@@ -366,6 +411,11 @@ func (h *ProposalHandler) RejectCompletion(w http.ResponseWriter, r *http.Reques
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -376,6 +426,7 @@ func (h *ProposalHandler) RejectCompletion(w http.ResponseWriter, r *http.Reques
 	err = h.proposalSvc.RejectCompletion(r.Context(), proposalapp.RejectCompletionInput{
 		ProposalID: proposalID,
 		UserID:     userID,
+		OrgID:      orgID,
 	})
 	if err != nil {
 		handleProposalError(w, err)

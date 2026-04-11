@@ -65,19 +65,30 @@ type DocumentInput struct {
 	MimeType string
 }
 
+// AcceptProposalInput, DeclineProposalInput, and every other mutation
+// input carry BOTH the acting user id (for audit / notifications) and
+// the caller's organization id (for authorization). Since the R1 team
+// refactor, a proposal is shared between every operator of the
+// client-side and provider-side orgs — so the authorization check is
+// "does your org own this side", not "are you the exact sender/recipient
+// user". OrgID is the uuid stored in the JWT context under
+// middleware.ContextKeyOrganizationID.
 type AcceptProposalInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
+	OrgID      uuid.UUID
 }
 
 type DeclineProposalInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
+	OrgID      uuid.UUID
 }
 
 type ModifyProposalInput struct {
 	ProposalID  uuid.UUID
 	UserID      uuid.UUID
+	OrgID       uuid.UUID
 	Title       string
 	Description string
 	Amount      int64
@@ -88,19 +99,23 @@ type ModifyProposalInput struct {
 type PayProposalInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
+	OrgID      uuid.UUID
 }
 
 type RequestCompletionInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
+	OrgID      uuid.UUID
 }
 
 type CompleteProposalInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
+	OrgID      uuid.UUID
 }
 
 type RejectCompletionInput struct {
 	ProposalID uuid.UUID
 	UserID     uuid.UUID
+	OrgID      uuid.UUID
 }
