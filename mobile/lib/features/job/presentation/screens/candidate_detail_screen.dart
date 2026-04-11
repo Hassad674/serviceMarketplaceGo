@@ -76,12 +76,8 @@ class _CandidateDetailScreenState
     final l10n = AppLocalizations.of(context)!;
     final profile = _currentItem.profile;
     final application = _currentItem.application;
-    final fullName = '${profile.firstName} ${profile.lastName}'.trim();
-    final displayName =
-        profile.displayName.isNotEmpty ? profile.displayName : fullName;
-    final initials =
-        '${profile.firstName.isNotEmpty ? profile.firstName[0] : ''}${profile.lastName.isNotEmpty ? profile.lastName[0] : ''}'
-            .toUpperCase();
+    final displayName = profile.name;
+    final initials = _initialsFromName(displayName);
 
     return Scaffold(
       appBar: AppBar(
@@ -131,10 +127,9 @@ class _CandidateDetailScreenState
             // Profile header
             _ProfileHeader(
               displayName: displayName,
-              fullName: fullName,
               initials: initials,
               photoUrl: profile.photoUrl,
-              role: profile.role,
+              orgType: profile.orgType,
               title: profile.title,
             ),
 
@@ -166,9 +161,9 @@ class _CandidateDetailScreenState
 
             // Action buttons
             _ActionButtons(
-              userId: profile.userId,
+              orgId: profile.organizationId,
               displayName: displayName,
-              role: profile.role,
+              orgType: profile.orgType,
             ),
           ],
         ),
@@ -239,18 +234,16 @@ class _CandidateNavigator extends StatelessWidget {
 class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.displayName,
-    required this.fullName,
     required this.initials,
     required this.photoUrl,
-    required this.role,
+    required this.orgType,
     required this.title,
   });
 
   final String displayName;
-  final String fullName;
   final String initials;
   final String photoUrl;
-  final String role;
+  final String orgType;
   final String title;
 
   @override
@@ -267,7 +260,7 @@ class _ProfileHeader extends StatelessWidget {
               : null,
           child: photoUrl.isEmpty
               ? Text(
-                  initials.isNotEmpty ? initials : '?',
+                  initials,
                   style: const TextStyle(
                     color: Color(0xFFF43F5E),
                     fontWeight: FontWeight.w600,
@@ -289,21 +282,10 @@ class _ProfileHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              if (fullName.isNotEmpty && fullName != displayName) ...[
-                const SizedBox(height: 2),
-                Text(
-                  fullName,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
               const SizedBox(height: 6),
               Row(
                 children: [
-                  _RoleBadge(role: role),
+                  _OrgTypeBadge(orgType: orgType),
                   if (title.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Flexible(
@@ -328,17 +310,17 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Role badge
+// Org-type badge
 // ---------------------------------------------------------------------------
 
-class _RoleBadge extends StatelessWidget {
-  const _RoleBadge({required this.role});
+class _OrgTypeBadge extends StatelessWidget {
+  const _OrgTypeBadge({required this.orgType});
 
-  final String role;
+  final String orgType;
 
   @override
   Widget build(BuildContext context) {
-    final isProvider = role == 'provider';
+    final isProvider = orgType == 'provider_personal';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -346,7 +328,7 @@ class _RoleBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        isProvider ? 'Freelance' : 'Agence',
+        isProvider ? 'Freelance' : 'Agency',
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
@@ -476,14 +458,14 @@ class _VideoSection extends StatelessWidget {
 
 class _ActionButtons extends StatelessWidget {
   const _ActionButtons({
-    required this.userId,
+    required this.orgId,
     required this.displayName,
-    required this.role,
+    required this.orgType,
   });
 
-  final String userId;
+  final String orgId;
   final String displayName;
-  final String role;
+  final String orgType;
 
   @override
   Widget build(BuildContext context) {
@@ -492,14 +474,14 @@ class _ActionButtons extends StatelessWidget {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () => context.push(
-              '/profiles/$userId',
+              '/profiles/$orgId',
               extra: {
                 'display_name': displayName,
-                'role': role,
+                'org_type': orgType,
               },
             ),
             icon: const Icon(Icons.person_outline, size: 18),
-            label: const Text('Voir le profil'),
+            label: const Text('View profile'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 12),
               shape: RoundedRectangleBorder(
@@ -512,7 +494,7 @@ class _ActionButtons extends StatelessWidget {
         Expanded(
           child: FilledButton.icon(
             onPressed: () => context.push(
-              '${RoutePaths.newChat}/$userId',
+              '${RoutePaths.newChat}/$orgId',
               extra: {'name': displayName},
             ),
             icon: const Icon(Icons.send, size: 18),
@@ -530,4 +512,12 @@ class _ActionButtons extends StatelessWidget {
       ],
     );
   }
+}
+
+String _initialsFromName(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return '?';
+  final parts = trimmed.split(RegExp(r'\s+'));
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }

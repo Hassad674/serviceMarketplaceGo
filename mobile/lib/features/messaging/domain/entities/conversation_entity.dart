@@ -1,12 +1,20 @@
 /// Represents a conversation in the messaging feature.
 ///
-/// Maps to the backend `Conversation` response:
-/// `GET /api/v1/messaging/conversations`
+/// Since the team refactor (phase R4), a conversation is identified by
+/// the "other organization" on the thread — every operator of the
+/// sender's org sees the same thread and it targets whichever operator
+/// of the recipient org is currently on call. The fields below mirror
+/// the backend `Conversation` response from
+/// `GET /api/v1/messaging/conversations`.
+///
+/// [otherUserId] is the other participant's user id; it's still needed
+/// by the proposal + call subsystems which anchor on user ids.
 class ConversationEntity {
   final String id;
   final String otherUserId;
-  final String otherUserName;
-  final String otherUserRole;
+  final String otherOrgId;
+  final String otherOrgName;
+  final String otherOrgType;
   final String otherPhotoUrl;
   final String? lastMessage;
   final String? lastMessageAt;
@@ -17,8 +25,9 @@ class ConversationEntity {
   const ConversationEntity({
     required this.id,
     required this.otherUserId,
-    required this.otherUserName,
-    required this.otherUserRole,
+    required this.otherOrgId,
+    required this.otherOrgName,
+    required this.otherOrgType,
     required this.otherPhotoUrl,
     this.lastMessage,
     this.lastMessageAt,
@@ -30,9 +39,10 @@ class ConversationEntity {
   factory ConversationEntity.fromJson(Map<String, dynamic> json) {
     return ConversationEntity(
       id: json['id'] as String,
-      otherUserId: json['other_user_id'] as String,
-      otherUserName: json['other_user_name'] as String? ?? '',
-      otherUserRole: json['other_user_role'] as String? ?? '',
+      otherUserId: json['other_user_id'] as String? ?? '',
+      otherOrgId: json['other_org_id'] as String,
+      otherOrgName: json['other_org_name'] as String? ?? '',
+      otherOrgType: json['other_org_type'] as String? ?? '',
       otherPhotoUrl: json['other_photo_url'] as String? ?? '',
       lastMessage: json['last_message'] as String?,
       lastMessageAt: json['last_message_at'] as String?,
@@ -45,8 +55,9 @@ class ConversationEntity {
   ConversationEntity copyWith({
     String? id,
     String? otherUserId,
-    String? otherUserName,
-    String? otherUserRole,
+    String? otherOrgId,
+    String? otherOrgName,
+    String? otherOrgType,
     String? otherPhotoUrl,
     String? lastMessage,
     String? lastMessageAt,
@@ -57,8 +68,9 @@ class ConversationEntity {
     return ConversationEntity(
       id: id ?? this.id,
       otherUserId: otherUserId ?? this.otherUserId,
-      otherUserName: otherUserName ?? this.otherUserName,
-      otherUserRole: otherUserRole ?? this.otherUserRole,
+      otherOrgId: otherOrgId ?? this.otherOrgId,
+      otherOrgName: otherOrgName ?? this.otherOrgName,
+      otherOrgType: otherOrgType ?? this.otherOrgType,
       otherPhotoUrl: otherPhotoUrl ?? this.otherPhotoUrl,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageAt: lastMessageAt ?? this.lastMessageAt,

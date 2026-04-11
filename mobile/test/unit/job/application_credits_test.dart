@@ -39,7 +39,7 @@ class MockJobRepository implements JobRepository {
     return JobApplicationEntity(
       id: 'app-${applyCallCount}',
       jobId: jobId,
-      applicantId: 'user-1',
+      applicantOrgId: 'org-1',
       message: message,
       videoUrl: videoUrl,
       createdAt: '2026-04-01T10:00:00Z',
@@ -237,7 +237,7 @@ void main() {
         application: const JobApplicationEntity(
           id: 'app-1',
           jobId: 'job-1',
-          applicantId: 'user-1',
+          applicantOrgId: 'org-1',
           message: 'Hello',
           createdAt: '2026-04-01T10:00:00Z',
         ),

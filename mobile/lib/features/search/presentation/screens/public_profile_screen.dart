@@ -9,36 +9,36 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../messaging/data/messaging_repository_impl.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../../../review/presentation/providers/review_provider.dart';
 import '../providers/search_provider.dart';
 
-/// Read-only public profile screen for any user.
+/// Read-only public profile screen for any organization.
 ///
-/// Fetches the profile from GET /api/v1/profiles/{userId} and displays
-/// the public fields: photo, name, title, about, and presentation video.
-/// No edit functionality -- this is a viewer-only screen.
+/// Fetches the profile from GET /api/v1/profiles/{orgId} and displays
+/// the org's shared marketplace identity: photo, name, title, about
+/// and presentation video. Since phase R2 this surface is org-scoped,
+/// every operator of the team shares the same profile.
 ///
-/// Accepts optional [displayName] and [role] from navigation extras
-/// (passed from search results) to supplement the profile data which
-/// does not include user identity fields.
+/// Accepts an optional [displayName] and [orgType] carried over from
+/// the search result so the loading shimmer can already render the
+/// header before the profile payload comes back.
 class PublicProfileScreen extends ConsumerWidget {
   const PublicProfileScreen({
     super.key,
-    required this.userId,
+    required this.orgId,
     this.displayName,
-    this.role,
+    this.orgType,
   });
 
-  final String userId;
+  final String orgId;
   final String? displayName;
-  final String? role;
+  final String? orgType;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final profileAsync = ref.watch(publicProfileProvider(userId));
+    final profileAsync = ref.watch(publicProfileProvider(orgId));
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
@@ -46,13 +46,13 @@ class PublicProfileScreen extends ConsumerWidget {
       body: profileAsync.when(
         loading: () => const _ProfileShimmer(),
         error: (error, stack) => _ErrorState(
-          onRetry: () => ref.invalidate(publicProfileProvider(userId)),
+          onRetry: () => ref.invalidate(publicProfileProvider(orgId)),
         ),
         data: (profile) => _ProfileContent(
           profile: profile,
-          profileUserId: userId,
+          profileOrgId: orgId,
           navDisplayName: displayName,
-          navRole: role,
+          navOrgType: orgType,
         ),
       ),
     );
@@ -66,15 +66,15 @@ class PublicProfileScreen extends ConsumerWidget {
 class _ProfileContent extends ConsumerStatefulWidget {
   const _ProfileContent({
     required this.profile,
-    required this.profileUserId,
+    required this.profileOrgId,
     this.navDisplayName,
-    this.navRole,
+    this.navOrgType,
   });
 
   final Map<String, dynamic> profile;
-  final String profileUserId;
+  final String profileOrgId;
   final String? navDisplayName;
-  final String? navRole;
+  final String? navOrgType;
 
   @override
   ConsumerState<_ProfileContent> createState() =>
@@ -97,14 +97,16 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
     final photoUrl = widget.profile['photo_url'] as String?;
     final videoUrl =
         widget.profile['presentation_video_url'] as String?;
-    final resolvedRole = _resolveRole();
+    final resolvedOrgType = _resolveOrgType();
     final initials = _buildInitials(resolvedName);
 
-    // Determine if Send Message button should show
+    // Hide the "Send Message" button on the operator's own org
+    // profile — every member of the team sees their shared org profile
+    // the same way, so compare against the auth state's organization id.
     final isAuthenticated =
         authState.status == AuthStatus.authenticated;
-    final currentUserId = authState.user?['id'] as String?;
-    final isOwnProfile = currentUserId == widget.profileUserId;
+    final currentOrgId = authState.organization?['id'] as String?;
+    final isOwnProfile = currentOrgId == widget.profileOrgId;
     final showSendMessage = isAuthenticated && !isOwnProfile;
 
     return SingleChildScrollView(
@@ -115,7 +117,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           _LargeAvatar(
             photoUrl: photoUrl,
             initials: initials,
-            roleColor: _roleColor(resolvedRole),
+            roleColor: _roleColor(resolvedOrgType),
           ),
           const SizedBox(height: 16),
 
@@ -142,12 +144,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           if (title == null || title.isEmpty)
             const SizedBox(height: 12),
 
-          // Role badge
-          if (resolvedRole != null) _RoleBadge(role: resolvedRole),
+          // Org-type badge
+          if (resolvedOrgType != null) _OrgTypeBadge(orgType: resolvedOrgType),
           const SizedBox(height: 8),
 
           // Average rating (if any)
-          _ProfileAverageRating(userId: widget.profileUserId),
+          _ProfileAverageRating(orgId: widget.profileOrgId),
           const SizedBox(height: 16),
 
           // Send Message button
@@ -204,11 +206,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             const SizedBox(height: 16),
 
           // Portfolio section
-          PortfolioGridWidget(userId: widget.profileUserId),
+          PortfolioGridWidget(orgId: widget.profileOrgId),
           const SizedBox(height: 16),
 
           // Project history (completed missions with embedded reviews)
-          ProjectHistoryWidget(userId: widget.profileUserId),
+          ProjectHistoryWidget(orgId: widget.profileOrgId),
         ],
       ),
     );
@@ -216,7 +218,7 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
 
   void _onSendMessage() {
     context.push(
-      '${RoutePaths.newChat}/${widget.profileUserId}',
+      '${RoutePaths.newChat}/${widget.profileOrgId}',
       extra: {'name': _resolveDisplayName()},
     );
   }
@@ -227,46 +229,40 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
       return widget.navDisplayName!;
     }
 
-    final displayName =
-        widget.profile['display_name'] as String?;
-    if (displayName != null && displayName.isNotEmpty) {
-      return displayName;
-    }
+    // The org-scoped public profile returns the team's display name
+    // directly on the `name` field. The search result may have
+    // supplied it via navDisplayName when available.
+    final name = widget.profile['name'] as String?;
+    if (name != null && name.isNotEmpty) return name;
 
-    final firstName =
-        widget.profile['first_name'] as String? ?? '';
-    final lastName = widget.profile['last_name'] as String? ?? '';
-    final fullName = '$firstName $lastName'.trim();
-    if (fullName.isNotEmpty) return fullName;
-
-    final userId = widget.profile['user_id'] as String?;
-    if (userId != null && userId.length >= 8) {
-      return 'User ${userId.substring(0, 8)}';
+    final orgId = widget.profile['organization_id'] as String?;
+    if (orgId != null && orgId.length >= 8) {
+      return 'Org ${orgId.substring(0, 8)}';
     }
-    return 'User';
+    return 'Organization';
   }
 
-  String? _resolveRole() {
-    if (widget.navRole != null && widget.navRole!.isNotEmpty) {
-      return widget.navRole;
+  String? _resolveOrgType() {
+    if (widget.navOrgType != null && widget.navOrgType!.isNotEmpty) {
+      return widget.navOrgType;
     }
-    return widget.profile['role'] as String?;
+    return widget.profile['org_type'] as String?;
   }
 
   String _buildInitials(String name) {
-    if (name.isEmpty || name.startsWith('User')) return '?';
+    if (name.isEmpty || name.startsWith('Org')) return '?';
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
   }
 
-  Color _roleColor(String? role) {
-    switch (role) {
+  Color _roleColor(String? orgType) {
+    switch (orgType) {
       case 'agency':
         return const Color(0xFF2563EB);
       case 'enterprise':
         return const Color(0xFF8B5CF6);
-      case 'provider':
+      case 'provider_personal':
         return const Color(0xFFF43F5E);
       default:
         return const Color(0xFF64748B);
@@ -351,10 +347,10 @@ class _InitialsCircle extends StatelessWidget {
 // Role badge
 // ---------------------------------------------------------------------------
 
-class _RoleBadge extends StatelessWidget {
-  const _RoleBadge({required this.role});
+class _OrgTypeBadge extends StatelessWidget {
+  const _OrgTypeBadge({required this.orgType});
 
-  final String? role;
+  final String? orgType;
 
   @override
   Widget build(BuildContext context) {
@@ -377,25 +373,25 @@ class _RoleBadge extends StatelessWidget {
   }
 
   String get _label {
-    switch (role) {
+    switch (orgType) {
       case 'agency':
         return 'Agency';
       case 'enterprise':
         return 'Enterprise';
-      case 'provider':
+      case 'provider_personal':
         return 'Freelance';
       default:
-        return role ?? '';
+        return orgType ?? '';
     }
   }
 
   Color get _color {
-    switch (role) {
+    switch (orgType) {
       case 'agency':
         return const Color(0xFF2563EB);
       case 'enterprise':
         return const Color(0xFF8B5CF6);
-      case 'provider':
+      case 'provider_personal':
         return const Color(0xFFF43F5E);
       default:
         return const Color(0xFF64748B);
@@ -638,13 +634,13 @@ class _ErrorState extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ProfileAverageRating extends ConsumerWidget {
-  final String userId;
+  final String orgId;
 
-  const _ProfileAverageRating({required this.userId});
+  const _ProfileAverageRating({required this.orgId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncAvg = ref.watch(averageRatingProvider(userId));
+    final asyncAvg = ref.watch(averageRatingProvider(orgId));
     return asyncAvg.when(
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),

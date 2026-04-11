@@ -11,7 +11,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ChatAppBar({
     super.key,
     required this.conversation,
-    this.currentUserRole,
+    this.currentOrgType,
     this.typingUserName,
     this.onStartCall,
     this.onStartVideoCall,
@@ -19,14 +19,14 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final ConversationEntity? conversation;
-  final String? currentUserRole;
+  final String? currentOrgType;
   final String? typingUserName;
   final VoidCallback? onStartCall;
   final VoidCallback? onStartVideoCall;
   final VoidCallback? onReportUser;
 
   String get _initials =>
-      conversation?.otherUserName.initials ?? '?';
+      conversation?.otherOrgName.initials ?? '?';
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -46,15 +46,17 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       subtitle = l10n.messagingOffline;
     }
 
-    // Provider cannot view agency profile (agency is the client)
-    final canViewProfile = !(currentUserRole == 'provider' && conversation?.otherUserRole == 'agency');
+    // Providers cannot view an enterprise's public profile — the
+    // enterprise is the client, not a marketplace listing.
+    final canViewProfile = !(currentOrgType == 'provider_personal' &&
+        conversation?.otherOrgType == 'enterprise');
 
     return AppBar(
       titleSpacing: 0,
       title: GestureDetector(
         onTap: canViewProfile ? () {
-          final id = conversation?.otherUserId;
-          if (id == null) return;
+          final id = conversation?.otherOrgId;
+          if (id == null || id.isEmpty) return;
           context.push('/profiles/$id');
         } : null,
         child: Row(
@@ -116,7 +118,7 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  conversation?.otherUserName ?? '',
+                  conversation?.otherOrgName ?? '',
                   style: theme.textTheme.titleMedium
                       ?.copyWith(fontSize: 15),
                   maxLines: 1,

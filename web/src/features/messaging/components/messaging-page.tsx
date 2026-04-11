@@ -196,9 +196,12 @@ export function MessagingPage() {
 
   const handleStartCall = useCallback((callType: "audio" | "video" = "audio") => {
     if (!activeConversation || !callCtx) return
+    // Calls still anchor on user ids — we target the other participant
+    // user directly, not the org. Org-level routing is only for message
+    // threads and display metadata.
     callCtx.startCall(
       activeConversation.id,
-      activeConversation.other_org_id,
+      activeConversation.other_user_id,
       activeConversation.other_org_name,
       callType,
     )
@@ -293,7 +296,7 @@ export function MessagingPage() {
             />
             <MessageInput
               conversationId={activeId ?? ""}
-              otherOrgId={activeConversation?.other_org_id ?? ""}
+              otherUserId={activeConversation?.other_user_id ?? ""}
               onSend={handleSend}
               onSendFile={handleSendFile}
               onSendVoice={handleSendVoice}

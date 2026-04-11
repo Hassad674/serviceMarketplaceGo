@@ -33,7 +33,7 @@ vi.mock("../../api/messaging-api", () => ({
 function defaultProps(overrides: Partial<Parameters<typeof MessageInput>[0]> = {}) {
   return {
     conversationId: "conv-123",
-    otherOrgId: "org-456",
+    otherUserId: "user-456",
     onSend: vi.fn(),
     onSendFile: vi.fn(),
     onTyping: vi.fn(),
