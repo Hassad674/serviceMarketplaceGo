@@ -114,11 +114,11 @@ func (m *mockProposalRepo) ListByConversation(ctx context.Context, convID uuid.U
 	return nil, nil
 }
 
-func (m *mockProposalRepo) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error) {
 	return nil, "", nil
 }
 
-func (m *mockProposalRepo) ListCompletedByProvider(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*proposaldomain.Proposal, string, error) {
+func (m *mockProposalRepo) ListCompletedByOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*proposaldomain.Proposal, string, error) {
 	return nil, "", nil
 }
 

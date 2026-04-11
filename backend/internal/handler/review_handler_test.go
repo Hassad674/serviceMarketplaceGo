@@ -150,14 +150,14 @@ func (m *mockProposalRepo) ListByConversation(ctx context.Context, convID uuid.U
 	return nil, nil
 }
 
-func (m *mockProposalRepo) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*proposal.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposal.Proposal, string, error) {
 	if m.listActiveProjectsFn != nil {
-		return m.listActiveProjectsFn(ctx, userID, cursor, limit)
+		return m.listActiveProjectsFn(ctx, orgID, cursor, limit)
 	}
 	return nil, "", nil
 }
 
-func (m *mockProposalRepo) ListCompletedByProvider(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*proposal.Proposal, string, error) {
+func (m *mockProposalRepo) ListCompletedByOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
 

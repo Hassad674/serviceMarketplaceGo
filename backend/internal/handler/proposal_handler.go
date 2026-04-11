@@ -386,16 +386,16 @@ func (h *ProposalHandler) RejectCompletion(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *ProposalHandler) ListActiveProjects(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	proposals, nextCursor, err := h.proposalSvc.ListActiveProjects(r.Context(), userID, cursorStr, limit)
+	proposals, nextCursor, err := h.proposalSvc.ListActiveProjectsByOrganization(r.Context(), orgID, cursorStr, limit)
 	if err != nil {
 		handleProposalError(w, err)
 		return

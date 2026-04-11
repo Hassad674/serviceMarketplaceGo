@@ -23,7 +23,7 @@ type mockProposalRepo struct {
 	updateFn             func(ctx context.Context, p *domain.Proposal) error
 	getLatestVersionFn   func(ctx context.Context, rootProposalID uuid.UUID) (*domain.Proposal, error)
 	listByConversationFn func(ctx context.Context, conversationID uuid.UUID) ([]*domain.Proposal, error)
-	listActiveProjectsFn func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
+	listActiveProjectsFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
 	getDocumentsFn       func(ctx context.Context, proposalID uuid.UUID) ([]*domain.ProposalDocument, error)
 	createDocumentFn     func(ctx context.Context, doc *domain.ProposalDocument) error
 }
@@ -70,14 +70,14 @@ func (m *mockProposalRepo) ListByConversation(ctx context.Context, conversationI
 	return nil, nil
 }
 
-func (m *mockProposalRepo) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error) {
 	if m.listActiveProjectsFn != nil {
-		return m.listActiveProjectsFn(ctx, userID, cursor, limit)
+		return m.listActiveProjectsFn(ctx, orgID, cursor, limit)
 	}
 	return []*domain.Proposal{}, "", nil
 }
 
-func (m *mockProposalRepo) ListCompletedByProvider(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.Proposal, string, error) {
+func (m *mockProposalRepo) ListCompletedByOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.Proposal, string, error) {
 	return []*domain.Proposal{}, "", nil
 }
 

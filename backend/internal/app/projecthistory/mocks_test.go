@@ -13,7 +13,7 @@ import (
 // --- mockProposalRepo ---
 
 type mockProposalRepo struct {
-	ListCompletedByProviderFunc func(ctx context.Context, providerID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error)
+	ListCompletedByOrganizationFunc func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error)
 }
 
 func (m *mockProposalRepo) Create(context.Context, *proposaldomain.Proposal) error { return nil }
@@ -30,12 +30,12 @@ func (m *mockProposalRepo) GetLatestVersion(context.Context, uuid.UUID) (*propos
 func (m *mockProposalRepo) ListByConversation(context.Context, uuid.UUID) ([]*proposaldomain.Proposal, error) {
 	return nil, nil
 }
-func (m *mockProposalRepo) ListActiveProjects(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
 	return nil, "", nil
 }
-func (m *mockProposalRepo) ListCompletedByProvider(ctx context.Context, providerID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error) {
-	if m.ListCompletedByProviderFunc != nil {
-		return m.ListCompletedByProviderFunc(ctx, providerID, cursor, limit)
+func (m *mockProposalRepo) ListCompletedByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error) {
+	if m.ListCompletedByOrganizationFunc != nil {
+		return m.ListCompletedByOrganizationFunc(ctx, orgID, cursor, limit)
 	}
 	return nil, "", nil
 }

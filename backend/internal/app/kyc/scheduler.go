@@ -125,8 +125,12 @@ func (s *Scheduler) tick(ctx context.Context) {
 				continue
 			}
 
-			// Compute pending amount for the notification body
-			amount := s.computePendingAmount(ctx, u.ID)
+			// Compute pending amount for the notification body. After R1
+			// every user has an org, so OrganizationID is safe to deref.
+			var amount int64
+			if u.OrganizationID != nil {
+				amount = s.computePendingAmount(ctx, *u.OrganizationID)
+			}
 
 			title := tier.titleEN
 			body := tier.bodyEN
@@ -162,9 +166,9 @@ func (s *Scheduler) tick(ctx context.Context) {
 }
 
 // computePendingAmount sums up all succeeded payments with pending transfers
-// for the given provider.
-func (s *Scheduler) computePendingAmount(ctx context.Context, userID uuid.UUID) int64 {
-	records, err := s.records.ListByProviderID(ctx, userID)
+// for the given organization.
+func (s *Scheduler) computePendingAmount(ctx context.Context, orgID uuid.UUID) int64 {
+	records, err := s.records.ListByOrganization(ctx, orgID)
 	if err != nil {
 		return 0
 	}

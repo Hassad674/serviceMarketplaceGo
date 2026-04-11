@@ -56,7 +56,7 @@ func TestListByProvider_HappyPath_MixedReviews(t *testing.T) {
 	}
 
 	propRepo := &mockProposalRepo{
-		ListCompletedByProviderFunc: func(_ context.Context, pid uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error) {
+		ListCompletedByOrganizationFunc: func(_ context.Context, pid uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error) {
 			assert.Equal(t, provider, pid)
 			return []*proposaldomain.Proposal{p1, p2, p3}, "next-cursor", nil
 		},
@@ -72,7 +72,7 @@ func TestListByProvider_HappyPath_MixedReviews(t *testing.T) {
 	}
 	svc := newTestService(propRepo, revRepo)
 
-	entries, next, err := svc.ListByProvider(context.Background(), provider, "", 20)
+	entries, next, err := svc.ListByOrganization(context.Background(), provider, "", 20)
 	require.NoError(t, err)
 	assert.Equal(t, "next-cursor", next)
 	require.Len(t, entries, 3)
@@ -97,14 +97,14 @@ func TestListByProvider_HappyPath_MixedReviews(t *testing.T) {
 
 func TestListByProvider_Empty(t *testing.T) {
 	propRepo := &mockProposalRepo{
-		ListCompletedByProviderFunc: func(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
+		ListCompletedByOrganizationFunc: func(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
 			return []*proposaldomain.Proposal{}, "", nil
 		},
 	}
 	revRepo := &mockReviewRepo{}
 	svc := newTestService(propRepo, revRepo)
 
-	entries, next, err := svc.ListByProvider(context.Background(), uuid.New(), "", 20)
+	entries, next, err := svc.ListByOrganization(context.Background(), uuid.New(), "", 20)
 	require.NoError(t, err)
 	assert.Empty(t, entries)
 	assert.Empty(t, next)
@@ -112,21 +112,21 @@ func TestListByProvider_Empty(t *testing.T) {
 
 func TestListByProvider_ProposalRepoError(t *testing.T) {
 	propRepo := &mockProposalRepo{
-		ListCompletedByProviderFunc: func(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
+		ListCompletedByOrganizationFunc: func(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
 			return nil, "", errors.New("db down")
 		},
 	}
 	revRepo := &mockReviewRepo{}
 	svc := newTestService(propRepo, revRepo)
 
-	_, _, err := svc.ListByProvider(context.Background(), uuid.New(), "", 20)
+	_, _, err := svc.ListByOrganization(context.Background(), uuid.New(), "", 20)
 	assert.Error(t, err)
 }
 
 func TestListByProvider_ReviewRepoError(t *testing.T) {
 	p1ID := uuid.New()
 	propRepo := &mockProposalRepo{
-		ListCompletedByProviderFunc: func(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
+		ListCompletedByOrganizationFunc: func(context.Context, uuid.UUID, string, int) ([]*proposaldomain.Proposal, string, error) {
 			return []*proposaldomain.Proposal{
 				completedProposal(p1ID, uuid.New(), 1000, time.Now()),
 			}, "", nil
@@ -139,23 +139,23 @@ func TestListByProvider_ReviewRepoError(t *testing.T) {
 	}
 	svc := newTestService(propRepo, revRepo)
 
-	_, _, err := svc.ListByProvider(context.Background(), uuid.New(), "", 20)
+	_, _, err := svc.ListByOrganization(context.Background(), uuid.New(), "", 20)
 	assert.Error(t, err)
 }
 
 func TestListByProvider_DefaultLimit(t *testing.T) {
 	var capturedLimit int
 	propRepo := &mockProposalRepo{
-		ListCompletedByProviderFunc: func(_ context.Context, _ uuid.UUID, _ string, limit int) ([]*proposaldomain.Proposal, string, error) {
+		ListCompletedByOrganizationFunc: func(_ context.Context, _ uuid.UUID, _ string, limit int) ([]*proposaldomain.Proposal, string, error) {
 			capturedLimit = limit
 			return []*proposaldomain.Proposal{}, "", nil
 		},
 	}
 	svc := newTestService(propRepo, &mockReviewRepo{})
 
-	_, _, _ = svc.ListByProvider(context.Background(), uuid.New(), "", 0)
+	_, _, _ = svc.ListByOrganization(context.Background(), uuid.New(), "", 0)
 	assert.Equal(t, 20, capturedLimit)
 
-	_, _, _ = svc.ListByProvider(context.Background(), uuid.New(), "", 999)
+	_, _, _ = svc.ListByOrganization(context.Background(), uuid.New(), "", 999)
 	assert.Equal(t, 20, capturedLimit)
 }

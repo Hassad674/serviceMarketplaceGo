@@ -179,10 +179,10 @@ func (m *mockProposalRepo) GetLatestVersion(context.Context, uuid.UUID) (*propos
 func (m *mockProposalRepo) ListByConversation(context.Context, uuid.UUID) ([]*proposal.Proposal, error) {
 	return nil, nil
 }
-func (m *mockProposalRepo) ListActiveProjects(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
+func (m *mockProposalRepo) ListActiveProjectsByOrganization(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
-func (m *mockProposalRepo) ListCompletedByProvider(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
+func (m *mockProposalRepo) ListCompletedByOrganization(context.Context, uuid.UUID, string, int) ([]*proposal.Proposal, string, error) {
 	return nil, "", nil
 }
 func (m *mockProposalRepo) GetDocuments(context.Context, uuid.UUID) ([]*proposal.ProposalDocument, error) {
