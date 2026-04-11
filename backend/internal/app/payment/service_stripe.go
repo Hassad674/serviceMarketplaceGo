@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -171,10 +172,29 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 	return s.records.Update(ctx, record)
 }
 
-// TransferPartialToProvider transfers a specific amount to the provider and
-// updates the payment record to reflect the new ProviderPayout. Used for dispute
-// resolutions: the wallet computation must show the actual amount, not the
-// original proposal payout.
+// TransferPartialToProvider applies a dispute resolution split to the
+// provider's payment record and, when possible, transfers the funds to
+// their Stripe account.
+//
+// CRITICAL invariant: the record's ProviderPayout MUST always reflect the
+// admin / amiable / scheduler decision, even if the Stripe transfer cannot
+// happen right now (e.g. the provider has not yet completed KYC or their
+// Stripe account is not payouts-enabled). Otherwise RequestPayout later
+// transfers the original proposal amount, over-paying the provider and
+// leaving the platform short by the client's refunded portion.
+//
+// Three possible outcomes:
+//   - amount == 0 (full refund to client): the record is marked completed
+//     with zero payout, no Stripe call.
+//   - amount > 0 and provider has a Stripe account: transfer is attempted.
+//     If it succeeds, the record is marked completed. If Stripe rejects
+//     (e.g. payouts not enabled yet), the new ProviderPayout is still
+//     persisted with TransferPending so a later RequestPayout can retry
+//     with the correct amount.
+//   - amount > 0 and provider has NO Stripe account yet: the record is
+//     persisted with the new ProviderPayout but TransferPending. When the
+//     provider finishes KYC and calls RequestPayout, they receive the
+//     split amount — not the original proposal amount.
 func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid.UUID, amount int64) error {
 	record, err := s.records.GetByProposalID(ctx, proposalID)
 	if err != nil {
@@ -184,28 +204,55 @@ func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid
 		return domain.ErrPaymentNotSucceeded
 	}
 
-	var transferID string
-	if amount > 0 {
-		stripeAccountID, _, accErr := s.users.GetStripeAccount(ctx, record.ProviderID)
-		if accErr != nil || stripeAccountID == "" {
-			return domain.ErrStripeAccountNotFound
-		}
-
-		transferID, err = s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
-			Amount:             amount,
-			Currency:           record.Currency,
-			DestinationAccount: stripeAccountID,
-			TransferGroup:      proposalID.String(),
-			IdempotencyKey:     fmt.Sprintf("dispute_transfer_%s_%d", proposalID, amount),
-		})
-		if err != nil {
-			return fmt.Errorf("stripe partial transfer: %w", err)
-		}
+	// Full refund to client — nothing to transfer, mark the record as
+	// resolved with zero payout so the wallet removes it from escrow.
+	if amount == 0 {
+		record.ApplyDisputeResolution(0, "")
+		return s.records.Update(ctx, record)
 	}
 
-	// Update the record so the wallet computation reflects the actual amount.
-	// If amount == 0 (full refund), provider gets nothing — still mark as
-	// resolved so the funds are no longer in escrow.
+	// Provider has no Stripe account yet (KYC incomplete). Persist the new
+	// payout but keep TransferPending so a post-KYC RequestPayout completes
+	// the transfer with the correct (split) amount. This is a valid state,
+	// not an error: the dispute flow continues normally.
+	stripeAccountID, _, accErr := s.users.GetStripeAccount(ctx, record.ProviderID)
+	if accErr != nil || stripeAccountID == "" {
+		slog.Info("dispute: transfer deferred pending provider KYC",
+			"proposal_id", proposalID,
+			"old_payout", record.ProviderPayout,
+			"new_payout", amount,
+		)
+		record.ProviderPayout = amount
+		record.UpdatedAt = time.Now()
+		return s.records.Update(ctx, record)
+	}
+
+	// Provider is KYC-ready — attempt the Stripe transfer.
+	transferID, err := s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
+		Amount:             amount,
+		Currency:           record.Currency,
+		DestinationAccount: stripeAccountID,
+		TransferGroup:      proposalID.String(),
+		IdempotencyKey:     fmt.Sprintf("dispute_transfer_%s_%d", proposalID, amount),
+	})
+	if err != nil {
+		// Stripe rejected (e.g. payouts not enabled yet). Persist the new
+		// ProviderPayout so RequestPayout retries with the correct amount,
+		// then surface the error so the dispute flow can log it.
+		slog.Warn("dispute: stripe transfer failed, payout deferred",
+			"proposal_id", proposalID,
+			"new_payout", amount,
+			"error", err,
+		)
+		record.ProviderPayout = amount
+		record.UpdatedAt = time.Now()
+		if saveErr := s.records.Update(ctx, record); saveErr != nil {
+			return fmt.Errorf("stripe partial transfer: %w (save failed: %v)", err, saveErr)
+		}
+		return fmt.Errorf("stripe partial transfer: %w", err)
+	}
+
+	// Transfer succeeded — mark completed with the new amount.
 	record.ApplyDisputeResolution(amount, transferID)
 	return s.records.Update(ctx, record)
 }
