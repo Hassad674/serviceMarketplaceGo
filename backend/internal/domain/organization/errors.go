@@ -48,6 +48,14 @@ var (
 	ErrForbidden         = errors.New("forbidden")
 	ErrPermissionDenied  = errors.New("permission denied for this action")
 	ErrNotAMember        = errors.New("not a member of this organization")
+	// ErrCannotChangeOwnRole is returned when an actor attempts to
+	// PATCH their own membership row to a new role. Self-edits go
+	// through the leave / transfer flows instead. Mapped to 403 by
+	// the team handler so the frontend can render a clean error.
+	ErrCannotChangeOwnRole = errors.New("cannot change your own role — use leave or transfer ownership")
+	// ErrCannotRemoveSelf is returned when an actor attempts to DELETE
+	// their own membership row instead of using the leave flow.
+	ErrCannotRemoveSelf = errors.New("cannot remove yourself — use leave organization")
 
 	// Account type invariants
 	ErrProviderCannotOwnOrg = errors.New("providers cannot own an organization")

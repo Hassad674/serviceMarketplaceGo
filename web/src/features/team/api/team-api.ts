@@ -9,6 +9,7 @@ import type {
   InitiateTransferPayload,
   InvitationPreview,
   AcceptInvitationPayload,
+  RoleDefinitionsResponse,
 } from "../types"
 
 // Pure async functions that talk to the organization endpoints
@@ -47,6 +48,20 @@ export function leaveOrganization(orgID: string): Promise<void> {
   return apiClient<void>(
     `/api/v1/organizations/${orgID}/leave`,
     { method: "POST", body: {} },
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Role definitions (R13)                                              */
+/* ------------------------------------------------------------------ */
+
+// Static catalogue of roles and permissions surfaced by the backend.
+// Used by the team page's "About roles" panel and the Edit Member
+// modal's inline preview. Cached aggressively because the catalogue
+// only changes when the backend deploys a new permission constant.
+export function getRoleDefinitions(): Promise<RoleDefinitionsResponse> {
+  return apiClient<RoleDefinitionsResponse>(
+    `/api/v1/organizations/role-definitions`,
   )
 }
 

@@ -146,3 +146,65 @@ func TestPermissionsFor_UnknownRoleReturnsNil(t *testing.T) {
 	perms := PermissionsFor(Role("guest"))
 	assert.Nil(t, perms)
 }
+
+// TestAllRoles_DisplayOrder asserts the canonical display order of
+// roles. The team page renders roles top-to-bottom in this order so
+// reordering them here would cascade as a UX regression.
+func TestAllRoles_DisplayOrder(t *testing.T) {
+	got := AllRoles()
+	want := []Role{RoleOwner, RoleAdmin, RoleMember, RoleViewer}
+	assert.Equal(t, want, got)
+}
+
+// TestAllPermissionMetadata_CoversEveryConstant guards against the
+// "added a new permission constant but forgot to register a label"
+// failure mode. Every permission referenced by the rolePermissions
+// map must have a metadata entry.
+func TestAllPermissionMetadata_CoversEveryConstant(t *testing.T) {
+	seen := make(map[Permission]bool)
+	for _, m := range AllPermissionMetadata() {
+		seen[m.Key] = true
+		assert.NotEmpty(t, m.Label, "permission %s missing label", m.Key)
+		assert.NotEmpty(t, m.Group, "permission %s missing group", m.Key)
+		assert.NotEmpty(t, m.Description, "permission %s missing description", m.Key)
+	}
+	for _, perms := range rolePermissions {
+		for p := range perms {
+			assert.True(t, seen[p],
+				"permission %s referenced in rolePermissions but missing metadata entry", p)
+		}
+	}
+}
+
+// TestMetadataForRole_AllRolesHaveDescription ensures every V1 role
+// has a registered display label and description so the team page
+// can render it without falling back to the raw key.
+func TestMetadataForRole_AllRolesHaveDescription(t *testing.T) {
+	for _, r := range AllRoles() {
+		t.Run(string(r), func(t *testing.T) {
+			meta := MetadataForRole(r)
+			assert.Equal(t, r, meta.Key)
+			assert.NotEmpty(t, meta.Label)
+			assert.NotEmpty(t, meta.Description)
+		})
+	}
+}
+
+// TestMetadataForRole_UnknownRoleSafeFallback verifies the fallback
+// path returns a non-empty key so a typo in the role name does not
+// crash the response builder.
+func TestMetadataForRole_UnknownRoleSafeFallback(t *testing.T) {
+	meta := MetadataForRole(Role("ghost"))
+	assert.Equal(t, Role("ghost"), meta.Key)
+	assert.Equal(t, "ghost", meta.Label)
+}
+
+// TestMetadataForPermission_UnknownPermissionSafeFallback ensures the
+// fallback yields a stable structure (key + group=other) so the
+// frontend never receives a malformed row.
+func TestMetadataForPermission_UnknownPermissionSafeFallback(t *testing.T) {
+	meta := MetadataForPermission(Permission("future.feature"))
+	assert.Equal(t, Permission("future.feature"), meta.Key)
+	assert.Equal(t, "other", meta.Group)
+	assert.Equal(t, "future.feature", meta.Label)
+}

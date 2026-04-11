@@ -96,3 +96,32 @@ export type AcceptInvitationPayload = {
   token: string
   password: string
 }
+
+// Role and permission catalogue surfaced by GET
+// /api/v1/organizations/role-definitions. Used by the team page's
+// "About roles" panel and the Edit Member modal's inline preview to
+// show users what each role can actually do before they pick one.
+//
+// Backend returns English defaults for label/description; the
+// frontend translates by key (`team.roles.<key>`,
+// `team.permissionGroups.<group>`, etc.) and falls back to the
+// English string when no translation exists.
+
+export type RoleDefinitionPermission = {
+  key: string
+  group: string
+  label: string
+  description: string
+}
+
+export type RoleDefinition = {
+  key: OrgRole
+  label: string
+  description: string
+  permissions: string[]
+}
+
+export type RoleDefinitionsResponse = {
+  roles: RoleDefinition[]
+  permissions: RoleDefinitionPermission[]
+}

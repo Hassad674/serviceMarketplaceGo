@@ -95,6 +95,46 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 	return u, nil
 }
 
+// GetByIDs batch-fetches users for a set of ids in a single query.
+// Used by features that join a secondary dataset (e.g. organization
+// members, reviews) against users without running an N+1 loop.
+//
+// Unknown ids are silently dropped from the result — the caller is
+// expected to handle "user was deleted" gracefully (typically by
+// leaving that row without an identity block).
+func (r *UserRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*user.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	idStrings := make([]string, len(ids))
+	for i, id := range ids {
+		idStrings[i] = id.String()
+	}
+
+	query := `SELECT ` + userColumns + ` FROM users WHERE id = ANY($1)`
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(idStrings))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users by ids: %w", err)
+	}
+	defer rows.Close()
+
+	users := make([]*user.User, 0, len(ids))
+	for rows.Next() {
+		u, scanErr := r.scanUserRow(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("failed to scan user row: %w", scanErr)
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate users rows: %w", err)
+	}
+	return users, nil
+}
+
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

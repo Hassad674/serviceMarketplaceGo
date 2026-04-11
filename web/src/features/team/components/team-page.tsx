@@ -13,6 +13,7 @@ import { TransferOwnershipModal } from "./transfer-ownership-modal"
 import { PendingTransferBanner } from "./pending-transfer-banner"
 import { LeaveOrgDialog } from "./leave-org-dialog"
 import { TeamPageSkeleton } from "./team-page-skeleton"
+import { AboutRolesPanel } from "./about-roles-panel"
 
 // Client-side entry point for /team. Pulls the session slice (which
 // carries the current org + permissions + pending transfer) and
@@ -125,6 +126,12 @@ export function TeamPage() {
         </div>
         <TeamMembersList orgID={orgID} members={members} canManage={canManage} />
       </section>
+
+      {/* About roles — collapsible reference panel listing every
+          role and its permissions. Always visible because every team
+          member benefits from knowing what each role can do, even
+          if they themselves can't manage the team. */}
+      <AboutRolesPanel />
 
       {/* Pending invitations — only visible if there is at least one
           or if the caller can invite (so Members/Viewers don't see

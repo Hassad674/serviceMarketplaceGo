@@ -34,6 +34,7 @@ import '../../features/dispute/presentation/screens/counter_propose_screen.dart'
 import '../../features/dispute/presentation/screens/open_dispute_screen.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
+import '../../features/team/presentation/screens/team_screen.dart';
 import '../../features/notification/presentation/screens/notification_screen.dart';
 import '../../features/notification/presentation/widgets/notification_badge.dart';
 import '../../features/payment_info/presentation/screens/payment_info_screen.dart';
@@ -75,6 +76,7 @@ class RoutePaths {
   static const String profile = '/profile';
   static const String paymentInfo = '/payment-info';
   static const String wallet = '/wallet';
+  static const String team = '/team';
   static const String notifications = '/notifications';
   static const String search = '/search';
   static const String publicProfile = '/profiles';
@@ -355,6 +357,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: RoutePaths.notifications,
             builder: (context, state) => const NotificationScreen(),
+          ),
+          GoRoute(
+            path: RoutePaths.team,
+            builder: (context, state) => const TeamScreen(),
           ),
         ],
       ),

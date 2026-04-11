@@ -10,8 +10,10 @@ import (
 
 	orgapp "marketplace-backend/internal/app/organization"
 	"marketplace-backend/internal/domain/organization"
+	domainuser "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/pkg/validator"
 	res "marketplace-backend/pkg/response"
 )
@@ -19,16 +21,61 @@ import (
 // TeamHandler owns the HTTP surface for team management: listing
 // members, updating roles/titles, removing members, self-leave, and
 // the 4-step transfer ownership flow.
+//
+// userBatch is an additive, read-only batch reader injected so the
+// member list endpoint can hydrate user identity fields (display name,
+// first/last, email) without an N+1 loop. The dependency is optional —
+// if it is nil the handler degrades to "no identity fields" rather
+// than failing the request, so older wirings keep working.
 type TeamHandler struct {
 	membership *orgapp.MembershipService
 	orgService *orgapp.Service
+	userBatch  repository.UserBatchReader
 }
 
-func NewTeamHandler(membership *orgapp.MembershipService, orgService *orgapp.Service) *TeamHandler {
+func NewTeamHandler(
+	membership *orgapp.MembershipService,
+	orgService *orgapp.Service,
+	userBatch repository.UserBatchReader,
+) *TeamHandler {
 	return &TeamHandler{
 		membership: membership,
 		orgService: orgService,
+		userBatch:  userBatch,
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Role definitions — read-only catalogue
+// ---------------------------------------------------------------------------
+
+// RoleDefinitions handles GET /api/v1/organizations/role-definitions.
+//
+// Returns the static catalogue of roles and permissions used by the
+// team page's "About roles" panel and the Edit Member modal's inline
+// permissions preview. The response is read directly from the domain
+// rolePermissions map (the single source of truth) — no duplication.
+//
+// English labels and descriptions are returned inline as fallbacks
+// the frontend can use until its own i18n catalogue is updated. The
+// frontend translates by key (`team.roles.admin.label`,
+// `team.permissions.team_invite.label`) and falls back to the inline
+// English string when no translation exists.
+//
+// Authentication required: this is called from authenticated team
+// pages, so the same auth middleware as the rest of the team routes
+// applies. No special role check — every authenticated user may
+// read the catalogue.
+func (h *TeamHandler) RoleDefinitions(w http.ResponseWriter, r *http.Request) {
+	if _, ok := middleware.GetUserID(r.Context()); !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "authentication required")
+		return
+	}
+	payload := response.NewRoleDefinitionsPayload(
+		organization.AllRoles(),
+		organization.AllPermissionMetadata(),
+	)
+	res.JSON(w, http.StatusOK, payload)
 }
 
 // ---------------------------------------------------------------------------
@@ -36,6 +83,14 @@ func NewTeamHandler(membership *orgapp.MembershipService, orgService *orgapp.Ser
 // ---------------------------------------------------------------------------
 
 // ListMembers handles GET /api/v1/organizations/{orgID}/members.
+//
+// Each member row is hydrated with the matching user identity block
+// (display name, email, first/last) via a single batch query against
+// the users table — no N+1 loop. If the userBatch dependency is
+// missing or the batch call fails, the handler still returns the
+// member rows but without the identity block (the frontend already
+// handles the missing-user case gracefully by falling back to a
+// generic label).
 func (h *TeamHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 	actorID, orgID, ok := h.authContext(w, r)
 	if !ok {
@@ -49,7 +104,39 @@ func (h *TeamHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 		h.handleTeamError(w, err)
 		return
 	}
-	res.JSON(w, http.StatusOK, response.NewMemberListResponse(items, next))
+	usersByID := h.batchUsersForMembers(r, items)
+	res.JSON(w, http.StatusOK, response.NewMemberListResponseWithUsers(items, usersByID, next))
+}
+
+// batchUsersForMembers fetches the joined user records for a slice of
+// members in a single round-trip and returns them keyed by user id
+// string. Logs (but does not propagate) errors so the list endpoint
+// degrades gracefully when the user lookup fails.
+func (h *TeamHandler) batchUsersForMembers(
+	r *http.Request,
+	members []*organization.Member,
+) map[string]*domainuser.User {
+	out := make(map[string]*domainuser.User, len(members))
+	if h.userBatch == nil || len(members) == 0 {
+		return out
+	}
+	ids := make([]uuid.UUID, 0, len(members))
+	for _, m := range members {
+		ids = append(ids, m.UserID)
+	}
+	users, err := h.userBatch.GetByIDs(r.Context(), ids)
+	if err != nil {
+		slog.Warn("team list: batch user fetch failed",
+			"error", err, "member_count", len(members))
+		return out
+	}
+	for _, u := range users {
+		if u == nil {
+			continue
+		}
+		out[u.ID.String()] = u
+	}
+	return out
 }
 
 // UpdateMember handles PATCH /api/v1/organizations/{orgID}/members/{userID}.
@@ -234,6 +321,10 @@ func (h *TeamHandler) handleTeamError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "permission_denied", "you do not have permission to perform this action")
 	case errors.Is(err, organization.ErrForbidden):
 		res.Error(w, http.StatusForbidden, "forbidden", err.Error())
+	case errors.Is(err, organization.ErrCannotChangeOwnRole):
+		res.Error(w, http.StatusForbidden, "cannot_change_own_role", "cannot change your own role — use leave or transfer ownership")
+	case errors.Is(err, organization.ErrCannotRemoveSelf):
+		res.Error(w, http.StatusForbidden, "cannot_remove_self", "cannot remove yourself — use leave organization")
 
 	// Lookup
 	case errors.Is(err, organization.ErrOrgNotFound):

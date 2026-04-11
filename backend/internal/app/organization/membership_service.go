@@ -100,7 +100,7 @@ func (s *MembershipService) UpdateMemberRole(
 		return nil, organization.ErrCannotInviteAsOwner
 	}
 	if actorID == targetUserID {
-		return nil, errors.New("cannot change your own role via update member — use leave or transfer ownership")
+		return nil, organization.ErrCannotChangeOwnRole
 	}
 
 	actor, err := s.members.FindByOrgAndUser(ctx, orgID, actorID)
@@ -204,7 +204,7 @@ func (s *MembershipService) RemoveMember(
 	actorID, orgID, targetUserID uuid.UUID,
 ) error {
 	if actorID == targetUserID {
-		return errors.New("cannot remove yourself; use leave organization")
+		return organization.ErrCannotRemoveSelf
 	}
 
 	actor, err := s.members.FindByOrgAndUser(ctx, orgID, actorID)

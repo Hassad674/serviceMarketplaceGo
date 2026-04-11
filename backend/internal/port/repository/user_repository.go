@@ -17,6 +17,26 @@ type AdminUserFilters struct {
 	Reported bool
 }
 
+// UserBatchReader is a focused, additive interface that exposes the
+// batch user-fetch capability without bloating the main UserRepository
+// contract. Consumers that only need to join a secondary dataset
+// against the users table (team member listings, review aggregations,
+// dispute participants) depend on THIS interface — never on the larger
+// UserRepository — so adding new bulk methods here does not force
+// every UserRepository mock in the codebase to implement them.
+//
+// The concrete postgres adapter satisfies both UserRepository and
+// UserBatchReader because it provides the union of their methods.
+type UserBatchReader interface {
+	// GetByIDs batch-fetches users by their ids in a single query.
+	// Returns the slice in no particular order — callers must map by
+	// id if they need a specific ordering. Missing ids are silently
+	// dropped from the result (not an error) because the primary use
+	// case is joining a secondary dataset and partial matches are
+	// expected.
+	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*user.User, error)
+}
+
 type UserRepository interface {
 	Create(ctx context.Context, u *user.User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*user.User, error)
