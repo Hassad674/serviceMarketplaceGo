@@ -19,7 +19,7 @@ type mockJobRepo struct {
 	createFn        func(ctx context.Context, j *domain.Job) error
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.Job, error)
 	updateFn        func(ctx context.Context, j *domain.Job) error
-	listByCreatorFn func(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error)
+	listByOrgFn     func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error)
 	listOpenFn      func(ctx context.Context, filters repository.JobListFilters, cursor string, limit int) ([]*domain.Job, string, error)
 }
 
@@ -44,9 +44,9 @@ func (m *mockJobRepo) Update(ctx context.Context, j *domain.Job) error {
 	return nil
 }
 
-func (m *mockJobRepo) ListByCreator(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error) {
-	if m.listByCreatorFn != nil {
-		return m.listByCreatorFn(ctx, creatorID, cursor, limit)
+func (m *mockJobRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Job, string, error) {
+	if m.listByOrgFn != nil {
+		return m.listByOrgFn(ctx, orgID, cursor, limit)
 	}
 	return []*domain.Job{}, "", nil
 }

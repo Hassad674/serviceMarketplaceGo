@@ -321,7 +321,7 @@ type mockJobRepo struct {
 	createFn        func(ctx context.Context, j *job.Job) error
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*job.Job, error)
 	updateFn        func(ctx context.Context, j *job.Job) error
-	listByCreatorFn func(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*job.Job, string, error)
+	listByOrgFn     func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*job.Job, string, error)
 }
 
 func (m *mockJobRepo) Create(ctx context.Context, j *job.Job) error {
@@ -345,9 +345,9 @@ func (m *mockJobRepo) Update(ctx context.Context, j *job.Job) error {
 	return nil
 }
 
-func (m *mockJobRepo) ListByCreator(ctx context.Context, creatorID uuid.UUID, cursor string, limit int) ([]*job.Job, string, error) {
-	if m.listByCreatorFn != nil {
-		return m.listByCreatorFn(ctx, creatorID, cursor, limit)
+func (m *mockJobRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*job.Job, string, error) {
+	if m.listByOrgFn != nil {
+		return m.listByOrgFn(ctx, orgID, cursor, limit)
 	}
 	return []*job.Job{}, "", nil
 }

@@ -141,8 +141,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
 		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 		if deps.ProjectHistory != nil {
-			// project_history still anchors on user_id; R3 flips it to org.
-			r.Get("/profiles/{userId}/project-history", deps.ProjectHistory.ListByProvider)
+			r.Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
 		}
 
 		// Messaging routes (authenticated)

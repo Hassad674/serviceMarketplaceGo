@@ -306,8 +306,10 @@ type WalletRecord struct {
 	CreatedAt      string `json:"created_at"`
 }
 
-// GetWalletOverview returns the provider's wallet state.
-func (s *Service) GetWalletOverview(ctx context.Context, userID uuid.UUID) (*WalletOverview, error) {
+// GetWalletOverview returns the organization's wallet state. Every
+// member of the same org sees the same wallet (Stripe Dashboard model).
+// Stripe account + KYC state are still stored per user until phase R5.
+func (s *Service) GetWalletOverview(ctx context.Context, userID, orgID uuid.UUID) (*WalletOverview, error) {
 	stripeAccountID, _, _ := s.users.GetStripeAccount(ctx, userID)
 	wallet := &WalletOverview{StripeAccountID: stripeAccountID}
 
@@ -320,7 +322,7 @@ func (s *Service) GetWalletOverview(ctx context.Context, userID uuid.UUID) (*Wal
 		}
 	}
 
-	records, err := s.records.ListByProviderID(ctx, userID)
+	records, err := s.records.ListByOrganization(ctx, orgID)
 	if err != nil {
 		return wallet, nil
 	}
@@ -354,8 +356,9 @@ type PayoutResult struct {
 	Message string `json:"message"`
 }
 
-// RequestPayout triggers manual transfers for all pending payments.
-func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutResult, error) {
+// RequestPayout triggers manual transfers for all pending payments
+// belonging to the caller's organization.
+func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*PayoutResult, error) {
 	stripeAccountID, _, err := s.users.GetStripeAccount(ctx, userID)
 	if err != nil || stripeAccountID == "" {
 		if errors.Is(err, sql.ErrNoRows) || stripeAccountID == "" {
@@ -364,7 +367,7 @@ func (s *Service) RequestPayout(ctx context.Context, userID uuid.UUID) (*PayoutR
 		return nil, fmt.Errorf("lookup stripe account: %w", err)
 	}
 
-	records, err := s.records.ListByProviderID(ctx, userID)
+	records, err := s.records.ListByOrganization(ctx, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("list records: %w", err)
 	}

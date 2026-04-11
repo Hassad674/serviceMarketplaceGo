@@ -49,14 +49,15 @@ func NewService(deps ServiceDeps) *Service {
 	}
 }
 
-// ListByProvider returns the completed missions of a provider with the
-// associated (optional) review joined in-memory.
-func (s *Service) ListByProvider(ctx context.Context, providerID uuid.UUID, cursor string, limit int) ([]Entry, string, error) {
+// ListByOrganization returns the completed missions of the given
+// organization (provider side) with the associated (optional) review
+// joined in-memory. Used to render an org's public project history.
+func (s *Service) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]Entry, string, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
 
-	proposals, nextCursor, err := s.proposals.ListCompletedByProvider(ctx, providerID, cursor, limit)
+	proposals, nextCursor, err := s.proposals.ListCompletedByOrganization(ctx, orgID, cursor, limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("list completed proposals: %w", err)
 	}

@@ -13,7 +13,7 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
-// ProjectHistoryHandler serves the public project history of a provider.
+// ProjectHistoryHandler serves the public project history of an org.
 type ProjectHistoryHandler struct {
 	svc *projecthistoryapp.Service
 }
@@ -23,21 +23,22 @@ func NewProjectHistoryHandler(svc *projecthistoryapp.Service) *ProjectHistoryHan
 	return &ProjectHistoryHandler{svc: svc}
 }
 
-// ListByProvider handles GET /api/v1/profiles/{userId}/project-history.
-// Public endpoint — no authentication required.
-func (h *ProjectHistoryHandler) ListByProvider(w http.ResponseWriter, r *http.Request) {
-	userID, err := uuid.Parse(chi.URLParam(r, "userId"))
+// ListByOrganization handles GET /api/v1/profiles/{orgId}/project-history.
+// Public endpoint — no authentication required. Returns the organization's
+// completed deliveries (provider-side of the proposal).
+func (h *ProjectHistoryHandler) ListByOrganization(w http.ResponseWriter, r *http.Request) {
+	orgID, err := uuid.Parse(chi.URLParam(r, "orgId"))
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_user_id", "userId must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "orgId must be a valid UUID")
 		return
 	}
 
 	cursor := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	entries, nextCursor, err := h.svc.ListByProvider(r.Context(), userID, cursor, limit)
+	entries, nextCursor, err := h.svc.ListByOrganization(r.Context(), orgID, cursor, limit)
 	if err != nil {
-		slog.Error("list project history", "error", err, "user_id", userID)
+		slog.Error("list project history", "error", err, "org_id", orgID)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list project history")
 		return
 	}

@@ -93,7 +93,7 @@ func (r *JobRepository) Update(ctx context.Context, j *job.Job) error {
 	return nil
 }
 
-func (r *JobRepository) ListByCreator(ctx context.Context, creatorID uuid.UUID, cursorStr string, limit int) ([]*job.Job, string, error) {
+func (r *JobRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*job.Job, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	if limit <= 0 || limit > 100 {
@@ -102,16 +102,16 @@ func (r *JobRepository) ListByCreator(ctx context.Context, creatorID uuid.UUID, 
 	var rows *sql.Rows
 	var err error
 	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListJobsByCreatorFirst, creatorID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListJobsByOrgFirst, orgID, limit+1)
 	} else {
 		c, cErr := cursor.Decode(cursorStr)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListJobsByCreatorWithCursor, creatorID, c.CreatedAt, c.ID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListJobsByOrgWithCursor, orgID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
-		return nil, "", fmt.Errorf("list jobs by creator: %w", err)
+		return nil, "", fmt.Errorf("list jobs by organization: %w", err)
 	}
 	defer rows.Close()
 	return scanJobListWithCursor(rows, limit)

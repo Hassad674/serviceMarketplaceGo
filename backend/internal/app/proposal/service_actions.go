@@ -337,8 +337,10 @@ func (s *Service) GetParticipantNames(ctx context.Context, clientID, providerID 
 	return clientName, providerName
 }
 
-func (s *Service) ListActiveProjects(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {
-	return s.proposals.ListActiveProjects(ctx, userID, cursorStr, limit)
+// ListActiveProjectsByOrganization returns the non-completed/active
+// proposals where the caller's organization is either side.
+func (s *Service) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {
+	return s.proposals.ListActiveProjectsByOrganization(ctx, orgID, cursorStr, limit)
 }
 
 // sendEvaluationRequest sends an evaluation_request system message enriched
