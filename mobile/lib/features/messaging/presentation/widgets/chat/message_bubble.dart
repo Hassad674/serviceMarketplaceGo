@@ -140,9 +140,10 @@ class MessageBubble extends StatelessWidget {
       return _buildSystemMessage(context, theme, appColors, l10n);
     }
 
-    // Dispute rich cards (dispute_opened, dispute_counter_proposal)
+    // Dispute rich cards (dispute_opened, dispute_counter_proposal,
+    // dispute_resolved, dispute_auto_resolved, etc.)
     if (_isDisputeCard(message.type)) {
-      return DisputeCard(message: message);
+      return DisputeCard(message: message, currentUserId: currentUserId);
     }
 
     // Evaluation request — special system message with "Leave a review" button.
@@ -302,17 +303,19 @@ class MessageBubble extends StatelessWidget {
         type == 'dispute_counter_accepted' ||
         type == 'dispute_escalated' ||
         type == 'dispute_cancelled' ||
-        type == 'dispute_auto_resolved' ||
         type == 'dispute_cancellation_refused';
   }
 
-  /// Returns true for dispute messages that should render as a rich card
-  /// (with amounts, optional message, and a View Details button).
+  /// Returns true for dispute messages that should render as a rich card.
+  /// dispute_resolved and dispute_auto_resolved both render a full decision
+  /// card with split + user share highlight + admin note; the others use
+  /// the simpler subtitle layout with a "View details" button.
   bool _isDisputeCard(String type) {
     return type == 'dispute_opened' ||
         type == 'dispute_counter_proposal' ||
         type == 'dispute_counter_rejected' ||
         type == 'dispute_resolved' ||
+        type == 'dispute_auto_resolved' ||
         type == 'dispute_cancellation_requested';
   }
 
@@ -466,11 +469,6 @@ class MessageBubble extends StatelessWidget {
           Icons.cancel_outlined,
           l10n.disputeCancelledLabel,
           const Color(0xFF64748B),
-        ),
-      'dispute_auto_resolved' => (
-          Icons.access_time,
-          l10n.disputeAutoResolvedLabel,
-          const Color(0xFFD97706),
         ),
       'dispute_cancellation_refused' => (
           Icons.cancel_outlined,
