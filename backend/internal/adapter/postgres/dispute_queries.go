@@ -1,8 +1,17 @@
 package postgres
 
+// disputeColumns must include client_organization_id and provider_organization_id
+// in the same position scanDispute / scanDisputeFromRows reads them — between
+// provider_id and reason. These columns were added by the team-refactor-org-primary
+// migration and the entity + scan + Create() pass-through were updated, but the
+// disputeColumns / queryInsertDispute constants were missed. Without them every
+// dispute SELECT fails ("expected 33 destination arguments in Scan, not 35") and
+// every INSERT fails ("bind message supplies 35 parameters, but prepared
+// statement requires 33"), silently breaking the scheduler and any GET dispute.
 const disputeColumns = `
 	id, proposal_id, conversation_id, initiator_id, respondent_id,
-	client_id, provider_id, reason, description,
+	client_id, provider_id, client_organization_id, provider_organization_id,
+	reason, description,
 	requested_amount, proposal_amount, status,
 	resolution_type, resolution_amount_client, resolution_amount_provider,
 	resolved_by, resolution_note, ai_summary,
@@ -17,7 +26,8 @@ const disputeColumns = `
 const queryInsertDispute = `
 	INSERT INTO disputes (
 		id, proposal_id, conversation_id, initiator_id, respondent_id,
-		client_id, provider_id, reason, description,
+		client_id, provider_id, client_organization_id, provider_organization_id,
+		reason, description,
 		requested_amount, proposal_amount, status,
 		resolution_type, resolution_amount_client, resolution_amount_provider,
 		resolved_by, resolution_note, ai_summary,
@@ -31,16 +41,17 @@ const queryInsertDispute = `
 	) VALUES (
 		$1, $2, $3, $4, $5,
 		$6, $7, $8, $9,
-		$10, $11, $12,
-		$13, $14, $15,
-		$16, $17, $18,
-		$19, $20, $21,
-		$22, $23,
+		$10, $11,
+		$12, $13, $14,
+		$15, $16, $17,
+		$18, $19, $20,
+		$21, $22, $23,
 		$24, $25,
 		$26, $27,
 		$28, $29,
-		$30,
-		$31, $32, $33
+		$30, $31,
+		$32,
+		$33, $34, $35
 	)`
 
 const queryGetDisputeByID = `
