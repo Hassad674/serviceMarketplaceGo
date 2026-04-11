@@ -26,13 +26,20 @@ type UserResponse struct {
 // OrganizationResponse carries the user's organization context in /me and
 // /auth responses. It is only populated when the user belongs to an org
 // (Agency/Enterprise owner or invited operator). Providers receive nil.
+//
+// The pending_transfer_* fields are exposed so the web team page can
+// render the "transfer in progress" banner without a second round-trip.
+// They are nil whenever no transfer is in flight.
 type OrganizationResponse struct {
-	ID          string   `json:"id"`
-	Type        string   `json:"type"`
-	OwnerUserID string   `json:"owner_user_id"`
-	MemberRole  string   `json:"member_role"`
-	MemberTitle string   `json:"member_title"`
-	Permissions []string `json:"permissions"`
+	ID                         string   `json:"id"`
+	Type                       string   `json:"type"`
+	OwnerUserID                string   `json:"owner_user_id"`
+	MemberRole                 string   `json:"member_role"`
+	MemberTitle                string   `json:"member_title"`
+	Permissions                []string `json:"permissions"`
+	PendingTransferToUserID    *string  `json:"pending_transfer_to_user_id,omitempty"`
+	PendingTransferInitiatedAt *string  `json:"pending_transfer_initiated_at,omitempty"`
+	PendingTransferExpiresAt   *string  `json:"pending_transfer_expires_at,omitempty"`
 }
 
 type AuthResponse struct {
@@ -86,7 +93,7 @@ func NewOrganizationResponse(ctx *orgapp.Context) *OrganizationResponse {
 	for _, p := range ctx.Permissions {
 		perms = append(perms, string(p))
 	}
-	return &OrganizationResponse{
+	resp := &OrganizationResponse{
 		ID:          ctx.Organization.ID.String(),
 		Type:        ctx.Organization.Type.String(),
 		OwnerUserID: ctx.Organization.OwnerUserID.String(),
@@ -94,6 +101,19 @@ func NewOrganizationResponse(ctx *orgapp.Context) *OrganizationResponse {
 		MemberTitle: ctx.Member.Title,
 		Permissions: perms,
 	}
+	if ctx.Organization.PendingTransferToUserID != nil {
+		s := ctx.Organization.PendingTransferToUserID.String()
+		resp.PendingTransferToUserID = &s
+	}
+	if ctx.Organization.PendingTransferInitiatedAt != nil {
+		s := ctx.Organization.PendingTransferInitiatedAt.Format(time.RFC3339)
+		resp.PendingTransferInitiatedAt = &s
+	}
+	if ctx.Organization.PendingTransferExpiresAt != nil {
+		s := ctx.Organization.PendingTransferExpiresAt.Format(time.RFC3339)
+		resp.PendingTransferExpiresAt = &s
+	}
+	return resp
 }
 
 // NewMeResponse assembles the /me payload from a user and an optional

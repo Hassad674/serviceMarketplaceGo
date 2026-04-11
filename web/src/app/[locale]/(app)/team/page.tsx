@@ -1,18 +1,9 @@
-import { Users } from "lucide-react"
-import { getTranslations } from "next-intl/server"
+import { TeamPage } from "@/features/team/components/team-page"
 
-export default async function TeamPage() {
-  const t = await getTranslations("sidebar")
+// Thin route-level wrapper. Real composition + data fetching live in
+// the feature component so this file stays minimal (the CLAUDE.md
+// convention: app/ is routing only, features own the logic).
 
-  return (
-    <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-12 text-center">
-      <Users className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-      <h1 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-        {t("team")}
-      </h1>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Coming soon
-      </p>
-    </div>
-  )
+export default function Page() {
+  return <TeamPage />
 }
