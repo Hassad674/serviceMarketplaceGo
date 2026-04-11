@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	domain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/domain/organization"
@@ -224,9 +225,12 @@ func newTestApplyServiceWithCredits(cr *mockJobCreditRepo) (*Service, *mockJobRe
 }
 
 func TestApplyToJob_NoCreditsLeft(t *testing.T) {
+	// R12 — the atomic decrement is the authoritative gate. Under the
+	// new model, Decrement returns ErrNoCreditsLeft directly when the
+	// org pool is exhausted.
 	cr := &mockJobCreditRepo{
-		getOrCreateFn: func(_ context.Context, _ uuid.UUID) (int, error) {
-			return 0, nil // zero credits
+		decrementFn: func(_ context.Context, _ uuid.UUID) error {
+			return domain.ErrNoCreditsLeft
 		},
 	}
 	svc, jr, _, ur := newTestApplyServiceWithCredits(cr)
@@ -246,24 +250,16 @@ func TestApplyToJob_NoCreditsLeft(t *testing.T) {
 }
 
 func TestApplyToJob_CreditsDecremented(t *testing.T) {
-	var decremented bool
-	cr := &mockJobCreditRepo{
-		getOrCreateFn: func(_ context.Context, _ uuid.UUID) (int, error) {
-			return 5, nil // has credits
-		},
-		decrementFn: func(_ context.Context, _ uuid.UUID) error {
-			decremented = true
-			return nil
-		},
-	}
+	cr := &mockJobCreditRepo{}
 	svc, jr, _, ur := newTestApplyServiceWithCredits(cr)
 	creatorID := uuid.New()
 	applicantID := uuid.New()
+	orgID := uuid.New()
 	j := openJob(creatorID)
 
 	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) { return j, nil }
 	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
-		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &[]uuid.UUID{uuid.New()}[0]}, nil
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &orgID}, nil
 	}
 
 	app, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
@@ -271,8 +267,101 @@ func TestApplyToJob_CreditsDecremented(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, app)
-	assert.True(t, decremented, "credits should have been decremented after apply")
+	// R12 — the decrement must target the applicant's ORG, not the user.
+	require.Len(t, cr.decrementCalls, 1)
+	assert.Equal(t, orgID, cr.decrementCalls[0],
+		"decrement must hit the applicant's org, not the user")
+	assert.Empty(t, cr.refundCalls, "no refund on a successful apply")
 }
+
+// R12 — a user with zero user-credits (pre-migration notion) but whose
+// org has credits CAN apply. Conversely, a user whose org is exhausted
+// CANNOT apply even if they personally had credits historically. The
+// mock org id encodes this via the Decrement stub.
+func TestApplyToJob_SharedOrgPool_MembersShareCredits(t *testing.T) {
+	orgID := uuid.New()
+	var pool = 2 // two credits shared between the whole org
+	cr := &mockJobCreditRepo{
+		getOrCreateFn: func(_ context.Context, gotOrg uuid.UUID) (int, error) {
+			assert.Equal(t, orgID, gotOrg)
+			return pool, nil
+		},
+		decrementFn: func(_ context.Context, gotOrg uuid.UUID) error {
+			assert.Equal(t, orgID, gotOrg)
+			if pool <= 0 {
+				return domain.ErrNoCreditsLeft
+			}
+			pool--
+			return nil
+		},
+	}
+	svc, jr, _, ur := newTestApplyServiceWithCredits(cr)
+
+	// Two different applicant users, same org.
+	aliceID := uuid.New()
+	bobID := uuid.New()
+	creatorID := uuid.New()
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) {
+		return openJob(creatorID), nil
+	}
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &orgID}, nil
+	}
+
+	// Alice burns credit #1
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: uuid.New(), ApplicantID: aliceID, Message: "first"})
+	require.NoError(t, err)
+
+	// Bob burns credit #2
+	_, err = svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: uuid.New(), ApplicantID: bobID, Message: "second"})
+	require.NoError(t, err)
+
+	// Alice again — pool is empty, must fail even though she is a
+	// different user than Bob.
+	_, err = svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: uuid.New(), ApplicantID: aliceID, Message: "third"})
+	assert.ErrorIs(t, err, domain.ErrNoCreditsLeft)
+
+	assert.Equal(t, 0, pool, "shared pool must be fully drained")
+}
+
+// R12 — when the INSERT step fails after a successful debit, the
+// credit is refunded so the shared pool stays consistent.
+func TestApplyToJob_RefundsOnInsertFailure(t *testing.T) {
+	cr := &mockJobCreditRepo{}
+	svc, jr, ar, ur := newTestApplyServiceWithCredits(cr)
+	creatorID := uuid.New()
+	applicantID := uuid.New()
+	orgID := uuid.New()
+
+	jr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*domain.Job, error) {
+		return openJob(creatorID), nil
+	}
+	ur.getByIDFn = func(_ context.Context, id uuid.UUID) (*user.User, error) {
+		return &user.User{ID: id, Role: user.RoleProvider, OrganizationID: &orgID}, nil
+	}
+	// Force the INSERT to fail after the credit was spent.
+	ar.createFn = func(_ context.Context, _ *domain.JobApplication) error {
+		return assertErr("db boom")
+	}
+
+	_, err := svc.ApplyToJob(context.Background(), ApplyToJobInput{
+		JobID: uuid.New(), ApplicantID: applicantID, Message: "oops",
+	})
+	assert.Error(t, err)
+	require.Len(t, cr.decrementCalls, 1, "credit should have been debited")
+	require.Len(t, cr.refundCalls, 1, "credit should have been refunded after insert failure")
+	assert.Equal(t, orgID, cr.refundCalls[0])
+}
+
+// assertErr is a tiny helper so the test file does not need to import
+// "errors" just for one stub.
+type assertErr string
+
+func (e assertErr) Error() string { return string(e) }
 
 func TestApplyToJob_NilCreditsRepo(t *testing.T) {
 	// When credits repo is nil, apply should work without credit checks.

@@ -36,6 +36,13 @@ type ApplicationWithJob struct {
 }
 
 // ApplyToJob creates a new application to a job posting.
+//
+// R12 — Credits are debited on the applicant's ORGANIZATION, not on
+// their user row. All operators of the same org share a single pool.
+// The debit is atomic (single SQL UPDATE with `WHERE credits > 0`)
+// so two operators racing to apply cannot both pass the check. If the
+// subsequent application INSERT fails, the credit is refunded so the
+// shared balance stays consistent with reality.
 func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domain.JobApplication, error) {
 	j, err := s.jobs.GetByID(ctx, input.JobID)
 	if err != nil {
@@ -55,6 +62,11 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 	if !canApply(j.ApplicantType, applicant.Role) {
 		return nil, domain.ErrApplicantTypeMismatch
 	}
+	if applicant.OrganizationID == nil {
+		return nil, fmt.Errorf("apply to job: applicant must belong to an organization")
+	}
+	orgID := *applicant.OrganizationID
+
 	// KYC enforcement: the applicant's organization must not be
 	// blocked (14-day deadline since first earning without Stripe
 	// onboarding).
@@ -64,53 +76,58 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 		}
 	}
 
-	// Check application credits before proceeding.
-	if s.credits != nil {
-		credits, credErr := s.credits.GetOrCreate(ctx, input.ApplicantID)
-		if credErr != nil {
-			return nil, fmt.Errorf("check credits: %w", credErr)
-		}
-		if credits <= 0 {
-			return nil, domain.ErrNoCreditsLeft
-		}
-	}
-
-	_, err = s.applications.GetByJobAndApplicant(ctx, input.JobID, input.ApplicantID)
-	if err == nil {
+	// Duplicate-check BEFORE we spend a credit so a known-duplicate
+	// apply never touches the shared pool.
+	if _, dupErr := s.applications.GetByJobAndApplicant(ctx, input.JobID, input.ApplicantID); dupErr == nil {
 		return nil, domain.ErrAlreadyApplied
-	}
-	if !errors.Is(err, domain.ErrApplicationNotFound) {
-		return nil, fmt.Errorf("check existing application: %w", err)
+	} else if !errors.Is(dupErr, domain.ErrApplicationNotFound) {
+		return nil, fmt.Errorf("check existing application: %w", dupErr)
 	}
 
-	if applicant.OrganizationID == nil {
-		return nil, fmt.Errorf("apply to job: applicant must belong to an organization")
+	// Atomic credit debit. The single-statement UPDATE in the
+	// repository returns ErrNoCreditsLeft when the pool is empty —
+	// that IS the authoritative check under concurrent applies.
+	if s.credits != nil {
+		if decErr := s.credits.Decrement(ctx, orgID); decErr != nil {
+			if errors.Is(decErr, domain.ErrNoCreditsLeft) {
+				return nil, domain.ErrNoCreditsLeft
+			}
+			return nil, fmt.Errorf("decrement credits: %w", decErr)
+		}
 	}
 
 	app, err := domain.NewJobApplication(domain.NewApplicationInput{
 		JobID:                   input.JobID,
 		ApplicantID:             input.ApplicantID,
-		ApplicantOrganizationID: *applicant.OrganizationID,
+		ApplicantOrganizationID: orgID,
 		Message:                 input.Message,
 		VideoURL:                input.VideoURL,
 	})
 	if err != nil {
+		s.refundCredit(ctx, orgID)
 		return nil, err
 	}
 
 	if err := s.applications.Create(ctx, app); err != nil {
+		s.refundCredit(ctx, orgID)
 		return nil, fmt.Errorf("persist application: %w", err)
 	}
 
-	// Decrement credit after successful application.
-	if s.credits != nil {
-		if decErr := s.credits.Decrement(ctx, input.ApplicantID); decErr != nil {
-			// Log but do not fail the application — the app was already created.
-			slog.Warn("failed to decrement credits", "user_id", input.ApplicantID, "error", decErr)
-		}
-	}
-
 	return app, nil
+}
+
+// refundCredit returns one credit to the org pool after a failed
+// application insert. Best-effort — if the refund itself fails we log
+// loudly so operators can reconcile, but we do not propagate the error
+// to the caller (the original error is more actionable).
+func (s *Service) refundCredit(ctx context.Context, orgID uuid.UUID) {
+	if s.credits == nil {
+		return
+	}
+	if err := s.credits.Refund(ctx, orgID); err != nil {
+		slog.Error("failed to refund application credit after apply failure",
+			"org_id", orgID, "error", err)
+	}
 }
 
 // WithdrawApplication removes an application. Only the applicant can withdraw.
