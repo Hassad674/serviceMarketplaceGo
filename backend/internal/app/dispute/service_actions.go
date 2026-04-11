@@ -517,7 +517,11 @@ func (s *Service) escalate(ctx context.Context, d *disputedomain.Dispute) error 
 		return fmt.Errorf("update dispute: %w", err)
 	}
 
-	s.sendSystemMessage(ctx, d.ConversationID, uuid.Nil,
+	// Use the initiator's ID as sender for the same reason as AdminResolve:
+	// the messages.sender_id FK rejects uuid.Nil. Escalation can be triggered
+	// by the scheduler (no caller) so the initiator is the best deterministic
+	// party. The bubble renders as system regardless.
+	s.sendSystemMessage(ctx, d.ConversationID, d.InitiatorID,
 		message.MessageTypeDisputeEscalated, buildEscalatedMetadata(d))
 	s.notifyBothParties(ctx, d, "dispute_escalated",
 		"Litige transmis a la mediation",
@@ -692,7 +696,11 @@ func (s *Service) AdminResolve(ctx context.Context, in AdminResolveInput) error 
 
 	s.restoreProposalAndDistribute(ctx, d)
 
-	s.sendSystemMessage(ctx, d.ConversationID, uuid.Nil,
+	// Use the admin's user ID as sender: the messages table has a FK on
+	// sender_id → users(id), so uuid.Nil silently fails the insert. The
+	// chat bubble renders this as a system bubble based on the type, so
+	// the visible sender doesn't matter — only the FK does.
+	s.sendSystemMessage(ctx, d.ConversationID, in.AdminID,
 		message.MessageTypeDisputeResolved, buildResolvedMetadata(d))
 	s.notifyBothParties(ctx, d, "dispute_resolved",
 		"Litige resolu", "L'equipe de mediation a rendu sa decision.")
