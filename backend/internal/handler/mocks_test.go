@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -471,41 +472,75 @@ func testCookieConfig() *CookieConfig {
 	}
 }
 
-// --- Stripe account stubs (migration 040) ---
-func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
-	return "", "", nil
-}
-func (m *mockUserRepo) FindUserIDByStripeAccount(_ context.Context, _ string) (uuid.UUID, error) {
-	return uuid.Nil, nil
-}
-func (m *mockUserRepo) SetStripeAccount(_ context.Context, _ uuid.UUID, _, _ string) error {
-	return nil
-}
-func (m *mockUserRepo) ClearStripeAccount(_ context.Context, _ uuid.UUID) error {
-	return nil
-}
-func (m *mockUserRepo) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
-	return nil, nil
-}
-func (m *mockUserRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []byte) error {
-	return nil
-}
-
-// --- KYC enforcement stubs (migration 044) ---
-func (m *mockUserRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.Time) error {
-	return nil
-}
-func (m *mockUserRepo) GetKYCPendingUsers(_ context.Context) ([]*user.User, error) {
-	return nil, nil
-}
-func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
-	return nil
-}
-
 // --- Session version stubs (migration 056, Phase 3) ---
 func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
 }
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
+}
+
+// --- mockOrgRepo ---
+//
+// Shared minimal stub of repository.OrganizationRepository for handler
+// tests. FindByID is the only hook most tests need — it resolves the
+// org's owner user id, which StartConversation then uses as the real
+// recipient user.
+
+type mockOrgRepo struct {
+	findByIDFn     func(ctx context.Context, id uuid.UUID) (*organization.Organization, error)
+	findByUserIDFn func(ctx context.Context, userID uuid.UUID) (*organization.Organization, error)
+}
+
+func (m *mockOrgRepo) Create(context.Context, *organization.Organization) error { return nil }
+func (m *mockOrgRepo) CreateWithOwnerMembership(context.Context, *organization.Organization, *organization.Member) error {
+	return nil
+}
+func (m *mockOrgRepo) FindByID(ctx context.Context, id uuid.UUID) (*organization.Organization, error) {
+	if m.findByIDFn != nil {
+		return m.findByIDFn(ctx, id)
+	}
+	// Default: treat the org id as the owner user id so simple tests
+	// that reuse a single UUID for both don't need a custom hook.
+	return &organization.Organization{ID: id, OwnerUserID: id, Type: organization.OrgTypeProviderPersonal}, nil
+}
+func (m *mockOrgRepo) FindByOwnerUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
+	return nil, organization.ErrOrgNotFound
+}
+func (m *mockOrgRepo) FindByUserID(ctx context.Context, userID uuid.UUID) (*organization.Organization, error) {
+	if m.findByUserIDFn != nil {
+		return m.findByUserIDFn(ctx, userID)
+	}
+	return nil, organization.ErrOrgNotFound
+}
+func (m *mockOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
+func (m *mockOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
+func (m *mockOrgRepo) CountAll(context.Context) (int, error)                    { return 0, nil }
+func (m *mockOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
+	return nil, organization.ErrOrgNotFound
+}
+func (m *mockOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) GetStripeAccountByUserID(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
+	return nil
+}
+func (m *mockOrgRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
+func (m *mockOrgRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error {
+	return nil
+}
+func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
+	return nil
+}
+func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+	return nil
 }

@@ -16,6 +16,7 @@ import (
 
 	"marketplace-backend/internal/app/messaging"
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
@@ -172,14 +173,19 @@ func (m *mockMessagingRateLimiter) Allow(ctx context.Context, userID uuid.UUID) 
 func newTestMessagingHandler(
 	msgRepo *mockMessageRepo,
 	userRepo *mockUserRepo,
+	orgRepo *mockOrgRepo,
 ) *MessagingHandler {
+	if orgRepo == nil {
+		orgRepo = &mockOrgRepo{}
+	}
 	svc := messaging.NewService(messaging.ServiceDeps{
-		Messages:    msgRepo,
-		Users:       userRepo,
-		Presence:    &mockPresenceService{},
-		Broadcaster: &mockMessageBroadcaster{},
-		Storage:     &mockStorageService{},
-		RateLimiter: &mockMessagingRateLimiter{},
+		Messages:      msgRepo,
+		Users:         userRepo,
+		Organizations: orgRepo,
+		Presence:      &mockPresenceService{},
+		Broadcaster:   &mockMessageBroadcaster{},
+		Storage:       &mockStorageService{},
+		RateLimiter:   &mockMessagingRateLimiter{},
 	})
 	return NewMessagingHandler(svc)
 }
@@ -212,24 +218,48 @@ func chiAuthCtx(req *http.Request, userID uuid.UUID, key, value string) *http.Re
 
 func TestMessagingHandler_StartConversation(t *testing.T) {
 	uid := uuid.New()
-	recipientID := uuid.New()
+	recipientUserID := uuid.New()
+	recipientOrgID := uuid.New()
 	convID := uuid.New()
+
+	// Org resolution: the test bodies send a recipient_org_id, and the
+	// service looks up the owner user id via OrganizationRepository.
+	// These hooks make that mapping explicit.
+	successOrgRepo := func() *mockOrgRepo {
+		return &mockOrgRepo{
+			findByIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+				return &organization.Organization{ID: recipientOrgID, OwnerUserID: recipientUserID}, nil
+			},
+		}
+	}
+	selfOrgRepo := func() *mockOrgRepo {
+		// A Provider's personal org is owned by themselves, so messaging
+		// their own org resolves to the caller's user id and trips the
+		// self-conversation guard.
+		return &mockOrgRepo{
+			findByIDFn: func(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+				return &organization.Organization{ID: uid, OwnerUserID: uid}, nil
+			},
+		}
+	}
 
 	tests := []struct {
 		name       string
 		userID     *uuid.UUID
 		body       map[string]string
+		orgRepo    *mockOrgRepo
 		setupMocks func(*mockUserRepo, *mockMessageRepo)
 		wantStatus int
 		wantCode   string
 	}{
 		{
-			name:   "success",
-			userID: &uid,
-			body:   map[string]string{"recipient_id": recipientID.String(), "content": "hello"},
+			name:    "success",
+			userID:  &uid,
+			body:    map[string]string{"recipient_org_id": recipientOrgID.String(), "content": "hello"},
+			orgRepo: successOrgRepo(),
 			setupMocks: func(ur *mockUserRepo, mr *mockMessageRepo) {
 				ur.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
-					return testUser(recipientID, user.RoleProvider), nil
+					return testUser(recipientUserID, user.RoleProvider), nil
 				}
 				mr.findOrCreateConversationFn = func(_ context.Context, _, _ uuid.UUID) (uuid.UUID, bool, error) {
 					return convID, true, nil
@@ -240,13 +270,14 @@ func TestMessagingHandler_StartConversation(t *testing.T) {
 		{
 			name:       "self conversation",
 			userID:     &uid,
-			body:       map[string]string{"recipient_id": uid.String(), "content": "hi"},
+			body:       map[string]string{"recipient_org_id": uid.String(), "content": "hi"},
+			orgRepo:    selfOrgRepo(),
 			wantStatus: http.StatusBadRequest,
 			wantCode:   "self_conversation",
 		},
 		{
 			name:       "unauthenticated",
-			body:       map[string]string{"recipient_id": recipientID.String(), "content": "hi"},
+			body:       map[string]string{"recipient_org_id": recipientOrgID.String(), "content": "hi"},
 			wantStatus: http.StatusUnauthorized,
 			wantCode:   "unauthorized",
 		},
@@ -259,7 +290,7 @@ func TestMessagingHandler_StartConversation(t *testing.T) {
 			if tc.setupMocks != nil {
 				tc.setupMocks(userRepo, msgRepo)
 			}
-			h := newTestMessagingHandler(msgRepo, userRepo)
+			h := newTestMessagingHandler(msgRepo, userRepo, tc.orgRepo)
 
 			body, _ := json.Marshal(tc.body)
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/conversations", bytes.NewReader(body))
@@ -323,7 +354,7 @@ func TestMessagingHandler_ListConversations(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(msgRepo)
 			}
-			h := newTestMessagingHandler(msgRepo, &mockUserRepo{})
+			h := newTestMessagingHandler(msgRepo, &mockUserRepo{}, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/conversations", nil)
 			if tc.userID != nil {
@@ -398,7 +429,7 @@ func TestMessagingHandler_SendMessage(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(msgRepo)
 			}
-			h := newTestMessagingHandler(msgRepo, &mockUserRepo{})
+			h := newTestMessagingHandler(msgRepo, &mockUserRepo{}, nil)
 
 			body, _ := json.Marshal(tc.body)
 			req := httptest.NewRequest(http.MethodPost, "/api/v1/conversations/"+tc.convParam+"/messages", bytes.NewReader(body))
@@ -468,7 +499,7 @@ func TestMessagingHandler_ListMessages(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(msgRepo)
 			}
-			h := newTestMessagingHandler(msgRepo, &mockUserRepo{})
+			h := newTestMessagingHandler(msgRepo, &mockUserRepo{}, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/conversations/"+tc.convParam+"/messages", nil)
 			req = chiAuthCtx(req, *tc.userID, "id", tc.convParam)
@@ -489,7 +520,7 @@ func TestMessagingHandler_MarkAsRead(t *testing.T) {
 	uid := uuid.New()
 	convID := uuid.New()
 
-	h := newTestMessagingHandler(&mockMessageRepo{}, &mockUserRepo{})
+	h := newTestMessagingHandler(&mockMessageRepo{}, &mockUserRepo{}, nil)
 
 	body, _ := json.Marshal(map[string]int{"seq": 5})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/conversations/"+convID.String()+"/read", bytes.NewReader(body))
@@ -540,7 +571,7 @@ func TestMessagingHandler_GetTotalUnread(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(msgRepo)
 			}
-			h := newTestMessagingHandler(msgRepo, &mockUserRepo{})
+			h := newTestMessagingHandler(msgRepo, &mockUserRepo{}, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/messages/unread", nil)
 			if tc.userID != nil {

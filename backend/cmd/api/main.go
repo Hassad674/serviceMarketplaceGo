@@ -161,13 +161,14 @@ func main() {
 	})
 	profileSvc := profileapp.NewService(profileRepo)
 	messagingSvc := messaging.NewService(messaging.ServiceDeps{
-		Messages:    messageRepo,
-		Users:       userRepo,
-		OrgMembers:  organizationMemberRepo,
-		Presence:    presenceSvc,
-		Broadcaster: streamBroadcaster,
-		Storage:     storageSvc,
-		RateLimiter: rateLimiter,
+		Messages:      messageRepo,
+		Users:         userRepo,
+		Organizations: organizationRepo,
+		OrgMembers:    organizationMemberRepo,
+		Presence:      presenceSvc,
+		Broadcaster:   streamBroadcaster,
+		Storage:       storageSvc,
+		RateLimiter:   rateLimiter,
 		// MediaRecorder is set below after mediaSvc is created.
 	})
 
