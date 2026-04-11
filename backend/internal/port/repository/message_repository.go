@@ -10,6 +10,13 @@ import (
 )
 
 type ListConversationsParams struct {
+	// OrganizationID scopes the list to conversations where the caller's
+	// org is a participant on at least one side (Stripe Dashboard shared
+	// workspace). Required since phase R4.
+	OrganizationID uuid.UUID
+	// UserID is still needed to surface the calling operator's personal
+	// unread counter. Each operator tracks their own "unread since I
+	// last looked" state even inside a shared conversation.
 	UserID uuid.UUID
 	Cursor string
 	Limit  int

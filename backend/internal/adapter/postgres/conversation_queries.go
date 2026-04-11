@@ -17,9 +17,7 @@ const queryInsertParticipant = `
 
 // queryBackfillConversationOrg denormalizes the first org-owning participant
 // onto the conversation row. Runs inside the same tx as the participant
-// inserts, so the subquery always sees both participants. Conversations
-// between two Providers leave organization_id NULL and keep working via the
-// conversation_participants join path.
+// inserts, so the subquery always sees both participants.
 //
 // We resolve the org via organization_members (the source of truth) rather
 // than users.organization_id, so this works regardless of whether the
@@ -40,62 +38,94 @@ const queryGetConversation = `
 	SELECT id, created_at, updated_at
 	FROM conversations WHERE id = $1`
 
+// Phase R4 — List conversations visible to an organization. Returns
+// one row per conversation where at least one user belonging to the
+// calling org participates; the "other side" is resolved as any
+// participant whose current org differs from the caller's org.
+//
+// $1 = caller organization_id
+// $2 = caller user_id (for the operator's personal unread count)
+// $3 = limit
 const queryListConversationsFirst = `
 	SELECT
 		c.id,
-		other_user.id,
-		COALESCE(other_user.display_name, ''),
-		COALESCE(other_user.role, ''),
+		COALESCE(other_org.id, '00000000-0000-0000-0000-000000000000'::uuid),
+		COALESCE(other_org.name, ''),
+		COALESCE(other_org.type, ''),
 		COALESCE(p.photo_url, ''),
 		lm.content,
 		lm.created_at,
 		COALESCE(lm.seq, 0),
-		cp_me.unread_count
-	FROM conversation_participants cp_me
-	JOIN conversations c ON c.id = cp_me.conversation_id
-	JOIN conversation_participants cp_other
-		ON cp_other.conversation_id = c.id AND cp_other.user_id != $1
-	JOIN users other_user ON other_user.id = cp_other.user_id
-	LEFT JOIN profiles p ON p.user_id = other_user.id
+		COALESCE(cp_me.unread_count, 0)
+	FROM conversations c
+	LEFT JOIN LATERAL (
+		SELECT u.organization_id AS org_id
+		FROM conversation_participants cp
+		JOIN users u ON u.id = cp.user_id
+		WHERE cp.conversation_id = c.id AND u.organization_id <> $1
+		LIMIT 1
+	) og ON TRUE
+	LEFT JOIN organizations other_org ON other_org.id = og.org_id
+	LEFT JOIN profiles p ON p.organization_id = other_org.id
+	LEFT JOIN conversation_participants cp_me
+		ON cp_me.conversation_id = c.id AND cp_me.user_id = $2
 	LEFT JOIN LATERAL (
 		SELECT content, created_at, seq
 		FROM messages
 		WHERE conversation_id = c.id
 		ORDER BY seq DESC
 		LIMIT 1
-	) lm ON true
-	WHERE cp_me.user_id = $1
+	) lm ON TRUE
+	WHERE EXISTS (
+		SELECT 1
+		FROM conversation_participants cp_my
+		JOIN users u_my ON u_my.id = cp_my.user_id
+		WHERE cp_my.conversation_id = c.id AND u_my.organization_id = $1
+	)
 	ORDER BY c.updated_at DESC, c.id DESC
-	LIMIT $2`
+	LIMIT $3`
 
+// $1 = caller organization_id, $2 = caller user_id,
+// $3/$4 = cursor (updated_at, id), $5 = limit
 const queryListConversationsWithCursor = `
 	SELECT
 		c.id,
-		other_user.id,
-		COALESCE(other_user.display_name, ''),
-		COALESCE(other_user.role, ''),
+		COALESCE(other_org.id, '00000000-0000-0000-0000-000000000000'::uuid),
+		COALESCE(other_org.name, ''),
+		COALESCE(other_org.type, ''),
 		COALESCE(p.photo_url, ''),
 		lm.content,
 		lm.created_at,
 		COALESCE(lm.seq, 0),
-		cp_me.unread_count
-	FROM conversation_participants cp_me
-	JOIN conversations c ON c.id = cp_me.conversation_id
-	JOIN conversation_participants cp_other
-		ON cp_other.conversation_id = c.id AND cp_other.user_id != $1
-	JOIN users other_user ON other_user.id = cp_other.user_id
-	LEFT JOIN profiles p ON p.user_id = other_user.id
+		COALESCE(cp_me.unread_count, 0)
+	FROM conversations c
+	LEFT JOIN LATERAL (
+		SELECT u.organization_id AS org_id
+		FROM conversation_participants cp
+		JOIN users u ON u.id = cp.user_id
+		WHERE cp.conversation_id = c.id AND u.organization_id <> $1
+		LIMIT 1
+	) og ON TRUE
+	LEFT JOIN organizations other_org ON other_org.id = og.org_id
+	LEFT JOIN profiles p ON p.organization_id = other_org.id
+	LEFT JOIN conversation_participants cp_me
+		ON cp_me.conversation_id = c.id AND cp_me.user_id = $2
 	LEFT JOIN LATERAL (
 		SELECT content, created_at, seq
 		FROM messages
 		WHERE conversation_id = c.id
 		ORDER BY seq DESC
 		LIMIT 1
-	) lm ON true
-	WHERE cp_me.user_id = $1
-		AND (c.updated_at, c.id) < ($2, $3)
+	) lm ON TRUE
+	WHERE EXISTS (
+		SELECT 1
+		FROM conversation_participants cp_my
+		JOIN users u_my ON u_my.id = cp_my.user_id
+		WHERE cp_my.conversation_id = c.id AND u_my.organization_id = $1
+	)
+		AND (c.updated_at, c.id) < ($3, $4)
 	ORDER BY c.updated_at DESC, c.id DESC
-	LIMIT $4`
+	LIMIT $5`
 
 const queryIsParticipant = `
 	SELECT EXISTS(

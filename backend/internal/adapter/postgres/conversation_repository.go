@@ -127,14 +127,15 @@ func (r *ConversationRepository) ListConversations(ctx context.Context, params r
 	var err error
 
 	if params.Cursor == "" {
-		rows, err = r.db.QueryContext(ctx, queryListConversationsFirst, params.UserID, limit+1)
+		rows, err = r.db.QueryContext(ctx, queryListConversationsFirst,
+			params.OrganizationID, params.UserID, limit+1)
 	} else {
 		c, cErr := cursor.Decode(params.Cursor)
 		if cErr != nil {
 			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
 		}
 		rows, err = r.db.QueryContext(ctx, queryListConversationsWithCursor,
-			params.UserID, c.CreatedAt, c.ID, limit+1)
+			params.OrganizationID, params.UserID, c.CreatedAt, c.ID, limit+1)
 	}
 	if err != nil {
 		return nil, "", fmt.Errorf("list conversations: %w", err)

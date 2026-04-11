@@ -521,7 +521,7 @@ func TestListConversations_Success(t *testing.T) {
 
 	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
 
-	result, nextCursor, err := svc.ListConversations(context.Background(), userID, "", 20)
+	result, nextCursor, err := svc.ListConversations(context.Background(), uuid.New(), userID, "", 20)
 
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
@@ -891,7 +891,7 @@ func TestListConversations_PresenceEnrichment(t *testing.T) {
 
 	svc := newTestService(msgRepo, nil, presence, nil, nil, nil)
 
-	result, _, err := svc.ListConversations(context.Background(), userID, "", 20)
+	result, _, err := svc.ListConversations(context.Background(), uuid.New(), userID, "", 20)
 
 	require.NoError(t, err)
 	assert.Len(t, result, 2)
@@ -921,7 +921,7 @@ func TestListConversations_PresenceErrorGraceful(t *testing.T) {
 
 	svc := newTestService(msgRepo, nil, presence, nil, nil, nil)
 
-	result, _, err := svc.ListConversations(context.Background(), userID, "", 20)
+	result, _, err := svc.ListConversations(context.Background(), uuid.New(), userID, "", 20)
 
 	require.NoError(t, err, "presence errors should not fail the request")
 	assert.Len(t, result, 1)

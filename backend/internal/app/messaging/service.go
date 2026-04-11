@@ -182,11 +182,16 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 	return msg, nil
 }
 
-func (s *Service) ListConversations(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) ([]repository.ConversationSummary, string, error) {
+// ListConversations returns conversations visible to the caller's
+// organization. Every operator of the same org sees the same list
+// (Stripe Dashboard shared workspace), but each carries their own
+// personal unread counter from their participants row.
+func (s *Service) ListConversations(ctx context.Context, orgID, userID uuid.UUID, cursorStr string, limit int) ([]repository.ConversationSummary, string, error) {
 	params := repository.ListConversationsParams{
-		UserID: userID,
-		Cursor: cursorStr,
-		Limit:  limit,
+		OrganizationID: orgID,
+		UserID:         userID,
+		Cursor:         cursorStr,
+		Limit:          limit,
 	}
 
 	summaries, nextCursor, err := s.messages.ListConversations(ctx, params)

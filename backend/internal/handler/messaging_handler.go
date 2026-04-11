@@ -75,11 +75,16 @@ func (h *MessagingHandler) ListConversations(w http.ResponseWriter, r *http.Requ
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	summaries, nextCursor, err := h.messagingSvc.ListConversations(r.Context(), userID, cursorStr, limit)
+	summaries, nextCursor, err := h.messagingSvc.ListConversations(r.Context(), orgID, userID, cursorStr, limit)
 	if err != nil {
 		handleMessagingError(w, err)
 		return

@@ -186,6 +186,10 @@ func newTestMessagingHandler(
 
 func authCtx(req *http.Request, userID uuid.UUID) *http.Request {
 	ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, userID)
+	// Use the same UUID for the org id so tests that exercise org-
+	// scoped endpoints (ListConversations, ListMyJobs, …) pass the
+	// middleware check without needing a separate org fixture.
+	ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, userID)
 	return req.WithContext(ctx)
 }
 
