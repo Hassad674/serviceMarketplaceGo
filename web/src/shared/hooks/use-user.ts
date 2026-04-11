@@ -35,6 +35,12 @@ export type CurrentOrganization = {
   member_role: string
   member_title: string
   permissions: string[]
+  // Populated only while an ownership transfer is in flight. Surfaced
+  // on /me so the team page can render the "transfer in progress"
+  // banner for both the initiator (current Owner) and the target.
+  pending_transfer_to_user_id?: string
+  pending_transfer_initiated_at?: string
+  pending_transfer_expires_at?: string
 }
 
 export type SessionResponse = {
