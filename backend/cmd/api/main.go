@@ -180,13 +180,14 @@ func main() {
 	jobViewRepo := postgres.NewJobViewRepository(db)
 	jobCreditRepo := postgres.NewJobCreditRepository(db)
 	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
-		Jobs:         jobRepo,
-		Applications: jobAppRepo,
-		Users:        userRepo,
-		Profiles:     profileRepo,
-		Messages:     messagingSvc,
-		JobViews:     jobViewRepo,
-		Credits:      jobCreditRepo,
+		Jobs:          jobRepo,
+		Applications:  jobAppRepo,
+		Users:         userRepo,
+		Organizations: organizationRepo,
+		Profiles:      profileRepo,
+		Messages:      messagingSvc,
+		JobViews:      jobViewRepo,
+		Credits:       jobCreditRepo,
 	})
 
 	// Review feature
@@ -312,7 +313,7 @@ func main() {
 	// KYC enforcement scheduler — sends reminders at day 0/3/7/14 for
 	// providers with available funds who haven't completed Stripe KYC.
 	kycScheduler := kycapp.NewScheduler(kycapp.SchedulerDeps{
-		Users:         userRepo,
+		Organizations: organizationRepo,
 		Records:       paymentRecordRepo,
 		Notifications: notifSvc,
 	})
@@ -330,6 +331,7 @@ func main() {
 	paymentInfoSvc := paymentapp.NewService(paymentapp.ServiceDeps{
 		Records:       paymentRecordRepo,
 		Users:         userRepo,
+		Organizations: organizationRepo,
 		Stripe:        stripeSvc,
 		Notifications: notifSvc,
 		FrontendURL:   cfg.FrontendURL,
@@ -342,6 +344,7 @@ func main() {
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
 		Proposals:     proposalRepo,
 		Users:         userRepo,
+		Organizations: organizationRepo,
 		Messages:      messagingSvc,
 		Storage:       storageSvc,
 		Notifications: notifSvc,
@@ -517,10 +520,11 @@ func main() {
 
 		// Embedded Components notifier — diff-based multi-channel notifications
 		// for Stripe account.* webhooks (activation, requirements, docs rejected).
-		// Backed by the users table (migration 040) for both lookup + state.
+		// Backed by the organizations table since phase R5 — the Stripe
+		// Connect account lives on the org (the merchant of record).
 		embeddedNotifier := embeddedapp.NewNotifier(
 			embeddedapp.NewNotificationSenderAdapter(notifSvc),
-			userRepo, // satisfies UserStore via the 3 Stripe methods on UserRepository
+			organizationRepo,
 			5*time.Minute,
 		)
 		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
@@ -599,7 +603,7 @@ func main() {
 		Report:         reportHandler,
 		Call:           callHandler,
 		SocialLink:     socialLinkHandler,
-		Embedded:       handler.NewEmbeddedHandler(userRepo, cfg.FrontendURL),
+		Embedded:       handler.NewEmbeddedHandler(organizationRepo, cfg.FrontendURL),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,
 		Wallet:         walletHandler,

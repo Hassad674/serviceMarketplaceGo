@@ -51,12 +51,57 @@ type Organization struct {
 	Type        OrgType
 	Name        string
 
+	// Stripe Connect (moved from users in phase R5). The org is the
+	// merchant of record: transfers, payouts and the KYC state all
+	// live here so every operator of the team sees the same Stripe
+	// Dashboard.
+	StripeAccountID      *string
+	StripeAccountCountry *string
+	StripeLastState      []byte // jsonb raw — opaque at the domain level
+
+	// KYC enforcement bookkeeping (migration 044 semantics, now
+	// org-scoped).
+	KYCFirstEarningAt        *time.Time
+	KYCRestrictionNotifiedAt map[string]time.Time // tier → notified timestamp
+
 	PendingTransferToUserID    *uuid.UUID
 	PendingTransferInitiatedAt *time.Time
 	PendingTransferExpiresAt   *time.Time
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// HasKYCCompleted returns true when a Stripe account exists for the org.
+func (o *Organization) HasKYCCompleted() bool {
+	return o.StripeAccountID != nil && *o.StripeAccountID != ""
+}
+
+// IsKYCBlocked returns true if the org has earned available funds, has
+// NOT completed KYC, and 14 days have elapsed since the first earning.
+// Mirrors the 14-day deadline enforced by the KYC scheduler.
+func (o *Organization) IsKYCBlocked() bool {
+	if o.HasKYCCompleted() {
+		return false
+	}
+	if o.KYCFirstEarningAt == nil {
+		return false
+	}
+	return time.Since(*o.KYCFirstEarningAt) >= 14*24*time.Hour
+}
+
+// KYCDaysRemaining returns the number of days before restriction kicks
+// in. -1 when not applicable (no earnings or KYC done), 0 when already
+// restricted.
+func (o *Organization) KYCDaysRemaining() int {
+	if o.HasKYCCompleted() || o.KYCFirstEarningAt == nil {
+		return -1
+	}
+	remaining := 14*24*time.Hour - time.Since(*o.KYCFirstEarningAt)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Hours() / 24)
 }
 
 // NewOrganization creates a fresh organization for the given owner.

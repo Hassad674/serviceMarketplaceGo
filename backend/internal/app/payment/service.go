@@ -3,8 +3,9 @@
 // computing wallet balances, and issuing payouts.
 //
 // KYC onboarding itself lives in internal/app/embedded (Stripe Connect
-// Embedded Components). This package consumes the stripe_account_id
-// stored on users.stripe_account_id (migration 040) via UserRepository.
+// Embedded Components). Since phase R5 the Stripe Connect account is
+// owned by the ORGANIZATION, not the user — the payment service reads
+// and writes it through OrganizationRepository.
 package payment
 
 import (
@@ -16,7 +17,8 @@ import (
 // wallet overview. Thread-safe; dependencies are injected via ServiceDeps.
 type Service struct {
 	records       repository.PaymentRecordRepository
-	users         repository.UserRepository
+	users         repository.UserRepository // still used for display-name lookups
+	orgs          repository.OrganizationRepository
 	stripe        service.StripeService      // nil if Stripe not configured
 	notifications service.NotificationSender // nil if not configured
 	frontendURL   string
@@ -26,18 +28,20 @@ type Service struct {
 type ServiceDeps struct {
 	Records       repository.PaymentRecordRepository
 	Users         repository.UserRepository
+	Organizations repository.OrganizationRepository
 	Stripe        service.StripeService
 	Notifications service.NotificationSender
 	FrontendURL   string
 }
 
 // NewService wires the payment service. All fields are optional except
-// Records and Users — the charge / transfer methods fail-fast when
-// Stripe is not configured.
+// Records, Users and Organizations — the charge / transfer methods
+// fail-fast when Stripe is not configured.
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		records:       deps.Records,
 		users:         deps.Users,
+		orgs:          deps.Organizations,
 		stripe:        deps.Stripe,
 		notifications: deps.Notifications,
 		frontendURL:   deps.FrontendURL,

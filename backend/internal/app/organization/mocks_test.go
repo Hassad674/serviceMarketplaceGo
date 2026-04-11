@@ -1,7 +1,9 @@
 package organization
 
+
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -66,6 +68,40 @@ func (m *mockOrgRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (m *mockOrgRepo) CountAll(_ context.Context) (int, error) {
 	return 0, nil
+}
+
+// --- stripe + kyc stubs (phase R5 additions) ---
+
+func (m *mockOrgRepo) FindByUserID(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+	return nil, organization.ErrOrgNotFound
+}
+func (m *mockOrgRepo) FindByStripeAccountID(_ context.Context, _ string) (*organization.Organization, error) {
+	return nil, organization.ErrOrgNotFound
+}
+func (m *mockOrgRepo) ListKYCPending(_ context.Context) ([]*organization.Organization, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) GetStripeAccountByUserID(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return "", "", nil
+}
+func (m *mockOrgRepo) SetStripeAccount(_ context.Context, _ uuid.UUID, _, _ string) error {
+	return nil
+}
+func (m *mockOrgRepo) ClearStripeAccount(_ context.Context, _ uuid.UUID) error { return nil }
+func (m *mockOrgRepo) GetStripeLastState(_ context.Context, _ uuid.UUID) ([]byte, error) {
+	return nil, nil
+}
+func (m *mockOrgRepo) SaveStripeLastState(_ context.Context, _ uuid.UUID, _ []byte) error {
+	return nil
+}
+func (m *mockOrgRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.Time) error {
+	return nil
+}
+func (m *mockOrgRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
+	return nil
 }
 
 // mockMemberRepo is a minimal mock of repository.OrganizationMemberRepository.

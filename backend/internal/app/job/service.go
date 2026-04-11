@@ -13,19 +13,21 @@ import (
 )
 
 type ServiceDeps struct {
-	Jobs         repository.JobRepository
-	Applications repository.JobApplicationRepository
-	Users        repository.UserRepository
-	Profiles     repository.ProfileRepository
-	Messages     service.MessageSender
-	JobViews     repository.JobViewRepository
-	Credits      repository.JobCreditRepository
+	Jobs          repository.JobRepository
+	Applications  repository.JobApplicationRepository
+	Users         repository.UserRepository
+	Organizations repository.OrganizationRepository
+	Profiles      repository.ProfileRepository
+	Messages      service.MessageSender
+	JobViews      repository.JobViewRepository
+	Credits       repository.JobCreditRepository
 }
 
 type Service struct {
 	jobs         repository.JobRepository
 	applications repository.JobApplicationRepository
 	users        repository.UserRepository
+	orgs         repository.OrganizationRepository
 	profiles     repository.ProfileRepository
 	messages     service.MessageSender
 	jobViews     repository.JobViewRepository
@@ -37,6 +39,7 @@ func NewService(deps ServiceDeps) *Service {
 		jobs:         deps.Jobs,
 		applications: deps.Applications,
 		users:        deps.Users,
+		orgs:         deps.Organizations,
 		profiles:     deps.Profiles,
 		messages:     deps.Messages,
 		jobViews:     deps.JobViews,

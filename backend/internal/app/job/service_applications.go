@@ -55,9 +55,13 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 	if !canApply(j.ApplicantType, applicant.Role) {
 		return nil, domain.ErrApplicantTypeMismatch
 	}
-	// KYC enforcement: blocked providers/agencies cannot apply
-	if applicant.IsKYCBlocked() {
-		return nil, user.ErrKYCRestricted
+	// KYC enforcement: the applicant's organization must not be
+	// blocked (14-day deadline since first earning without Stripe
+	// onboarding).
+	if s.orgs != nil {
+		if org, oErr := s.orgs.FindByUserID(ctx, input.ApplicantID); oErr == nil && org.IsKYCBlocked() {
+			return nil, user.ErrKYCRestricted
+		}
 	}
 
 	// Check application credits before proceeding.

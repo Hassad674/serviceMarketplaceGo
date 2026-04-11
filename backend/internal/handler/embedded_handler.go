@@ -22,28 +22,31 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
-// userAccountStore is the trimmed view of UserRepository this handler needs.
-// Defined here so tests can stub it without pulling the full repository.
-type userAccountStore interface {
-	GetStripeAccount(ctx context.Context, userID uuid.UUID) (accountID, country string, err error)
-	SetStripeAccount(ctx context.Context, userID uuid.UUID, accountID, country string) error
-	ClearStripeAccount(ctx context.Context, userID uuid.UUID) error
+// orgAccountStore is the trimmed view of OrganizationRepository this
+// handler needs. Defined here so tests can stub it without pulling the
+// full repository. Since phase R5 the Stripe Connect account lives on
+// the organization (the merchant of record), not on an individual user.
+type orgAccountStore interface {
+	GetStripeAccount(ctx context.Context, orgID uuid.UUID) (accountID, country string, err error)
+	SetStripeAccount(ctx context.Context, orgID uuid.UUID, accountID, country string) error
+	ClearStripeAccount(ctx context.Context, orgID uuid.UUID) error
 }
 
 // EmbeddedHandler serves the Stripe Connect Embedded Components endpoints.
-// Stripe account ownership is persisted on the users table (migration 040)
-// via the UserRepository — no per-handler table required.
+// Stripe account ownership is persisted on the organizations table
+// (phase R5) via OrganizationRepository — every operator of the team
+// works against the same merchant account.
 type EmbeddedHandler struct {
-	users       userAccountStore
+	orgs        orgAccountStore
 	frontendURL string
 }
 
-// NewEmbeddedHandler wires the handler with the user repository.
+// NewEmbeddedHandler wires the handler with the organization repository.
 // frontendURL is the public web app URL (e.g., https://service-marketplace-go.vercel.app)
-// used to build per-user profile URLs for Stripe business_profile.url.
-func NewEmbeddedHandler(users userAccountStore, frontendURL string) *EmbeddedHandler {
+// used to build per-org profile URLs for Stripe business_profile.url.
+func NewEmbeddedHandler(orgs orgAccountStore, frontendURL string) *EmbeddedHandler {
 	return &EmbeddedHandler{
-		users:       users,
+		orgs:        orgs,
 		frontendURL: frontendURL,
 	}
 }
@@ -82,9 +85,9 @@ type embeddedAccountStatusResponse struct {
 // POST /api/v1/payment-info/account-session
 // Body: { "country": "FR", "business_type": "individual" }
 func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -99,8 +102,8 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
-	// Build per-user profile URL for Stripe business_profile.url
-	// adapting the path based on user role (freelancers vs agencies).
+	// Build per-org profile URL for Stripe business_profile.url,
+	// adapting the path based on org type (freelancers vs agencies).
 	// Stripe rejects localhost URLs, so use the production URL for dev.
 	baseURL := h.frontendURL
 	if strings.Contains(baseURL, "localhost") {
@@ -111,10 +114,10 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 	if role == "agency" {
 		profilePath = "agencies"
 	}
-	profileURL := fmt.Sprintf("%s/%s/%s", baseURL, profilePath, userID)
-	accountID, err := h.resolveStripeAccount(ctx, userID, req.Country, profileURL)
+	profileURL := fmt.Sprintf("%s/%s/%s", baseURL, profilePath, orgID)
+	accountID, err := h.resolveStripeAccount(ctx, orgID, req.Country, profileURL)
 	if err != nil {
-		slog.Error("embedded: resolve stripe account", "user_id", userID, "error", err)
+		slog.Error("embedded: resolve stripe account", "org_id", orgID, "error", err)
 		// Detect Stripe cross-border country restriction and surface a
 		// user-friendly 400 with a specific code.
 		if strings.Contains(err.Error(), "cannot be created by platforms in") {
@@ -146,17 +149,17 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 //
 // DELETE /api/v1/payment-info/account-session
 func (h *EmbeddedHandler) ResetAccount(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	if err := h.users.ClearStripeAccount(ctx, userID); err != nil {
-		slog.Error("embedded: reset account", "user_id", userID, "error", err)
+	if err := h.orgs.ClearStripeAccount(ctx, orgID); err != nil {
+		slog.Error("embedded: reset account", "org_id", orgID, "error", err)
 		res.Error(w, http.StatusInternalServerError, "db_error", err.Error())
 		return
 	}
@@ -169,22 +172,26 @@ func (h *EmbeddedHandler) ResetAccount(w http.ResponseWriter, r *http.Request) {
 //
 // GET /api/v1/payment-info/account-status
 func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	accountID, _, err := h.users.GetStripeAccount(ctx, userID)
+	accountID, _, err := h.orgs.GetStripeAccount(ctx, orgID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			res.Error(w, http.StatusNotFound, "no_account", "no stripe account for this user yet")
+			res.Error(w, http.StatusNotFound, "no_account", "no stripe account for this organization yet")
 			return
 		}
 		res.Error(w, http.StatusInternalServerError, "lookup_error", err.Error())
+		return
+	}
+	if accountID == "" {
+		res.Error(w, http.StatusNotFound, "no_account", "no stripe account for this organization yet")
 		return
 	}
 
@@ -219,17 +226,18 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 	res.JSON(w, http.StatusOK, resp)
 }
 
-// resolveStripeAccount returns an existing Stripe account ID for the user
-// or creates a fresh Custom account and persists the mapping. When reusing
-// an existing account, it re-applies business_profile pre-fill (idempotent)
-// so fields Stripe would otherwise ask (URL, MCC, product description) are
-// filled regardless of when the account was originally created.
+// resolveStripeAccount returns an existing Stripe account ID for the
+// organization or creates a fresh Custom account and persists the
+// mapping. When reusing an existing account, it re-applies
+// business_profile pre-fill (idempotent) so fields Stripe would
+// otherwise ask (URL, MCC, product description) are filled regardless
+// of when the account was originally created.
 func (h *EmbeddedHandler) resolveStripeAccount(
 	ctx context.Context,
-	userID uuid.UUID,
+	orgID uuid.UUID,
 	country, platformURL string,
 ) (string, error) {
-	existing, _, err := h.users.GetStripeAccount(ctx, userID)
+	existing, _, err := h.orgs.GetStripeAccount(ctx, orgID)
 	if err == nil && existing != "" {
 		// Ensure business_profile is always populated on the connected account
 		// so Stripe does not re-ask for website URL / MCC / description.
@@ -252,7 +260,7 @@ func (h *EmbeddedHandler) resolveStripeAccount(
 		return "", fmt.Errorf("create stripe account: %w", err)
 	}
 
-	if err := h.users.SetStripeAccount(ctx, userID, accountID, country); err != nil {
+	if err := h.orgs.SetStripeAccount(ctx, orgID, accountID, country); err != nil {
 		return "", fmt.Errorf("persist account id: %w", err)
 	}
 	return accountID, nil

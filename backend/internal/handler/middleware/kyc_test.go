@@ -12,69 +12,78 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/port/repository"
 )
 
-// stubUserRepo implements repository.UserRepository for KYC middleware tests.
-type stubUserRepo struct {
-	user *user.User
-	err  error
+// stubOrgRepo implements repository.OrganizationRepository for KYC
+// middleware tests. Only FindByID is meaningful; the rest are no-op
+// stubs that satisfy the interface.
+type stubOrgRepo struct {
+	org *organization.Organization
+	err error
 }
 
-func (s *stubUserRepo) GetByID(_ context.Context, _ uuid.UUID) (*user.User, error) {
-	return s.user, s.err
+func (s *stubOrgRepo) FindByID(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+	return s.org, s.err
 }
 
-// Unused interface methods — stubs to satisfy the interface.
-func (s *stubUserRepo) Create(context.Context, *user.User) error { return nil }
-func (s *stubUserRepo) GetByEmail(context.Context, string) (*user.User, error) {
+// --- no-op stubs to satisfy the interface ---
+
+func (s *stubOrgRepo) Create(context.Context, *organization.Organization) error { return nil }
+func (s *stubOrgRepo) CreateWithOwnerMembership(context.Context, *organization.Organization, *organization.Member) error {
+	return nil
+}
+func (s *stubOrgRepo) FindByOwnerUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
 	return nil, nil
 }
-func (s *stubUserRepo) Update(context.Context, *user.User) error { return nil }
-func (s *stubUserRepo) Delete(context.Context, uuid.UUID) error  { return nil }
-func (s *stubUserRepo) ExistsByEmail(context.Context, string) (bool, error) {
-	return false, nil
+func (s *stubOrgRepo) FindByUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
+	return nil, nil
 }
-func (s *stubUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
-	return nil, "", nil
+func (s *stubOrgRepo) Update(context.Context, *organization.Organization) error { return nil }
+func (s *stubOrgRepo) Delete(context.Context, uuid.UUID) error                  { return nil }
+func (s *stubOrgRepo) CountAll(context.Context) (int, error)                    { return 0, nil }
+func (s *stubOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
+	return nil, nil
 }
-func (s *stubUserRepo) CountAdmin(_ context.Context, _ repository.AdminUserFilters) (int, error) {
-	return 0, nil
+func (s *stubOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
+	return nil, nil
 }
-func (s *stubUserRepo) CountByRole(context.Context) (map[string]int, error)      { return nil, nil }
-func (s *stubUserRepo) CountByStatus(context.Context) (map[string]int, error)    { return nil, nil }
-func (s *stubUserRepo) RecentSignups(context.Context, int) ([]*user.User, error) { return nil, nil }
-func (s *stubUserRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
+func (s *stubOrgRepo) GetStripeAccount(context.Context, uuid.UUID) (string, string, error) {
 	return "", "", nil
 }
-func (s *stubUserRepo) FindUserIDByStripeAccount(context.Context, string) (uuid.UUID, error) {
-	return uuid.Nil, nil
+func (s *stubOrgRepo) GetStripeAccountByUserID(context.Context, uuid.UUID) (string, string, error) {
+	return "", "", nil
 }
-func (s *stubUserRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
+func (s *stubOrgRepo) SetStripeAccount(context.Context, uuid.UUID, string, string) error {
 	return nil
 }
-func (s *stubUserRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
-func (s *stubUserRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
+func (s *stubOrgRepo) ClearStripeAccount(context.Context, uuid.UUID) error { return nil }
+func (s *stubOrgRepo) GetStripeLastState(context.Context, uuid.UUID) ([]byte, error) {
 	return nil, nil
 }
-func (s *stubUserRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error { return nil }
-func (s *stubUserRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
+func (s *stubOrgRepo) SaveStripeLastState(context.Context, uuid.UUID, []byte) error {
 	return nil
 }
-func (s *stubUserRepo) GetKYCPendingUsers(context.Context) ([]*user.User, error) { return nil, nil }
-func (s *stubUserRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+func (s *stubOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) error {
 	return nil
 }
+func (s *stubOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+	return nil
+}
+
+// Compile-time assertion that stubOrgRepo satisfies the interface.
+var _ repository.OrganizationRepository = (*stubOrgRepo)(nil)
 
 func setAuthContext(r *http.Request, userID uuid.UUID, role string) *http.Request {
 	ctx := context.WithValue(r.Context(), ContextKeyUserID, userID)
 	ctx = context.WithValue(ctx, ContextKeyRole, role)
+	ctx = context.WithValue(ctx, ContextKeyOrganizationID, userID) // share id in tests
 	return r.WithContext(ctx)
 }
 
 func TestRequireKYCCompliant_Enterprise_PassesThrough(t *testing.T) {
-	repo := &stubUserRepo{}
+	repo := &stubOrgRepo{}
 	handler := RequireKYCCompliant(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -88,16 +97,15 @@ func TestRequireKYCCompliant_Enterprise_PassesThrough(t *testing.T) {
 }
 
 func TestRequireKYCCompliant_Provider_NoEarnings_PassesThrough(t *testing.T) {
-	repo := &stubUserRepo{
-		user: &user.User{ID: uuid.New(), Role: user.RoleProvider},
+	repo := &stubOrgRepo{
+		org: &organization.Organization{ID: uuid.New(), Type: organization.OrgTypeProviderPersonal},
 	}
 	handler := RequireKYCCompliant(repo)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	uid := repo.user.ID
 	req := httptest.NewRequest("POST", "/proposals", nil)
-	req = setAuthContext(req, uid, "provider")
+	req = setAuthContext(req, repo.org.ID, "provider")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -107,10 +115,10 @@ func TestRequireKYCCompliant_Provider_NoEarnings_PassesThrough(t *testing.T) {
 func TestRequireKYCCompliant_Provider_KYCDone_PassesThrough(t *testing.T) {
 	stripeID := "acct_123"
 	past15 := time.Now().Add(-15 * 24 * time.Hour)
-	repo := &stubUserRepo{
-		user: &user.User{
+	repo := &stubOrgRepo{
+		org: &organization.Organization{
 			ID:                uuid.New(),
-			Role:              user.RoleProvider,
+			Type:              organization.OrgTypeProviderPersonal,
 			StripeAccountID:   &stripeID,
 			KYCFirstEarningAt: &past15,
 		},
@@ -120,7 +128,7 @@ func TestRequireKYCCompliant_Provider_KYCDone_PassesThrough(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest("POST", "/proposals", nil)
-	req = setAuthContext(req, repo.user.ID, "provider")
+	req = setAuthContext(req, repo.org.ID, "provider")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -129,10 +137,10 @@ func TestRequireKYCCompliant_Provider_KYCDone_PassesThrough(t *testing.T) {
 
 func TestRequireKYCCompliant_Provider_Blocked_Returns403(t *testing.T) {
 	past15 := time.Now().Add(-15 * 24 * time.Hour)
-	repo := &stubUserRepo{
-		user: &user.User{
+	repo := &stubOrgRepo{
+		org: &organization.Organization{
 			ID:                uuid.New(),
-			Role:              user.RoleProvider,
+			Type:              organization.OrgTypeProviderPersonal,
 			KYCFirstEarningAt: &past15,
 		},
 	}
@@ -141,7 +149,7 @@ func TestRequireKYCCompliant_Provider_Blocked_Returns403(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest("POST", "/proposals", nil)
-	req = setAuthContext(req, repo.user.ID, "provider")
+	req = setAuthContext(req, repo.org.ID, "provider")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -156,10 +164,10 @@ func TestRequireKYCCompliant_Provider_Blocked_Returns403(t *testing.T) {
 
 func TestRequireKYCCompliant_Agency_Blocked_Returns403(t *testing.T) {
 	past15 := time.Now().Add(-15 * 24 * time.Hour)
-	repo := &stubUserRepo{
-		user: &user.User{
+	repo := &stubOrgRepo{
+		org: &organization.Organization{
 			ID:                uuid.New(),
-			Role:              user.RoleAgency,
+			Type:              organization.OrgTypeAgency,
 			KYCFirstEarningAt: &past15,
 		},
 	}
@@ -168,7 +176,7 @@ func TestRequireKYCCompliant_Agency_Blocked_Returns403(t *testing.T) {
 	}))
 
 	req := httptest.NewRequest("POST", "/proposals", nil)
-	req = setAuthContext(req, repo.user.ID, "agency")
+	req = setAuthContext(req, repo.org.ID, "agency")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -177,10 +185,10 @@ func TestRequireKYCCompliant_Agency_Blocked_Returns403(t *testing.T) {
 
 func TestRequireKYCCompliant_Provider_PendingButNotExpired_PassesThrough(t *testing.T) {
 	past5 := time.Now().Add(-5 * 24 * time.Hour)
-	repo := &stubUserRepo{
-		user: &user.User{
+	repo := &stubOrgRepo{
+		org: &organization.Organization{
 			ID:                uuid.New(),
-			Role:              user.RoleProvider,
+			Type:              organization.OrgTypeProviderPersonal,
 			KYCFirstEarningAt: &past5,
 		},
 	}
@@ -189,17 +197,9 @@ func TestRequireKYCCompliant_Provider_PendingButNotExpired_PassesThrough(t *test
 	}))
 
 	req := httptest.NewRequest("POST", "/proposals", nil)
-	req = setAuthContext(req, repo.user.ID, "provider")
+	req = setAuthContext(req, repo.org.ID, "provider")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusOK, rec.Code)
-}
-
-// --- Session version stubs (migration 056, Phase 3) ---
-func (s *stubUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
-	return 0, nil
-}
-func (s *stubUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
-	return 0, nil
 }

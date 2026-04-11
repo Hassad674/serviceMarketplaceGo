@@ -12,17 +12,19 @@ import (
 type ServiceDeps struct {
 	Proposals     repository.ProposalRepository
 	Users         repository.UserRepository
+	Organizations repository.OrganizationRepository
 	Messages      service.MessageSender
 	Storage       service.StorageService
 	Notifications service.NotificationSender
-	Payments      service.PaymentProcessor          // nil if Stripe not configured
-	Credits       repository.JobCreditRepository    // nil if credits not configured
+	Payments      service.PaymentProcessor            // nil if Stripe not configured
+	Credits       repository.JobCreditRepository      // nil if credits not configured
 	BonusLog      repository.CreditBonusLogRepository // nil if not configured
 }
 
 type Service struct {
 	proposals     repository.ProposalRepository
 	users         repository.UserRepository
+	orgs          repository.OrganizationRepository
 	messages      service.MessageSender
 	storage       service.StorageService
 	notifications service.NotificationSender
@@ -35,6 +37,7 @@ func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		proposals:     deps.Proposals,
 		users:         deps.Users,
+		orgs:          deps.Organizations,
 		messages:      deps.Messages,
 		storage:       deps.Storage,
 		notifications: deps.Notifications,
