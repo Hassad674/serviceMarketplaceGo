@@ -146,21 +146,10 @@ func main() {
 	// Initialize application services
 	invitationRateLimiter := redisadapter.NewInvitationRateLimiter(redisClient)
 	organizationSvc := organizationapp.NewService(organizationRepo, organizationMemberRepo, organizationInvitationRepo)
-	invitationSvc := organizationapp.NewInvitationService(organizationapp.InvitationServiceDeps{
-		Orgs:        organizationRepo,
-		Members:     organizationMemberRepo,
-		Invitations: organizationInvitationRepo,
-		Users:       userRepo,
-		Hasher:      hasher,
-		Email:       emailSvc,
-		RateLimiter: invitationRateLimiter,
-		FrontendURL: cfg.FrontendURL,
-	})
-	membershipSvc := organizationapp.NewMembershipService(organizationapp.MembershipServiceDeps{
-		Orgs:    organizationRepo,
-		Members: organizationMemberRepo,
-		Users:   userRepo,
-	})
+	// invitationSvc and membershipSvc are constructed below, AFTER the
+	// notification feature is set up — they depend on notifSvc so the
+	// team events (invitation accepted, role changed, transfer, …) can
+	// fire notifications through the same pipeline as the rest of the app.
 	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
 		Users:       userRepo,
 		Resets:      resetRepo,
@@ -296,6 +285,28 @@ func main() {
 	go notifWorker.Run(workerCtx)
 	notifHandler := handler.NewNotificationHandler(notifSvc)
 	slog.Info("notification feature enabled")
+
+	// Organization team services — wired here so they can dispatch
+	// team_* notifications through the same notifSvc used by the rest
+	// of the app. Kept at the same indentation level as the other
+	// services so the intent stays obvious.
+	invitationSvc := organizationapp.NewInvitationService(organizationapp.InvitationServiceDeps{
+		Orgs:          organizationRepo,
+		Members:       organizationMemberRepo,
+		Invitations:   organizationInvitationRepo,
+		Users:         userRepo,
+		Hasher:        hasher,
+		Email:         emailSvc,
+		RateLimiter:   invitationRateLimiter,
+		Notifications: notifSvc,
+		FrontendURL:   cfg.FrontendURL,
+	})
+	membershipSvc := organizationapp.NewMembershipService(organizationapp.MembershipServiceDeps{
+		Orgs:          organizationRepo,
+		Members:       organizationMemberRepo,
+		Users:         userRepo,
+		Notifications: notifSvc,
+	})
 
 	// KYC enforcement scheduler — sends reminders at day 0/3/7/14 for
 	// providers with available funds who haven't completed Stripe KYC.

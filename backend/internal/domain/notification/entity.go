@@ -37,6 +37,19 @@ const (
 	TypeDisputeAutoResolved          NotificationType = "dispute_auto_resolved"
 	TypeDisputeCancellationRequested NotificationType = "dispute_cancellation_requested"
 	TypeDisputeCancellationRefused   NotificationType = "dispute_cancellation_refused"
+
+	// Team management events — fired by the organization app services
+	// whenever a membership change affects a user or an ownership
+	// transfer progresses through its lifecycle. See app/organization/
+	// notifier.go for the dispatch helper and the triggers.
+	TypeOrgInvitationAccepted NotificationType = "org_invitation_accepted"
+	TypeOrgMemberRoleChanged  NotificationType = "org_member_role_changed"
+	TypeOrgMemberRemoved      NotificationType = "org_member_removed"
+	TypeOrgMemberLeft         NotificationType = "org_member_left"
+	TypeOrgTransferInitiated  NotificationType = "org_transfer_initiated"
+	TypeOrgTransferCancelled  NotificationType = "org_transfer_cancelled"
+	TypeOrgTransferDeclined   NotificationType = "org_transfer_declined"
+	TypeOrgTransferAccepted   NotificationType = "org_transfer_accepted"
 )
 
 var validTypes = map[NotificationType]bool{
@@ -65,6 +78,15 @@ var validTypes = map[NotificationType]bool{
 	TypeDisputeAutoResolved:          true,
 	TypeDisputeCancellationRequested: true,
 	TypeDisputeCancellationRefused:   true,
+
+	TypeOrgInvitationAccepted: true,
+	TypeOrgMemberRoleChanged:  true,
+	TypeOrgMemberRemoved:      true,
+	TypeOrgMemberLeft:         true,
+	TypeOrgTransferInitiated:  true,
+	TypeOrgTransferCancelled:  true,
+	TypeOrgTransferDeclined:   true,
+	TypeOrgTransferAccepted:   true,
 }
 
 // IsValid checks if the notification type is recognised.
@@ -136,9 +158,11 @@ type Preferences struct {
 }
 
 // DefaultPreferences returns the default preferences for a given type.
+// Critical events (money moving, role changing, access being revoked) default
+// to email ON so the user is reached out-of-band. Cosmetic or follow-up
+// events (e.g. transfer cancelled after a non-action) stay email OFF.
 func DefaultPreferences(userID uuid.UUID, nType NotificationType) *Preferences {
 	emailDefault := false
-	// Proposal-related types default to email ON
 	switch nType {
 	case TypeProposalReceived, TypeProposalAccepted, TypeProposalDeclined,
 		TypeProposalPaid, TypeCompletionRequested, TypeProposalCompleted,
@@ -147,7 +171,10 @@ func DefaultPreferences(userID uuid.UUID, nType NotificationType) *Preferences {
 		TypeDisputeOpened, TypeDisputeCounterProposal, TypeDisputeCounterRejected,
 		TypeDisputeEscalated, TypeDisputeResolved, TypeDisputeCancelled,
 		TypeDisputeAutoResolved, TypeDisputeCancellationRequested,
-		TypeDisputeCancellationRefused:
+		TypeDisputeCancellationRefused,
+		TypeOrgInvitationAccepted, TypeOrgMemberRoleChanged, TypeOrgMemberRemoved,
+		TypeOrgMemberLeft, TypeOrgTransferInitiated, TypeOrgTransferDeclined,
+		TypeOrgTransferAccepted:
 		emailDefault = true
 	}
 	return &Preferences{
