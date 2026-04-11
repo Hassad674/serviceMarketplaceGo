@@ -72,6 +72,7 @@ func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
 
 type StartConversationInput struct {
 	SenderID       uuid.UUID
+	SenderOrgID    uuid.UUID
 	RecipientOrgID uuid.UUID
 	Content        string
 	Type           message.MessageType
@@ -98,6 +99,17 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 
 	if _, err := s.users.GetByID(ctx, recipientUserID); err != nil {
 		return nil, uuid.UUID{}, fmt.Errorf("get recipient: %w", err)
+	}
+
+	// Resolve the sender's organization if the handler did not pass
+	// one explicitly. The fan-out below needs to exclude the sender's
+	// entire team, not just the sender themselves.
+	senderOrgID := input.SenderOrgID
+	if senderOrgID == uuid.Nil {
+		senderOrgID, err = s.resolveUserOrgID(ctx, input.SenderID)
+		if err != nil {
+			return nil, uuid.UUID{}, fmt.Errorf("resolve sender org: %w", err)
+		}
 	}
 
 	allowed, err := s.rateLimiter.Allow(ctx, input.SenderID)
@@ -128,7 +140,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 		return nil, uuid.UUID{}, fmt.Errorf("create message: %w", err)
 	}
 
-	if err := s.messages.IncrementUnread(ctx, convID, input.SenderID); err != nil {
+	if err := s.messages.IncrementUnreadForRecipients(ctx, convID, input.SenderID, senderOrgID); err != nil {
 		return nil, uuid.UUID{}, fmt.Errorf("increment unread: %w", err)
 	}
 
@@ -141,6 +153,7 @@ func (s *Service) StartConversation(ctx context.Context, input StartConversation
 
 type SendMessageInput struct {
 	SenderID       uuid.UUID
+	SenderOrgID    uuid.UUID
 	ConversationID uuid.UUID
 	Content        string
 	Type           message.MessageType
@@ -149,9 +162,21 @@ type SendMessageInput struct {
 }
 
 func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*message.Message, error) {
-	ok, err := s.messages.IsParticipant(ctx, input.ConversationID, input.SenderID)
+	// Resolve the sender's organization if the caller did not pass one
+	// explicitly (WS / legacy paths). The fan-out below needs the org
+	// id to know which team to exclude from the +1 unread bump.
+	senderOrgID := input.SenderOrgID
+	if senderOrgID == uuid.Nil {
+		resolved, err := s.resolveUserOrgID(ctx, input.SenderID)
+		if err != nil {
+			return nil, fmt.Errorf("resolve sender org: %w", err)
+		}
+		senderOrgID = resolved
+	}
+
+	ok, err := s.messages.IsOrgAuthorizedForConversation(ctx, input.ConversationID, senderOrgID)
 	if err != nil {
-		return nil, fmt.Errorf("check participant: %w", err)
+		return nil, fmt.Errorf("check org authorized: %w", err)
 	}
 	if !ok {
 		return nil, message.ErrNotParticipant
@@ -188,7 +213,7 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 		s.populateReplyPreview(ctx, msg)
 	}
 
-	if err := s.messages.IncrementUnread(ctx, input.ConversationID, input.SenderID); err != nil {
+	if err := s.messages.IncrementUnreadForRecipients(ctx, input.ConversationID, input.SenderID, senderOrgID); err != nil {
 		return nil, fmt.Errorf("increment unread: %w", err)
 	}
 
@@ -221,13 +246,13 @@ func (s *Service) ListConversations(ctx context.Context, orgID, userID uuid.UUID
 	return summaries, nextCursor, nil
 }
 
-func (s *Service) ListMessages(ctx context.Context, userID, conversationID uuid.UUID, cursorStr string, limit int) ([]*message.Message, string, error) {
-	ok, err := s.messages.IsParticipant(ctx, conversationID, userID)
-	if err != nil {
-		return nil, "", fmt.Errorf("check participant: %w", err)
-	}
-	if !ok {
-		return nil, "", message.ErrNotParticipant
+// ListMessages reads the message history of a conversation. Authorization
+// is org-scoped since phase R11: any operator of an organization that has
+// a participant in the conversation can read it, not only the original
+// two endpoints.
+func (s *Service) ListMessages(ctx context.Context, orgID, userID, conversationID uuid.UUID, cursorStr string, limit int) ([]*message.Message, string, error) {
+	if err := s.requireOrgAuthorized(ctx, conversationID, orgID, userID); err != nil {
+		return nil, "", err
 	}
 
 	params := repository.ListMessagesParams{
@@ -239,13 +264,17 @@ func (s *Service) ListMessages(ctx context.Context, userID, conversationID uuid.
 	return s.messages.ListMessages(ctx, params)
 }
 
+// GetMessagesSinceSeq returns the messages created after a given seq,
+// used by the WebSocket adapter for re-sync on reconnect. Since phase
+// R11 the authorization check is org-scoped — operators who joined
+// the team after the conversation was opened can re-sync too.
 func (s *Service) GetMessagesSinceSeq(ctx context.Context, userID, conversationID uuid.UUID, sinceSeq int) ([]*message.Message, error) {
-	ok, err := s.messages.IsParticipant(ctx, conversationID, userID)
+	orgID, err := s.resolveUserOrgID(ctx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("check participant: %w", err)
+		return nil, fmt.Errorf("resolve user org: %w", err)
 	}
-	if !ok {
-		return nil, message.ErrNotParticipant
+	if err := s.requireOrgAuthorized(ctx, conversationID, orgID, userID); err != nil {
+		return nil, err
 	}
 
 	return s.messages.GetMessagesSinceSeq(ctx, conversationID, sinceSeq, 50)

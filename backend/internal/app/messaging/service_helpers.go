@@ -3,6 +3,7 @@ package messaging
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -15,6 +16,47 @@ import (
 
 func (s *Service) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
 	return s.messages.GetParticipantIDs(ctx, conversationID)
+}
+
+// requireOrgAuthorized is the single authorization guard used by every
+// messaging operation since phase R11. It consults the repo's org-level
+// check and returns message.ErrNotParticipant on failure so the handler
+// maps the error to HTTP 403 / "not_participant" exactly as before.
+//
+// userID is accepted for logging parity (so debug logs can attribute
+// the denial) but the check is strictly org-level.
+func (s *Service) requireOrgAuthorized(ctx context.Context, conversationID, orgID, userID uuid.UUID) error {
+	if orgID == uuid.Nil {
+		// No org context — can never be authorized. Unlikely in
+		// practice (the middleware always injects an org) but keep
+		// the default safe.
+		_ = userID
+		return message.ErrNotParticipant
+	}
+	ok, err := s.messages.IsOrgAuthorizedForConversation(ctx, conversationID, orgID)
+	if err != nil {
+		return fmt.Errorf("check org authorized: %w", err)
+	}
+	if !ok {
+		return message.ErrNotParticipant
+	}
+	return nil
+}
+
+// resolveUserOrgID fetches the org id for a user. Used by code paths
+// that do not naturally carry an org context (e.g. the WebSocket
+// adapter calling DeliverMessage / GetMessagesSinceSeq with only a
+// user id from the WS client). Every user has exactly one org since
+// phase R1 (provider_personal orgs backfilled for solo accounts).
+func (s *Service) resolveUserOrgID(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if u.OrganizationID == nil {
+		return uuid.UUID{}, fmt.Errorf("user %s has no organization", userID)
+	}
+	return *u.OrganizationID, nil
 }
 
 // GetContactIDs returns distinct user IDs sharing conversations with the given user.
@@ -35,22 +77,32 @@ func (s *Service) broadcastSystemMessage(ctx context.Context, convID, senderID u
 }
 
 func (s *Service) doBroadcast(ctx context.Context, convID, senderID uuid.UUID, msg *message.Message, excludeSender bool) {
-	participantIDs, err := s.messages.GetParticipantIDs(ctx, convID)
+	// Phase R11 — fan out to every operator on both sides of the
+	// conversation, not only the two original endpoints. Each user
+	// listed belongs to an organization that has a direct participant
+	// in the conversation, so they all share the shared-inbox view.
+	var recipientIDs []uuid.UUID
+	var err error
+	if excludeSender {
+		// Regular new-message broadcast: the sender already has a
+		// local copy (optimistic UI), skip them.
+		recipientIDs, err = s.messages.GetOrgMemberRecipients(ctx, convID, senderID)
+	} else {
+		// System message broadcast: every operator on both sides
+		// needs the event including the sender's org, because no
+		// one created the message client-side.
+		recipientIDs, err = s.messages.GetOrgMemberRecipients(ctx, convID, uuid.Nil)
+	}
 	if err != nil {
 		return
 	}
 
-	// For regular messages the sender already has a local copy (optimistic
-	// update), so we skip them. For system messages every participant needs
-	// the event because no one created the message client-side.
-	var broadcastIDs []uuid.UUID
+	broadcastIDs := recipientIDs
+	// Unread counts are only bumped for users other than the sender.
+	// In the excludeSender path the sender is already filtered out; in
+	// the system-message path we need to drop them here.
 	var unreadIDs []uuid.UUID
-	for _, id := range participantIDs {
-		if excludeSender && id == senderID {
-			continue
-		}
-		broadcastIDs = append(broadcastIDs, id)
-		// Unread counts are only bumped for users other than the sender.
+	for _, id := range recipientIDs {
 		if id != senderID {
 			unreadIDs = append(unreadIDs, id)
 		}
@@ -94,11 +146,13 @@ func (s *Service) doBroadcast(ctx context.Context, convID, senderID uuid.UUID, m
 	}
 }
 
-// broadcastMessageEdited sends a WS event with the updated message to all participants.
+// broadcastMessageEdited sends a WS event with the updated message to
+// all operators of every organization participating in the
+// conversation (phase R11 — was direct participants only pre-R11).
 func (s *Service) broadcastMessageEdited(ctx context.Context, msg *message.Message) {
-	participantIDs, err := s.messages.GetParticipantIDs(ctx, msg.ConversationID)
+	recipientIDs, err := s.messages.GetOrgMemberRecipients(ctx, msg.ConversationID, uuid.Nil)
 	if err != nil {
-		slog.Error("get participants for edit broadcast", "error", err)
+		slog.Error("get org recipients for edit broadcast", "error", err)
 		return
 	}
 
@@ -108,14 +162,15 @@ func (s *Service) broadcastMessageEdited(ctx context.Context, msg *message.Messa
 		return
 	}
 
-	_ = s.broadcaster.BroadcastMessageEdited(ctx, participantIDs, payload)
+	_ = s.broadcaster.BroadcastMessageEdited(ctx, recipientIDs, payload)
 }
 
-// broadcastMessageDeleted sends a WS event with the message_id and conversation_id to all participants.
+// broadcastMessageDeleted sends a WS event with the message_id and
+// conversation_id to every operator on both sides of the conversation.
 func (s *Service) broadcastMessageDeleted(ctx context.Context, msg *message.Message) {
-	participantIDs, err := s.messages.GetParticipantIDs(ctx, msg.ConversationID)
+	recipientIDs, err := s.messages.GetOrgMemberRecipients(ctx, msg.ConversationID, uuid.Nil)
 	if err != nil {
-		slog.Error("get participants for delete broadcast", "error", err)
+		slog.Error("get org recipients for delete broadcast", "error", err)
 		return
 	}
 
@@ -127,7 +182,7 @@ func (s *Service) broadcastMessageDeleted(ctx context.Context, msg *message.Mess
 		return
 	}
 
-	_ = s.broadcaster.BroadcastMessageDeleted(ctx, participantIDs, payload)
+	_ = s.broadcaster.BroadcastMessageDeleted(ctx, recipientIDs, payload)
 }
 
 // marshalMessageForWS converts a domain Message into a JSON-friendly map

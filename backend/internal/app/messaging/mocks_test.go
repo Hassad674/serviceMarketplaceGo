@@ -16,23 +16,25 @@ import (
 // --- mockMessageRepository ---
 
 type mockMessageRepo struct {
-	findOrCreateConversationFn func(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error)
-	getConversationFn          func(ctx context.Context, id uuid.UUID) (*message.Conversation, error)
-	listConversationsFn        func(ctx context.Context, params repository.ListConversationsParams) ([]repository.ConversationSummary, string, error)
-	isParticipantFn            func(ctx context.Context, conversationID, userID uuid.UUID) (bool, error)
-	createMessageFn            func(ctx context.Context, msg *message.Message) error
-	getMessageFn               func(ctx context.Context, id uuid.UUID) (*message.Message, error)
-	listMessagesFn             func(ctx context.Context, params repository.ListMessagesParams) ([]*message.Message, string, error)
-	getMessagesSinceSeqFn      func(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)
-	updateMessageFn            func(ctx context.Context, msg *message.Message) error
-	incrementUnreadFn          func(ctx context.Context, conversationID, senderID uuid.UUID) error
-	markAsReadFn               func(ctx context.Context, conversationID, userID uuid.UUID, seq int) error
-	getTotalUnreadFn           func(ctx context.Context, userID uuid.UUID) (int, error)
-	getTotalUnreadBatchFn      func(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]int, error)
-	getParticipantIDsFn        func(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
-	updateMessageStatusFn      func(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
-	markMessagesAsReadFn       func(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
-	getContactIDsFn            func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
+	findOrCreateConversationFn     func(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error)
+	getConversationFn              func(ctx context.Context, id uuid.UUID) (*message.Conversation, error)
+	listConversationsFn            func(ctx context.Context, params repository.ListConversationsParams) ([]repository.ConversationSummary, string, error)
+	isParticipantFn                func(ctx context.Context, conversationID, userID uuid.UUID) (bool, error)
+	isOrgAuthorizedFn              func(ctx context.Context, conversationID, orgID uuid.UUID) (bool, error)
+	createMessageFn                func(ctx context.Context, msg *message.Message) error
+	getMessageFn                   func(ctx context.Context, id uuid.UUID) (*message.Message, error)
+	listMessagesFn                 func(ctx context.Context, params repository.ListMessagesParams) ([]*message.Message, string, error)
+	getMessagesSinceSeqFn          func(ctx context.Context, conversationID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error)
+	updateMessageFn                func(ctx context.Context, msg *message.Message) error
+	incrementUnreadForRecipientsFn func(ctx context.Context, conversationID, senderUserID, senderOrgID uuid.UUID) error
+	markAsReadFn                   func(ctx context.Context, conversationID, userID uuid.UUID, seq int) error
+	getTotalUnreadFn               func(ctx context.Context, userID uuid.UUID) (int, error)
+	getTotalUnreadBatchFn          func(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]int, error)
+	getParticipantIDsFn            func(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
+	getOrgMemberRecipientsFn       func(ctx context.Context, conversationID, excludeUserID uuid.UUID) ([]uuid.UUID, error)
+	updateMessageStatusFn          func(ctx context.Context, messageID uuid.UUID, status message.MessageStatus) error
+	markMessagesAsReadFn           func(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
+	getContactIDsFn                func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
 func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, userA, userB uuid.UUID) (uuid.UUID, bool, error) {
@@ -59,6 +61,13 @@ func (m *mockMessageRepo) ListConversations(ctx context.Context, params reposito
 func (m *mockMessageRepo) IsParticipant(ctx context.Context, conversationID, userID uuid.UUID) (bool, error) {
 	if m.isParticipantFn != nil {
 		return m.isParticipantFn(ctx, conversationID, userID)
+	}
+	return true, nil
+}
+
+func (m *mockMessageRepo) IsOrgAuthorizedForConversation(ctx context.Context, conversationID, orgID uuid.UUID) (bool, error) {
+	if m.isOrgAuthorizedFn != nil {
+		return m.isOrgAuthorizedFn(ctx, conversationID, orgID)
 	}
 	return true, nil
 }
@@ -102,9 +111,9 @@ func (m *mockMessageRepo) UpdateMessage(ctx context.Context, msg *message.Messag
 	return nil
 }
 
-func (m *mockMessageRepo) IncrementUnread(ctx context.Context, conversationID, senderID uuid.UUID) error {
-	if m.incrementUnreadFn != nil {
-		return m.incrementUnreadFn(ctx, conversationID, senderID)
+func (m *mockMessageRepo) IncrementUnreadForRecipients(ctx context.Context, conversationID, senderUserID, senderOrgID uuid.UUID) error {
+	if m.incrementUnreadForRecipientsFn != nil {
+		return m.incrementUnreadForRecipientsFn(ctx, conversationID, senderUserID, senderOrgID)
 	}
 	return nil
 }
@@ -142,6 +151,32 @@ func (m *mockMessageRepo) GetTotalUnreadBatch(ctx context.Context, userIDs []uui
 func (m *mockMessageRepo) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
 	if m.getParticipantIDsFn != nil {
 		return m.getParticipantIDsFn(ctx, conversationID)
+	}
+	return nil, nil
+}
+
+func (m *mockMessageRepo) GetOrgMemberRecipients(ctx context.Context, conversationID, excludeUserID uuid.UUID) ([]uuid.UUID, error) {
+	if m.getOrgMemberRecipientsFn != nil {
+		return m.getOrgMemberRecipientsFn(ctx, conversationID, excludeUserID)
+	}
+	// Fall back to the direct participants so existing tests that
+	// only set getParticipantIDsFn still observe plausible fan-out
+	// behavior without manual mock rewiring.
+	if m.getParticipantIDsFn != nil {
+		ids, err := m.getParticipantIDsFn(ctx, conversationID)
+		if err != nil {
+			return nil, err
+		}
+		if excludeUserID == uuid.Nil {
+			return ids, nil
+		}
+		filtered := make([]uuid.UUID, 0, len(ids))
+		for _, id := range ids {
+			if id != excludeUserID {
+				filtered = append(filtered, id)
+			}
+		}
+		return filtered, nil
 	}
 	return nil, nil
 }
@@ -197,7 +232,11 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
-	return &user.User{ID: id}, nil
+	// Default: every user has a synthetic organization id so tests
+	// that do not care about org resolution (the vast majority) still
+	// pass through service layer checks that call resolveUserOrgID.
+	orgID := uuid.New()
+	return &user.User{ID: id, OrganizationID: &orgID}, nil
 }
 
 func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (*user.User, error) {

@@ -33,6 +33,7 @@ func (h *MessagingHandler) StartConversation(w http.ResponseWriter, r *http.Requ
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, _ := middleware.GetOrganizationID(r.Context())
 
 	var req request.StartConversationRequest
 	if err := validator.DecodeJSON(r, &req); err != nil {
@@ -53,6 +54,7 @@ func (h *MessagingHandler) StartConversation(w http.ResponseWriter, r *http.Requ
 
 	msg, convID, err := h.messagingSvc.StartConversation(r.Context(), messaging.StartConversationInput{
 		SenderID:       userID,
+		SenderOrgID:    orgID,
 		RecipientOrgID: recipientOrgID,
 		Content:        req.Content,
 		Type:           msgType,
@@ -103,6 +105,11 @@ func (h *MessagingHandler) ListMessages(w http.ResponseWriter, r *http.Request) 
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	convID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -113,7 +120,7 @@ func (h *MessagingHandler) ListMessages(w http.ResponseWriter, r *http.Request) 
 	cursorStr := r.URL.Query().Get("cursor")
 	limit := parseLimit(r.URL.Query().Get("limit"), 20)
 
-	messages, nextCursor, err := h.messagingSvc.ListMessages(r.Context(), userID, convID, cursorStr, limit)
+	messages, nextCursor, err := h.messagingSvc.ListMessages(r.Context(), orgID, userID, convID, cursorStr, limit)
 	if err != nil {
 		handleMessagingError(w, err)
 		return
@@ -130,6 +137,11 @@ func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
 	}
 
@@ -152,6 +164,7 @@ func (h *MessagingHandler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	sendInput := messaging.SendMessageInput{
 		SenderID:       userID,
+		SenderOrgID:    orgID,
 		ConversationID: convID,
 		Content:        req.Content,
 		Type:           msgType,
@@ -181,6 +194,11 @@ func (h *MessagingHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
 
 	convID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -196,6 +214,7 @@ func (h *MessagingHandler) MarkAsRead(w http.ResponseWriter, r *http.Request) {
 
 	err = h.messagingSvc.MarkAsRead(r.Context(), messaging.MarkAsReadInput{
 		UserID:         userID,
+		OrgID:          orgID,
 		ConversationID: convID,
 		Seq:            req.Seq,
 	})

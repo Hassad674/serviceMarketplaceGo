@@ -151,6 +151,9 @@ func (m *mockMessageRepo) ListConversations(_ context.Context, _ repository.List
 func (m *mockMessageRepo) IsParticipant(_ context.Context, _, _ uuid.UUID) (bool, error) {
 	return false, nil
 }
+func (m *mockMessageRepo) IsOrgAuthorizedForConversation(_ context.Context, _, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
 func (m *mockMessageRepo) CreateMessage(_ context.Context, _ *messagedomain.Message) error {
 	return nil
 }
@@ -173,7 +176,9 @@ func (m *mockMessageRepo) ListMessagesSinceTime(_ context.Context, _ uuid.UUID, 
 func (m *mockMessageRepo) UpdateMessage(_ context.Context, _ *messagedomain.Message) error {
 	return nil
 }
-func (m *mockMessageRepo) IncrementUnread(_ context.Context, _, _ uuid.UUID) error { return nil }
+func (m *mockMessageRepo) IncrementUnreadForRecipients(_ context.Context, _, _, _ uuid.UUID) error {
+	return nil
+}
 func (m *mockMessageRepo) MarkAsRead(_ context.Context, _, _ uuid.UUID, _ int) error {
 	return nil
 }
@@ -184,6 +189,9 @@ func (m *mockMessageRepo) GetTotalUnreadBatch(_ context.Context, _ []uuid.UUID) 
 	return nil, nil
 }
 func (m *mockMessageRepo) GetParticipantIDs(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+func (m *mockMessageRepo) GetOrgMemberRecipients(_ context.Context, _, _ uuid.UUID) ([]uuid.UUID, error) {
 	return nil, nil
 }
 func (m *mockMessageRepo) UpdateMessageStatus(_ context.Context, _ uuid.UUID, _ messagedomain.MessageStatus) error {

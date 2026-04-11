@@ -108,6 +108,7 @@ func newTestServiceWithDeps(d testServiceDeps) *Service {
 
 func TestStartConversation_Success(t *testing.T) {
 	senderID := uuid.New()
+	senderOrgID := uuid.New()
 	recipientUserID := uuid.New()
 	recipientOrgID := uuid.New()
 	convID := uuid.New()
@@ -144,6 +145,7 @@ func TestStartConversation_Success(t *testing.T) {
 
 	msg, returnedConvID, err := svc.StartConversation(context.Background(), StartConversationInput{
 		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
 		RecipientOrgID: recipientOrgID,
 		Content:        "Hello!",
 		Type:           message.MessageTypeText,
@@ -230,6 +232,7 @@ func TestStartConversation_RateLimited(t *testing.T) {
 
 	msg, _, err := svc.StartConversation(context.Background(), StartConversationInput{
 		SenderID:       uuid.New(),
+		SenderOrgID:    uuid.New(),
 		RecipientOrgID: uuid.New(),
 		Content:        "spam",
 		Type:           message.MessageTypeText,
@@ -243,15 +246,20 @@ func TestStartConversation_RateLimited(t *testing.T) {
 
 func TestSendMessage_Success(t *testing.T) {
 	senderID := uuid.New()
+	senderOrgID := uuid.New()
 	convID := uuid.New()
 	recipientID := uuid.New()
 
 	var broadcastCalled bool
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
-		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+		getOrgMemberRecipientsFn: func(_ context.Context, _, excludeID uuid.UUID) ([]uuid.UUID, error) {
+			// Fan out excludes the sender, leaving just the recipient.
+			if excludeID == senderID {
+				return []uuid.UUID{recipientID}, nil
+			}
 			return []uuid.UUID{senderID, recipientID}, nil
 		},
 	}
@@ -268,6 +276,7 @@ func TestSendMessage_Success(t *testing.T) {
 
 	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
 		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
 		ConversationID: convID,
 		Content:        "Hi there",
 		Type:           message.MessageTypeText,
@@ -279,9 +288,9 @@ func TestSendMessage_Success(t *testing.T) {
 	assert.True(t, broadcastCalled, "broadcast should be called for new message")
 }
 
-func TestSendMessage_NotParticipant(t *testing.T) {
+func TestSendMessage_NotAuthorized(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return false, nil
 		},
 	}
@@ -290,6 +299,7 @@ func TestSendMessage_NotParticipant(t *testing.T) {
 
 	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
 		SenderID:       uuid.New(),
+		SenderOrgID:    uuid.New(),
 		ConversationID: uuid.New(),
 		Content:        "unauthorized",
 		Type:           message.MessageTypeText,
@@ -301,7 +311,7 @@ func TestSendMessage_NotParticipant(t *testing.T) {
 
 func TestSendMessage_EmptyContent(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 	}
@@ -310,6 +320,7 @@ func TestSendMessage_EmptyContent(t *testing.T) {
 
 	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
 		SenderID:       uuid.New(),
+		SenderOrgID:    uuid.New(),
 		ConversationID: uuid.New(),
 		Content:        "",
 		Type:           message.MessageTypeText,
@@ -321,7 +332,7 @@ func TestSendMessage_EmptyContent(t *testing.T) {
 
 func TestSendMessage_RateLimited(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 	}
@@ -335,6 +346,7 @@ func TestSendMessage_RateLimited(t *testing.T) {
 
 	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
 		SenderID:       uuid.New(),
+		SenderOrgID:    uuid.New(),
 		ConversationID: uuid.New(),
 		Content:        "spam",
 		Type:           message.MessageTypeText,
@@ -533,11 +545,12 @@ func TestDeleteMessage_NotOwner(t *testing.T) {
 
 func TestMarkAsRead_Success(t *testing.T) {
 	userID := uuid.New()
+	orgID := uuid.New()
 	convID := uuid.New()
 
 	var readCalled bool
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		markAsReadFn: func(_ context.Context, cID, uID uuid.UUID, seq int) error {
@@ -553,6 +566,7 @@ func TestMarkAsRead_Success(t *testing.T) {
 
 	err := svc.MarkAsRead(context.Background(), MarkAsReadInput{
 		UserID:         userID,
+		OrgID:          orgID,
 		ConversationID: convID,
 		Seq:            42,
 	})
@@ -561,9 +575,9 @@ func TestMarkAsRead_Success(t *testing.T) {
 	assert.True(t, readCalled)
 }
 
-func TestMarkAsRead_NotParticipant(t *testing.T) {
+func TestMarkAsRead_NotAuthorized(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return false, nil
 		},
 	}
@@ -572,6 +586,7 @@ func TestMarkAsRead_NotParticipant(t *testing.T) {
 
 	err := svc.MarkAsRead(context.Background(), MarkAsReadInput{
 		UserID:         uuid.New(),
+		OrgID:          uuid.New(),
 		ConversationID: uuid.New(),
 		Seq:            10,
 	})
@@ -614,16 +629,16 @@ func TestListConversations_Success(t *testing.T) {
 
 // --- ListMessages tests ---
 
-func TestListMessages_NotParticipant(t *testing.T) {
+func TestListMessages_NotAuthorized(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return false, nil
 		},
 	}
 
 	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
 
-	msgs, _, err := svc.ListMessages(context.Background(), uuid.New(), uuid.New(), "", 20)
+	msgs, _, err := svc.ListMessages(context.Background(), uuid.New(), uuid.New(), uuid.New(), "", 20)
 
 	assert.ErrorIs(t, err, message.ErrNotParticipant)
 	assert.Nil(t, msgs)
@@ -631,7 +646,7 @@ func TestListMessages_NotParticipant(t *testing.T) {
 
 func TestListMessages_Success(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		listMessagesFn: func(_ context.Context, _ repository.ListMessagesParams) ([]*message.Message, string, error) {
@@ -644,11 +659,92 @@ func TestListMessages_Success(t *testing.T) {
 
 	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
 
-	msgs, nextCursor, err := svc.ListMessages(context.Background(), uuid.New(), uuid.New(), "", 20)
+	msgs, nextCursor, err := svc.ListMessages(context.Background(), uuid.New(), uuid.New(), uuid.New(), "", 20)
 
 	require.NoError(t, err)
 	assert.Len(t, msgs, 2)
 	assert.Equal(t, "cursor", nextCursor)
+}
+
+// TestSendMessage_FansOutUnreadToOrgMembers verifies the R11 fan-out
+// invariant: IncrementUnreadForRecipients is called with the sender's
+// user id AND the sender's org id so the underlying SQL can exclude
+// the entire sender's team from the +1 bump. This is how Bob's team
+// avoids getting their own outgoing messages marked unread.
+func TestSendMessage_FansOutUnreadToOrgMembers(t *testing.T) {
+	senderID := uuid.New()
+	senderOrgID := uuid.New()
+	convID := uuid.New()
+
+	var called bool
+	var gotConvID, gotSenderID, gotSenderOrgID uuid.UUID
+	msgRepo := &mockMessageRepo{
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+			return true, nil
+		},
+		incrementUnreadForRecipientsFn: func(_ context.Context, c, uid, oid uuid.UUID) error {
+			called = true
+			gotConvID = c
+			gotSenderID = uid
+			gotSenderOrgID = oid
+			return nil
+		},
+	}
+
+	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
+
+	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
+		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
+		ConversationID: convID,
+		Content:        "ping",
+		Type:           message.MessageTypeText,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, msg)
+	assert.True(t, called, "IncrementUnreadForRecipients must be called")
+	assert.Equal(t, convID, gotConvID)
+	assert.Equal(t, senderID, gotSenderID)
+	assert.Equal(t, senderOrgID, gotSenderOrgID, "sender's org id must be threaded through so the SQL can exclude their entire team")
+}
+
+// TestListMessages_OrgOperatorCanRead verifies the R11 fix: an operator
+// whose user id is NOT in conversation_participants but whose org IS
+// authorized for the conversation must be able to read the messages.
+// This is the regression we are shipping this migration for.
+func TestListMessages_OrgOperatorCanRead(t *testing.T) {
+	aliceUserID := uuid.New()
+	bobUserID := uuid.New() // Bob joined the org AFTER the conversation existed
+	orgXID := uuid.New()
+	convID := uuid.New()
+
+	var gotOrgID uuid.UUID
+	msgRepo := &mockMessageRepo{
+		isOrgAuthorizedFn: func(_ context.Context, c, org uuid.UUID) (bool, error) {
+			gotOrgID = org
+			return c == convID && org == orgXID, nil
+		},
+		listMessagesFn: func(_ context.Context, _ repository.ListMessagesParams) ([]*message.Message, string, error) {
+			return []*message.Message{
+				{ID: uuid.New(), Content: "Alice's original message", SenderID: aliceUserID},
+			}, "", nil
+		},
+		// Deliberately refuse direct-participant checks: Bob is NOT a
+		// direct participant, only Alice is. The test verifies we no
+		// longer short-circuit on IsParticipant.
+		isParticipantFn: func(_ context.Context, _, userID uuid.UUID) (bool, error) {
+			return userID == aliceUserID, nil
+		},
+	}
+
+	svc := newTestService(msgRepo, nil, nil, nil, nil, nil)
+
+	msgs, _, err := svc.ListMessages(context.Background(), orgXID, bobUserID, convID, "", 20)
+
+	require.NoError(t, err, "Bob must be able to read Alice's conversation via org authorization")
+	assert.Len(t, msgs, 1)
+	assert.Equal(t, orgXID, gotOrgID, "authorization must use the caller's org id, not user id")
 }
 
 // --- GetTotalUnread tests ---
@@ -719,7 +815,7 @@ func TestDeliverMessage_Success(t *testing.T) {
 				Status:         message.MessageStatusSent,
 			}, nil
 		},
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		updateMessageStatusFn: func(_ context.Context, id uuid.UUID, status message.MessageStatus) error {
@@ -738,7 +834,7 @@ func TestDeliverMessage_Success(t *testing.T) {
 	assert.True(t, statusUpdated)
 }
 
-func TestDeliverMessage_NotParticipant(t *testing.T) {
+func TestDeliverMessage_NotAuthorized(t *testing.T) {
 	msgRepo := &mockMessageRepo{
 		getMessageFn: func(_ context.Context, id uuid.UUID) (*message.Message, error) {
 			return &message.Message{
@@ -747,7 +843,7 @@ func TestDeliverMessage_NotParticipant(t *testing.T) {
 				Status:         message.MessageStatusSent,
 			}, nil
 		},
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return false, nil
 		},
 	}
@@ -799,6 +895,7 @@ func TestStartConversation_ExistingConversation(t *testing.T) {
 
 	msg, returnedConvID, err := svc.StartConversation(context.Background(), StartConversationInput{
 		SenderID:       senderID,
+		SenderOrgID:    uuid.New(),
 		RecipientOrgID: recipientOrgID,
 		Content:        "Hey again!",
 		Type:           message.MessageTypeText,
@@ -863,7 +960,7 @@ func TestDeliverMessage_AlreadyDelivered(t *testing.T) {
 				Status:         message.MessageStatusDelivered,
 			}, nil
 		},
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		updateMessageStatusFn: func(_ context.Context, _ uuid.UUID, _ message.MessageStatus) error {
@@ -895,7 +992,7 @@ func TestDeliverMessage_AlreadyRead(t *testing.T) {
 				Status:         message.MessageStatusRead,
 			}, nil
 		},
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		updateMessageStatusFn: func(_ context.Context, _ uuid.UUID, _ message.MessageStatus) error {
@@ -919,7 +1016,7 @@ func TestGetMessagesSinceSeq_Success(t *testing.T) {
 	convID := uuid.New()
 
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		getMessagesSinceSeqFn: func(_ context.Context, cID uuid.UUID, sinceSeq int, limit int) ([]*message.Message, error) {
@@ -941,9 +1038,9 @@ func TestGetMessagesSinceSeq_Success(t *testing.T) {
 	assert.Len(t, msgs, 2)
 }
 
-func TestGetMessagesSinceSeq_NotParticipant(t *testing.T) {
+func TestGetMessagesSinceSeq_NotAuthorized(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return false, nil
 		},
 	}
@@ -1035,15 +1132,20 @@ func TestListConversations_PresenceErrorGraceful(t *testing.T) {
 
 func TestMarkAsRead_BroadcastsReadReceipt(t *testing.T) {
 	userID := uuid.New()
+	orgID := uuid.New()
 	convID := uuid.New()
 	otherUserID := uuid.New()
 
 	var broadcastCalled bool
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
-		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+		getOrgMemberRecipientsFn: func(_ context.Context, _, excludeID uuid.UUID) ([]uuid.UUID, error) {
+			// Excludes the reader — returns only the other side.
+			if excludeID == userID {
+				return []uuid.UUID{otherUserID}, nil
+			}
 			return []uuid.UUID{userID, otherUserID}, nil
 		},
 	}
@@ -1060,6 +1162,7 @@ func TestMarkAsRead_BroadcastsReadReceipt(t *testing.T) {
 
 	err := svc.MarkAsRead(context.Background(), MarkAsReadInput{
 		UserID:         userID,
+		OrgID:          orgID,
 		ConversationID: convID,
 		Seq:            42,
 	})
@@ -1072,15 +1175,19 @@ func TestMarkAsRead_BroadcastsReadReceipt(t *testing.T) {
 
 func TestSendMessage_BroadcastsUnreadCount(t *testing.T) {
 	senderID := uuid.New()
+	senderOrgID := uuid.New()
 	recipientID := uuid.New()
 	convID := uuid.New()
 
 	var unreadCountBroadcasted bool
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
-		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+		getOrgMemberRecipientsFn: func(_ context.Context, _, excludeID uuid.UUID) ([]uuid.UUID, error) {
+			if excludeID == senderID {
+				return []uuid.UUID{recipientID}, nil
+			}
 			return []uuid.UUID{senderID, recipientID}, nil
 		},
 		getTotalUnreadFn: func(_ context.Context, id uuid.UUID) (int, error) {
@@ -1104,6 +1211,7 @@ func TestSendMessage_BroadcastsUnreadCount(t *testing.T) {
 
 	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
 		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
 		ConversationID: convID,
 		Content:        "Hello",
 		Type:           message.MessageTypeText,
@@ -1202,12 +1310,13 @@ func TestGetPresignedUploadURL_StorageError(t *testing.T) {
 
 func TestSendMessage_FileType(t *testing.T) {
 	senderID := uuid.New()
+	senderOrgID := uuid.New()
 	convID := uuid.New()
 	metadata := []byte(`{"url":"https://storage.example.com/file.pdf","filename":"file.pdf","size":1024,"mime_type":"application/pdf"}`)
 
 	var createdMsg *message.Message
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		createMessageFn: func(_ context.Context, msg *message.Message) error {
@@ -1220,6 +1329,7 @@ func TestSendMessage_FileType(t *testing.T) {
 
 	msg, err := svc.SendMessage(context.Background(), SendMessageInput{
 		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
 		ConversationID: convID,
 		Content:        "file.pdf",
 		Type:           message.MessageTypeFile,

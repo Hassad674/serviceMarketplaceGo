@@ -13,17 +13,14 @@ import (
 
 type MarkAsReadInput struct {
 	UserID         uuid.UUID
+	OrgID          uuid.UUID
 	ConversationID uuid.UUID
 	Seq            int
 }
 
 func (s *Service) MarkAsRead(ctx context.Context, input MarkAsReadInput) error {
-	ok, err := s.messages.IsParticipant(ctx, input.ConversationID, input.UserID)
-	if err != nil {
-		return fmt.Errorf("check participant: %w", err)
-	}
-	if !ok {
-		return message.ErrNotParticipant
+	if err := s.requireOrgAuthorized(ctx, input.ConversationID, input.OrgID, input.UserID); err != nil {
+		return err
 	}
 
 	if err := s.messages.MarkAsRead(ctx, input.ConversationID, input.UserID, input.Seq); err != nil {
@@ -45,17 +42,12 @@ func (s *Service) MarkAsRead(ctx context.Context, input MarkAsReadInput) error {
 }
 
 func (s *Service) broadcastReadReceipt(ctx context.Context, convID, readerID uuid.UUID, upToSeq int) {
-	participantIDs, err := s.messages.GetParticipantIDs(ctx, convID)
+	// Phase R11 — notify every operator on both sides except the
+	// reader themselves. Senders get the read receipt, the reader's
+	// own teammates also see the conversation flip to "all read".
+	recipientIDs, err := s.messages.GetOrgMemberRecipients(ctx, convID, readerID)
 	if err != nil {
 		return
-	}
-
-	// Notify the other participants (senders) that their messages were read
-	var recipientIDs []uuid.UUID
-	for _, id := range participantIDs {
-		if id != readerID {
-			recipientIDs = append(recipientIDs, id)
-		}
 	}
 
 	if len(recipientIDs) == 0 {
@@ -92,12 +84,12 @@ func (s *Service) DeliverMessage(ctx context.Context, messageID, userID uuid.UUI
 		return fmt.Errorf("get message: %w", err)
 	}
 
-	ok, err := s.messages.IsParticipant(ctx, msg.ConversationID, userID)
+	orgID, err := s.resolveUserOrgID(ctx, userID)
 	if err != nil {
-		return fmt.Errorf("check participant: %w", err)
+		return fmt.Errorf("resolve user org: %w", err)
 	}
-	if !ok {
-		return message.ErrNotParticipant
+	if err := s.requireOrgAuthorized(ctx, msg.ConversationID, orgID, userID); err != nil {
+		return err
 	}
 
 	if msg.Status == message.MessageStatusSent {
