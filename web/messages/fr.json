@@ -1,4 +1,35 @@
 {
+  "acceptInvitation": {
+    "loading": "Chargement de l'invitation...",
+    "title": "Vous êtes invité·e",
+    "invitedAs": "{name}, vous êtes invité·e à rejoindre une {orgType} en tant que {role}.",
+    "invitedTitle": "Titre proposé : {title}",
+    "orgTypeAgency": "agence",
+    "orgTypeEnterprise": "entreprise",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
+    "passwordLabel": "Créer un mot de passe",
+    "passwordPlaceholder": "Minimum 8 caractères",
+    "confirmPasswordLabel": "Confirmer le mot de passe",
+    "acceptButton": "Rejoindre l'organisation",
+    "submitting": "Création du compte...",
+    "expiresOn": "Cette invitation expire le {date}",
+    "expiredTitle": "Invitation expirée ou invalide",
+    "expiredDescription": "Ce lien d'invitation n'est plus valide. Demandez à l'organisation de vous renvoyer une nouvelle invitation.",
+    "genericErrorTitle": "Impossible de charger l'invitation",
+    "genericErrorDescription": "Une erreur est survenue. Réessayez dans un instant ou contactez l'organisation qui vous a invité·e.",
+    "errors": {
+      "passwordTooShort": "Le mot de passe doit contenir au moins {min} caractères",
+      "passwordWeak": "Le mot de passe doit contenir une majuscule, une minuscule, un chiffre et un caractère spécial",
+      "passwordMismatch": "Les mots de passe ne correspondent pas",
+      "emailAlreadyTaken": "Un compte existe déjà avec cet email. Contactez l'organisation pour qu'elle vous invite avec un autre email.",
+      "genericAccept": "Impossible d'accepter l'invitation. Réessayez dans un instant."
+    }
+  },
   "team": {
     "title": "Mon équipe",
     "agencyType": "Agence",

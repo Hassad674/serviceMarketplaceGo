@@ -73,3 +73,26 @@ export type UpdateMemberPayload = {
 export type InitiateTransferPayload = {
   target_user_id: string
 }
+
+// Public invitation preview returned by GET /invitations/validate.
+// Used by the email-link landing page to show the invitee who is
+// inviting them, into which org, and as what role before they set
+// a password. Does not include the token itself — the page has it
+// in the URL.
+export type InvitationPreview = {
+  id: string
+  organization_id: string
+  organization_name: string
+  organization_type: "agency" | "enterprise"
+  email: string
+  first_name: string
+  last_name: string
+  title: string
+  role: "owner" | "admin" | "member" | "viewer"
+  expires_at: string
+}
+
+export type AcceptInvitationPayload = {
+  token: string
+  password: string
+}

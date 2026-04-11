@@ -14,11 +14,14 @@ import {
   cancelTransferOwnership,
   acceptTransferOwnership,
   declineTransferOwnership,
+  validateInvitation,
+  acceptInvitation,
 } from "../api/team-api"
 import type {
   SendInvitationPayload,
   UpdateMemberPayload,
   InitiateTransferPayload,
+  AcceptInvitationPayload,
 } from "../types"
 
 /* -------------------------------------------------------------------------- */
@@ -174,5 +177,32 @@ export function useDeclineTransfer(orgID: string) {
   return useMutation({
     mutationFn: () => declineTransferOwnership(orgID),
     onSuccess: invalidate,
+  })
+}
+
+/* -------------------------------------------------------------------------- */
+/* Public invitation landing (email link → /invitation/[token])               */
+/* -------------------------------------------------------------------------- */
+
+// Powers the public acceptance page. Token validation is a one-shot
+// query keyed on the token itself; acceptance is a mutation whose
+// success triggers a hard redirect (no TanStack invalidation — the
+// whole tree gets re-rendered from scratch with the new cookie).
+
+export function useInvitationPreview(token: string) {
+  return useQuery({
+    queryKey: ["invitation", "preview", token],
+    queryFn: () => validateInvitation(token),
+    enabled: !!token,
+    retry: false,
+    // Preview data is immutable per token — cache it for the whole
+    // lifetime of the page so a form re-render doesn't re-fetch.
+    staleTime: Infinity,
+  })
+}
+
+export function useAcceptInvitation() {
+  return useMutation({
+    mutationFn: (payload: AcceptInvitationPayload) => acceptInvitation(payload),
   })
 }
