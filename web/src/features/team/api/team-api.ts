@@ -7,6 +7,8 @@ import type {
   SendInvitationPayload,
   UpdateMemberPayload,
   InitiateTransferPayload,
+  InvitationPreview,
+  AcceptInvitationPayload,
 } from "../types"
 
 // Pure async functions that talk to the organization endpoints
@@ -118,4 +120,31 @@ export function declineTransferOwnership(orgID: string): Promise<void> {
     `/api/v1/organizations/${orgID}/transfer/decline`,
     { method: "POST", body: {} },
   )
+}
+
+/* ------------------------------------------------------------------ */
+/* Public invitation landing (email link)                              */
+/* ------------------------------------------------------------------ */
+
+// The two endpoints below are the ONLY team endpoints that are
+// public (no auth cookie). They power the /invitation/[token] email
+// landing page — the invitee has no account yet, so the regular
+// authenticated flow doesn't apply.
+
+export function validateInvitation(token: string): Promise<InvitationPreview> {
+  return apiClient<InvitationPreview>(
+    `/api/v1/invitations/validate?token=${encodeURIComponent(token)}`,
+  )
+}
+
+export function acceptInvitation(payload: AcceptInvitationPayload): Promise<unknown> {
+  // The backend returns a full auth envelope on success and sets the
+  // session cookie; the caller just needs to hard-redirect so the
+  // whole React tree + TanStack cache is re-initialised with the new
+  // session. We don't need to consume the return value.
+  return apiClient<unknown>(`/api/v1/invitations/accept`, {
+    method: "POST",
+    body: payload,
+    headers: { "X-Auth-Mode": "cookie" },
+  })
 }
