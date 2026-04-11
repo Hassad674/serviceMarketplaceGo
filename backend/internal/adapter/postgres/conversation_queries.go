@@ -43,6 +43,13 @@ const queryGetConversation = `
 // calling org participates; the "other side" is resolved as any
 // participant whose current org differs from the caller's org.
 //
+// Since phase R11 the caller's personal unread count is read from
+// conversation_read_state (per-user, lazily created) instead of the
+// old conversation_participants columns — so an operator that joined
+// the org AFTER the conversation was opened still sees 0 unread
+// until they actually receive a message and the fan-out creates a
+// row for them.
+//
 // We surface BOTH the other participant's user id (still needed by
 // proposal + call flows that anchor on user ids) and the other org's
 // metadata (used for display in the list).
@@ -61,7 +68,7 @@ const queryListConversationsFirst = `
 		lm.content,
 		lm.created_at,
 		COALESCE(lm.seq, 0),
-		COALESCE(cp_me.unread_count, 0)
+		COALESCE(crs.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
 		SELECT u.id AS user_id, u.organization_id AS org_id
@@ -72,8 +79,8 @@ const queryListConversationsFirst = `
 	) og ON TRUE
 	LEFT JOIN organizations other_org ON other_org.id = og.org_id
 	LEFT JOIN profiles p ON p.organization_id = other_org.id
-	LEFT JOIN conversation_participants cp_me
-		ON cp_me.conversation_id = c.id AND cp_me.user_id = $2
+	LEFT JOIN conversation_read_state crs
+		ON crs.conversation_id = c.id AND crs.user_id = $2
 	LEFT JOIN LATERAL (
 		SELECT content, created_at, seq
 		FROM messages
@@ -103,7 +110,7 @@ const queryListConversationsWithCursor = `
 		lm.content,
 		lm.created_at,
 		COALESCE(lm.seq, 0),
-		COALESCE(cp_me.unread_count, 0)
+		COALESCE(crs.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
 		SELECT u.id AS user_id, u.organization_id AS org_id
@@ -114,8 +121,8 @@ const queryListConversationsWithCursor = `
 	) og ON TRUE
 	LEFT JOIN organizations other_org ON other_org.id = og.org_id
 	LEFT JOIN profiles p ON p.organization_id = other_org.id
-	LEFT JOIN conversation_participants cp_me
-		ON cp_me.conversation_id = c.id AND cp_me.user_id = $2
+	LEFT JOIN conversation_read_state crs
+		ON crs.conversation_id = c.id AND crs.user_id = $2
 	LEFT JOIN LATERAL (
 		SELECT content, created_at, seq
 		FROM messages
@@ -137,6 +144,21 @@ const queryIsParticipant = `
 	SELECT EXISTS(
 		SELECT 1 FROM conversation_participants
 		WHERE conversation_id = $1 AND user_id = $2
+	)`
+
+// queryIsOrgAuthorizedForConversation — phase R11 authorization guard.
+// Returns true when the caller's organization has at least one user in
+// the direct-participant set of the conversation. This is what allows
+// an operator who joined the team after the conversation was opened to
+// read/write in it.
+//
+// $1 = conversation_id, $2 = caller organization_id
+const queryIsOrgAuthorizedForConversation = `
+	SELECT EXISTS(
+		SELECT 1
+		FROM conversation_participants cp
+		JOIN users u ON u.id = cp.user_id
+		WHERE cp.conversation_id = $1 AND u.organization_id = $2
 	)`
 
 const queryLockConversation = `
@@ -212,24 +234,58 @@ const queryUpdateMessage = `
 	SET content = $2, edited_at = $3, deleted_at = $4, updated_at = $5
 	WHERE id = $1`
 
-const queryIncrementUnread = `
-	UPDATE conversation_participants
-	SET unread_count = unread_count + 1
-	WHERE conversation_id = $1 AND user_id != $2`
+// queryIncrementUnreadForRecipients — phase R11 fan-out.
+//
+// Fan out a +1 unread bump to every user belonging to any organization
+// that has a direct participant in the conversation, EXCEPT users in
+// the sender's own org. The row is lazily inserted if missing, so an
+// operator who joined after the conversation was opened still gets a
+// live bump on their next list call.
+//
+// $1 = conversation_id
+// $2 = sender user_id (belt-and-braces self-exclude)
+// $3 = sender organization_id (team-wide self-exclude)
+//
+// The explicit ::uuid cast on $1 is required because Postgres cannot
+// deduce the parameter type when the same placeholder appears both in
+// the SELECT list (as a literal column value) and in the JOIN/WHERE
+// clause (as a foreign key comparison).
+const queryIncrementUnreadForRecipients = `
+	INSERT INTO conversation_read_state (user_id, conversation_id, last_read_seq, unread_count)
+	SELECT DISTINCT u.id, $1::uuid, 0, 1
+	FROM conversation_participants cp
+	JOIN users u_part ON u_part.id = cp.user_id
+	JOIN users u ON u.organization_id = u_part.organization_id
+	WHERE cp.conversation_id = $1::uuid
+	  AND u_part.organization_id <> $3::uuid
+	  AND u.id <> $2::uuid
+	ON CONFLICT (user_id, conversation_id) DO UPDATE
+	  SET unread_count = conversation_read_state.unread_count + 1,
+	      updated_at   = now()`
 
+// queryMarkAsRead — phase R11 upsert.
+//
+// Upsert the caller's read-state row to unread_count = 0 and bump
+// last_read_seq forward only (never backward — a caller that races
+// with their own earlier MarkAsRead must not regress the seq).
+//
+// $1 = conversation_id, $2 = user_id, $3 = seq
 const queryMarkAsRead = `
-	UPDATE conversation_participants
-	SET unread_count = 0, last_read_seq = $3
-	WHERE conversation_id = $1 AND user_id = $2`
+	INSERT INTO conversation_read_state (user_id, conversation_id, last_read_seq, unread_count, created_at, updated_at)
+	VALUES ($2, $1, $3, 0, now(), now())
+	ON CONFLICT (user_id, conversation_id) DO UPDATE
+	  SET last_read_seq = GREATEST(conversation_read_state.last_read_seq, EXCLUDED.last_read_seq),
+	      unread_count  = 0,
+	      updated_at    = now()`
 
 const queryGetTotalUnread = `
 	SELECT COALESCE(SUM(unread_count), 0)
-	FROM conversation_participants
+	FROM conversation_read_state
 	WHERE user_id = $1`
 
 const queryGetTotalUnreadBatch = `
 	SELECT user_id, COALESCE(SUM(unread_count), 0)
-	FROM conversation_participants
+	FROM conversation_read_state
 	WHERE user_id = ANY($1)
 	GROUP BY user_id`
 
@@ -237,6 +293,21 @@ const queryGetParticipantIDs = `
 	SELECT user_id
 	FROM conversation_participants
 	WHERE conversation_id = $1`
+
+// queryGetOrgMemberRecipients — phase R11 broadcast fan-out.
+//
+// Returns every user id belonging to any organization that has a
+// direct participant in the given conversation, excluding the given
+// user (typically the sender). Used by broadcasters (WS, push) so
+// every operator on both sides of the conversation sees the event.
+//
+// $1 = conversation_id, $2 = user_id to exclude
+const queryGetOrgMemberRecipients = `
+	SELECT DISTINCT u.id
+	FROM conversation_participants cp
+	JOIN users u_part ON u_part.id = cp.user_id
+	JOIN users u ON u.organization_id = u_part.organization_id
+	WHERE cp.conversation_id = $1 AND u.id <> $2`
 
 const queryGetContactIDs = `
 	SELECT DISTINCT cp_other.user_id

@@ -14,7 +14,7 @@ import (
 
 func TestMarkAsRead_RepoError(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		markAsReadFn: func(_ context.Context, _, _ uuid.UUID, _ int) error {
@@ -26,6 +26,7 @@ func TestMarkAsRead_RepoError(t *testing.T) {
 
 	err := svc.MarkAsRead(context.Background(), MarkAsReadInput{
 		UserID:         uuid.New(),
+		OrgID:          uuid.New(),
 		ConversationID: uuid.New(),
 		Seq:            5,
 	})
@@ -34,9 +35,9 @@ func TestMarkAsRead_RepoError(t *testing.T) {
 	assert.Contains(t, err.Error(), "mark as read")
 }
 
-func TestMarkAsRead_ParticipantCheckError(t *testing.T) {
+func TestMarkAsRead_AuthorizationCheckError(t *testing.T) {
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return false, fmt.Errorf("db error")
 		},
 	}
@@ -45,19 +46,20 @@ func TestMarkAsRead_ParticipantCheckError(t *testing.T) {
 
 	err := svc.MarkAsRead(context.Background(), MarkAsReadInput{
 		UserID:         uuid.New(),
+		OrgID:          uuid.New(),
 		ConversationID: uuid.New(),
 		Seq:            1,
 	})
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "check participant")
+	assert.Contains(t, err.Error(), "check org authorized")
 }
 
 func TestMarkAsRead_ContinuesOnMarkMessagesError(t *testing.T) {
 	// MarkMessagesAsRead failure is logged but does not fail the request.
 	var markAsReadCalled bool
 	msgRepo := &mockMessageRepo{
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		markAsReadFn: func(_ context.Context, _, _ uuid.UUID, _ int) error {
@@ -73,6 +75,7 @@ func TestMarkAsRead_ContinuesOnMarkMessagesError(t *testing.T) {
 
 	err := svc.MarkAsRead(context.Background(), MarkAsReadInput{
 		UserID:         uuid.New(),
+		OrgID:          uuid.New(),
 		ConversationID: uuid.New(),
 		Seq:            20,
 	})
@@ -105,7 +108,7 @@ func TestDeliverMessage_UpdateStatusError(t *testing.T) {
 				Status:         message.MessageStatusSent,
 			}, nil
 		},
-		isParticipantFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
 		updateMessageStatusFn: func(_ context.Context, _ uuid.UUID, _ message.MessageStatus) error {

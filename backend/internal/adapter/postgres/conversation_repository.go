@@ -217,6 +217,18 @@ func (r *ConversationRepository) IsParticipant(ctx context.Context, conversation
 	return exists, nil
 }
 
+func (r *ConversationRepository) IsOrgAuthorizedForConversation(ctx context.Context, conversationID, orgID uuid.UUID) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var exists bool
+	err := r.db.QueryRowContext(ctx, queryIsOrgAuthorizedForConversation, conversationID, orgID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check org authorized for conversation: %w", err)
+	}
+	return exists, nil
+}
+
 func (r *ConversationRepository) CreateMessage(ctx context.Context, msg *message.Message) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -417,13 +429,13 @@ func (r *ConversationRepository) UpdateMessage(ctx context.Context, msg *message
 	return nil
 }
 
-func (r *ConversationRepository) IncrementUnread(ctx context.Context, conversationID, senderID uuid.UUID) error {
+func (r *ConversationRepository) IncrementUnreadForRecipients(ctx context.Context, conversationID, senderUserID, senderOrgID uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, queryIncrementUnread, conversationID, senderID)
+	_, err := r.db.ExecContext(ctx, queryIncrementUnreadForRecipients, conversationID, senderUserID, senderOrgID)
 	if err != nil {
-		return fmt.Errorf("increment unread: %w", err)
+		return fmt.Errorf("increment unread for recipients: %w", err)
 	}
 
 	return nil
@@ -503,6 +515,32 @@ func (r *ConversationRepository) GetParticipantIDs(ctx context.Context, conversa
 		var id uuid.UUID
 		if err := rows.Scan(&id); err != nil {
 			return nil, fmt.Errorf("scan participant id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	return ids, nil
+}
+
+func (r *ConversationRepository) GetOrgMemberRecipients(ctx context.Context, conversationID, excludeUserID uuid.UUID) ([]uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryGetOrgMemberRecipients, conversationID, excludeUserID)
+	if err != nil {
+		return nil, fmt.Errorf("get org member recipients: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan org member recipient: %w", err)
 		}
 		ids = append(ids, id)
 	}

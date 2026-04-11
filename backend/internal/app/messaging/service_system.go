@@ -54,7 +54,14 @@ func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMes
 		return fmt.Errorf("persist system message: %w", err)
 	}
 
-	if err := s.messages.IncrementUnread(ctx, input.ConversationID, input.SenderID); err != nil {
+	// Resolve the sender's org so the +1 unread bump excludes their
+	// whole team. System messages still attribute to a user id, so
+	// this lookup is always well-defined.
+	senderOrgID, err := s.resolveUserOrgID(ctx, input.SenderID)
+	if err != nil {
+		return fmt.Errorf("resolve system sender org: %w", err)
+	}
+	if err := s.messages.IncrementUnreadForRecipients(ctx, input.ConversationID, input.SenderID, senderOrgID); err != nil {
 		return fmt.Errorf("increment unread: %w", err)
 	}
 
