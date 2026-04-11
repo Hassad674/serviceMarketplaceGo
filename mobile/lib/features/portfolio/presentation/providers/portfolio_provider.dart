@@ -11,11 +11,11 @@ final portfolioRepositoryProvider = Provider<PortfolioRepository>((ref) {
   return PortfolioRepositoryImpl(api);
 });
 
-/// Fetches portfolio items for a user.
-final portfolioByUserProvider =
-    FutureProvider.family<List<PortfolioItem>, String>((ref, userId) async {
+/// Fetches portfolio items for an organization.
+final portfolioByOrgProvider =
+    FutureProvider.family<List<PortfolioItem>, String>((ref, orgId) async {
   final repo = ref.watch(portfolioRepositoryProvider);
-  return repo.getPortfolioByUser(userId);
+  return repo.getPortfolioByOrganization(orgId);
 });
 
 /// Fetches a single portfolio item by ID.
@@ -34,7 +34,7 @@ class PortfolioMutationNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
 
   Future<PortfolioItem?> createItem({
-    required String userId,
+    required String orgId,
     required String title,
     String? description,
     String? linkUrl,
@@ -51,7 +51,7 @@ class PortfolioMutationNotifier extends StateNotifier<AsyncValue<void>> {
         media: media,
       );
       state = const AsyncValue.data(null);
-      _ref.invalidate(portfolioByUserProvider(userId));
+      _ref.invalidate(portfolioByOrgProvider(orgId));
       return item;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -60,7 +60,7 @@ class PortfolioMutationNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<PortfolioItem?> updateItem({
-    required String userId,
+    required String orgId,
     required String id,
     String? title,
     String? description,
@@ -77,7 +77,7 @@ class PortfolioMutationNotifier extends StateNotifier<AsyncValue<void>> {
         media: media,
       );
       state = const AsyncValue.data(null);
-      _ref.invalidate(portfolioByUserProvider(userId));
+      _ref.invalidate(portfolioByOrgProvider(orgId));
       return item;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -86,14 +86,14 @@ class PortfolioMutationNotifier extends StateNotifier<AsyncValue<void>> {
   }
 
   Future<bool> deleteItem({
-    required String userId,
+    required String orgId,
     required String id,
   }) async {
     state = const AsyncValue.loading();
     try {
       await _repo.deletePortfolioItem(id);
       state = const AsyncValue.data(null);
-      _ref.invalidate(portfolioByUserProvider(userId));
+      _ref.invalidate(portfolioByOrgProvider(orgId));
       return true;
     } catch (e, st) {
       state = AsyncValue.error(e, st);

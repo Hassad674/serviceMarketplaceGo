@@ -14,18 +14,18 @@ const int _kMaxItems = 30;
 ///
 /// Used on both own profile (edit mode) and public profiles (read-only).
 class PortfolioGridWidget extends ConsumerWidget {
-  final String userId;
+  final String orgId;
   final bool readOnly;
 
   const PortfolioGridWidget({
     super.key,
-    required this.userId,
+    required this.orgId,
     this.readOnly = true,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncItems = ref.watch(portfolioByUserProvider(userId));
+    final asyncItems = ref.watch(portfolioByOrgProvider(orgId));
 
     return asyncItems.when(
       data: (items) {
@@ -47,7 +47,7 @@ class PortfolioGridWidget extends ConsumerWidget {
           child: _PortfolioGrid(
             items: items,
             readOnly: readOnly,
-            userId: userId,
+            orgId: orgId,
             onEdit: (item) => _openForm(context, ref, item, items.length),
             onDelete: (item) => _confirmDelete(context, ref, item),
           ),
@@ -70,7 +70,7 @@ class PortfolioGridWidget extends ConsumerWidget {
       backgroundColor: Colors.transparent,
       useSafeArea: true,
       builder: (_) => PortfolioFormSheet(
-        userId: userId,
+        orgId: orgId,
         item: item,
         nextPosition: nextPosition,
       ),
@@ -103,7 +103,7 @@ class PortfolioGridWidget extends ConsumerWidget {
     if (confirmed != true) return;
     await ref
         .read(portfolioMutationProvider.notifier)
-        .deleteItem(userId: userId, id: item.id);
+        .deleteItem(orgId: orgId, id: item.id);
   }
 }
 
@@ -299,14 +299,14 @@ class _EmptyState extends StatelessWidget {
 class _PortfolioGrid extends StatelessWidget {
   final List<PortfolioItem> items;
   final bool readOnly;
-  final String userId;
+  final String orgId;
   final void Function(PortfolioItem) onEdit;
   final void Function(PortfolioItem) onDelete;
 
   const _PortfolioGrid({
     required this.items,
     required this.readOnly,
-    required this.userId,
+    required this.orgId,
     required this.onEdit,
     required this.onDelete,
   });

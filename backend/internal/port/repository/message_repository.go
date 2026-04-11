@@ -33,8 +33,14 @@ type ListMessagesParams struct {
 // of the conversation (the Stripe Dashboard model: teams chat with teams).
 // Online state still reflects any individual user from that org being
 // currently connected.
+//
+// OtherUserID is kept alongside the org fields because proposals and
+// calls still anchor on user ids in their own subsystems — the
+// conversation's other participant is a stable user handle that lets
+// those flows target the right row without a second round-trip.
 type ConversationSummary struct {
 	ConversationID uuid.UUID
+	OtherUserID    uuid.UUID
 	OtherOrgID     uuid.UUID
 	OtherOrgName   string
 	OtherOrgType   string

@@ -5,9 +5,19 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../domain/entities/job_application_entity.dart';
 
+/// Builds 1- or 2-letter initials from a display name. Returns "?" for
+/// empty or whitespace-only names.
+String _initialsFromName(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return '?';
+  final parts = trimmed.split(RegExp(r'\s+'));
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+}
+
 /// Compact candidate card displayed in the candidates list.
 ///
-/// Shows avatar, name, role badge, truncated message, and date.
+/// Shows avatar, org name, org-type badge, truncated message, and date.
 /// Tapping navigates to [CandidateDetailScreen] for full details.
 class CandidateCard extends StatelessWidget {
   const CandidateCard({
@@ -27,13 +37,8 @@ class CandidateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final profile = item.profile;
     final application = item.application;
-    final fullName = '${profile.firstName} ${profile.lastName}'.trim();
-    final displayName = profile.displayName.isNotEmpty
-        ? profile.displayName
-        : fullName;
-    final initials =
-        '${profile.firstName.isNotEmpty ? profile.firstName[0] : ''}${profile.lastName.isNotEmpty ? profile.lastName[0] : ''}'
-            .toUpperCase();
+    final displayName = profile.name;
+    final initials = _initialsFromName(displayName);
 
     return Card(
       child: InkWell(
@@ -63,7 +68,7 @@ class CandidateCard extends StatelessWidget {
                         : null,
                     child: profile.photoUrl.isEmpty
                         ? Text(
-                            initials.isNotEmpty ? initials : '?',
+                            initials,
                             style: const TextStyle(
                               color: Color(0xFFF43F5E),
                               fontWeight: FontWeight.w600,
@@ -86,19 +91,6 @@ class CandidateCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (fullName.isNotEmpty &&
-                            fullName != displayName) ...[
-                          const SizedBox(height: 1),
-                          Text(
-                            fullName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: Colors.grey.shade600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
                         const SizedBox(height: 4),
                         Row(
                           children: [
@@ -108,19 +100,19 @@ class CandidateCard extends StatelessWidget {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: profile.role == 'provider'
+                                color: profile.orgType == 'provider_personal'
                                     ? const Color(0xFFFFF1F2)
                                     : Colors.blue.shade50,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                profile.role == 'provider'
+                                profile.orgType == 'provider_personal'
                                     ? 'Freelance'
-                                    : 'Agence',
+                                    : 'Agency',
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
-                                  color: profile.role == 'provider'
+                                  color: profile.orgType == 'provider_personal'
                                       ? const Color(0xFFF43F5E)
                                       : Colors.blue.shade700,
                                 ),

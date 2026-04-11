@@ -29,10 +29,17 @@ vi.mock("@i18n/navigation", () => ({
   }),
 }))
 
-// Mock the login API function
-vi.mock("@/features/auth/api/auth-api", () => ({
-  login: vi.fn(),
-}))
+// Mock the login API function. We keep the real AuthApiError class so
+// the component's `err instanceof AuthApiError` check keeps working
+// when the mocked login throws.
+vi.mock("@/features/auth/api/auth-api", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/features/auth/api/auth-api")>()
+  return {
+    ...actual,
+    login: vi.fn(),
+  }
+})
 
 import { login } from "@/features/auth/api/auth-api"
 const mockLogin = vi.mocked(login)

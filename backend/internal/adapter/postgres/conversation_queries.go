@@ -43,12 +43,17 @@ const queryGetConversation = `
 // calling org participates; the "other side" is resolved as any
 // participant whose current org differs from the caller's org.
 //
+// We surface BOTH the other participant's user id (still needed by
+// proposal + call flows that anchor on user ids) and the other org's
+// metadata (used for display in the list).
+//
 // $1 = caller organization_id
 // $2 = caller user_id (for the operator's personal unread count)
 // $3 = limit
 const queryListConversationsFirst = `
 	SELECT
 		c.id,
+		COALESCE(og.user_id, '00000000-0000-0000-0000-000000000000'::uuid),
 		COALESCE(other_org.id, '00000000-0000-0000-0000-000000000000'::uuid),
 		COALESCE(other_org.name, ''),
 		COALESCE(other_org.type, ''),
@@ -59,7 +64,7 @@ const queryListConversationsFirst = `
 		COALESCE(cp_me.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
-		SELECT u.organization_id AS org_id
+		SELECT u.id AS user_id, u.organization_id AS org_id
 		FROM conversation_participants cp
 		JOIN users u ON u.id = cp.user_id
 		WHERE cp.conversation_id = c.id AND u.organization_id <> $1
@@ -90,6 +95,7 @@ const queryListConversationsFirst = `
 const queryListConversationsWithCursor = `
 	SELECT
 		c.id,
+		COALESCE(og.user_id, '00000000-0000-0000-0000-000000000000'::uuid),
 		COALESCE(other_org.id, '00000000-0000-0000-0000-000000000000'::uuid),
 		COALESCE(other_org.name, ''),
 		COALESCE(other_org.type, ''),
@@ -100,7 +106,7 @@ const queryListConversationsWithCursor = `
 		COALESCE(cp_me.unread_count, 0)
 	FROM conversations c
 	LEFT JOIN LATERAL (
-		SELECT u.organization_id AS org_id
+		SELECT u.id AS user_id, u.organization_id AS org_id
 		FROM conversation_participants cp
 		JOIN users u ON u.id = cp.user_id
 		WHERE cp.conversation_id = c.id AND u.organization_id <> $1

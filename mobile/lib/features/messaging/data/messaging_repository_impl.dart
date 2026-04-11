@@ -25,12 +25,12 @@ class MessagingRepositoryImpl implements MessagingRepository {
   @override
   Future<({String conversationId, MessageEntity message})>
       startConversation({
-    required String recipientId,
+    required String recipientOrgId,
     required String content,
   }) async {
     final response = await _apiClient.post(
       '/api/v1/messaging/conversations',
-      data: {'recipient_id': recipientId, 'content': content},
+      data: {'recipient_org_id': recipientOrgId, 'content': content},
     );
     final data = _extractData(response);
     return (

@@ -327,7 +327,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CallScreen(
-            recipientName: conversation.otherUserName ?? '',
+            recipientName: conversation.otherOrgName ?? '',
             callType: callType,
           ),
         ),
@@ -374,9 +374,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final result = await GoRouter.of(context).push<dynamic>(
       RoutePaths.projectsNew,
       extra: {
+        // Proposals still anchor on user ids — pass the other
+        // participant's user id, not the org id.
         'recipientId': conversation?.otherUserId ?? '',
         'conversationId': widget.conversationId,
-        'recipientName': conversation?.otherUserName ?? '',
+        'recipientName': conversation?.otherOrgName ?? '',
         'existingProposal': existingProposal,
       },
     );
@@ -551,13 +553,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final isTyping = msgState.typingUserName != null;
     final typingDisplayName = isTyping
-        ? (conversation?.otherUserName ?? '')
+        ? (conversation?.otherOrgName ?? '')
         : null;
 
     return Scaffold(
       appBar: ChatAppBar(
         conversation: conversation,
-        currentUserRole: authState.user?['role'] as String?,
+        currentOrgType: authState.organization?['type'] as String?,
         typingUserName: typingDisplayName,
         onStartCall: () => _startCall(conversation),
         onStartVideoCall: () => _startVideoCall(conversation),
@@ -565,6 +567,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ? () => showReportBottomSheet(
                   context,
                   ref,
+                  // Reporting flows still expose a user-id target for
+                  // now; the conversation surfaces the other
+                  // participant user for exactly this reason.
                   targetType: 'user',
                   targetId: conversation.otherUserId,
                   conversationId: widget.conversationId,
@@ -641,7 +646,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             replyToName: _replyToMessage != null
                 ? (_replyToMessage!.senderId == currentUserId
                     ? 'You'
-                    : conversation?.otherUserName ?? '')
+                    : conversation?.otherOrgName ?? '')
                 : null,
             replyToContent: _replyToMessage?.content,
             onCancelReply: _cancelReply,
