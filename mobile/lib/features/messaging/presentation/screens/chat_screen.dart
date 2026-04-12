@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../../../../core/utils/mime_type_helper.dart';
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/messaging_repository_impl.dart';
@@ -520,6 +521,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final convState = ref.watch(conversationsProvider);
     final authState = ref.watch(authProvider);
     final currentUserId = authState.user?['id'] as String? ?? '';
+    final canSend = ref.watch(hasPermissionProvider(OrgPermission.messagingSend));
+    final canCreateProposal = ref.watch(
+      hasPermissionProvider(OrgPermission.proposalsCreate),
+    );
 
     final conversation = convState.conversations
         .where((c) => c.id == widget.conversationId)
@@ -641,8 +646,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             controller: _controller,
             onSend: _sendMessage,
             onAttach: _pickAndSendFile,
-            onProposal: _openProposalScreen,
-            onVoiceRecorded: _sendVoiceMessage,
+            onProposal: canSend && canCreateProposal
+                ? _openProposalScreen
+                : null,
+            onVoiceRecorded: canSend ? _sendVoiceMessage : null,
+            sendDisabled: !canSend,
             replyToName: _replyToMessage != null
                 ? (_replyToMessage!.senderId == currentUserId
                     ? 'You'

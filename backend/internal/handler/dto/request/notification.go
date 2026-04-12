@@ -11,6 +11,10 @@ type NotificationPreferenceItem struct {
 	Email bool   `json:"email"`
 }
 
+type BulkEmailPreferencesRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
 type RegisterDeviceTokenRequest struct {
 	Token    string `json:"token"`
 	Platform string `json:"platform"`

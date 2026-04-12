@@ -14,6 +14,7 @@ import { PendingTransferBanner } from "./pending-transfer-banner"
 import { LeaveOrgDialog } from "./leave-org-dialog"
 import { TeamPageSkeleton } from "./team-page-skeleton"
 import { AboutRolesPanel } from "./about-roles-panel"
+import { RolePermissionsEditor } from "./role-permissions-editor"
 
 // Client-side entry point for /team. Pulls the session slice (which
 // carries the current org + permissions + pending transfer) and
@@ -68,6 +69,9 @@ export function TeamPage() {
   const canInvite = permissions.includes("team.invite")
   const canManage = permissions.includes("team.manage")
   const canTransfer = permissions.includes("team.transfer_ownership")
+  const canManageRolePermissions = permissions.includes(
+    "team.manage_role_permissions",
+  )
   const memberRole = organization.member_role
   const isOwner = memberRole === "owner"
 
@@ -132,6 +136,14 @@ export function TeamPage() {
           member benefits from knowing what each role can do, even
           if they themselves can't manage the team. */}
       <AboutRolesPanel />
+
+      {/* Role permissions editor — Owner-only UI to customize per-org
+          role permissions (R17). The backend additionally enforces
+          Owner-only at the service layer so a compromised frontend
+          cannot bypass the gate. */}
+      {canManageRolePermissions && !transferIsPending && (
+        <RolePermissionsEditor orgID={orgID} />
+      )}
 
       {/* Pending invitations — only visible if there is at least one
           or if the caller can invite (so Members/Viewers don't see

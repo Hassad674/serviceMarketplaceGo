@@ -103,6 +103,9 @@ func (m *mockOrgRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.
 func (m *mockOrgRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
 	return nil
 }
+func (m *mockOrgRepo) SaveRoleOverrides(_ context.Context, _ uuid.UUID, _ organization.RoleOverrides) error {
+	return nil
+}
 
 // mockMemberRepo is a minimal mock of repository.OrganizationMemberRepository.
 type mockMemberRepo struct {
@@ -184,6 +187,10 @@ func (m *mockMemberRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (m *mockMemberRepo) ListMemberUserIDsByOrgIDs(_ context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
 	return map[uuid.UUID][]uuid.UUID{}, nil
+}
+
+func (m *mockMemberRepo) ListUserIDsByRole(_ context.Context, _ uuid.UUID, _ organization.Role) ([]uuid.UUID, error) {
+	return nil, nil
 }
 
 // mockInvitationRepo is a minimal stub; invitation logic lands in Phase 2.

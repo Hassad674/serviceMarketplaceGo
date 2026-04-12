@@ -3283,6 +3283,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Disputed'**
   String get projectStatusDisputed;
+
+  /// No description provided for @permissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to perform this action'**
+  String get permissionDenied;
+
+  /// No description provided for @permissionDeniedSend.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to send messages'**
+  String get permissionDeniedSend;
+
+  /// No description provided for @permissionDeniedWithdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to request payouts'**
+  String get permissionDeniedWithdraw;
+
+  /// No description provided for @permissionDeniedEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to edit this resource'**
+  String get permissionDeniedEdit;
 }
 
 class _AppLocalizationsDelegate

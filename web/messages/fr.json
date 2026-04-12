@@ -143,6 +143,31 @@
       "emailInvalid": "Email invalide",
       "inviteFailed": "Impossible d'envoyer l'invitation. Vérifiez l'email et réessayez.",
       "leaveFailed": "Impossible de quitter l'organisation."
+    },
+    "rolePermissions": {
+      "title": "Personnaliser les permissions des rôles",
+      "subtitle": "Accordez ou révoquez des permissions pour les rôles Admin, Membre et Lecteur dans cette organisation.",
+      "loadError": "Impossible de charger la matrice des permissions.",
+      "noPermissions": "Aucune permission à afficher pour ce rôle.",
+      "tabsAria": "Sélecteur de rôle",
+      "pendingBadge": "{count, plural, one {# modification} other {# modifications}} en attente",
+      "lockedHint": "Cette permission est verrouillée et ne peut pas être personnalisée.",
+      "states": {
+        "grantedOverride": "Personnalisée",
+        "revokedOverride": "Révoquée",
+        "locked": "Verrouillée"
+      },
+      "discard": "Annuler",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "confirmTitle": "Enregistrer les modifications pour {role}",
+      "confirmDescription": "Vous êtes sur le point d'enregistrer {count, plural, one {# modification} other {# modifications}}. Les membres concernés seront déconnectés et devront se reconnecter pour que les nouvelles permissions prennent effet.",
+      "confirmButton": "Enregistrer et déconnecter les membres",
+      "saveSuccessTitle": "Permissions mises à jour",
+      "saveSuccessDescription": "{granted} accordée(s), {revoked} révoquée(s). {affected} session(s) invalidée(s).",
+      "saveErrorTitle": "Échec de l'enregistrement",
+      "saveErrorGeneric": "Une erreur inattendue est survenue. Veuillez réessayer.",
+      "saveBarAria": "Barre des modifications non enregistrées"
     }
   },
   "common": {
@@ -314,6 +339,9 @@
     "password": "Mot de passe",
     "notificationPreferences": "Préférences de notification",
     "notificationPreferencesDesc": "Choisissez comment vous souhaitez être notifié pour chaque type d'événement.",
+    "bulkEmailEnabledLabel": "Notifications email activées",
+    "bulkEmailDisabledLabel": "Toutes les notifications email désactivées",
+    "bulkEmailDesc": "Activer ou désactiver tous les emails d'un coup (pratique en dev, limite Resend 100/jour).",
     "notificationType": "Type",
     "inApp": "In-app",
     "push": "Push",
@@ -1046,5 +1074,21 @@
     "custom": "Custom",
     "setCustomThumbnail": "Uploader une miniature personnalisée",
     "revertToAuto": "Revenir à la miniature automatique"
+  },
+  "permissions": {
+    "noJobCreate": "Vous n'avez pas la permission de publier une offre",
+    "noJobEdit": "Vous n'avez pas la permission de modifier cette offre",
+    "noJobDelete": "Vous n'avez pas la permission de supprimer cette offre",
+    "noProposalCreate": "Vous n'avez pas la permission de postuler",
+    "noProposalRespond": "Vous n'avez pas la permission de répondre aux propositions",
+    "noMessagingSend": "Vous n'avez pas la permission d'envoyer des messages",
+    "noWalletWithdraw": "Seul le propriétaire peut demander un retrait",
+    "noProfileEdit": "Vous n'avez pas la permission de modifier le profil",
+    "noReviewRespond": "Vous n'avez pas la permission de laisser un avis",
+    "noKycManage": "Vous n'avez pas la permission de gérer les informations de paiement",
+    "restrictedTitle": "Accès restreint",
+    "restrictedDescription": "Vous n'avez pas les permissions nécessaires pour accéder à cette fonctionnalité. Contactez le propriétaire de votre organisation pour obtenir l'accès.",
+    "permissionDenied": "Permission refusée",
+    "noOrganization": "Vous devez appartenir à une organisation pour effectuer cette action"
   }
 }

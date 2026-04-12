@@ -315,13 +315,18 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 		return
 	}
 
-	// Web mode: create session, set cookies, return user only
+	// Web mode: create session, set cookies, return user only.
+	// The session carries the fully-resolved effective permission
+	// set (static defaults + org overrides) so the RequirePermission
+	// middleware can honor customized roles without a DB round-trip.
 	session, err := h.sessionSvc.Create(r.Context(), service.CreateSessionInput{
 		UserID:         output.User.ID,
 		Role:           output.User.Role.String(),
 		IsAdmin:        output.User.IsAdmin,
 		OrganizationID: output.OrganizationID,
 		OrgRole:        output.OrgRole,
+		Permissions:    permissionKeysFromOrgContext(orgCtx),
+		SessionVersion: output.User.SessionVersion,
 	})
 	if err != nil {
 		slog.Error("failed to create session", "error", err)
@@ -331,6 +336,21 @@ func (h *AuthHandler) sendAuthResponse(w http.ResponseWriter, r *http.Request, s
 
 	h.cookie.SetSession(w, session.ID, output.User.Role.String())
 	res.JSON(w, status, response.NewMeResponse(output.User, orgCtx))
+}
+
+// permissionKeysFromOrgContext projects an org context's resolved
+// permission set into the []string shape expected by
+// CreateSessionInput and AccessTokenInput. Returns nil when the org
+// context is missing (solo user) so the session omits the field.
+func permissionKeysFromOrgContext(ctx *orgapp.Context) []string {
+	if ctx == nil || len(ctx.Permissions) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(ctx.Permissions))
+	for _, p := range ctx.Permissions {
+		out = append(out, string(p))
+	}
+	return out
 }
 
 func handleAuthError(w http.ResponseWriter, err error) {

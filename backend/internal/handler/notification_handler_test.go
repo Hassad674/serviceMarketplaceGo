@@ -29,8 +29,8 @@ type mockNotificationRepo struct {
 	markAllAsReadFn     func(ctx context.Context, userID uuid.UUID) error
 	deleteFn            func(ctx context.Context, id, userID uuid.UUID) error
 	getPreferencesFn    func(ctx context.Context, userID uuid.UUID) ([]*notifdomain.Preferences, error)
-	upsertPreferenceFn  func(ctx context.Context, pref *notifdomain.Preferences) error
-	createDeviceTokenFn func(ctx context.Context, dt *notifdomain.DeviceToken) error
+	upsertPreferenceFn          func(ctx context.Context, pref *notifdomain.Preferences) error
+	createDeviceTokenFn         func(ctx context.Context, dt *notifdomain.DeviceToken) error
 	listDeviceTokensFn  func(ctx context.Context, userID uuid.UUID) ([]*notifdomain.DeviceToken, error)
 	deleteDeviceTokenFn func(ctx context.Context, userID uuid.UUID, token string) error
 }

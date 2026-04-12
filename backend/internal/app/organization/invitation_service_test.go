@@ -115,6 +115,9 @@ func (m *mockEmailForInvites) SendTeamInvitation(ctx context.Context, input serv
 	}
 	return nil
 }
+func (m *mockEmailForInvites) SendRolePermissionsChanged(_ context.Context, _ service.RolePermissionsChangedEmailInput) error {
+	return nil
+}
 
 type mockInvitationRateLimiter struct {
 	allowed bool
@@ -532,6 +535,11 @@ func TestInvitationService_CancelInvitation_Success(t *testing.T) {
 	err := svc.CancelInvitation(context.Background(), ownerID, org.ID, inv.ID)
 	require.NoError(t, err)
 	assert.Equal(t, organization.InvitationStatusCancelled, invRepo.storedInvitations[inv.ID].Status)
+}
+
+// --- Email notification preference stub ---
+func (m *mockUserRepoForInvites) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
 }
 
 // --- Session version stubs (migration 056, Phase 3) ---

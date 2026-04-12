@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { useTranslations } from "next-intl"
-import { Loader2 } from "lucide-react"
+import { Loader2, MailX, Mail } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import {
   useNotificationPreferences,
   useUpdateNotificationPreferences,
+  useBulkEmailPreferences,
   type NotificationPreference,
 } from "../hooks/use-notification-preferences"
 
@@ -76,15 +77,77 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   )
 }
 
+interface BulkEmailToggleProps {
+  allDisabled: boolean
+  onToggle: () => void
+  isPending: boolean
+  t: ReturnType<typeof useTranslations<"account">>
+}
+
+function BulkEmailToggle({ allDisabled, onToggle, isPending, t }: BulkEmailToggleProps) {
+  const Icon = allDisabled ? MailX : Mail
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 rounded-xl border px-5 py-4 transition-all duration-200",
+        allDisabled
+          ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20"
+          : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800",
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+            allDisabled
+              ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400"
+              : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400",
+          )}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {allDisabled ? t("bulkEmailDisabledLabel") : t("bulkEmailEnabledLabel")}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {t("bulkEmailDesc")}
+          </p>
+        </div>
+      </div>
+      <Toggle checked={!allDisabled} onChange={onToggle} disabled={isPending} />
+    </div>
+  )
+}
+
 export function NotificationSettings() {
   const t = useTranslations("account")
-  const { data: prefs, isLoading } = useNotificationPreferences()
+  const { data: prefsResponse, isLoading } = useNotificationPreferences()
   const updateMutation = useUpdateNotificationPreferences()
+  const bulkEmailMutation = useBulkEmailPreferences()
   const [localPrefs, setLocalPrefs] = useState<NotificationPreference[]>([])
+  const [emailEnabled, setEmailEnabled] = useState(true)
 
   useEffect(() => {
-    if (prefs) setLocalPrefs(prefs)
-  }, [prefs])
+    if (prefsResponse) {
+      setLocalPrefs(prefsResponse.data)
+      setEmailEnabled(prefsResponse.email_notifications_enabled)
+    }
+  }, [prefsResponse])
+
+  const allEmailsDisabled = !emailEnabled
+
+  function handleBulkEmailToggle() {
+    const newEnabled = !emailEnabled
+    setEmailEnabled(newEnabled)
+    bulkEmailMutation.mutate(newEnabled, {
+      onError: () => {
+        if (prefsResponse) {
+          setEmailEnabled(prefsResponse.email_notifications_enabled)
+        }
+      },
+    })
+  }
 
   function handleToggle(type: string, channel: Channel) {
     const updated = localPrefs.map((p) => {
@@ -96,7 +159,7 @@ export function NotificationSettings() {
     setLocalPrefs(updated)
     updateMutation.mutate(updated, {
       onError: () => {
-        if (prefs) setLocalPrefs(prefs)
+        if (prefsResponse) setLocalPrefs(prefsResponse.data)
       },
     })
   }
@@ -124,11 +187,18 @@ export function NotificationSettings() {
         </p>
       </div>
 
-      {updateMutation.isError && (
+      {(updateMutation.isError || bulkEmailMutation.isError) && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
           {t("saveError")}
         </div>
       )}
+
+      <BulkEmailToggle
+        allDisabled={allEmailsDisabled}
+        onToggle={handleBulkEmailToggle}
+        isPending={bulkEmailMutation.isPending}
+        t={t}
+      />
 
       {GROUPS.map((group) => (
         <div
@@ -174,9 +244,9 @@ export function NotificationSettings() {
                     <div className="flex items-center gap-2 sm:w-16 sm:justify-center">
                       <span className="text-xs text-slate-400 sm:hidden">{t("emailChannel")}</span>
                       <Toggle
-                        checked={pref.email}
+                        checked={allEmailsDisabled ? false : pref.email}
                         onChange={() => handleToggle(type, "email")}
-                        disabled={isNewMessage}
+                        disabled={isNewMessage || allEmailsDisabled}
                       />
                     </div>
                   </div>
@@ -187,7 +257,7 @@ export function NotificationSettings() {
         </div>
       ))}
 
-      {updateMutation.isPending && (
+      {(updateMutation.isPending || bulkEmailMutation.isPending) && (
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
           {t("saving")}

@@ -20,12 +20,32 @@ import (
 // queryTimeout constant) and go through parameterized statements. On
 // unique-constraint violations (owner already has an org, duplicate id)
 // the repository returns the appropriate domain sentinel.
+//
+// starterApplicationCredits is the value written into
+// organizations.application_credits when a brand-new org row is
+// inserted. It is injected at construction time from cmd/api/main.go
+// (which sources it from domain/job.WeeklyQuota) so the organization
+// package never has to import the job package — that cross-feature
+// import would break the modular architecture rule.
 type OrganizationRepository struct {
-	db *sql.DB
+	db                        *sql.DB
+	starterApplicationCredits int
 }
 
-func NewOrganizationRepository(db *sql.DB) *OrganizationRepository {
-	return &OrganizationRepository{db: db}
+// NewOrganizationRepository wires the organization repository.
+//
+// starterApplicationCredits must match the job feature's WeeklyQuota
+// (10 at the time of writing). Every new organization is seeded with
+// this many application credits at creation time — reproducing the
+// pre-team-refactor behavior where a per-user row was auto-created
+// with a 10-credit weekly pool on first read. The value is taken as
+// a plain int parameter so this package has zero dependency on the
+// job domain.
+func NewOrganizationRepository(db *sql.DB, starterApplicationCredits int) *OrganizationRepository {
+	return &OrganizationRepository{
+		db:                        db,
+		starterApplicationCredits: starterApplicationCredits,
+	}
 }
 
 const orgColumns = `
@@ -33,6 +53,7 @@ const orgColumns = `
 	stripe_account_id, stripe_account_country, stripe_last_state,
 	kyc_first_earning_at, kyc_restriction_notified_at,
 	pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
+	role_overrides,
 	created_at, updated_at`
 
 // Create inserts a new organization row. Returns ErrOrgAlreadyExists-style
@@ -47,21 +68,35 @@ func (r *OrganizationRepository) Create(ctx context.Context, org *organization.O
 		return fmt.Errorf("marshal kyc notified: %w", err)
 	}
 
+	overridesJSON, err := marshalRoleOverrides(org.RoleOverrides)
+	if err != nil {
+		return fmt.Errorf("marshal role overrides: %w", err)
+	}
+
+	// application_credits is seeded explicitly — the column has a
+	// DEFAULT of 0 in the schema (migration 075) which is safe but
+	// unusable for new orgs: the job feature needs a starter pool of
+	// WeeklyQuota credits on the very first read so a freshly-created
+	// team can immediately apply to jobs without waiting for a refill.
 	query := `
 		INSERT INTO organizations (
 			id, owner_user_id, type, name,
 			stripe_account_id, stripe_account_country, stripe_last_state,
 			kyc_first_earning_at, kyc_restriction_notified_at,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
+			role_overrides,
+			application_credits, credits_last_reset_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
 
 	_, err = r.db.ExecContext(ctx, query,
 		org.ID, org.OwnerUserID, string(org.Type), org.Name,
 		org.StripeAccountID, org.StripeAccountCountry, org.StripeLastState,
 		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
+		overridesJSON,
+		r.starterApplicationCredits, org.CreatedAt,
 		org.CreatedAt, org.UpdatedAt,
 	)
 	if err != nil {
@@ -130,6 +165,11 @@ func (r *OrganizationRepository) Update(ctx context.Context, org *organization.O
 		return fmt.Errorf("marshal kyc notified: %w", err)
 	}
 
+	overridesJSON, err := marshalRoleOverrides(org.RoleOverrides)
+	if err != nil {
+		return fmt.Errorf("marshal role overrides: %w", err)
+	}
+
 	query := `
 		UPDATE organizations
 		SET owner_user_id                 = $2,
@@ -142,7 +182,9 @@ func (r *OrganizationRepository) Update(ctx context.Context, org *organization.O
 		    kyc_restriction_notified_at   = $9,
 		    pending_transfer_to_user_id   = $10,
 		    pending_transfer_initiated_at = $11,
-		    pending_transfer_expires_at   = $12
+		    pending_transfer_expires_at   = $12,
+		    role_overrides                = $13,
+		    updated_at                    = now()
 		WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query,
@@ -150,11 +192,53 @@ func (r *OrganizationRepository) Update(ctx context.Context, org *organization.O
 		org.StripeAccountID, org.StripeAccountCountry, org.StripeLastState,
 		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
+		overridesJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("update organization: %w", err)
 	}
 
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check rows affected: %w", err)
+	}
+	if rows == 0 {
+		return organization.ErrOrgNotFound
+	}
+	return nil
+}
+
+// SaveRoleOverrides persists just the role_overrides column of an
+// organization. Used by the role-permissions editor so a permission
+// save does not have to touch every other column (Stripe state, KYC
+// bookkeeping, pending transfer, …) just to bump one JSON blob.
+//
+// The caller is responsible for passing an already-validated
+// RoleOverrides map — the domain's SetRoleOverride / ReplaceRoleOverrides
+// enforce the non-overridable rules and the app layer applies them
+// before reaching this method.
+func (r *OrganizationRepository) SaveRoleOverrides(
+	ctx context.Context,
+	orgID uuid.UUID,
+	overrides organization.RoleOverrides,
+) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	payload, err := marshalRoleOverrides(overrides)
+	if err != nil {
+		return fmt.Errorf("marshal role overrides: %w", err)
+	}
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE organizations
+		SET role_overrides = $2, updated_at = now()
+		WHERE id = $1`,
+		orgID, payload,
+	)
+	if err != nil {
+		return fmt.Errorf("save role overrides: %w", err)
+	}
 	rows, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("check rows affected: %w", err)
@@ -255,6 +339,10 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 	if err != nil {
 		return fmt.Errorf("marshal kyc notified: %w", err)
 	}
+	overridesJSON, err := marshalRoleOverrides(org.RoleOverrides)
+	if err != nil {
+		return fmt.Errorf("marshal role overrides: %w", err)
+	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -262,19 +350,29 @@ func (r *OrganizationRepository) CreateWithOwnerMembership(
 	}
 	defer tx.Rollback()
 
+	// application_credits is seeded here at org creation time, which
+	// is the only correct place now that credits are org-scoped (R12).
+	// Before the team refactor the seeding happened on first read of a
+	// per-user row; that pathway no longer exists, so a brand-new org
+	// without this explicit seed would be born with 0 credits and the
+	// team could not apply to any job until the weekly refill cron ran.
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO organizations (
 			id, owner_user_id, type, name,
 			stripe_account_id, stripe_account_country, stripe_last_state,
 			kyc_first_earning_at, kyc_restriction_notified_at,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
+			role_overrides,
+			application_credits, credits_last_reset_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
 		org.ID, org.OwnerUserID, string(org.Type), org.Name,
 		org.StripeAccountID, org.StripeAccountCountry, org.StripeLastState,
 		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
+		overridesJSON,
+		r.starterApplicationCredits, org.CreatedAt,
 		org.CreatedAt, org.UpdatedAt,
 	); err != nil {
 		var pqErr *pq.Error
@@ -333,15 +431,17 @@ func (r *OrganizationRepository) scanOne(row *sql.Row) (*organization.Organizati
 
 func (r *OrganizationRepository) scanRow(s orgRowScanner) (*organization.Organization, error) {
 	var (
-		org         organization.Organization
-		orgType     string
-		kycNotified []byte
+		org           organization.Organization
+		orgType       string
+		kycNotified   []byte
+		roleOverrides []byte
 	)
 	err := s.Scan(
 		&org.ID, &org.OwnerUserID, &orgType, &org.Name,
 		&org.StripeAccountID, &org.StripeAccountCountry, &org.StripeLastState,
 		&org.KYCFirstEarningAt, &kycNotified,
 		&org.PendingTransferToUserID, &org.PendingTransferInitiatedAt, &org.PendingTransferExpiresAt,
+		&roleOverrides,
 		&org.CreatedAt, &org.UpdatedAt,
 	)
 	if err != nil {
@@ -349,7 +449,57 @@ func (r *OrganizationRepository) scanRow(s orgRowScanner) (*organization.Organiz
 	}
 	org.Type = organization.OrgType(orgType)
 	org.KYCRestrictionNotifiedAt = unmarshalKYCNotified(kycNotified)
+	org.RoleOverrides = unmarshalRoleOverrides(roleOverrides)
 	return &org, nil
+}
+
+// marshalRoleOverrides serializes the RoleOverrides map into the
+// string-keyed JSON shape stored in the role_overrides JSONB column.
+// Nil and empty inputs both produce `{}` so the NOT NULL DEFAULT
+// on the column is honored.
+func marshalRoleOverrides(overrides organization.RoleOverrides) ([]byte, error) {
+	if len(overrides) == 0 {
+		return []byte(`{}`), nil
+	}
+	// Convert typed keys to strings for JSON serialization. We cannot
+	// rely on json.Marshal of map[Role]map[Permission]bool because Go
+	// does not know these are string-typed aliases of strings at
+	// encoding time — explicit conversion keeps the JSON shape stable.
+	out := make(map[string]map[string]bool, len(overrides))
+	for role, perms := range overrides {
+		inner := make(map[string]bool, len(perms))
+		for p, v := range perms {
+			inner[string(p)] = v
+		}
+		out[string(role)] = inner
+	}
+	return json.Marshal(out)
+}
+
+// unmarshalRoleOverrides is the inverse of marshalRoleOverrides.
+// A nil or empty byte slice returns an empty (non-nil) overrides map
+// so downstream code never has to check for nil.
+func unmarshalRoleOverrides(data []byte) organization.RoleOverrides {
+	out := organization.RoleOverrides{}
+	if len(data) == 0 {
+		return out
+	}
+	raw := map[string]map[string]bool{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		// A malformed JSON payload is treated as empty rather than
+		// propagating an error — overrides are customization data,
+		// not load-bearing state. The defaults kick in automatically.
+		return out
+	}
+	for roleKey, perms := range raw {
+		role := organization.Role(roleKey)
+		inner := make(map[organization.Permission]bool, len(perms))
+		for permKey, v := range perms {
+			inner[organization.Permission(permKey)] = v
+		}
+		out[role] = inner
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------

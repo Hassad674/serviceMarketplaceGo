@@ -278,6 +278,9 @@ func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) e
 func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
 	return nil
 }
+func (m *mockEmailService) SendRolePermissionsChanged(_ context.Context, _ service.RolePermissionsChangedEmailInput) error {
+	return nil
+}
 
 // --- mockProfileRepo ---
 
@@ -484,6 +487,11 @@ func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, e
 	return 0, nil
 }
 
+// --- Email notifications enabled (migration 076) ---
+func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}
+
 // --- mockOrgRepo ---
 //
 // Shared minimal stub of repository.OrganizationRepository for handler
@@ -546,5 +554,8 @@ func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) 
 	return nil
 }
 func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
+	return nil
+}
+func (m *mockOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
 	return nil
 }

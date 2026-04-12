@@ -23,6 +23,8 @@ class MessageInputBar extends StatefulWidget {
     this.replyToName,
     this.replyToContent,
     this.onCancelReply,
+    this.sendDisabled = false,
+    this.disabledHint,
   });
 
   final TextEditingController controller;
@@ -37,6 +39,13 @@ class MessageInputBar extends StatefulWidget {
   final String? replyToName;
   final String? replyToContent;
   final VoidCallback? onCancelReply;
+
+  /// When true, the input field and send/mic buttons are disabled.
+  /// Used to enforce org role permission gating on messaging.send.
+  final bool sendDisabled;
+
+  /// Placeholder text shown when [sendDisabled] is true.
+  final String? disabledHint;
 
   @override
   State<MessageInputBar> createState() => _MessageInputBarState();
@@ -357,6 +366,8 @@ class _MessageInputBarState extends State<MessageInputBar>
     AppColors? appColors,
     AppLocalizations l10n,
   ) {
+    final disabled = widget.sendDisabled;
+
     return Row(
       children: [
         // Attachment
@@ -364,13 +375,16 @@ class _MessageInputBarState extends State<MessageInputBar>
           icon: Icon(
             Icons.attach_file,
             size: 20,
-            color: appColors?.mutedForeground,
+            color: disabled
+                ? (appColors?.mutedForeground ?? const Color(0xFF94A3B8))
+                    .withValues(alpha: 0.4)
+                : appColors?.mutedForeground,
           ),
-          onPressed: widget.onAttach,
+          onPressed: disabled ? null : widget.onAttach,
         ),
 
         // Proposal
-        if (widget.onProposal != null)
+        if (widget.onProposal != null && !disabled)
           IconButton(
             icon: Icon(
               Icons.description_outlined,
@@ -386,9 +400,12 @@ class _MessageInputBarState extends State<MessageInputBar>
           child: TextField(
             controller: widget.controller,
             textInputAction: TextInputAction.send,
-            onSubmitted: (_) => widget.onSend(),
+            enabled: !disabled,
+            onSubmitted: disabled ? null : (_) => widget.onSend(),
             decoration: InputDecoration(
-              hintText: l10n.messagingWriteMessage,
+              hintText: disabled
+                  ? (widget.disabledHint ?? l10n.permissionDeniedSend)
+                  : l10n.messagingWriteMessage,
               filled: true,
               fillColor: appColors?.muted ?? const Color(0xFFF1F5F9),
               contentPadding: const EdgeInsets.symmetric(
@@ -400,6 +417,10 @@ class _MessageInputBarState extends State<MessageInputBar>
                 borderSide: BorderSide.none,
               ),
               enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(24),
+                borderSide: BorderSide.none,
+              ),
+              disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(24),
                 borderSide: BorderSide.none,
               ),
@@ -417,8 +438,28 @@ class _MessageInputBarState extends State<MessageInputBar>
         const SizedBox(width: 8),
 
         // Primary action button: mic when empty, send when has text
-        _buildPrimaryButton(appColors, l10n),
+        if (disabled)
+          _buildDisabledButton(appColors)
+        else
+          _buildPrimaryButton(appColors, l10n),
       ],
+    );
+  }
+
+  Widget _buildDisabledButton(AppColors? appColors) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: appColors?.muted ?? const Color(0xFFF1F5F9),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        Icons.send,
+        size: 18,
+        color: appColors?.mutedForeground ?? const Color(0xFF94A3B8),
+      ),
     );
   }
 

@@ -17,6 +17,7 @@ func TestHasPermission_Owner(t *testing.T) {
 		PermWalletView, PermWalletWithdraw,
 		PermOrgProfileEdit,
 		PermTeamView, PermTeamInvite, PermTeamManage, PermTeamTransferOwner,
+		PermTeamManageRolePermissions,
 		PermBillingView, PermBillingManage,
 		PermOrgDelete, PermKYCManage,
 		PermReviewsRespond,
@@ -33,11 +34,12 @@ func TestHasPermission_Owner(t *testing.T) {
 // Admins can do almost everything, but NOT these sensitive actions.
 func TestHasPermission_AdminRestrictions(t *testing.T) {
 	forbidden := []Permission{
-		PermWalletWithdraw,    // admins can see balance, not move money
-		PermTeamTransferOwner, // only Owner can initiate a transfer
-		PermBillingManage,     // Owner-only financial responsibility
-		PermOrgDelete,         // Owner-only destructive op
-		PermKYCManage,         // compliance is the Owner's responsibility
+		PermWalletWithdraw,            // admins can see balance, not move money
+		PermTeamTransferOwner,         // only Owner can initiate a transfer
+		PermTeamManageRolePermissions, // editing role permissions is Owner-only
+		PermBillingManage,             // Owner-only financial responsibility
+		PermOrgDelete,                 // Owner-only destructive op
+		PermKYCManage,                 // compliance is the Owner's responsibility
 	}
 	for _, perm := range forbidden {
 		t.Run(string(perm), func(t *testing.T) {
@@ -71,12 +73,13 @@ func TestHasPermission_MemberCapabilities(t *testing.T) {
 	}
 
 	forbidden := []Permission{
-		PermJobsDelete,     // Members can't delete jobs, only Admin/Owner
-		PermWalletWithdraw, // no money out for Members
-		PermTeamInvite,     // can't invite people
-		PermTeamManage,     // can't change others' roles
-		PermOrgProfileEdit, // can't edit the org's public profile
-		PermBillingView,    // billing is restricted
+		PermJobsDelete,                // Members can't delete jobs, only Admin/Owner
+		PermWalletWithdraw,            // no money out for Members
+		PermTeamInvite,                // can't invite people
+		PermTeamManage,                // can't change others' roles
+		PermTeamManageRolePermissions, // Owner-only
+		PermOrgProfileEdit,            // can't edit the org's public profile
+		PermBillingView,               // billing is restricted
 		PermOrgDelete,
 	}
 	for _, perm := range forbidden {
@@ -108,7 +111,7 @@ func TestHasPermission_ViewerIsReadOnly(t *testing.T) {
 		PermMessagingSend,
 		PermWalletWithdraw,
 		PermOrgProfileEdit,
-		PermTeamInvite, PermTeamManage, PermTeamTransferOwner,
+		PermTeamInvite, PermTeamManage, PermTeamTransferOwner, PermTeamManageRolePermissions,
 		PermBillingView, PermBillingManage,
 		PermOrgDelete, PermKYCManage,
 		PermReviewsRespond,

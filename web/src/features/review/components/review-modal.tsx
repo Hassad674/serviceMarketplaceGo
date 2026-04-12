@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react"
 import { X, Loader2, Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useCreateReview, useUploadReviewVideo } from "../hooks/use-reviews"
 import { StarRating } from "./star-rating"
 
@@ -24,6 +25,7 @@ export function ReviewModal({
   onClose,
 }: ReviewModalProps) {
   const t = useTranslations("review")
+  const canReview = useHasPermission("reviews.respond")
   const [globalRating, setGlobalRating] = useState(0)
   const [timeliness, setTimeliness] = useState(0)
   const [communication, setCommunication] = useState(0)
@@ -94,7 +96,7 @@ export function ReviewModal({
     quality, comment, videoUrl, titleVisible, submitReview, resetForm, onClose,
   ])
 
-  if (!isOpen) return null
+  if (!isOpen || !canReview) return null
 
   const isBusy = isPending || isUploading
 

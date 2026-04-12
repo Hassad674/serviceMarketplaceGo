@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronDown, Paperclip, FileText, Send, Loader2, Mic, Squa
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { MessageArea } from "@/features/messaging/components/message-area"
 import { FileUploadModal } from "@/features/messaging/components/file-upload-modal"
 import { useVoiceRecorder } from "@/features/messaging/hooks/use-voice-recorder"
@@ -65,6 +66,7 @@ export function ChatWidgetChatView({
   onClose,
 }: ChatWidgetChatViewProps) {
   const t = useTranslations("messaging")
+  const canSendMessage = useHasPermission("messaging.send")
 
   if (!conversation && !pendingRecipient) {
     return (
@@ -106,15 +108,19 @@ export function ChatWidgetChatView({
       </div>
 
       {/* Full-featured input with file + proposal + voice buttons */}
-      <WidgetMessageInput
-        conversationId={conversationId}
-        otherUserId={conversation?.other_user_id ?? ""}
-        onSend={onSend}
-        onSendFile={onSendFile}
-        onSendVoice={onSendVoice}
-        onTyping={onTyping}
-        isSending={isSending}
-      />
+      {canSendMessage ? (
+        <WidgetMessageInput
+          conversationId={conversationId}
+          otherUserId={conversation?.other_user_id ?? ""}
+          onSend={onSend}
+          onSendFile={onSendFile}
+          onSendVoice={onSendVoice}
+          onTyping={onTyping}
+          isSending={isSending}
+        />
+      ) : (
+        <WidgetNoSendPermissionBar />
+      )}
     </div>
   )
 }
@@ -519,5 +525,15 @@ function WidgetPrimaryAction({
     >
       <Send className="h-4 w-4" strokeWidth={1.5} />
     </button>
+  )
+}
+
+/** Shown in place of the message input when the user lacks messaging.send permission. */
+function WidgetNoSendPermissionBar() {
+  const t = useTranslations("permissions")
+  return (
+    <div className="flex items-center justify-center border-t border-gray-100 bg-gray-50 px-3 py-3 dark:border-gray-800 dark:bg-gray-800/50">
+      <p className="text-xs text-gray-400 dark:text-gray-500">{t("noMessagingSend")}</p>
+    </div>
   )
 }

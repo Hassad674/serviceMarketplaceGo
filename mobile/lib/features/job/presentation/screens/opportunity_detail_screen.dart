@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
@@ -17,6 +18,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hasApplied = ref.watch(hasAppliedProvider(jobId));
     final credits = ref.watch(creditsProvider);
+    final canApply = ref.watch(hasPermissionProvider(OrgPermission.proposalsCreate));
     final l10n = AppLocalizations.of(context)!;
 
     return FutureBuilder<JobEntity>(
@@ -32,7 +34,7 @@ class OpportunityDetailScreen extends ConsumerWidget {
         final alreadyApplied = hasApplied.valueOrNull ?? false;
         final creditCount = credits.valueOrNull ?? 0;
         final noCredits = !credits.isLoading && creditCount == 0;
-        final isDisabled = alreadyApplied || noCredits;
+        final isDisabled = alreadyApplied || noCredits || !canApply;
 
         return Scaffold(
           appBar: AppBar(
@@ -154,7 +156,16 @@ class OpportunityDetailScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (noCredits && !alreadyApplied) ...[
+                  if (!canApply && !alreadyApplied) ...[
+                    Text(
+                      l10n.permissionDenied,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFFEF4444),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                  ] else if (noCredits && !alreadyApplied) ...[
                     Text(
                       l10n.noCreditsCannotApply,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(

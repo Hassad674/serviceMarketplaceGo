@@ -10,12 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	anthropicadapter "marketplace-backend/internal/adapter/anthropic"
+	comprehendadapter "marketplace-backend/internal/adapter/comprehend"
 	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/noop"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
-	comprehendadapter "marketplace-backend/internal/adapter/comprehend"
 	rekognitionadapter "marketplace-backend/internal/adapter/rekognition"
 	resendadapter "marketplace-backend/internal/adapter/resend"
 	s3adapter "marketplace-backend/internal/adapter/s3"
@@ -23,14 +24,13 @@ import (
 	sqsadapter "marketplace-backend/internal/adapter/sqs"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
 	"marketplace-backend/internal/adapter/ws"
-	anthropicadapter "marketplace-backend/internal/adapter/anthropic"
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	disputeapp "marketplace-backend/internal/app/dispute"
 	embeddedapp "marketplace-backend/internal/app/embedded"
-	kycapp "marketplace-backend/internal/app/kyc"
 	jobapp "marketplace-backend/internal/app/job"
+	kycapp "marketplace-backend/internal/app/kyc"
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	notifapp "marketplace-backend/internal/app/notification"
@@ -43,6 +43,7 @@ import (
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
+	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/pkg/crypto"
@@ -82,9 +83,15 @@ func main() {
 	userRepo := postgres.NewUserRepository(db)
 	profileRepo := postgres.NewProfileRepository(db)
 	resetRepo := postgres.NewPasswordResetRepository(db)
-	organizationRepo := postgres.NewOrganizationRepository(db)
+	// The organization repository seeds every new org with
+	// jobdomain.WeeklyQuota application credits at creation time. The
+	// starter value flows through main.go (this file) so the
+	// organization package stays free of any cross-feature import —
+	// hexagonal wiring, not modular coupling.
+	organizationRepo := postgres.NewOrganizationRepository(db, jobdomain.WeeklyQuota)
 	organizationMemberRepo := postgres.NewOrganizationMemberRepository(db)
 	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
+	auditRepo := postgres.NewAuditRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
 	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey, cfg.ResendDevRedirectTo)
@@ -179,7 +186,12 @@ func main() {
 	jobRepo := postgres.NewJobRepository(db)
 	jobAppRepo := postgres.NewJobApplicationRepository(db)
 	jobViewRepo := postgres.NewJobViewRepository(db)
-	jobCreditRepo := postgres.NewJobCreditRepository(db)
+	// The credit repository drives a lazy weekly refill from its
+	// GetOrCreate method — every read on an org whose pool has aged
+	// past RefillPeriod floor-bumps the balance back up to WeeklyQuota
+	// atomically. No cron, no background worker, self-healing after
+	// downtime.
+	jobCreditRepo := postgres.NewJobCreditRepository(db, jobdomain.WeeklyQuota, jobdomain.RefillPeriod)
 	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
 		Jobs:          jobRepo,
 		Applications:  jobAppRepo,
@@ -318,6 +330,20 @@ func main() {
 		Members:       organizationMemberRepo,
 		Users:         userRepo,
 		Notifications: notifSvc,
+	})
+
+	// Role permissions editor (R17 — per-org customization). Uses a
+	// dedicated Redis-backed rate limiter so the audit tail and the
+	// Owner email notification stay independent from the rest of the
+	// invitation rate limit.
+	rolePermsRateLimiter := redisadapter.NewRolePermissionsRateLimiter(redisClient)
+	roleOverridesSvc := organizationapp.NewRoleOverridesService(organizationapp.RoleOverridesServiceDeps{
+		Orgs:        organizationRepo,
+		Members:     organizationMemberRepo,
+		Users:       userRepo,
+		Audits:      auditRepo,
+		Email:       emailSvc,
+		RateLimiter: rolePermsRateLimiter,
 	})
 
 	// KYC enforcement scheduler — sends reminders at day 0/3/7/14 for
@@ -513,7 +539,15 @@ func main() {
 		SessionService:    sessionSvc,
 		Cookie:            cookieCfg,
 	})
-	teamHandler := handler.NewTeamHandler(membershipSvc, organizationSvc, userRepo)
+	teamHandler := handler.NewTeamHandler(handler.TeamHandlerDeps{
+		Membership:     membershipSvc,
+		OrgService:     organizationSvc,
+		UserBatch:      userRepo,
+		SessionService: sessionSvc,
+		Cookie:         cookieCfg,
+		Users:          userRepo,
+	})
+	roleOverridesHandler := handler.NewRoleOverridesHandler(roleOverridesSvc)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
@@ -602,6 +636,7 @@ func main() {
 		Auth:           authHandler,
 		Invitation:     invitationHandler,
 		Team:           teamHandler,
+		RoleOverrides:  roleOverridesHandler,
 		Profile:        profileHandler,
 		Upload:         uploadHandler,
 		Health:         healthHandler,

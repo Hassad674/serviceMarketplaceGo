@@ -1690,4 +1690,20 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get projectStatusDisputed => 'En litige';
+
+  @override
+  String get permissionDenied =>
+      'Vous n\'avez pas la permission d\'effectuer cette action';
+
+  @override
+  String get permissionDeniedSend =>
+      'Vous n\'avez pas la permission d\'envoyer des messages';
+
+  @override
+  String get permissionDeniedWithdraw =>
+      'Vous n\'avez pas la permission de demander un retrait';
+
+  @override
+  String get permissionDeniedEdit =>
+      'Vous n\'avez pas la permission de modifier cette ressource';
 }

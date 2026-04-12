@@ -67,6 +67,9 @@ func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) 
 func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
 	return nil
 }
+func (m *mockOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
+	return nil
+}
 
 var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 
@@ -383,4 +386,7 @@ func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, 
 }
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
+}
+func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
 }

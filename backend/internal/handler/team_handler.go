@@ -14,6 +14,7 @@ import (
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 	"marketplace-backend/pkg/validator"
 	res "marketplace-backend/pkg/response"
 )
@@ -27,21 +28,40 @@ import (
 // first/last, email) without an N+1 loop. The dependency is optional —
 // if it is nil the handler degrades to "no identity fields" rather
 // than failing the request, so older wirings keep working.
+//
+// sessionSvc, cookie, and users are required for the AcceptTransfer
+// endpoint, which refreshes the accepter's session inline so the user
+// stays logged in after the ownership transfer bumps session_version.
 type TeamHandler struct {
 	membership *orgapp.MembershipService
 	orgService *orgapp.Service
 	userBatch  repository.UserBatchReader
+	sessionSvc service.SessionService
+	cookie     *CookieConfig
+	users      repository.UserRepository
 }
 
-func NewTeamHandler(
-	membership *orgapp.MembershipService,
-	orgService *orgapp.Service,
-	userBatch repository.UserBatchReader,
-) *TeamHandler {
+// TeamHandlerDeps groups constructor params for TeamHandler. The
+// handler needs 6 dependencies (membership, org service, user batch
+// reader, session service, cookie config, user repo) which exceeds
+// the project's 4-parameter limit for plain function signatures.
+type TeamHandlerDeps struct {
+	Membership     *orgapp.MembershipService
+	OrgService     *orgapp.Service
+	UserBatch      repository.UserBatchReader
+	SessionService service.SessionService
+	Cookie         *CookieConfig
+	Users          repository.UserRepository
+}
+
+func NewTeamHandler(deps TeamHandlerDeps) *TeamHandler {
 	return &TeamHandler{
-		membership: membership,
-		orgService: orgService,
-		userBatch:  userBatch,
+		membership: deps.Membership,
+		orgService: deps.OrgService,
+		userBatch:  deps.UserBatch,
+		sessionSvc: deps.SessionService,
+		cookie:     deps.Cookie,
+		users:      deps.Users,
 	}
 }
 
@@ -263,15 +283,119 @@ func (h *TeamHandler) CancelTransfer(w http.ResponseWriter, r *http.Request) {
 
 // AcceptTransfer handles POST /api/v1/organizations/{orgID}/transfer/accept.
 // The proposed new owner confirms.
+//
+// After the service call succeeds, the handler refreshes the accepter's
+// session inline in the HTTP response so the user stays logged in
+// seamlessly. AcceptTransferOwnership bumps session_version for both
+// the old and new owner; without this refresh, the accepter would get a
+// 401 on the very next request (their old session's version is stale).
+//
+// Mobile clients (X-Auth-Mode: token) handle token refresh through
+// their own refresh-token flow, so they still receive the plain
+// transfer response.
 func (h *TeamHandler) AcceptTransfer(w http.ResponseWriter, r *http.Request) {
 	actorID, orgID, ok := h.authContext(w, r)
 	if !ok {
 		return
 	}
-	org, err := h.membership.AcceptTransferOwnership(r.Context(), actorID, orgID)
-	if err != nil {
+	if _, err := h.membership.AcceptTransferOwnership(r.Context(), actorID, orgID); err != nil {
 		h.handleTeamError(w, err)
 		return
+	}
+
+	// Mobile path: return the transfer response and let the client
+	// handle token refresh via the standard refresh-token flow.
+	if r.Header.Get("X-Auth-Mode") == "token" {
+		h.sendTransferResponseFallback(w, r, actorID, orgID)
+		return
+	}
+
+	// Web path: refresh the session inline so the user stays logged in.
+	h.refreshSessionAfterTransfer(w, r, actorID)
+}
+
+// refreshSessionAfterTransfer deletes the accepter's stale session,
+// creates a fresh one with the updated SessionVersion and org context,
+// sets the new cookie, and returns a /me-style response so the
+// frontend cache stays in sync.
+func (h *TeamHandler) refreshSessionAfterTransfer(
+	w http.ResponseWriter,
+	r *http.Request,
+	actorID uuid.UUID,
+) {
+	// 1. Delete the old (now-stale) session.
+	if cookie, err := r.Cookie("session_id"); err == nil {
+		_ = h.sessionSvc.Delete(r.Context(), cookie.Value)
+	}
+
+	// 2. Fetch the fresh user row (carries updated SessionVersion).
+	freshUser, err := h.users.GetByID(r.Context(), actorID)
+	if err != nil {
+		slog.Error("accept transfer: failed to fetch fresh user", "user_id", actorID, "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to refresh session")
+		return
+	}
+
+	// 3. Resolve the fresh org context (role is now Owner).
+	var orgCtx *orgapp.Context
+	if h.orgService != nil {
+		resolved, resolveErr := h.orgService.ResolveContext(r.Context(), actorID)
+		if resolveErr != nil {
+			slog.Warn("accept transfer: failed to resolve org context", "user_id", actorID, "error", resolveErr)
+		} else {
+			orgCtx = resolved
+		}
+	}
+
+	// 4. Build session input — include the resolved effective
+	// permission set so the new session honors any per-org role
+	// overrides the accepter inherits as the new Owner.
+	input := service.CreateSessionInput{
+		UserID:         freshUser.ID,
+		Role:           freshUser.Role.String(),
+		IsAdmin:        freshUser.IsAdmin,
+		Permissions:    permissionKeysFromOrgContext(orgCtx),
+		SessionVersion: freshUser.SessionVersion,
+	}
+	if orgCtx != nil && orgCtx.Organization != nil && orgCtx.Member != nil {
+		orgID := orgCtx.Organization.ID
+		input.OrganizationID = &orgID
+		input.OrgRole = orgCtx.Member.Role.String()
+	}
+
+	// 5. Create the new session.
+	session, err := h.sessionSvc.Create(r.Context(), input)
+	if err != nil {
+		slog.Error("accept transfer: failed to create session", "user_id", actorID, "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to refresh session")
+		return
+	}
+
+	// 6. Set the new cookie and return /me-style response.
+	h.cookie.SetSession(w, session.ID, freshUser.Role.String())
+	res.JSON(w, http.StatusOK, response.NewMeResponse(freshUser, orgCtx))
+}
+
+// sendTransferResponseFallback resolves the org and returns the plain
+// transfer response for mobile clients that handle token refresh
+// independently.
+func (h *TeamHandler) sendTransferResponseFallback(
+	w http.ResponseWriter,
+	r *http.Request,
+	actorID uuid.UUID,
+	orgID uuid.UUID,
+) {
+	var orgCtx *orgapp.Context
+	if h.orgService != nil {
+		resolved, _ := h.orgService.ResolveContext(r.Context(), actorID)
+		orgCtx = resolved
+	}
+	var org *organization.Organization
+	if orgCtx != nil {
+		org = orgCtx.Organization
+	}
+	if org == nil {
+		org = &organization.Organization{ID: orgID, OwnerUserID: actorID}
 	}
 	res.JSON(w, http.StatusOK, response.NewTransferResponse(org))
 }

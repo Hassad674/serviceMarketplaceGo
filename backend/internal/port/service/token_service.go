@@ -21,6 +21,13 @@ type AccessTokenInput struct {
 	OrganizationID *uuid.UUID
 	OrgRole        string
 
+	// Permissions is the resolved effective permission set (static
+	// defaults + per-org overrides) captured at token issuance time.
+	// Embedded in the JWT so mobile clients and the RequirePermission
+	// middleware see the same customized set the session cookie carries
+	// for web clients. Empty when the user has no org.
+	Permissions []string
+
 	// SessionVersion is copied from user.session_version at issuance
 	// time. The auth middleware compares this against the current value
 	// on every request — a mismatch means the user's effective
@@ -41,6 +48,12 @@ type TokenClaims struct {
 	// Organization context — nil / empty for solo users (Providers).
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// Permissions is the list of effective permission keys embedded in
+	// the token at issuance. Mirrors the session cookie semantics so
+	// web and mobile clients behave identically against the
+	// RequirePermission middleware.
+	Permissions []string
 
 	// SessionVersion from the decoded access token. Auth middleware
 	// compares this against the current users.session_version and

@@ -68,8 +68,115 @@ type Organization struct {
 	PendingTransferInitiatedAt *time.Time
 	PendingTransferExpiresAt   *time.Time
 
+	// RoleOverrides is the per-organization customization of role
+	// permissions on top of the static rolePermissions defaults. Owner
+	// is never present here (Owner always has everything). Nil / empty
+	// means "no customization — use defaults".
+	//
+	// Persisted as a JSONB column on the organizations table. See
+	// migration 077_org_role_overrides.
+	RoleOverrides RoleOverrides
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// SetRoleOverride sets (or clears) a single permission override for a
+// role on this organization. Enforces the domain-level invariants that
+// protect the permission model:
+//
+//   - The Owner role is never customized.
+//   - Non-overridable permissions are never customized.
+//   - Unknown roles and unknown permissions are rejected.
+//
+// To revert a permission to its default, pass granted=true and later
+// remove the key via ClearRoleOverride — this method always stores an
+// explicit grant/revoke.
+//
+// Callers that want to apply several overrides at once should batch
+// them into a RoleOverrides map and pass it through ReplaceRoleOverrides
+// so persistence happens in one write.
+func (o *Organization) SetRoleOverride(role Role, perm Permission, granted bool) error {
+	if role == RoleOwner {
+		return ErrCannotOverrideOwner
+	}
+	if !role.IsValid() {
+		return ErrInvalidRole
+	}
+	if _, known := permissionMetadataByKey[perm]; !known {
+		return ErrUnknownPermission
+	}
+	if nonOverridablePermissions[perm] {
+		return ErrPermissionNotOverridable
+	}
+	if o.RoleOverrides == nil {
+		o.RoleOverrides = RoleOverrides{}
+	}
+	inner, ok := o.RoleOverrides[role]
+	if !ok {
+		inner = map[Permission]bool{}
+		o.RoleOverrides[role] = inner
+	}
+	inner[perm] = granted
+	o.UpdatedAt = time.Now()
+	return nil
+}
+
+// ClearRoleOverride removes a single override from the organization,
+// reverting that (role, perm) cell to its static default.
+func (o *Organization) ClearRoleOverride(role Role, perm Permission) error {
+	if role == RoleOwner {
+		return ErrCannotOverrideOwner
+	}
+	if o.RoleOverrides == nil {
+		return nil
+	}
+	inner, ok := o.RoleOverrides[role]
+	if !ok {
+		return nil
+	}
+	delete(inner, perm)
+	if len(inner) == 0 {
+		delete(o.RoleOverrides, role)
+	}
+	o.UpdatedAt = time.Now()
+	return nil
+}
+
+// ReplaceRoleOverrides atomically replaces the overrides for a single
+// role. Used by the role-permissions editor when the Owner saves the
+// full matrix for one role at once — any cells the Owner did not
+// override are removed (reverted to defaults) automatically.
+//
+// Validates the payload via ValidateRoleOverrides on a temporary map
+// containing just the target role, so the existing validation logic
+// catches any illegal combinations.
+func (o *Organization) ReplaceRoleOverrides(role Role, perms map[Permission]bool) error {
+	if role == RoleOwner {
+		return ErrCannotOverrideOwner
+	}
+	if !role.IsValid() {
+		return ErrInvalidRole
+	}
+	// Build a scratch RoleOverrides so ValidateRoleOverrides can check
+	// every key in one pass.
+	clone := make(map[Permission]bool, len(perms))
+	for p, v := range perms {
+		clone[p] = v
+	}
+	if err := ValidateRoleOverrides(RoleOverrides{role: clone}); err != nil {
+		return err
+	}
+	if o.RoleOverrides == nil {
+		o.RoleOverrides = RoleOverrides{}
+	}
+	if len(clone) == 0 {
+		delete(o.RoleOverrides, role)
+	} else {
+		o.RoleOverrides[role] = clone
+	}
+	o.UpdatedAt = time.Now()
+	return nil
 }
 
 // HasKYCCompleted returns true when a Stripe account exists for the org.

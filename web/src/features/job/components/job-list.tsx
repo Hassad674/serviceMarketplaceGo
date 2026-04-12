@@ -5,6 +5,7 @@ import { Briefcase, Plus, Clock, Users, MoreVertical, Trash2, XCircle, Pencil, R
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useMyJobs, useCloseJob, useReopenJob, useDeleteJob } from "../hooks/use-jobs"
 import type { JobWithCountsResponse } from "../types"
 
@@ -14,44 +15,71 @@ export function JobList() {
   const closeJob = useCloseJob()
   const reopenJob = useReopenJob()
   const deleteJob = useDeleteJob()
+  const canCreate = useHasPermission("jobs.create")
+  const canEdit = useHasPermission("jobs.edit")
+  const canDelete = useHasPermission("jobs.delete")
 
-  if (isLoading) return <JobListSkeleton />
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeader canCreate={canCreate} />
+        <JobListSkeleton />
+      </div>
+    )
+  }
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-sm text-red-700 dark:text-red-300">
-        {t("errorLoading")}
+      <div className="space-y-6">
+        <PageHeader canCreate={canCreate} />
+        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-sm text-red-700 dark:text-red-300">
+          {t("errorLoading")}
+        </div>
       </div>
     )
   }
 
   const jobs = data?.data ?? []
-  if (jobs.length === 0) return <EmptyState />
+  if (jobs.length === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader canCreate={canCreate} />
+        <EmptyState canCreate={canCreate} />
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-3">
-      {jobs.map((job) => (
-        <JobCard
-          key={job.id}
-          job={job}
-          onClose={(id) => closeJob.mutate(id)}
-          onReopen={(id) => reopenJob.mutate(id)}
-          onDelete={(id) => { if (confirm(t("deleteConfirmJob"))) deleteJob.mutate(id) }}
-          isActing={closeJob.isPending || reopenJob.isPending || deleteJob.isPending}
-        />
-      ))}
+    <div className="space-y-6">
+      <PageHeader canCreate={canCreate} />
+      <div className="space-y-3">
+        {jobs.map((job) => (
+          <JobCard
+            key={job.id}
+            job={job}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            onClose={(id) => closeJob.mutate(id)}
+            onReopen={(id) => reopenJob.mutate(id)}
+            onDelete={(id) => { if (confirm(t("deleteConfirmJob"))) deleteJob.mutate(id) }}
+            isActing={closeJob.isPending || reopenJob.isPending || deleteJob.isPending}
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
 type JobCardProps = {
   job: JobWithCountsResponse
+  canEdit: boolean
+  canDelete: boolean
   onClose: (id: string) => void
   onReopen: (id: string) => void
   onDelete: (id: string) => void
   isActing: boolean
 }
 
-function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
+function JobCard({ job, canEdit, canDelete, onClose, onReopen, onDelete, isActing }: JobCardProps) {
   const t = useTranslations("job")
   const router = useRouter()
   const isOpen = job.status === "open"
@@ -107,7 +135,8 @@ function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
             {isOpen ? t("statusOpen") : t("statusClosed")}
           </span>
 
-          {/* 3-dot menu */}
+          {/* 3-dot menu — hidden when the user has neither edit nor delete permission */}
+          {(canEdit || canDelete) && (
           <div className="relative" ref={menuRef}>
             <button
               type="button"
@@ -121,6 +150,7 @@ function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
                 className="absolute right-0 top-full mt-1 z-10 w-44 rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800 py-1"
                 onClick={(e) => e.stopPropagation()}
               >
+                {canEdit && (
                 <button
                   type="button"
                   onClick={() => { setMenuOpen(false); router.push(`/jobs/${job.id}/edit`) }}
@@ -129,7 +159,8 @@ function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
                   <Pencil className="h-4 w-4" />
                   {t("editJob")}
                 </button>
-                {isOpen ? (
+                )}
+                {canEdit && (isOpen ? (
                   <button
                     type="button"
                     onClick={() => { setMenuOpen(false); onClose(job.id) }}
@@ -149,7 +180,8 @@ function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
                     <RotateCcw className="h-4 w-4" />
                     {t("reopenJob")}
                   </button>
-                )}
+                ))}
+                {canDelete && (
                 <button
                   type="button"
                   onClick={() => { setMenuOpen(false); onDelete(job.id) }}
@@ -159,9 +191,11 @@ function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
                   <Trash2 className="h-4 w-4" />
                   {t("deleteJob")}
                 </button>
+                )}
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -189,19 +223,41 @@ function JobCard({ job, onClose, onReopen, onDelete, isActing }: JobCardProps) {
   )
 }
 
-function EmptyState() {
+function PageHeader({ canCreate }: { canCreate: boolean }) {
+  const t = useTranslations("job")
+  return (
+    <div className="flex items-center justify-between">
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+        {t("title")}
+      </h1>
+      {canCreate && (
+        <Link
+          href="/jobs/create"
+          className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white gradient-primary transition-all duration-200 hover:shadow-glow active:scale-[0.98]"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2} />
+          {t("createJob")}
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function EmptyState({ canCreate }: { canCreate: boolean }) {
   const t = useTranslations("job")
   return (
     <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-12 text-center">
       <Briefcase className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
       <p className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400">{t("noJobs")}</p>
-      <Link
-        href="/jobs/create"
-        className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white gradient-primary transition-all duration-200 hover:shadow-glow active:scale-[0.98]"
-      >
-        <Plus className="h-4 w-4" strokeWidth={2} />
-        {t("createJob")}
-      </Link>
+      {canCreate && (
+        <Link
+          href="/jobs/create"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white gradient-primary transition-all duration-200 hover:shadow-glow active:scale-[0.98]"
+        >
+          <Plus className="h-4 w-4" strokeWidth={2} />
+          {t("createJob")}
+        </Link>
+      )}
     </div>
   )
 }

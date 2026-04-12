@@ -143,6 +143,31 @@
       "emailInvalid": "Invalid email",
       "inviteFailed": "Could not send the invitation. Check the email and try again.",
       "leaveFailed": "Could not leave the organization."
+    },
+    "rolePermissions": {
+      "title": "Customize role permissions",
+      "subtitle": "Grant or revoke permissions for Admin, Member, and Viewer roles in this organization.",
+      "loadError": "Could not load the permissions matrix.",
+      "noPermissions": "No permissions to display for this role.",
+      "tabsAria": "Role selector",
+      "pendingBadge": "{count, plural, one {# change} other {# changes}} pending",
+      "lockedHint": "This permission is locked and cannot be customized.",
+      "states": {
+        "grantedOverride": "Customized",
+        "revokedOverride": "Revoked",
+        "locked": "Locked"
+      },
+      "discard": "Discard",
+      "save": "Save changes",
+      "cancel": "Cancel",
+      "confirmTitle": "Save changes to {role}",
+      "confirmDescription": "You are about to save {count, plural, one {# change} other {# changes}}. Affected members will be logged out and must sign in again for the new permissions to take effect.",
+      "confirmButton": "Save and log out affected members",
+      "saveSuccessTitle": "Permissions updated",
+      "saveSuccessDescription": "{granted} granted, {revoked} revoked. {affected} sessions invalidated.",
+      "saveErrorTitle": "Could not save changes",
+      "saveErrorGeneric": "An unexpected error occurred. Please try again.",
+      "saveBarAria": "Unsaved changes bar"
     }
   },
   "common": {
@@ -314,6 +339,9 @@
     "password": "Password",
     "notificationPreferences": "Notification Preferences",
     "notificationPreferencesDesc": "Choose how you want to be notified for each event type.",
+    "bulkEmailEnabledLabel": "Email notifications enabled",
+    "bulkEmailDisabledLabel": "All email notifications disabled",
+    "bulkEmailDesc": "Enable or disable all email notifications at once (useful in dev, Resend 100/day limit).",
     "notificationType": "Type",
     "inApp": "In-app",
     "push": "Push",
@@ -1046,5 +1074,21 @@
     "custom": "Custom",
     "setCustomThumbnail": "Upload a custom thumbnail",
     "revertToAuto": "Revert to auto thumbnail"
+  },
+  "permissions": {
+    "noJobCreate": "You do not have permission to create a job",
+    "noJobEdit": "You do not have permission to edit this job",
+    "noJobDelete": "You do not have permission to delete this job",
+    "noProposalCreate": "You do not have permission to apply",
+    "noProposalRespond": "You do not have permission to respond to proposals",
+    "noMessagingSend": "You do not have permission to send messages",
+    "noWalletWithdraw": "Only the owner can request a withdrawal",
+    "noProfileEdit": "You do not have permission to edit the profile",
+    "noReviewRespond": "You do not have permission to leave a review",
+    "noKycManage": "You do not have permission to manage payment information",
+    "restrictedTitle": "Restricted access",
+    "restrictedDescription": "You do not have the required permissions to access this feature. Contact your organization owner to get access.",
+    "permissionDenied": "Permission denied",
+    "noOrganization": "You must belong to an organization to perform this action"
   }
 }

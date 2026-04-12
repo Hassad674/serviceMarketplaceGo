@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { ApplicationWithProfile } from "../types"
@@ -42,6 +43,7 @@ export function CandidateDetailPanel({
   const tReport = useTranslations("reporting")
   const router = useRouter()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
+  const canSendMessage = useHasPermission("messaging.send")
   const isOpen = candidate !== null
   const [showReportDialog, setShowReportDialog] = useState(false)
 
@@ -231,6 +233,7 @@ export function CandidateDetailPanel({
               <User className="h-4 w-4" />
               {t("viewProfile")}
             </Link>
+            {canSendMessage && (
             <button
               type="button"
               onClick={handleSendMessage}
@@ -243,6 +246,7 @@ export function CandidateDetailPanel({
               <Send className="h-4 w-4" />
               {t("sendMessage")}
             </button>
+            )}
           </div>
 
           {/* Application date */}

@@ -228,7 +228,7 @@ func TestService_GetPreferences_MergesDefaults(t *testing.T) {
 	prefs, err := svc.GetPreferences(context.Background(), userID)
 
 	assert.NoError(t, err)
-	assert.Len(t, prefs, 12, "should return preferences for all 12 notification types")
+	assert.Len(t, prefs, len(notif.AllTypes()), "should return preferences for all notification types")
 
 	// Find the new_message preference — it should be the saved one (all false)
 	for _, p := range prefs {
@@ -303,7 +303,7 @@ func TestService_Send_WithEmailChannel(t *testing.T) {
 		},
 		Users: &mockUserRepo{
 			getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
-				return &user.User{ID: id, Email: "user@example.com"}, nil
+				return &user.User{ID: id, Email: "user@example.com", EmailNotificationsEnabled: true}, nil
 			},
 		},
 	})
@@ -450,6 +450,55 @@ func TestService_Send_WithQueue_StillBroadcastsInApp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, broadcasted, "WS broadcast must happen synchronously even with queue")
 	assert.Len(t, q.jobs, 1, "delivery job must be enqueued")
+}
+
+func TestService_SetAllEmailPreferences(t *testing.T) {
+	userID := uuid.New()
+	var called bool
+	var capturedEnabled bool
+
+	svc := NewService(ServiceDeps{
+		Notifications: &mockNotificationRepo{},
+		Presence:      &mockPresenceService{},
+		Broadcaster:   &mockBroadcaster{},
+		Users: &mockUserRepo{
+			updateEmailNotificationsEnabledFn: func(_ context.Context, uid uuid.UUID, enabled bool) error {
+				called = true
+				assert.Equal(t, userID, uid)
+				capturedEnabled = enabled
+				return nil
+			},
+		},
+	})
+
+	// Disable all
+	err := svc.SetAllEmailPreferences(context.Background(), userID, false)
+	assert.NoError(t, err)
+	assert.True(t, called)
+	assert.False(t, capturedEnabled)
+
+	// Enable all
+	called = false
+	err = svc.SetAllEmailPreferences(context.Background(), userID, true)
+	assert.NoError(t, err)
+	assert.True(t, called)
+	assert.True(t, capturedEnabled)
+}
+
+func TestService_SetAllEmailPreferences_Error(t *testing.T) {
+	svc := NewService(ServiceDeps{
+		Notifications: &mockNotificationRepo{},
+		Presence:      &mockPresenceService{},
+		Broadcaster:   &mockBroadcaster{},
+		Users: &mockUserRepo{
+			updateEmailNotificationsEnabledFn: func(_ context.Context, _ uuid.UUID, _ bool) error {
+				return errors.New("db error")
+			},
+		},
+	})
+
+	err := svc.SetAllEmailPreferences(context.Background(), uuid.New(), false)
+	assert.Error(t, err)
 }
 
 func TestService_Send_QueueFallback(t *testing.T) {

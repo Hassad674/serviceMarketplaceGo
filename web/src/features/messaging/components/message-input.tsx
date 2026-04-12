@@ -5,6 +5,7 @@ import { Paperclip, Send, Loader2, FileText, X, Mic, Square, Plus, Trash2 } from
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { getPresignedURL } from "../api/messaging-api"
 import { FileUploadModal } from "@/shared/components/file-upload-modal"
 import { useVoiceRecorder } from "../hooks/use-voice-recorder"
@@ -57,6 +58,7 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations("messaging")
   const router = useRouter()
+  const canPropose = useHasPermission("proposals.create")
   const [value, setValue] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
@@ -278,6 +280,7 @@ export function MessageInput({
                 <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
               )}
             </button>
+            {canPropose && (
             <button
               type="button"
               onClick={handleProposal}
@@ -292,6 +295,7 @@ export function MessageInput({
             >
               <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
             </button>
+            )}
           </div>
 
           {/* Mobile: "+" menu for attach + proposal */}
@@ -329,6 +333,7 @@ export function MessageInput({
                   <Paperclip className="h-4 w-4" strokeWidth={1.5} />
                   {t("fileUpload")}
                 </button>
+                {canPropose && (
                 <button
                   type="button"
                   onClick={handleProposal}
@@ -337,6 +342,7 @@ export function MessageInput({
                   <FileText className="h-4 w-4" strokeWidth={1.5} />
                   {t("propose")}
                 </button>
+                )}
               </div>
             )}
           </div>

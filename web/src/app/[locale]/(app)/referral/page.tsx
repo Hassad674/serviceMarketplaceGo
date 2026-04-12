@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl"
 import { useUser } from "@/shared/hooks/use-user"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadReferrerVideo, useDeleteReferrerVideo } from "@/features/provider/hooks/use-upload"
 import { ProfileAbout } from "@/features/provider/components/profile-about"
@@ -16,6 +17,7 @@ export default function ReferralPage() {
   const photoUpload = useUploadPhoto()
   const referrerVideoUpload = useUploadReferrerVideo()
   const referrerVideoDelete = useDeleteReferrerVideo()
+  const canEditProfile = useHasPermission("org_profile.edit")
   const t = useTranslations("profile")
 
   // Referral page is only meaningful for providers
@@ -51,28 +53,31 @@ export default function ReferralPage() {
         profile={profile}
         displayName={displayName}
         roleContext="referrer"
-        onUpdateTitle={(title) => updateProfile.mutate({ title })}
-        onUploadPhoto={async (file) => { await photoUpload.mutateAsync(file) }}
+        onUpdateTitle={canEditProfile ? (title) => updateProfile.mutate({ title }) : undefined}
+        onUploadPhoto={canEditProfile ? async (file) => { await photoUpload.mutateAsync(file) } : undefined}
         uploadingPhoto={photoUpload.isPending}
+        readOnly={!canEditProfile}
       />
       <ProfileVideo
         videoUrl={profile?.referrer_video_url}
         title={t("videoTitleReferrer")}
         emptyLabel={t("noVideoReferrer")}
         emptyDescription={t("addVideoDescReferrer")}
-        onUploadVideo={async (file) => { await referrerVideoUpload.mutateAsync(file) }}
+        onUploadVideo={canEditProfile ? async (file) => { await referrerVideoUpload.mutateAsync(file) } : undefined}
         uploadingVideo={referrerVideoUpload.isPending}
-        onDeleteVideo={() => referrerVideoDelete.mutate()}
+        onDeleteVideo={canEditProfile ? () => referrerVideoDelete.mutate() : undefined}
         deletingVideo={referrerVideoDelete.isPending}
+        readOnly={!canEditProfile}
       />
       <ProfileAbout
         content={profile?.referrer_about || ""}
-        onSave={async (text) => {
+        onSave={canEditProfile ? async (text) => {
           await updateProfile.mutateAsync({ referrer_about: text })
-        }}
+        } : undefined}
         saving={updateProfile.isPending}
         label={t("aboutReferrer")}
         placeholder={t("aboutReferrerPlaceholder")}
+        readOnly={!canEditProfile}
       />
     </div>
   )

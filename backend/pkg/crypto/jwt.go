@@ -44,6 +44,13 @@ type customClaims struct {
 	OrgID   string `json:"org_id,omitempty"`
 	OrgRole string `json:"org_role,omitempty"`
 
+	// Permissions is the effective permission set for this user's org
+	// membership, resolved at issuance with the org's role overrides
+	// applied. The auth middleware writes this into request context so
+	// RequirePermission honors per-org customizations without querying
+	// the database on the hot path.
+	Permissions []string `json:"perms,omitempty"`
+
 	// SessionVersion is the revocation anchor. Middleware compares this
 	// against users.session_version and rejects on mismatch.
 	SessionVersion int `json:"sv,omitempty"`
@@ -58,6 +65,7 @@ func (s *JWTService) GenerateAccessToken(input service.AccessTokenInput) (string
 		IsAdmin:        input.IsAdmin,
 		Type:           "access",
 		OrgRole:        input.OrgRole,
+		Permissions:    input.Permissions,
 		SessionVersion: input.SessionVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.accessExpiry)),
@@ -127,6 +135,7 @@ func (s *JWTService) validateToken(tokenString string, expectedType string) (*se
 		IsAdmin:        claims.IsAdmin,
 		ExpiresAt:      claims.ExpiresAt.Time,
 		OrgRole:        claims.OrgRole,
+		Permissions:    claims.Permissions,
 		SessionVersion: claims.SessionVersion,
 	}
 	if claims.OrgID != "" {

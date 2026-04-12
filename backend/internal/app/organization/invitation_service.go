@@ -293,7 +293,10 @@ func (s *InvitationService) AcceptInvitation(ctx context.Context, in AcceptInvit
 		OrgContext: &Context{
 			Organization: org,
 			Member:       newMember,
-			Permissions:  organization.PermissionsFor(newMember.Role),
+			// Honor the org's custom permission overrides right from
+			// the first session so the new operator sees the same UI
+			// state as existing members on their very first request.
+			Permissions: organization.EffectivePermissionsFor(newMember.Role, org.RoleOverrides),
 		},
 	}, nil
 }
@@ -407,6 +410,10 @@ func (s *InvitationService) ListPending(ctx context.Context, actorID, orgID uuid
 
 // requirePermission ensures the actor is a member of the org with the
 // given permission. Returns ErrNotAMember or ErrPermissionDenied.
+//
+// Resolves the org's per-role overrides before evaluating — an Owner
+// who has granted "invite" to Members must see Members pass this check
+// even though the static defaults deny it.
 func (s *InvitationService) requirePermission(ctx context.Context, actorID, orgID uuid.UUID, perm organization.Permission) error {
 	member, err := s.members.FindByOrgAndUser(ctx, orgID, actorID)
 	if err != nil {
@@ -415,7 +422,11 @@ func (s *InvitationService) requirePermission(ctx context.Context, actorID, orgI
 		}
 		return fmt.Errorf("permission check: %w", err)
 	}
-	if !organization.HasPermission(member.Role, perm) {
+	org, err := s.orgs.FindByID(ctx, orgID)
+	if err != nil {
+		return fmt.Errorf("permission check: load org: %w", err)
+	}
+	if !organization.HasEffectivePermission(member.Role, perm, org.RoleOverrides) {
 		return organization.ErrPermissionDenied
 	}
 	return nil

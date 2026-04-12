@@ -23,8 +23,8 @@ type mockNotificationRepo struct {
 	markAllAsReadFn    func(ctx context.Context, userID uuid.UUID) error
 	deleteFn           func(ctx context.Context, id, userID uuid.UUID) error
 	getPreferencesFn   func(ctx context.Context, userID uuid.UUID) ([]*notif.Preferences, error)
-	upsertPreferenceFn func(ctx context.Context, pref *notif.Preferences) error
-	createDeviceTokenFn func(ctx context.Context, dt *notif.DeviceToken) error
+	upsertPreferenceFn         func(ctx context.Context, pref *notif.Preferences) error
+	createDeviceTokenFn        func(ctx context.Context, dt *notif.DeviceToken) error
 	listDeviceTokensFn  func(ctx context.Context, userID uuid.UUID) ([]*notif.DeviceToken, error)
 	deleteDeviceTokenFn func(ctx context.Context, userID uuid.UUID, token string) error
 }
@@ -266,16 +266,20 @@ func (m *mockEmailService) SendNotification(ctx context.Context, to, subject, ht
 func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
 	return nil
 }
+func (m *mockEmailService) SendRolePermissionsChanged(_ context.Context, _ service.RolePermissionsChangedEmailInput) error {
+	return nil
+}
 
 // --- mockUserRepo implements repository.UserRepository ---
 
 type mockUserRepo struct {
-	getByIDFn      func(ctx context.Context, id uuid.UUID) (*user.User, error)
-	getByEmailFn   func(ctx context.Context, email string) (*user.User, error)
-	createFn       func(ctx context.Context, u *user.User) error
-	updateFn       func(ctx context.Context, u *user.User) error
-	deleteFn       func(ctx context.Context, id uuid.UUID) error
-	existsByEmailFn func(ctx context.Context, email string) (bool, error)
+	getByIDFn                        func(ctx context.Context, id uuid.UUID) (*user.User, error)
+	getByEmailFn                     func(ctx context.Context, email string) (*user.User, error)
+	createFn                         func(ctx context.Context, u *user.User) error
+	updateFn                         func(ctx context.Context, u *user.User) error
+	deleteFn                         func(ctx context.Context, id uuid.UUID) error
+	existsByEmailFn                  func(ctx context.Context, email string) (bool, error)
+	updateEmailNotificationsEnabledFn func(ctx context.Context, userID uuid.UUID, enabled bool) error
 }
 
 func (m *mockUserRepo) Create(ctx context.Context, u *user.User) error {
@@ -377,4 +381,12 @@ func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, 
 }
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
+}
+
+// --- Email notifications enabled (migration 076) ---
+func (m *mockUserRepo) UpdateEmailNotificationsEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error {
+	if m.updateEmailNotificationsEnabledFn != nil {
+		return m.updateEmailNotificationsEnabledFn(ctx, userID, enabled)
+	}
+	return nil
 }

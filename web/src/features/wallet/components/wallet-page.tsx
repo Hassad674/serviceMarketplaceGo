@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useWallet, useRequestPayout } from "../hooks/use-wallet"
 import type { WalletRecord } from "../api/wallet-api"
 
@@ -26,6 +27,7 @@ function formatEur(centimes: number): string {
 export function WalletPage() {
   const { data: wallet, isLoading, isError } = useWallet()
   const payoutMutation = useRequestPayout()
+  const canWithdraw = useHasPermission("wallet.withdraw")
   const [payoutMessage, setPayoutMessage] = useState("")
 
   if (isLoading) return <WalletSkeleton />
@@ -112,7 +114,8 @@ export function WalletPage() {
           <button
             type="button"
             onClick={handlePayout}
-            disabled={payoutMutation.isPending || wallet.available_amount === 0}
+            disabled={payoutMutation.isPending || wallet.available_amount === 0 || !canWithdraw}
+            title={!canWithdraw ? "Seul le propri\u00e9taire peut demander un retrait" : undefined}
             className={cn(
               "flex items-center gap-2 rounded-xl px-5 py-2.5",
               "text-sm font-semibold text-white transition-all duration-200",

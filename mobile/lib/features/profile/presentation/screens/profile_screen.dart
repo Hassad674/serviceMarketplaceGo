@@ -9,6 +9,7 @@ import '../../../../core/network/upload_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_provider.dart';
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
@@ -28,6 +29,9 @@ class ProfileScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final canEditProfile = ref.watch(
+      hasPermissionProvider(OrgPermission.orgProfileEdit),
+    );
 
     final user = authState.user;
     final displayName =
@@ -70,7 +74,9 @@ class ProfileScreen extends ConsumerWidget {
                 photoUrl: profileAsync.whenOrNull(
                   data: (p) => p['photo_url'] as String?,
                 ),
-                onPhotoTap: () => _openPhotoUpload(context, ref),
+                onPhotoTap: canEditProfile
+                    ? () => _openPhotoUpload(context, ref)
+                    : null,
               ),
               const SizedBox(height: 16),
 
@@ -98,14 +104,20 @@ class ProfileScreen extends ConsumerWidget {
                 videoUrl: profileAsync.whenOrNull(
                   data: (p) => p['presentation_video_url'] as String?,
                 ),
-                onUploadTap: () => _openVideoUpload(context, ref),
-                onDeleteTap: () => _confirmDeleteVideo(context, ref),
+                onUploadTap: canEditProfile
+                    ? () => _openVideoUpload(context, ref)
+                    : null,
+                onDeleteTap: canEditProfile
+                    ? () => _confirmDeleteVideo(context, ref)
+                    : null,
               ),
               const SizedBox(height: 16),
 
               // About section
               GestureDetector(
-                onTap: () => _openEditAbout(context, ref, profileAbout),
+                onTap: canEditProfile
+                    ? () => _openEditAbout(context, ref, profileAbout)
+                    : null,
                 child: _ProfileSectionCard(
                   title: l10n.about,
                   icon: Icons.info_outline,
@@ -316,7 +328,7 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.displayName,
     required this.email,
     required this.role,
-    required this.onPhotoTap,
+    this.onPhotoTap,
     this.photoUrl,
   });
 
@@ -325,7 +337,7 @@ class _ProfileHeaderCard extends StatelessWidget {
   final String email;
   final String? role;
   final String? photoUrl;
-  final VoidCallback onPhotoTap;
+  final VoidCallback? onPhotoTap;
 
   @override
   Widget build(BuildContext context) {
@@ -427,13 +439,13 @@ class _ProfileSectionCard extends StatelessWidget {
 class _ProfileAvatar extends StatelessWidget {
   const _ProfileAvatar({
     required this.initials,
-    required this.onTap,
+    this.onTap,
     this.photoUrl,
   });
 
   final String initials;
   final String? photoUrl;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -461,28 +473,29 @@ class _ProfileAvatar extends StatelessWidget {
                 : null,
           ),
 
-          // Camera badge
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: primary,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: theme.colorScheme.surface,
-                  width: 2,
+          // Camera badge — hidden when profile editing is not permitted
+          if (onTap != null)
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: theme.colorScheme.surface,
+                    width: 2,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.camera_alt,
+                  size: 16,
+                  color: Colors.white,
                 ),
               ),
-              child: const Icon(
-                Icons.camera_alt,
-                size: 16,
-                color: Colors.white,
-              ),
             ),
-          ),
         ],
       ),
     );
@@ -555,13 +568,13 @@ class _RoleBadge extends StatelessWidget {
 
 class _VideoSectionCard extends StatelessWidget {
   const _VideoSectionCard({
-    required this.onUploadTap,
+    this.onUploadTap,
     this.videoUrl,
     this.onDeleteTap,
   });
 
   final String? videoUrl;
-  final VoidCallback onUploadTap;
+  final VoidCallback? onUploadTap;
   final VoidCallback? onDeleteTap;
 
   @override
@@ -600,20 +613,21 @@ class _VideoSectionCard extends StatelessWidget {
                 const SizedBox(height: 12),
 
                 // Replace video button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: onUploadTap,
-                    icon: const Icon(Icons.upload_outlined, size: 18),
-                    label: Text(l10n.replaceVideo),
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusMd),
+                if (onUploadTap != null)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: onUploadTap,
+                      icon: const Icon(Icons.upload_outlined, size: 18),
+                      label: Text(l10n.replaceVideo),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusMd),
+                        ),
                       ),
                     ),
                   ),
-                ),
 
                 // Remove video button
                 if (onDeleteTap != null)
@@ -677,20 +691,22 @@ class _VideoSectionCard extends StatelessWidget {
                         color: appColors?.mutedForeground,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 40,
-                      child: ElevatedButton.icon(
-                        onPressed: onUploadTap,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: Text(l10n.addVideo),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: Size.zero,
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 20),
+                    if (onUploadTap != null) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: onUploadTap,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: Text(l10n.addVideo),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size.zero,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

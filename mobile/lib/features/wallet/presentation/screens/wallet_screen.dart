@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../providers/wallet_provider.dart';
@@ -78,16 +79,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             ],
           ),
         ),
-        data: (wallet) => _buildContent(context, l10n, wallet),
+        data: (wallet) => _buildContent(context, ref, l10n, wallet),
       ),
     );
   }
 
   Widget _buildContent(
     BuildContext context,
+    WidgetRef ref,
     AppLocalizations l10n,
     WalletOverview wallet,
   ) {
+    final canWithdraw = ref.watch(
+      hasPermissionProvider(OrgPermission.walletWithdraw),
+    );
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -102,12 +108,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             _BalanceCards(wallet: wallet, l10n: l10n),
             const SizedBox(height: 16),
 
-            // Payout button
-            if (wallet.payoutsEnabled && wallet.availableAmount > 0)
+            // Payout button — hidden when user lacks wallet.withdraw permission
+            if (wallet.payoutsEnabled &&
+                wallet.availableAmount > 0 &&
+                canWithdraw)
               _PayoutButton(
                 amount: wallet.availableAmount,
                 loading: _payingOut,
                 onPressed: _requestPayout,
+              )
+            else if (wallet.payoutsEnabled &&
+                wallet.availableAmount > 0 &&
+                !canWithdraw)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  l10n.permissionDeniedWithdraw,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
               ),
             const SizedBox(height: 24),
 

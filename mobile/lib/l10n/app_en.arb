@@ -639,5 +639,10 @@
   "disputeCancelledTitle": "Dispute cancelled",
   "disputeCancelledSubtitle": "The dispute was cancelled by mutual agreement.",
 
-  "projectStatusDisputed": "Disputed"
+  "projectStatusDisputed": "Disputed",
+
+  "permissionDenied": "You do not have permission to perform this action",
+  "permissionDeniedSend": "You do not have permission to send messages",
+  "permissionDeniedWithdraw": "You do not have permission to request payouts",
+  "permissionDeniedEdit": "You do not have permission to edit this resource"
 }

@@ -5,6 +5,7 @@ import 'package:shimmer/shimmer.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/job_entity.dart';
 import '../providers/job_provider.dart';
@@ -21,6 +22,7 @@ class JobsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final jobsAsync = ref.watch(myJobsProvider);
+    final canCreate = ref.watch(hasPermissionProvider(OrgPermission.jobsCreate));
 
     return Scaffold(
       appBar: AppBar(
@@ -42,12 +44,14 @@ class JobsScreen extends ConsumerWidget {
               : _JobListView(jobs: jobs),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push(RoutePaths.jobsCreate),
-        backgroundColor: theme.colorScheme.primary,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton(
+              onPressed: () => context.push(RoutePaths.jobsCreate),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              child: const Icon(Icons.add),
+            )
+          : null,
     );
   }
 }
@@ -86,6 +90,8 @@ class _JobCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
+    final canEdit = ref.watch(hasPermissionProvider(OrgPermission.jobsEdit));
+    final canDelete = ref.watch(hasPermissionProvider(OrgPermission.jobsDelete));
 
     return GestureDetector(
       onTap: () => context.push(RoutePaths.jobDetail, extra: job.id),
@@ -117,13 +123,16 @@ class _JobCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 4),
                 _StatusBadge(isOpen: job.isOpen),
-                _JobPopupMenu(
-                  job: job,
-                  onEdit: () => context.push(RoutePaths.jobEdit, extra: job.id),
-                  onClose: () => _handleClose(context, ref, l10n),
-                  onReopen: () => _handleReopen(context, ref, l10n),
-                  onDelete: () => _handleDelete(context, ref, l10n),
-                ),
+                if (canEdit || canDelete)
+                  _JobPopupMenu(
+                    job: job,
+                    canEdit: canEdit,
+                    canDelete: canDelete,
+                    onEdit: () => context.push(RoutePaths.jobEdit, extra: job.id),
+                    onClose: () => _handleClose(context, ref, l10n),
+                    onReopen: () => _handleReopen(context, ref, l10n),
+                    onDelete: () => _handleDelete(context, ref, l10n),
+                  ),
               ],
             ),
             const SizedBox(height: 4),
@@ -274,6 +283,8 @@ class _JobCard extends ConsumerWidget {
 class _JobPopupMenu extends StatelessWidget {
   const _JobPopupMenu({
     required this.job,
+    required this.canEdit,
+    required this.canDelete,
     required this.onEdit,
     required this.onClose,
     required this.onReopen,
@@ -281,6 +292,8 @@ class _JobPopupMenu extends StatelessWidget {
   });
 
   final JobEntity job;
+  final bool canEdit;
+  final bool canDelete;
   final VoidCallback onEdit;
   final VoidCallback onClose;
   final VoidCallback onReopen;
@@ -306,39 +319,42 @@ class _JobPopupMenu extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
-        PopupMenuItem(
-          value: _JobMenuAction.edit,
-          child: Row(
-            children: [
-              const Icon(Icons.edit_outlined, size: 18),
-              const SizedBox(width: 8),
-              Text(l10n.jobEditJob),
-            ],
+        if (canEdit)
+          PopupMenuItem(
+            value: _JobMenuAction.edit,
+            child: Row(
+              children: [
+                const Icon(Icons.edit_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text(l10n.jobEditJob),
+              ],
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: _JobMenuAction.closeOrReopen,
-          child: Row(
-            children: [
-              Icon(
-                job.isOpen ? Icons.lock_outline : Icons.lock_open_outlined,
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(job.isOpen ? l10n.jobClose : l10n.jobReopen),
-            ],
+        if (canEdit)
+          PopupMenuItem(
+            value: _JobMenuAction.closeOrReopen,
+            child: Row(
+              children: [
+                Icon(
+                  job.isOpen ? Icons.lock_outline : Icons.lock_open_outlined,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(job.isOpen ? l10n.jobClose : l10n.jobReopen),
+              ],
+            ),
           ),
-        ),
-        PopupMenuItem(
-          value: _JobMenuAction.delete,
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
-              const SizedBox(width: 8),
-              Text(l10n.jobDelete, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            ],
+        if (canDelete)
+          PopupMenuItem(
+            value: _JobMenuAction.delete,
+            child: Row(
+              children: [
+                Icon(Icons.delete_outline, size: 18, color: Theme.of(context).colorScheme.error),
+                const SizedBox(width: 8),
+                Text(l10n.jobDelete, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }

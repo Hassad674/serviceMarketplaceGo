@@ -299,6 +299,8 @@ func (h *InvitationHandler) Accept(w http.ResponseWriter, r *http.Request) {
 		IsAdmin:        output.User.IsAdmin,
 		OrganizationID: output.OrganizationID,
 		OrgRole:        output.OrgRole,
+		Permissions:    permissionKeysFromOrgContext(result.OrgContext),
+		SessionVersion: output.User.SessionVersion,
 	})
 	if err != nil {
 		slog.Error("failed to create session after invitation accept", "error", err)

@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useMySocialLinks, useUpsertSocialLink, useDeleteSocialLink } from "../hooks/use-social-links"
 
 type PlatformMeta = {
@@ -34,6 +35,7 @@ const PLATFORMS: PlatformMeta[] = [
 export function SocialLinksSection() {
   const t = useTranslations("profile")
   const tCommon = useTranslations("common")
+  const canEdit = useHasPermission("org_profile.edit")
   const { data: links = [], isLoading } = useMySocialLinks()
   const upsertMutation = useUpsertSocialLink()
   const deleteMutation = useDeleteSocialLink()
@@ -84,7 +86,7 @@ export function SocialLinksSection() {
     <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">{t("socialLinks")}</h2>
-        {!editing && (
+        {!editing && canEdit && (
           <button
             type="button"
             onClick={startEditing}

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../domain/entities/job_entity.dart';
@@ -107,6 +108,8 @@ class _JobDetailBodyState extends ConsumerState<_JobDetailBody>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final canEdit = ref.watch(hasPermissionProvider(OrgPermission.jobsEdit));
+    final canDelete = ref.watch(hasPermissionProvider(OrgPermission.jobsDelete));
 
     return Scaffold(
       appBar: AppBar(
@@ -116,17 +119,21 @@ class _JobDetailBodyState extends ConsumerState<_JobDetailBody>
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: l10n.jobEditJob,
-            onPressed: () =>
-                context.push(RoutePaths.jobEdit, extra: widget.jobId),
-          ),
-          _JobPopupMenu(
-            job: widget.job,
-            jobId: widget.jobId,
-            onRefresh: widget.onRefresh,
-          ),
+          if (canEdit)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: l10n.jobEditJob,
+              onPressed: () =>
+                  context.push(RoutePaths.jobEdit, extra: widget.jobId),
+            ),
+          if (canEdit || canDelete)
+            _JobPopupMenu(
+              job: widget.job,
+              jobId: widget.jobId,
+              canEdit: canEdit,
+              canDelete: canDelete,
+              onRefresh: widget.onRefresh,
+            ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -151,11 +158,15 @@ class _JobPopupMenu extends ConsumerWidget {
   const _JobPopupMenu({
     required this.job,
     required this.jobId,
+    required this.canEdit,
+    required this.canDelete,
     required this.onRefresh,
   });
 
   final JobEntity job;
   final String jobId;
+  final bool canEdit;
+  final bool canDelete;
   final VoidCallback onRefresh;
 
   @override
@@ -166,38 +177,41 @@ class _JobPopupMenu extends ConsumerWidget {
     return PopupMenuButton<String>(
       onSelected: (value) => _onSelected(context, ref, value),
       itemBuilder: (context) => [
-        if (job.isOpen)
-          PopupMenuItem(
-            value: 'close',
-            child: Row(
-              children: [
-                const Icon(Icons.block, size: 18),
-                const SizedBox(width: 8),
-                Text(l10n.jobClose),
-              ],
+        if (canEdit) ...[
+          if (job.isOpen)
+            PopupMenuItem(
+              value: 'close',
+              child: Row(
+                children: [
+                  const Icon(Icons.block, size: 18),
+                  const SizedBox(width: 8),
+                  Text(l10n.jobClose),
+                ],
+              ),
+            )
+          else
+            PopupMenuItem(
+              value: 'reopen',
+              child: Row(
+                children: [
+                  const Icon(Icons.refresh, size: 18),
+                  const SizedBox(width: 8),
+                  Text(l10n.jobReopen),
+                ],
+              ),
             ),
-          )
-        else
+        ],
+        if (canDelete)
           PopupMenuItem(
-            value: 'reopen',
+            value: 'delete',
             child: Row(
               children: [
-                const Icon(Icons.refresh, size: 18),
+                Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
                 const SizedBox(width: 8),
-                Text(l10n.jobReopen),
+                Text(l10n.jobDelete, style: TextStyle(color: theme.colorScheme.error)),
               ],
             ),
           ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.error),
-              const SizedBox(width: 8),
-              Text(l10n.jobDelete, style: TextStyle(color: theme.colorScheme.error)),
-            ],
-          ),
-        ),
       ],
     );
   }

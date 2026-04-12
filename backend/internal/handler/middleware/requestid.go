@@ -16,6 +16,13 @@ const (
 	ContextKeyRequestID      contextKey = "request_id"
 	ContextKeyOrganizationID contextKey = "organization_id"
 	ContextKeyOrgRole        contextKey = "org_role"
+	// ContextKeyPermissions carries the []string of effective
+	// permissions for the authenticated user's org membership, as
+	// resolved at login/refresh time with the org's role overrides
+	// applied. Empty when the user has no org. The RequirePermission
+	// middleware prefers this list over the static role-based lookup
+	// so per-org customizations take effect on every endpoint.
+	ContextKeyPermissions contextKey = "permissions"
 )
 
 func RequestID(next http.Handler) http.Handler {
@@ -76,4 +83,16 @@ func GetOrgRole(ctx context.Context) string {
 		return role
 	}
 	return ""
+}
+
+// GetPermissions returns the list of effective permissions attached
+// to the authenticated user's session, as resolved with the org's
+// role overrides at login/refresh time. Returns (nil, false) when
+// no permissions were set on the context (e.g. a session created
+// before the feature shipped, or a user with no org).
+func GetPermissions(ctx context.Context) ([]string, bool) {
+	if perms, ok := ctx.Value(ContextKeyPermissions).([]string); ok {
+		return perms, true
+	}
+	return nil, false
 }

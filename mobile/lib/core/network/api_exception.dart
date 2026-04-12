@@ -1,4 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart';
+
+import '../../l10n/app_localizations.dart';
 
 /// Structured API error matching the backend's JSON error format:
 ///
@@ -91,6 +94,37 @@ class ApiException implements Exception {
   bool get isServerError => statusCode >= 500;
   bool get isNetworkError => statusCode == 0;
 
+  /// True when the backend rejected the request because the user's org role
+  /// lacks a required permission (403 with code `permission_denied`).
+  bool get isPermissionDenied => statusCode == 403 && code == 'permission_denied';
+
+  /// Returns a user-friendly localized message for this error.
+  ///
+  /// For permission_denied errors, uses the localized string instead of
+  /// the raw backend message.
+  String localizedMessage(BuildContext context) {
+    if (isPermissionDenied) {
+      return AppLocalizations.of(context)?.permissionDenied ?? message;
+    }
+    return message;
+  }
+
   @override
   String toString() => 'ApiException($statusCode): $code - $message';
+}
+
+/// Extracts a user-friendly error message from any exception.
+///
+/// If the exception is a [DioException] wrapping a 403 permission_denied,
+/// returns the localized permission message. Otherwise falls back to the
+/// API error message or the raw exception string.
+String userFriendlyError(BuildContext context, Object error) {
+  if (error is ApiException) {
+    return error.localizedMessage(context);
+  }
+  if (error is DioException) {
+    final apiError = ApiException.fromDioException(error);
+    return apiError.localizedMessage(context);
+  }
+  return error.toString();
 }

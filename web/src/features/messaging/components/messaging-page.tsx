@@ -8,6 +8,7 @@ import { useRouter } from "@i18n/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/shared/lib/utils"
 import { useUser, useOrganization } from "@/shared/hooks/use-user"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useCallContext } from "@/shared/hooks/use-call-context"
 import { ConversationList } from "./conversation-list"
 import { ConversationHeader } from "./conversation-header"
@@ -40,6 +41,7 @@ export function MessagingPage() {
   const [reviewTarget, setReviewTarget] = useState<{ proposalId: string; proposalTitle: string } | null>(null)
   const [reportTarget, setReportTarget] = useState<{ type: "message" | "user"; id: string } | null>(null)
 
+  const canSendMessage = useHasPermission("messaging.send")
   const callCtx = useCallContext()
 
   const { data: conversationsData, isLoading: conversationsLoading } = useConversations()
@@ -294,17 +296,21 @@ export function MessagingPage() {
               conversationId={activeId ?? ""}
               onReview={handleReview}
             />
-            <MessageInput
-              conversationId={activeId ?? ""}
-              otherUserId={activeConversation?.other_user_id ?? ""}
-              onSend={handleSend}
-              onSendFile={handleSendFile}
-              onSendVoice={handleSendVoice}
-              onTyping={handleTyping}
-              isSending={sendMessage.isPending}
-              replyTo={replyTo}
-              onCancelReply={clearReply}
-            />
+            {canSendMessage ? (
+              <MessageInput
+                conversationId={activeId ?? ""}
+                otherUserId={activeConversation?.other_user_id ?? ""}
+                onSend={handleSend}
+                onSendFile={handleSendFile}
+                onSendVoice={handleSendVoice}
+                onTyping={handleTyping}
+                isSending={sendMessage.isPending}
+                replyTo={replyTo}
+                onCancelReply={clearReply}
+              />
+            ) : (
+              <NoSendPermissionBar />
+            )}
           </>
         ) : (
           <EmptyState label={t("noConversations")} />
@@ -349,6 +355,15 @@ function EmptyState({ label }: { label: string }) {
           {label}
         </p>
       </div>
+    </div>
+  )
+}
+
+function NoSendPermissionBar() {
+  const t = useTranslations("permissions")
+  return (
+    <div className="flex items-center justify-center border-t border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/50">
+      <p className="text-sm text-gray-400 dark:text-gray-500">{t("noMessagingSend")}</p>
     </div>
   )
 }
