@@ -632,5 +632,10 @@
   "disputeCancelledTitle": "Litige annulé",
   "disputeCancelledSubtitle": "Le litige a été annulé par accord mutuel.",
 
-  "projectStatusDisputed": "En litige"
+  "projectStatusDisputed": "En litige",
+
+  "permissionDenied": "Vous n'avez pas la permission d'effectuer cette action",
+  "permissionDeniedSend": "Vous n'avez pas la permission d'envoyer des messages",
+  "permissionDeniedWithdraw": "Vous n'avez pas la permission de demander un retrait",
+  "permissionDeniedEdit": "Vous n'avez pas la permission de modifier cette ressource"
 }

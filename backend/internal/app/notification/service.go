@@ -85,7 +85,16 @@ func (s *Service) Send(ctx context.Context, input service.NotificationInput) err
 			s.sendPushIfOffline(ctx, n)
 		}
 		if prefs.Email && n.Type != notif.TypeNewMessage {
-			s.sendEmail(ctx, n)
+			// Respect the global email kill-switch
+			if s.users != nil {
+				if u, err := s.users.GetByID(ctx, n.UserID); err == nil && !u.EmailNotificationsEnabled {
+					slog.Debug("email skipped (globally disabled)", "user_id", n.UserID)
+				} else {
+					s.sendEmail(ctx, n)
+				}
+			} else {
+				s.sendEmail(ctx, n)
+			}
 		}
 	}
 
@@ -130,13 +139,8 @@ func (s *Service) GetPreferences(ctx context.Context, userID uuid.UUID) ([]*noti
 		savedMap[p.NotificationType] = p
 	}
 
-	// Merge with defaults for all valid types
-	allTypes := []notif.NotificationType{
-		notif.TypeProposalReceived, notif.TypeProposalAccepted, notif.TypeProposalDeclined,
-		notif.TypeProposalModified, notif.TypeProposalPaid, notif.TypeCompletionRequested,
-		notif.TypeProposalCompleted, notif.TypeReviewReceived, notif.TypeNewMessage,
-		notif.TypeSystemAnnouncement, notif.TypeStripeRequirements, notif.TypeStripeAccountStatus,
-	}
+	// Merge with defaults for ALL valid notification types
+	allTypes := notif.AllTypes()
 
 	result := make([]*notif.Preferences, 0, len(allTypes))
 	for _, t := range allTypes {
@@ -161,6 +165,24 @@ func (s *Service) UpdatePreferences(ctx context.Context, userID uuid.UUID, prefs
 		}
 	}
 	return nil
+}
+
+// SetAllEmailPreferences enables or disables email notifications globally
+// for a user by toggling the email_notifications_enabled column on the
+// users table. This is a kill-switch: when false, no email is sent
+// regardless of per-type preferences.
+func (s *Service) SetAllEmailPreferences(ctx context.Context, userID uuid.UUID, enabled bool) error {
+	return s.users.UpdateEmailNotificationsEnabled(ctx, userID, enabled)
+}
+
+// GetEmailNotificationsEnabled returns the global email notification
+// kill-switch state for a user.
+func (s *Service) GetEmailNotificationsEnabled(ctx context.Context, userID uuid.UUID) (bool, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return true, fmt.Errorf("get user for email enabled: %w", err)
+	}
+	return u.EmailNotificationsEnabled, nil
 }
 
 // RegisterDevice registers a device token for push notifications.

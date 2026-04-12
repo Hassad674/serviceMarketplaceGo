@@ -67,6 +67,9 @@ func Auth(
 					if session.OrgRole != "" {
 						ctx = context.WithValue(ctx, ContextKeyOrgRole, session.OrgRole)
 					}
+					if len(session.Permissions) > 0 {
+						ctx = context.WithValue(ctx, ContextKeyPermissions, session.Permissions)
+					}
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -97,6 +100,9 @@ func Auth(
 						}
 						if claims.OrgRole != "" {
 							ctx = context.WithValue(ctx, ContextKeyOrgRole, claims.OrgRole)
+						}
+						if len(claims.Permissions) > 0 {
+							ctx = context.WithValue(ctx, ContextKeyPermissions, claims.Permissions)
 						}
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return

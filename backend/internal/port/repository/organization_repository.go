@@ -51,6 +51,13 @@ type OrganizationRepository interface {
 	// use and for the /remove-feature tooling.
 	Delete(ctx context.Context, id uuid.UUID) error
 
+	// SaveRoleOverrides persists just the JSONB role_overrides column
+	// of the given organization, leaving every other field untouched.
+	// Used by the role-permissions editor so a permission save does
+	// not have to write through the full row. Returns ErrOrgNotFound
+	// when the org does not exist.
+	SaveRoleOverrides(ctx context.Context, orgID uuid.UUID, overrides organization.RoleOverrides) error
+
 	// CountAll returns the total number of organizations on the
 	// platform. Used by the admin dashboard to surface a team-aware
 	// "Organisations" tile. O(n) scan — acceptable for V1 volumes

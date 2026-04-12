@@ -107,7 +107,11 @@ func (s *MembershipService) UpdateMemberRole(
 	if err != nil {
 		return nil, mapNotMember(err)
 	}
-	if !organization.HasPermission(actor.Role, organization.PermTeamManage) {
+	org, err := s.orgs.FindByID(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("update member role: load org: %w", err)
+	}
+	if !organization.HasEffectivePermission(actor.Role, organization.PermTeamManage, org.RoleOverrides) {
 		return nil, organization.ErrPermissionDenied
 	}
 
@@ -128,15 +132,20 @@ func (s *MembershipService) UpdateMemberRole(
 		return nil, fmt.Errorf("update member role: persist: %w", err)
 	}
 
-	if _, err := s.users.BumpSessionVersion(ctx, targetUserID); err != nil {
-		return nil, fmt.Errorf("update member role: bump session: %w", err)
+	// Only invalidate the target's session on demotion (fewer
+	// permissions must take effect immediately). Promotions are
+	// reflected on the next /me fetch without forcing a re-login.
+	if organization.IsDemotion(oldRole, newRole) {
+		if _, err := s.users.BumpSessionVersion(ctx, targetUserID); err != nil {
+			return nil, fmt.Errorf("update member role: bump session: %w", err)
+		}
 	}
 
-	// Notify the target their role changed. Fetching the actor + org for
-	// the payload is best-effort — if either lookup fails the helper
-	// degrades gracefully to a "Someone" label.
+	// Notify the target their role changed. The org was already
+	// loaded for the permission check above, so we reuse it rather
+	// than fetching again. The actor is fetched best-effort for the
+	// display name.
 	actorUser, _ := s.users.GetByID(ctx, actorID)
-	org, _ := s.orgs.FindByID(ctx, orgID)
 	notifyMemberRoleChanged(ctx, s.notifications, targetUserID, actorUser, org, oldRole, newRole)
 
 	return target, nil
@@ -155,8 +164,14 @@ func (s *MembershipService) UpdateMemberTitle(
 		return nil, mapNotMember(err)
 	}
 	// Allow self-title-update freely; otherwise require team.manage.
-	if actorID != targetUserID && !organization.HasPermission(actor.Role, organization.PermTeamManage) {
-		return nil, organization.ErrPermissionDenied
+	if actorID != targetUserID {
+		org, err := s.orgs.FindByID(ctx, orgID)
+		if err != nil {
+			return nil, fmt.Errorf("update member title: load org: %w", err)
+		}
+		if !organization.HasEffectivePermission(actor.Role, organization.PermTeamManage, org.RoleOverrides) {
+			return nil, organization.ErrPermissionDenied
+		}
 	}
 
 	target, err := s.members.FindByOrgAndUser(ctx, orgID, targetUserID)
@@ -211,7 +226,11 @@ func (s *MembershipService) RemoveMember(
 	if err != nil {
 		return mapNotMember(err)
 	}
-	if !organization.HasPermission(actor.Role, organization.PermTeamManage) {
+	org, err := s.orgs.FindByID(ctx, orgID)
+	if err != nil {
+		return fmt.Errorf("remove member: load org: %w", err)
+	}
+	if !organization.HasEffectivePermission(actor.Role, organization.PermTeamManage, org.RoleOverrides) {
 		return organization.ErrPermissionDenied
 	}
 
@@ -242,8 +261,8 @@ func (s *MembershipService) RemoveMember(
 	// notifications row has a valid user_id FK. Marketplace owners
 	// keep their user row so the order doesn't strictly matter for
 	// them, but we emit in the same spot for consistency.
+	// Org was already loaded for the permission check above.
 	actorUser, _ := s.users.GetByID(ctx, actorID)
-	org, _ := s.orgs.FindByID(ctx, orgID)
 	notifyMemberRemoved(ctx, s.notifications, targetUserID, actorUser, org)
 
 	// Operator accounts are deleted entirely. Marketplace owners keep
@@ -312,6 +331,9 @@ func (s *MembershipService) LeaveOrganization(
 
 // requirePermission ensures the actor is a member of the org with the
 // given permission. Returns ErrNotAMember or ErrPermissionDenied.
+//
+// Resolves the org's per-role overrides before evaluating the check so
+// customized permissions take effect for every team operation.
 func (s *MembershipService) requirePermission(
 	ctx context.Context,
 	actorID, orgID uuid.UUID,
@@ -321,7 +343,11 @@ func (s *MembershipService) requirePermission(
 	if err != nil {
 		return mapNotMember(err)
 	}
-	if !organization.HasPermission(member.Role, perm) {
+	org, err := s.orgs.FindByID(ctx, orgID)
+	if err != nil {
+		return fmt.Errorf("permission check: load org: %w", err)
+	}
+	if !organization.HasEffectivePermission(member.Role, perm, org.RoleOverrides) {
 		return organization.ErrPermissionDenied
 	}
 	return nil

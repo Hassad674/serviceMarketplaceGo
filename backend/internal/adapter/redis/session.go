@@ -23,12 +23,20 @@ func NewSessionService(client *goredis.Client, ttl time.Duration) *SessionServic
 
 // sessionData is the JSON payload stored in Redis for a session.
 // Organization fields use pointer/empty to gracefully degrade for Providers.
+//
+// Permissions is the resolved effective permission set (static defaults
+// + per-org overrides) captured at login/refresh time. Stored here so
+// the RequirePermission middleware never needs to query the database
+// or reload the org row on the hot path. When omitted (e.g. sessions
+// created before the override feature shipped), the middleware falls
+// back to the static HasPermission lookup on the OrgRole.
 type sessionData struct {
 	UserID         string    `json:"user_id"`
 	Role           string    `json:"role"`
 	IsAdmin        bool      `json:"is_admin"`
 	OrgID          string    `json:"org_id,omitempty"`
 	OrgRole        string    `json:"org_role,omitempty"`
+	Permissions    []string  `json:"perms,omitempty"`
 	SessionVersion int       `json:"sv,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 }
@@ -42,6 +50,7 @@ func (s *SessionService) Create(ctx context.Context, input service.CreateSession
 		Role:           input.Role,
 		IsAdmin:        input.IsAdmin,
 		OrgRole:        input.OrgRole,
+		Permissions:    input.Permissions,
 		SessionVersion: input.SessionVersion,
 		CreatedAt:      now,
 	}
@@ -65,6 +74,7 @@ func (s *SessionService) Create(ctx context.Context, input service.CreateSession
 		IsAdmin:        input.IsAdmin,
 		OrganizationID: input.OrganizationID,
 		OrgRole:        input.OrgRole,
+		Permissions:    input.Permissions,
 		SessionVersion: input.SessionVersion,
 		CreatedAt:      now,
 	}, nil
@@ -95,6 +105,7 @@ func (s *SessionService) Get(ctx context.Context, sessionID string) (*service.Se
 		Role:           data.Role,
 		IsAdmin:        data.IsAdmin,
 		OrgRole:        data.OrgRole,
+		Permissions:    data.Permissions,
 		SessionVersion: data.SessionVersion,
 		CreatedAt:      data.CreatedAt,
 	}

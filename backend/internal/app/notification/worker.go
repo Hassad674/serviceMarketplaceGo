@@ -105,9 +105,16 @@ func (w *Worker) processJob(ctx context.Context, job DeliveryJob) error {
 		pushErr = w.deliverPush(ctx, job, userID)
 	}
 
-	// Email delivery (never for new_message)
+	// Email delivery (never for new_message).
+	// Also skip if the user has globally disabled email notifications.
 	if prefs.Email && job.Type != string(notif.TypeNewMessage) && w.email != nil {
-		emailErr = w.deliverEmail(ctx, job, userID)
+		if u, err := w.users.GetByID(ctx, userID); err == nil && !u.EmailNotificationsEnabled {
+			slog.Debug("notification worker: email skipped (globally disabled)",
+				"notification_id", job.NotificationID, "user_id", job.UserID,
+			)
+		} else {
+			emailErr = w.deliverEmail(ctx, job, userID)
+		}
 	}
 
 	// Handle failures with retry

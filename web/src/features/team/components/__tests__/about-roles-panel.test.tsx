@@ -85,22 +85,22 @@ beforeEach(() => {
 })
 
 describe("AboutRolesPanel", () => {
-  it("starts collapsed", () => {
-    renderPanel()
-    expect(screen.queryByText(/Permissions granted/i)).not.toBeInTheDocument()
-  })
-
-  it("toggles expanded state when the header is clicked", async () => {
-    const user = userEvent.setup()
+  it("starts with the section collapsed", () => {
     renderPanel()
     const toggle = screen.getByRole("button", { name: /About roles/i })
     expect(toggle).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("toggles the section open when the header is clicked", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    const toggle = screen.getByRole("button", { name: /About roles/i })
 
     await user.click(toggle)
     expect(toggle).toHaveAttribute("aria-expanded", "true")
   })
 
-  it("renders one card per role with its permissions when expanded", async () => {
+  it("renders four role cards when the section is expanded", async () => {
     const user = userEvent.setup()
     renderPanel()
     await user.click(screen.getByRole("button", { name: /About roles/i }))
@@ -111,9 +111,30 @@ describe("AboutRolesPanel", () => {
       expect(screen.getAllByText("Member").length).toBeGreaterThan(0)
       expect(screen.getAllByText("Viewer").length).toBeGreaterThan(0)
     })
-    // Permission labels show through
+  })
+
+  it("shows permissions only after expanding an individual role card", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+
+    // Open the section
+    await user.click(screen.getByRole("button", { name: /About roles/i }))
+
+    // Wait for role cards to appear
+    await waitFor(() => {
+      expect(screen.getAllByText("Owner").length).toBeGreaterThan(0)
+    })
+
+    // Click the Owner card to expand it. Use the stable DOM id to
+    // avoid ambiguity when i18n descriptions contain "owner".
+    const ownerButton = document.getElementById("role-card-owner") as HTMLButtonElement
+    await user.click(ownerButton)
+
+    expect(ownerButton).toHaveAttribute("aria-expanded", "true")
+
+    // The permission labels should be present in the DOM
     expect(screen.getAllByText("Invite members").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Create jobs").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Transfer ownership").length).toBeGreaterThan(0)
   })
 
   it("groups permissions by their resource family inside each card", async () => {
@@ -122,10 +143,67 @@ describe("AboutRolesPanel", () => {
     await user.click(screen.getByRole("button", { name: /About roles/i }))
 
     await waitFor(() => {
-      // The "Team" group label appears at least once for the Owner/Admin
-      // cards which both grant team.* permissions.
+      expect(screen.getAllByText("Owner").length).toBeGreaterThan(0)
+    })
+
+    // Expand the Owner card
+    const ownerButton = document.getElementById("role-card-owner") as HTMLButtonElement
+    await user.click(ownerButton)
+
+    // The "Team" group label appears for the Owner card which grants
+    // team.* permissions.
+    await waitFor(() => {
       expect(screen.getAllByText(/Team/i).length).toBeGreaterThan(0)
-      expect(screen.getAllByText(/Jobs/i).length).toBeGreaterThan(0)
+    })
+  })
+
+  it("allows multiple role cards to be open simultaneously", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole("button", { name: /About roles/i }))
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Owner").length).toBeGreaterThan(0)
+    })
+
+    const ownerButton = document.getElementById("role-card-owner") as HTMLButtonElement
+    const adminButton = document.getElementById("role-card-admin") as HTMLButtonElement
+
+    await user.click(ownerButton)
+    await user.click(adminButton)
+
+    expect(ownerButton).toHaveAttribute("aria-expanded", "true")
+    expect(adminButton).toHaveAttribute("aria-expanded", "true")
+  })
+
+  it("collapses a role card when clicked again", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole("button", { name: /About roles/i }))
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Owner").length).toBeGreaterThan(0)
+    })
+
+    const ownerButton = document.getElementById("role-card-owner") as HTMLButtonElement
+    await user.click(ownerButton)
+    expect(ownerButton).toHaveAttribute("aria-expanded", "true")
+
+    await user.click(ownerButton)
+    expect(ownerButton).toHaveAttribute("aria-expanded", "false")
+  })
+
+  it("shows a permission count badge on each role card", async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole("button", { name: /About roles/i }))
+
+    await waitFor(() => {
+      // Owner has 3 permissions, Admin has 3, Member has 2, Viewer has 1.
+      // Use getAllByText because Owner and Admin both show "3".
+      expect(screen.getAllByText("3").length).toBe(2)
+      expect(screen.getByText("2")).toBeInTheDocument()
+      expect(screen.getByText("1")).toBeInTheDocument()
     })
   })
 })

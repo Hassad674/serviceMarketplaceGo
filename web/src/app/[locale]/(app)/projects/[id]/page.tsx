@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { useUser } from "@/shared/hooks/use-user"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { ProposalDetailView } from "@/features/proposal/components/proposal-detail-view"
 import { useProposal } from "@/features/proposal/hooks/use-proposals"
 import { DisputeBanner } from "@/features/dispute/components/dispute-banner"
@@ -40,6 +41,7 @@ export default function ProjectDetailPage({
   const respondMutation = useRespondToCounter(dispute?.id ?? "")
   const cancelResponseMutation = useRespondToCancellation(dispute?.id ?? "")
 
+  const canRespondProposal = useHasPermission("proposals.respond")
   const [showDisputeForm, setShowDisputeForm] = useState(false)
   const [showCounterForm, setShowCounterForm] = useState(false)
 
@@ -60,30 +62,30 @@ export default function ProjectDetailPage({
           <DisputeBanner
             dispute={dispute}
             currentUserId={user?.id ?? ""}
-            onCounterPropose={() => setShowCounterForm(true)}
-            onAcceptProposal={(cpId) =>
+            onCounterPropose={canRespondProposal ? () => setShowCounterForm(true) : undefined}
+            onAcceptProposal={canRespondProposal ? (cpId) =>
               respondMutation.mutate({ cpId, accept: true }, { onSuccess: () => refetchDispute() })
-            }
-            onRejectProposal={(cpId) =>
+            : undefined}
+            onRejectProposal={canRespondProposal ? (cpId) =>
               respondMutation.mutate({ cpId, accept: false }, { onSuccess: () => refetchDispute() })
-            }
+            : undefined}
             onCancel={
-              dispute.status === "open" ||
+              canRespondProposal && (dispute.status === "open" ||
               dispute.status === "negotiation" ||
-              dispute.status === "escalated"
+              dispute.status === "escalated")
                 ? () => cancelMutation.mutate(dispute.id, { onSuccess: () => refetchDispute() })
                 : undefined
             }
-            onAcceptCancellation={() =>
+            onAcceptCancellation={canRespondProposal ? () =>
               cancelResponseMutation.mutate(true, { onSuccess: () => refetchDispute() })
-            }
-            onRefuseCancellation={() =>
+            : undefined}
+            onRefuseCancellation={canRespondProposal ? () =>
               cancelResponseMutation.mutate(false, { onSuccess: () => refetchDispute() })
-            }
+            : undefined}
           />
 
           {/* Counter-proposal form */}
-          {showCounterForm && (
+          {showCounterForm && canRespondProposal && (
             <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
               <DisputeCounterForm
                 disputeId={dispute.id}
@@ -109,7 +111,7 @@ export default function ProjectDetailPage({
       )}
 
       {/* "Report a problem" button — shown when no dispute exists on active mission */}
-      {canOpenDispute && !showDisputeForm && (
+      {canOpenDispute && canRespondProposal && !showDisputeForm && (
         <div className="mx-auto max-w-5xl px-4 pt-8">
           <button
             type="button"

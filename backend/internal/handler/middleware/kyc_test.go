@@ -71,6 +71,9 @@ func (s *stubOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) 
 func (s *stubOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
 	return nil
 }
+func (s *stubOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
+	return nil
+}
 
 // Compile-time assertion that stubOrgRepo satisfies the interface.
 var _ repository.OrganizationRepository = (*stubOrgRepo)(nil)

@@ -317,3 +317,44 @@ func (r *OrganizationMemberRepository) ListMemberUserIDsByOrgIDs(ctx context.Con
 	}
 	return out, nil
 }
+
+// ListUserIDsByRole returns the user ids of every member of the given
+// org who currently holds `role`. Used by the role-permissions editor
+// after a save so session_version can be bumped for every user whose
+// effective permissions just changed.
+//
+// Ordering is stable (user_id ASC) to make the Save flow deterministic
+// across retries, but the order is not otherwise meaningful.
+func (r *OrganizationMemberRepository) ListUserIDsByRole(
+	ctx context.Context,
+	orgID uuid.UUID,
+	role organization.Role,
+) ([]uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT user_id
+		FROM organization_members
+		WHERE organization_id = $1 AND role = $2
+		ORDER BY user_id ASC`,
+		orgID, string(role),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list user ids by role: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var userID uuid.UUID
+		if err := rows.Scan(&userID); err != nil {
+			return nil, fmt.Errorf("scan user id: %w", err)
+		}
+		ids = append(ids, userID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return ids, nil
+}

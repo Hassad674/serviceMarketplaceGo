@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Plus, Briefcase, Sparkles, ImagePlus } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useMyPortfolio, usePortfolioByOrganization, useDeletePortfolioItem } from "../hooks/use-portfolio"
 import { PortfolioItemCard } from "./portfolio-item-card"
 import { PortfolioDetailModal } from "./portfolio-detail-modal"
@@ -16,6 +17,7 @@ const MAX_ITEMS = 30
 export function PortfolioSection() {
   const { data, isLoading } = useMyPortfolio()
   const deleteItem = useDeletePortfolioItem()
+  const canEdit = useHasPermission("org_profile.edit")
   const t = useTranslations("portfolio")
 
   const [viewItem, setViewItem] = useState<PortfolioItem | null>(null)
@@ -60,7 +62,7 @@ export function PortfolioSection() {
           </div>
         </div>
 
-        {items.length > 0 && items.length < MAX_ITEMS && (
+        {canEdit && items.length > 0 && items.length < MAX_ITEMS && (
           <button
             onClick={openCreate}
             aria-label={t("addProject")}
@@ -76,7 +78,7 @@ export function PortfolioSection() {
       {isLoading ? (
         <PortfolioGridSkeleton />
       ) : items.length === 0 ? (
-        <EmptyState onCreate={openCreate} />
+        canEdit ? <EmptyState onCreate={openCreate} /> : null
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           {items.map((item, index) => (
@@ -87,9 +89,10 @@ export function PortfolioSection() {
             >
               <PortfolioItemCard
                 item={item}
+                readOnly={!canEdit}
                 onView={() => setViewItem(item)}
-                onEdit={() => openEdit(item)}
-                onDelete={() => handleDelete(item.id)}
+                onEdit={canEdit ? () => openEdit(item) : undefined}
+                onDelete={canEdit ? () => handleDelete(item.id) : undefined}
               />
             </div>
           ))}

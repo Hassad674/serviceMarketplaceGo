@@ -58,4 +58,9 @@ type UserRepository interface {
 	// suspensions, and password resets.
 	BumpSessionVersion(ctx context.Context, userID uuid.UUID) (int, error)
 	GetSessionVersion(ctx context.Context, userID uuid.UUID) (int, error)
+
+	// UpdateEmailNotificationsEnabled sets the global email notification
+	// kill-switch for a user. When false, no email notifications are
+	// sent regardless of per-type preferences.
+	UpdateEmailNotificationsEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error
 }

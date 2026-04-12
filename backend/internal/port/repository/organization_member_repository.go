@@ -66,4 +66,11 @@ type OrganizationMemberRepository interface {
 	// that need to project an org-level concept onto the underlying
 	// users (e.g. aggregating presence across the team).
 	ListMemberUserIDsByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
+
+	// ListUserIDsByRole returns the user ids of every member of the
+	// given org whose membership role matches `role`. Used by the
+	// role-permissions editor to bump session_version for every
+	// affected user after a permission save, so the new (possibly
+	// reduced) permission set takes effect on the next request.
+	ListUserIDsByRole(ctx context.Context, orgID uuid.UUID, role organization.Role) ([]uuid.UUID, error)
 }

@@ -201,6 +201,12 @@ func (s *Service) provisionOrgForNewUser(ctx context.Context, u *user.User) (*or
 // optional org context. The session_version is copied from the user's
 // current value so the auth middleware has a reference to compare
 // future requests against.
+//
+// The Permissions claim is populated from orgCtx.Permissions — the
+// already-resolved effective permission set that honors per-org role
+// overrides. The middleware consumes this list as its fast-path,
+// which is how customized permissions take effect on every endpoint
+// without a DB round-trip on the hot path.
 func buildAccessInput(u *user.User, orgCtx *orgContext) service.AccessTokenInput {
 	input := service.AccessTokenInput{
 		UserID:         u.ID,
@@ -212,6 +218,13 @@ func buildAccessInput(u *user.User, orgCtx *orgContext) service.AccessTokenInput
 		orgID := orgCtx.Organization.ID
 		input.OrganizationID = &orgID
 		input.OrgRole = orgCtx.Member.Role.String()
+		if len(orgCtx.Permissions) > 0 {
+			perms := make([]string, 0, len(orgCtx.Permissions))
+			for _, p := range orgCtx.Permissions {
+				perms = append(perms, string(p))
+			}
+			input.Permissions = perms
+		}
 	}
 	return input
 }

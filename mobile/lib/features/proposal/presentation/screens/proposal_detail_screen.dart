@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../dispute/presentation/providers/dispute_provider.dart';
@@ -461,9 +462,13 @@ class _ActionButtons extends ConsumerWidget {
     final theme = Theme.of(context);
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
+    final canRespond = ref.watch(
+      hasPermissionProvider(OrgPermission.proposalsRespond),
+    );
 
     // Pending: recipient can accept/decline/modify
     if (status == ProposalStatus.pending && !isOwn) {
+      if (!canRespond) return const SizedBox.shrink();
       return Column(
         children: [
           Row(
@@ -523,9 +528,10 @@ class _ActionButtons extends ConsumerWidget {
       );
     }
 
-    // Accepted: client can pay
+    // Accepted: client can pay (requires proposals.respond permission)
     if (status == ProposalStatus.accepted &&
         proposal.clientId == currentUserId) {
+      if (!canRespond) return const SizedBox.shrink();
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(

@@ -10,6 +10,9 @@ import type {
   InvitationPreview,
   AcceptInvitationPayload,
   RoleDefinitionsResponse,
+  RolePermissionsMatrixResponse,
+  UpdateRolePermissionsPayload,
+  UpdateRolePermissionsResponse,
 } from "../types"
 
 // Pure async functions that talk to the organization endpoints
@@ -62,6 +65,36 @@ export function leaveOrganization(orgID: string): Promise<void> {
 export function getRoleDefinitions(): Promise<RoleDefinitionsResponse> {
   return apiClient<RoleDefinitionsResponse>(
     `/api/v1/organizations/role-definitions`,
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Role permissions editor (R17 — per-org customization)               */
+/* ------------------------------------------------------------------ */
+
+// Returns the full customized permission matrix for an organization.
+// Every role row (Owner, Admin, Member, Viewer) is included, with
+// cells pre-resolved into default / granted_override / revoked_override
+// / locked states ready for direct rendering.
+export function getRolePermissionsMatrix(
+  orgID: string,
+): Promise<RolePermissionsMatrixResponse> {
+  return apiClient<RolePermissionsMatrixResponse>(
+    `/api/v1/organizations/${orgID}/role-permissions`,
+  )
+}
+
+// Saves a role's full override map. The backend replaces the
+// previous state for that role in one shot — any cell missing from
+// `overrides` reverts to the default. Only the Owner can call this
+// endpoint; Admins receive a 403.
+export function updateRolePermissions(
+  orgID: string,
+  payload: UpdateRolePermissionsPayload,
+): Promise<UpdateRolePermissionsResponse> {
+  return apiClient<UpdateRolePermissionsResponse>(
+    `/api/v1/organizations/${orgID}/role-permissions`,
+    { method: "PATCH", body: payload },
   )
 }
 

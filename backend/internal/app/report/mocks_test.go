@@ -251,3 +251,6 @@ func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, 
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
 }
+func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
+}

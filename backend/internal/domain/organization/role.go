@@ -59,3 +59,31 @@ func (r Role) CanBeInvitedAs() bool {
 func (r Role) IsElevated() bool {
 	return r == RoleOwner || r == RoleAdmin
 }
+
+// Level returns a numeric authority level for the role, enabling simple
+// comparisons between roles: higher level = more permissions.
+//
+//	Owner=4, Admin=3, Member=2, Viewer=1, unknown=0
+func (r Role) Level() int {
+	switch r {
+	case RoleOwner:
+		return 4
+	case RoleAdmin:
+		return 3
+	case RoleMember:
+		return 2
+	case RoleViewer:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// IsDemotion reports whether changing from role "from" to role "to"
+// constitutes a demotion (reduction in permissions). This is used to
+// decide whether a session invalidation is needed — demotions must
+// take effect immediately, while promotions do not require forcing a
+// re-login.
+func IsDemotion(from, to Role) bool {
+	return from.Level() > to.Level()
+}

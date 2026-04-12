@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl"
 import { useUser, useOrganization } from "@/shared/hooks/use-user"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useProfileRating } from "@/features/provider/hooks/use-profile-rating"
 import { useUploadPhoto, useUploadVideo, useDeleteVideo } from "@/features/provider/hooks/use-upload"
@@ -27,6 +28,7 @@ export default function ProfilePage() {
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
   const videoDelete = useDeleteVideo()
+  const canEditProfile = useHasPermission("org_profile.edit")
   const t = useTranslations("profile")
 
   if (isLoading) return <ProfileSkeleton />
@@ -54,28 +56,31 @@ export default function ProfilePage() {
         profile={profile}
         displayName={displayName}
         roleContext={roleContext}
-        onUpdateTitle={(title) => updateProfile.mutate({ title })}
-        onUploadPhoto={async (file) => { await photoUpload.mutateAsync(file) }}
+        onUpdateTitle={canEditProfile ? (title) => updateProfile.mutate({ title }) : undefined}
+        onUploadPhoto={canEditProfile ? async (file) => { await photoUpload.mutateAsync(file) } : undefined}
         uploadingPhoto={photoUpload.isPending}
+        readOnly={!canEditProfile}
         averageRating={rating?.average}
         reviewCount={rating?.count}
       />
       <ProfileVideo
         videoUrl={profile?.presentation_video_url}
         emptyDescription={videoDesc}
-        onUploadVideo={async (file) => { await videoUpload.mutateAsync(file) }}
+        onUploadVideo={canEditProfile ? async (file) => { await videoUpload.mutateAsync(file) } : undefined}
         uploadingVideo={videoUpload.isPending}
-        onDeleteVideo={() => videoDelete.mutate()}
+        onDeleteVideo={canEditProfile ? () => videoDelete.mutate() : undefined}
         deletingVideo={videoDelete.isPending}
+        readOnly={!canEditProfile}
       />
       <ProfileAbout
         content={profile?.about || ""}
-        onSave={async (text) => {
+        onSave={canEditProfile ? async (text) => {
           await updateProfile.mutateAsync({ about: text })
-        }}
+        } : undefined}
         saving={updateProfile.isPending}
         label={aboutLabel}
         placeholder={aboutPlaceholder}
+        readOnly={!canEditProfile}
       />
       <SocialLinksSection />
       <PortfolioSection />

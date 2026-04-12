@@ -36,12 +36,13 @@ func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
 	}
 
 	query := `
-		INSERT INTO users (id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)`
+		INSERT INTO users (id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, email_notifications_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)`
 
 	_, err := r.db.ExecContext(ctx, query,
 		u.ID, u.Email, u.HashedPassword, u.FirstName, u.LastName, u.DisplayName,
-		string(u.Role), string(accountType), u.ReferrerEnabled, u.IsAdmin, string(u.Status),
+		string(u.Role), string(accountType), u.ReferrerEnabled, u.EmailNotificationsEnabled,
+		u.IsAdmin, string(u.Status),
 		u.SuspendedAt, u.SuspensionReason, u.SuspensionExpiresAt, u.BannedAt, u.BanReason,
 		u.OrganizationID, u.LinkedInID, u.GoogleID, u.EmailVerified, u.CreatedAt, u.UpdatedAt,
 	)
@@ -57,7 +58,8 @@ func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
 }
 
 const userColumns = `id, email, hashed_password, first_name, last_name, display_name,
-		role, account_type, session_version, referrer_enabled, is_admin, status,
+		role, account_type, session_version, referrer_enabled, email_notifications_enabled,
+		is_admin, status,
 		suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason,
 		organization_id, linkedin_id, google_id, email_verified, created_at, updated_at`
 
@@ -66,7 +68,8 @@ func (r *UserRepository) scanUserRow(scanner interface{ Scan(...any) error }) (*
 	var role, accountType, status string
 	err := scanner.Scan(
 		&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.IsAdmin, &status,
+		&role, &accountType, &u.SessionVersion, &u.ReferrerEnabled, &u.EmailNotificationsEnabled,
+		&u.IsAdmin, &status,
 		&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 		&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified,
 		&u.CreatedAt, &u.UpdatedAt,
@@ -160,12 +163,13 @@ func (r *UserRepository) Update(ctx context.Context, u *user.User) error {
 	}
 
 	query := `
-		UPDATE users SET email = $2, hashed_password = $3, first_name = $4, last_name = $5, display_name = $6, role = $7, account_type = $8, referrer_enabled = $9, is_admin = $10, status = $11, suspended_at = $12, suspension_reason = $13, suspension_expires_at = $14, banned_at = $15, ban_reason = $16, organization_id = $17, linkedin_id = $18, google_id = $19, email_verified = $20
+		UPDATE users SET email = $2, hashed_password = $3, first_name = $4, last_name = $5, display_name = $6, role = $7, account_type = $8, referrer_enabled = $9, email_notifications_enabled = $10, is_admin = $11, status = $12, suspended_at = $13, suspension_reason = $14, suspension_expires_at = $15, banned_at = $16, ban_reason = $17, organization_id = $18, linkedin_id = $19, google_id = $20, email_verified = $21
 		WHERE id = $1`
 
 	result, err := r.db.ExecContext(ctx, query,
 		u.ID, u.Email, u.HashedPassword, u.FirstName, u.LastName, u.DisplayName,
-		string(u.Role), string(accountType), u.ReferrerEnabled, u.IsAdmin, string(u.Status),
+		string(u.Role), string(accountType), u.ReferrerEnabled, u.EmailNotificationsEnabled,
+		u.IsAdmin, string(u.Status),
 		u.SuspendedAt, u.SuspensionReason, u.SuspensionExpiresAt, u.BannedAt, u.BanReason,
 		u.OrganizationID, u.LinkedInID, u.GoogleID, u.EmailVerified,
 	)
@@ -335,7 +339,7 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
+		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, email_notifications_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
 		FROM users %s
 		ORDER BY created_at DESC, id DESC
 		LIMIT $%d%s`, where, argIdx, offsetClause)
@@ -353,7 +357,7 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 		var role, accountType, status string
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-			&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
+			&role, &accountType, &u.ReferrerEnabled, &u.EmailNotificationsEnabled, &u.IsAdmin, &status,
 			&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt, &u.BannedAt, &u.BanReason,
 			&u.OrganizationID, &u.LinkedInID, &u.GoogleID, &u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
 		); err != nil {
@@ -473,7 +477,8 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 
 	query := `
 		SELECT id, email, hashed_password, first_name, last_name, display_name,
-		       role, account_type, referrer_enabled, is_admin, status,
+		       role, account_type, referrer_enabled, email_notifications_enabled,
+		       is_admin, status,
 		       suspended_at, suspension_reason, suspension_expires_at,
 		       banned_at, ban_reason, organization_id, linkedin_id, google_id,
 		       email_verified, created_at, updated_at
@@ -493,7 +498,7 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 		var role, accountType, status string
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.HashedPassword, &u.FirstName, &u.LastName, &u.DisplayName,
-			&role, &accountType, &u.ReferrerEnabled, &u.IsAdmin, &status,
+			&role, &accountType, &u.ReferrerEnabled, &u.EmailNotificationsEnabled, &u.IsAdmin, &status,
 			&u.SuspendedAt, &u.SuspensionReason, &u.SuspensionExpiresAt,
 			&u.BannedAt, &u.BanReason, &u.OrganizationID, &u.LinkedInID, &u.GoogleID,
 			&u.EmailVerified, &u.CreatedAt, &u.UpdatedAt,
@@ -506,6 +511,27 @@ func (r *UserRepository) RecentSignups(ctx context.Context, limit int) ([]*user.
 		users = append(users, u)
 	}
 	return users, rows.Err()
+}
+
+// UpdateEmailNotificationsEnabled sets the global email kill-switch for
+// a user. When false, no email notifications are sent regardless of
+// per-type preferences.
+func (r *UserRepository) UpdateEmailNotificationsEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx,
+		`UPDATE users SET email_notifications_enabled = $2, updated_at = now() WHERE id = $1`,
+		userID, enabled,
+	)
+	if err != nil {
+		return fmt.Errorf("update email_notifications_enabled: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return user.ErrUserNotFound
+	}
+	return nil
 }
 
 // Stripe Connect and KYC enforcement used to live on UserRepository via

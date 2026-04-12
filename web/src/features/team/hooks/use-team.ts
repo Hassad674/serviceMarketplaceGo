@@ -17,12 +17,15 @@ import {
   validateInvitation,
   acceptInvitation,
   getRoleDefinitions,
+  getRolePermissionsMatrix,
+  updateRolePermissions,
 } from "../api/team-api"
 import type {
   SendInvitationPayload,
   UpdateMemberPayload,
   InitiateTransferPayload,
   AcceptInvitationPayload,
+  UpdateRolePermissionsPayload,
 } from "../types"
 
 /* -------------------------------------------------------------------------- */
@@ -219,5 +222,58 @@ export function useInvitationPreview(token: string) {
 export function useAcceptInvitation() {
   return useMutation({
     mutationFn: (payload: AcceptInvitationPayload) => acceptInvitation(payload),
+  })
+}
+
+/* -------------------------------------------------------------------------- */
+/* Role permissions editor (R17 — per-org customization)                      */
+/* -------------------------------------------------------------------------- */
+
+export function rolePermissionsKey(orgID: string) {
+  return ["team", orgID, "role-permissions"] as const
+}
+
+// useRolePermissionsMatrix reads the full customized matrix for the
+// org. Short stale time so the Owner sees the latest state if they
+// open the page right after a save from another tab. Disabled when
+// orgID is missing (the team page renders a loading skeleton instead).
+export function useRolePermissionsMatrix(orgID: string | undefined) {
+  return useQuery({
+    queryKey: rolePermissionsKey(orgID ?? ""),
+    queryFn: () => getRolePermissionsMatrix(orgID as string),
+    enabled: !!orgID,
+    staleTime: 30 * 1000,
+  })
+}
+
+// useUpdateRolePermissions saves a role's full override map. On
+// success, invalidates the team queries AND the session so the
+// Owner's own effective permission list refreshes if they edited
+// their own role indirectly (e.g. granted a permission to Admin,
+// then demoted themselves — edge case but the invalidation is
+// cheap).
+//
+// The returned mutation result carries the summary from the backend
+// (granted_keys, revoked_keys, affected_members) so the caller can
+// render a contextual toast.
+export function useUpdateRolePermissions(orgID: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: UpdateRolePermissionsPayload) =>
+      updateRolePermissions(orgID, payload),
+    onSuccess: (data) => {
+      // Update the cache directly with the refreshed matrix the
+      // backend sent back, so the UI reflects the save without a
+      // second round-trip.
+      if (data.matrix) {
+        queryClient.setQueryData(rolePermissionsKey(orgID), data.matrix)
+      } else {
+        queryClient.invalidateQueries({ queryKey: rolePermissionsKey(orgID) })
+      }
+      // Session permissions may have changed for the current user
+      // if they hold the edited role — refresh useSession to pick it
+      // up. Cheap: a single /me round-trip.
+      queryClient.invalidateQueries({ queryKey: ["session"] })
+    },
   })
 }

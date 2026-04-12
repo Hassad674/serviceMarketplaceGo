@@ -6,6 +6,7 @@ import { useRouter } from "@i18n/navigation"
 import { X, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import type { ProposalFormData } from "../types"
 import { createEmptyProposalForm } from "../types"
 import { ProposalPreview } from "./proposal-preview"
@@ -34,6 +35,7 @@ export function CreateProposalPage() {
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
+  const canCreate = useHasPermission("proposals.create")
   const createMutation = useCreateProposal()
   const modifyMutation = useModifyProposal()
   const isSubmitting = createMutation.isPending || modifyMutation.isPending || isUploading
@@ -195,11 +197,11 @@ export function CreateProposalPage() {
         <button
           type="submit"
           form="proposal-form"
-          disabled={!isValid || isSubmitting}
+          disabled={!isValid || isSubmitting || !canCreate}
           className={cn(
             "rounded-xl px-5 py-2 text-sm font-semibold text-white transition-all duration-200",
             "flex items-center gap-2",
-            isValid && !isSubmitting
+            isValid && !isSubmitting && canCreate
               ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
               : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500",
           )}
@@ -372,11 +374,11 @@ export function CreateProposalPage() {
               </button>
               <button
                 type="submit"
-                disabled={!isValid || isSubmitting}
+                disabled={!isValid || isSubmitting || !canCreate}
                 className={cn(
                   "flex-1 rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200",
                   "flex items-center justify-center gap-2",
-                  isValid && !isSubmitting
+                  isValid && !isSubmitting && canCreate
                     ? "gradient-primary hover:shadow-glow active:scale-[0.98]"
                     : "cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-gray-700 dark:text-gray-500",
                 )}

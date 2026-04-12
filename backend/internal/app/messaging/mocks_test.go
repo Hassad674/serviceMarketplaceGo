@@ -352,6 +352,9 @@ func (m *mockOrgRepo) SetKYCFirstEarning(_ context.Context, _ uuid.UUID, _ time.
 func (m *mockOrgRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _ map[string]time.Time) error {
 	return nil
 }
+func (m *mockOrgRepo) SaveRoleOverrides(_ context.Context, _ uuid.UUID, _ organization.RoleOverrides) error {
+	return nil
+}
 
 // --- mockOrgMemberRepo ---
 
@@ -385,6 +388,9 @@ func (m *mockOrgMemberRepo) ListMemberUserIDsByOrgIDs(ctx context.Context, orgID
 		return m.listMemberUserIDsByOrgIDsFn(ctx, orgIDs)
 	}
 	return map[uuid.UUID][]uuid.UUID{}, nil
+}
+func (m *mockOrgMemberRepo) ListUserIDsByRole(_ context.Context, _ uuid.UUID, _ organization.Role) ([]uuid.UUID, error) {
+	return nil, nil
 }
 
 // --- mockPresenceService ---
@@ -553,4 +559,7 @@ func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, 
 }
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
+}
+func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
 }

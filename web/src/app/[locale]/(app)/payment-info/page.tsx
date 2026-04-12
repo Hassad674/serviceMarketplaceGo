@@ -10,10 +10,11 @@ import {
   ConnectComponentsProvider,
   ConnectNotificationBanner,
 } from "@stripe/react-connect-js"
-import { AlertCircle, ArrowLeft, Loader2, Sparkles } from "lucide-react"
+import { AlertCircle, ArrowLeft, Loader2, ShieldX, Sparkles } from "lucide-react"
 import { useTranslations } from "next-intl"
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 
 import {
   AccountStatusCard,
@@ -53,6 +54,8 @@ export default function PaymentInfoV2Page() {
   const appLocale = (params?.locale as string) || "en"
   const stripeLocale = useMemo(() => mapAppLocaleToStripe(appLocale), [appLocale])
   const t = useTranslations("paymentInfo")
+  const tPerm = useTranslations("permissions")
+  const canManageKyc = useHasPermission("kyc.manage")
 
   // Mobile WebView passes the JWT via ?token= so we can authenticate
   // API calls with Authorization: Bearer header (no cookie needed).
@@ -102,8 +105,9 @@ export default function PaymentInfoV2Page() {
     }
   }, [])
 
-  /* ---------- Initial load ---------- */
+  /* ---------- Initial load (skip when user lacks kyc.manage) ---------- */
   useEffect(() => {
+    if (!canManageKyc) return
     let cancelled = false
     ;(async () => {
       const s = await fetchStatus()
@@ -126,17 +130,18 @@ export default function PaymentInfoV2Page() {
     return () => {
       cancelled = true
     }
-  }, [fetchStatus])
+  }, [fetchStatus, canManageKyc])
 
   /* ---------- Polling (dashboard/onboarding) ---------- */
   useEffect(() => {
+    if (!canManageKyc) return
     if (mode !== "dashboard" && mode !== "onboarding") return
     const interval = setInterval(async () => {
       const s = await fetchStatus()
       if (s) setStatus(s)
     }, 10_000)
     return () => clearInterval(interval)
-  }, [mode, fetchStatus])
+  }, [mode, fetchStatus, canManageKyc])
 
   /* ---------- Stripe Connect init (once we have a session possible) ---------- */
   const fetchClientSecret = useCallback(async (): Promise<string> => {
@@ -253,8 +258,28 @@ export default function PaymentInfoV2Page() {
       </header>
 
       <div className="mx-auto max-w-5xl px-0 pt-3 sm:px-6 sm:pt-8">
+        {/* Permission denied card */}
+        {!canManageKyc ? (
+          <div className="mx-3 mt-4 flex flex-col items-center gap-4 rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm sm:mx-0 sm:mt-8 sm:p-12">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
+              <ShieldX className="h-7 w-7 text-rose-500" aria-hidden />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">
+                {tPerm("restrictedTitle")}
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-slate-500">
+                {tPerm("noKycManage")}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {tPerm("restrictedDescription")}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {/* Error banner */}
-        {errorMessage ? (
+        {canManageKyc && errorMessage ? (
           <div
             role="alert"
             className="mb-6 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 animate-slide-up"
@@ -273,18 +298,18 @@ export default function PaymentInfoV2Page() {
           </div>
         ) : null}
 
-        {mode === "loading" ? (
+        {canManageKyc && mode === "loading" ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-rose-500" aria-hidden />
             <span className="ml-3 text-sm text-slate-600">{t("loadingAccount")}</span>
           </div>
         ) : null}
 
-        {mode === "wizard" ? (
+        {canManageKyc && mode === "wizard" ? (
           <OnboardingWizard loading={creating} onSubmit={handleWizardSubmit} />
         ) : null}
 
-        {(mode === "onboarding" || mode === "dashboard") && connectInstance ? (
+        {canManageKyc && (mode === "onboarding" || mode === "dashboard") && connectInstance ? (
           <ConnectComponentsProvider connectInstance={connectInstance}>
             <div className="flex flex-col gap-4 animate-fade-in sm:gap-6">
               {/* Always-visible notification banner — also flags eventually_due

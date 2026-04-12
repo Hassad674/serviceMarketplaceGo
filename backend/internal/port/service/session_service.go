@@ -19,6 +19,14 @@ type CreateSessionInput struct {
 	OrganizationID *uuid.UUID
 	OrgRole        string
 
+	// Permissions is the list of effective permission keys for the
+	// user's org membership, with the org's role overrides already
+	// applied. Stored in the session so the RequirePermission
+	// middleware can honor customized permissions without an extra
+	// database round-trip on every request. Empty when the user has
+	// no org.
+	Permissions []string
+
 	// SessionVersion mirrors the one in AccessTokenInput. Copied from
 	// users.session_version at login so the cookie session stays in
 	// sync with the JWT issued for mobile clients.
@@ -36,6 +44,12 @@ type Session struct {
 	// Organization context — nil / empty for solo users.
 	OrganizationID *uuid.UUID
 	OrgRole        string
+
+	// Permissions mirrors CreateSessionInput.Permissions. The auth
+	// middleware writes this into request context under
+	// ContextKeyPermissions so the RequirePermission middleware can
+	// consult the customized set first.
+	Permissions []string
 
 	// SessionVersion at the time the session was created. The auth
 	// middleware compares this against the current value in the DB

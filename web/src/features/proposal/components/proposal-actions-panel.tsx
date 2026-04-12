@@ -14,6 +14,7 @@ import {
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import type { ProposalResponse, ProposalStatus } from "../types"
 
 interface ActionsPanelProps {
@@ -39,11 +40,12 @@ interface ActionsPanelProps {
 
 export function ActionsPanel(props: ActionsPanelProps) {
   const t = useTranslations("proposal")
+  const canRespond = useHasPermission("proposals.respond")
 
   return (
     <div className="space-y-4">
       <StatusCard status={props.proposal.status} />
-      <ActionButtons {...props} />
+      {canRespond && <ActionButtons {...props} />}
       <ConversationLink conversationId={props.proposal.conversation_id} />
     </div>
   )

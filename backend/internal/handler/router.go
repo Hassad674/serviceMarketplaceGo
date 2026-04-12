@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"marketplace-backend/internal/config"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -15,6 +16,7 @@ type RouterDeps struct {
 	Auth           *AuthHandler
 	Invitation     *InvitationHandler
 	Team           *TeamHandler
+	RoleOverrides  *RoleOverridesHandler
 	Profile        *ProfileHandler
 	Upload         *UploadHandler
 	Health         *HealthHandler
@@ -122,29 +124,47 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Delete("/transfer", deps.Team.CancelTransfer)
 				r.Post("/transfer/accept", deps.Team.AcceptTransfer)
 				r.Post("/transfer/decline", deps.Team.DeclineTransfer)
+
+				// Role permissions editor (R17 — per-org customization).
+				// GET is readable by any org member (every role holds
+				// team.view in the defaults). PATCH is Owner-only and
+				// additionally defense-in-depth gated by the service
+				// layer. The middleware fast-path uses the Owner-only
+				// PermTeamManageRolePermissions permission which is
+				// itself non-overridable.
+				if deps.RoleOverrides != nil {
+					r.Get("/role-permissions", deps.RoleOverrides.GetMatrix)
+					r.With(middleware.RequirePermission(organization.PermTeamManageRolePermissions)).
+						Patch("/role-permissions", deps.RoleOverrides.UpdateMatrix)
+				}
 			})
 		}
 
-		// Profile routes (authenticated)
+		// Profile routes (authenticated, permission-gated)
 		r.Route("/profile", func(r chi.Router) {
 			r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 			r.Use(middleware.NoCache)
 			r.Get("/", deps.Profile.GetMyProfile)
-			r.Put("/", deps.Profile.UpdateMyProfile)
+			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.Profile.UpdateMyProfile)
 		})
 
-		// Upload routes (authenticated)
+		// Upload routes (authenticated, permission-gated)
 		r.Route("/upload", func(r chi.Router) {
 			r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 			r.Use(middleware.NoCache)
-			r.Post("/photo", deps.Upload.UploadPhoto)
-			r.Post("/video", deps.Upload.UploadVideo)
-			r.Delete("/video", deps.Upload.DeleteVideo)
-			r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
-			r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
-			r.Post("/review-video", deps.Upload.UploadReviewVideo)
-			r.Post("/portfolio-image", deps.Upload.UploadPortfolioImage)
-			r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
+			// Profile-related uploads require org profile edit permission
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequirePermission(organization.PermOrgProfileEdit))
+				r.Post("/photo", deps.Upload.UploadPhoto)
+				r.Post("/video", deps.Upload.UploadVideo)
+				r.Delete("/video", deps.Upload.DeleteVideo)
+				r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
+				r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
+				r.Post("/portfolio-image", deps.Upload.UploadPortfolioImage)
+				r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
+			})
+			// Review video upload requires review permission
+			r.With(middleware.RequirePermission(organization.PermReviewsRespond)).Post("/review-video", deps.Upload.UploadReviewVideo)
 		})
 
 		// Public profiles (keyed by organization id since phase R2)
@@ -154,76 +174,99 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
 		}
 
-		// Messaging routes (authenticated)
+		// Messaging routes (authenticated, permission-gated)
 		if deps.Messaging != nil {
 			r.Route("/messaging", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Post("/conversations", deps.Messaging.StartConversation)
-				r.Get("/conversations", deps.Messaging.ListConversations)
-				r.Get("/conversations/{id}/messages", deps.Messaging.ListMessages)
-				r.Post("/conversations/{id}/messages", deps.Messaging.SendMessage)
-				r.Post("/conversations/{id}/read", deps.Messaging.MarkAsRead)
-				r.Put("/messages/{id}", deps.Messaging.EditMessage)
-				r.Delete("/messages/{id}", deps.Messaging.DeleteMessage)
-				r.Post("/upload-url", deps.Messaging.GetPresignedURL)
-				r.Get("/unread-count", deps.Messaging.GetTotalUnread)
+				// Read operations
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermMessagingView))
+					r.Get("/conversations", deps.Messaging.ListConversations)
+					r.Get("/conversations/{id}/messages", deps.Messaging.ListMessages)
+					r.Post("/conversations/{id}/read", deps.Messaging.MarkAsRead)
+					r.Get("/unread-count", deps.Messaging.GetTotalUnread)
+				})
+				// Write operations
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermMessagingSend))
+					r.Post("/conversations", deps.Messaging.StartConversation)
+					r.Post("/conversations/{id}/messages", deps.Messaging.SendMessage)
+					r.Put("/messages/{id}", deps.Messaging.EditMessage)
+					r.Delete("/messages/{id}", deps.Messaging.DeleteMessage)
+					r.Post("/upload-url", deps.Messaging.GetPresignedURL)
+				})
 			})
 		}
 
-		// Proposal routes (authenticated)
+		// Proposal routes (authenticated, permission-gated)
 		if deps.Proposal != nil {
 			r.Route("/proposals", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Post("/", deps.Proposal.CreateProposal)
-				r.Get("/{id}", deps.Proposal.GetProposal)
-				r.Post("/{id}/accept", deps.Proposal.AcceptProposal)
-				r.Post("/{id}/decline", deps.Proposal.DeclineProposal)
-				r.Post("/{id}/modify", deps.Proposal.ModifyProposal)
-				r.Post("/{id}/pay", deps.Proposal.PayProposal)
-				r.Post("/{id}/confirm-payment", deps.Proposal.ConfirmPayment)
-				r.Post("/{id}/request-completion", deps.Proposal.RequestCompletion)
-				r.Post("/{id}/complete", deps.Proposal.CompleteProposal)
-				r.Post("/{id}/reject-completion", deps.Proposal.RejectCompletion)
+				r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/{id}", deps.Proposal.GetProposal)
+				r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/", deps.Proposal.CreateProposal)
+				r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/{id}/modify", deps.Proposal.ModifyProposal)
+				// Respond actions (accept, decline, pay, complete flow)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermProposalsRespond))
+					r.Post("/{id}/accept", deps.Proposal.AcceptProposal)
+					r.Post("/{id}/decline", deps.Proposal.DeclineProposal)
+					r.Post("/{id}/pay", deps.Proposal.PayProposal)
+					r.Post("/{id}/confirm-payment", deps.Proposal.ConfirmPayment)
+					r.Post("/{id}/request-completion", deps.Proposal.RequestCompletion)
+					r.Post("/{id}/complete", deps.Proposal.CompleteProposal)
+					r.Post("/{id}/reject-completion", deps.Proposal.RejectCompletion)
+				})
 			})
 			r.Route("/projects", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
+				r.Use(middleware.RequirePermission(organization.PermProposalsView))
 				r.Get("/", deps.Proposal.ListActiveProjects)
 			})
 		}
 
-		// Job routes (authenticated)
+		// Job routes (authenticated, permission-gated)
 		if deps.Job != nil {
 			r.Route("/jobs", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 
-				// Static routes first (before {id} wildcard)
-				r.Post("/", deps.Job.CreateJob)
-				r.Get("/mine", deps.Job.ListMyJobs)
+				// View operations
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermJobsView))
+					r.Get("/mine", deps.Job.ListMyJobs)
+					r.Get("/{id}", deps.Job.GetJob)
+					r.Post("/{id}/mark-viewed", deps.Job.MarkApplicationsViewed)
+					if deps.JobApplication != nil {
+						r.Get("/open", deps.JobApplication.ListOpenJobs)
+						r.Get("/credits", deps.JobApplication.GetCredits)
+						r.Get("/{id}/applications", deps.JobApplication.ListJobApplications)
+						r.Get("/{id}/has-applied", deps.JobApplication.HasApplied)
+					}
+				})
 
+				// Create
+				r.With(middleware.RequirePermission(organization.PermJobsCreate)).Post("/", deps.Job.CreateJob)
+
+				// Edit
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermJobsEdit))
+					r.Put("/{id}", deps.Job.UpdateJob)
+					r.Post("/{id}/close", deps.Job.CloseJob)
+					r.Post("/{id}/reopen", deps.Job.ReopenJob)
+				})
+
+				// Delete (Owner/Admin only)
+				r.With(middleware.RequirePermission(organization.PermJobsDelete)).Delete("/{id}", deps.Job.DeleteJob)
+
+				// Application actions (proposal + messaging permissions)
 				if deps.JobApplication != nil {
-					r.Get("/open", deps.JobApplication.ListOpenJobs)
-					r.Get("/credits", deps.JobApplication.GetCredits)
-					r.Get("/applications/mine", deps.JobApplication.ListMyApplications)
-					r.Delete("/applications/{applicationId}", deps.JobApplication.WithdrawApplication)
-				}
-
-				// Parameterized routes
-				r.Get("/{id}", deps.Job.GetJob)
-				r.Put("/{id}", deps.Job.UpdateJob)
-				r.Post("/{id}/close", deps.Job.CloseJob)
-				r.Post("/{id}/reopen", deps.Job.ReopenJob)
-				r.Delete("/{id}", deps.Job.DeleteJob)
-				r.Post("/{id}/mark-viewed", deps.Job.MarkApplicationsViewed)
-
-				if deps.JobApplication != nil {
-					r.Post("/{id}/apply", deps.JobApplication.ApplyToJob)
-					r.Get("/{id}/applications", deps.JobApplication.ListJobApplications)
-					r.Get("/{id}/has-applied", deps.JobApplication.HasApplied)
-					r.Post("/{id}/applications/{applicantId}/contact", deps.JobApplication.ContactApplicant)
+					r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/applications/mine", deps.JobApplication.ListMyApplications)
+					r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/{id}/apply", deps.JobApplication.ApplyToJob)
+					r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Delete("/applications/{applicationId}", deps.JobApplication.WithdrawApplication)
+					r.With(middleware.RequirePermission(organization.PermMessagingSend)).Post("/{id}/applications/{applicantId}/contact", deps.JobApplication.ContactApplicant)
 				}
 			})
 		}
@@ -239,8 +282,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Group(func(r chi.Router) {
 					r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 					r.Use(middleware.NoCache)
-					r.Post("/", deps.Review.CreateReview)
-					r.Get("/can-review/{proposalId}", deps.Review.CanReview)
+					r.With(middleware.RequirePermission(organization.PermReviewsRespond)).Post("/", deps.Review.CreateReview)
+					r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/can-review/{proposalId}", deps.Review.CanReview)
 				})
 			})
 		}
@@ -265,8 +308,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.SocialLink.ListMySocialLinks)
-				r.Put("/", deps.SocialLink.UpsertSocialLink)
-				r.Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.SocialLink.UpsertSocialLink)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
 			})
 		}
 
@@ -276,10 +319,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Get("/portfolio/org/{orgId}", deps.Portfolio.ListPortfolioByOrganization)
 			r.Get("/portfolio/{id}", deps.Portfolio.GetPortfolioItem)
 
-			// Authenticated: manage own portfolio
+			// Authenticated: manage own portfolio (org profile edit permission)
 			r.Route("/portfolio", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
+				r.Use(middleware.RequirePermission(organization.PermOrgProfileEdit))
 				r.Post("/", deps.Portfolio.CreatePortfolioItem)
 				r.Put("/reorder", deps.Portfolio.ReorderPortfolio)
 				r.Put("/{id}", deps.Portfolio.UpdatePortfolioItem)
@@ -287,15 +331,19 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		}
 
-		// Call routes (authenticated)
+		// Call routes (authenticated, permission-gated)
 		if deps.Call != nil {
 			r.Route("/calls", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Post("/initiate", deps.Call.InitiateCall)
-				r.Post("/{id}/accept", deps.Call.AcceptCall)
-				r.Post("/{id}/decline", deps.Call.DeclineCall)
-				r.Post("/{id}/end", deps.Call.EndCall)
+				r.With(middleware.RequirePermission(organization.PermMessagingSend)).Post("/initiate", deps.Call.InitiateCall)
+				// Accept/decline/end are receiving-side actions — view permission is sufficient
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermMessagingView))
+					r.Post("/{id}/accept", deps.Call.AcceptCall)
+					r.Post("/{id}/decline", deps.Call.DeclineCall)
+					r.Post("/{id}/end", deps.Call.EndCall)
+				})
 			})
 		}
 
@@ -304,9 +352,12 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Route("/payment-info", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Post("/account-session", deps.Embedded.CreateAccountSession)
-				r.Delete("/account-session", deps.Embedded.ResetAccount)
-				r.Get("/account-status", deps.Embedded.GetAccountStatus)
+				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/account-status", deps.Embedded.GetAccountStatus)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermKYCManage))
+					r.Post("/account-session", deps.Embedded.CreateAccountSession)
+					r.Delete("/account-session", deps.Embedded.ResetAccount)
+				})
 			})
 		}
 
@@ -322,6 +373,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Delete("/{id}", deps.Notification.DeleteNotification)
 				r.Get("/preferences", deps.Notification.GetPreferences)
 				r.Put("/preferences", deps.Notification.UpdatePreferences)
+				r.Patch("/preferences/bulk-email", deps.Notification.BulkUpdateEmailPreferences)
 				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
 			})
 		}
@@ -329,28 +381,36 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Identity documents are now handled by Stripe Embedded Components —
 		// no custom upload/list/delete endpoints needed.
 
-		// Wallet routes (authenticated)
+		// Wallet routes (authenticated, permission-gated)
 		if deps.Wallet != nil {
 			r.Route("/wallet", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Get("/", deps.Wallet.GetWallet)
-				r.Post("/payout", deps.Wallet.RequestPayout)
+				r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
+				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
 			})
 		}
 
-		// Dispute routes
+		// Dispute routes (authenticated, permission-gated)
 		if deps.Dispute != nil {
 			r.Route("/disputes", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Post("/", deps.Dispute.OpenDispute)
-				r.Get("/mine", deps.Dispute.ListMyDisputes)
-				r.Get("/{id}", deps.Dispute.GetDispute)
-				r.Post("/{id}/counter-propose", deps.Dispute.CounterPropose)
-				r.Post("/{id}/counter-proposals/{cpId}/respond", deps.Dispute.RespondToCounter)
-				r.Post("/{id}/cancel", deps.Dispute.CancelDispute)
-				r.Post("/{id}/cancellation/respond", deps.Dispute.RespondToCancellation)
+				// Read
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermProposalsView))
+					r.Get("/mine", deps.Dispute.ListMyDisputes)
+					r.Get("/{id}", deps.Dispute.GetDispute)
+				})
+				// Write (disputes are proposal-level actions)
+				r.Group(func(r chi.Router) {
+					r.Use(middleware.RequirePermission(organization.PermProposalsRespond))
+					r.Post("/", deps.Dispute.OpenDispute)
+					r.Post("/{id}/counter-propose", deps.Dispute.CounterPropose)
+					r.Post("/{id}/counter-proposals/{cpId}/respond", deps.Dispute.RespondToCounter)
+					r.Post("/{id}/cancel", deps.Dispute.CancelDispute)
+					r.Post("/{id}/cancellation/respond", deps.Dispute.RespondToCancellation)
+				})
 			})
 		}
 
@@ -359,7 +419,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Route("/stripe", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
-				r.Get("/config", deps.Stripe.GetConfig)
+				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/config", deps.Stripe.GetConfig)
 			})
 			// Webhook: NO auth — Stripe sends directly, verified by signature
 			r.Post("/stripe/webhook", deps.Stripe.HandleWebhook)

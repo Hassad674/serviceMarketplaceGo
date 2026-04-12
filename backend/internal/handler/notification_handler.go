@@ -146,12 +146,22 @@ func (h *NotificationHandler) GetPreferences(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	emailEnabled, err := h.notifSvc.GetEmailNotificationsEnabled(r.Context(), userID)
+	if err != nil {
+		slog.Error("get email_notifications_enabled", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to get email preferences")
+		return
+	}
+
 	items := make([]response.NotificationPreferenceResponse, 0, len(prefs))
 	for _, p := range prefs {
 		items = append(items, response.PreferenceFromDomain(p))
 	}
 
-	res.JSON(w, http.StatusOK, map[string]any{"data": items})
+	res.JSON(w, http.StatusOK, map[string]any{
+		"data":                        items,
+		"email_notifications_enabled": emailEnabled,
+	})
 }
 
 func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +191,28 @@ func (h *NotificationHandler) UpdatePreferences(w http.ResponseWriter, r *http.R
 	if err := h.notifSvc.UpdatePreferences(r.Context(), userID, prefs); err != nil {
 		slog.Error("update preferences", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to update preferences")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{"data": map[string]string{"status": "ok"}})
+}
+
+func (h *NotificationHandler) BulkUpdateEmailPreferences(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	var req request.BulkEmailPreferencesRequest
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	if err := h.notifSvc.SetAllEmailPreferences(r.Context(), userID, req.Enabled); err != nil {
+		slog.Error("bulk update email preferences", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to update email preferences")
 		return
 	}
 

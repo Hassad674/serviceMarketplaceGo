@@ -60,4 +60,10 @@ var (
 	// Account type invariants
 	ErrProviderCannotOwnOrg = errors.New("providers cannot own an organization")
 	ErrOperatorHasNoOrg     = errors.New("operator must be a member of an organization")
+
+	// Role permission overrides (per-org customization)
+	ErrCannotOverrideOwner      = errors.New("cannot override permissions for the Owner role")
+	ErrPermissionNotOverridable = errors.New("this permission cannot be customized — it is locked for security reasons")
+	ErrUnknownPermission        = errors.New("unknown permission key")
+	ErrRolePermChangesRateLimit = errors.New("too many role permission changes for this organization — try again tomorrow")
 )

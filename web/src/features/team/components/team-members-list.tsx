@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Crown, MoreVertical, Pencil, UserMinus } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { EditMemberModal } from "./edit-member-modal"
@@ -91,6 +91,7 @@ type MemberRowProps = {
 function MemberRow({ member, canManage, onEdit, onRemove }: MemberRowProps) {
   const t = useTranslations("team")
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const isOwner = member.role === "owner"
   const name =
     member.user?.display_name ||
@@ -100,6 +101,18 @@ function MemberRow({ member, canManage, onEdit, onRemove }: MemberRowProps) {
     (member.user?.first_name?.charAt(0) ?? "") +
     (member.user?.last_name?.charAt(0) ?? "")
   ).toUpperCase() || "?"
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [menuOpen])
 
   return (
     <tr className="text-sm">
@@ -125,11 +138,10 @@ function MemberRow({ member, canManage, onEdit, onRemove }: MemberRowProps) {
       {canManage && (
         <td className="px-6 py-4 text-right">
           {!isOwner && (
-            <div className="relative inline-block">
+            <div ref={menuRef} className="relative inline-block">
               <button
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
-                onBlur={() => setTimeout(() => setMenuOpen(false), 150)}
                 className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700"
                 aria-label={t("columns.actions")}
               >

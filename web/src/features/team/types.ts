@@ -112,6 +112,15 @@ export type RoleDefinitionPermission = {
   group: string
   label: string
   description: string
+  // Whether the Owner can toggle this permission through the
+  // role-permissions editor. False means the permission is locked
+  // forever (wallet.withdraw, org.delete, kyc.manage, …).
+  //
+  // Optional for backward compatibility: older test fixtures and
+  // cached responses from before R17 shipped do not carry this
+  // field — treat undefined as "overridable unknown, fall back to
+  // backend truth" on the client side.
+  overridable?: boolean
 }
 
 export type RoleDefinition = {
@@ -124,4 +133,65 @@ export type RoleDefinition = {
 export type RoleDefinitionsResponse = {
   roles: RoleDefinition[]
   permissions: RoleDefinitionPermission[]
+}
+
+// ---------------------------------------------------------------------
+// Role permissions editor (R17 — per-org customization)
+// ---------------------------------------------------------------------
+
+// The backend encodes the origin of each (role, perm) cell so the UI
+// can render the right visual treatment: default states have no
+// badge; granted/revoked overrides show a colored pill; locked cells
+// show a lock icon and are not interactive.
+export type RolePermissionCellState =
+  | "default_granted"
+  | "default_revoked"
+  | "granted_override"
+  | "revoked_override"
+  | "locked"
+
+// One (permission, state) pair as returned by the backend's
+// /organizations/{id}/role-permissions endpoint.
+export type RolePermissionCell = {
+  key: string
+  group: string
+  label: string
+  description: string
+  granted: boolean
+  state: RolePermissionCellState
+  locked: boolean
+}
+
+// The full catalogue for a single role, ready to render as a column
+// in the editor. `role === "owner"` rows are read-only — the backend
+// marks every cell as locked.
+export type RolePermissionsRow = {
+  role: OrgRole
+  label: string
+  description: string
+  permissions: RolePermissionCell[]
+}
+
+// Response of GET /organizations/{id}/role-permissions.
+export type RolePermissionsMatrixResponse = {
+  roles: RolePermissionsRow[]
+}
+
+// Payload of PATCH /organizations/{id}/role-permissions. The
+// `overrides` map is the FULL desired state for the target role —
+// any previous override not present here reverts to the default.
+export type UpdateRolePermissionsPayload = {
+  role: "admin" | "member" | "viewer"
+  overrides: Record<string, boolean>
+}
+
+// Response of PATCH /organizations/{id}/role-permissions. Bundles
+// the save summary and the refreshed matrix for a one-round-trip
+// cache refresh.
+export type UpdateRolePermissionsResponse = {
+  role: OrgRole
+  granted_keys: string[]
+  revoked_keys: string[]
+  affected_members: number
+  matrix?: RolePermissionsMatrixResponse
 }

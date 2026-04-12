@@ -179,6 +179,99 @@ func (s *EmailService) SendTeamInvitation(ctx context.Context, input service.Tea
 	return nil
 }
 
+// SendRolePermissionsChanged sends the anti-tampering notice to the
+// Owner after a role permissions save. Template lists the role that
+// changed, the granted/revoked permission labels, and the number of
+// affected team members so the Owner can immediately spot an
+// unauthorized edit.
+func (s *EmailService) SendRolePermissionsChanged(ctx context.Context, input service.RolePermissionsChangedEmailInput) error {
+	greeting := input.OwnerFirstName
+	if greeting == "" {
+		greeting = "Bonjour"
+	} else {
+		greeting = "Bonjour " + greeting
+	}
+
+	changedAt := input.ChangedAt
+	if changedAt.IsZero() {
+		changedAt = time.Now()
+	}
+	when := changedAt.In(time.Local).Format("02/01/2006 à 15h04")
+
+	grantedHTML := renderPermList(input.GrantedLabels, "#10B981", "Aucune")
+	revokedHTML := renderPermList(input.RevokedLabels, "#EF4444", "Aucune")
+
+	html := fmt.Sprintf(`
+		<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #0F172A;">
+			<h2 style="color: #F43F5E; margin-bottom: 8px;">Permissions de rôle mises à jour</h2>
+			<p style="color: #64748B; margin-top: 0; font-size: 14px;">Marketplace Service — %s</p>
+
+			<p>%s,</p>
+			<p>
+				Les permissions du rôle <strong>%s</strong> de votre organisation
+				<strong>%s</strong> viennent d'être modifiées.
+			</p>
+
+			<div style="margin: 16px 0; padding: 16px; background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0;">
+				<p style="margin: 0 0 8px 0; font-weight: 600;">Permissions accordées</p>
+				%s
+				<p style="margin: 16px 0 8px 0; font-weight: 600;">Permissions révoquées</p>
+				%s
+			</div>
+
+			<p style="color: #64748B; font-size: 14px;">
+				<strong>%d</strong> membre(s) sont concerné(s). Leur session a été
+				invalidée : ils seront déconnectés et devront se reconnecter pour
+				que les nouvelles permissions prennent effet.
+			</p>
+
+			<hr style="border: none; border-top: 1px solid #E2E8F0; margin: 24px 0;">
+			<p style="color: #94A3B8; font-size: 12px;">
+				Si vous n'êtes PAS à l'origine de cette modification, votre compte
+				est peut-être compromis. Changez votre mot de passe immédiatement
+				et contactez le support.
+			</p>
+		</div>
+	`,
+		when,
+		greeting,
+		roleLabelFR(input.Role),
+		input.OrgName,
+		grantedHTML,
+		revokedHTML,
+		input.AffectedMembers,
+	)
+
+	subject := fmt.Sprintf("Permissions du rôle %s modifiées — %s", roleLabelFR(input.Role), input.OrgName)
+	recipient, finalSubject := s.applyDevRedirect(input.To, subject)
+
+	params := &resend.SendEmailRequest{
+		From:    s.from,
+		To:      []string{recipient},
+		Subject: finalSubject,
+		Html:    html,
+	}
+
+	_, err := s.client.Emails.Send(params)
+	if err != nil {
+		return fmt.Errorf("failed to send role permissions changed email: %w", err)
+	}
+	return nil
+}
+
+// renderPermList renders a permission list as an HTML <ul>, or a
+// fallback line when empty. Used by the role-permissions email.
+func renderPermList(labels []string, color, emptyLabel string) string {
+	if len(labels) == 0 {
+		return fmt.Sprintf(`<p style="margin: 0; color: #94A3B8; font-size: 14px;">%s</p>`, emptyLabel)
+	}
+	items := ""
+	for _, label := range labels {
+		items += fmt.Sprintf(`<li style="color: %s; margin: 4px 0;">%s</li>`, color, label)
+	}
+	return fmt.Sprintf(`<ul style="margin: 0; padding-left: 20px;">%s</ul>`, items)
+}
+
 // roleLabelFR returns the French human label for an organization role.
 func roleLabelFR(role string) string {
 	switch role {

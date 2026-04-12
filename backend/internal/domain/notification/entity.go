@@ -94,6 +94,26 @@ func (t NotificationType) IsValid() bool {
 	return validTypes[t]
 }
 
+// AllTypes returns a stable, ordered slice of every recognised
+// notification type. Used by the preferences service to ensure the
+// UI exposes toggles for all types, not just those with DB rows.
+func AllTypes() []NotificationType {
+	return []NotificationType{
+		TypeProposalReceived, TypeProposalAccepted, TypeProposalDeclined,
+		TypeProposalModified, TypeProposalPaid, TypeCompletionRequested,
+		TypeProposalCompleted, TypeReviewReceived, TypeNewMessage,
+		TypeSystemAnnouncement, TypeStripeRequirements, TypeStripeAccountStatus,
+		TypeKYCReminder, TypeKYCRestriction, TypeKYCUnlocked,
+		TypeDisputeOpened, TypeDisputeCounterProposal, TypeDisputeCounterRejected,
+		TypeDisputeEscalated, TypeDisputeResolved, TypeDisputeCancelled,
+		TypeDisputeAutoResolved, TypeDisputeCancellationRequested,
+		TypeDisputeCancellationRefused,
+		TypeOrgInvitationAccepted, TypeOrgMemberRoleChanged, TypeOrgMemberRemoved,
+		TypeOrgMemberLeft, TypeOrgTransferInitiated, TypeOrgTransferCancelled,
+		TypeOrgTransferDeclined, TypeOrgTransferAccepted,
+	}
+}
+
 // Notification represents a persisted user notification.
 type Notification struct {
 	ID        uuid.UUID

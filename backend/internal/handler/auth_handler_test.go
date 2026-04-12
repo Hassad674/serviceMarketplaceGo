@@ -225,6 +225,59 @@ func TestAuthHandler_Login(t *testing.T) {
 	}
 }
 
+// TestAuthHandler_Login_WebMode_SessionVersion verifies that the session
+// created during a web-mode login carries the user's current session_version
+// from the database. This is critical: after a role change (e.g. ownership
+// transfer) the backend bumps session_version, invalidating all old sessions.
+// If the new session is created with version=0 instead of the current value,
+// the auth middleware rejects it immediately — creating an infinite login loop.
+func TestAuthHandler_Login_WebMode_SessionVersion(t *testing.T) {
+	uid := uuid.New()
+	bumpedUser := &user.User{
+		ID: uid, Email: "owner@example.com", HashedPassword: "hashed_Password1!",
+		FirstName: "Owner", LastName: "User", DisplayName: "Owner User",
+		Role: user.RoleAgency, SessionVersion: 3,
+		CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+
+	userRepo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return bumpedUser, nil
+		},
+	}
+
+	var capturedInput service.CreateSessionInput
+	sessionSvc := &mockSessionService{
+		createFn: func(_ context.Context, input service.CreateSessionInput) (*service.Session, error) {
+			capturedInput = input
+			return &service.Session{
+				ID:             "sess_new",
+				UserID:         input.UserID,
+				Role:           input.Role,
+				SessionVersion: input.SessionVersion,
+			}, nil
+		},
+	}
+
+	h := newTestAuthHandler(userRepo, &mockPasswordResetRepo{}, &mockHasher{},
+		&mockTokenService{}, sessionSvc, &mockEmailService{})
+
+	body, _ := json.Marshal(map[string]string{
+		"email": "owner@example.com", "password": "Password1!",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	// No X-Auth-Mode header → web mode → session cookie path
+	rec := httptest.NewRecorder()
+
+	h.Login(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, 3, capturedInput.SessionVersion,
+		"session must carry the user's current session_version so the auth middleware does not reject it")
+	assert.Equal(t, uid, capturedInput.UserID)
+}
+
 func TestAuthHandler_Logout(t *testing.T) {
 	h := newTestAuthHandler(&mockUserRepo{}, &mockPasswordResetRepo{}, &mockHasher{},
 		&mockTokenService{}, &mockSessionService{}, &mockEmailService{})

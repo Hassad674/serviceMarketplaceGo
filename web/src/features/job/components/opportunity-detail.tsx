@@ -5,6 +5,7 @@ import { ArrowLeft, Briefcase, Calendar, Clock, Users, Ticket, MoreVertical, Fla
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useHasApplied } from "../hooks/use-job-applications"
 import { useCredits } from "../hooks/use-jobs"
 import { ApplyModal } from "./apply-modal"
@@ -34,6 +35,7 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
   const hasAlreadyApplied = appliedData?.has_applied ?? false
   const { data: creditsData } = useCredits()
   const noCredits = creditsData?.credits === 0
+  const canApply = useHasPermission("proposals.create")
 
   if (isLoading) {
     return (
@@ -65,6 +67,7 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
           </div>
         </div>
         <div className="flex items-start gap-2 shrink-0">
+          {canApply && (
           <div className="flex flex-col items-end gap-1.5">
             <button
               type="button"
@@ -86,6 +89,7 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
               </span>
             )}
           </div>
+          )}
           {/* 3-dot menu for report */}
           <div className="relative" ref={menuRef}>
             <button

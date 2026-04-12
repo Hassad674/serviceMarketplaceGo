@@ -36,7 +36,7 @@ func TestWorker_ProcessJob_PushAndEmail(t *testing.T) {
 		},
 		users: &mockUserRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
-				return &user.User{Email: "test@test.com"}, nil
+				return &user.User{Email: "test@test.com", EmailNotificationsEnabled: true}, nil
 			},
 		},
 		notifs: &mockNotificationRepo{
@@ -93,7 +93,7 @@ func TestWorker_ProcessJob_UserOnline_NoPush(t *testing.T) {
 		},
 		users: &mockUserRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
-				return &user.User{Email: "test@test.com"}, nil
+				return &user.User{Email: "test@test.com", EmailNotificationsEnabled: true}, nil
 			},
 		},
 		notifs: &mockNotificationRepo{
@@ -143,7 +143,7 @@ func TestWorker_ProcessJob_NewMessage_NoEmail(t *testing.T) {
 		},
 		users: &mockUserRepo{
 			getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
-				return &user.User{Email: "test@test.com"}, nil
+				return &user.User{Email: "test@test.com", EmailNotificationsEnabled: true}, nil
 			},
 		},
 		notifs: &mockNotificationRepo{

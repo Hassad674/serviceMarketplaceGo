@@ -1682,4 +1682,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get projectStatusDisputed => 'Disputed';
+
+  @override
+  String get permissionDenied =>
+      'You do not have permission to perform this action';
+
+  @override
+  String get permissionDeniedSend =>
+      'You do not have permission to send messages';
+
+  @override
+  String get permissionDeniedWithdraw =>
+      'You do not have permission to request payouts';
+
+  @override
+  String get permissionDeniedEdit =>
+      'You do not have permission to edit this resource';
 }

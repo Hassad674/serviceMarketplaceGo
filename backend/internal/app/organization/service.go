@@ -96,10 +96,15 @@ func (s *Service) CreateForOwner(ctx context.Context, u *user.User) (*Context, e
 		return nil, fmt.Errorf("create organization for owner: persist: %w", err)
 	}
 
+	// Owner is immune to overrides by design — EffectivePermissionsFor
+	// with a nil overrides map is equivalent to the hardcoded Owner set.
+	// We still go through EffectivePermissionsFor for symmetry with the
+	// login/refresh path, which is where the override resolution
+	// actually matters.
 	return &Context{
 		Organization: org,
 		Member:       ownerMember,
-		Permissions:  organization.PermissionsFor(organization.RoleOwner),
+		Permissions:  organization.EffectivePermissionsFor(organization.RoleOwner, org.RoleOverrides),
 	}, nil
 }
 
@@ -124,16 +129,21 @@ func (s *Service) ResolveContext(ctx context.Context, userID uuid.UUID) (*Contex
 		return nil, fmt.Errorf("resolve org context: find org: %w", err)
 	}
 
+	// Load the org's permission overrides and resolve the effective
+	// permission set. Every downstream consumer (JWT claims, /me,
+	// middleware fast-path) reads this list, so the override resolution
+	// happens exactly once per login/refresh — zero per-request cost.
 	return &Context{
 		Organization: org,
 		Member:       member,
-		Permissions:  organization.PermissionsFor(member.Role),
+		Permissions:  organization.EffectivePermissionsFor(member.Role, org.RoleOverrides),
 	}, nil
 }
 
 // HasPermission reports whether the user has the given permission in
-// their (optionally specified) organization. Delegates to the domain
-// permission map — the service layer never hard-codes role checks.
+// their (optionally specified) organization. Resolves the org's
+// customized role overrides, so this check honors "Admin can now
+// withdraw" style customizations transparently.
 //
 // Returns false when the user has no org (solo Provider) regardless of
 // the permission argument.
@@ -145,7 +155,14 @@ func (s *Service) HasPermission(ctx context.Context, userID uuid.UUID, perm orga
 	if orgCtx == nil {
 		return false, nil
 	}
-	return organization.HasPermission(orgCtx.Member.Role, perm), nil
+	if orgCtx.Organization == nil {
+		return false, nil
+	}
+	return organization.HasEffectivePermission(
+		orgCtx.Member.Role,
+		perm,
+		orgCtx.Organization.RoleOverrides,
+	), nil
 }
 
 // orgTypeFromMarketplaceRole maps the user's marketplace role to the

@@ -84,6 +84,8 @@ type User struct {
 	// effect on sensitive security actions.
 	SessionVersion int
 
+	EmailNotificationsEnabled bool
+
 	IsAdmin             bool
 	Status              UserStatus
 	SuspendedAt         *time.Time
@@ -109,17 +111,18 @@ func NewUser(email string, hashedPassword string, firstName, lastName, displayNa
 
 	now := time.Now()
 	return &User{
-		ID:             uuid.New(),
-		Email:          email,
-		HashedPassword: hashedPassword,
-		FirstName:      firstName,
-		LastName:       lastName,
-		DisplayName:    displayName,
-		Role:           role,
-		AccountType:    AccountTypeMarketplaceOwner,
-		Status:         StatusActive,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                        uuid.New(),
+		Email:                     email,
+		HashedPassword:            hashedPassword,
+		FirstName:                 firstName,
+		LastName:                  lastName,
+		DisplayName:               displayName,
+		Role:                      role,
+		AccountType:               AccountTypeMarketplaceOwner,
+		EmailNotificationsEnabled: true,
+		Status:                    StatusActive,
+		CreatedAt:                 now,
+		UpdatedAt:                 now,
 	}, nil
 }
 
@@ -138,17 +141,18 @@ func NewOperator(email, hashedPassword, firstName, lastName, displayName string,
 
 	now := time.Now()
 	return &User{
-		ID:             uuid.New(),
-		Email:          email,
-		HashedPassword: hashedPassword,
-		FirstName:      firstName,
-		LastName:       lastName,
-		DisplayName:    displayName,
-		Role:           role,
-		AccountType:    AccountTypeOperator,
-		Status:         StatusActive,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:                        uuid.New(),
+		Email:                     email,
+		HashedPassword:            hashedPassword,
+		FirstName:                 firstName,
+		LastName:                  lastName,
+		DisplayName:               displayName,
+		Role:                      role,
+		AccountType:               AccountTypeOperator,
+		EmailNotificationsEnabled: true,
+		Status:                    StatusActive,
+		CreatedAt:                 now,
+		UpdatedAt:                 now,
 	}, nil
 }
 

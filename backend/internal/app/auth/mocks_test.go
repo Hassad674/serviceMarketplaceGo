@@ -213,6 +213,9 @@ func (m *mockEmailService) SendNotification(_ context.Context, _, _, _ string) e
 func (m *mockEmailService) SendTeamInvitation(_ context.Context, _ service.TeamInvitationEmailInput) error {
 	return nil
 }
+func (m *mockEmailService) SendRolePermissionsChanged(_ context.Context, _ service.RolePermissionsChangedEmailInput) error {
+	return nil
+}
 
 // --- Stripe account stubs (migration 040) ---
 func (m *mockUserRepo) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
@@ -251,4 +254,7 @@ func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, 
 }
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
+}
+func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
+	return nil
 }
