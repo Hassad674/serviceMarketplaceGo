@@ -2187,4 +2187,83 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get teamRoleViewer => 'Viewer';
+
+  @override
+  String get expertiseSectionTitle => 'Areas of expertise';
+
+  @override
+  String expertiseSectionSubtitle(int max) {
+    return 'Pick up to $max domains that showcase what you do best';
+  }
+
+  @override
+  String get expertiseAddDomains => 'Add domains';
+
+  @override
+  String get expertiseSave => 'Save';
+
+  @override
+  String get expertiseSaving => 'Saving...';
+
+  @override
+  String expertiseMaxReached(int max) {
+    return 'You\'ve reached the maximum of $max domains';
+  }
+
+  @override
+  String expertiseCounter(int count, int max) {
+    return '$count/$max selected';
+  }
+
+  @override
+  String get expertiseEmptyPrivate => 'No expertise selected yet.';
+
+  @override
+  String get expertiseErrorGeneric =>
+      'Could not save your expertise. Please try again.';
+
+  @override
+  String get expertiseDomainDevelopment => 'Development';
+
+  @override
+  String get expertiseDomainDataAiMl => 'Data, AI & Machine Learning';
+
+  @override
+  String get expertiseDomainDesignUiUx => 'Design & UI/UX';
+
+  @override
+  String get expertiseDomainDesign3dAnimation => '3D Design & Animation';
+
+  @override
+  String get expertiseDomainVideoMotion => 'Video & Motion';
+
+  @override
+  String get expertiseDomainPhotoAudiovisual => 'Photo & Audiovisual';
+
+  @override
+  String get expertiseDomainMarketingGrowth => 'Marketing & Growth';
+
+  @override
+  String get expertiseDomainWritingTranslation => 'Writing & Translation';
+
+  @override
+  String get expertiseDomainBusinessDevSales => 'Business Development & Sales';
+
+  @override
+  String get expertiseDomainConsultingStrategy => 'Consulting & Strategy';
+
+  @override
+  String get expertiseDomainProductUxResearch => 'Product & UX Research';
+
+  @override
+  String get expertiseDomainOpsAdminSupport => 'Ops, Admin & Support';
+
+  @override
+  String get expertiseDomainLegal => 'Legal';
+
+  @override
+  String get expertiseDomainFinanceAccounting => 'Finance & Accounting';
+
+  @override
+  String get expertiseDomainHrRecruitment => 'HR & Recruitment';
 }

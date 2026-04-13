@@ -9,6 +9,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../expertise/presentation/widgets/expertise_display_widget.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../../../review/presentation/providers/review_provider.dart';
@@ -99,6 +100,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
         widget.profile['presentation_video_url'] as String?;
     final resolvedOrgType = _resolveOrgType();
     final initials = _buildInitials(resolvedName);
+    final expertiseDomains =
+        (widget.profile['expertise_domains'] as List<dynamic>?)
+                ?.whereType<String>()
+                .toList() ??
+            const <String>[];
 
     // Hide the "Send Message" button on the operator's own org
     // profile — every member of the team sees their shared org profile
@@ -204,6 +210,12 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             ),
           if (about != null && about.isNotEmpty)
             const SizedBox(height: 16),
+
+          // Areas of expertise — hidden when empty
+          if (expertiseDomains.isNotEmpty) ...[
+            ExpertiseDisplayWidget(domains: expertiseDomains),
+            const SizedBox(height: 16),
+          ],
 
           // Portfolio section
           PortfolioGridWidget(orgId: widget.profileOrgId),

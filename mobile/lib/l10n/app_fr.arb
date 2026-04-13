@@ -828,5 +828,54 @@
   "teamRoleOwner": "Propriétaire",
   "teamRoleAdmin": "Admin",
   "teamRoleMember": "Membre",
-  "teamRoleViewer": "Observateur"
+  "teamRoleViewer": "Observateur",
+
+  "expertiseSectionTitle": "Domaines d'expertise",
+  "expertiseSectionSubtitle": "Choisissez jusqu'à {max} domaines qui mettent en valeur votre savoir-faire",
+  "@expertiseSectionSubtitle": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "expertiseAddDomains": "Ajouter des domaines",
+  "expertiseSave": "Enregistrer",
+  "expertiseSaving": "Enregistrement...",
+  "expertiseMaxReached": "Vous avez atteint le maximum de {max} domaines",
+  "@expertiseMaxReached": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "expertiseCounter": "{count}/{max} sélectionnés",
+  "@expertiseCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "expertiseEmptyPrivate": "Aucune expertise sélectionnée pour le moment.",
+  "expertiseErrorGeneric": "Impossible d'enregistrer vos expertises. Veuillez réessayer.",
+  "expertiseDomainDevelopment": "Développement",
+  "expertiseDomainDataAiMl": "Data, IA & Machine Learning",
+  "expertiseDomainDesignUiUx": "Design & UI/UX",
+  "expertiseDomainDesign3dAnimation": "Design 3D & Animation",
+  "expertiseDomainVideoMotion": "Vidéo & Motion",
+  "expertiseDomainPhotoAudiovisual": "Photo & Audiovisuel",
+  "expertiseDomainMarketingGrowth": "Marketing & Growth",
+  "expertiseDomainWritingTranslation": "Rédaction & Traduction",
+  "expertiseDomainBusinessDevSales": "Business Development & Ventes",
+  "expertiseDomainConsultingStrategy": "Consulting & Stratégie",
+  "expertiseDomainProductUxResearch": "Product & UX Research",
+  "expertiseDomainOpsAdminSupport": "Ops, Admin & Support",
+  "expertiseDomainLegal": "Legal & Droit",
+  "expertiseDomainFinanceAccounting": "Finance & Comptabilité",
+  "expertiseDomainHrRecruitment": "RH & Recrutement"
 }

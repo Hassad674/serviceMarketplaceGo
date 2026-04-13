@@ -2201,4 +2201,84 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get teamRoleViewer => 'Observateur';
+
+  @override
+  String get expertiseSectionTitle => 'Domaines d\'expertise';
+
+  @override
+  String expertiseSectionSubtitle(int max) {
+    return 'Choisissez jusqu\'à $max domaines qui mettent en valeur votre savoir-faire';
+  }
+
+  @override
+  String get expertiseAddDomains => 'Ajouter des domaines';
+
+  @override
+  String get expertiseSave => 'Enregistrer';
+
+  @override
+  String get expertiseSaving => 'Enregistrement...';
+
+  @override
+  String expertiseMaxReached(int max) {
+    return 'Vous avez atteint le maximum de $max domaines';
+  }
+
+  @override
+  String expertiseCounter(int count, int max) {
+    return '$count/$max sélectionnés';
+  }
+
+  @override
+  String get expertiseEmptyPrivate =>
+      'Aucune expertise sélectionnée pour le moment.';
+
+  @override
+  String get expertiseErrorGeneric =>
+      'Impossible d\'enregistrer vos expertises. Veuillez réessayer.';
+
+  @override
+  String get expertiseDomainDevelopment => 'Développement';
+
+  @override
+  String get expertiseDomainDataAiMl => 'Data, IA & Machine Learning';
+
+  @override
+  String get expertiseDomainDesignUiUx => 'Design & UI/UX';
+
+  @override
+  String get expertiseDomainDesign3dAnimation => 'Design 3D & Animation';
+
+  @override
+  String get expertiseDomainVideoMotion => 'Vidéo & Motion';
+
+  @override
+  String get expertiseDomainPhotoAudiovisual => 'Photo & Audiovisuel';
+
+  @override
+  String get expertiseDomainMarketingGrowth => 'Marketing & Growth';
+
+  @override
+  String get expertiseDomainWritingTranslation => 'Rédaction & Traduction';
+
+  @override
+  String get expertiseDomainBusinessDevSales => 'Business Development & Ventes';
+
+  @override
+  String get expertiseDomainConsultingStrategy => 'Consulting & Stratégie';
+
+  @override
+  String get expertiseDomainProductUxResearch => 'Product & UX Research';
+
+  @override
+  String get expertiseDomainOpsAdminSupport => 'Ops, Admin & Support';
+
+  @override
+  String get expertiseDomainLegal => 'Legal & Droit';
+
+  @override
+  String get expertiseDomainFinanceAccounting => 'Finance & Comptabilité';
+
+  @override
+  String get expertiseDomainHrRecruitment => 'RH & Recrutement';
 }

@@ -14,6 +14,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../expertise/domain/entities/expertise_catalog.dart';
+import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../providers/profile_provider.dart';
@@ -51,6 +53,13 @@ class ProfileScreen extends ConsumerWidget {
     final profileOrgId = profileAsync.whenOrNull(
       data: (p) => p['organization_id'] as String?,
     );
+    final profileExpertise = profileAsync.whenOrNull(
+          data: (p) => (p['expertise_domains'] as List<dynamic>?)
+              ?.whereType<String>()
+              .toList(),
+        ) ??
+        const <String>[];
+    final orgType = authState.organization?['type'] as String?;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,6 +88,16 @@ class ProfileScreen extends ConsumerWidget {
                     : null,
               ),
               const SizedBox(height: 16),
+
+              // Areas of expertise — hidden for enterprise org type
+              ExpertiseSectionWidget(
+                orgType: orgType,
+                initialDomains: profileExpertise,
+                canEdit: canEditProfile,
+                onSaved: () => ref.invalidate(profileProvider),
+              ),
+              if (ExpertiseCatalog.isFeatureEnabledForOrgType(orgType))
+                const SizedBox(height: 16),
 
               // Title section
               _ProfileSectionCard(

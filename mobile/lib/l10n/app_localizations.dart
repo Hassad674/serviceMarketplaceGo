@@ -4153,6 +4153,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Viewer'**
   String get teamRoleViewer;
+
+  /// No description provided for @expertiseSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Areas of expertise'**
+  String get expertiseSectionTitle;
+
+  /// No description provided for @expertiseSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick up to {max} domains that showcase what you do best'**
+  String expertiseSectionSubtitle(int max);
+
+  /// No description provided for @expertiseAddDomains.
+  ///
+  /// In en, this message translates to:
+  /// **'Add domains'**
+  String get expertiseAddDomains;
+
+  /// No description provided for @expertiseSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get expertiseSave;
+
+  /// No description provided for @expertiseSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get expertiseSaving;
+
+  /// No description provided for @expertiseMaxReached.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve reached the maximum of {max} domains'**
+  String expertiseMaxReached(int max);
+
+  /// No description provided for @expertiseCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}/{max} selected'**
+  String expertiseCounter(int count, int max);
+
+  /// No description provided for @expertiseEmptyPrivate.
+  ///
+  /// In en, this message translates to:
+  /// **'No expertise selected yet.'**
+  String get expertiseEmptyPrivate;
+
+  /// No description provided for @expertiseErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your expertise. Please try again.'**
+  String get expertiseErrorGeneric;
+
+  /// No description provided for @expertiseDomainDevelopment.
+  ///
+  /// In en, this message translates to:
+  /// **'Development'**
+  String get expertiseDomainDevelopment;
+
+  /// No description provided for @expertiseDomainDataAiMl.
+  ///
+  /// In en, this message translates to:
+  /// **'Data, AI & Machine Learning'**
+  String get expertiseDomainDataAiMl;
+
+  /// No description provided for @expertiseDomainDesignUiUx.
+  ///
+  /// In en, this message translates to:
+  /// **'Design & UI/UX'**
+  String get expertiseDomainDesignUiUx;
+
+  /// No description provided for @expertiseDomainDesign3dAnimation.
+  ///
+  /// In en, this message translates to:
+  /// **'3D Design & Animation'**
+  String get expertiseDomainDesign3dAnimation;
+
+  /// No description provided for @expertiseDomainVideoMotion.
+  ///
+  /// In en, this message translates to:
+  /// **'Video & Motion'**
+  String get expertiseDomainVideoMotion;
+
+  /// No description provided for @expertiseDomainPhotoAudiovisual.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo & Audiovisual'**
+  String get expertiseDomainPhotoAudiovisual;
+
+  /// No description provided for @expertiseDomainMarketingGrowth.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketing & Growth'**
+  String get expertiseDomainMarketingGrowth;
+
+  /// No description provided for @expertiseDomainWritingTranslation.
+  ///
+  /// In en, this message translates to:
+  /// **'Writing & Translation'**
+  String get expertiseDomainWritingTranslation;
+
+  /// No description provided for @expertiseDomainBusinessDevSales.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Development & Sales'**
+  String get expertiseDomainBusinessDevSales;
+
+  /// No description provided for @expertiseDomainConsultingStrategy.
+  ///
+  /// In en, this message translates to:
+  /// **'Consulting & Strategy'**
+  String get expertiseDomainConsultingStrategy;
+
+  /// No description provided for @expertiseDomainProductUxResearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Product & UX Research'**
+  String get expertiseDomainProductUxResearch;
+
+  /// No description provided for @expertiseDomainOpsAdminSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Ops, Admin & Support'**
+  String get expertiseDomainOpsAdminSupport;
+
+  /// No description provided for @expertiseDomainLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal'**
+  String get expertiseDomainLegal;
+
+  /// No description provided for @expertiseDomainFinanceAccounting.
+  ///
+  /// In en, this message translates to:
+  /// **'Finance & Accounting'**
+  String get expertiseDomainFinanceAccounting;
+
+  /// No description provided for @expertiseDomainHrRecruitment.
+  ///
+  /// In en, this message translates to:
+  /// **'HR & Recruitment'**
+  String get expertiseDomainHrRecruitment;
 }
 
 class _AppLocalizationsDelegate

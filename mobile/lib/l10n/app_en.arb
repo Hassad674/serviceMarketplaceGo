@@ -835,5 +835,54 @@
   "teamRoleOwner": "Owner",
   "teamRoleAdmin": "Admin",
   "teamRoleMember": "Member",
-  "teamRoleViewer": "Viewer"
+  "teamRoleViewer": "Viewer",
+
+  "expertiseSectionTitle": "Areas of expertise",
+  "expertiseSectionSubtitle": "Pick up to {max} domains that showcase what you do best",
+  "@expertiseSectionSubtitle": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "expertiseAddDomains": "Add domains",
+  "expertiseSave": "Save",
+  "expertiseSaving": "Saving...",
+  "expertiseMaxReached": "You've reached the maximum of {max} domains",
+  "@expertiseMaxReached": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "expertiseCounter": "{count}/{max} selected",
+  "@expertiseCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "expertiseEmptyPrivate": "No expertise selected yet.",
+  "expertiseErrorGeneric": "Could not save your expertise. Please try again.",
+  "expertiseDomainDevelopment": "Development",
+  "expertiseDomainDataAiMl": "Data, AI & Machine Learning",
+  "expertiseDomainDesignUiUx": "Design & UI/UX",
+  "expertiseDomainDesign3dAnimation": "3D Design & Animation",
+  "expertiseDomainVideoMotion": "Video & Motion",
+  "expertiseDomainPhotoAudiovisual": "Photo & Audiovisual",
+  "expertiseDomainMarketingGrowth": "Marketing & Growth",
+  "expertiseDomainWritingTranslation": "Writing & Translation",
+  "expertiseDomainBusinessDevSales": "Business Development & Sales",
+  "expertiseDomainConsultingStrategy": "Consulting & Strategy",
+  "expertiseDomainProductUxResearch": "Product & UX Research",
+  "expertiseDomainOpsAdminSupport": "Ops, Admin & Support",
+  "expertiseDomainLegal": "Legal",
+  "expertiseDomainFinanceAccounting": "Finance & Accounting",
+  "expertiseDomainHrRecruitment": "HR & Recruitment"
 }
