@@ -35,10 +35,15 @@ export function PaymentSimulation() {
       .then((p) => {
         if (cancelled) return
         setProposal(p)
-        // Only initiate payment if proposal is in accepted state
+        // The payment page only makes sense while the proposal is in
+        // the "accepted" state (ready to pay). For any later state the
+        // user has no business here — most common trigger is clicking a
+        // stale "Pay" button on an older system message whose metadata
+        // snapshot still says accepted. Redirect to the project detail
+        // page so the user sees the real current state instead of a
+        // misleading "Payment confirmed" screen that freezes the flow.
         if (p.status !== "accepted") {
-          setPaid(p.status === "paid" || p.status === "active" || p.status === "completed" || p.status === "completion_requested")
-          setLoading(false)
+          router.replace(`/projects/${proposalId}`)
           return
         }
         return initiatePayment(proposalId).then((pd) => {
@@ -54,7 +59,7 @@ export function PaymentSimulation() {
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [proposalId])
+  }, [proposalId, router])
 
   if (!proposalId || fetchError) {
     return <CenteredMessage>{t("proposalNotFound")}</CenteredMessage>
