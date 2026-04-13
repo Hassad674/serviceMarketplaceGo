@@ -14,6 +14,7 @@ import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
 import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
 import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
+import { SkillsSection } from "@/features/skill/components/skills-section"
 
 function orgTypeToRoleContext(orgType: string | undefined): "agency" | "provider" | "referrer" {
   if (orgType === "agency") return "agency"
@@ -86,6 +87,11 @@ export default function ProfilePage() {
       <ExpertiseEditor
         domains={profile?.expertise_domains}
         orgType={orgType}
+        readOnly={!canEditProfile}
+      />
+      <SkillsSection
+        orgType={orgType}
+        expertiseKeys={profile?.expertise_domains}
         readOnly={!canEditProfile}
       />
       <SocialLinksSection />
