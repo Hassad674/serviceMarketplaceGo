@@ -30,7 +30,14 @@ interface MessageAreaProps {
   onReply: (message: Message) => void
   onReport?: (messageId: string) => void
   conversationId: string
-  onReview?: (proposalId: string, proposalTitle: string) => void
+  // participants.{clientId,providerId} are ORG ids from the
+  // proposal's system message metadata. The page uses them together
+  // with the viewer's org to derive the review side.
+  onReview?: (
+    proposalId: string,
+    proposalTitle: string,
+    participants: { clientId: string; providerId: string },
+  ) => void
 }
 
 export function MessageArea({
@@ -206,7 +213,11 @@ interface MessageBubbleProps {
   onReply: (message: Message) => void
   onReport?: (messageId: string) => void
   supersededProposalIds: Set<string>
-  onReview?: (proposalId: string, proposalTitle: string) => void
+  onReview?: (
+    proposalId: string,
+    proposalTitle: string,
+    participants: { clientId: string; providerId: string },
+  ) => void
 }
 
 function isProposalMetadata(metadata: unknown): metadata is ProposalMessageMetadata {
@@ -327,12 +338,11 @@ function MessageBubble({
   }
 
   // Evaluation request — system message with "Leave a review" button.
-  // Only visible to the client (target_user_id in metadata).
+  // Double-blind reviews: the backend now dispatches this message to
+  // BOTH the client and the provider, so we intentionally do NOT gate
+  // on `target_user_id` or role here. The modal derives the correct
+  // review side from the viewer's org vs the proposal participants.
   if (message.type === "evaluation_request" && isProposalMetadata(message.metadata)) {
-    const meta = message.metadata as ProposalMessageMetadata
-    if (meta.target_user_id && meta.target_user_id !== currentUserId) {
-      return null
-    }
     return (
       <EvaluationRequestMessage
         metadata={message.metadata}

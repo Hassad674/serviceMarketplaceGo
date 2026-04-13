@@ -5,6 +5,8 @@ import { X, Loader2, Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
+import { ApiError } from "@/shared/lib/api-client"
+import type { ReviewSide } from "@/shared/types/review"
 import { useCreateReview, useUploadReviewVideo } from "../hooks/use-reviews"
 import { StarRating } from "./star-rating"
 
@@ -16,6 +18,20 @@ interface ReviewModalProps {
   proposalTitle: string
   isOpen: boolean
   onClose: () => void
+  /**
+   * Direction of the double-blind review being submitted.
+   *
+   * - `client_to_provider` (default) — the existing form: global
+   *   rating + detailed sub-criteria (timeliness, communication,
+   *   quality) + comment + video + title visibility.
+   * - `provider_to_client` — a lean variant for providers rating the
+   *   client: no sub-criteria, just global rating + comment + video
+   *   + title visibility.
+   *
+   * Backward-compatible default keeps every legacy call site (which
+   * was always the client side) working unchanged.
+   */
+  side?: ReviewSide
 }
 
 export function ReviewModal({
@@ -23,6 +39,7 @@ export function ReviewModal({
   proposalTitle,
   isOpen,
   onClose,
+  side = "client_to_provider",
 }: ReviewModalProps) {
   const t = useTranslations("review")
   const canReview = useHasPermission("reviews.respond")
@@ -34,10 +51,33 @@ export function ReviewModal({
   const [videoUrl, setVideoUrl] = useState("")
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [titleVisible, setTitleVisible] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { mutate: submitReview, isPending } = useCreateReview()
   const { mutate: uploadVideo, isPending: isUploading } = useUploadReviewVideo()
+
+  const isProviderSide = side === "provider_to_client"
+  const modalTitle = isProviderSide
+    ? t("titleProviderToClient")
+    : t("titleClientToProvider")
+  const subtitleText = isProviderSide
+    ? t("subtitleProviderToClient")
+    : proposalTitle
+
+  const mapErrorCode = useCallback(
+    (code: string): string => {
+      switch (code) {
+        case "review_window_closed":
+          return t("errorWindowClosed")
+        case "not_participant":
+          return t("errorNotParticipant")
+        default:
+          return t("errorGeneric")
+      }
+    },
+    [t],
+  )
 
   const resetForm = useCallback(() => {
     setGlobalRating(0)
@@ -48,7 +88,13 @@ export function ReviewModal({
     setVideoUrl("")
     setVideoFile(null)
     setTitleVisible(true)
+    setErrorMessage(null)
   }, [])
+
+  const handleClose = useCallback(() => {
+    setErrorMessage(null)
+    onClose()
+  }, [onClose])
 
   const handleVideoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -72,14 +118,22 @@ export function ReviewModal({
 
   const handleSubmit = useCallback(() => {
     if (globalRating === 0) return
+    setErrorMessage(null)
 
     submitReview(
       {
         proposal_id: proposalId,
         global_rating: globalRating,
-        timeliness: timeliness > 0 ? timeliness : undefined,
-        communication: communication > 0 ? communication : undefined,
-        quality: quality > 0 ? quality : undefined,
+        // Sub-criteria are only meaningful on the client->provider side.
+        // The backend rejects them with `invalid_subcriteria_for_side`
+        // if sent from the provider side, so we omit them entirely here.
+        ...(isProviderSide
+          ? {}
+          : {
+              timeliness: timeliness > 0 ? timeliness : undefined,
+              communication: communication > 0 ? communication : undefined,
+              quality: quality > 0 ? quality : undefined,
+            }),
         comment: comment.trim() || undefined,
         video_url: videoUrl || undefined,
         title_visible: titleVisible,
@@ -89,11 +143,17 @@ export function ReviewModal({
           resetForm()
           onClose()
         },
+        onError: (err) => {
+          const code =
+            err instanceof ApiError ? err.code : "unknown_error"
+          setErrorMessage(mapErrorCode(code))
+        },
       },
     )
   }, [
-    proposalId, globalRating, timeliness, communication,
-    quality, comment, videoUrl, titleVisible, submitReview, resetForm, onClose,
+    proposalId, globalRating, timeliness, communication, quality,
+    comment, videoUrl, titleVisible, isProviderSide, submitReview,
+    resetForm, onClose, mapErrorCode,
   ])
 
   if (!isOpen || !canReview) return null
@@ -103,17 +163,17 @@ export function ReviewModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
       role="dialog"
       aria-modal="true"
-      aria-label={t("title")}
+      aria-label={modalTitle}
     >
       <div className="mx-4 w-full max-w-lg animate-scale-in rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
         <ReviewModalHeader
-          title={t("title")}
-          subtitle={proposalTitle}
+          title={modalTitle}
+          subtitle={subtitleText}
           closeLabel={t("close")}
-          onClose={onClose}
+          onClose={handleClose}
         />
 
         <div className="space-y-5">
@@ -124,20 +184,22 @@ export function ReviewModal({
             label={`${t("globalRating")} *`}
           />
 
-          <DetailedCriteria
-            timeliness={timeliness}
-            communication={communication}
-            quality={quality}
-            onTimelinessChange={setTimeliness}
-            onCommunicationChange={setCommunication}
-            onQualityChange={setQuality}
-            labels={{
-              detailed: t("detailedCriteria"),
-              timeliness: t("timeliness"),
-              communication: t("communication"),
-              quality: t("quality"),
-            }}
-          />
+          {!isProviderSide && (
+            <DetailedCriteria
+              timeliness={timeliness}
+              communication={communication}
+              quality={quality}
+              onTimelinessChange={setTimeliness}
+              onCommunicationChange={setCommunication}
+              onQualityChange={setQuality}
+              labels={{
+                detailed: t("detailedCriteria"),
+                timeliness: t("timeliness"),
+                communication: t("communication"),
+                quality: t("quality"),
+              }}
+            />
+          )}
 
           <CommentField
             value={comment}
@@ -168,9 +230,19 @@ export function ReviewModal({
             hint={t("titleVisibleHint")}
           />
 
+          {errorMessage && (
+            <p
+              role="alert"
+              aria-live="polite"
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300"
+            >
+              {errorMessage}
+            </p>
+          )}
+
           <ReviewModalActions
             onSubmit={handleSubmit}
-            onCancel={onClose}
+            onCancel={handleClose}
             isPending={isPending}
             isBusy={isBusy}
             canSubmit={globalRating > 0}

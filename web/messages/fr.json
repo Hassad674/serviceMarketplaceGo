@@ -986,7 +986,9 @@
     "email": "Email"
   },
   "review": {
-    "title": "Laisser un avis",
+    "titleClientToProvider": "Laisser un avis",
+    "titleProviderToClient": "Évaluer le client",
+    "subtitleProviderToClient": "Comment s'est passée votre expérience avec ce client ?",
     "close": "Fermer",
     "globalRating": "Note globale",
     "detailedCriteria": "Critères détaillés (optionnel)",
@@ -1007,7 +1009,10 @@
     "videoReview": "Avis vidéo",
     "uploadingVideo": "Envoi de la vidéo...",
     "titleVisibleLabel": "Afficher le titre de la mission sur le profil public du prestataire",
-    "titleVisibleHint": "Décochez pour garder le titre de la mission privé. Votre note et votre commentaire resteront visibles."
+    "titleVisibleHint": "Décochez pour garder le titre de la mission privé. Votre note et votre commentaire resteront visibles.",
+    "errorWindowClosed": "La fenêtre d'avis est fermée (14 jours après la fin de la mission).",
+    "errorNotParticipant": "Seuls les participants de cette mission peuvent laisser un avis.",
+    "errorGeneric": "Impossible d'envoyer votre avis. Veuillez réessayer."
   },
   "reporting": {
     "reportMessage": "Signaler ce message",

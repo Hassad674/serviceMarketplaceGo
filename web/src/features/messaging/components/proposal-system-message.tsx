@@ -338,7 +338,15 @@ export function EvaluationRequestMessage({
   onReview,
 }: {
   metadata: ProposalMessageMetadata
-  onReview?: (proposalId: string, proposalTitle: string) => void
+  // Double-blind reviews: the consumer needs the proposal's client
+  // and provider org ids to derive the viewer's review side. We
+  // forward them straight from the system-message metadata instead
+  // of re-fetching the proposal.
+  onReview?: (
+    proposalId: string,
+    proposalTitle: string,
+    participants: { clientId: string; providerId: string },
+  ) => void
 }) {
   const t = useTranslations("review")
   const tp = useTranslations("proposal")
@@ -371,7 +379,12 @@ export function EvaluationRequestMessage({
         <div className="mt-3 border-t border-inherit" />
         <button
           type="button"
-          onClick={() => onReview?.(metadata.proposal_id, metadata.proposal_title)}
+          onClick={() =>
+            onReview?.(metadata.proposal_id, metadata.proposal_title, {
+              clientId: metadata.proposal_client_id,
+              providerId: metadata.proposal_provider_id,
+            })
+          }
           className={cn(
             "mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
             "text-sm font-semibold text-white transition-all duration-200",

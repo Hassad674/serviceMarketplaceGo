@@ -986,7 +986,9 @@
     "email": "Email"
   },
   "review": {
-    "title": "Leave a review",
+    "titleClientToProvider": "Leave a review",
+    "titleProviderToClient": "Review the client",
+    "subtitleProviderToClient": "How was your experience with this client?",
     "close": "Close",
     "globalRating": "Overall rating",
     "detailedCriteria": "Detailed criteria (optional)",
@@ -1007,7 +1009,10 @@
     "videoReview": "Video review",
     "uploadingVideo": "Uploading video...",
     "titleVisibleLabel": "Show the mission title on the provider's public profile",
-    "titleVisibleHint": "Uncheck to keep the mission title private. Your rating and comment will still be visible."
+    "titleVisibleHint": "Uncheck to keep the mission title private. Your rating and comment will still be visible.",
+    "errorWindowClosed": "The review window has closed (14 days after mission completion).",
+    "errorNotParticipant": "Only the participants of this mission can leave a review.",
+    "errorGeneric": "Could not submit your review. Please try again."
   },
   "reporting": {
     "reportMessage": "Report this message",

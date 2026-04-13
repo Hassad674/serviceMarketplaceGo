@@ -20,8 +20,10 @@ import { useMessagingWS } from "../hooks/use-messaging-ws"
 import { markAsRead } from "../api/messaging-api"
 import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
 import { ReviewModal } from "@/features/review/components/review-modal"
+import { deriveReviewSide } from "@/features/review/utils/derive-side"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { Conversation, ConversationListResponse, Message } from "../types"
+import type { ReviewSide } from "@/shared/types/review"
 
 export function MessagingPage() {
   const t = useTranslations("messaging")
@@ -38,7 +40,11 @@ export function MessagingPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [mobileView, setMobileView] = useState<"list" | "chat">("list")
   const [replyTo, setReplyTo] = useState<{ id: string; senderId: string; senderName: string; content: string; type: string } | null>(null)
-  const [reviewTarget, setReviewTarget] = useState<{ proposalId: string; proposalTitle: string } | null>(null)
+  const [reviewTarget, setReviewTarget] = useState<{
+    proposalId: string
+    proposalTitle: string
+    side: ReviewSide
+  } | null>(null)
   const [reportTarget, setReportTarget] = useState<{ type: "message" | "user"; id: string } | null>(null)
 
   const canSendMessage = useHasPermission("messaging.send")
@@ -218,10 +224,27 @@ export function MessagingPage() {
   )
 
   const handleReview = useCallback(
-    (proposalId: string, proposalTitle: string) => {
-      setReviewTarget({ proposalId, proposalTitle })
+    (
+      proposalId: string,
+      proposalTitle: string,
+      participants: { clientId: string; providerId: string },
+    ) => {
+      // Double-blind reviews: the system message is now sent to BOTH
+      // the client and the provider when a mission completes. We
+      // derive which side the current viewer is on from their org id
+      // vs the proposal's client/provider org ids (phase-4 refactor:
+      // these are ORG ids, not user ids). If the viewer is neither
+      // side (shouldn't normally happen since the backend only
+      // delivers the message to participants), we silently drop the
+      // click — the modal would just show an error.
+      const side = deriveReviewSide(org?.id, {
+        client_id: participants.clientId,
+        provider_id: participants.providerId,
+      })
+      if (!side) return
+      setReviewTarget({ proposalId, proposalTitle, side })
     },
-    [],
+    [org?.id],
   )
 
   const handleReportMessage = useCallback(
@@ -317,11 +340,14 @@ export function MessagingPage() {
         )}
       </div>
 
-      {/* Review modal — opens from evaluation_request messages */}
+      {/* Review modal — opens from evaluation_request messages.
+          Since double-blind reviews, both client and provider can
+          trigger this; `side` is derived from the viewer's org. */}
       {reviewTarget && (
         <ReviewModal
           proposalId={reviewTarget.proposalId}
           proposalTitle={reviewTarget.proposalTitle}
+          side={reviewTarget.side}
           isOpen
           onClose={() => setReviewTarget(null)}
         />
