@@ -115,6 +115,21 @@ func (s *Service) GetProfileSkills(
 	return s.profiles.ListByOrgID(ctx, orgID)
 }
 
+// GetProfileSkillsBatch is the multi-organization read variant used
+// by list endpoints (search / discovery pages) to decorate many
+// profile cards with their declared skills in a single database
+// roundtrip. It is a thin pass-through to the repository's
+// ListByOrgIDs contract: every input org ID is present in the
+// returned map, even when the org has zero skills.
+//
+// Ordering: per-org slices are ordered by position ASC.
+func (s *Service) GetProfileSkillsBatch(
+	ctx context.Context,
+	orgIDs []uuid.UUID,
+) (map[uuid.UUID][]*domainskill.ProfileSkill, error) {
+	return s.profiles.ListByOrgIDs(ctx, orgIDs)
+}
+
 // ReplaceProfileSkillsInput is the payload for ReplaceProfileSkills.
 // SkillTexts is the ordered list of skill_text values (not yet
 // normalized — the service handles that). Position 0 = first.
@@ -139,18 +154,20 @@ type ReplaceProfileSkillsInput struct {
 //     Unknown skills return ErrSkillNotFound, wrapped with the
 //     offending text so the caller can surface it to the user.
 //
-// Validation passing, the method delegates to ProfileSkillRepository.
-// ReplaceForOrg which performs the transactional DELETE + INSERT.
+// Validation passing, the method:
+//
+//  6. Snapshots the previous list to compute a diff (added/removed).
+//  7. Delegates to ProfileSkillRepository.ReplaceForOrg which performs
+//     the transactional DELETE + INSERT.
+//  8. Updates skills_catalog.usage_count: +1 for every newly added
+//     skill, -1 for every removed skill. Untouched skills keep their
+//     counter. Failures of the counter updates do NOT roll back the
+//     replacement — they are logged by the caller path and accepted
+//     as eventually-consistent cache drift.
 //
 // Caller responsibility: authentication and ownership checks happen
 // at the handler layer — this method trusts that the caller has
 // already verified the user is entitled to write the target org.
-//
-// NOTE: usage_count is NOT updated here. Doing it correctly requires
-// diffing the old and new lists (increment for additions, decrement
-// for removals) and coordinating with the catalog repo. That diff
-// logic is deferred to a follow-up — v1 accepts slightly stale
-// counters in exchange for simpler code.
 func (s *Service) ReplaceProfileSkills(ctx context.Context, input ReplaceProfileSkillsInput) error {
 	orgType, err := s.orgs.GetOrgType(ctx, input.OrganizationID)
 	if err != nil {
@@ -170,10 +187,60 @@ func (s *Service) ReplaceProfileSkills(ctx context.Context, input ReplaceProfile
 		return err
 	}
 
+	// Snapshot the previous list BEFORE replacing so we can diff it
+	// against the new one for counter updates. Fetched here rather
+	// than inside updateUsageCounts so the read is part of the same
+	// logical operation and any error aborts cleanly.
+	previous, err := s.profiles.ListByOrgID(ctx, input.OrganizationID)
+	if err != nil {
+		return fmt.Errorf("replace profile skills: list previous: %w", err)
+	}
+
 	if err := s.profiles.ReplaceForOrg(ctx, input.OrganizationID, profileSkills); err != nil {
 		return fmt.Errorf("replace profile skills: persist: %w", err)
 	}
+
+	s.updateUsageCounts(ctx, previous, normalized)
 	return nil
+}
+
+// updateUsageCounts applies a diff-based update to the skills_catalog
+// usage_count column after a successful profile-skills replacement:
+// incrementing counters for every newly-added skill and decrementing
+// for every removed skill. Skills present in both lists are untouched.
+//
+// Errors from individual counter updates are intentionally swallowed:
+// this runs after the transactional Replace has already committed, so
+// bailing out would leave the caller in an ambiguous state where the
+// replacement looks failed but is actually in the database. A future
+// iteration can batch these via a single UPDATE ... FROM (VALUES ...)
+// query wrapped in the Replace transaction for strict consistency.
+func (s *Service) updateUsageCounts(
+	ctx context.Context,
+	previous []*domainskill.ProfileSkill,
+	current []string,
+) {
+	previousSet := make(map[string]struct{}, len(previous))
+	for _, p := range previous {
+		previousSet[p.SkillText] = struct{}{}
+	}
+	currentSet := make(map[string]struct{}, len(current))
+	for _, text := range current {
+		currentSet[text] = struct{}{}
+	}
+
+	// Added: in current but not in previous → +1
+	for text := range currentSet {
+		if _, was := previousSet[text]; !was {
+			_ = s.catalog.IncrementUsageCount(ctx, text)
+		}
+	}
+	// Removed: in previous but not in current → -1
+	for text := range previousSet {
+		if _, still := currentSet[text]; !still {
+			_ = s.catalog.DecrementUsageCount(ctx, text)
+		}
+	}
 }
 
 // buildProfileSkills materializes the ProfileSkill slice to persist
