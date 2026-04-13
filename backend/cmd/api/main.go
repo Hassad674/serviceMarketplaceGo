@@ -42,6 +42,7 @@ import (
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
+	skillapp "marketplace-backend/internal/app/skill"
 	"marketplace-backend/internal/config"
 	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/handler"
@@ -554,6 +555,20 @@ func main() {
 	expertiseRepo := postgres.NewExpertiseRepository(db)
 	expertiseSvc := profileapp.NewExpertiseService(expertiseRepo, organizationRepo)
 	profileHandler := handler.NewProfileHandler(profileSvc, expertiseSvc)
+
+	// Skills feature (hybrid catalog + per-org profile attachments).
+	// Uses a small org-type-resolver adapter (org_type_resolver.go) to
+	// bridge the existing organization repo to the skill service's
+	// dependency contract, keeping the skill package independent of
+	// domain/organization.
+	skillCatalogRepo := postgres.NewSkillCatalogRepository(db)
+	profileSkillRepo := postgres.NewProfileSkillRepository(db)
+	skillSvc := skillapp.NewService(
+		skillCatalogRepo,
+		profileSkillRepo,
+		newOrgTypeResolverAdapter(organizationRepo),
+	)
+	skillHandler := handler.NewSkillHandler(skillSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
@@ -662,6 +677,7 @@ func main() {
 		ProjectHistory: projectHistoryHandler,
 		Dispute:        disputeHandler,
 		AdminDispute:   adminDisputeHandler,
+		Skill:          skillHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
