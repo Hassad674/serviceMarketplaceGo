@@ -884,5 +884,61 @@
   "expertiseDomainOpsAdminSupport": "Ops, Admin & Support",
   "expertiseDomainLegal": "Legal",
   "expertiseDomainFinanceAccounting": "Finance & Accounting",
-  "expertiseDomainHrRecruitment": "HR & Recruitment"
+  "expertiseDomainHrRecruitment": "HR & Recruitment",
+
+  "skillsSectionTitle": "Skills",
+  "skillsSectionSubtitle": "Up to {max} skills",
+  "@skillsSectionSubtitle": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsEmpty": "No skills added yet",
+  "skillsEditButton": "Edit my skills",
+  "skillsModalTitle": "My skills",
+  "skillsSearchPlaceholder": "Search for a skill...",
+  "skillsCounter": "{count} / {max}",
+  "@skillsCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsPopularHeading": "Popular in your domains",
+  "skillsBrowseHeading": "Browse by domain",
+  "skillsSave": "Save",
+  "skillsSaving": "Saving...",
+  "skillsCancel": "Cancel",
+  "skillsCreateNew": "Create \"{query}\"",
+  "@skillsCreateNew": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "skillsUsageCount": "{count} pros",
+  "@skillsUsageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsErrorTooMany": "You've reached the limit of {max} skills",
+  "@skillsErrorTooMany": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsErrorDisabled": "Unavailable for this account type",
+  "skillsErrorGeneric": "Something went wrong"
 }

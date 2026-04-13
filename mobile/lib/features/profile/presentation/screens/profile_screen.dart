@@ -16,6 +16,8 @@ import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../expertise/domain/entities/expertise_catalog.dart';
 import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
+import '../../../skill/domain/entities/skill_limits.dart';
+import '../../../skill/presentation/widgets/skills_section_widget.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../providers/profile_provider.dart';
@@ -97,6 +99,16 @@ class ProfileScreen extends ConsumerWidget {
                 onSaved: () => ref.invalidate(profileProvider),
               ),
               if (ExpertiseCatalog.isFeatureEnabledForOrgType(orgType))
+                const SizedBox(height: 16),
+
+              // Skills — hidden for enterprise org type
+              SkillsSectionWidget(
+                orgType: orgType,
+                expertiseKeys: profileExpertise,
+                canEdit: canEditProfile,
+                onSaved: () => ref.invalidate(profileProvider),
+              ),
+              if (SkillLimits.isFeatureEnabledForOrgType(orgType))
                 const SizedBox(height: 16),
 
               // Title section
