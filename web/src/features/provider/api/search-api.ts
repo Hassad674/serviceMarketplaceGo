@@ -1,5 +1,13 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+// PublicProfileSummarySkill matches the compact skill shape returned
+// by the search endpoint — same contract as the full profile, kept
+// locally so the search API stays independent of profile-api.ts.
+export type PublicProfileSummarySkill = {
+  skill_text: string
+  display_text: string
+}
+
 // PublicProfileSummary describes the organization surfaced by
 // marketplace search / directory pages: the team's display name,
 // org type, photo, and review metrics.
@@ -12,6 +20,10 @@ export type PublicProfileSummary = {
   referrer_enabled: boolean
   average_rating: number
   review_count: number
+  // Skills surfaced on the search result card. Backend always returns
+  // an array (possibly empty) — never null. Older clients should treat
+  // `undefined` as empty.
+  skills?: PublicProfileSummarySkill[]
 }
 
 export type SearchType = "freelancer" | "agency" | "enterprise" | "referrer"

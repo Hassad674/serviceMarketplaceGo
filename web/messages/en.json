@@ -445,6 +445,11 @@
         "finance_accounting": "Finance & Accounting",
         "hr_recruitment": "HR & Recruitment"
       }
+    },
+    "skillsDisplay": {
+      "sectionTitle": "Skills",
+      "listLabel": "List of skills",
+      "moreSuffix": "+{count}"
     }
   },
   "upload": {

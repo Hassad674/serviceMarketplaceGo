@@ -13,6 +13,7 @@ import { ProfileHistory } from "./profile-history"
 import { ProfileSkeleton } from "./profile-skeleton"
 import { PublicPortfolioSection } from "./portfolio-grid"
 import { ExpertiseDisplay } from "./expertise-display"
+import { SkillsDisplay } from "./skills-display"
 import { useProfileRating } from "../hooks/use-profile-rating"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
@@ -43,6 +44,7 @@ interface PublicProfileProps {
 
 export function PublicProfile({ orgId, type }: PublicProfileProps) {
   const t = useTranslations("publicProfile")
+  const tSkills = useTranslations("profile.skillsDisplay")
   const router = useRouter()
 
   const { data: profile, isLoading, error } = useQuery({
@@ -110,6 +112,21 @@ export function PublicProfile({ orgId, type }: PublicProfileProps) {
           domains={profile.expertise_domains}
           orgType={publicProfileTypeToOrgType(type)}
         />
+
+        {profile.skills && profile.skills.length > 0 && (
+          <section
+            aria-labelledby="skills-display-title"
+            className="bg-card border border-border rounded-xl p-6 shadow-sm"
+          >
+            <h2
+              id="skills-display-title"
+              className="text-lg font-semibold text-foreground mb-3"
+            >
+              {tSkills("sectionTitle")}
+            </h2>
+            <SkillsDisplay skills={profile.skills} />
+          </section>
+        )}
 
         <PublicPortfolioSection orgId={orgId} />
         <ProfileHistory orgId={orgId} readOnly />

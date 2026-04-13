@@ -5,6 +5,12 @@ import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { PublicProfileSummary, SearchType } from "../api/search-api"
+import { SkillsDisplay } from "./skills-display"
+
+// Keeps the card compact — the directory grid must stay scannable even
+// for providers with many skills. Anything beyond this count collapses
+// into a "+N" overflow chip rendered by SkillsDisplay.
+const CARD_MAX_VISIBLE_SKILLS = 4
 
 // Badge styling is keyed on search type (the "what directory am I in"
 // dimension), not the raw org type, because provider_personal orgs
@@ -117,6 +123,13 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
                 ({profile.review_count})
               </span>
             </div>
+          )}
+          {profile.skills && profile.skills.length > 0 && (
+            <SkillsDisplay
+              skills={profile.skills}
+              maxVisible={CARD_MAX_VISIBLE_SKILLS}
+              className="mt-2"
+            />
           )}
         </div>
       </div>
