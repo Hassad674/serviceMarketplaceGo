@@ -5,15 +5,21 @@ import (
 )
 
 type ProfileResponse struct {
-	OrganizationID       string `json:"organization_id"`
-	Title                string `json:"title"`
-	About                string `json:"about"`
-	PhotoURL             string `json:"photo_url"`
-	PresentationVideoURL string `json:"presentation_video_url"`
-	ReferrerAbout        string `json:"referrer_about"`
-	ReferrerVideoURL     string `json:"referrer_video_url"`
-	CreatedAt            string `json:"created_at"`
-	UpdatedAt            string `json:"updated_at"`
+	OrganizationID       string   `json:"organization_id"`
+	Title                string   `json:"title"`
+	About                string   `json:"about"`
+	PhotoURL             string   `json:"photo_url"`
+	PresentationVideoURL string   `json:"presentation_video_url"`
+	ReferrerAbout        string   `json:"referrer_about"`
+	ReferrerVideoURL     string   `json:"referrer_video_url"`
+	// ExpertiseDomains is the ordered list of domain specialization
+	// keys the organization has declared (see internal/domain/expertise
+	// for the catalog). Empty orgs and enterprise orgs always receive
+	// an empty slice — never null — so the frontend can safely render
+	// `response.data.expertise_domains.map(...)` without a guard.
+	ExpertiseDomains []string `json:"expertise_domains"`
+	CreatedAt        string   `json:"created_at"`
+	UpdatedAt        string   `json:"updated_at"`
 }
 
 // PublicProfileSummary is the shape surfaced to marketplace search /
@@ -52,7 +58,14 @@ func NewPublicProfileSummaryList(profiles []*profile.PublicProfile) []PublicProf
 	return result
 }
 
-func NewProfileResponse(p *profile.Profile) ProfileResponse {
+// NewProfileResponse assembles the full profile DTO, including the
+// expertise domain list. Callers that don't have expertise wired
+// (legacy unit tests) can pass nil — the response will carry an
+// empty slice so the JSON shape is stable.
+func NewProfileResponse(p *profile.Profile, expertiseDomains []string) ProfileResponse {
+	if expertiseDomains == nil {
+		expertiseDomains = []string{}
+	}
 	return ProfileResponse{
 		OrganizationID:       p.OrganizationID.String(),
 		Title:                p.Title,
@@ -61,6 +74,7 @@ func NewProfileResponse(p *profile.Profile) ProfileResponse {
 		PresentationVideoURL: p.PresentationVideoURL,
 		ReferrerAbout:        p.ReferrerAbout,
 		ReferrerVideoURL:     p.ReferrerVideoURL,
+		ExpertiseDomains:     expertiseDomains,
 		CreatedAt:            p.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:            p.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}

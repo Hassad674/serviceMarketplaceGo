@@ -21,7 +21,10 @@ import (
 
 func newTestProfileHandler(repo *mockProfileRepo) *ProfileHandler {
 	svc := profileapp.NewService(repo)
-	return NewProfileHandler(svc)
+	// Unit tests for the baseline profile endpoints do not exercise
+	// the expertise flow — pass nil so the handler returns an empty
+	// expertise list in the response without requiring a second mock.
+	return NewProfileHandler(svc, nil)
 }
 
 func TestProfileHandler_GetMyProfile(t *testing.T) {

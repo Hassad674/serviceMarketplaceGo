@@ -146,6 +146,10 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Use(middleware.NoCache)
 			r.Get("/", deps.Profile.GetMyProfile)
 			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.Profile.UpdateMyProfile)
+			// Expertise domains — same "edit profile" permission as the
+			// main profile fields. The feature is hard-disabled for
+			// enterprise orgs at the service layer (403 forbidden).
+			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.Profile.UpdateMyExpertise)
 		})
 
 		// Upload routes (authenticated, permission-gated)
