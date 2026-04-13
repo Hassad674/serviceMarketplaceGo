@@ -247,6 +247,19 @@ class _SkillsEditorBottomSheetState
 
   List<Widget> _buildBody(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    // The "Popular in your domains" row stays contextual to the user's
+    // declared expertise when they have any — it reads as curated
+    // guidance. If no domains are declared we fall back to a sensible
+    // default so the row always has content to surface.
+    final popularKeys = widget.expertiseKeys.isNotEmpty
+        ? widget.expertiseKeys
+        : const <String>['development', 'design_ui_ux'];
+
+    // The "Browse by domain" section always lists every expertise
+    // domain (mirrors the web modal) so users can pick skills from
+    // any area regardless of what they personally declared.
+    const allKeys = SkillLimits.allExpertiseDomainKeys;
+
     return <Widget>[
       SkillSearchField(
         existingSelections: _selectedKeys,
@@ -260,7 +273,7 @@ class _SkillsEditorBottomSheetState
       ),
       const SizedBox(height: 24),
       PopularSkillsSection(
-        expertiseKeys: widget.expertiseKeys,
+        expertiseKeys: popularKeys,
         selectedKeys: _selectedKeys,
         onPick: _addFromCatalog,
       ),
@@ -273,7 +286,7 @@ class _SkillsEditorBottomSheetState
         ),
       ),
       const SizedBox(height: 12),
-      for (final key in widget.expertiseKeys) ...[
+      for (final key in allKeys) ...[
         ExpertiseSkillsPanel(
           expertiseKey: key,
           selectedKeys: _selectedKeys,

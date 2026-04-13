@@ -42,3 +42,31 @@ export const SKILL_AUTOCOMPLETE_DEBOUNCE_MS = 200
 // Maximum number of popular skills surfaced in the "popular in your
 // domains" row inside the editor modal.
 export const POPULAR_SKILLS_LIMIT = 8
+
+// The 15 marketplace expertise domain keys, in display order. The
+// canonical source of truth is the Go catalog at
+// backend/internal/domain/expertise/catalog.go; we duplicate the list
+// here so the skill feature stays independent from the provider /
+// expertise features (no cross-feature imports) and the modal can
+// surface every domain in the "Browse by domain" section regardless
+// of what the current user has personally declared.
+//
+// Keep this list in sync with the backend catalog. A mismatch is
+// harmless (unknown keys yield an empty panel) but confusing.
+export const ALL_EXPERTISE_DOMAIN_KEYS = [
+  "development",
+  "data_ai_ml",
+  "design_ui_ux",
+  "design_3d_animation",
+  "video_motion",
+  "photo_audiovisual",
+  "marketing_growth",
+  "writing_translation",
+  "business_dev_sales",
+  "consulting_strategy",
+  "product_ux_research",
+  "ops_admin_support",
+  "legal",
+  "finance_accounting",
+  "hr_recruitment",
+] as const

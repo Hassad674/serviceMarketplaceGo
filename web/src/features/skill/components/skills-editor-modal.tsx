@@ -18,6 +18,7 @@ import {
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
+import { ALL_EXPERTISE_DOMAIN_KEYS } from "../constants"
 import { useProfileSkills } from "../hooks/use-profile-skills"
 import { useUpdateProfileSkills } from "../hooks/use-update-profile-skills"
 import type { SkillResponse } from "../types"
@@ -288,42 +289,48 @@ function ModalBrowseBody({
   onAdd,
 }: ModalBrowseBodyProps) {
   const t = useTranslations("profile.skills")
+  // The "Popular in your domains" row is keyed to the user's declared
+  // expertise when they have any — it feels like curated guidance. When
+  // they haven't declared any yet, we fall back to development +
+  // design_ui_ux as a reasonable default so the row always has content.
+  const popularKeys = expertiseKeys.length > 0
+    ? expertiseKeys
+    : (["development", "design_ui_ux"] as string[])
+
+  // The "Browse by domain" section always lists the full 15 expertise
+  // domains so users can pick skills from any area, not just the
+  // domains they declared on their profile. The first panel is open
+  // by default to reduce the initial scroll.
+  const allKeys = ALL_EXPERTISE_DOMAIN_KEYS
+
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      {expertiseKeys.length > 0 ? (
-        <>
-          <section className="mb-6">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              {t("popularHeading")}
-            </h3>
-            <PopularSkillsRow
-              expertiseKeys={expertiseKeys}
+      <section className="mb-6">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">
+          {t("popularHeading")}
+        </h3>
+        <PopularSkillsRow
+          expertiseKeys={popularKeys}
+          alreadySelected={alreadySelected}
+          onAdd={onAdd}
+        />
+      </section>
+      <section>
+        <h3 className="mb-3 text-sm font-semibold text-foreground">
+          {t("browseHeading")}
+        </h3>
+        <div className="flex flex-col gap-3">
+          {allKeys.map((key, index) => (
+            <ExpertisePanel
+              key={key}
+              expertiseKey={key}
               alreadySelected={alreadySelected}
               onAdd={onAdd}
+              defaultOpen={index === 0}
             />
-          </section>
-          <section>
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              {t("browseHeading")}
-            </h3>
-            <div className="flex flex-col gap-3">
-              {expertiseKeys.map((key, index) => (
-                <ExpertisePanel
-                  key={key}
-                  expertiseKey={key}
-                  alreadySelected={alreadySelected}
-                  onAdd={onAdd}
-                  defaultOpen={index === 0}
-                />
-              ))}
-            </div>
-          </section>
-        </>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {t("noExpertise")}
-        </p>
-      )}
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

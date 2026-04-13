@@ -31,4 +31,31 @@ abstract final class SkillLimits {
   /// editor bottom sheet to short-circuit rendering.
   static bool isFeatureEnabledForOrgType(String? orgType) =>
       maxForOrgType(orgType) > 0;
+
+  /// The 15 marketplace expertise domain keys in display order,
+  /// mirroring the backend catalog at
+  /// `backend/internal/domain/expertise/catalog.go`. Duplicated here
+  /// rather than imported from the expertise feature so the skill
+  /// feature stays fully independent: no cross-feature imports.
+  ///
+  /// The editor's "Browse by domain" section always lists every
+  /// key so users can pick skills from any area regardless of which
+  /// domains they personally declared on their profile.
+  static const List<String> allExpertiseDomainKeys = <String>[
+    'development',
+    'data_ai_ml',
+    'design_ui_ux',
+    'design_3d_animation',
+    'video_motion',
+    'photo_audiovisual',
+    'marketing_growth',
+    'writing_translation',
+    'business_dev_sales',
+    'consulting_strategy',
+    'product_ux_research',
+    'ops_admin_support',
+    'legal',
+    'finance_accounting',
+    'hr_recruitment',
+  ];
 }
