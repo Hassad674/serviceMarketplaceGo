@@ -9,6 +9,13 @@ const messages = {
   search: {
     noTitle: "No title",
   },
+  profile: {
+    skillsDisplay: {
+      sectionTitle: "Skills",
+      listLabel: "List of skills",
+      moreSuffix: "+{count}",
+    },
+  },
 }
 
 vi.mock("@i18n/navigation", () => ({
@@ -185,5 +192,50 @@ describe("ProviderCard", () => {
     renderProviderCard(profile, "freelancer")
 
     expect(screen.queryByText("0.0")).not.toBeInTheDocument()
+  })
+
+  it("renders the first 4 skills plus an overflow chip when the profile has more than 4 skills", () => {
+    const profile = createProfile({
+      skills: [
+        { skill_text: "react", display_text: "React" },
+        { skill_text: "typescript", display_text: "TypeScript" },
+        { skill_text: "nodejs", display_text: "Node.js" },
+        { skill_text: "postgres", display_text: "PostgreSQL" },
+        { skill_text: "redis", display_text: "Redis" },
+        { skill_text: "docker", display_text: "Docker" },
+      ],
+    })
+    renderProviderCard(profile, "freelancer")
+
+    expect(screen.getByText("React")).toBeInTheDocument()
+    expect(screen.getByText("TypeScript")).toBeInTheDocument()
+    expect(screen.getByText("Node.js")).toBeInTheDocument()
+    expect(screen.getByText("PostgreSQL")).toBeInTheDocument()
+    expect(screen.queryByText("Redis")).not.toBeInTheDocument()
+    expect(screen.queryByText("Docker")).not.toBeInTheDocument()
+    expect(screen.getByText("+2")).toBeInTheDocument()
+  })
+
+  it("renders all skills with no overflow chip when the profile has fewer than 4 skills", () => {
+    const profile = createProfile({
+      skills: [
+        { skill_text: "react", display_text: "React" },
+        { skill_text: "typescript", display_text: "TypeScript" },
+        { skill_text: "nodejs", display_text: "Node.js" },
+      ],
+    })
+    renderProviderCard(profile, "freelancer")
+
+    expect(screen.getByText("React")).toBeInTheDocument()
+    expect(screen.getByText("TypeScript")).toBeInTheDocument()
+    expect(screen.getByText("Node.js")).toBeInTheDocument()
+    expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument()
+  })
+
+  it("renders no skills section when the profile has 0 skills", () => {
+    const profile = createProfile({ skills: [] })
+    renderProviderCard(profile, "freelancer")
+
+    expect(screen.queryByRole("list", { name: "List of skills" })).not.toBeInTheDocument()
   })
 })

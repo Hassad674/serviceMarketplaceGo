@@ -445,6 +445,11 @@
         "finance_accounting": "Finance & Comptabilité",
         "hr_recruitment": "RH & Recrutement"
       }
+    },
+    "skillsDisplay": {
+      "sectionTitle": "Compétences",
+      "listLabel": "Liste des compétences",
+      "moreSuffix": "+{count}"
     }
   },
   "upload": {

@@ -1,5 +1,14 @@
 import { apiClient } from "@/shared/lib/api-client"
 
+// ProfileSkill matches the backend ProfileResponse.skills entries: the
+// normalized `skill_text` (canonical lowercase lookup key) paired with
+// the user-facing `display_text`. The backend guarantees this array is
+// non-null — empty profiles return `[]`, never omitted.
+export type ProfileSkill = {
+  skill_text: string
+  display_text: string
+}
+
 // Profile is the organization's shared marketplace identity: the same
 // photo, video, about text, and title that every team member edits
 // collaboratively. Since the team refactor the anchor is the org id,
@@ -17,6 +26,10 @@ export type Profile = {
   // Absent for orgs that do not have expertise (legacy clients should
   // treat `undefined` as an empty list).
   expertise_domains?: string[]
+  // Skills attached to the organization, in insertion order. Backend
+  // always returns an array (possibly empty) — never null. Older clients
+  // that predate the skills endpoint should treat `undefined` as empty.
+  skills?: ProfileSkill[]
   created_at: string
   updated_at: string
 }
