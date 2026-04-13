@@ -52,7 +52,9 @@ func (s *Service) SetTextModeration(svc service.TextModerationService) {
 	s.textModeration = svc
 }
 
-// CreateReviewInput contains the data needed to create a review.
+// CreateReviewInput contains the data needed to create a review. Note
+// that the review side is NOT in this input: it is always derived
+// server-side from the reviewer id vs. the proposal's participants.
 type CreateReviewInput struct {
 	ProposalID    uuid.UUID
 	ReviewerID    uuid.UUID
@@ -65,9 +67,22 @@ type CreateReviewInput struct {
 	TitleVisible  bool
 }
 
-// CreateReview validates the context and persists a new review.
+// CreateReview validates the context and persists a new review. It
+// implements the double-blind reveal protocol:
+//
+//  1. Verify the proposal exists and is completed.
+//  2. Derive the review side from the reviewer's position (client or
+//     provider) on the proposal. A third party → ErrNotParticipant.
+//  3. Enforce the 14-day review window. Past the deadline → the review
+//     is rejected outright (ErrReviewWindowClosed).
+//  4. Reject duplicate submissions from the same reviewer.
+//  5. Persist the review via CreateAndMaybeReveal, which atomically
+//     inserts the row and flips pending reviews on the proposal to
+//     published_at = NOW() whenever the pair is complete (or when a
+//     backfilled client review is already visible).
+//  6. Fire notifications to the counterpart (and, when a reveal
+//     happened, to the reviewer themselves).
 func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*domain.Review, error) {
-	// Verify proposal exists and is completed
 	p, err := s.proposals.GetByID(ctx, in.ProposalID)
 	if err != nil {
 		return nil, fmt.Errorf("get proposal: %w", err)
@@ -76,17 +91,15 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		return nil, domain.ErrNotCompleted
 	}
 
-	// Only the client (the party who pays) can leave a review.
-	// Enterprise evaluates Freelance/Agency, Agency evaluates Freelance.
-	// The provider never evaluates the client.
-	if in.ReviewerID != p.ClientID {
-		return nil, domain.ErrNotParticipant
+	side, reviewedID, err := deriveReviewSide(in.ReviewerID, p.ClientID, p.ProviderID)
+	if err != nil {
+		return nil, err
 	}
 
-	// The reviewed party is always the provider.
-	reviewedID := p.ProviderID
+	if err := enforceReviewWindow(p.CompletedAt); err != nil {
+		return nil, err
+	}
 
-	// Check for duplicate review
 	already, err := s.reviews.HasReviewed(ctx, in.ProposalID, in.ReviewerID)
 	if err != nil {
 		return nil, fmt.Errorf("check existing review: %w", err)
@@ -95,9 +108,6 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		return nil, domain.ErrAlreadyReviewed
 	}
 
-	// Resolve both parties' current organizations so the review is
-	// visible to every operator of the reviewed org + tagged by the
-	// reviewer's org (Stripe Dashboard shared workspace).
 	reviewerUser, err := s.users.GetByID(ctx, in.ReviewerID)
 	if err != nil {
 		return nil, fmt.Errorf("lookup reviewer user: %w", err)
@@ -110,13 +120,13 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		return nil, fmt.Errorf("create review: participants must belong to an organization")
 	}
 
-	// Create domain entity
 	r, err := domain.NewReview(domain.NewReviewInput{
 		ProposalID:             in.ProposalID,
 		ReviewerID:             in.ReviewerID,
 		ReviewedID:             reviewedID,
 		ReviewerOrganizationID: *reviewerUser.OrganizationID,
 		ReviewedOrganizationID: *reviewedUser.OrganizationID,
+		Side:                   side,
 		GlobalRating:           in.GlobalRating,
 		Timeliness:             in.Timeliness,
 		Communication:          in.Communication,
@@ -129,28 +139,96 @@ func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*doma
 		return nil, err
 	}
 
-	if err := s.reviews.Create(ctx, r); err != nil {
+	persisted, err := s.reviews.CreateAndMaybeReveal(ctx, r)
+	if err != nil {
 		return nil, fmt.Errorf("persist review: %w", err)
 	}
 
-	if s.notifications != nil {
-		notifData, _ := json.Marshal(map[string]any{
-			"review_id":   r.ID.String(),
-			"proposal_id": r.ProposalID.String(),
-			"rating":      r.GlobalRating,
-		})
+	s.sendReviewNotifications(ctx, persisted, p.Title, reviewerUser.DisplayName)
+
+	s.moderateReviewIfNeeded(persisted)
+
+	return persisted, nil
+}
+
+// deriveReviewSide returns the review side implied by the reviewer's
+// position on the proposal. A third party → ErrNotParticipant.
+func deriveReviewSide(reviewerID, clientID, providerID uuid.UUID) (side string, reviewedID uuid.UUID, err error) {
+	switch reviewerID {
+	case clientID:
+		return domain.SideClientToProvider, providerID, nil
+	case providerID:
+		return domain.SideProviderToClient, clientID, nil
+	default:
+		return "", uuid.Nil, domain.ErrNotParticipant
+	}
+}
+
+// enforceReviewWindow returns ErrReviewWindowClosed when the proposal
+// was completed more than ReviewWindowDays ago. Missing completion
+// timestamps are treated as closed — the status check above should
+// already have caught non-completed proposals.
+func enforceReviewWindow(completedAt *time.Time) error {
+	if completedAt == nil {
+		return domain.ErrReviewWindowClosed
+	}
+	if time.Since(*completedAt) > domain.ReviewWindow {
+		return domain.ErrReviewWindowClosed
+	}
+	return nil
+}
+
+// sendReviewNotifications fires the user-facing notifications that
+// accompany a review submission. It uses the post-transaction value of
+// PublishedAt to decide whether the reveal message should be sent.
+func (s *Service) sendReviewNotifications(ctx context.Context, r *domain.Review, proposalTitle, reviewerDisplayName string) {
+	if s.notifications == nil {
+		return
+	}
+
+	revealed := r.PublishedAt != nil
+	reviewerLabel := reviewerDisplayName
+	if reviewerLabel == "" {
+		reviewerLabel = "Someone"
+	}
+
+	notifData, _ := json.Marshal(map[string]any{
+		"review_id":      r.ID.String(),
+		"proposal_id":    r.ProposalID.String(),
+		"proposal_title": proposalTitle,
+		"side":           r.Side,
+		"rating":         r.GlobalRating,
+		"revealed":       revealed,
+	})
+
+	var counterpartTitle, counterpartBody string
+	if revealed {
+		counterpartTitle = "New review received"
+		counterpartBody = fmt.Sprintf("%s left you a review.", reviewerLabel)
+	} else {
+		counterpartTitle = "You were reviewed"
+		counterpartBody = fmt.Sprintf("%s reviewed you. Submit your review within %d days to see it.", reviewerLabel, domain.ReviewWindowDays)
+	}
+
+	_ = s.notifications.Send(ctx, service.NotificationInput{
+		UserID: r.ReviewedID,
+		Type:   "review_received",
+		Title:  counterpartTitle,
+		Body:   counterpartBody,
+		Data:   notifData,
+	})
+
+	// When the reveal happened on this submission, also ping the
+	// reviewer so they know the counterpart's review is now visible.
+	if revealed {
 		_ = s.notifications.Send(ctx, service.NotificationInput{
-			UserID: r.ReviewedID,
-			Type:   "review_received",
-			Title:  "New review received",
-			Body:   fmt.Sprintf("You received a %d-star review", r.GlobalRating),
+			UserID: r.ReviewerID,
+			Type:   "review_revealed",
+			Title:  "Reviews unlocked",
+			Body:   fmt.Sprintf("Reviews are now visible for mission %q.", proposalTitle),
 			Data:   notifData,
 		})
 	}
-
-	s.moderateReviewIfNeeded(r)
-
-	return r, nil
 }
 
 // moderateReviewIfNeeded fires a background text moderation check for the review comment.
@@ -214,7 +292,8 @@ func (s *Service) GetAverageRatingByOrganization(ctx context.Context, orgID uuid
 }
 
 // CanReview checks if the current user can review a given proposal.
-// Only the client (the paying party) is allowed to leave a review.
+// Both parties (client and provider) are now eligible, subject to the
+// 14-day window and duplicate-review rules.
 func (s *Service) CanReview(ctx context.Context, proposalID, userID uuid.UUID) (bool, error) {
 	p, err := s.proposals.GetByID(ctx, proposalID)
 	if err != nil {
@@ -223,8 +302,10 @@ func (s *Service) CanReview(ctx context.Context, proposalID, userID uuid.UUID) (
 	if p.Status != "completed" {
 		return false, nil
 	}
-	// Only the client can review; the provider never evaluates.
-	if userID != p.ClientID {
+	if userID != p.ClientID && userID != p.ProviderID {
+		return false, nil
+	}
+	if err := enforceReviewWindow(p.CompletedAt); err != nil {
 		return false, nil
 	}
 	already, err := s.reviews.HasReviewed(ctx, proposalID, userID)

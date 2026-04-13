@@ -108,8 +108,10 @@ func scanAdminReviewRow(s reviewScanner) (*repository.AdminReview, error) {
 	var ar repository.AdminReview
 	err := s.Scan(
 		&ar.ID, &ar.ProposalID, &ar.ReviewerID, &ar.ReviewedID,
+		&ar.Side,
 		&ar.GlobalRating, &ar.Timeliness, &ar.Communication, &ar.Quality,
 		&ar.Comment, &ar.VideoURL, &ar.TitleVisible, &ar.CreatedAt, &ar.UpdatedAt,
+		&ar.PublishedAt,
 		&ar.ReviewerDisplayName, &ar.ReviewerEmail, &ar.ReviewerRole,
 		&ar.ReviewedDisplayName, &ar.ReviewedEmail, &ar.ReviewedRole,
 	)
@@ -123,8 +125,10 @@ func scanSingleAdminReview(row *sql.Row) (*repository.AdminReview, error) {
 	var ar repository.AdminReview
 	err := row.Scan(
 		&ar.ID, &ar.ProposalID, &ar.ReviewerID, &ar.ReviewedID,
+		&ar.Side,
 		&ar.GlobalRating, &ar.Timeliness, &ar.Communication, &ar.Quality,
 		&ar.Comment, &ar.VideoURL, &ar.TitleVisible, &ar.CreatedAt, &ar.UpdatedAt,
+		&ar.PublishedAt,
 		&ar.ReviewerDisplayName, &ar.ReviewerEmail, &ar.ReviewerRole,
 		&ar.ReviewedDisplayName, &ar.ReviewedEmail, &ar.ReviewedRole,
 	)
@@ -231,10 +235,16 @@ func adminReviewOrderClause(sort string) string {
 	}
 }
 
+// baseAdminReviewSelect — admin reads every review regardless of
+// moderation_status or published_at. The double-blind reveal is a
+// user-facing rule; moderators must still be able to inspect hidden
+// and pending rows.
 const baseAdminReviewSelect = `SELECT
 	rv.id, rv.proposal_id, rv.reviewer_id, rv.reviewed_id,
+	rv.side,
 	rv.global_rating, rv.timeliness, rv.communication, rv.quality,
 	rv.comment, rv.video_url, rv.title_visible, rv.created_at, rv.updated_at,
+	rv.published_at,
 	COALESCE(reviewer.display_name, reviewer.first_name || ' ' || reviewer.last_name),
 	reviewer.email, reviewer.role,
 	COALESCE(reviewed.display_name, reviewed.first_name || ' ' || reviewed.last_name),
