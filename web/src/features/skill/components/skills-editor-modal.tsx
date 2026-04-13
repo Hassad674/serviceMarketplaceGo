@@ -239,11 +239,18 @@ function SelectedSkillsList({
     )
   }
   return (
-    <ol className="flex flex-col gap-2" aria-label={t("selectedListLabel")}>
+    // Cap the selected list height so it never pushes the browse
+    // panels off-screen — once the user adds more than ~4 skills the
+    // list scrolls inside its own bounded area instead of stealing
+    // space from the rest of the modal.
+    <ol
+      className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1"
+      aria-label={t("selectedListLabel")}
+    >
       {draft.map((entry, index) => (
         <li
           key={entry.skill_text}
-          className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2"
+          className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-1.5"
         >
           <span className="truncate text-sm font-medium text-foreground">
             <span className="mr-2 text-muted-foreground">{index + 1}.</span>
