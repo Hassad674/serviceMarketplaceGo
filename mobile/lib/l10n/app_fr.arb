@@ -877,5 +877,61 @@
   "expertiseDomainOpsAdminSupport": "Ops, Admin & Support",
   "expertiseDomainLegal": "Legal & Droit",
   "expertiseDomainFinanceAccounting": "Finance & Comptabilité",
-  "expertiseDomainHrRecruitment": "RH & Recrutement"
+  "expertiseDomainHrRecruitment": "RH & Recrutement",
+
+  "skillsSectionTitle": "Compétences",
+  "skillsSectionSubtitle": "Jusqu'à {max} compétences",
+  "@skillsSectionSubtitle": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsEmpty": "Aucune compétence ajoutée",
+  "skillsEditButton": "Modifier mes compétences",
+  "skillsModalTitle": "Mes compétences",
+  "skillsSearchPlaceholder": "Chercher une compétence...",
+  "skillsCounter": "{count} / {max}",
+  "@skillsCounter": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsPopularHeading": "Populaires dans tes domaines",
+  "skillsBrowseHeading": "Parcourir par domaine",
+  "skillsSave": "Enregistrer",
+  "skillsSaving": "Enregistrement...",
+  "skillsCancel": "Annuler",
+  "skillsCreateNew": "Créer « {query} »",
+  "@skillsCreateNew": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "skillsUsageCount": "{count} pros",
+  "@skillsUsageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsErrorTooMany": "Tu as dépassé la limite de {max} compétences",
+  "@skillsErrorTooMany": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "skillsErrorDisabled": "Indisponible pour ce type de compte",
+  "skillsErrorGeneric": "Une erreur est survenue"
 }
