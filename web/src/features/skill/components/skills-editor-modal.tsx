@@ -153,7 +153,7 @@ export function SkillsEditorModal({
         className="flex h-[90vh] max-h-[720px] w-full max-w-2xl flex-col rounded-xl border border-border bg-background shadow-xl"
       >
         <ModalHeader onClose={onClose} />
-        <div className="flex flex-col gap-4 border-b border-border px-6 py-4">
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
           <SkillSearchBar
             alreadySelected={alreadySelected}
             onAdd={addSkill}
@@ -240,17 +240,17 @@ function SelectedSkillsList({
   }
   return (
     // Cap the selected list height so it never pushes the browse
-    // panels off-screen — once the user adds more than ~4 skills the
-    // list scrolls inside its own bounded area instead of stealing
-    // space from the rest of the modal.
+    // panels off-screen. Responsive: tight on mobile (≈ 2 rows
+    // visible so the top zone stays under ~30% of a 667px viewport)
+    // and looser on sm+ desktops (≈ 4 rows).
     <ol
-      className="flex max-h-[220px] flex-col gap-2 overflow-y-auto pr-1"
+      className="flex max-h-[120px] flex-col gap-1.5 overflow-y-auto pr-1 sm:max-h-[220px] sm:gap-2"
       aria-label={t("selectedListLabel")}
     >
       {draft.map((entry, index) => (
         <li
           key={entry.skill_text}
-          className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-1.5"
+          className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-1"
         >
           <span className="truncate text-sm font-medium text-foreground">
             <span className="mr-2 text-muted-foreground">{index + 1}.</span>
