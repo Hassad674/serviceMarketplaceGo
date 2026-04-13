@@ -10,8 +10,8 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/api cmd/api/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/migrate cmd/migrate/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/migrate ./cmd/migrate
 
 # Runtime stage
 FROM alpine:3.21
