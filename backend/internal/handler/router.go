@@ -37,6 +37,7 @@ type RouterDeps struct {
 	ProjectHistory *ProjectHistoryHandler
 	Dispute        *DisputeHandler
 	AdminDispute   *AdminDisputeHandler
+	Skill          *SkillHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -150,7 +151,32 @@ func NewRouter(deps RouterDeps) chi.Router {
 			// main profile fields. The feature is hard-disabled for
 			// enterprise orgs at the service layer (403 forbidden).
 			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.Profile.UpdateMyExpertise)
+			// Profile skills (authenticated). Same permission as expertise
+			// — both are public-profile decorations shared by the whole
+			// org. The feature is hard-disabled for enterprise orgs at
+			// the service layer (403 forbidden).
+			if deps.Skill != nil {
+				r.Get("/skills", deps.Skill.GetMyProfileSkills)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/skills", deps.Skill.PutMyProfileSkills)
+			}
 		})
+
+		// Skills catalog (mixed: public browse/autocomplete, authenticated create)
+		if deps.Skill != nil {
+			// Public catalog reads — no auth required so the discovery
+			// UI can surface skills to anonymous visitors.
+			r.Get("/skills/catalog", deps.Skill.GetCuratedByExpertise)
+			r.Get("/skills/autocomplete", deps.Skill.Autocomplete)
+
+			// Authenticated: create a new user-contributed skill from
+			// the "Create X" autocomplete option. Permission-gated by
+			// the same edit-profile grant as the profile skills PUT.
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/skills", deps.Skill.CreateUserSkill)
+			})
+		}
 
 		// Upload routes (authenticated, permission-gated)
 		r.Route("/upload", func(r chi.Router) {
