@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import 'skills_display_widget.dart';
 
 /// A card displaying an organization's public marketplace summary.
 ///
@@ -28,6 +29,9 @@ class ProviderCard extends StatelessWidget {
     final photoUrl = profile['photo_url'] as String?;
     final orgType = profile['org_type'] as String?;
     final initials = _buildInitials(displayName);
+    final skills = (profile['skills'] as List<dynamic>?)
+        ?.whereType<Map<String, dynamic>>()
+        .toList();
 
     return GestureDetector(
       onTap: () => context.push(
@@ -47,72 +51,36 @@ class ProviderCard extends StatelessWidget {
           ),
           boxShadow: AppTheme.cardShadow,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _Avatar(
-              photoUrl: photoUrl,
-              initials: initials,
-              roleColor: _roleColor(orgType),
+            Row(
+              children: [
+                _Avatar(
+                  photoUrl: photoUrl,
+                  initials: initials,
+                  roleColor: _roleColor(orgType),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _HeaderText(
+                    displayName: displayName,
+                    title: title,
+                    profile: profile,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _OrgTypeBadge(orgType: orgType),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    title ?? 'No title',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: appColors?.mutedForeground,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if ((profile['review_count'] as int? ?? 0) > 0) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          size: 12,
-                          color: Color(0xFFFBBF24),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          (profile['average_rating'] as num? ?? 0)
-                              .toDouble()
-                              .toStringAsFixed(1),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '(${profile['review_count']})',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: appColors?.mutedForeground,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+            if (skills != null && skills.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: SkillsDisplayWidget(
+                  skills: skills,
+                  maxVisible: 4,
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            _OrgTypeBadge(orgType: orgType),
           ],
         ),
       ),
@@ -142,6 +110,85 @@ class ProviderCard extends StatelessWidget {
       default:
         return const Color(0xFF64748B); // slate-500
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Header text column — name, title, and optional rating row
+// Extracted from ProviderCard.build to keep that method focused on layout.
+// ---------------------------------------------------------------------------
+
+class _HeaderText extends StatelessWidget {
+  const _HeaderText({
+    required this.displayName,
+    required this.title,
+    required this.profile,
+  });
+
+  final String displayName;
+  final String? title;
+  final Map<String, dynamic> profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final reviewCount = profile['review_count'] as int? ?? 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          displayName,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          title ?? 'No title',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: appColors?.mutedForeground,
+            fontSize: 13,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (reviewCount > 0) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(
+                Icons.star,
+                size: 12,
+                color: Color(0xFFFBBF24),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                (profile['average_rating'] as num? ?? 0)
+                    .toDouble()
+                    .toStringAsFixed(1),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                '($reviewCount)',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: appColors?.mutedForeground,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
   }
 }
 

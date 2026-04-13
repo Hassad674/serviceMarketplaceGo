@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marketplace_mobile/core/theme/app_theme.dart';
 import 'package:marketplace_mobile/features/search/presentation/widgets/provider_card.dart';
+import 'package:marketplace_mobile/features/search/presentation/widgets/skills_display_widget.dart';
 
 // =============================================================================
 // Helper to pump a testable ProviderCard
@@ -288,6 +289,78 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(CircleAvatar), findsOneWidget);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Skills display — skills from the public profile payload
+  // ---------------------------------------------------------------------------
+
+  group('ProviderCard skills display', () {
+    testWidgets('renders SkillsDisplayWidget when skills are provided',
+        (tester) async {
+      await tester.pumpWidget(_buildTestableCard({
+        'organization_id': 'org-1',
+        'name': 'Acme Agency',
+        'org_type': 'agency',
+        'skills': <Map<String, dynamic>>[
+          <String, dynamic>{'skill_text': 'react', 'display_text': 'React'},
+          <String, dynamic>{'skill_text': 'go', 'display_text': 'Go'},
+        ],
+      }));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillsDisplayWidget), findsOneWidget);
+      expect(find.text('React'), findsOneWidget);
+      expect(find.text('Go'), findsOneWidget);
+    });
+
+    testWidgets('does not render SkillsDisplayWidget when skills are empty',
+        (tester) async {
+      await tester.pumpWidget(_buildTestableCard({
+        'organization_id': 'org-1',
+        'name': 'Empty Org',
+        'org_type': 'agency',
+        'skills': <Map<String, dynamic>>[],
+      }));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillsDisplayWidget), findsNothing);
+    });
+
+    testWidgets('does not render SkillsDisplayWidget when skills key absent',
+        (tester) async {
+      await tester.pumpWidget(_buildTestableCard({
+        'organization_id': 'org-1',
+        'name': 'No Skills Org',
+        'org_type': 'agency',
+      }));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SkillsDisplayWidget), findsNothing);
+    });
+
+    testWidgets('caps chips at 4 and shows +N overflow chip', (tester) async {
+      await tester.pumpWidget(_buildTestableCard({
+        'organization_id': 'org-1',
+        'name': 'Busy Org',
+        'org_type': 'agency',
+        'skills': <Map<String, dynamic>>[
+          <String, dynamic>{'skill_text': 'react', 'display_text': 'React'},
+          <String, dynamic>{'skill_text': 'go', 'display_text': 'Go'},
+          <String, dynamic>{'skill_text': 'rust', 'display_text': 'Rust'},
+          <String, dynamic>{'skill_text': 'flutter', 'display_text': 'Flutter'},
+          <String, dynamic>{'skill_text': 'docker', 'display_text': 'Docker'},
+          <String, dynamic>{'skill_text': 'k8s', 'display_text': 'Kubernetes'},
+        ],
+      }));
+      await tester.pumpAndSettle();
+
+      expect(find.text('React'), findsOneWidget);
+      expect(find.text('Flutter'), findsOneWidget);
+      expect(find.text('Docker'), findsNothing);
+      expect(find.text('Kubernetes'), findsNothing);
+      expect(find.text('+2'), findsOneWidget);
     });
   });
 }
