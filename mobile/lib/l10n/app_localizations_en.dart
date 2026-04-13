@@ -2266,4 +2266,65 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get expertiseDomainHrRecruitment => 'HR & Recruitment';
+
+  @override
+  String get skillsSectionTitle => 'Skills';
+
+  @override
+  String skillsSectionSubtitle(int max) {
+    return 'Up to $max skills';
+  }
+
+  @override
+  String get skillsEmpty => 'No skills added yet';
+
+  @override
+  String get skillsEditButton => 'Edit my skills';
+
+  @override
+  String get skillsModalTitle => 'My skills';
+
+  @override
+  String get skillsSearchPlaceholder => 'Search for a skill...';
+
+  @override
+  String skillsCounter(int count, int max) {
+    return '$count / $max';
+  }
+
+  @override
+  String get skillsPopularHeading => 'Popular in your domains';
+
+  @override
+  String get skillsBrowseHeading => 'Browse by domain';
+
+  @override
+  String get skillsSave => 'Save';
+
+  @override
+  String get skillsSaving => 'Saving...';
+
+  @override
+  String get skillsCancel => 'Cancel';
+
+  @override
+  String skillsCreateNew(String query) {
+    return 'Create \"$query\"';
+  }
+
+  @override
+  String skillsUsageCount(int count) {
+    return '$count pros';
+  }
+
+  @override
+  String skillsErrorTooMany(int max) {
+    return 'You\'ve reached the limit of $max skills';
+  }
+
+  @override
+  String get skillsErrorDisabled => 'Unavailable for this account type';
+
+  @override
+  String get skillsErrorGeneric => 'Something went wrong';
 }
