@@ -227,19 +227,19 @@ export function MessagingPage() {
     (
       proposalId: string,
       proposalTitle: string,
-      participants: { clientId: string; providerId: string },
+      participants: { clientOrganizationId: string; providerOrganizationId: string },
     ) => {
-      // Double-blind reviews: the system message is now sent to BOTH
-      // the client and the provider when a mission completes. We
-      // derive which side the current viewer is on from their org id
-      // vs the proposal's client/provider org ids (phase-4 refactor:
-      // these are ORG ids, not user ids). If the viewer is neither
-      // side (shouldn't normally happen since the backend only
-      // delivers the message to participants), we silently drop the
-      // click — the modal would just show an error.
+      // Double-blind reviews: both parties see the single shared
+      // evaluation_request system message. We derive which side the
+      // current viewer is on by comparing their organization id with
+      // the proposal's client/provider organization ids (enriched by
+      // the backend into the message metadata). If the viewer is
+      // neither side (shouldn't normally happen outside of admin
+      // snooping), we silently drop the click — the modal would just
+      // show a forbidden error.
       const side = deriveReviewSide(org?.id, {
-        client_id: participants.clientId,
-        provider_id: participants.providerId,
+        client_id: participants.clientOrganizationId,
+        provider_id: participants.providerOrganizationId,
       })
       if (!side) return
       setReviewTarget({ proposalId, proposalTitle, side })

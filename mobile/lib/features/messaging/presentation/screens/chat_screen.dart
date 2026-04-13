@@ -26,7 +26,6 @@ import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
 import '../widgets/chat/empty_chat_state.dart';
-import '../../../../core/models/review.dart';
 import '../../../review/presentation/utils/derive_side.dart';
 import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
@@ -443,30 +442,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Future<void> _handleReviewProposal(
     String proposalId,
     String proposalTitle,
+    String clientOrganizationId,
+    String providerOrganizationId,
   ) async {
-    // Derive the review direction from the operator's organization and
-    // the proposal participants. If the fetch fails or the user is not
-    // a participant, fall back to the historical client-to-provider
-    // direction so the sheet still opens — the backend will reject
-    // non-participants and we surface the error there.
+    // Derive the review direction directly from the system message
+    // metadata (client/provider organization ids enriched by the
+    // backend) vs the operator's current organization. No proposal
+    // refetch needed — and crucially, we compare ORG ids to the
+    // viewer's ORG id, which works for any operator on the team.
     final authState = ref.read(authProvider);
     final userOrgId = authState.organization?['id'] as String? ?? '';
 
-    String side = ReviewSide.clientToProvider;
-    try {
-      final proposal = await ref
-          .read(proposalRepositoryProvider)
-          .getProposal(proposalId);
-      final derived = deriveReviewSide(
-        userOrganizationId: userOrgId,
-        proposalClientOrgId: proposal.clientId,
-        proposalProviderOrgId: proposal.providerId,
-      );
-      if (derived != null) side = derived;
-    } catch (_) {
-      // Swallow — the sheet will open with the default side and any
-      // backend rejection (not_participant, review_window_closed) is
-      // surfaced as a toast from within the sheet.
+    final side = deriveReviewSide(
+      userOrganizationId: userOrgId,
+      proposalClientOrgId: clientOrganizationId,
+      proposalProviderOrgId: providerOrganizationId,
+    );
+    if (side == null) {
+      // The viewer is neither the client nor the provider org. This
+      // should only happen for admin / debug sessions — drop silently.
+      return;
     }
 
     if (!mounted) return;

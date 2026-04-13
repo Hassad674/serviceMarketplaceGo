@@ -339,13 +339,15 @@ export function EvaluationRequestMessage({
 }: {
   metadata: ProposalMessageMetadata
   // Double-blind reviews: the consumer needs the proposal's client
-  // and provider org ids to derive the viewer's review side. We
-  // forward them straight from the system-message metadata instead
-  // of re-fetching the proposal.
+  // and provider ORGANIZATION ids to derive the viewer's review side.
+  // We forward them straight from the system-message metadata instead
+  // of re-fetching the proposal. The user-level client/provider ids
+  // would NOT work — they don't match useUser().organization.id in
+  // the post-phase-4 org model.
   onReview?: (
     proposalId: string,
     proposalTitle: string,
-    participants: { clientId: string; providerId: string },
+    participants: { clientOrganizationId: string; providerOrganizationId: string },
   ) => void
 }) {
   const t = useTranslations("review")
@@ -353,6 +355,13 @@ export function EvaluationRequestMessage({
   const config = SYSTEM_MESSAGE_STYLES.evaluation_request
   const Icon = config.icon
   const title = tp("systemEvaluationRequest")
+
+  // Legacy messages (emitted before the backend started enriching
+  // metadata with org ids) cannot open the modal correctly, so we hide
+  // the CTA entirely on them rather than silently drop the click.
+  const clientOrgId = metadata.proposal_client_organization_id
+  const providerOrgId = metadata.proposal_provider_organization_id
+  const ctaEnabled = Boolean(clientOrgId && providerOrgId)
 
   return (
     <div className="flex justify-center py-2">
@@ -376,25 +385,29 @@ export function EvaluationRequestMessage({
             </p>
           </div>
         </div>
-        <div className="mt-3 border-t border-inherit" />
-        <button
-          type="button"
-          onClick={() =>
-            onReview?.(metadata.proposal_id, metadata.proposal_title, {
-              clientId: metadata.proposal_client_id,
-              providerId: metadata.proposal_provider_id,
-            })
-          }
-          className={cn(
-            "mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
-            "text-sm font-semibold text-white transition-all duration-200",
-            "bg-gradient-to-r from-rose-500 to-rose-600",
-            "hover:shadow-glow active:scale-[0.98]",
-          )}
-        >
-          {t("leaveReview")}
-          <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-        </button>
+        {ctaEnabled && (
+          <>
+            <div className="mt-3 border-t border-inherit" />
+            <button
+              type="button"
+              onClick={() =>
+                onReview?.(metadata.proposal_id, metadata.proposal_title, {
+                  clientOrganizationId: clientOrgId!,
+                  providerOrganizationId: providerOrgId!,
+                })
+              }
+              className={cn(
+                "mt-3 w-full flex items-center justify-center gap-2 rounded-lg px-4 py-2",
+                "text-sm font-semibold text-white transition-all duration-200",
+                "bg-gradient-to-r from-rose-500 to-rose-600",
+                "hover:shadow-glow active:scale-[0.98]",
+              )}
+            >
+              {t("leaveReview")}
+              <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

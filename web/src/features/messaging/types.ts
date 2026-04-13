@@ -53,7 +53,15 @@ export type ProposalMessageMetadata = {
   proposal_parent_id: string | null
   proposal_client_id: string
   proposal_provider_id: string
-  target_user_id?: string
+  // Organization ids of the client and provider sides, enriched by the
+  // backend for completion-related system messages (notably
+  // evaluation_request). They are the source of truth for deriving
+  // which side of a double-blind review the current viewer is on —
+  // the user-level proposal_client_id / proposal_provider_id do not
+  // match useUser().organization.id in the post-phase-4 org model.
+  // Optional so older messages without enrichment parse cleanly.
+  proposal_client_organization_id?: string
+  proposal_provider_organization_id?: string
 }
 
 export type ReplyToInfo = {

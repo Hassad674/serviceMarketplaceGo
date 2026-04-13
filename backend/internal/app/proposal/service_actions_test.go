@@ -557,13 +557,13 @@ func TestCompleteProposal_TableDriven(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			// proposal_completed + evaluation_request (client) +
-			// evaluation_request (provider). Since R18 both sides get
-			// kicked off so either party can leave a double-blind review.
-			require.Len(t, msgs.calls, 3)
+			// proposal_completed + a single shared evaluation_request
+			// (since R18-fix). Both parties see the one evaluation_request
+			// and the frontend picks the right review variant from the
+			// organization ids enriched into metadata.
+			require.Len(t, msgs.calls, 2)
 			assert.Equal(t, "proposal_completed", msgs.calls[0].Type)
 			assert.Equal(t, "evaluation_request", msgs.calls[1].Type)
-			assert.Equal(t, "evaluation_request", msgs.calls[2].Type)
 		})
 	}
 }

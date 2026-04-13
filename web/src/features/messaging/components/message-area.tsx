@@ -30,13 +30,13 @@ interface MessageAreaProps {
   onReply: (message: Message) => void
   onReport?: (messageId: string) => void
   conversationId: string
-  // participants.{clientId,providerId} are ORG ids from the
-  // proposal's system message metadata. The page uses them together
-  // with the viewer's org to derive the review side.
+  // participants are ORG ids from the proposal's system message
+  // metadata. The page uses them together with the viewer's org to
+  // derive the review side.
   onReview?: (
     proposalId: string,
     proposalTitle: string,
-    participants: { clientId: string; providerId: string },
+    participants: { clientOrganizationId: string; providerOrganizationId: string },
   ) => void
 }
 
@@ -216,7 +216,7 @@ interface MessageBubbleProps {
   onReview?: (
     proposalId: string,
     proposalTitle: string,
-    participants: { clientId: string; providerId: string },
+    participants: { clientOrganizationId: string; providerOrganizationId: string },
   ) => void
 }
 

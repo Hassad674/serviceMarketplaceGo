@@ -1024,13 +1024,14 @@ func TestCompleteProposal_Success(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	// proposal_completed + evaluation_request (client) +
-	// evaluation_request (provider). Since R18 both sides get kicked
-	// off so either party can leave a double-blind review.
-	assert.Len(t, msgSender.calls, 3)
+	// proposal_completed + a single shared evaluation_request (since
+	// R18-fix). The evaluation_request lives in the shared conversation
+	// and is rendered to both parties; the frontend derives the viewer's
+	// review side from the client/provider organization ids that the
+	// backend enriches into the metadata — no more per-party duplicate.
+	assert.Len(t, msgSender.calls, 2)
 	assert.Equal(t, "proposal_completed", msgSender.calls[0].Type)
 	assert.Equal(t, "evaluation_request", msgSender.calls[1].Type)
-	assert.Equal(t, "evaluation_request", msgSender.calls[2].Type)
 }
 
 func TestCompleteProposal_NotClient(t *testing.T) {

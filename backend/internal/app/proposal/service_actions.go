@@ -318,19 +318,22 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		return fmt.Errorf("update proposal: %w", err)
 	}
 
-	metadata := buildStatusMetadata(p)
+	metadata := s.buildCompletedMetadata(ctx, p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
 
-	// Send the evaluation request to BOTH parties (double-blind reviews,
-	// since phase R18). Each side gets its own system message with a
-	// target_user_id so the frontend only opens the modal for the
-	// intended party. Neither side will see the other's review until
-	// both have submitted or 14 days have elapsed.
-	s.sendEvaluationRequest(ctx, p.ConversationID, p.ClientID, metadata)
-	s.sendEvaluationRequest(ctx, p.ConversationID, p.ProviderID, metadata)
+	// Double-blind reviews (since phase R18): a SINGLE evaluation_request
+	// system message is posted in the shared conversation. Both parties
+	// see it and can click the CTA — the frontend derives the viewer's
+	// side from the client/provider organization ids carried in metadata
+	// and opens the right review variant. Neither side will see the
+	// other's review until both have submitted or 14 days have elapsed.
+	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "evaluation_request", metadata)
 
 	s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
 		"Your mission has been marked as complete. Leave a review for the client before the 14-day window closes.",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+	s.sendNotification(ctx, p.ClientID, "proposal_completed", "Mission completed",
+		"The mission is marked as complete. Leave a review for the provider before the 14-day window closes.",
 		buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 	// Transfer funds to provider (non-blocking — log errors but don't fail completion)
@@ -429,19 +432,44 @@ func (s *Service) ListActiveProjectsByOrganization(ctx context.Context, orgID uu
 	return s.proposals.ListActiveProjectsByOrganization(ctx, orgID, cursorStr, limit)
 }
 
-// sendEvaluationRequest sends an evaluation_request system message
-// enriched with target_user_id so the frontend only renders the CTA
-// for the intended recipient. Since R18 this is invoked TWICE on
-// completion — once for the client and once for the provider — because
-// both parties can now review each other.
-func (s *Service) sendEvaluationRequest(ctx context.Context, convID, targetUserID uuid.UUID, baseMetadata json.RawMessage) {
-	// Enrich metadata with target_user_id so frontends can filter visibility.
-	var m map[string]any
-	_ = json.Unmarshal(baseMetadata, &m)
-	m["target_user_id"] = targetUserID.String()
-	enriched, _ := json.Marshal(m)
+// buildCompletedMetadata returns the status metadata for a completed
+// proposal, enriched with the client and provider ORGANIZATION ids.
+//
+// The base metadata only carries the user-level ClientID/ProviderID
+// because that's how the proposal entity has stored participants since
+// day one. Frontends running on the post-phase-4 team/org model need
+// the organization ids to derive which side of a double-blind review
+// the current viewer is on — comparing org id vs org id, so that any
+// operator in the team can legitimately review on behalf of their org.
+//
+// We resolve both orgs via the user repository and add
+// proposal_client_organization_id + proposal_provider_organization_id
+// to the metadata. If a lookup fails (missing user, user without org)
+// the field is simply omitted — the frontend falls back to hiding the
+// CTA for that viewer, which is the safe default.
+func (s *Service) buildCompletedMetadata(ctx context.Context, p *domain.Proposal) json.RawMessage {
+	base := buildStatusMetadata(p)
+	if s.users == nil {
+		return base
+	}
 
-	s.sendProposalMessage(ctx, convID, targetUserID, "evaluation_request", enriched)
+	var m map[string]any
+	if err := json.Unmarshal(base, &m); err != nil || m == nil {
+		return base
+	}
+
+	if clientUser, err := s.users.GetByID(ctx, p.ClientID); err == nil && clientUser.OrganizationID != nil {
+		m["proposal_client_organization_id"] = clientUser.OrganizationID.String()
+	}
+	if providerUser, err := s.users.GetByID(ctx, p.ProviderID); err == nil && providerUser.OrganizationID != nil {
+		m["proposal_provider_organization_id"] = providerUser.OrganizationID.String()
+	}
+
+	enriched, err := json.Marshal(m)
+	if err != nil {
+		return base
+	}
+	return enriched
 }
 
 // requireOrgIsSide resolves the user identified by sideUserID (which

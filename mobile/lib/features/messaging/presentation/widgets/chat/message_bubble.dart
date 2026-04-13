@@ -47,7 +47,18 @@ class MessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onDeclineProposal;
   final void Function(String proposalId)? onModifyProposal;
   final void Function(String proposalId)? onPayProposal;
-  final void Function(String proposalId, String proposalTitle)? onReview;
+  // onReview is called when the user taps the "Leave a review" CTA on
+  // an evaluation_request system message. The callback receives the
+  // proposal id, its title, and the client/provider ORGANIZATION ids
+  // that the backend enriches into the message metadata — used by the
+  // chat screen to derive which side of a double-blind review the
+  // viewer is on, without having to re-fetch the full proposal.
+  final void Function(
+    String proposalId,
+    String proposalTitle,
+    String clientOrganizationId,
+    String providerOrganizationId,
+  )? onReview;
   final void Function(String proposalId)? onViewProposalDetail;
 
   String _formatTime() {
@@ -328,6 +339,15 @@ class MessageBubble extends StatelessWidget {
     final meta = message.metadata;
     final proposalId = meta?['proposal_id'] as String? ?? '';
     final proposalTitle = meta?['proposal_title'] as String? ?? '';
+    // Organization ids are enriched by the backend into the metadata.
+    // Legacy evaluation_request messages (pre-fix) do not carry them,
+    // in which case the CTA is disabled rather than opening the sheet
+    // with the wrong side.
+    final clientOrgId =
+        meta?['proposal_client_organization_id'] as String? ?? '';
+    final providerOrgId =
+        meta?['proposal_provider_organization_id'] as String? ?? '';
+    final ctaEnabled = clientOrgId.isNotEmpty && providerOrgId.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -362,8 +382,13 @@ class MessageBubble extends StatelessWidget {
               SizedBox(
                 height: 32,
                 child: FilledButton(
-                  onPressed: onReview != null
-                      ? () => onReview!(proposalId, proposalTitle)
+                  onPressed: (onReview != null && ctaEnabled)
+                      ? () => onReview!(
+                            proposalId,
+                            proposalTitle,
+                            clientOrgId,
+                            providerOrgId,
+                          )
                       : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFF43F5E),
