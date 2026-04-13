@@ -884,5 +884,15 @@
   "expertiseDomainOpsAdminSupport": "Ops, Admin & Support",
   "expertiseDomainLegal": "Legal",
   "expertiseDomainFinanceAccounting": "Finance & Accounting",
-  "expertiseDomainHrRecruitment": "HR & Recruitment"
+  "expertiseDomainHrRecruitment": "HR & Recruitment",
+
+  "skillsDisplaySectionTitle": "Skills",
+  "skillsDisplayMoreSuffix": "+{count}",
+  "@skillsDisplayMoreSuffix": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

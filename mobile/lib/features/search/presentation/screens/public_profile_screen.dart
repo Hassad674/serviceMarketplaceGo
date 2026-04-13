@@ -14,6 +14,7 @@ import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../../../review/presentation/providers/review_provider.dart';
 import '../providers/search_provider.dart';
+import '../widgets/skills_display_widget.dart';
 
 /// Read-only public profile screen for any organization.
 ///
@@ -105,6 +106,10 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                 ?.whereType<String>()
                 .toList() ??
             const <String>[];
+    final skills = (widget.profile['skills'] as List<dynamic>?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        const <Map<String, dynamic>>[];
 
     // Hide the "Send Message" button on the operator's own org
     // profile — every member of the team sees their shared org profile
@@ -214,6 +219,17 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
           // Areas of expertise — hidden when empty
           if (expertiseDomains.isNotEmpty) ...[
             ExpertiseDisplayWidget(domains: expertiseDomains),
+            const SizedBox(height: 16),
+          ],
+
+          // Skills — shown as a dedicated section under the expertise
+          // card. Hidden when empty so we never render an empty block.
+          if (skills.isNotEmpty) ...[
+            _SectionCard(
+              title: l10n.skillsDisplaySectionTitle,
+              icon: Icons.workspace_premium_outlined,
+              child: SkillsDisplayWidget(skills: skills),
+            ),
             const SizedBox(height: 16),
           ],
 
