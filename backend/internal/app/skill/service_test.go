@@ -248,3 +248,26 @@ func TestService_GetProfileSkills_DelegatesToRepo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
+
+// ---- GetProfileSkillsBatch ----
+
+func TestService_GetProfileSkillsBatch_DelegatesToRepo(t *testing.T) {
+	orgA := uuid.New()
+	orgB := uuid.New()
+	want := map[uuid.UUID][]*domainskill.ProfileSkill{
+		orgA: {{OrganizationID: orgA, SkillText: "react", Position: 0}},
+		orgB: {},
+	}
+	profiles := &mockProfileSkill{
+		ListByOrgIDsFn: func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error) {
+			require.Len(t, ids, 2)
+			return want, nil
+		},
+	}
+	svc := newTestService(nil, profiles, nil)
+
+	got, err := svc.GetProfileSkillsBatch(context.Background(), []uuid.UUID{orgA, orgB})
+
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}

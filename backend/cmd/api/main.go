@@ -554,13 +554,17 @@ func main() {
 	// handler because expertise is part of the org's public profile.
 	expertiseRepo := postgres.NewExpertiseRepository(db)
 	expertiseSvc := profileapp.NewExpertiseService(expertiseRepo, organizationRepo)
-	profileHandler := handler.NewProfileHandler(profileSvc, expertiseSvc)
 
 	// Skills feature (hybrid catalog + per-org profile attachments).
 	// Uses a small org-type-resolver adapter (org_type_resolver.go) to
 	// bridge the existing organization repo to the skill service's
 	// dependency contract, keeping the skill package independent of
 	// domain/organization.
+	//
+	// The profile handler receives the skill service via
+	// WithSkillsReader so the public profile / search endpoints can
+	// decorate responses with each org's declared skills. The skill
+	// service satisfies the handler's local SkillsReader contract.
 	skillCatalogRepo := postgres.NewSkillCatalogRepository(db)
 	profileSkillRepo := postgres.NewProfileSkillRepository(db)
 	skillSvc := skillapp.NewService(
@@ -569,6 +573,10 @@ func main() {
 		newOrgTypeResolverAdapter(organizationRepo),
 	)
 	skillHandler := handler.NewSkillHandler(skillSvc)
+
+	profileHandler := handler.
+		NewProfileHandler(profileSvc, expertiseSvc).
+		WithSkillsReader(skillSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)

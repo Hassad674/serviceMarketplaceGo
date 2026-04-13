@@ -25,6 +25,18 @@ type ProfileSkillRepository interface {
 	// marshal that directly to "[]" in the JSON response.
 	ListByOrgID(ctx context.Context, orgID uuid.UUID) ([]*domainskill.ProfileSkill, error)
 
+	// ListByOrgIDs is the batch variant of ListByOrgID, used by list
+	// endpoints (discovery / search) that need to decorate many
+	// profiles with their declared skills in a single database
+	// roundtrip. The returned map is keyed by organization ID and
+	// contains a (non-nil but possibly empty) slice for every org ID
+	// passed in — implementations MUST NOT omit keys for orgs that
+	// have zero skills, so callers can range over the input slice
+	// without nil-checks. Per-org slices are ordered by position ASC.
+	//
+	// N+1 prevention: the adapter must execute a single query.
+	ListByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error)
+
 	// ReplaceForOrg atomically replaces the organization's skills
 	// with the provided list. The caller is responsible for assigning
 	// contiguous, 0-indexed Position values before invoking this

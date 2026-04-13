@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	domainskill "marketplace-backend/internal/domain/skill"
 )
@@ -33,15 +34,22 @@ func NewProfileSkillRepository(db *sql.DB) *ProfileSkillRepository {
 // display order (position ASC). An organization with no skills yields
 // an empty (non-nil) slice so the caller can marshal it directly to
 // the JSON array `[]`.
+//
+// The SELECT joins skills_catalog to populate display_text so public
+// profile DTOs can render the canonical casing without a follow-up
+// catalog lookup. A LEFT JOIN is used defensively so a profile_skills
+// row referencing a catalog entry deleted out-of-band still renders
+// its raw skill_text rather than disappearing from the list.
 func (r *ProfileSkillRepository) ListByOrgID(ctx context.Context, orgID uuid.UUID) ([]*domainskill.ProfileSkill, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT organization_id, skill_text, position, created_at
-		   FROM profile_skills
-		  WHERE organization_id = $1
-		  ORDER BY position ASC`,
+		`SELECT ps.organization_id, ps.skill_text, COALESCE(sc.display_text, ps.skill_text), ps.position, ps.created_at
+		   FROM profile_skills ps
+		   LEFT JOIN skills_catalog sc ON sc.skill_text = ps.skill_text
+		  WHERE ps.organization_id = $1
+		  ORDER BY ps.position ASC`,
 		orgID,
 	)
 	if err != nil {
@@ -55,6 +63,7 @@ func (r *ProfileSkillRepository) ListByOrgID(ctx context.Context, orgID uuid.UUI
 		if err := rows.Scan(
 			&skill.OrganizationID,
 			&skill.SkillText,
+			&skill.DisplayText,
 			&skill.Position,
 			&skill.CreatedAt,
 		); err != nil {
@@ -66,6 +75,67 @@ func (r *ProfileSkillRepository) ListByOrgID(ctx context.Context, orgID uuid.UUI
 		return nil, fmt.Errorf("iterate profile skill rows: %w", err)
 	}
 	return skills, nil
+}
+
+// ListByOrgIDs returns every skill attached to any of the supplied
+// organization IDs in a single database roundtrip (N+1 prevention).
+// The returned map is keyed by organization ID and contains a
+// (non-nil, possibly empty) slice for every ID passed in — callers
+// can range over the input directly without nil-checks.
+//
+// Ordering: the SQL ORDER BY position ASC combined with the stable
+// iteration over the returned rows guarantees each per-org slice is
+// in display order. Orgs with zero skills still appear in the map
+// with an empty slice — the method seeds every input key up front.
+func (r *ProfileSkillRepository) ListByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error) {
+	out := make(map[uuid.UUID][]*domainskill.ProfileSkill, len(orgIDs))
+	for _, id := range orgIDs {
+		out[id] = []*domainskill.ProfileSkill{}
+	}
+	if len(orgIDs) == 0 {
+		return out, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	// pq.Array lets us pass the UUID slice to a single ANY($1) query;
+	// driver converts each uuid.UUID to its canonical TEXT form.
+	idStrings := make([]string, len(orgIDs))
+	for i, id := range orgIDs {
+		idStrings[i] = id.String()
+	}
+
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT ps.organization_id, ps.skill_text, COALESCE(sc.display_text, ps.skill_text), ps.position, ps.created_at
+		   FROM profile_skills ps
+		   LEFT JOIN skills_catalog sc ON sc.skill_text = ps.skill_text
+		  WHERE ps.organization_id = ANY($1)
+		  ORDER BY ps.organization_id, ps.position ASC`,
+		pq.Array(idStrings),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list profile skills by org ids: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var skill domainskill.ProfileSkill
+		if err := rows.Scan(
+			&skill.OrganizationID,
+			&skill.SkillText,
+			&skill.DisplayText,
+			&skill.Position,
+			&skill.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan profile skill row: %w", err)
+		}
+		out[skill.OrganizationID] = append(out[skill.OrganizationID], &skill)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate profile skill rows: %w", err)
+	}
+	return out, nil
 }
 
 // ReplaceForOrg atomically swaps the organization's declared skills

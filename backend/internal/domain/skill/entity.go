@@ -58,9 +58,18 @@ type CatalogEntry struct {
 // public profile, with display order preserved in Position. Positions
 // are 0-indexed and expected to be contiguous from zero; the app
 // service reassigns them on every ReplaceForOrg call.
+//
+// DisplayText is a read-path convenience: the canonical display
+// casing lives in skills_catalog, but the postgres adapter joins
+// the two tables on List so downstream DTOs can render the
+// preserved casing ("React", "Next.js") without a second lookup.
+// Write paths (ReplaceForOrg) leave it empty — the join happens on
+// read only, and callers must never rely on DisplayText when
+// constructing a ProfileSkill for persistence.
 type ProfileSkill struct {
 	OrganizationID uuid.UUID
 	SkillText      string
+	DisplayText    string
 	Position       int
 	CreatedAt      time.Time
 }
