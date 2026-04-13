@@ -18,11 +18,12 @@ type mockProposal = proposaldomain.Proposal
 
 // mockReviewRepo implements repository.ReviewRepository for tests.
 type mockReviewRepo struct {
-	createFn        func(ctx context.Context, r *domain.Review) error
-	getByIDFn       func(ctx context.Context, id uuid.UUID) (*domain.Review, error)
-	listByUserFn    func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error)
-	getAverageFn    func(ctx context.Context, userID uuid.UUID) (*domain.AverageRating, error)
-	hasReviewedFn   func(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
+	createFn          func(ctx context.Context, r *domain.Review) error
+	createAndRevealFn func(ctx context.Context, r *domain.Review) (*domain.Review, error)
+	getByIDFn         func(ctx context.Context, id uuid.UUID) (*domain.Review, error)
+	listByUserFn      func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error)
+	getAverageFn      func(ctx context.Context, userID uuid.UUID) (*domain.AverageRating, error)
+	hasReviewedFn     func(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
 }
 
 func (m *mockReviewRepo) Create(ctx context.Context, r *domain.Review) error {
@@ -30,6 +31,14 @@ func (m *mockReviewRepo) Create(ctx context.Context, r *domain.Review) error {
 		return m.createFn(ctx, r)
 	}
 	return nil
+}
+
+func (m *mockReviewRepo) CreateAndMaybeReveal(ctx context.Context, r *domain.Review) (*domain.Review, error) {
+	if m.createAndRevealFn != nil {
+		return m.createAndRevealFn(ctx, r)
+	}
+	// Default: echo back the provided entity unchanged (still hidden).
+	return r, nil
 }
 
 func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Review, error) {

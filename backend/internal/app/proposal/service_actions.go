@@ -321,13 +321,16 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
 
-	// Send evaluation_request only to the client (the party who pays).
-	// The provider never evaluates the client.
-	// Enterprise evaluates Freelance/Agency, Agency evaluates Freelance.
+	// Send the evaluation request to BOTH parties (double-blind reviews,
+	// since phase R18). Each side gets its own system message with a
+	// target_user_id so the frontend only opens the modal for the
+	// intended party. Neither side will see the other's review until
+	// both have submitted or 14 days have elapsed.
 	s.sendEvaluationRequest(ctx, p.ConversationID, p.ClientID, metadata)
+	s.sendEvaluationRequest(ctx, p.ConversationID, p.ProviderID, metadata)
 
 	s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
-		"Your mission has been marked as complete",
+		"Your mission has been marked as complete. Leave a review for the client before the 14-day window closes.",
 		buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 	// Transfer funds to provider (non-blocking — log errors but don't fail completion)
@@ -426,16 +429,19 @@ func (s *Service) ListActiveProjectsByOrganization(ctx context.Context, orgID uu
 	return s.proposals.ListActiveProjectsByOrganization(ctx, orgID, cursorStr, limit)
 }
 
-// sendEvaluationRequest sends an evaluation_request system message enriched
-// with target_user_id so the frontend only renders it for the client.
-func (s *Service) sendEvaluationRequest(ctx context.Context, convID, clientID uuid.UUID, baseMetadata json.RawMessage) {
+// sendEvaluationRequest sends an evaluation_request system message
+// enriched with target_user_id so the frontend only renders the CTA
+// for the intended recipient. Since R18 this is invoked TWICE on
+// completion — once for the client and once for the provider — because
+// both parties can now review each other.
+func (s *Service) sendEvaluationRequest(ctx context.Context, convID, targetUserID uuid.UUID, baseMetadata json.RawMessage) {
 	// Enrich metadata with target_user_id so frontends can filter visibility.
 	var m map[string]any
 	_ = json.Unmarshal(baseMetadata, &m)
-	m["target_user_id"] = clientID.String()
+	m["target_user_id"] = targetUserID.String()
 	enriched, _ := json.Marshal(m)
 
-	s.sendProposalMessage(ctx, convID, clientID, "evaluation_request", enriched)
+	s.sendProposalMessage(ctx, convID, targetUserID, "evaluation_request", enriched)
 }
 
 // requireOrgIsSide resolves the user identified by sideUserID (which

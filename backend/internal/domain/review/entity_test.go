@@ -19,6 +19,7 @@ func TestNewReview_Valid(t *testing.T) {
 		ReviewedID:             uuid.New(),
 		ReviewerOrganizationID: uuid.New(),
 		ReviewedOrganizationID: uuid.New(),
+		Side:                   SideClientToProvider,
 		GlobalRating:           5,
 		Timeliness:             &timeliness,
 		Communication:          &communication,
@@ -31,6 +32,8 @@ func TestNewReview_Valid(t *testing.T) {
 	assert.Equal(t, 5, r.GlobalRating)
 	assert.Equal(t, &timeliness, r.Timeliness)
 	assert.Equal(t, "Great work!", r.Comment)
+	assert.Equal(t, SideClientToProvider, r.Side)
+	assert.Nil(t, r.PublishedAt, "new reviews must start hidden (published_at nil)")
 }
 
 func TestNewReview_MinimalValid(t *testing.T) {
@@ -40,6 +43,7 @@ func TestNewReview_MinimalValid(t *testing.T) {
 		ReviewedID:             uuid.New(),
 		ReviewerOrganizationID: uuid.New(),
 		ReviewedOrganizationID: uuid.New(),
+		Side:                   SideClientToProvider,
 		GlobalRating:           1,
 	})
 
@@ -51,10 +55,32 @@ func TestNewReview_MinimalValid(t *testing.T) {
 	assert.Empty(t, r.Comment)
 }
 
+func TestNewReview_ProviderToClient_NoSubCriteria(t *testing.T) {
+	r, err := NewReview(NewReviewInput{
+		ProposalID:             uuid.New(),
+		ReviewerID:             uuid.New(),
+		ReviewedID:             uuid.New(),
+		ReviewerOrganizationID: uuid.New(),
+		ReviewedOrganizationID: uuid.New(),
+		Side:                   SideProviderToClient,
+		GlobalRating:           4,
+		Comment:                "Clear brief, paid on time.",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, r)
+	assert.Equal(t, SideProviderToClient, r.Side)
+	assert.Nil(t, r.Timeliness)
+	assert.Nil(t, r.Communication)
+	assert.Nil(t, r.Quality)
+}
+
 func TestNewReview_Validation(t *testing.T) {
 	validProposalID := uuid.New()
 	validReviewerID := uuid.New()
 	validReviewedID := uuid.New()
+	validReviewerOrg := uuid.New()
+	validReviewedOrg := uuid.New()
 
 	tests := []struct {
 		name    string
@@ -66,6 +92,7 @@ func TestNewReview_Validation(t *testing.T) {
 			input: NewReviewInput{
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 5,
 			},
 			wantErr: ErrMissingProposal,
@@ -75,6 +102,7 @@ func TestNewReview_Validation(t *testing.T) {
 			input: NewReviewInput{
 				ProposalID:   validProposalID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 5,
 			},
 			wantErr: ErrMissingReviewer,
@@ -84,6 +112,7 @@ func TestNewReview_Validation(t *testing.T) {
 			input: NewReviewInput{
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
+				Side:         SideClientToProvider,
 				GlobalRating: 5,
 			},
 			wantErr: ErrMissingReviewed,
@@ -94,9 +123,35 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewerID,
+				Side:         SideClientToProvider,
 				GlobalRating: 5,
 			},
 			wantErr: ErrSelfReview,
+		},
+		{
+			name: "invalid side — empty",
+			input: NewReviewInput{
+				ProposalID:             validProposalID,
+				ReviewerID:             validReviewerID,
+				ReviewedID:             validReviewedID,
+				ReviewerOrganizationID: validReviewerOrg,
+				ReviewedOrganizationID: validReviewedOrg,
+				GlobalRating:           5,
+			},
+			wantErr: ErrInvalidSide,
+		},
+		{
+			name: "invalid side — unknown value",
+			input: NewReviewInput{
+				ProposalID:             validProposalID,
+				ReviewerID:             validReviewerID,
+				ReviewedID:             validReviewedID,
+				ReviewerOrganizationID: validReviewerOrg,
+				ReviewedOrganizationID: validReviewedOrg,
+				Side:                   "mutual",
+				GlobalRating:           5,
+			},
+			wantErr: ErrInvalidSide,
 		},
 		{
 			name: "rating too low",
@@ -104,6 +159,7 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 0,
 			},
 			wantErr: ErrInvalidRating,
@@ -114,6 +170,7 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 6,
 			},
 			wantErr: ErrInvalidRating,
@@ -124,6 +181,7 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 4,
 				Timeliness:   intPtr(0),
 			},
@@ -135,6 +193,7 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:    validProposalID,
 				ReviewerID:    validReviewerID,
 				ReviewedID:    validReviewedID,
+				Side:          SideClientToProvider,
 				GlobalRating:  4,
 				Communication: intPtr(7),
 			},
@@ -146,6 +205,7 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 4,
 				Quality:      intPtr(-1),
 			},
@@ -157,10 +217,53 @@ func TestNewReview_Validation(t *testing.T) {
 				ProposalID:   validProposalID,
 				ReviewerID:   validReviewerID,
 				ReviewedID:   validReviewedID,
+				Side:         SideClientToProvider,
 				GlobalRating: 4,
 				Comment:      strings.Repeat("a", MaxCommentLength+1),
 			},
 			wantErr: ErrCommentTooLong,
+		},
+		{
+			name: "provider-to-client with timeliness",
+			input: NewReviewInput{
+				ProposalID:             validProposalID,
+				ReviewerID:             validReviewerID,
+				ReviewedID:             validReviewedID,
+				ReviewerOrganizationID: validReviewerOrg,
+				ReviewedOrganizationID: validReviewedOrg,
+				Side:                   SideProviderToClient,
+				GlobalRating:           4,
+				Timeliness:             intPtr(3),
+			},
+			wantErr: ErrInvalidSubCriteriaForSide,
+		},
+		{
+			name: "provider-to-client with communication",
+			input: NewReviewInput{
+				ProposalID:             validProposalID,
+				ReviewerID:             validReviewerID,
+				ReviewedID:             validReviewedID,
+				ReviewerOrganizationID: validReviewerOrg,
+				ReviewedOrganizationID: validReviewedOrg,
+				Side:                   SideProviderToClient,
+				GlobalRating:           4,
+				Communication:          intPtr(3),
+			},
+			wantErr: ErrInvalidSubCriteriaForSide,
+		},
+		{
+			name: "provider-to-client with quality",
+			input: NewReviewInput{
+				ProposalID:             validProposalID,
+				ReviewerID:             validReviewerID,
+				ReviewedID:             validReviewedID,
+				ReviewerOrganizationID: validReviewerOrg,
+				ReviewedOrganizationID: validReviewedOrg,
+				Side:                   SideProviderToClient,
+				GlobalRating:           4,
+				Quality:                intPtr(3),
+			},
+			wantErr: ErrInvalidSubCriteriaForSide,
 		},
 	}
 
@@ -169,6 +272,24 @@ func TestNewReview_Validation(t *testing.T) {
 			r, err := NewReview(tt.input)
 			assert.ErrorIs(t, err, tt.wantErr)
 			assert.Nil(t, r)
+		})
+	}
+}
+
+func TestIsValidSide(t *testing.T) {
+	tests := []struct {
+		name string
+		side string
+		want bool
+	}{
+		{"client_to_provider is valid", SideClientToProvider, true},
+		{"provider_to_client is valid", SideProviderToClient, true},
+		{"empty is invalid", "", false},
+		{"unknown is invalid", "foo", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsValidSide(tt.side))
 		})
 	}
 }

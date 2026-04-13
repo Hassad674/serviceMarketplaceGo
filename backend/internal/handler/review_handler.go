@@ -167,6 +167,16 @@ func handleReviewError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "not_participant", err.Error())
 	case errors.Is(err, reviewdomain.ErrNotCompleted):
 		res.Error(w, http.StatusBadRequest, "not_completed", err.Error())
+	case errors.Is(err, reviewdomain.ErrReviewWindowClosed):
+		res.Error(w, http.StatusForbidden, "review_window_closed", err.Error())
+	case errors.Is(err, reviewdomain.ErrInvalidSubCriteriaForSide):
+		res.Error(w, http.StatusBadRequest, "invalid_subcriteria_for_side", err.Error())
+	case errors.Is(err, reviewdomain.ErrInvalidSide):
+		// ErrInvalidSide should never come from client input because the
+		// side is derived server-side. If we ever see it here, something
+		// upstream passed an unknown value — log loudly and return 500.
+		slog.Error("internal consistency bug: invalid review side", "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "internal server error")
 	default:
 		slog.Error("unhandled review error", "error", err)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "internal server error")

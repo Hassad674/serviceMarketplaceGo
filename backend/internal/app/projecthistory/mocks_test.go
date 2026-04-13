@@ -59,6 +59,9 @@ type mockReviewRepo struct {
 }
 
 func (m *mockReviewRepo) Create(context.Context, *reviewdomain.Review) error { return nil }
+func (m *mockReviewRepo) CreateAndMaybeReveal(_ context.Context, r *reviewdomain.Review) (*reviewdomain.Review, error) {
+	return r, nil
+}
 func (m *mockReviewRepo) GetByID(context.Context, uuid.UUID) (*reviewdomain.Review, error) {
 	return nil, nil
 }

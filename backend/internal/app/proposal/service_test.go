@@ -1024,9 +1024,13 @@ func TestCompleteProposal_Success(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	assert.Len(t, msgSender.calls, 2)
+	// proposal_completed + evaluation_request (client) +
+	// evaluation_request (provider). Since R18 both sides get kicked
+	// off so either party can leave a double-blind review.
+	assert.Len(t, msgSender.calls, 3)
 	assert.Equal(t, "proposal_completed", msgSender.calls[0].Type)
 	assert.Equal(t, "evaluation_request", msgSender.calls[1].Type)
+	assert.Equal(t, "evaluation_request", msgSender.calls[2].Type)
 }
 
 func TestCompleteProposal_NotClient(t *testing.T) {

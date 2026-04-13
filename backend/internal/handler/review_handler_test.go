@@ -27,11 +27,12 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockReviewRepo struct {
-	createFn            func(ctx context.Context, r *reviewdomain.Review) error
-	getByIDFn           func(ctx context.Context, id uuid.UUID) (*reviewdomain.Review, error)
-	listByReviewedFn    func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*reviewdomain.Review, string, error)
-	getAverageRatingFn  func(ctx context.Context, userID uuid.UUID) (*reviewdomain.AverageRating, error)
-	hasReviewedFn       func(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
+	createFn           func(ctx context.Context, r *reviewdomain.Review) error
+	createAndRevealFn  func(ctx context.Context, r *reviewdomain.Review) (*reviewdomain.Review, error)
+	getByIDFn          func(ctx context.Context, id uuid.UUID) (*reviewdomain.Review, error)
+	listByReviewedFn   func(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*reviewdomain.Review, string, error)
+	getAverageRatingFn func(ctx context.Context, userID uuid.UUID) (*reviewdomain.AverageRating, error)
+	hasReviewedFn      func(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
 }
 
 func (m *mockReviewRepo) Create(ctx context.Context, r *reviewdomain.Review) error {
@@ -39,6 +40,13 @@ func (m *mockReviewRepo) Create(ctx context.Context, r *reviewdomain.Review) err
 		return m.createFn(ctx, r)
 	}
 	return nil
+}
+
+func (m *mockReviewRepo) CreateAndMaybeReveal(ctx context.Context, r *reviewdomain.Review) (*reviewdomain.Review, error) {
+	if m.createAndRevealFn != nil {
+		return m.createAndRevealFn(ctx, r)
+	}
+	return r, nil
 }
 
 func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*reviewdomain.Review, error) {
@@ -224,13 +232,17 @@ func newTestReviewHandler(
 
 func testProposal(clientID, providerID uuid.UUID) *proposal.Proposal {
 	now := time.Now()
+	// CompletedAt must be set so the CreateReview service's 14-day
+	// window check sees a recent completion and lets the review through.
+	completedAt := now
 	return &proposal.Proposal{
-		ID:         uuid.New(),
-		ClientID:   clientID,
-		ProviderID: providerID,
-		Status:     proposal.StatusCompleted,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:          uuid.New(),
+		ClientID:    clientID,
+		ProviderID:  providerID,
+		Status:      proposal.StatusCompleted,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		CompletedAt: &completedAt,
 	}
 }
 
