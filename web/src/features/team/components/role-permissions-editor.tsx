@@ -1,17 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import {
-  AlertTriangle,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  Loader2,
-  Lock,
-  RotateCcw,
-  Sparkles,
-  X,
-} from "lucide-react"
+import { AlertTriangle, ChevronDown, Lock, Sparkles } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import {
@@ -21,34 +11,61 @@ import {
 import type {
   OrgRole,
   RolePermissionCell,
-  RolePermissionCellState,
   RolePermissionsRow,
   UpdateRolePermissionsPayload,
 } from "../types"
+import {
+  ConfirmSaveModal,
+  PermissionRow,
+  ReadOnlyBanner,
+  RolePermissionsEditorSkeleton,
+  StickySaveBar,
+  capitalize,
+  extractErrorMessage,
+  groupPermissionsByGroup,
+} from "./role-permissions-editor-parts"
 
-// RolePermissionsEditor is the Owner-only section rendered at the
-// bottom of /team when the caller has PermTeamManageRolePermissions.
+// RolePermissionsEditor is the unified "Roles and permissions" section
+// rendered on /team. It serves TWO audiences through a single UI:
 //
-// UX flow:
-//  - The Owner picks a role tab (Admin / Member / Viewer — never Owner).
-//  - Each permission is a row with a toggle switch. The visual state
-//    reflects the cell's origin: default (no badge), granted-override
-//    (green pill), revoked-override (red pill), locked (lock icon,
-//    disabled). Locked rows cannot be toggled regardless of click.
-//  - A sticky save bar appears at the bottom as soon as the Owner
-//    makes a pending change. Discard reverts to the server state.
-//  - Save opens a confirmation modal that spells out how many members
-//    will be logged out.
-//  - On success, a toast reports the granted/revoked counts.
+//  - Owners:
+//      * Pick a role tab (Admin / Member / Viewer — never Owner).
+//      * Toggle each permission on or off. The visual state reflects
+//        the cell's origin: default (no badge), granted-override
+//        (green pill), revoked-override (red pill).
+//      * A sticky save bar appears at the bottom as soon as a pending
+//        change is made. Discard reverts to the server state.
+//      * Save opens a confirmation modal that spells out how many
+//        members will be logged out.
+//      * On success, a toast reports the granted/revoked counts.
+//
+//  - Non-Owners (Admin / Member / Viewer, and the Owner during a
+//    pending ownership transfer): the exact same grid, but every
+//    toggle is disabled and the save bar / reset button are hidden.
+//    A read-only banner at the top explains why. This lets every
+//    member see their org's actual customizations — which is
+//    valuable context even without the ability to edit.
+//
+// Non-overridable permissions (org.delete, team.transfer_ownership,
+// wallet.withdraw, kyc.manage, team.manage_role_permissions) are
+// filtered out of the grid and shown in a compact "Owner-only"
+// footer section for everyone. They are still enforced by the
+// backend — this is purely a visual simplification.
 
 type RolePermissionsEditorProps = {
   orgID: string
+  readOnly?: boolean
 }
 
-// Canonical editable roles. Owner is excluded on purpose.
+// Canonical editable roles. Owner is excluded on purpose — the Owner
+// row is always locked at the backend level and would only confuse
+// users who cannot distinguish "Owner" from "the rest".
 const EDITABLE_ROLES: Array<Exclude<OrgRole, "owner">> = ["admin", "member", "viewer"]
 
-export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
+export function RolePermissionsEditor({
+  orgID,
+  readOnly = false,
+}: RolePermissionsEditorProps) {
   const t = useTranslations("team")
   const { data, isLoading, error } = useRolePermissionsMatrix(orgID)
   const mutation = useUpdateRolePermissions(orgID)
@@ -65,16 +82,49 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
     setPendingChanges({})
   }, [selectedRole])
 
+  // Read-only mode must never leak pending state into the UI. If the
+  // caller flips `readOnly` mid-session (e.g. ownership transfer
+  // accepted while the Owner is staring at the editor), drop any
+  // in-flight changes so the save bar and confirm modal can never
+  // reappear.
+  useEffect(() => {
+    if (readOnly) {
+      setPendingChanges({})
+      setShowConfirm(false)
+    }
+  }, [readOnly])
+
   const currentRoleRow = useMemo<RolePermissionsRow | undefined>(
     () => data?.roles.find((r) => r.role === selectedRole),
     [data, selectedRole],
   )
 
+  // Partition the current role's cells into the editable grid (what
+  // appears in the main list) and the non-overridable footer list
+  // (hard-coded on the backend, always shown in a dedicated section).
+  // `cell.locked === true` is the backend's authoritative signal for
+  // non-overridable permissions on non-Owner rows.
+  const { editableCells, lockedCells } = useMemo(() => {
+    if (!currentRoleRow) {
+      return { editableCells: [], lockedCells: [] as RolePermissionCell[] }
+    }
+    const editable: RolePermissionCell[] = []
+    const locked: RolePermissionCell[] = []
+    for (const cell of currentRoleRow.permissions) {
+      if (cell.locked) {
+        locked.push(cell)
+      } else {
+        editable.push(cell)
+      }
+    }
+    return { editableCells: editable, lockedCells: locked }
+  }, [currentRoleRow])
+
   const pendingCount = Object.keys(pendingChanges).length
 
   const togglePermission = useCallback(
     (perm: RolePermissionCell) => {
-      if (perm.locked) return
+      if (readOnly || perm.locked) return
       setPendingChanges((prev) => {
         const next = { ...prev }
         const serverGranted = perm.granted
@@ -90,7 +140,7 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
         return next
       })
     },
-    [],
+    [readOnly],
   )
 
   const resetPending = useCallback(() => setPendingChanges({}), [])
@@ -112,7 +162,7 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
   }, [currentRoleRow, pendingChanges])
 
   const handleSave = useCallback(() => {
-    if (!currentRoleRow || pendingCount === 0) return
+    if (readOnly || !currentRoleRow || pendingCount === 0) return
     const payload: UpdateRolePermissionsPayload = {
       role: selectedRole,
       overrides: buildOverridesPayload(),
@@ -121,28 +171,32 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
       onSuccess: (result) => {
         const grantedCount = result.granted_keys.length
         const revokedCount = result.revoked_keys.length
-        toast.success(
-          t("rolePermissions.saveSuccessTitle"),
-          {
-            description: t("rolePermissions.saveSuccessDescription", {
-              granted: grantedCount,
-              revoked: revokedCount,
-              affected: result.affected_members,
-            }),
-          },
-        )
+        toast.success(t("rolePermissions.saveSuccessTitle"), {
+          description: t("rolePermissions.saveSuccessDescription", {
+            granted: grantedCount,
+            revoked: revokedCount,
+            affected: result.affected_members,
+          }),
+        })
         setPendingChanges({})
         setShowConfirm(false)
       },
       onError: (err: unknown) => {
-        toast.error(
-          t("rolePermissions.saveErrorTitle"),
-          { description: extractErrorMessage(err, t) },
-        )
+        toast.error(t("rolePermissions.saveErrorTitle"), {
+          description: extractErrorMessage(err, t),
+        })
         setShowConfirm(false)
       },
     })
-  }, [currentRoleRow, pendingCount, selectedRole, buildOverridesPayload, mutation, t])
+  }, [
+    readOnly,
+    currentRoleRow,
+    pendingCount,
+    selectedRole,
+    buildOverridesPayload,
+    mutation,
+    t,
+  ])
 
   // ---------- Rendering ----------
 
@@ -165,9 +219,16 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
     )
   }
 
-  const estimatedAffected = data.roles.find((r) => r.role === selectedRole)
-    ? undefined
-    : 0
+  // Owner-only permissions are stable across all roles (they are the
+  // same set of keys flagged non-overridable on the backend). Prefer
+  // the Admin row as the source of truth so the list is never empty;
+  // fall back to the currently-selected row if Admin is missing.
+  const ownerExclusiveRow =
+    data.roles.find((r) => r.role === "admin") ?? currentRoleRow
+  const ownerExclusiveCells =
+    ownerExclusiveRow?.permissions.filter((c) => c.locked) ?? []
+
+  const showSaveBar = !readOnly && pendingCount > 0
 
   return (
     <section className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
@@ -175,10 +236,13 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
         expanded={expanded}
         onToggle={() => setExpanded((v) => !v)}
         pendingCount={pendingCount}
+        readOnly={readOnly}
       />
 
       {expanded && (
         <div className="border-t border-gray-200 dark:border-slate-700">
+          {readOnly && <ReadOnlyBanner />}
+
           <RoleTabs
             selectedRole={selectedRole}
             onSelect={(role) => setSelectedRole(role)}
@@ -187,8 +251,10 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
           <div className="p-5">
             {currentRoleRow ? (
               <PermissionsList
-                row={currentRoleRow}
+                description={currentRoleRow.description}
+                cells={editableCells}
                 pendingChanges={pendingChanges}
+                readOnly={readOnly}
                 onToggle={togglePermission}
               />
             ) : (
@@ -196,9 +262,13 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
                 {t("rolePermissions.noPermissions")}
               </p>
             )}
+
+            {ownerExclusiveCells.length > 0 && (
+              <OwnerExclusiveSection cells={ownerExclusiveCells} />
+            )}
           </div>
 
-          {pendingCount > 0 && (
+          {showSaveBar && (
             <StickySaveBar
               pendingCount={pendingCount}
               saving={mutation.isPending}
@@ -209,11 +279,11 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
         </div>
       )}
 
-      {showConfirm && currentRoleRow && (
+      {showConfirm && currentRoleRow && !readOnly && (
         <ConfirmSaveModal
           role={selectedRole}
           pendingCount={pendingCount}
-          affectedMembers={estimatedAffected}
+          affectedMembers={undefined}
           onConfirm={handleSave}
           onCancel={() => setShowConfirm(false)}
           saving={mutation.isPending}
@@ -224,19 +294,24 @@ export function RolePermissionsEditor({ orgID }: RolePermissionsEditorProps) {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Sub-components (orchestration-local)
 // ---------------------------------------------------------------------------
 
 function EditorHeader({
   expanded,
   onToggle,
   pendingCount,
+  readOnly,
 }: {
   expanded: boolean
   onToggle: () => void
   pendingCount: number
+  readOnly: boolean
 }) {
   const t = useTranslations("team")
+  const subtitleKey = readOnly
+    ? "rolePermissions.subtitleReadOnly"
+    : "rolePermissions.subtitle"
   return (
     <button
       type="button"
@@ -253,12 +328,12 @@ function EditorHeader({
             {t("rolePermissions.title")}
           </h2>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            {t("rolePermissions.subtitle")}
+            {t(subtitleKey)}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-3">
-        {pendingCount > 0 && (
+        {!readOnly && pendingCount > 0 && (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
             {t("rolePermissions.pendingBadge", { count: pendingCount })}
           </span>
@@ -310,23 +385,35 @@ function RoleTabs({
 }
 
 function PermissionsList({
-  row,
+  description,
+  cells,
   pendingChanges,
+  readOnly,
   onToggle,
 }: {
-  row: RolePermissionsRow
+  description: string
+  cells: RolePermissionCell[]
   pendingChanges: Record<string, boolean>
+  readOnly: boolean
   onToggle: (perm: RolePermissionCell) => void
 }) {
   const t = useTranslations("team")
   // Group cells by the permission "group" field so the UI renders
   // sections like Jobs / Proposals / Messaging. Preserve the backend's
   // order since the domain's allPermissionsOrdered is stable.
-  const groups = useMemo(() => groupPermissionsByGroup(row.permissions), [row.permissions])
+  const groups = useMemo(() => groupPermissionsByGroup(cells), [cells])
+
+  if (cells.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        {t("rolePermissions.noPermissions")}
+      </p>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-gray-500 dark:text-gray-400">{row.description}</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{description}</p>
       {groups.map(({ group, items }) => (
         <div key={group}>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -345,6 +432,7 @@ function PermissionsList({
                   cell={cell}
                   effectiveGranted={effectiveGranted}
                   modified={modified}
+                  disabled={readOnly}
                   onToggle={() => onToggle(cell)}
                 />
               )
@@ -356,304 +444,42 @@ function PermissionsList({
   )
 }
 
-function PermissionRow({
-  cell,
-  effectiveGranted,
-  modified,
-  onToggle,
-}: {
-  cell: RolePermissionCell
-  effectiveGranted: boolean
-  modified: boolean
-  onToggle: () => void
-}) {
+// OwnerExclusiveSection lists the non-overridable permissions in a
+// compact informational block at the bottom of the editor. These
+// cells are NEVER editable and do not depend on the read-only flag —
+// they are shown the same way to every audience, including the Owner.
+function OwnerExclusiveSection({ cells }: { cells: RolePermissionCell[] }) {
   const t = useTranslations("team")
-  const state = resolveDisplayState(cell, effectiveGranted, modified)
   return (
-    <li
-      className={`flex items-start justify-between gap-3 rounded-lg border p-3 transition-colors ${
-        cell.locked
-          ? "border-gray-100 bg-gray-50/50 dark:border-slate-700 dark:bg-slate-900/40"
-          : "border-gray-100 hover:border-gray-200 dark:border-slate-700 dark:hover:border-slate-600"
-      }`}
-    >
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        {cell.locked && (
-          <Lock className="mt-1 h-4 w-4 shrink-0 text-gray-400" aria-hidden />
-        )}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
-              {cell.label || cell.key}
-            </p>
-            <StateBadge state={state} />
-          </div>
-          {cell.description && (
-            <p className="mt-0.5 line-clamp-2 text-xs text-gray-500 dark:text-gray-400">
-              {cell.description}
-            </p>
-          )}
-          {cell.locked && (
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-              {t("rolePermissions.lockedHint")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={effectiveGranted}
-        aria-label={cell.label || cell.key}
-        disabled={cell.locked}
-        onClick={onToggle}
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          cell.locked
-            ? "cursor-not-allowed bg-gray-200 dark:bg-slate-700"
-            : effectiveGranted
-              ? "bg-rose-500"
-              : "bg-gray-300 dark:bg-slate-600"
-        }`}
-      >
-        <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-            effectiveGranted ? "translate-x-5" : "translate-x-0.5"
-          }`}
+    <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+      <div className="flex items-start gap-2.5">
+        <Lock
+          className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400"
+          aria-hidden
         />
-      </button>
-    </li>
-  )
-}
-
-function StateBadge({ state }: { state: RolePermissionCellState }) {
-  const t = useTranslations("team")
-  if (state === "granted_override") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-        <CheckCircle2 className="h-3 w-3" />
-        {t("rolePermissions.states.grantedOverride")}
-      </span>
-    )
-  }
-  if (state === "revoked_override") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700 dark:bg-red-500/15 dark:text-red-300">
-        <X className="h-3 w-3" />
-        {t("rolePermissions.states.revokedOverride")}
-      </span>
-    )
-  }
-  if (state === "locked") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-slate-700 dark:text-gray-300">
-        <Lock className="h-3 w-3" />
-        {t("rolePermissions.states.locked")}
-      </span>
-    )
-  }
-  return null
-}
-
-function StickySaveBar({
-  pendingCount,
-  saving,
-  onDiscard,
-  onSave,
-}: {
-  pendingCount: number
-  saving: boolean
-  onDiscard: () => void
-  onSave: () => void
-}) {
-  const t = useTranslations("team")
-  return (
-    <div
-      className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-gray-200 bg-white px-5 py-3 dark:border-slate-700 dark:bg-slate-800"
-      role="region"
-      aria-label={t("rolePermissions.saveBarAria")}
-    >
-      <p className="text-sm text-gray-700 dark:text-gray-200">
-        {t("rolePermissions.pendingBadge", { count: pendingCount })}
-      </p>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onDiscard}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-slate-600 dark:text-gray-200 dark:hover:bg-slate-700"
-        >
-          <RotateCcw className="h-4 w-4" />
-          {t("rolePermissions.discard")}
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
-        >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Check className="h-4 w-4" />
-          )}
-          {t("rolePermissions.save")}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function ConfirmSaveModal({
-  role,
-  pendingCount,
-  affectedMembers,
-  onConfirm,
-  onCancel,
-  saving,
-}: {
-  role: Exclude<OrgRole, "owner">
-  pendingCount: number
-  affectedMembers: number | undefined
-  onConfirm: () => void
-  onCancel: () => void
-  saving: boolean
-}) {
-  const t = useTranslations("team")
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="role-perms-confirm-title"
-    >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-800">
-        <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
-            <AlertTriangle className="h-5 w-5" />
-          </span>
-          <div>
-            <h3
-              id="role-perms-confirm-title"
-              className="text-base font-semibold text-gray-900 dark:text-white"
-            >
-              {t("rolePermissions.confirmTitle", { role: t(`roles.${role}.label`) })}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {t("rolePermissions.confirmDescription", {
-                count: pendingCount,
-                affected: affectedMembers ?? "?",
-              })}
-            </p>
-          </div>
-        </div>
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={saving}
-            className="inline-flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-slate-600 dark:text-gray-200 dark:hover:bg-slate-700"
-          >
-            {t("rolePermissions.cancel")}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="h-4 w-4" />
-            )}
-            {t("rolePermissions.confirmButton")}
-          </button>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+            {t("rolePermissions.ownerExclusiveTitle")}
+          </h3>
+          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {t("rolePermissions.ownerExclusiveDescription")}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {cells.map((cell) => (
+              <li key={cell.key} className="text-sm">
+                <p className="font-medium text-slate-800 dark:text-slate-200">
+                  {cell.label || cell.key}
+                </p>
+                {cell.description && (
+                  <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                    {cell.description}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
   )
-}
-
-function RolePermissionsEditorSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 animate-pulse rounded-full bg-gray-200 dark:bg-slate-700" />
-        <div className="flex-1 space-y-2">
-          <div className="h-3 w-32 animate-pulse rounded bg-gray-200 dark:bg-slate-700" />
-          <div className="h-3 w-48 animate-pulse rounded bg-gray-100 dark:bg-slate-700/60" />
-        </div>
-      </div>
-      <div className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-slate-700/60" />
-      <div className="space-y-2">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="h-12 animate-pulse rounded-lg bg-gray-100 dark:bg-slate-700/60"
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-// groupPermissionsByGroup reorganizes a flat cell list into an ordered
-// sequence of groups without disturbing the relative order inside
-// each group. The domain returns allPermissionsOrdered in a stable
-// sequence, so this preserves it.
-function groupPermissionsByGroup(
-  cells: RolePermissionCell[],
-): Array<{ group: string; items: RolePermissionCell[] }> {
-  const order: string[] = []
-  const buckets: Record<string, RolePermissionCell[]> = {}
-  for (const cell of cells) {
-    if (!(cell.group in buckets)) {
-      buckets[cell.group] = []
-      order.push(cell.group)
-    }
-    buckets[cell.group].push(cell)
-  }
-  return order.map((group) => ({ group, items: buckets[group] }))
-}
-
-// resolveDisplayState adjusts the server-reported state to match the
-// UI's pending-change-aware view. A pending change on a default cell
-// becomes granted_override / revoked_override even before the Owner
-// saves, so the badge appears immediately.
-function resolveDisplayState(
-  cell: RolePermissionCell,
-  effectiveGranted: boolean,
-  modified: boolean,
-): RolePermissionCellState {
-  if (cell.locked) return "locked"
-  if (!modified) return cell.state
-  // Modified: the display state reflects the NEW value vs the default.
-  // We derive default from the server cell: default_granted / default_revoked
-  // map directly; granted_override means default was revoked; revoked_override
-  // means default was granted.
-  const defaultGranted =
-    cell.state === "default_granted" ||
-    cell.state === "revoked_override"
-  if (effectiveGranted === defaultGranted) {
-    return defaultGranted ? "default_granted" : "default_revoked"
-  }
-  return effectiveGranted ? "granted_override" : "revoked_override"
-}
-
-function capitalize(s: string): string {
-  if (!s) return s
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
-function extractErrorMessage(err: unknown, t: (key: string) => string): string {
-  if (err && typeof err === "object" && "message" in err) {
-    const msg = (err as { message: unknown }).message
-    if (typeof msg === "string" && msg.length > 0) return msg
-  }
-  return t("rolePermissions.saveErrorGeneric")
 }

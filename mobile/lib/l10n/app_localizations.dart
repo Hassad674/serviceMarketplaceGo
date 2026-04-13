@@ -2012,6 +2012,12 @@ abstract class AppLocalizations {
   /// **'Job postings'**
   String get drawerJobs;
 
+  /// No description provided for @drawerTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get drawerTeam;
+
   /// No description provided for @drawerProfile.
   ///
   /// In en, this message translates to:
@@ -3307,6 +3313,846 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'You do not have permission to edit this resource'**
   String get permissionDeniedEdit;
+
+  /// No description provided for @teamScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get teamScreenTitle;
+
+  /// No description provided for @teamMembersSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get teamMembersSection;
+
+  /// No description provided for @teamNoMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'No members'**
+  String get teamNoMembers;
+
+  /// No description provided for @teamNoOrganization.
+  ///
+  /// In en, this message translates to:
+  /// **'No organization'**
+  String get teamNoOrganization;
+
+  /// No description provided for @teamNoOrganizationDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'You are not attached to any organization yet.'**
+  String get teamNoOrganizationDescription;
+
+  /// No description provided for @teamLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load team'**
+  String get teamLoadError;
+
+  /// No description provided for @teamRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get teamRetry;
+
+  /// No description provided for @teamInviteButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite'**
+  String get teamInviteButton;
+
+  /// No description provided for @teamInviteDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite a new member'**
+  String get teamInviteDialogTitle;
+
+  /// No description provided for @teamInviteDialogDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a secure invitation link to a new teammate. They will set their own password on first sign-in.'**
+  String get teamInviteDialogDescription;
+
+  /// No description provided for @teamInviteEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get teamInviteEmailLabel;
+
+  /// No description provided for @teamInviteEmailHint.
+  ///
+  /// In en, this message translates to:
+  /// **'teammate@example.com'**
+  String get teamInviteEmailHint;
+
+  /// No description provided for @teamInviteFirstNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'First name'**
+  String get teamInviteFirstNameLabel;
+
+  /// No description provided for @teamInviteLastNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Last name'**
+  String get teamInviteLastNameLabel;
+
+  /// No description provided for @teamInviteTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title (optional)'**
+  String get teamInviteTitleLabel;
+
+  /// No description provided for @teamInviteTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Project Manager'**
+  String get teamInviteTitleHint;
+
+  /// No description provided for @teamInviteRoleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get teamInviteRoleLabel;
+
+  /// No description provided for @teamInviteRoleHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'You can change the role later from the members list.'**
+  String get teamInviteRoleHelp;
+
+  /// No description provided for @teamInviteRoleAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get teamInviteRoleAdmin;
+
+  /// No description provided for @teamInviteRoleMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get teamInviteRoleMember;
+
+  /// No description provided for @teamInviteRoleViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get teamInviteRoleViewer;
+
+  /// No description provided for @teamInviteSendButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Send invitation'**
+  String get teamInviteSendButton;
+
+  /// No description provided for @teamInviteCancelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get teamInviteCancelButton;
+
+  /// No description provided for @teamInviteSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation sent to {email}'**
+  String teamInviteSuccess(String email);
+
+  /// No description provided for @teamInviteEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Email is required'**
+  String get teamInviteEmailRequired;
+
+  /// No description provided for @teamInviteEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid email address'**
+  String get teamInviteEmailInvalid;
+
+  /// No description provided for @teamInviteFirstNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'First name is required'**
+  String get teamInviteFirstNameRequired;
+
+  /// No description provided for @teamInviteLastNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Last name is required'**
+  String get teamInviteLastNameRequired;
+
+  /// No description provided for @teamInviteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send invitation. Please try again.'**
+  String get teamInviteFailed;
+
+  /// No description provided for @teamRolePermissionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Roles & permissions'**
+  String get teamRolePermissionsTitle;
+
+  /// No description provided for @teamRolePermissionsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What each role can do in this organization.'**
+  String get teamRolePermissionsSubtitle;
+
+  /// No description provided for @teamRolePermissionsReadOnlyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only view'**
+  String get teamRolePermissionsReadOnlyTitle;
+
+  /// No description provided for @teamRolePermissionsReadOnlyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the Owner can modify role permissions. Other members see the matrix for reference.'**
+  String get teamRolePermissionsReadOnlyDescription;
+
+  /// No description provided for @teamRolePermissionsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load role permissions'**
+  String get teamRolePermissionsLoadError;
+
+  /// No description provided for @teamRolePermissionsModifiedBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Modified'**
+  String get teamRolePermissionsModifiedBadge;
+
+  /// No description provided for @teamRolePermissionsPending.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 change pending} other{{count} changes pending}}'**
+  String teamRolePermissionsPending(int count);
+
+  /// No description provided for @teamRolePermissionsDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get teamRolePermissionsDiscard;
+
+  /// No description provided for @teamRolePermissionsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get teamRolePermissionsSave;
+
+  /// No description provided for @teamRolePermissionsConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm role changes'**
+  String get teamRolePermissionsConfirmTitle;
+
+  /// No description provided for @teamRolePermissionsConfirmDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This will update 1 permission for the {role} role. Affected members will be signed out and must sign in again.} other{This will update {count} permissions for the {role} role. Affected members will be signed out and must sign in again.}}'**
+  String teamRolePermissionsConfirmDescription(int count, String role);
+
+  /// No description provided for @teamRolePermissionsConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get teamRolePermissionsConfirmButton;
+
+  /// No description provided for @teamRolePermissionsCancelButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get teamRolePermissionsCancelButton;
+
+  /// No description provided for @teamRolePermissionsSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Permissions updated. {affected} session(s) invalidated.'**
+  String teamRolePermissionsSaveSuccess(int affected);
+
+  /// No description provided for @teamRolePermissionsSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save permissions. Please try again.'**
+  String get teamRolePermissionsSaveFailed;
+
+  /// No description provided for @teamRolePermissionsOwnerExclusiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner-exclusive permissions'**
+  String get teamRolePermissionsOwnerExclusiveTitle;
+
+  /// No description provided for @teamRolePermissionsOwnerExclusiveDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'These permissions cannot be customized and are reserved for the organization Owner.'**
+  String get teamRolePermissionsOwnerExclusiveDescription;
+
+  /// No description provided for @teamRolePermissionsStateGrantedOverride.
+  ///
+  /// In en, this message translates to:
+  /// **'Granted'**
+  String get teamRolePermissionsStateGrantedOverride;
+
+  /// No description provided for @teamRolePermissionsStateRevokedOverride.
+  ///
+  /// In en, this message translates to:
+  /// **'Revoked'**
+  String get teamRolePermissionsStateRevokedOverride;
+
+  /// No description provided for @teamRolePermissionsStateLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked'**
+  String get teamRolePermissionsStateLocked;
+
+  /// No description provided for @teamRolePermissionRoleAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get teamRolePermissionRoleAdmin;
+
+  /// No description provided for @teamRolePermissionRoleMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get teamRolePermissionRoleMember;
+
+  /// No description provided for @teamRolePermissionRoleViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get teamRolePermissionRoleViewer;
+
+  /// No description provided for @teamRolePermissionRoleOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get teamRolePermissionRoleOwner;
+
+  /// No description provided for @teamRolePermissionGroupTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Team'**
+  String get teamRolePermissionGroupTeam;
+
+  /// No description provided for @teamRolePermissionGroupOrgProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Public profile'**
+  String get teamRolePermissionGroupOrgProfile;
+
+  /// No description provided for @teamRolePermissionGroupJobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Jobs'**
+  String get teamRolePermissionGroupJobs;
+
+  /// No description provided for @teamRolePermissionGroupProposals.
+  ///
+  /// In en, this message translates to:
+  /// **'Proposals'**
+  String get teamRolePermissionGroupProposals;
+
+  /// No description provided for @teamRolePermissionGroupMessaging.
+  ///
+  /// In en, this message translates to:
+  /// **'Messaging'**
+  String get teamRolePermissionGroupMessaging;
+
+  /// No description provided for @teamRolePermissionGroupReviews.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews'**
+  String get teamRolePermissionGroupReviews;
+
+  /// No description provided for @teamRolePermissionGroupWallet.
+  ///
+  /// In en, this message translates to:
+  /// **'Wallet'**
+  String get teamRolePermissionGroupWallet;
+
+  /// No description provided for @teamRolePermissionGroupBilling.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing'**
+  String get teamRolePermissionGroupBilling;
+
+  /// No description provided for @teamRolePermissionGroupKyc.
+  ///
+  /// In en, this message translates to:
+  /// **'KYC'**
+  String get teamRolePermissionGroupKyc;
+
+  /// No description provided for @teamRolePermissionGroupDanger.
+  ///
+  /// In en, this message translates to:
+  /// **'Danger zone'**
+  String get teamRolePermissionGroupDanger;
+
+  /// No description provided for @teamMemberActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get teamMemberActions;
+
+  /// No description provided for @teamMemberEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get teamMemberEdit;
+
+  /// No description provided for @teamMemberRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get teamMemberRemove;
+
+  /// No description provided for @teamMemberFallbackName.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get teamMemberFallbackName;
+
+  /// No description provided for @teamMemberCannotEditSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'You cannot edit your own membership.'**
+  String get teamMemberCannotEditSelf;
+
+  /// No description provided for @teamMemberCannotRemoveSelf.
+  ///
+  /// In en, this message translates to:
+  /// **'Use Leave organization instead.'**
+  String get teamMemberCannotRemoveSelf;
+
+  /// No description provided for @teamEditMemberDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {name}'**
+  String teamEditMemberDialogTitle(String name);
+
+  /// No description provided for @teamEditMemberRoleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get teamEditMemberRoleLabel;
+
+  /// No description provided for @teamEditMemberTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get teamEditMemberTitleLabel;
+
+  /// No description provided for @teamEditMemberTitleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Project Manager'**
+  String get teamEditMemberTitleHint;
+
+  /// No description provided for @teamEditMemberSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save changes'**
+  String get teamEditMemberSave;
+
+  /// No description provided for @teamEditMemberSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Member updated'**
+  String get teamEditMemberSuccess;
+
+  /// No description provided for @teamEditMemberFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update member. Please try again.'**
+  String get teamEditMemberFailed;
+
+  /// No description provided for @teamEditMemberNoChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'No changes to save.'**
+  String get teamEditMemberNoChanges;
+
+  /// No description provided for @teamRemoveMemberDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove member'**
+  String get teamRemoveMemberDialogTitle;
+
+  /// No description provided for @teamRemoveMemberConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove {name} from the organization? They will lose access immediately.'**
+  String teamRemoveMemberConfirm(String name);
+
+  /// No description provided for @teamRemoveMemberConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get teamRemoveMemberConfirmButton;
+
+  /// No description provided for @teamRemoveMemberSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} has been removed'**
+  String teamRemoveMemberSuccess(String name);
+
+  /// No description provided for @teamRemoveMemberFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not remove member. Please try again.'**
+  String get teamRemoveMemberFailed;
+
+  /// No description provided for @teamInvitationsSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending invitations'**
+  String get teamInvitationsSection;
+
+  /// No description provided for @teamInvitationsCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending invitations ({count})'**
+  String teamInvitationsCountLabel(int count);
+
+  /// No description provided for @teamInvitationsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending invitations.'**
+  String get teamInvitationsEmpty;
+
+  /// No description provided for @teamInvitationsLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load invitations.'**
+  String get teamInvitationsLoadFailed;
+
+  /// No description provided for @teamInvitationSentAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent {days} day(s) ago'**
+  String teamInvitationSentAgo(int days);
+
+  /// No description provided for @teamInvitationSentToday.
+  ///
+  /// In en, this message translates to:
+  /// **'Sent today'**
+  String get teamInvitationSentToday;
+
+  /// No description provided for @teamInvitationExpiresIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires in {days} day(s)'**
+  String teamInvitationExpiresIn(int days);
+
+  /// No description provided for @teamInvitationExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'Expired'**
+  String get teamInvitationExpired;
+
+  /// No description provided for @teamInvitationCancelTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invitation'**
+  String get teamInvitationCancelTooltip;
+
+  /// No description provided for @teamInvitationResendTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend invitation'**
+  String get teamInvitationResendTooltip;
+
+  /// No description provided for @teamInvitationCancelDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invitation'**
+  String get teamInvitationCancelDialogTitle;
+
+  /// No description provided for @teamInvitationCancelDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel the invitation sent to {email}? They will no longer be able to join with this link.'**
+  String teamInvitationCancelDialogBody(String email);
+
+  /// No description provided for @teamInvitationCancelConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel invitation'**
+  String get teamInvitationCancelConfirm;
+
+  /// No description provided for @teamInvitationCancelKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep'**
+  String get teamInvitationCancelKeep;
+
+  /// No description provided for @teamInvitationCancelSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation cancelled'**
+  String get teamInvitationCancelSuccess;
+
+  /// No description provided for @teamInvitationCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not cancel invitation. Please try again.'**
+  String get teamInvitationCancelFailed;
+
+  /// No description provided for @teamInvitationResendSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Invitation resent'**
+  String get teamInvitationResendSuccess;
+
+  /// No description provided for @teamInvitationResendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not resend invitation. Please try again.'**
+  String get teamInvitationResendFailed;
+
+  /// No description provided for @teamLeaveAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave organization'**
+  String get teamLeaveAction;
+
+  /// No description provided for @teamLeaveDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave organization'**
+  String get teamLeaveDialogTitle;
+
+  /// No description provided for @teamLeaveDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You will lose access to this organization\'s data and conversations. This cannot be undone.'**
+  String get teamLeaveDialogBody;
+
+  /// No description provided for @teamLeaveConfirmHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type LEAVE to confirm'**
+  String get teamLeaveConfirmHint;
+
+  /// No description provided for @teamLeaveConfirmKeyword.
+  ///
+  /// In en, this message translates to:
+  /// **'LEAVE'**
+  String get teamLeaveConfirmKeyword;
+
+  /// No description provided for @teamLeaveConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave organization'**
+  String get teamLeaveConfirmButton;
+
+  /// No description provided for @teamLeaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'You have left the organization'**
+  String get teamLeaveSuccess;
+
+  /// No description provided for @teamLeaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not leave the organization. Please try again.'**
+  String get teamLeaveFailed;
+
+  /// No description provided for @teamTransferAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer ownership'**
+  String get teamTransferAction;
+
+  /// No description provided for @teamTransferDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer ownership'**
+  String get teamTransferDialogTitle;
+
+  /// No description provided for @teamTransferDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an Admin who will become the new Owner of this organization. You will become an Admin once they accept. This cannot be undone.'**
+  String get teamTransferDialogBody;
+
+  /// No description provided for @teamTransferTargetLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'New owner'**
+  String get teamTransferTargetLabel;
+
+  /// No description provided for @teamTransferNoEligible.
+  ///
+  /// In en, this message translates to:
+  /// **'There are no Admins available. Promote a member to Admin first.'**
+  String get teamTransferNoEligible;
+
+  /// No description provided for @teamTransferConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Send transfer request'**
+  String get teamTransferConfirmButton;
+
+  /// No description provided for @teamTransferSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer request sent'**
+  String get teamTransferSuccess;
+
+  /// No description provided for @teamTransferFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not initiate transfer. Please try again.'**
+  String get teamTransferFailed;
+
+  /// No description provided for @teamPendingTransferTargetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You have been offered ownership'**
+  String get teamPendingTransferTargetTitle;
+
+  /// No description provided for @teamPendingTransferTargetBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept to become the new Owner of this organization. Decline to keep your current role.'**
+  String get teamPendingTransferTargetBody;
+
+  /// No description provided for @teamPendingTransferInitiatorTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ownership transfer pending'**
+  String get teamPendingTransferInitiatorTitle;
+
+  /// No description provided for @teamPendingTransferInitiatorBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for the target Admin to accept ownership of this organization.'**
+  String get teamPendingTransferInitiatorBody;
+
+  /// No description provided for @teamPendingTransferReadOnlyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ownership transfer in progress'**
+  String get teamPendingTransferReadOnlyTitle;
+
+  /// No description provided for @teamPendingTransferReadOnlyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'An ownership transfer is currently pending for this organization.'**
+  String get teamPendingTransferReadOnlyBody;
+
+  /// No description provided for @teamPendingTransferExpiresOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Expires on {date}'**
+  String teamPendingTransferExpiresOn(String date);
+
+  /// No description provided for @teamPendingTransferAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get teamPendingTransferAccept;
+
+  /// No description provided for @teamPendingTransferDecline.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline'**
+  String get teamPendingTransferDecline;
+
+  /// No description provided for @teamPendingTransferCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel transfer'**
+  String get teamPendingTransferCancel;
+
+  /// No description provided for @teamPendingTransferAcceptSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'You are now the Owner of this organization'**
+  String get teamPendingTransferAcceptSuccess;
+
+  /// No description provided for @teamPendingTransferAcceptFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not accept transfer. Please try again.'**
+  String get teamPendingTransferAcceptFailed;
+
+  /// No description provided for @teamPendingTransferDeclineDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline transfer'**
+  String get teamPendingTransferDeclineDialogTitle;
+
+  /// No description provided for @teamPendingTransferDeclineDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline the ownership transfer? The current Owner will keep their role.'**
+  String get teamPendingTransferDeclineDialogBody;
+
+  /// No description provided for @teamPendingTransferDeclineSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer declined'**
+  String get teamPendingTransferDeclineSuccess;
+
+  /// No description provided for @teamPendingTransferDeclineFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not decline transfer. Please try again.'**
+  String get teamPendingTransferDeclineFailed;
+
+  /// No description provided for @teamPendingTransferCancelDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel transfer'**
+  String get teamPendingTransferCancelDialogTitle;
+
+  /// No description provided for @teamPendingTransferCancelDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel the pending ownership transfer? You will remain the Owner.'**
+  String get teamPendingTransferCancelDialogBody;
+
+  /// No description provided for @teamPendingTransferCancelSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer cancelled'**
+  String get teamPendingTransferCancelSuccess;
+
+  /// No description provided for @teamPendingTransferCancelFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not cancel transfer. Please try again.'**
+  String get teamPendingTransferCancelFailed;
+
+  /// No description provided for @teamRoleOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get teamRoleOwner;
+
+  /// No description provided for @teamRoleAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get teamRoleAdmin;
+
+  /// No description provided for @teamRoleMember.
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get teamRoleMember;
+
+  /// No description provided for @teamRoleViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get teamRoleViewer;
 }
 
 class _AppLocalizationsDelegate

@@ -1,0 +1,389 @@
+part of 'role_permissions_editor.dart';
+
+// ---------------------------------------------------------------------------
+// Atomic sub-widgets for [RolePermissionsEditor]: single-permission row,
+// badges, save bar, owner-exclusive list, role icon, skeleton, error card.
+// Split off from role_permissions_editor_parts.dart to keep each file under
+// the project's 600-line hard limit.
+// ---------------------------------------------------------------------------
+
+class _PermissionRow extends StatelessWidget {
+  const _PermissionRow({
+    required this.cell,
+    required this.effectiveGranted,
+    required this.modified,
+    required this.canEdit,
+    required this.onToggle,
+  });
+
+  final RolePermissionCell cell;
+  final bool effectiveGranted;
+  final bool modified;
+  final bool canEdit;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        cell.label.isNotEmpty ? cell.label : cell.key,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (modified || cell.isOverridden) ...[
+                      const SizedBox(width: 8),
+                      _StateBadge(
+                        granted: effectiveGranted,
+                      ),
+                    ],
+                  ],
+                ),
+                if (cell.description.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    cell.description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: appColors?.mutedForeground,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch.adaptive(
+            value: effectiveGranted,
+            onChanged: canEdit ? (_) => onToggle() : null,
+            activeThumbColor: const Color(0xFFE11D48),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StateBadge extends StatelessWidget {
+  const _StateBadge({required this.granted});
+
+  final bool granted;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final label = granted
+        ? l10n.teamRolePermissionsStateGrantedOverride
+        : l10n.teamRolePermissionsStateRevokedOverride;
+    final color =
+        granted ? const Color(0xFF059669) : const Color(0xFFDC2626);
+    final background =
+        granted ? const Color(0xFFD1FAE5) : const Color(0xFFFEE2E2);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingBadge extends StatelessWidget {
+  const _PendingBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFFB45309),
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _SaveBar extends StatelessWidget {
+  const _SaveBar({
+    required this.pendingCount,
+    required this.saving,
+    required this.onDiscard,
+    required this.onSave,
+  });
+
+  final int pendingCount;
+  final bool saving;
+  final VoidCallback? onDiscard;
+  final VoidCallback? onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: const Border(
+          top: BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              l10n.teamRolePermissionsPending(pendingCount),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onDiscard,
+            child: Text(l10n.teamRolePermissionsDiscard),
+          ),
+          const SizedBox(width: 4),
+          FilledButton.icon(
+            onPressed: onSave,
+            icon: saving
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check, size: 18),
+            label: Text(l10n.teamRolePermissionsSave),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OwnerExclusiveSection extends StatelessWidget {
+  const _OwnerExclusiveSection({required this.cells});
+
+  final List<RolePermissionCell> cells;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cells.isEmpty) return const SizedBox.shrink();
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.lock_outline,
+                color: Color(0xFF64748B),
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.teamRolePermissionsOwnerExclusiveTitle,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            l10n.teamRolePermissionsOwnerExclusiveDescription,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: appColors?.mutedForeground,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (final cell in cells)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4, left: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('•  ', style: TextStyle(fontSize: 12)),
+                  Expanded(
+                    child: Text(
+                      cell.label.isNotEmpty ? cell.label : cell.key,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleIcon extends StatelessWidget {
+  const _RoleIcon({required this.role});
+
+  final String role;
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final Color background;
+    final Color foreground;
+    switch (role) {
+      case 'owner':
+        icon = Icons.workspace_premium_outlined;
+        background = const Color(0xFFFEF3C7);
+        foreground = const Color(0xFFB45309);
+        break;
+      case 'admin':
+        icon = Icons.shield_outlined;
+        background = const Color(0xFFEDE9FE);
+        foreground = const Color(0xFF6D28D9);
+        break;
+      case 'member':
+        icon = Icons.person_outline;
+        background = const Color(0xFFDBEAFE);
+        foreground = const Color(0xFF1D4ED8);
+        break;
+      case 'viewer':
+      default:
+        icon = Icons.visibility_outlined;
+        background = const Color(0xFFE2E8F0);
+        foreground = const Color(0xFF334155);
+        break;
+    }
+    return Container(
+      height: 32,
+      width: 32,
+      decoration: BoxDecoration(
+        color: background,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: foreground, size: 16),
+    );
+  }
+}
+
+class _EditorSkeleton extends StatelessWidget {
+  const _EditorSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border.all(
+          color: appColors?.border ?? theme.dividerColor,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: const Column(
+        children: [
+          SizedBox(height: 24),
+          Center(child: CircularProgressIndicator()),
+          SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorCard extends ConsumerWidget {
+  const _ErrorCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: const Color(0xFFFCA5A5)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.error_outline,
+            color: Color(0xFFDC2626),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              l10n.teamRolePermissionsLoadError,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFFB91C1C),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(l10n.teamRetry),
+          ),
+        ],
+      ),
+    );
+  }
+}

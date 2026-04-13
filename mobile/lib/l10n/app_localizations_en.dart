@@ -987,6 +987,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get drawerJobs => 'Job postings';
 
   @override
+  String get drawerTeam => 'Team';
+
+  @override
   String get drawerProfile => 'My profile';
 
   @override
@@ -1698,4 +1701,490 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get permissionDeniedEdit =>
       'You do not have permission to edit this resource';
+
+  @override
+  String get teamScreenTitle => 'Team';
+
+  @override
+  String get teamMembersSection => 'Members';
+
+  @override
+  String get teamNoMembers => 'No members';
+
+  @override
+  String get teamNoOrganization => 'No organization';
+
+  @override
+  String get teamNoOrganizationDescription =>
+      'You are not attached to any organization yet.';
+
+  @override
+  String get teamLoadError => 'Could not load team';
+
+  @override
+  String get teamRetry => 'Retry';
+
+  @override
+  String get teamInviteButton => 'Invite';
+
+  @override
+  String get teamInviteDialogTitle => 'Invite a new member';
+
+  @override
+  String get teamInviteDialogDescription =>
+      'Send a secure invitation link to a new teammate. They will set their own password on first sign-in.';
+
+  @override
+  String get teamInviteEmailLabel => 'Email';
+
+  @override
+  String get teamInviteEmailHint => 'teammate@example.com';
+
+  @override
+  String get teamInviteFirstNameLabel => 'First name';
+
+  @override
+  String get teamInviteLastNameLabel => 'Last name';
+
+  @override
+  String get teamInviteTitleLabel => 'Title (optional)';
+
+  @override
+  String get teamInviteTitleHint => 'e.g. Project Manager';
+
+  @override
+  String get teamInviteRoleLabel => 'Role';
+
+  @override
+  String get teamInviteRoleHelp =>
+      'You can change the role later from the members list.';
+
+  @override
+  String get teamInviteRoleAdmin => 'Admin';
+
+  @override
+  String get teamInviteRoleMember => 'Member';
+
+  @override
+  String get teamInviteRoleViewer => 'Viewer';
+
+  @override
+  String get teamInviteSendButton => 'Send invitation';
+
+  @override
+  String get teamInviteCancelButton => 'Cancel';
+
+  @override
+  String teamInviteSuccess(String email) {
+    return 'Invitation sent to $email';
+  }
+
+  @override
+  String get teamInviteEmailRequired => 'Email is required';
+
+  @override
+  String get teamInviteEmailInvalid => 'Please enter a valid email address';
+
+  @override
+  String get teamInviteFirstNameRequired => 'First name is required';
+
+  @override
+  String get teamInviteLastNameRequired => 'Last name is required';
+
+  @override
+  String get teamInviteFailed => 'Could not send invitation. Please try again.';
+
+  @override
+  String get teamRolePermissionsTitle => 'Roles & permissions';
+
+  @override
+  String get teamRolePermissionsSubtitle =>
+      'What each role can do in this organization.';
+
+  @override
+  String get teamRolePermissionsReadOnlyTitle => 'Read-only view';
+
+  @override
+  String get teamRolePermissionsReadOnlyDescription =>
+      'Only the Owner can modify role permissions. Other members see the matrix for reference.';
+
+  @override
+  String get teamRolePermissionsLoadError => 'Could not load role permissions';
+
+  @override
+  String get teamRolePermissionsModifiedBadge => 'Modified';
+
+  @override
+  String teamRolePermissionsPending(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count changes pending',
+      one: '1 change pending',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get teamRolePermissionsDiscard => 'Discard';
+
+  @override
+  String get teamRolePermissionsSave => 'Save';
+
+  @override
+  String get teamRolePermissionsConfirmTitle => 'Confirm role changes';
+
+  @override
+  String teamRolePermissionsConfirmDescription(int count, String role) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'This will update $count permissions for the $role role. Affected members will be signed out and must sign in again.',
+      one:
+          'This will update 1 permission for the $role role. Affected members will be signed out and must sign in again.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get teamRolePermissionsConfirmButton => 'Save changes';
+
+  @override
+  String get teamRolePermissionsCancelButton => 'Cancel';
+
+  @override
+  String teamRolePermissionsSaveSuccess(int affected) {
+    return 'Permissions updated. $affected session(s) invalidated.';
+  }
+
+  @override
+  String get teamRolePermissionsSaveFailed =>
+      'Could not save permissions. Please try again.';
+
+  @override
+  String get teamRolePermissionsOwnerExclusiveTitle =>
+      'Owner-exclusive permissions';
+
+  @override
+  String get teamRolePermissionsOwnerExclusiveDescription =>
+      'These permissions cannot be customized and are reserved for the organization Owner.';
+
+  @override
+  String get teamRolePermissionsStateGrantedOverride => 'Granted';
+
+  @override
+  String get teamRolePermissionsStateRevokedOverride => 'Revoked';
+
+  @override
+  String get teamRolePermissionsStateLocked => 'Locked';
+
+  @override
+  String get teamRolePermissionRoleAdmin => 'Admin';
+
+  @override
+  String get teamRolePermissionRoleMember => 'Member';
+
+  @override
+  String get teamRolePermissionRoleViewer => 'Viewer';
+
+  @override
+  String get teamRolePermissionRoleOwner => 'Owner';
+
+  @override
+  String get teamRolePermissionGroupTeam => 'Team';
+
+  @override
+  String get teamRolePermissionGroupOrgProfile => 'Public profile';
+
+  @override
+  String get teamRolePermissionGroupJobs => 'Jobs';
+
+  @override
+  String get teamRolePermissionGroupProposals => 'Proposals';
+
+  @override
+  String get teamRolePermissionGroupMessaging => 'Messaging';
+
+  @override
+  String get teamRolePermissionGroupReviews => 'Reviews';
+
+  @override
+  String get teamRolePermissionGroupWallet => 'Wallet';
+
+  @override
+  String get teamRolePermissionGroupBilling => 'Billing';
+
+  @override
+  String get teamRolePermissionGroupKyc => 'KYC';
+
+  @override
+  String get teamRolePermissionGroupDanger => 'Danger zone';
+
+  @override
+  String get teamMemberActions => 'Actions';
+
+  @override
+  String get teamMemberEdit => 'Edit';
+
+  @override
+  String get teamMemberRemove => 'Remove';
+
+  @override
+  String get teamMemberFallbackName => 'Member';
+
+  @override
+  String get teamMemberCannotEditSelf => 'You cannot edit your own membership.';
+
+  @override
+  String get teamMemberCannotRemoveSelf => 'Use Leave organization instead.';
+
+  @override
+  String teamEditMemberDialogTitle(String name) {
+    return 'Edit $name';
+  }
+
+  @override
+  String get teamEditMemberRoleLabel => 'Role';
+
+  @override
+  String get teamEditMemberTitleLabel => 'Title';
+
+  @override
+  String get teamEditMemberTitleHint => 'e.g. Project Manager';
+
+  @override
+  String get teamEditMemberSave => 'Save changes';
+
+  @override
+  String get teamEditMemberSuccess => 'Member updated';
+
+  @override
+  String get teamEditMemberFailed =>
+      'Could not update member. Please try again.';
+
+  @override
+  String get teamEditMemberNoChanges => 'No changes to save.';
+
+  @override
+  String get teamRemoveMemberDialogTitle => 'Remove member';
+
+  @override
+  String teamRemoveMemberConfirm(String name) {
+    return 'Are you sure you want to remove $name from the organization? They will lose access immediately.';
+  }
+
+  @override
+  String get teamRemoveMemberConfirmButton => 'Remove';
+
+  @override
+  String teamRemoveMemberSuccess(String name) {
+    return '$name has been removed';
+  }
+
+  @override
+  String get teamRemoveMemberFailed =>
+      'Could not remove member. Please try again.';
+
+  @override
+  String get teamInvitationsSection => 'Pending invitations';
+
+  @override
+  String teamInvitationsCountLabel(int count) {
+    return 'Pending invitations ($count)';
+  }
+
+  @override
+  String get teamInvitationsEmpty => 'No pending invitations.';
+
+  @override
+  String get teamInvitationsLoadFailed => 'Could not load invitations.';
+
+  @override
+  String teamInvitationSentAgo(int days) {
+    return 'Sent $days day(s) ago';
+  }
+
+  @override
+  String get teamInvitationSentToday => 'Sent today';
+
+  @override
+  String teamInvitationExpiresIn(int days) {
+    return 'Expires in $days day(s)';
+  }
+
+  @override
+  String get teamInvitationExpired => 'Expired';
+
+  @override
+  String get teamInvitationCancelTooltip => 'Cancel invitation';
+
+  @override
+  String get teamInvitationResendTooltip => 'Resend invitation';
+
+  @override
+  String get teamInvitationCancelDialogTitle => 'Cancel invitation';
+
+  @override
+  String teamInvitationCancelDialogBody(String email) {
+    return 'Cancel the invitation sent to $email? They will no longer be able to join with this link.';
+  }
+
+  @override
+  String get teamInvitationCancelConfirm => 'Cancel invitation';
+
+  @override
+  String get teamInvitationCancelKeep => 'Keep';
+
+  @override
+  String get teamInvitationCancelSuccess => 'Invitation cancelled';
+
+  @override
+  String get teamInvitationCancelFailed =>
+      'Could not cancel invitation. Please try again.';
+
+  @override
+  String get teamInvitationResendSuccess => 'Invitation resent';
+
+  @override
+  String get teamInvitationResendFailed =>
+      'Could not resend invitation. Please try again.';
+
+  @override
+  String get teamLeaveAction => 'Leave organization';
+
+  @override
+  String get teamLeaveDialogTitle => 'Leave organization';
+
+  @override
+  String get teamLeaveDialogBody =>
+      'You will lose access to this organization\'s data and conversations. This cannot be undone.';
+
+  @override
+  String get teamLeaveConfirmHint => 'Type LEAVE to confirm';
+
+  @override
+  String get teamLeaveConfirmKeyword => 'LEAVE';
+
+  @override
+  String get teamLeaveConfirmButton => 'Leave organization';
+
+  @override
+  String get teamLeaveSuccess => 'You have left the organization';
+
+  @override
+  String get teamLeaveFailed =>
+      'Could not leave the organization. Please try again.';
+
+  @override
+  String get teamTransferAction => 'Transfer ownership';
+
+  @override
+  String get teamTransferDialogTitle => 'Transfer ownership';
+
+  @override
+  String get teamTransferDialogBody =>
+      'Choose an Admin who will become the new Owner of this organization. You will become an Admin once they accept. This cannot be undone.';
+
+  @override
+  String get teamTransferTargetLabel => 'New owner';
+
+  @override
+  String get teamTransferNoEligible =>
+      'There are no Admins available. Promote a member to Admin first.';
+
+  @override
+  String get teamTransferConfirmButton => 'Send transfer request';
+
+  @override
+  String get teamTransferSuccess => 'Transfer request sent';
+
+  @override
+  String get teamTransferFailed =>
+      'Could not initiate transfer. Please try again.';
+
+  @override
+  String get teamPendingTransferTargetTitle =>
+      'You have been offered ownership';
+
+  @override
+  String get teamPendingTransferTargetBody =>
+      'Accept to become the new Owner of this organization. Decline to keep your current role.';
+
+  @override
+  String get teamPendingTransferInitiatorTitle => 'Ownership transfer pending';
+
+  @override
+  String get teamPendingTransferInitiatorBody =>
+      'Waiting for the target Admin to accept ownership of this organization.';
+
+  @override
+  String get teamPendingTransferReadOnlyTitle =>
+      'Ownership transfer in progress';
+
+  @override
+  String get teamPendingTransferReadOnlyBody =>
+      'An ownership transfer is currently pending for this organization.';
+
+  @override
+  String teamPendingTransferExpiresOn(String date) {
+    return 'Expires on $date';
+  }
+
+  @override
+  String get teamPendingTransferAccept => 'Accept';
+
+  @override
+  String get teamPendingTransferDecline => 'Decline';
+
+  @override
+  String get teamPendingTransferCancel => 'Cancel transfer';
+
+  @override
+  String get teamPendingTransferAcceptSuccess =>
+      'You are now the Owner of this organization';
+
+  @override
+  String get teamPendingTransferAcceptFailed =>
+      'Could not accept transfer. Please try again.';
+
+  @override
+  String get teamPendingTransferDeclineDialogTitle => 'Decline transfer';
+
+  @override
+  String get teamPendingTransferDeclineDialogBody =>
+      'Decline the ownership transfer? The current Owner will keep their role.';
+
+  @override
+  String get teamPendingTransferDeclineSuccess => 'Transfer declined';
+
+  @override
+  String get teamPendingTransferDeclineFailed =>
+      'Could not decline transfer. Please try again.';
+
+  @override
+  String get teamPendingTransferCancelDialogTitle => 'Cancel transfer';
+
+  @override
+  String get teamPendingTransferCancelDialogBody =>
+      'Cancel the pending ownership transfer? You will remain the Owner.';
+
+  @override
+  String get teamPendingTransferCancelSuccess => 'Transfer cancelled';
+
+  @override
+  String get teamPendingTransferCancelFailed =>
+      'Could not cancel transfer. Please try again.';
+
+  @override
+  String get teamRoleOwner => 'Owner';
+
+  @override
+  String get teamRoleAdmin => 'Admin';
+
+  @override
+  String get teamRoleMember => 'Member';
+
+  @override
+  String get teamRoleViewer => 'Viewer';
 }

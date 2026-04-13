@@ -61,12 +61,6 @@
       "member": "Member",
       "viewer": "Viewer"
     },
-    "roleDescriptions": {
-      "owner": "Full control of the organization. The owner is the only role that can transfer ownership, delete the organization, and request payouts. Exactly one owner per organization.",
-      "admin": "Trusted operator with full operational rights: can manage the team, jobs, proposals, KYC, billing settings, and respond to reviews. Cannot transfer ownership, delete the organization, or move money out of the wallet.",
-      "member": "Daily operator. Can create and edit jobs, send and respond to proposals, message clients, and view the wallet balance. Cannot manage the team or touch finances beyond viewing.",
-      "viewer": "Read-only access across all organization resources. Used for observers, external accountants, and trainees who need visibility without the ability to act."
-    },
     "permissionGroups": {
       "team": "Team",
       "org_profile": "Public profile",
@@ -79,13 +73,6 @@
       "kyc": "KYC",
       "danger": "Danger zone",
       "other": "Other"
-    },
-    "aboutRoles": {
-      "title": "About roles",
-      "subtitle": "What each role can do in the organization. Use this as a reference when assigning a role to a member.",
-      "permissionsLabel": "Permissions granted",
-      "expand": "Show details",
-      "collapse": "Hide details"
     },
     "editMember": {
       "rolePreviewLabel": "Permissions granted to {role}",
@@ -145,13 +132,16 @@
       "leaveFailed": "Could not leave the organization."
     },
     "rolePermissions": {
-      "title": "Customize role permissions",
-      "subtitle": "Grant or revoke permissions for Admin, Member, and Viewer roles in this organization.",
+      "title": "Roles and permissions",
+      "subtitle": "View and customize what each role can do in your organization.",
+      "subtitleReadOnly": "View what each role can do in your organization.",
+      "readOnlyBanner": "Read-only view. Only the owner can change the organization's permissions.",
+      "ownerExclusiveTitle": "Owner-only permissions",
+      "ownerExclusiveDescription": "These permissions are locked for security and compliance reasons. Only the organization owner can exercise them — they cannot be delegated to any other role.",
       "loadError": "Could not load the permissions matrix.",
       "noPermissions": "No permissions to display for this role.",
       "tabsAria": "Role selector",
       "pendingBadge": "{count, plural, one {# change} other {# changes}} pending",
-      "lockedHint": "This permission is locked and cannot be customized.",
       "states": {
         "grantedOverride": "Customized",
         "revokedOverride": "Revoked",

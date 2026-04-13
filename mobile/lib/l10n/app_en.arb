@@ -340,6 +340,7 @@
   "drawerMessages": "Messages",
   "drawerProjects": "Projects",
   "drawerJobs": "Job postings",
+  "drawerTeam": "Team",
   "drawerProfile": "My profile",
   "drawerFindFreelancers": "Find freelancers",
   "drawerFindAgencies": "Find agencies",
@@ -644,5 +645,195 @@
   "permissionDenied": "You do not have permission to perform this action",
   "permissionDeniedSend": "You do not have permission to send messages",
   "permissionDeniedWithdraw": "You do not have permission to request payouts",
-  "permissionDeniedEdit": "You do not have permission to edit this resource"
+  "permissionDeniedEdit": "You do not have permission to edit this resource",
+
+  "teamScreenTitle": "Team",
+  "teamMembersSection": "Members",
+  "teamNoMembers": "No members",
+  "teamNoOrganization": "No organization",
+  "teamNoOrganizationDescription": "You are not attached to any organization yet.",
+  "teamLoadError": "Could not load team",
+  "teamRetry": "Retry",
+
+  "teamInviteButton": "Invite",
+  "teamInviteDialogTitle": "Invite a new member",
+  "teamInviteDialogDescription": "Send a secure invitation link to a new teammate. They will set their own password on first sign-in.",
+  "teamInviteEmailLabel": "Email",
+  "teamInviteEmailHint": "teammate@example.com",
+  "teamInviteFirstNameLabel": "First name",
+  "teamInviteLastNameLabel": "Last name",
+  "teamInviteTitleLabel": "Title (optional)",
+  "teamInviteTitleHint": "e.g. Project Manager",
+  "teamInviteRoleLabel": "Role",
+  "teamInviteRoleHelp": "You can change the role later from the members list.",
+  "teamInviteRoleAdmin": "Admin",
+  "teamInviteRoleMember": "Member",
+  "teamInviteRoleViewer": "Viewer",
+  "teamInviteSendButton": "Send invitation",
+  "teamInviteCancelButton": "Cancel",
+  "teamInviteSuccess": "Invitation sent to {email}",
+  "@teamInviteSuccess": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "teamInviteEmailRequired": "Email is required",
+  "teamInviteEmailInvalid": "Please enter a valid email address",
+  "teamInviteFirstNameRequired": "First name is required",
+  "teamInviteLastNameRequired": "Last name is required",
+  "teamInviteFailed": "Could not send invitation. Please try again.",
+
+  "teamRolePermissionsTitle": "Roles & permissions",
+  "teamRolePermissionsSubtitle": "What each role can do in this organization.",
+  "teamRolePermissionsReadOnlyTitle": "Read-only view",
+  "teamRolePermissionsReadOnlyDescription": "Only the Owner can modify role permissions. Other members see the matrix for reference.",
+  "teamRolePermissionsLoadError": "Could not load role permissions",
+  "teamRolePermissionsModifiedBadge": "Modified",
+  "teamRolePermissionsPending": "{count, plural, =1{1 change pending} other{{count} changes pending}}",
+  "@teamRolePermissionsPending": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "teamRolePermissionsDiscard": "Discard",
+  "teamRolePermissionsSave": "Save",
+  "teamRolePermissionsConfirmTitle": "Confirm role changes",
+  "teamRolePermissionsConfirmDescription": "{count, plural, =1{This will update 1 permission for the {role} role. Affected members will be signed out and must sign in again.} other{This will update {count} permissions for the {role} role. Affected members will be signed out and must sign in again.}}",
+  "@teamRolePermissionsConfirmDescription": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "role": { "type": "String" }
+    }
+  },
+  "teamRolePermissionsConfirmButton": "Save changes",
+  "teamRolePermissionsCancelButton": "Cancel",
+  "teamRolePermissionsSaveSuccess": "Permissions updated. {affected} session(s) invalidated.",
+  "@teamRolePermissionsSaveSuccess": {
+    "placeholders": { "affected": { "type": "int" } }
+  },
+  "teamRolePermissionsSaveFailed": "Could not save permissions. Please try again.",
+  "teamRolePermissionsOwnerExclusiveTitle": "Owner-exclusive permissions",
+  "teamRolePermissionsOwnerExclusiveDescription": "These permissions cannot be customized and are reserved for the organization Owner.",
+  "teamRolePermissionsStateGrantedOverride": "Granted",
+  "teamRolePermissionsStateRevokedOverride": "Revoked",
+  "teamRolePermissionsStateLocked": "Locked",
+  "teamRolePermissionRoleAdmin": "Admin",
+  "teamRolePermissionRoleMember": "Member",
+  "teamRolePermissionRoleViewer": "Viewer",
+  "teamRolePermissionRoleOwner": "Owner",
+  "teamRolePermissionGroupTeam": "Team",
+  "teamRolePermissionGroupOrgProfile": "Public profile",
+  "teamRolePermissionGroupJobs": "Jobs",
+  "teamRolePermissionGroupProposals": "Proposals",
+  "teamRolePermissionGroupMessaging": "Messaging",
+  "teamRolePermissionGroupReviews": "Reviews",
+  "teamRolePermissionGroupWallet": "Wallet",
+  "teamRolePermissionGroupBilling": "Billing",
+  "teamRolePermissionGroupKyc": "KYC",
+  "teamRolePermissionGroupDanger": "Danger zone",
+
+  "teamMemberActions": "Actions",
+  "teamMemberEdit": "Edit",
+  "teamMemberRemove": "Remove",
+  "teamMemberFallbackName": "Member",
+  "teamMemberCannotEditSelf": "You cannot edit your own membership.",
+  "teamMemberCannotRemoveSelf": "Use Leave organization instead.",
+
+  "teamEditMemberDialogTitle": "Edit {name}",
+  "@teamEditMemberDialogTitle": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "teamEditMemberRoleLabel": "Role",
+  "teamEditMemberTitleLabel": "Title",
+  "teamEditMemberTitleHint": "e.g. Project Manager",
+  "teamEditMemberSave": "Save changes",
+  "teamEditMemberSuccess": "Member updated",
+  "teamEditMemberFailed": "Could not update member. Please try again.",
+  "teamEditMemberNoChanges": "No changes to save.",
+
+  "teamRemoveMemberDialogTitle": "Remove member",
+  "teamRemoveMemberConfirm": "Are you sure you want to remove {name} from the organization? They will lose access immediately.",
+  "@teamRemoveMemberConfirm": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "teamRemoveMemberConfirmButton": "Remove",
+  "teamRemoveMemberSuccess": "{name} has been removed",
+  "@teamRemoveMemberSuccess": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "teamRemoveMemberFailed": "Could not remove member. Please try again.",
+
+  "teamInvitationsSection": "Pending invitations",
+  "teamInvitationsCountLabel": "Pending invitations ({count})",
+  "@teamInvitationsCountLabel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "teamInvitationsEmpty": "No pending invitations.",
+  "teamInvitationsLoadFailed": "Could not load invitations.",
+  "teamInvitationSentAgo": "Sent {days} day(s) ago",
+  "@teamInvitationSentAgo": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "teamInvitationSentToday": "Sent today",
+  "teamInvitationExpiresIn": "Expires in {days} day(s)",
+  "@teamInvitationExpiresIn": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "teamInvitationExpired": "Expired",
+  "teamInvitationCancelTooltip": "Cancel invitation",
+  "teamInvitationResendTooltip": "Resend invitation",
+  "teamInvitationCancelDialogTitle": "Cancel invitation",
+  "teamInvitationCancelDialogBody": "Cancel the invitation sent to {email}? They will no longer be able to join with this link.",
+  "@teamInvitationCancelDialogBody": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "teamInvitationCancelConfirm": "Cancel invitation",
+  "teamInvitationCancelKeep": "Keep",
+  "teamInvitationCancelSuccess": "Invitation cancelled",
+  "teamInvitationCancelFailed": "Could not cancel invitation. Please try again.",
+  "teamInvitationResendSuccess": "Invitation resent",
+  "teamInvitationResendFailed": "Could not resend invitation. Please try again.",
+
+  "teamLeaveAction": "Leave organization",
+  "teamLeaveDialogTitle": "Leave organization",
+  "teamLeaveDialogBody": "You will lose access to this organization's data and conversations. This cannot be undone.",
+  "teamLeaveConfirmHint": "Type LEAVE to confirm",
+  "teamLeaveConfirmKeyword": "LEAVE",
+  "teamLeaveConfirmButton": "Leave organization",
+  "teamLeaveSuccess": "You have left the organization",
+  "teamLeaveFailed": "Could not leave the organization. Please try again.",
+
+  "teamTransferAction": "Transfer ownership",
+  "teamTransferDialogTitle": "Transfer ownership",
+  "teamTransferDialogBody": "Choose an Admin who will become the new Owner of this organization. You will become an Admin once they accept. This cannot be undone.",
+  "teamTransferTargetLabel": "New owner",
+  "teamTransferNoEligible": "There are no Admins available. Promote a member to Admin first.",
+  "teamTransferConfirmButton": "Send transfer request",
+  "teamTransferSuccess": "Transfer request sent",
+  "teamTransferFailed": "Could not initiate transfer. Please try again.",
+
+  "teamPendingTransferTargetTitle": "You have been offered ownership",
+  "teamPendingTransferTargetBody": "Accept to become the new Owner of this organization. Decline to keep your current role.",
+  "teamPendingTransferInitiatorTitle": "Ownership transfer pending",
+  "teamPendingTransferInitiatorBody": "Waiting for the target Admin to accept ownership of this organization.",
+  "teamPendingTransferReadOnlyTitle": "Ownership transfer in progress",
+  "teamPendingTransferReadOnlyBody": "An ownership transfer is currently pending for this organization.",
+  "teamPendingTransferExpiresOn": "Expires on {date}",
+  "@teamPendingTransferExpiresOn": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "teamPendingTransferAccept": "Accept",
+  "teamPendingTransferDecline": "Decline",
+  "teamPendingTransferCancel": "Cancel transfer",
+  "teamPendingTransferAcceptSuccess": "You are now the Owner of this organization",
+  "teamPendingTransferAcceptFailed": "Could not accept transfer. Please try again.",
+  "teamPendingTransferDeclineDialogTitle": "Decline transfer",
+  "teamPendingTransferDeclineDialogBody": "Decline the ownership transfer? The current Owner will keep their role.",
+  "teamPendingTransferDeclineSuccess": "Transfer declined",
+  "teamPendingTransferDeclineFailed": "Could not decline transfer. Please try again.",
+  "teamPendingTransferCancelDialogTitle": "Cancel transfer",
+  "teamPendingTransferCancelDialogBody": "Cancel the pending ownership transfer? You will remain the Owner.",
+  "teamPendingTransferCancelSuccess": "Transfer cancelled",
+  "teamPendingTransferCancelFailed": "Could not cancel transfer. Please try again.",
+
+  "teamRoleOwner": "Owner",
+  "teamRoleAdmin": "Admin",
+  "teamRoleMember": "Member",
+  "teamRoleViewer": "Viewer"
 }

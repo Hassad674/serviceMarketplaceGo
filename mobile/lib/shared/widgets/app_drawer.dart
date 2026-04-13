@@ -71,6 +71,12 @@ const _primaryItems = [
     roles: ['provider', 'agency'],
   ),
   _DrawerItem(
+    labelKey: 'drawerTeam',
+    icon: Icons.group_outlined,
+    route: RoutePaths.team,
+    roles: ['agency', 'enterprise'],
+  ),
+  _DrawerItem(
     labelKey: 'drawerProfile',
     icon: Icons.person_outline,
     route: RoutePaths.profile,
@@ -433,6 +439,8 @@ class _DrawerNavTile extends StatelessWidget {
         return 'Opportunit\u00e9s';
       case 'drawerMyApplications':
         return 'Mes candidatures';
+      case 'drawerTeam':
+        return l10n.drawerTeam;
       case 'drawerProfile':
         return l10n.drawerProfile;
       case 'drawerFindFreelancers':

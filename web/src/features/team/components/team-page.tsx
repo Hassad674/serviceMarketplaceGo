@@ -13,7 +13,6 @@ import { TransferOwnershipModal } from "./transfer-ownership-modal"
 import { PendingTransferBanner } from "./pending-transfer-banner"
 import { LeaveOrgDialog } from "./leave-org-dialog"
 import { TeamPageSkeleton } from "./team-page-skeleton"
-import { AboutRolesPanel } from "./about-roles-panel"
 import { RolePermissionsEditor } from "./role-permissions-editor"
 
 // Client-side entry point for /team. Pulls the session slice (which
@@ -29,6 +28,11 @@ import { RolePermissionsEditor } from "./role-permissions-editor"
 // The "Quitter l'organisation" button is gated on member_role, not
 // on a permission, because leaving is a self-action that the Owner
 // is the only role forbidden to perform.
+//
+// The "Rôles et permissions" section is shown to every team member —
+// the editor renders itself in read-only mode when the caller is not
+// the Owner (or during a pending ownership transfer). Owner-only
+// write enforcement lives in the backend service layer (R17).
 
 export function TeamPage() {
   const t = useTranslations("team")
@@ -69,9 +73,6 @@ export function TeamPage() {
   const canInvite = permissions.includes("team.invite")
   const canManage = permissions.includes("team.manage")
   const canTransfer = permissions.includes("team.transfer_ownership")
-  const canManageRolePermissions = permissions.includes(
-    "team.manage_role_permissions",
-  )
   const memberRole = organization.member_role
   const isOwner = memberRole === "owner"
 
@@ -131,19 +132,15 @@ export function TeamPage() {
         <TeamMembersList orgID={orgID} members={members} canManage={canManage} />
       </section>
 
-      {/* About roles — collapsible reference panel listing every
-          role and its permissions. Always visible because every team
-          member benefits from knowing what each role can do, even
-          if they themselves can't manage the team. */}
-      <AboutRolesPanel />
-
-      {/* Role permissions editor — Owner-only UI to customize per-org
-          role permissions (R17). The backend additionally enforces
-          Owner-only at the service layer so a compromised frontend
-          cannot bypass the gate. */}
-      {canManageRolePermissions && !transferIsPending && (
-        <RolePermissionsEditor orgID={orgID} />
-      )}
+      {/* Roles and permissions — unified reference + editor. Every
+          team member sees the matrix so they understand what each
+          role can actually do in this organization (including any
+          per-org customizations). Only the Owner can toggle the
+          switches and save — other members see the exact same UI in
+          read-only mode. The backend additionally enforces Owner-only
+          writes at the service layer so a compromised frontend cannot
+          bypass the gate (R17). */}
+      <RolePermissionsEditor orgID={orgID} readOnly={!isOwner || transferIsPending} />
 
       {/* Pending invitations — only visible if there is at least one
           or if the caller can invite (so Members/Viewers don't see

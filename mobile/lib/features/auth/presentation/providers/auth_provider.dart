@@ -245,6 +245,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
+  /// Refreshes the cached user + organization context from `/auth/me`.
+  ///
+  /// Used after server-side mutations that change the operator's role
+  /// or org membership (ownership transfer, role permissions update,
+  /// pending transfer state changes, leave organization). Without this
+  /// the locally cached `state.organization` map is stale and the
+  /// permission-gated UI displays the wrong actions until the next
+  /// app restart.
+  ///
+  /// Returns true on success. On 401 the user is signed out and the
+  /// state flips to unauthenticated; on other failures the state is
+  /// left untouched and false is returned.
+  Future<bool> refreshSession() async {
+    try {
+      final response = await _api.get('/api/v1/auth/me');
+      final body = response.data as Map<String, dynamic>;
+      final user = body['user'] as Map<String, dynamic>;
+      final org = body['organization'] as Map<String, dynamic>?;
+      await _storage.saveUser(user);
+      state = AuthState(
+        status: AuthStatus.authenticated,
+        user: user,
+        organization: org,
+      );
+      return true;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 404) {
+        await _storage.clearAll();
+        state = const AuthState(status: AuthStatus.unauthenticated);
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Clears any displayed error message.
   void clearError() {
     state = state.copyWith(errorMessage: null);

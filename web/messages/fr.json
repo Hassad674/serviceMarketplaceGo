@@ -61,12 +61,6 @@
       "member": "Member",
       "viewer": "Viewer"
     },
-    "roleDescriptions": {
-      "owner": "Contrôle total de l'organisation. L'Owner est le seul rôle qui peut transférer la propriété, supprimer l'organisation et demander des virements. Exactement un Owner par organisation.",
-      "admin": "Opérateur de confiance avec tous les droits opérationnels : peut gérer l'équipe, les jobs, les propositions, le KYC, les paramètres de facturation et répondre aux avis. Ne peut pas transférer la propriété, supprimer l'organisation, ni sortir d'argent du portefeuille.",
-      "member": "Opérateur du quotidien. Peut créer et modifier des jobs, envoyer et répondre à des propositions, échanger avec les clients et consulter le solde du portefeuille. Ne peut pas gérer l'équipe ni toucher aux finances au-delà de la consultation.",
-      "viewer": "Accès en lecture seule à toutes les ressources de l'organisation. Pour les observateurs, comptables externes et stagiaires qui ont besoin de visibilité sans pouvoir agir."
-    },
     "permissionGroups": {
       "team": "Équipe",
       "org_profile": "Profil public",
@@ -79,13 +73,6 @@
       "kyc": "KYC",
       "danger": "Zone à risque",
       "other": "Autre"
-    },
-    "aboutRoles": {
-      "title": "À propos des rôles",
-      "subtitle": "Ce que chaque rôle peut faire dans l'organisation. Utilisez cette section comme référence avant d'assigner un rôle à un membre.",
-      "permissionsLabel": "Permissions accordées",
-      "expand": "Afficher les détails",
-      "collapse": "Masquer les détails"
     },
     "editMember": {
       "rolePreviewLabel": "Permissions accordées à {role}",
@@ -145,13 +132,16 @@
       "leaveFailed": "Impossible de quitter l'organisation."
     },
     "rolePermissions": {
-      "title": "Personnaliser les permissions des rôles",
-      "subtitle": "Accordez ou révoquez des permissions pour les rôles Admin, Membre et Lecteur dans cette organisation.",
+      "title": "Rôles et permissions",
+      "subtitle": "Visualisez et personnalisez ce que chaque rôle peut faire dans votre organisation.",
+      "subtitleReadOnly": "Visualisez ce que chaque rôle peut faire dans votre organisation.",
+      "readOnlyBanner": "Vue en lecture seule. Seul le propriétaire peut modifier les permissions de l'organisation.",
+      "ownerExclusiveTitle": "Permissions exclusives au propriétaire",
+      "ownerExclusiveDescription": "Ces permissions sont verrouillées pour des raisons de sécurité et de conformité. Seul le propriétaire de l'organisation peut les exercer, et elles ne peuvent être déléguées à aucun autre rôle.",
       "loadError": "Impossible de charger la matrice des permissions.",
       "noPermissions": "Aucune permission à afficher pour ce rôle.",
       "tabsAria": "Sélecteur de rôle",
       "pendingBadge": "{count, plural, one {# modification} other {# modifications}} en attente",
-      "lockedHint": "Cette permission est verrouillée et ne peut pas être personnalisée.",
       "states": {
         "grantedOverride": "Personnalisée",
         "revokedOverride": "Révoquée",

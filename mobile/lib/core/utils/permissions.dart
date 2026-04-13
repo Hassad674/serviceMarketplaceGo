@@ -39,6 +39,7 @@ abstract final class OrgPermission {
   static const teamInvite = 'team.invite';
   static const teamManage = 'team.manage';
   static const teamTransferOwnership = 'team.transfer_ownership';
+  static const teamManageRolePermissions = 'team.manage_role_permissions';
 
   // Billing
   static const billingView = 'billing.view';
