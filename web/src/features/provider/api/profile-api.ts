@@ -12,6 +12,11 @@ export type Profile = {
   referrer_video_url: string
   about: string
   referrer_about: string
+  // Ordered list of expertise domain keys (see expertise.ts catalog).
+  // Order is significant — it is the display order on profile pages.
+  // Absent for orgs that do not have expertise (legacy clients should
+  // treat `undefined` as an empty list).
+  expertise_domains?: string[]
   created_at: string
   updated_at: string
 }

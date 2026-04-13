@@ -12,6 +12,7 @@ import { ProfileAbout } from "./profile-about"
 import { ProfileHistory } from "./profile-history"
 import { ProfileSkeleton } from "./profile-skeleton"
 import { PublicPortfolioSection } from "./portfolio-grid"
+import { ExpertiseDisplay } from "./expertise-display"
 import { useProfileRating } from "../hooks/use-profile-rating"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
@@ -26,6 +27,13 @@ const TYPE_BACK_LABELS: Record<ProfileType, string> = {
   agency: "backToAgencies",
   freelancer: "backToFreelancers",
   referrer: "backToFreelancers",
+}
+
+// Maps the visible profile type (used for routing and labels) to the
+// canonical organization type used by the expertise constants. Keeps
+// ExpertiseDisplay agnostic of the public-profile URL taxonomy.
+function publicProfileTypeToOrgType(type: ProfileType): string {
+  return type === "agency" ? "agency" : "provider_personal"
 }
 
 interface PublicProfileProps {
@@ -96,6 +104,11 @@ export function PublicProfile({ orgId, type }: PublicProfileProps) {
         <ProfileAbout
           content={aboutText || ""}
           readOnly
+        />
+
+        <ExpertiseDisplay
+          domains={profile.expertise_domains}
+          orgType={publicProfileTypeToOrgType(type)}
         />
 
         <PublicPortfolioSection orgId={orgId} />
