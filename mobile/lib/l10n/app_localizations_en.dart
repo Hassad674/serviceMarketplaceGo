@@ -2266,4 +2266,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get expertiseDomainHrRecruitment => 'HR & Recruitment';
+
+  @override
+  String get skillsDisplaySectionTitle => 'Skills';
+
+  @override
+  String skillsDisplayMoreSuffix(int count) {
+    return '+$count';
+  }
 }

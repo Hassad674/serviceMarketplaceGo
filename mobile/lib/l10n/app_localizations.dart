@@ -4297,6 +4297,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'HR & Recruitment'**
   String get expertiseDomainHrRecruitment;
+
+  /// No description provided for @skillsDisplaySectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get skillsDisplaySectionTitle;
+
+  /// No description provided for @skillsDisplayMoreSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'+{count}'**
+  String skillsDisplayMoreSuffix(int count);
 }
 
 class _AppLocalizationsDelegate
