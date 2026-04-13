@@ -411,7 +411,41 @@
     "website": "Website",
     "awaitingReview": "Awaiting review",
     "historyLoadError": "Could not load project history",
-    "completedOn": "Completed on {date}"
+    "completedOn": "Completed on {date}",
+    "expertise": {
+      "sectionTitle": "Areas of expertise",
+      "sectionSubtitle": "Pick up to {max} domains that showcase what you do best.",
+      "save": "Save",
+      "saving": "Saving...",
+      "emptyPublic": "",
+      "emptyPrivate": "No expertise selected yet. Pick from the list below to showcase your strengths.",
+      "maxReached": "You've reached the maximum of {max} domains.",
+      "counter": "{count}/{max} selected",
+      "selectedListLabel": "Selected expertise domains, ordered",
+      "moveUp": "Move {label} up",
+      "moveDown": "Move {label} down",
+      "remove": "Remove {label}",
+      "errorGeneric": "Could not save your expertise. Please try again.",
+      "errorForbidden": "You do not have permission to edit expertise for this organization.",
+      "errorValidation": "Some domains are not valid or exceed the maximum allowed.",
+      "domains": {
+        "development": "Development",
+        "data_ai_ml": "Data, AI & Machine Learning",
+        "design_ui_ux": "Design & UI/UX",
+        "design_3d_animation": "3D Design & Animation",
+        "video_motion": "Video & Motion",
+        "photo_audiovisual": "Photo & Audiovisual",
+        "marketing_growth": "Marketing & Growth",
+        "writing_translation": "Writing & Translation",
+        "business_dev_sales": "Business Development & Sales",
+        "consulting_strategy": "Consulting & Strategy",
+        "product_ux_research": "Product & UX Research",
+        "ops_admin_support": "Ops, Admin & Support",
+        "legal": "Legal",
+        "finance_accounting": "Finance & Accounting",
+        "hr_recruitment": "HR & Recruitment"
+      }
+    }
   },
   "upload": {
     "addPhoto": "Add a photo",

@@ -13,6 +13,7 @@ import { ProfileHistory } from "@/features/provider/components/profile-history"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
 import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
+import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
 
 function orgTypeToRoleContext(orgType: string | undefined): "agency" | "provider" | "referrer" {
   if (orgType === "agency") return "agency"
@@ -80,6 +81,11 @@ export default function ProfilePage() {
         saving={updateProfile.isPending}
         label={aboutLabel}
         placeholder={aboutPlaceholder}
+        readOnly={!canEditProfile}
+      />
+      <ExpertiseEditor
+        domains={profile?.expertise_domains}
+        orgType={orgType}
         readOnly={!canEditProfile}
       />
       <SocialLinksSection />

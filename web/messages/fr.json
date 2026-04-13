@@ -411,7 +411,41 @@
     "website": "Site Web",
     "awaitingReview": "En attente d'avis",
     "historyLoadError": "Impossible de charger l'historique",
-    "completedOn": "Terminée le {date}"
+    "completedOn": "Terminée le {date}",
+    "expertise": {
+      "sectionTitle": "Domaines d'expertise",
+      "sectionSubtitle": "Choisissez jusqu'à {max} domaines qui mettent en valeur ce que vous faites le mieux.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement...",
+      "emptyPublic": "",
+      "emptyPrivate": "Aucune expertise sélectionnée. Choisissez dans la liste ci-dessous pour mettre en avant vos forces.",
+      "maxReached": "Vous avez atteint le maximum de {max} domaines.",
+      "counter": "{count}/{max} sélectionnés",
+      "selectedListLabel": "Domaines d'expertise sélectionnés, dans l'ordre",
+      "moveUp": "Déplacer {label} vers le haut",
+      "moveDown": "Déplacer {label} vers le bas",
+      "remove": "Retirer {label}",
+      "errorGeneric": "Impossible d'enregistrer vos domaines d'expertise. Réessayez.",
+      "errorForbidden": "Vous n'avez pas la permission de modifier les domaines d'expertise de cette organisation.",
+      "errorValidation": "Certains domaines sont invalides ou dépassent la limite autorisée.",
+      "domains": {
+        "development": "Développement",
+        "data_ai_ml": "Data, IA & Machine Learning",
+        "design_ui_ux": "Design & UI/UX",
+        "design_3d_animation": "Design 3D & Animation",
+        "video_motion": "Vidéo & Motion",
+        "photo_audiovisual": "Photo & Audiovisuel",
+        "marketing_growth": "Marketing & Growth",
+        "writing_translation": "Rédaction & Traduction",
+        "business_dev_sales": "Business Development & Ventes",
+        "consulting_strategy": "Consulting & Stratégie",
+        "product_ux_research": "Product & UX Research",
+        "ops_admin_support": "Ops, Admin & Support",
+        "legal": "Legal & Droit",
+        "finance_accounting": "Finance & Comptabilité",
+        "hr_recruitment": "RH & Recrutement"
+      }
+    }
   },
   "upload": {
     "addPhoto": "Ajouter une photo",
