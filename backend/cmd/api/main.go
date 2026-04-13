@@ -548,7 +548,12 @@ func main() {
 		Users:          userRepo,
 	})
 	roleOverridesHandler := handler.NewRoleOverridesHandler(roleOverridesSvc)
-	profileHandler := handler.NewProfileHandler(profileSvc)
+	// Expertise feature (org-scoped domain specializations). Shares the
+	// profile application package and is co-located in the profile
+	// handler because expertise is part of the org's public profile.
+	expertiseRepo := postgres.NewExpertiseRepository(db)
+	expertiseSvc := profileapp.NewExpertiseService(expertiseRepo, organizationRepo)
+	profileHandler := handler.NewProfileHandler(profileSvc, expertiseSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
