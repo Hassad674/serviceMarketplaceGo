@@ -35,6 +35,11 @@ class ExpertiseSkillsPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final asyncPage = ref.watch(skillCatalogProvider(expertiseKey));
+    // Force the title color to the standard surface foreground so the
+    // panel headers stay readable in light mode regardless of any
+    // ambient ExpansionTileTheme that might leak a white text colour
+    // from elsewhere in the app theme.
+    final titleColor = theme.colorScheme.onSurface;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -49,9 +54,16 @@ class ExpertiseSkillsPanel extends ConsumerWidget {
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         shape: const Border(),
         collapsedShape: const Border(),
+        textColor: titleColor,
+        collapsedTextColor: titleColor,
+        iconColor: titleColor,
+        collapsedIconColor: titleColor,
         title: Text(
           localizedDomainLabel(context, expertiseKey),
-          style: theme.textTheme.titleSmall,
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: titleColor,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         children: [
           asyncPage.when(
