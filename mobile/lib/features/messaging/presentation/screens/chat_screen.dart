@@ -26,6 +26,8 @@ import '../../../proposal/presentation/providers/proposal_provider.dart';
 import '../widgets/chat/chat_app_bar.dart';
 import '../widgets/chat/chat_shimmer.dart';
 import '../widgets/chat/empty_chat_state.dart';
+import '../../../../core/models/review.dart';
+import '../../../review/presentation/utils/derive_side.dart';
 import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../../reporting/presentation/widgets/report_bottom_sheet.dart';
 import '../widgets/chat/message_bubble.dart';
@@ -438,11 +440,41 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     GoRouter.of(context).push('/projects/pay/$proposalId');
   }
 
-  void _handleReviewProposal(String proposalId, String proposalTitle) {
-    ReviewBottomSheet.show(
+  Future<void> _handleReviewProposal(
+    String proposalId,
+    String proposalTitle,
+  ) async {
+    // Derive the review direction from the operator's organization and
+    // the proposal participants. If the fetch fails or the user is not
+    // a participant, fall back to the historical client-to-provider
+    // direction so the sheet still opens — the backend will reject
+    // non-participants and we surface the error there.
+    final authState = ref.read(authProvider);
+    final userOrgId = authState.organization?['id'] as String? ?? '';
+
+    String side = ReviewSide.clientToProvider;
+    try {
+      final proposal = await ref
+          .read(proposalRepositoryProvider)
+          .getProposal(proposalId);
+      final derived = deriveReviewSide(
+        userOrganizationId: userOrgId,
+        proposalClientOrgId: proposal.clientId,
+        proposalProviderOrgId: proposal.providerId,
+      );
+      if (derived != null) side = derived;
+    } catch (_) {
+      // Swallow — the sheet will open with the default side and any
+      // backend rejection (not_participant, review_window_closed) is
+      // surfaced as a toast from within the sheet.
+    }
+
+    if (!mounted) return;
+    await ReviewBottomSheet.show(
       context,
       proposalId: proposalId,
       proposalTitle: proposalTitle,
+      side: side,
     );
   }
 

@@ -146,13 +146,12 @@ class MessageBubble extends StatelessWidget {
       return DisputeCard(message: message, currentUserId: currentUserId);
     }
 
-    // Evaluation request — special system message with "Leave a review" button.
-    // Only visible to the client (target_user_id in metadata).
+    // Evaluation request — special system message with "Leave a review"
+    // button. Since double-blind reviews, both parties receive an
+    // evaluation_request targeted at them. The chat UI no longer
+    // hardcodes an "isClient" check; the bottom sheet derives the review
+    // direction from the operator's organization at open time.
     if (message.type == 'evaluation_request') {
-      final targetUserId = message.metadata?['target_user_id'] as String?;
-      if (targetUserId != null && targetUserId != currentUserId) {
-        return const SizedBox.shrink();
-      }
       return _buildEvaluationRequest(context, theme, appColors, l10n);
     }
 

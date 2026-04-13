@@ -865,6 +865,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get leaveReview => 'Leave a review';
 
   @override
+  String get reviewTitleClientToProvider => 'Leave a review';
+
+  @override
+  String get reviewTitleProviderToClient => 'Review the client';
+
+  @override
+  String get reviewSubtitleProviderToClient =>
+      'How was your experience with this client?';
+
+  @override
+  String get reviewErrorWindowClosed =>
+      'The review window has closed (14 days after mission completion).';
+
+  @override
+  String get reviewErrorNotParticipant =>
+      'Only the participants of this mission can leave a review.';
+
+  @override
   String get proposalNewMessage => 'New proposal';
 
   @override

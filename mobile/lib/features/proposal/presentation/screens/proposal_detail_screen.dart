@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/models/review.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/permissions.dart';
@@ -10,6 +11,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../dispute/presentation/providers/dispute_provider.dart';
 import '../../../dispute/presentation/widgets/dispute_banner_widget.dart';
 import '../../../dispute/presentation/widgets/dispute_resolution_card.dart';
+import '../../../review/presentation/utils/derive_side.dart';
 import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../types/proposal.dart';
@@ -551,8 +553,19 @@ class _ActionButtons extends ConsumerWidget {
       );
     }
 
-    // Completed: show leave review
+    // Completed: show leave review. The direction is derived from the
+    // operator's organization vs the proposal participants so the sheet
+    // renders the right variant (client side with sub-criteria, or
+    // provider side with only global rating + comment + video).
     if (status == ProposalStatus.completed) {
+      final userOrgId =
+          ref.watch(authProvider).organization?['id'] as String? ?? '';
+      final side = deriveReviewSide(
+            userOrganizationId: userOrgId,
+            proposalClientOrgId: proposal.clientId,
+            proposalProviderOrgId: proposal.providerId,
+          ) ??
+          ReviewSide.clientToProvider;
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
@@ -560,6 +573,7 @@ class _ActionButtons extends ConsumerWidget {
             context,
             proposalId: proposal.id,
             proposalTitle: proposal.title,
+            side: side,
           ),
           icon: const Icon(Icons.star_outline, size: 18),
           label: Text(l10n.leaveReview),

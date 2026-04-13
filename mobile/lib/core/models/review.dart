@@ -1,3 +1,20 @@
+/// Direction of a review. Client reviews provider, or provider reviews client.
+///
+/// Kept as a string constant (not an enum) so JSON (de)serialization stays
+/// trivial and the value can be forwarded to the API unchanged.
+class ReviewSide {
+  const ReviewSide._();
+
+  /// The client organization is the reviewer, the provider organization is
+  /// the reviewed party. Historical default — pre double-blind reviews all
+  /// rows had this side.
+  static const String clientToProvider = 'client_to_provider';
+
+  /// The provider organization is the reviewer, the client organization is
+  /// the reviewed party.
+  static const String providerToClient = 'provider_to_client';
+}
+
 /// Represents a review left after a completed proposal.
 ///
 /// Shared across features (review feature and project_history feature).
@@ -14,6 +31,8 @@ class Review {
   final String comment;
   final String videoUrl;
   final bool titleVisible;
+  final String side;
+  final DateTime? publishedAt;
   final DateTime createdAt;
 
   const Review({
@@ -28,6 +47,8 @@ class Review {
     this.comment = '',
     this.videoUrl = '',
     this.titleVisible = true,
+    this.side = ReviewSide.clientToProvider,
+    this.publishedAt,
     required this.createdAt,
   });
 
@@ -44,6 +65,13 @@ class Review {
       comment: json['comment'] as String? ?? '',
       videoUrl: json['video_url'] as String? ?? '',
       titleVisible: json['title_visible'] as bool? ?? true,
+      // Defensive default: older backend responses may omit `side`. We
+      // treat the historical direction as the fallback so project-history
+      // screens built pre double-blind still render every review.
+      side: json['side'] as String? ?? ReviewSide.clientToProvider,
+      publishedAt: json['published_at'] is String
+          ? DateTime.tryParse(json['published_at'] as String)
+          : null,
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }

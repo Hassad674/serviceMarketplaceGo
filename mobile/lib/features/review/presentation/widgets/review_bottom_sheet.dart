@@ -1,22 +1,34 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../../core/models/review.dart';
+import '../../../../core/network/api_exception.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../providers/review_provider.dart';
 
 /// Bottom sheet for leaving a review after a completed mission.
+///
+/// Supports both review directions (client -> provider and
+/// provider -> client). When [side] is [ReviewSide.providerToClient] the
+/// three sub-criteria rows (timeliness / communication / quality) are
+/// hidden — providers only rate clients on the global axis plus comment
+/// and optional video.
 class ReviewBottomSheet extends ConsumerStatefulWidget {
   final String proposalId;
   final String proposalTitle;
+  final String side;
   final VoidCallback? onSubmitted;
 
   const ReviewBottomSheet({
     super.key,
     required this.proposalId,
     required this.proposalTitle,
+    this.side = ReviewSide.clientToProvider,
     this.onSubmitted,
   });
 
@@ -24,6 +36,7 @@ class ReviewBottomSheet extends ConsumerStatefulWidget {
     BuildContext context, {
     required String proposalId,
     required String proposalTitle,
+    String side = ReviewSide.clientToProvider,
     VoidCallback? onSubmitted,
   }) {
     return showModalBottomSheet(
@@ -35,6 +48,7 @@ class ReviewBottomSheet extends ConsumerStatefulWidget {
       builder: (_) => ReviewBottomSheet(
         proposalId: proposalId,
         proposalTitle: proposalTitle,
+        side: side,
         onSubmitted: onSubmitted,
       ),
     );
@@ -55,6 +69,8 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
   String? _videoUrl;
   VideoPlayerController? _videoController;
   bool _titleVisible = true;
+
+  bool get _isProviderSide => widget.side == ReviewSide.providerToClient;
 
   @override
   void dispose() {
@@ -112,12 +128,16 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
 
     try {
       final repo = ref.read(reviewRepositoryProvider);
+      // Provider-side reviews intentionally omit the three sub-criteria —
+      // providers only evaluate clients on the global axis (plus comment
+      // and optional video).
       await repo.createReview(
         proposalId: widget.proposalId,
         globalRating: _globalRating,
-        timeliness: _timeliness > 0 ? _timeliness : null,
-        communication: _communication > 0 ? _communication : null,
-        quality: _quality > 0 ? _quality : null,
+        timeliness: _isProviderSide || _timeliness == 0 ? null : _timeliness,
+        communication:
+            _isProviderSide || _communication == 0 ? null : _communication,
+        quality: _isProviderSide || _quality == 0 ? null : _quality,
         comment: _commentController.text.trim(),
         videoUrl: _videoUrl,
         titleVisible: _titleVisible,
@@ -126,9 +146,39 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
         Navigator.of(context).pop();
         widget.onSubmitted?.call();
       }
-    } catch (_) {
-      if (mounted) setState(() => _isSubmitting = false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _showSubmitError(error);
     }
+  }
+
+  /// Surfaces backend errors as a snack bar.
+  ///
+  /// Known domain errors (`review_window_closed`, `not_participant`) get
+  /// their own localized message. Everything else falls through to the
+  /// generic helper so the user is never shown a raw exception string.
+  void _showSubmitError(Object error) {
+    final l10n = AppLocalizations.of(context)!;
+    final apiError = error is DioException
+        ? ApiException.fromDioException(error)
+        : (error is ApiException ? error : null);
+
+    String message;
+    switch (apiError?.code) {
+      case 'review_window_closed':
+        message = l10n.reviewErrorWindowClosed;
+        break;
+      case 'not_participant':
+        message = l10n.reviewErrorNotParticipant;
+        break;
+      default:
+        message = apiError?.localizedMessage(context) ?? l10n.unexpectedError;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   @override
@@ -151,23 +201,25 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
             _buildStarRow('Overall rating *', _globalRating, (v) {
               setState(() => _globalRating = v);
             }),
-            const Divider(height: 32),
-            Text(
-              'Detailed criteria (optional)',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            _buildStarRow('Timeliness', _timeliness, (v) {
-              setState(() => _timeliness = v);
-            }),
-            const SizedBox(height: 8),
-            _buildStarRow('Communication', _communication, (v) {
-              setState(() => _communication = v);
-            }),
-            const SizedBox(height: 8),
-            _buildStarRow('Quality', _quality, (v) {
-              setState(() => _quality = v);
-            }),
+            if (!_isProviderSide) ...[
+              const Divider(height: 32),
+              Text(
+                'Detailed criteria (optional)',
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              _buildStarRow('Timeliness', _timeliness, (v) {
+                setState(() => _timeliness = v);
+              }),
+              const SizedBox(height: 8),
+              _buildStarRow('Communication', _communication, (v) {
+                setState(() => _communication = v);
+              }),
+              const SizedBox(height: 8),
+              _buildStarRow('Quality', _quality, (v) {
+                setState(() => _quality = v);
+              }),
+            ],
             const SizedBox(height: 20),
             TextField(
               controller: _commentController,
@@ -243,6 +295,17 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
   }
 
   Widget _buildHeader(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
+    final title = _isProviderSide
+        ? l10n.reviewTitleProviderToClient
+        : l10n.reviewTitleClientToProvider;
+    // For the provider side we replace the proposal title subtitle with a
+    // question-shaped prompt — the mission title alone is redundant when
+    // the provider is reviewing the client, not the other way around.
+    final subtitle = _isProviderSide
+        ? l10n.reviewSubtitleProviderToClient
+        : widget.proposalTitle;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -257,9 +320,9 @@ class _ReviewBottomSheetState extends ConsumerState<ReviewBottomSheet> {
           ),
         ),
         const SizedBox(height: 16),
-        Text('Leave a review', style: theme.textTheme.titleLarge),
+        Text(title, style: theme.textTheme.titleLarge),
         const SizedBox(height: 4),
-        Text(widget.proposalTitle, style: theme.textTheme.bodySmall),
+        Text(subtitle, style: theme.textTheme.bodySmall),
       ],
     );
   }

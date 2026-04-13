@@ -1772,6 +1772,36 @@ abstract class AppLocalizations {
   /// **'Leave a review'**
   String get leaveReview;
 
+  /// No description provided for @reviewTitleClientToProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave a review'**
+  String get reviewTitleClientToProvider;
+
+  /// No description provided for @reviewTitleProviderToClient.
+  ///
+  /// In en, this message translates to:
+  /// **'Review the client'**
+  String get reviewTitleProviderToClient;
+
+  /// No description provided for @reviewSubtitleProviderToClient.
+  ///
+  /// In en, this message translates to:
+  /// **'How was your experience with this client?'**
+  String get reviewSubtitleProviderToClient;
+
+  /// No description provided for @reviewErrorWindowClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'The review window has closed (14 days after mission completion).'**
+  String get reviewErrorWindowClosed;
+
+  /// No description provided for @reviewErrorNotParticipant.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the participants of this mission can leave a review.'**
+  String get reviewErrorNotParticipant;
+
   /// No description provided for @proposalNewMessage.
   ///
   /// In en, this message translates to:
