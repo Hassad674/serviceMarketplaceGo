@@ -33,7 +33,6 @@ function renderSection(
   })
   const defaults = {
     orgType: "provider_personal",
-    expertiseKeys: ["development"],
     readOnly: false,
   }
   return render(

@@ -23,13 +23,11 @@ import { useProfileSkills } from "../hooks/use-profile-skills"
 import { useUpdateProfileSkills } from "../hooks/use-update-profile-skills"
 import type { SkillResponse } from "../types"
 import { ExpertisePanel } from "./expertise-panel"
-import { PopularSkillsRow } from "./popular-skills-row"
 import { SkillSearchBar } from "./skill-search-bar"
 
 interface SkillsEditorModalProps {
   open: boolean
   onClose: () => void
-  expertiseKeys: string[]
   maxSkills: number
 }
 
@@ -45,7 +43,6 @@ type DraftSkill = {
 export function SkillsEditorModal({
   open,
   onClose,
-  expertiseKeys,
   maxSkills,
 }: SkillsEditorModalProps) {
   const t = useTranslations("profile.skills")
@@ -177,7 +174,6 @@ export function SkillsEditorModal({
           </div>
         </div>
         <ModalBrowseBody
-          expertiseKeys={expertiseKeys}
           alreadySelected={alreadySelected}
           onAdd={addSkill}
         />
@@ -285,25 +281,15 @@ function SelectedSkillsList({
 }
 
 type ModalBrowseBodyProps = {
-  expertiseKeys: string[]
   alreadySelected: Set<string>
   onAdd: (skill: SkillResponse) => void
 }
 
 function ModalBrowseBody({
-  expertiseKeys,
   alreadySelected,
   onAdd,
 }: ModalBrowseBodyProps) {
   const t = useTranslations("profile.skills")
-  // The "Popular in your domains" row is keyed to the user's declared
-  // expertise when they have any — it feels like curated guidance. When
-  // they haven't declared any yet, we fall back to development +
-  // design_ui_ux as a reasonable default so the row always has content.
-  const popularKeys = expertiseKeys.length > 0
-    ? expertiseKeys
-    : (["development", "design_ui_ux"] as string[])
-
   // The "Browse by domain" section always lists the full 15 expertise
   // domains so users can pick skills from any area, not just the
   // domains they declared on their profile. The first panel is open
@@ -312,16 +298,6 @@ function ModalBrowseBody({
 
   return (
     <div className="flex-1 overflow-y-auto px-6 py-4">
-      <section className="mb-6">
-        <h3 className="mb-3 text-sm font-semibold text-foreground">
-          {t("popularHeading")}
-        </h3>
-        <PopularSkillsRow
-          expertiseKeys={popularKeys}
-          alreadySelected={alreadySelected}
-          onAdd={onAdd}
-        />
-      </section>
       <section>
         <h3 className="mb-3 text-sm font-semibold text-foreground">
           {t("browseHeading")}

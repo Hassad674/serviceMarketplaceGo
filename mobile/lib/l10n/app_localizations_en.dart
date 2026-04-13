@@ -2319,9 +2319,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get skillsPopularHeading => 'Popular in your domains';
-
-  @override
   String get skillsBrowseHeading => 'Browse by domain';
 
   @override

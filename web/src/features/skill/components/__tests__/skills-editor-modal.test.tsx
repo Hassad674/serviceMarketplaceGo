@@ -33,9 +33,6 @@ vi.mock("../../hooks/use-update-profile-skills", () => ({
 }))
 
 // Avoid hitting the real catalog + autocomplete endpoints.
-vi.mock("../popular-skills-row", () => ({
-  PopularSkillsRow: () => <div data-testid="popular-row" />,
-}))
 vi.mock("../expertise-panel", () => ({
   ExpertisePanel: ({ expertiseKey }: { expertiseKey: string }) => (
     <div data-testid={`panel-${expertiseKey}`} />
@@ -83,7 +80,6 @@ function renderModal(
   const defaults = {
     open: true,
     onClose: vi.fn(),
-    expertiseKeys: ["development"],
     maxSkills: 25,
   }
   const merged = { ...defaults, ...props }

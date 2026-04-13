@@ -464,7 +464,6 @@
       "searching": "Recherche en cours...",
       "noResults": "Aucun résultat pour « {query} »",
       "counter": "{count} / {max}",
-      "popularHeading": "Populaires dans tes domaines",
       "browseHeading": "Parcourir par domaine",
       "noExpertise": "Ajoute au moins un domaine d'expertise ci-dessus pour parcourir les compétences par domaine.",
       "selectedEmpty": "Aucune compétence sélectionnée — utilise la barre de recherche ou parcours ci-dessous.",

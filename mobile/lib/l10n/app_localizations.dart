@@ -4382,12 +4382,6 @@ abstract class AppLocalizations {
   /// **'{count} / {max}'**
   String skillsCounter(int count, int max);
 
-  /// No description provided for @skillsPopularHeading.
-  ///
-  /// In en, this message translates to:
-  /// **'Popular in your domains'**
-  String get skillsPopularHeading;
-
   /// No description provided for @skillsBrowseHeading.
   ///
   /// In en, this message translates to:

@@ -464,7 +464,6 @@
       "searching": "Searching...",
       "noResults": "No results for \"{query}\"",
       "counter": "{count} / {max}",
-      "popularHeading": "Popular in your domains",
       "browseHeading": "Browse by domain",
       "noExpertise": "Add at least one expertise domain above to browse skills by domain.",
       "selectedEmpty": "No skills selected yet — use the search bar or browse below.",

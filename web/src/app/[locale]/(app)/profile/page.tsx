@@ -91,7 +91,6 @@ export default function ProfilePage() {
       />
       <SkillsSection
         orgType={orgType}
-        expertiseKeys={profile?.expertise_domains}
         readOnly={!canEditProfile}
       />
       <SocialLinksSection />

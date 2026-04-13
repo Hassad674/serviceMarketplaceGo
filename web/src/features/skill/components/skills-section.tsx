@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { Pencil } from "lucide-react"
 import { useTranslations } from "next-intl"
 import {
@@ -13,7 +13,6 @@ import { SkillsEditorModal } from "./skills-editor-modal"
 
 interface SkillsSectionProps {
   orgType: string | undefined
-  expertiseKeys: string[] | undefined
   readOnly?: boolean
 }
 
@@ -22,14 +21,12 @@ interface SkillsSectionProps {
 // to the modal editor.
 export function SkillsSection({
   orgType,
-  expertiseKeys,
   readOnly = false,
 }: SkillsSectionProps) {
   const t = useTranslations("profile.skills")
   const [modalOpen, setModalOpen] = useState(false)
   const { data: skills, isLoading } = useProfileSkills()
   const maxSkills = getMaxSkillsForOrgType(orgType)
-  const effectiveKeys = useMemo(() => expertiseKeys ?? [], [expertiseKeys])
 
   if (!orgTypeSupportsSkills(orgType)) return null
   if (readOnly && (skills ?? []).length === 0) return null
@@ -87,7 +84,6 @@ export function SkillsSection({
       <SkillsEditorModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        expertiseKeys={effectiveKeys}
         maxSkills={maxSkills}
       />
     </section>

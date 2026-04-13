@@ -9,7 +9,6 @@ import '../../domain/entities/skill_limits.dart';
 import '../providers/profile_skills_provider.dart';
 import '../providers/skill_repository_provider.dart';
 import 'expertise_skills_panel.dart';
-import 'popular_skills_section.dart';
 import 'skill_chip_widget.dart';
 import 'skill_search_field.dart';
 
@@ -247,14 +246,6 @@ class _SkillsEditorBottomSheetState
 
   List<Widget> _buildBody(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // The "Popular in your domains" row stays contextual to the user's
-    // declared expertise when they have any — it reads as curated
-    // guidance. If no domains are declared we fall back to a sensible
-    // default so the row always has content to surface.
-    final popularKeys = widget.expertiseKeys.isNotEmpty
-        ? widget.expertiseKeys
-        : const <String>['development', 'design_ui_ux'];
-
     // The "Browse by domain" section always lists every expertise
     // domain (mirrors the web modal) so users can pick skills from
     // any area regardless of what they personally declared.
@@ -270,12 +261,6 @@ class _SkillsEditorBottomSheetState
       _SelectedChipsWrap(
         draft: _draft,
         onRemove: _remove,
-      ),
-      const SizedBox(height: 24),
-      PopularSkillsSection(
-        expertiseKeys: popularKeys,
-        selectedKeys: _selectedKeys,
-        onPick: _addFromCatalog,
       ),
       const SizedBox(height: 24),
       Padding(
