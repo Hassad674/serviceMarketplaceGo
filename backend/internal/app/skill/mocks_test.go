@@ -87,6 +87,7 @@ func (m *mockSkillCatalog) DecrementUsageCount(ctx context.Context, skillText st
 // repository.ProfileSkillRepository following the same convention.
 type mockProfileSkill struct {
 	ListByOrgIDFn    func(ctx context.Context, orgID uuid.UUID) ([]*domainskill.ProfileSkill, error)
+	ListByOrgIDsFn   func(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error)
 	ReplaceForOrgFn  func(ctx context.Context, orgID uuid.UUID, skills []*domainskill.ProfileSkill) error
 	CountByOrgFn     func(ctx context.Context, orgID uuid.UUID) (int, error)
 	DeleteAllByOrgFn func(ctx context.Context, orgID uuid.UUID) error
@@ -97,6 +98,13 @@ func (m *mockProfileSkill) ListByOrgID(ctx context.Context, orgID uuid.UUID) ([]
 		panic("mockProfileSkill: unexpected call to ListByOrgID")
 	}
 	return m.ListByOrgIDFn(ctx, orgID)
+}
+
+func (m *mockProfileSkill) ListByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error) {
+	if m.ListByOrgIDsFn == nil {
+		panic("mockProfileSkill: unexpected call to ListByOrgIDs")
+	}
+	return m.ListByOrgIDsFn(ctx, orgIDs)
 }
 
 func (m *mockProfileSkill) ReplaceForOrg(ctx context.Context, orgID uuid.UUID, skills []*domainskill.ProfileSkill) error {
@@ -118,6 +126,33 @@ func (m *mockProfileSkill) DeleteAllByOrg(ctx context.Context, orgID uuid.UUID) 
 		panic("mockProfileSkill: unexpected call to DeleteAllByOrg")
 	}
 	return m.DeleteAllByOrgFn(ctx, orgID)
+}
+
+// withReplaceDefaults fills in the mock fields required by the
+// ReplaceProfileSkills diff-based counter update path:
+//
+//   - ListByOrgID defaults to returning an empty slice (no previous skills).
+//   - IncrementUsageCount and DecrementUsageCount default to returning nil
+//     (silently noop).
+//
+// Tests that specifically want to exercise the diff logic should set
+// these fields explicitly AFTER calling withReplaceDefaults, or skip
+// the helper entirely. Tests that do not care about counter
+// bookkeeping can use this helper to avoid unrelated panics.
+func withReplaceDefaults(profiles *mockProfileSkill, catalog *mockSkillCatalog) {
+	if profiles != nil && profiles.ListByOrgIDFn == nil {
+		profiles.ListByOrgIDFn = func(_ context.Context, _ uuid.UUID) ([]*domainskill.ProfileSkill, error) {
+			return []*domainskill.ProfileSkill{}, nil
+		}
+	}
+	if catalog != nil {
+		if catalog.IncrementUsageCountFn == nil {
+			catalog.IncrementUsageCountFn = func(_ context.Context, _ string) error { return nil }
+		}
+		if catalog.DecrementUsageCountFn == nil {
+			catalog.DecrementUsageCountFn = func(_ context.Context, _ string) error { return nil }
+		}
+	}
 }
 
 // mockOrgTypeResolver satisfies the local OrgTypeResolver interface.

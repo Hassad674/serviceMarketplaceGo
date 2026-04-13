@@ -109,6 +109,7 @@ func TestService_ReplaceProfileSkills_AgencyUpTo40Allowed(t *testing.T) {
 			return nil
 		},
 	}
+	withReplaceDefaults(profiles, catalog)
 	svc := newTestService(catalog, profiles, orgs)
 
 	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
@@ -156,6 +157,7 @@ func TestService_ReplaceProfileSkills_ProviderUpTo25Allowed(t *testing.T) {
 			return nil
 		},
 	}
+	withReplaceDefaults(profiles, catalog)
 	svc := newTestService(catalog, profiles, orgs)
 
 	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
@@ -213,6 +215,7 @@ func TestService_ReplaceProfileSkills_DuplicatesDedupedThenCounted(t *testing.T)
 			return nil
 		},
 	}
+	withReplaceDefaults(profiles, catalog)
 	svc := newTestService(catalog, profiles, orgs)
 
 	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
@@ -302,6 +305,7 @@ func TestService_ReplaceProfileSkills_ValidPayloadAssignsContiguousPositions(t *
 			return nil
 		},
 	}
+	withReplaceDefaults(profiles, catalog)
 	svc := newTestService(catalog, profiles, orgs)
 
 	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
@@ -340,6 +344,7 @@ func TestService_ReplaceProfileSkills_EmptyPayloadClears(t *testing.T) {
 			return nil
 		},
 	}
+	withReplaceDefaults(profiles, nil)
 	svc := newTestService(nil, profiles, orgs)
 
 	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
@@ -370,6 +375,7 @@ func TestService_ReplaceProfileSkills_PersistenceErrorWrapped(t *testing.T) {
 			return boom
 		},
 	}
+	withReplaceDefaults(profiles, catalog)
 	svc := newTestService(catalog, profiles, orgs)
 
 	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
@@ -380,4 +386,147 @@ func TestService_ReplaceProfileSkills_PersistenceErrorWrapped(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, boom)
 	assert.Contains(t, err.Error(), "persist")
+}
+
+// TestService_ReplaceProfileSkills_UsageCountDiff verifies the
+// diff-based usage_count update that runs after a successful
+// ReplaceForOrg: newly-added skills are incremented, removed skills
+// are decremented, and skills present in both lists are left alone.
+func TestService_ReplaceProfileSkills_UsageCountDiff(t *testing.T) {
+	orgID := uuid.New()
+	orgs := &mockOrgTypeResolver{
+		GetOrgTypeFn: func(_ context.Context, _ uuid.UUID) (string, error) {
+			return domainskill.OrgTypeAgency, nil
+		},
+	}
+
+	// Previous profile state: [react, go, typescript]
+	// New profile state:      [react, python, docker]
+	//
+	//   Untouched: react (in both)
+	//   Added:     python, docker → +1 each
+	//   Removed:   go, typescript → -1 each
+	previousSkills := []*domainskill.ProfileSkill{
+		{OrganizationID: orgID, SkillText: "react", Position: 0},
+		{OrganizationID: orgID, SkillText: "go", Position: 1},
+		{OrganizationID: orgID, SkillText: "typescript", Position: 2},
+	}
+
+	var (
+		incremented []string
+		decremented []string
+	)
+	catalog := &mockSkillCatalog{
+		FindByTextFn: func(_ context.Context, text string) (*domainskill.CatalogEntry, error) {
+			return &domainskill.CatalogEntry{SkillText: text, DisplayText: text}, nil
+		},
+		IncrementUsageCountFn: func(_ context.Context, text string) error {
+			incremented = append(incremented, text)
+			return nil
+		},
+		DecrementUsageCountFn: func(_ context.Context, text string) error {
+			decremented = append(decremented, text)
+			return nil
+		},
+	}
+	profiles := &mockProfileSkill{
+		ListByOrgIDFn: func(_ context.Context, _ uuid.UUID) ([]*domainskill.ProfileSkill, error) {
+			return previousSkills, nil
+		},
+		ReplaceForOrgFn: func(_ context.Context, _ uuid.UUID, _ []*domainskill.ProfileSkill) error {
+			return nil
+		},
+	}
+	svc := newTestService(catalog, profiles, orgs)
+
+	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
+		OrganizationID: orgID,
+		SkillTexts:     []string{"React", "Python", "Docker"},
+	})
+	require.NoError(t, err)
+
+	assert.ElementsMatch(t, []string{"python", "docker"}, incremented,
+		"expected python and docker to be incremented (added to profile)")
+	assert.ElementsMatch(t, []string{"go", "typescript"}, decremented,
+		"expected go and typescript to be decremented (removed from profile)")
+	assert.NotContains(t, incremented, "react",
+		"react was in both lists — must not be incremented")
+	assert.NotContains(t, decremented, "react",
+		"react was in both lists — must not be decremented")
+}
+
+// TestService_ReplaceProfileSkills_UsageCountErrorsSwallowed verifies
+// that individual counter update failures do NOT abort the service
+// call — the replacement has already committed, so bailing out would
+// leave the caller in an ambiguous state. Stale cache is accepted
+// as the intentional V1 trade-off.
+func TestService_ReplaceProfileSkills_UsageCountErrorsSwallowed(t *testing.T) {
+	orgs := &mockOrgTypeResolver{
+		GetOrgTypeFn: func(_ context.Context, _ uuid.UUID) (string, error) {
+			return domainskill.OrgTypeAgency, nil
+		},
+	}
+	catalog := &mockSkillCatalog{
+		FindByTextFn: func(_ context.Context, text string) (*domainskill.CatalogEntry, error) {
+			return &domainskill.CatalogEntry{SkillText: text, DisplayText: text}, nil
+		},
+		IncrementUsageCountFn: func(_ context.Context, _ string) error {
+			return errors.New("redis down")
+		},
+		DecrementUsageCountFn: func(_ context.Context, _ string) error {
+			return errors.New("redis still down")
+		},
+	}
+	profiles := &mockProfileSkill{
+		ListByOrgIDFn: func(_ context.Context, _ uuid.UUID) ([]*domainskill.ProfileSkill, error) {
+			return []*domainskill.ProfileSkill{{SkillText: "oldskill"}}, nil
+		},
+		ReplaceForOrgFn: func(_ context.Context, _ uuid.UUID, _ []*domainskill.ProfileSkill) error {
+			return nil
+		},
+	}
+	svc := newTestService(catalog, profiles, orgs)
+
+	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
+		OrganizationID: uuid.New(),
+		SkillTexts:     []string{"newskill"},
+	})
+	// Counter failures are swallowed by design — the service returns nil
+	// because the transactional replacement has already persisted.
+	require.NoError(t, err)
+}
+
+// TestService_ReplaceProfileSkills_ListPreviousErrorAbortsBeforeReplace
+// verifies that a failure to snapshot the previous skills list aborts
+// the service call BEFORE ReplaceForOrg runs, so the profile is never
+// mutated when we cannot compute the diff.
+func TestService_ReplaceProfileSkills_ListPreviousErrorAbortsBeforeReplace(t *testing.T) {
+	orgs := &mockOrgTypeResolver{
+		GetOrgTypeFn: func(_ context.Context, _ uuid.UUID) (string, error) {
+			return domainskill.OrgTypeAgency, nil
+		},
+	}
+	catalog := &mockSkillCatalog{
+		FindByTextFn: func(_ context.Context, text string) (*domainskill.CatalogEntry, error) {
+			return &domainskill.CatalogEntry{SkillText: text, DisplayText: text}, nil
+		},
+	}
+	boom := errors.New("list previous failed")
+	profiles := &mockProfileSkill{
+		ListByOrgIDFn: func(_ context.Context, _ uuid.UUID) ([]*domainskill.ProfileSkill, error) {
+			return nil, boom
+		},
+		// No ReplaceForOrgFn: a call would panic. Proves the service
+		// aborts BEFORE the replace when the list snapshot fails.
+	}
+	svc := newTestService(catalog, profiles, orgs)
+
+	err := svc.ReplaceProfileSkills(context.Background(), ReplaceProfileSkillsInput{
+		OrganizationID: uuid.New(),
+		SkillTexts:     []string{"react"},
+	})
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, boom)
+	assert.Contains(t, err.Error(), "list previous")
 }

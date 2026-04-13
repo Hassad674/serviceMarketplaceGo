@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/domain/expertise"
 	"marketplace-backend/internal/domain/profile"
+	domainskill "marketplace-backend/internal/domain/skill"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/pkg/validator"
@@ -18,21 +20,36 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
+// SkillsReader is the minimal read contract the profile handler needs
+// to decorate public profile responses with the organization's declared
+// skills. Defined locally (not in port/) so the profile handler does
+// not carry a direct dependency on the skill app package in its
+// public surface — cmd/api/main.go supplies any concrete value that
+// matches this shape. In production that value is *skillapp.Service.
+//
+// A nil SkillsReader is tolerated by every read path: the handler
+// returns an empty skill list in that case, exactly like the
+// expertise read path.
+type SkillsReader interface {
+	GetProfileSkills(ctx context.Context, orgID uuid.UUID) ([]*domainskill.ProfileSkill, error)
+	GetProfileSkillsBatch(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error)
+}
+
 // ProfileHandler wires the profile-related HTTP endpoints to the
-// profile application services. The expertise service is optional
-// at the struct level so existing unit tests that only care about
-// the main profile flow can pass nil — in production wiring
-// (cmd/api/main.go) it is always non-nil.
+// profile application services. The expertise service and skills
+// reader are optional at the struct level so existing unit tests
+// that only care about the main profile flow can pass nil — in
+// production wiring (cmd/api/main.go) they are always non-nil.
 type ProfileHandler struct {
 	profileService   *profileapp.Service
 	expertiseService *profileapp.ExpertiseService
+	skillsReader     SkillsReader
 }
 
-// NewProfileHandler constructs the handler with both services wired.
-// A nil expertiseService is tolerated: read endpoints will return an
-// empty expertise list and the write endpoint will respond with 503.
-// This keeps older unit tests valid without forcing them to stub a
-// second service they don't exercise.
+// NewProfileHandler constructs the handler with the profile service
+// and an optional expertise service. Skills are wired via
+// WithSkillsReader after construction to keep existing call sites
+// (older unit tests) intact without forcing a signature change.
 func NewProfileHandler(
 	profileService *profileapp.Service,
 	expertiseService *profileapp.ExpertiseService,
@@ -41,6 +58,17 @@ func NewProfileHandler(
 		profileService:   profileService,
 		expertiseService: expertiseService,
 	}
+}
+
+// WithSkillsReader sets the skills reader used to decorate public
+// profile responses with the org's declared skills. Returns the
+// same handler for fluent wiring: NewProfileHandler(...).WithSkillsReader(svc).
+// Passing nil is a no-op (preserves the existing reader, if any).
+func (h *ProfileHandler) WithSkillsReader(reader SkillsReader) *ProfileHandler {
+	if reader != nil {
+		h.skillsReader = reader
+	}
+	return h
 }
 
 // GetMyProfile returns the org profile of the authenticated user's
@@ -60,7 +88,8 @@ func (h *ProfileHandler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	domains := h.loadExpertise(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains))
+	skills := h.loadSkills(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains, skills))
 }
 
 // UpdateMyProfile updates the authenticated user's org profile.
@@ -101,7 +130,8 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	}
 
 	domains := h.loadExpertise(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains))
+	skills := h.loadSkills(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains, skills))
 }
 
 // SearchProfiles surfaces org-level public profiles for discovery.
@@ -143,16 +173,16 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// TODO(expertise): batch-load expertise for search results via
-	// ExpertiseRepository.ListByOrganizationIDs once the search results
-	// card UI surfaces the expertise chips. For now, the summary DTO
-	// in discovery does not carry expertise — the detail page fetches
-	// it lazily. Implementing it requires plumbing the expertise
-	// service (or repo) into SearchProfiles and passing a map[orgID][]key
-	// into NewPublicProfileSummaryList so each summary gets its own
-	// slice without an N+1 pattern. Already supported by the repo.
+	// Batch-load skills for the entire search result page in a single
+	// database roundtrip. Keeps the listing endpoint O(1) queries for
+	// skill decoration (vs N+1 that would kick in with per-card fetch).
+	// Expertise is intentionally NOT loaded here — the detail page
+	// still fetches it lazily. The TODO on the expertise side can be
+	// actioned by mirroring this exact pattern against
+	// ExpertiseRepository.ListByOrganizationIDs.
+	skillsByOrg := h.loadSkillsBatch(r, profiles)
 	res.JSON(w, http.StatusOK, map[string]any{
-		"data":        response.NewPublicProfileSummaryList(profiles),
+		"data":        response.NewPublicProfileSummaryListWithSkills(profiles, skillsByOrg),
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 	})
@@ -175,7 +205,8 @@ func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request
 	}
 
 	domains := h.loadExpertise(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains))
+	skills := h.loadSkills(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains, skills))
 }
 
 // UpdateMyExpertise replaces the authenticated organization's full
@@ -244,6 +275,52 @@ func (h *ProfileHandler) loadExpertise(r *http.Request, orgID uuid.UUID) []strin
 		return []string{}
 	}
 	return domains
+}
+
+// loadSkills fetches the org's declared skills for embedding in a
+// profile response. Same graceful-degradation semantics as
+// loadExpertise: nil reader, repository errors, or any unexpected
+// state yields an empty (non-nil) slice rather than failing the
+// outer profile read. Skills are decorative on the public profile
+// — a transient skill fetch failure must not block the rest of
+// the page from rendering.
+func (h *ProfileHandler) loadSkills(r *http.Request, orgID uuid.UUID) []*domainskill.ProfileSkill {
+	if h.skillsReader == nil {
+		return []*domainskill.ProfileSkill{}
+	}
+	skills, err := h.skillsReader.GetProfileSkills(r.Context(), orgID)
+	if err != nil {
+		return []*domainskill.ProfileSkill{}
+	}
+	return skills
+}
+
+// loadSkillsBatch fetches skills for every org in a search result
+// page in a single database roundtrip. Returns a map keyed by org
+// ID with a guaranteed empty slice for orgs that have no skills so
+// callers never need nil-checks.
+//
+// The method tolerates:
+//   - nil skillsReader → empty map
+//   - repository error → empty map
+//   - empty profiles slice → empty map
+//
+// Decorative semantics match loadSkills: a skill read failure must
+// not block the listing endpoint from returning profile rows.
+func (h *ProfileHandler) loadSkillsBatch(r *http.Request, profiles []*profile.PublicProfile) map[uuid.UUID][]*domainskill.ProfileSkill {
+	empty := map[uuid.UUID][]*domainskill.ProfileSkill{}
+	if h.skillsReader == nil || len(profiles) == 0 {
+		return empty
+	}
+	orgIDs := make([]uuid.UUID, 0, len(profiles))
+	for _, p := range profiles {
+		orgIDs = append(orgIDs, p.OrganizationID)
+	}
+	skills, err := h.skillsReader.GetProfileSkillsBatch(r.Context(), orgIDs)
+	if err != nil {
+		return empty
+	}
+	return skills
 }
 
 func handleProfileError(w http.ResponseWriter, err error) {
