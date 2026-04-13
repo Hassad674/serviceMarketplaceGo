@@ -2289,4 +2289,65 @@ class AppLocalizationsFr extends AppLocalizations {
   String skillsDisplayMoreSuffix(int count) {
     return '+$count';
   }
+
+  @override
+  String get skillsSectionTitle => 'Compétences';
+
+  @override
+  String skillsSectionSubtitle(int max) {
+    return 'Jusqu\'à $max compétences';
+  }
+
+  @override
+  String get skillsEmpty => 'Aucune compétence ajoutée';
+
+  @override
+  String get skillsEditButton => 'Modifier mes compétences';
+
+  @override
+  String get skillsModalTitle => 'Mes compétences';
+
+  @override
+  String get skillsSearchPlaceholder => 'Chercher une compétence...';
+
+  @override
+  String skillsCounter(int count, int max) {
+    return '$count / $max';
+  }
+
+  @override
+  String get skillsPopularHeading => 'Populaires dans tes domaines';
+
+  @override
+  String get skillsBrowseHeading => 'Parcourir par domaine';
+
+  @override
+  String get skillsSave => 'Enregistrer';
+
+  @override
+  String get skillsSaving => 'Enregistrement...';
+
+  @override
+  String get skillsCancel => 'Annuler';
+
+  @override
+  String skillsCreateNew(String query) {
+    return 'Créer « $query »';
+  }
+
+  @override
+  String skillsUsageCount(int count) {
+    return '$count pros';
+  }
+
+  @override
+  String skillsErrorTooMany(int max) {
+    return 'Tu as dépassé la limite de $max compétences';
+  }
+
+  @override
+  String get skillsErrorDisabled => 'Indisponible pour ce type de compte';
+
+  @override
+  String get skillsErrorGeneric => 'Une erreur est survenue';
 }

@@ -4309,6 +4309,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'+{count}'**
   String skillsDisplayMoreSuffix(int count);
+
+  /// No description provided for @skillsSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get skillsSectionTitle;
+
+  /// No description provided for @skillsSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {max} skills'**
+  String skillsSectionSubtitle(int max);
+
+  /// No description provided for @skillsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No skills added yet'**
+  String get skillsEmpty;
+
+  /// No description provided for @skillsEditButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit my skills'**
+  String get skillsEditButton;
+
+  /// No description provided for @skillsModalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My skills'**
+  String get skillsModalTitle;
+
+  /// No description provided for @skillsSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a skill...'**
+  String get skillsSearchPlaceholder;
+
+  /// No description provided for @skillsCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} / {max}'**
+  String skillsCounter(int count, int max);
+
+  /// No description provided for @skillsPopularHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular in your domains'**
+  String get skillsPopularHeading;
+
+  /// No description provided for @skillsBrowseHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse by domain'**
+  String get skillsBrowseHeading;
+
+  /// No description provided for @skillsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get skillsSave;
+
+  /// No description provided for @skillsSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get skillsSaving;
+
+  /// No description provided for @skillsCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get skillsCancel;
+
+  /// No description provided for @skillsCreateNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Create \"{query}\"'**
+  String skillsCreateNew(String query);
+
+  /// No description provided for @skillsUsageCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pros'**
+  String skillsUsageCount(int count);
+
+  /// No description provided for @skillsErrorTooMany.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve reached the limit of {max} skills'**
+  String skillsErrorTooMany(int max);
+
+  /// No description provided for @skillsErrorDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable for this account type'**
+  String get skillsErrorDisabled;
+
+  /// No description provided for @skillsErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get skillsErrorGeneric;
 }
 
 class _AppLocalizationsDelegate
