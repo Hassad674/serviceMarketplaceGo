@@ -67,3 +67,19 @@ type MilestoneRepository interface {
 	// when rendering a page of proposals with their milestone summaries.
 	ListByProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error)
 }
+
+// MilestoneTransitionRepository is the append-only audit trail for
+// milestone state changes (phase 9). Production grants the application
+// DB user INSERT and SELECT only on this table — Update and Delete
+// are forbidden so the timeline cannot be rewritten.
+type MilestoneTransitionRepository interface {
+	// Insert persists a single transition row. Errors are non-fatal
+	// at the call site (the milestone update has already committed)
+	// but should be logged for incident review.
+	Insert(ctx context.Context, t *milestone.Transition) error
+
+	// ListByMilestone returns every transition for a milestone in
+	// chronological order. Used by admin dashboards and dispute
+	// arbitration to reconstruct the milestone timeline.
+	ListByMilestone(ctx context.Context, milestoneID uuid.UUID) ([]*milestone.Transition, error)
+}

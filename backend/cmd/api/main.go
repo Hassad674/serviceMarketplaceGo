@@ -405,19 +405,27 @@ func main() {
 	// or released into the Stripe outbox (phase 7).
 	pendingEventsRepo := postgres.NewPendingEventRepository(db)
 
+	// Milestone audit trail (phase 9 — append-only). Every successful
+	// withMilestoneLock writes one row recording from→to status pair,
+	// actor id + org, and an optional reason string. The DB user
+	// holds INSERT/SELECT only on this table (Update/Delete are
+	// forbidden so the timeline cannot be rewritten).
+	milestoneTransitionsRepo := postgres.NewMilestoneTransitionRepository(db)
+
 	// Wire services that depend on notifications
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
-		Proposals:     proposalRepo,
-		Milestones:    milestoneRepo,
-		PendingEvents: pendingEventsRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		Messages:      messagingSvc,
-		Storage:       storageSvc,
-		Notifications: notifSvc,
-		Payments:      paymentProcessor(paymentInfoSvc, cfg),
-		Credits:       jobCreditRepo,
-		BonusLog:      bonusLogRepo,
+		Proposals:            proposalRepo,
+		Milestones:           milestoneRepo,
+		MilestoneTransitions: milestoneTransitionsRepo,
+		PendingEvents:        pendingEventsRepo,
+		Users:                userRepo,
+		Organizations:        organizationRepo,
+		Messages:             messagingSvc,
+		Storage:              storageSvc,
+		Notifications:        notifSvc,
+		Payments:             paymentProcessor(paymentInfoSvc, cfg),
+		Credits:              jobCreditRepo,
+		BonusLog:             bonusLogRepo,
 		// Phase 6 timer defaults (override via env in production):
 		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
 	})
