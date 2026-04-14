@@ -19,6 +19,20 @@ type RouterDeps struct {
 	RoleOverrides  *RoleOverridesHandler
 	Profile        *ProfileHandler
 	ProfilePricing *ProfilePricingHandler
+
+	// Split-profile handlers (migrations 096-104). These are the
+	// new persona-specific surface for provider_personal orgs; the
+	// legacy Profile/ProfilePricing handlers continue to serve the
+	// agency path until a follow-up refactor. Every field is
+	// optional so a worktree without the split wiring can still
+	// boot — only the corresponding routes are registered when the
+	// pointer is non-nil.
+	FreelanceProfile        *FreelanceProfileHandler
+	FreelancePricing        *FreelancePricingHandler
+	ReferrerProfile         *ReferrerProfileHandler
+	ReferrerPricing         *ReferrerPricingHandler
+	OrganizationShared      *OrganizationSharedProfileHandler
+
 	Upload         *UploadHandler
 	Health         *HealthHandler
 	Messaging      *MessagingHandler
@@ -180,6 +194,51 @@ func NewRouter(deps RouterDeps) chi.Router {
 			}
 		})
 
+		// Split-profile routes (migrations 096-104). Mounted in
+		// their own route groups so a worktree without the split
+		// handlers wired in boots cleanly — the `if` guards keep
+		// each feature fully removable.
+		if deps.FreelanceProfile != nil {
+			r.Route("/freelance-profile", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/", deps.FreelanceProfile.GetMy)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceProfile.UpdateMy)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.FreelanceProfile.UpdateMyAvailability)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.FreelanceProfile.UpdateMyExpertise)
+				if deps.FreelancePricing != nil {
+					r.Get("/pricing", deps.FreelancePricing.GetMy)
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.FreelancePricing.UpsertMy)
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing", deps.FreelancePricing.DeleteMy)
+				}
+			})
+		}
+		if deps.ReferrerProfile != nil {
+			r.Route("/referrer-profile", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/", deps.ReferrerProfile.GetMy)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerProfile.UpdateMy)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.ReferrerProfile.UpdateMyAvailability)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.ReferrerProfile.UpdateMyExpertise)
+				if deps.ReferrerPricing != nil {
+					r.Get("/pricing", deps.ReferrerPricing.GetMy)
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.ReferrerPricing.UpsertMy)
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing", deps.ReferrerPricing.DeleteMy)
+				}
+			})
+		}
+		if deps.OrganizationShared != nil {
+			r.Route("/organization", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/shared", deps.OrganizationShared.GetSharedProfile)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/location", deps.OrganizationShared.UpdateLocation)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/languages", deps.OrganizationShared.UpdateLanguages)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/photo", deps.OrganizationShared.UpdatePhoto)
+			})
+		}
+
 		// Skills catalog (mixed: public browse/autocomplete, authenticated create)
 		if deps.Skill != nil {
 			// Public catalog reads — no auth required so the discovery
@@ -221,6 +280,17 @@ func NewRouter(deps RouterDeps) chi.Router {
 		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 		if deps.ProjectHistory != nil {
 			r.Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
+		}
+
+		// Public read routes for the split-profile personas
+		// (provider_personal orgs only). Keyed by organization_id
+		// so the URL scheme stays symmetrical with the legacy
+		// /profiles/{orgId} and the frontend's existing routes.
+		if deps.FreelanceProfile != nil {
+			r.Get("/freelance-profiles/{orgID}", deps.FreelanceProfile.GetPublic)
+		}
+		if deps.ReferrerProfile != nil {
+			r.Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
 		}
 
 		// Messaging routes (authenticated, permission-gated)

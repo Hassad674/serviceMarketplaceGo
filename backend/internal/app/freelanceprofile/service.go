@@ -48,6 +48,21 @@ func (s *Service) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.
 	return view, nil
 }
 
+// GetFreelanceProfileIDByOrgID resolves the surrogate profile ID
+// from an organization ID. Used by the pricing handler, which
+// receives an org ID from the JWT context but needs a profile ID
+// to hit the freelance_pricing table. Exposed as a dedicated
+// method (rather than making the caller do a full GetByOrgID and
+// extract .Profile.ID) so the handler side stays agnostic of the
+// repository.FreelanceProfileView shape.
+func (s *Service) GetFreelanceProfileIDByOrgID(ctx context.Context, orgID uuid.UUID) (uuid.UUID, error) {
+	view, err := s.profiles.GetByOrgID(ctx, orgID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve freelance profile id: %w", err)
+	}
+	return view.Profile.ID, nil
+}
+
 // UpdateCoreInput groups the core text edits. Kept as a struct so
 // the service signature stays under the 4-parameter cap and gives
 // the handler a stable payload type.
