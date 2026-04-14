@@ -107,45 +107,12 @@ func TestCreateProposal_InvalidAmount(t *testing.T) {
 	}
 }
 
-func TestCreateProposal_BelowMinimumAmount(t *testing.T) {
-	enterpriseID := uuid.New()
-	providerID := uuid.New()
-
-	userRepo := &mockUserRepo{
-		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
-			if id == enterpriseID {
-				return makeUser(id, user.RoleEnterprise), nil
-			}
-			return makeUser(id, user.RoleProvider), nil
-		},
-	}
-	svc := newTestService(nil, userRepo, nil, nil)
-
-	tests := []struct {
-		name   string
-		amount int64
-	}{
-		{"below minimum 1000 centimes", 1000},
-		{"below minimum 2999 centimes", 2999},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := svc.CreateProposal(context.Background(), CreateProposalInput{
-				ConversationID: uuid.New(),
-				SenderID:       enterpriseID,
-				RecipientID:    providerID,
-				Title:          "Valid title",
-				Description:    "Valid desc",
-				Amount:         tt.amount,
-			})
-
-			assert.ErrorIs(t, err, domain.ErrBelowMinimumAmount)
-		})
-	}
-}
-
-func TestCreateProposal_ExactMinimumAmountSucceeds(t *testing.T) {
+// The domain no longer enforces a 30 EUR minimum (milestones phase 4).
+// Any positive amount is accepted. The "below 30 EUR" rule still exists
+// in service_fraud.go where it decides whether to award a credit bonus
+// on the first milestone funded — a fraud heuristic, not a contract
+// constraint. See CLAUDE.md decision F2/F8.
+func TestCreateProposal_AcceptsSmallAmounts(t *testing.T) {
 	enterpriseID := uuid.New()
 	providerID := uuid.New()
 
@@ -159,17 +126,30 @@ func TestCreateProposal_ExactMinimumAmountSucceeds(t *testing.T) {
 	}
 	svc := newTestService(nil, userRepo, &mockMessageSender{}, nil)
 
-	p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
-		ConversationID: uuid.New(),
-		SenderID:       enterpriseID,
-		RecipientID:    providerID,
-		Title:          "Minimum amount proposal",
-		Description:    "Exactly 30 EUR",
-		Amount:         3000,
-	})
+	tests := []struct {
+		name   string
+		amount int64
+	}{
+		{"one centime", 1},
+		{"below legacy 30 EUR floor", 2999},
+		{"legacy 30 EUR floor", 3000},
+		{"regular amount", 50000},
+	}
 
-	require.NoError(t, err)
-	assert.Equal(t, int64(3000), p.Amount)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := svc.CreateProposal(context.Background(), CreateProposalInput{
+				ConversationID: uuid.New(),
+				SenderID:       enterpriseID,
+				RecipientID:    providerID,
+				Title:          "Valid title",
+				Description:    "Valid desc",
+				Amount:         tt.amount,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.amount, p.Amount)
+		})
+	}
 }
 
 // --- CreateProposal user lookup errors ---

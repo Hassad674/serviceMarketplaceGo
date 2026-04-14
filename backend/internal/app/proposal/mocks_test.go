@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
@@ -18,16 +19,17 @@ import (
 // --- mockProposalRepo ---
 
 type mockProposalRepo struct {
-	createFn             func(ctx context.Context, p *domain.Proposal) error
-	createWithDocsFn     func(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument) error
-	getByIDFn            func(ctx context.Context, id uuid.UUID) (*domain.Proposal, error)
-	updateFn             func(ctx context.Context, p *domain.Proposal) error
-	getLatestVersionFn   func(ctx context.Context, rootProposalID uuid.UUID) (*domain.Proposal, error)
-	listByConversationFn func(ctx context.Context, conversationID uuid.UUID) ([]*domain.Proposal, error)
-	listActiveProjectsFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
-	getDocumentsFn       func(ctx context.Context, proposalID uuid.UUID) ([]*domain.ProposalDocument, error)
-	createDocumentFn     func(ctx context.Context, doc *domain.ProposalDocument) error
-	isOrgAuthorizedFn    func(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error)
+	createFn                 func(ctx context.Context, p *domain.Proposal) error
+	createWithDocsFn         func(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument) error
+	createWithDocsAndMilesFn func(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument, milestones []*milestone.Milestone) error
+	getByIDFn                func(ctx context.Context, id uuid.UUID) (*domain.Proposal, error)
+	updateFn                 func(ctx context.Context, p *domain.Proposal) error
+	getLatestVersionFn       func(ctx context.Context, rootProposalID uuid.UUID) (*domain.Proposal, error)
+	listByConversationFn     func(ctx context.Context, conversationID uuid.UUID) ([]*domain.Proposal, error)
+	listActiveProjectsFn     func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*domain.Proposal, string, error)
+	getDocumentsFn           func(ctx context.Context, proposalID uuid.UUID) ([]*domain.ProposalDocument, error)
+	createDocumentFn         func(ctx context.Context, doc *domain.ProposalDocument) error
+	isOrgAuthorizedFn        func(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error)
 }
 
 func (m *mockProposalRepo) Create(ctx context.Context, p *domain.Proposal) error {
@@ -38,6 +40,18 @@ func (m *mockProposalRepo) Create(ctx context.Context, p *domain.Proposal) error
 }
 
 func (m *mockProposalRepo) CreateWithDocuments(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument) error {
+	if m.createWithDocsFn != nil {
+		return m.createWithDocsFn(ctx, p, docs)
+	}
+	return nil
+}
+
+func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument, milestones []*milestone.Milestone) error {
+	if m.createWithDocsAndMilesFn != nil {
+		return m.createWithDocsAndMilesFn(ctx, p, docs, milestones)
+	}
+	// Default behaviour in tests: delegate to createWithDocsFn so
+	// existing tests that only stub CreateWithDocuments keep passing.
 	if m.createWithDocsFn != nil {
 		return m.createWithDocsFn(ctx, p, docs)
 	}
@@ -114,6 +128,149 @@ func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) {
 }
 
 var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
+
+// --- mockMilestoneRepo ---
+//
+// Hand-written stub of repository.MilestoneRepository following the
+// same field-functions pattern as mockProposalRepo. The in-memory
+// store backs the happy-path defaults so tests that only care about
+// "there is a current milestone" can omit all the stub functions.
+
+type mockMilestoneRepo struct {
+	createBatchFn       func(ctx context.Context, milestones []*milestone.Milestone) error
+	getByIDFn           func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
+	getByIDForUpdateFn  func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
+	listByProposalFn    func(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error)
+	getCurrentActiveFn  func(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error)
+	updateFn            func(ctx context.Context, m *milestone.Milestone) error
+	createDeliverableFn func(ctx context.Context, d *milestone.Deliverable) error
+	listDeliverablesFn  func(ctx context.Context, milestoneID uuid.UUID) ([]*milestone.Deliverable, error)
+	deleteDeliverableFn func(ctx context.Context, id uuid.UUID) error
+	listByProposalsFn   func(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error)
+
+	// store is the in-memory backing map used when no stub function
+	// is set, indexed by milestone id. Tests that want to rely on
+	// default behaviour can populate this map to seed state.
+	store map[uuid.UUID]*milestone.Milestone
+	// byProposal keeps the proposal_id -> milestones[] index in sync
+	// with store so ListByProposal and GetCurrentActive can walk it.
+	byProposal map[uuid.UUID][]*milestone.Milestone
+}
+
+func (m *mockMilestoneRepo) init() {
+	if m.store == nil {
+		m.store = make(map[uuid.UUID]*milestone.Milestone)
+	}
+	if m.byProposal == nil {
+		m.byProposal = make(map[uuid.UUID][]*milestone.Milestone)
+	}
+}
+
+func (m *mockMilestoneRepo) CreateBatch(ctx context.Context, milestones []*milestone.Milestone) error {
+	if m.createBatchFn != nil {
+		return m.createBatchFn(ctx, milestones)
+	}
+	m.init()
+	for _, mm := range milestones {
+		m.store[mm.ID] = mm
+		m.byProposal[mm.ProposalID] = append(m.byProposal[mm.ProposalID], mm)
+	}
+	return nil
+}
+
+func (m *mockMilestoneRepo) GetByID(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	m.init()
+	if mm, ok := m.store[id]; ok {
+		return mm, nil
+	}
+	return nil, milestone.ErrMilestoneNotFound
+}
+
+func (m *mockMilestoneRepo) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	if m.getByIDForUpdateFn != nil {
+		return m.getByIDForUpdateFn(ctx, id)
+	}
+	return m.GetByID(ctx, id)
+}
+
+func (m *mockMilestoneRepo) ListByProposal(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error) {
+	if m.listByProposalFn != nil {
+		return m.listByProposalFn(ctx, proposalID)
+	}
+	m.init()
+	return m.byProposal[proposalID], nil
+}
+
+func (m *mockMilestoneRepo) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error) {
+	if m.getCurrentActiveFn != nil {
+		return m.getCurrentActiveFn(ctx, proposalID)
+	}
+	m.init()
+	candidates := m.byProposal[proposalID]
+	var current *milestone.Milestone
+	for _, mm := range candidates {
+		if mm.IsTerminal() {
+			continue
+		}
+		if current == nil || mm.Sequence < current.Sequence {
+			current = mm
+		}
+	}
+	if current == nil {
+		return nil, milestone.ErrMilestoneNotFound
+	}
+	return current, nil
+}
+
+func (m *mockMilestoneRepo) Update(ctx context.Context, mm *milestone.Milestone) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, mm)
+	}
+	m.init()
+	mm.Version++
+	m.store[mm.ID] = mm
+	return nil
+}
+
+func (m *mockMilestoneRepo) CreateDeliverable(ctx context.Context, d *milestone.Deliverable) error {
+	if m.createDeliverableFn != nil {
+		return m.createDeliverableFn(ctx, d)
+	}
+	return nil
+}
+
+func (m *mockMilestoneRepo) ListDeliverables(ctx context.Context, milestoneID uuid.UUID) ([]*milestone.Deliverable, error) {
+	if m.listDeliverablesFn != nil {
+		return m.listDeliverablesFn(ctx, milestoneID)
+	}
+	return nil, nil
+}
+
+func (m *mockMilestoneRepo) DeleteDeliverable(ctx context.Context, id uuid.UUID) error {
+	if m.deleteDeliverableFn != nil {
+		return m.deleteDeliverableFn(ctx, id)
+	}
+	return nil
+}
+
+func (m *mockMilestoneRepo) ListByProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error) {
+	if m.listByProposalsFn != nil {
+		return m.listByProposalsFn(ctx, proposalIDs)
+	}
+	m.init()
+	out := make(map[uuid.UUID][]*milestone.Milestone)
+	for _, id := range proposalIDs {
+		if list, ok := m.byProposal[id]; ok {
+			out[id] = list
+		}
+	}
+	return out, nil
+}
+
+var _ repository.MilestoneRepository = (*mockMilestoneRepo)(nil)
 
 // --- mockOrgRepo (KYC-aware stub) ---
 

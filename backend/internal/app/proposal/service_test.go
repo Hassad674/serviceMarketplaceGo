@@ -59,6 +59,7 @@ func newTestServiceWithCreditsAndOrgs(
 	}
 	deps := ServiceDeps{
 		Proposals:     proposalRepo,
+		Milestones:    &mockMilestoneRepo{},
 		Users:         userRepo,
 		Organizations: orgRepo,
 		Messages:      msgSender,

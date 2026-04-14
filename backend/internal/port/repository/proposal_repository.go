@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
 )
 
@@ -12,6 +13,11 @@ import (
 type ProposalRepository interface {
 	Create(ctx context.Context, p *proposal.Proposal) error
 	CreateWithDocuments(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument) error
+	// CreateWithDocumentsAndMilestones persists the proposal, its
+	// documents, AND its milestone batch in a single transaction. The
+	// milestones slice must be non-empty (a proposal always has ≥1
+	// milestone since phase 4).
+	CreateWithDocumentsAndMilestones(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument, milestones []*milestone.Milestone) error
 	GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error)
 	Update(ctx context.Context, p *proposal.Proposal) error
 	GetLatestVersion(ctx context.Context, rootProposalID uuid.UUID) (*proposal.Proposal, error)
