@@ -99,3 +99,34 @@ func (h *ProposalAutoCloseHandler) Handle(ctx context.Context, event *pendingeve
 	}
 	return h.svc.AutoCloseProposal(ctx, payload.ProposalID)
 }
+
+// StripeTransferHandler dispatches a stripe_transfer outbox event
+// to the proposal service's ExecuteStripeTransfer path. The handler
+// returns the underlying Stripe error verbatim so the worker's
+// MarkFailed + backoff retries the call automatically — the entity
+// caps retries at MaxAttempts=5 with exponential backoff, after
+// which the row stays in failed status for admin inspection.
+//
+// Idempotency: payments.TransferToProvider uses Stripe's
+// idempotency key derived from the milestone_id, so a retried call
+// after a transient failure does not double-transfer.
+type StripeTransferHandler struct {
+	svc *proposalapp.Service
+}
+
+// NewStripeTransferHandler builds the handler from the proposal
+// service. The worker registers it under TypeStripeTransfer.
+func NewStripeTransferHandler(svc *proposalapp.Service) *StripeTransferHandler {
+	return &StripeTransferHandler{svc: svc}
+}
+
+// Handle decodes the proposal_id from the payload and calls
+// ExecuteStripeTransfer. Errors propagate to the worker which
+// applies the backoff schedule.
+func (h *StripeTransferHandler) Handle(ctx context.Context, event *pendingevent.PendingEvent) error {
+	var payload proposalapp.MilestoneEventPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		return fmt.Errorf("decode stripe_transfer payload: %w", err)
+	}
+	return h.svc.ExecuteStripeTransfer(ctx, payload.ProposalID)
+}

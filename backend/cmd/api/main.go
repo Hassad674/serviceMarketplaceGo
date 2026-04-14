@@ -434,6 +434,7 @@ func main() {
 	pendingEventsWorker.Register(pendingevent.TypeMilestoneAutoApprove, handlers.NewMilestoneAutoApproveHandler(proposalSvc))
 	pendingEventsWorker.Register(pendingevent.TypeMilestoneFundReminder, handlers.NewMilestoneFundReminderHandler(proposalSvc))
 	pendingEventsWorker.Register(pendingevent.TypeProposalAutoClose, handlers.NewProposalAutoCloseHandler(proposalSvc))
+	pendingEventsWorker.Register(pendingevent.TypeStripeTransfer, handlers.NewStripeTransferHandler(proposalSvc))
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
 	go func() {
