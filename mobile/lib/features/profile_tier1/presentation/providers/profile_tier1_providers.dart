@@ -131,13 +131,16 @@ class AvailabilityEditorNotifier extends StateNotifier<Tier1EditorState> {
 
   final ProfileTier1Repository _repository;
 
-  Future<bool> save(
-    AvailabilityStatus direct,
+  /// Patches one or both availability slots. At least one argument
+  /// must be non-null — callers decide which slot they own based on
+  /// the screen variant (direct profile vs referrer profile).
+  Future<bool> save({
+    AvailabilityStatus? direct,
     AvailabilityStatus? referrer,
-  ) async {
+  }) async {
     state = state.copyWith(isSaving: true, clearError: true);
     try {
-      await _repository.updateAvailability(direct, referrer);
+      await _repository.updateAvailability(direct: direct, referrer: referrer);
       if (!mounted) return true;
       state = state.copyWith(isSaving: false, clearError: true);
       return true;

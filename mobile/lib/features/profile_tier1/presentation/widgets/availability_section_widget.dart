@@ -6,18 +6,24 @@ import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/availability_status.dart';
 import '../providers/profile_tier1_providers.dart';
 
+/// Which availability slot this card owns. The direct variant is
+/// rendered on the freelance profile screen; the referrer variant
+/// is rendered on the referrer profile screen. Each variant saves
+/// only its own slot — the other column is untouched, on both the
+/// optimistic cache and the backend.
+enum AvailabilityVariant { direct, referrer }
+
 /// Compact availability card rendered on the profile edit screen.
 ///
-/// Shows two colored badges — one for the direct service line and,
-/// when the operator has `referrer_enabled == true`, a second one
-/// for the business-referrer line. Tapping the edit button opens
-/// a modal bottom sheet with radio groups for each track.
-///
-/// The widget is gated at the parent level: enterprise orgs never
-/// render it (no availability concept for client-side orgs).
+/// Shows a single colored badge for the slot owned by [variant] and
+/// opens a bottom-sheet radio group for editing. The referrer
+/// variant self-hides unless the operator is a `provider_personal`
+/// with `referrer_enabled == true` — that way the same widget is
+/// safe to drop into any screen that may not gate it upstream.
 class AvailabilitySectionWidget extends ConsumerStatefulWidget {
   const AvailabilitySectionWidget({
     super.key,
+    required this.variant,
     required this.initialDirect,
     required this.initialReferrer,
     required this.referrerEnabled,
@@ -25,6 +31,7 @@ class AvailabilitySectionWidget extends ConsumerStatefulWidget {
     required this.onSaved,
   });
 
+  final AvailabilityVariant variant;
   final AvailabilityStatus initialDirect;
   final AvailabilityStatus? initialReferrer;
   final bool referrerEnabled;
@@ -59,8 +66,13 @@ class _AvailabilitySectionWidgetState
     }
   }
 
+  bool get _isDirect => widget.variant == AvailabilityVariant.direct;
+
   @override
   Widget build(BuildContext context) {
+    if (!_isDirect && !widget.referrerEnabled) {
+      return const SizedBox.shrink();
+    }
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
 
@@ -90,7 +102,7 @@ class _AvailabilitySectionWidgetState
             ],
           ),
           const SizedBox(height: 12),
-          _buildBadgeRow(context, l10n),
+          _buildBadge(),
           if (widget.canEdit) ...[
             const SizedBox(height: 12),
             _EditButton(
@@ -103,23 +115,12 @@ class _AvailabilitySectionWidgetState
     );
   }
 
-  Widget _buildBadgeRow(BuildContext context, AppLocalizations l10n) {
-    final showReferrer = widget.referrerEnabled && _referrer != null;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        AvailabilityBadge(
-          status: _direct,
-          prefix: showReferrer ? l10n.tier1AvailabilityDirectLabel : null,
-        ),
-        if (showReferrer)
-          AvailabilityBadge(
-            status: _referrer!,
-            prefix: l10n.tier1AvailabilityReferrerLabel,
-          ),
-      ],
-    );
+  Widget _buildBadge() {
+    if (_isDirect) {
+      return AvailabilityBadge(status: _direct);
+    }
+    final referrer = _referrer ?? AvailabilityStatus.availableNow;
+    return AvailabilityBadge(status: referrer);
   }
 
   Future<void> _openEditor() async {
@@ -132,9 +133,9 @@ class _AvailabilitySectionWidgetState
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => _AvailabilityEditorSheet(
+        variant: widget.variant,
         initialDirect: _direct,
         initialReferrer: _referrer,
-        referrerEnabled: widget.referrerEnabled,
       ),
     );
     if (saved == true) {
@@ -257,14 +258,14 @@ class _EditButton extends StatelessWidget {
 
 class _AvailabilityEditorSheet extends ConsumerStatefulWidget {
   const _AvailabilityEditorSheet({
+    required this.variant,
     required this.initialDirect,
     required this.initialReferrer,
-    required this.referrerEnabled,
   });
 
+  final AvailabilityVariant variant;
   final AvailabilityStatus initialDirect;
   final AvailabilityStatus? initialReferrer;
-  final bool referrerEnabled;
 
   @override
   ConsumerState<_AvailabilityEditorSheet> createState() =>
@@ -274,24 +275,26 @@ class _AvailabilityEditorSheet extends ConsumerStatefulWidget {
 class _AvailabilityEditorSheetState
     extends ConsumerState<_AvailabilityEditorSheet> {
   late AvailabilityStatus _direct;
-  late AvailabilityStatus? _referrer;
+  late AvailabilityStatus _referrer;
 
   @override
   void initState() {
     super.initState();
     _direct = widget.initialDirect;
-    _referrer = widget.initialReferrer ??
-        (widget.referrerEnabled ? AvailabilityStatus.availableNow : null);
+    _referrer = widget.initialReferrer ?? AvailabilityStatus.availableNow;
   }
 
-  bool get _hasChanges =>
-      _direct != widget.initialDirect || _referrer != widget.initialReferrer;
+  bool get _isDirect => widget.variant == AvailabilityVariant.direct;
+
+  bool get _hasChanges => _isDirect
+      ? _direct != widget.initialDirect
+      : _referrer != (widget.initialReferrer ?? AvailabilityStatus.availableNow);
 
   Future<void> _save() async {
     final notifier = ref.read(availabilityEditorProvider.notifier);
     final ok = await notifier.save(
-      _direct,
-      widget.referrerEnabled ? _referrer : null,
+      direct: _isDirect ? _direct : null,
+      referrer: _isDirect ? null : _referrer,
     );
     if (!mounted) return;
     if (ok) {
@@ -312,6 +315,9 @@ class _AvailabilityEditorSheetState
     final editorState = ref.watch(availabilityEditorProvider);
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final label = _isDirect
+        ? l10n.tier1AvailabilityDirectLabel
+        : l10n.tier1AvailabilityReferrerTitle;
 
     return SafeArea(
       top: false,
@@ -334,27 +340,18 @@ class _AvailabilityEditorSheetState
                     controller: scrollController,
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                     children: [
-                      Text(
-                        l10n.tier1AvailabilityDirectLabel,
-                        style: theme.textTheme.titleSmall,
-                      ),
+                      Text(label, style: theme.textTheme.titleSmall),
                       const SizedBox(height: 8),
                       _AvailabilityRadioGroup(
-                        value: _direct,
-                        onChanged: (s) => setState(() => _direct = s),
+                        value: _isDirect ? _direct : _referrer,
+                        onChanged: (s) => setState(() {
+                          if (_isDirect) {
+                            _direct = s;
+                          } else {
+                            _referrer = s;
+                          }
+                        }),
                       ),
-                      if (widget.referrerEnabled) ...[
-                        const SizedBox(height: 24),
-                        Text(
-                          l10n.tier1AvailabilityReferrerTitle,
-                          style: theme.textTheme.titleSmall,
-                        ),
-                        const SizedBox(height: 8),
-                        _AvailabilityRadioGroup(
-                          value: _referrer ?? AvailabilityStatus.availableNow,
-                          onChanged: (s) => setState(() => _referrer = s),
-                        ),
-                      ],
                     ],
                   ),
                 ),

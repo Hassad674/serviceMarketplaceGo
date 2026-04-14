@@ -335,7 +335,7 @@ func (m *mockProfileRepo) UpdateLocation(_ context.Context, _ uuid.UUID, _ repos
 func (m *mockProfileRepo) UpdateLanguages(_ context.Context, _ uuid.UUID, _, _ []string) error {
 	return nil
 }
-func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
 	return nil
 }
 

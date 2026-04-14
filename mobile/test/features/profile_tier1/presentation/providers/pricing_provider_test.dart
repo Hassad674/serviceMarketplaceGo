@@ -50,10 +50,10 @@ class _FakeRepository implements ProfileTier1Repository {
   ) async {}
 
   @override
-  Future<void> updateAvailability(
-    AvailabilityStatus direct,
+  Future<void> updateAvailability({
+    AvailabilityStatus? direct,
     AvailabilityStatus? referrer,
-  ) async {}
+  }) async {}
 }
 
 void main() {

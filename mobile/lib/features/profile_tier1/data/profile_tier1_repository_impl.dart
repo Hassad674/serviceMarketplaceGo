@@ -49,12 +49,16 @@ class ProfileTier1RepositoryImpl implements ProfileTier1Repository {
   }
 
   @override
-  Future<void> updateAvailability(
-    AvailabilityStatus direct,
+  Future<void> updateAvailability({
+    AvailabilityStatus? direct,
     AvailabilityStatus? referrer,
-  ) async {
+  }) async {
+    assert(
+      direct != null || referrer != null,
+      'updateAvailability requires at least one non-null slot',
+    );
     final payload = <String, dynamic>{
-      'availability_status': direct.wire,
+      if (direct != null) 'availability_status': direct.wire,
       if (referrer != null) 'referrer_availability_status': referrer.wire,
     };
     await _api.put<dynamic>(

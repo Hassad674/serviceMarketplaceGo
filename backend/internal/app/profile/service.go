@@ -204,12 +204,17 @@ func (s *Service) UpdateLanguages(ctx context.Context, orgID uuid.UUID, professi
 	return nil
 }
 
-// UpdateAvailability changes both availability slots. The referrer
-// slot is optional: passing nil clears it at the database level
-// (UI hides the section); passing a non-nil value writes it after
-// validation.
-func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
-	if !direct.IsValid() {
+// UpdateAvailability patches the direct and/or referrer availability
+// slots. Each slot is independent: passing nil means "leave this
+// column untouched", passing a non-nil value validates and writes
+// it. Callers are expected to supply at least one non-nil pointer.
+// This split lets the freelance profile page and the referrer
+// profile page mutate their own column without clobbering the other.
+func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	if direct == nil && referrer == nil {
+		return profile.ErrInvalidAvailabilityStatus
+	}
+	if direct != nil && !direct.IsValid() {
 		return profile.ErrInvalidAvailabilityStatus
 	}
 	if referrer != nil && !referrer.IsValid() {

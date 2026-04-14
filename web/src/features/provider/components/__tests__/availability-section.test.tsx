@@ -43,9 +43,10 @@ function renderSection(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  const defaults = {
+  const defaults: Parameters<typeof AvailabilitySection>[0] = {
     orgType: "provider_personal",
     referrerEnabled: false,
+    variant: "direct",
     readOnly: false,
   }
   return render(
@@ -73,8 +74,8 @@ describe("AvailabilitySection", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("renders only the direct group when referrer disabled", () => {
-    renderSection({ referrerEnabled: false })
+  it("direct variant renders only the direct group", () => {
+    renderSection({ variant: "direct", referrerEnabled: true })
     expect(
       screen.getByText(messages.profile.availability.directTitle),
     ).toBeInTheDocument()
@@ -83,19 +84,31 @@ describe("AvailabilitySection", () => {
     ).not.toBeInTheDocument()
   })
 
-  it("renders both groups when referrer is enabled on a provider_personal org", () => {
-    renderSection({ referrerEnabled: true, orgType: "provider_personal" })
-    expect(
-      screen.getByText(messages.profile.availability.directTitle),
-    ).toBeInTheDocument()
+  it("referrer variant renders only the referrer group", () => {
+    renderSection({
+      variant: "referrer",
+      referrerEnabled: true,
+      orgType: "provider_personal",
+    })
     expect(
       screen.getByText(messages.profile.availability.referrerTitle),
     ).toBeInTheDocument()
+    expect(
+      screen.queryByText(messages.profile.availability.directTitle),
+    ).not.toBeInTheDocument()
   })
 
-  it("calls the mutation with the selected status on save", async () => {
+  it("referrer variant self-hides when referrer is not enabled", () => {
+    const { container } = renderSection({
+      variant: "referrer",
+      referrerEnabled: false,
+    })
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it("direct variant saves only the direct field", async () => {
     const user = userEvent.setup()
-    renderSection()
+    renderSection({ variant: "direct" })
 
     const notAvailableBtn = screen.getByRole("radio", {
       name: messages.profile.availability.statusNotAvailable,
@@ -110,7 +123,30 @@ describe("AvailabilitySection", () => {
 
     expect(mockMutate).toHaveBeenCalledWith({
       availability_status: "not_available",
-      referrer_availability_status: null,
+    })
+  })
+
+  it("referrer variant saves only the referrer field", async () => {
+    const user = userEvent.setup()
+    renderSection({
+      variant: "referrer",
+      referrerEnabled: true,
+      orgType: "provider_personal",
+    })
+
+    const notAvailableBtn = screen.getByRole("radio", {
+      name: messages.profile.availability.statusNotAvailable,
+    })
+    await user.click(notAvailableBtn)
+
+    const saveBtn = screen.getByRole("button", {
+      name: new RegExp(messages.profile.availability.save, "i"),
+    })
+    expect(saveBtn).not.toBeDisabled()
+    await user.click(saveBtn)
+
+    expect(mockMutate).toHaveBeenCalledWith({
+      referrer_availability_status: "not_available",
     })
   })
 })

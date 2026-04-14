@@ -9,10 +9,10 @@ import {
 } from "../api/profile-api"
 import { profileQueryKey } from "./use-profile"
 
-// Optimistic mutation for the direct + optional referrer availability.
-// The referrer field is only relevant for provider_personal orgs with
-// referrer_enabled=true, but we patch it unconditionally — the
-// component gates the input, not the cache shape.
+// Optimistic patch for either the direct or the referrer availability
+// slot — never both in the same call. Each page (freelance profile vs
+// referral profile) mutates only the field it owns, so fields absent
+// from the input are left untouched in both the cache and the backend.
 export function useUpdateAvailability() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
@@ -26,9 +26,14 @@ export function useUpdateAvailability() {
       if (previous) {
         queryClient.setQueryData<Profile>(key, {
           ...previous,
-          availability_status: input.availability_status,
-          referrer_availability_status:
-            input.referrer_availability_status ?? null,
+          ...(input.availability_status !== undefined
+            ? { availability_status: input.availability_status }
+            : {}),
+          ...(input.referrer_availability_status !== undefined
+            ? {
+                referrer_availability_status: input.referrer_availability_status,
+              }
+            : {}),
         })
       }
       return { previous }

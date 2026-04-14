@@ -24,7 +24,7 @@ type mockProfileRepo struct {
 	searchPublicFn        func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
 	updateLocationFn      func(ctx context.Context, orgID uuid.UUID, input repository.LocationInput) error
 	updateLanguagesFn     func(ctx context.Context, orgID uuid.UUID, pro, conv []string) error
-	updateAvailabilityFn  func(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
+	updateAvailabilityFn  func(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -77,7 +77,7 @@ func (m *mockProfileRepo) UpdateLanguages(ctx context.Context, orgID uuid.UUID, 
 	return nil
 }
 
-func (m *mockProfileRepo) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+func (m *mockProfileRepo) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
 	if m.updateAvailabilityFn != nil {
 		return m.updateAvailabilityFn(ctx, orgID, direct, referrer)
 	}
@@ -606,10 +606,10 @@ func TestProfileService_UpdateLanguages_PersistError(t *testing.T) {
 // -----------------------------------------------------------------
 
 func TestProfileService_UpdateAvailability_DirectOnly(t *testing.T) {
-	var capDirect profile.AvailabilityStatus
+	var capDirect *profile.AvailabilityStatus
 	var capRef *profile.AvailabilityStatus
 	repo := &mockProfileRepo{
-		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, d profile.AvailabilityStatus, r *profile.AvailabilityStatus) error {
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, d *profile.AvailabilityStatus, r *profile.AvailabilityStatus) error {
 			capDirect = d
 			capRef = r
 			return nil
@@ -617,16 +617,20 @@ func TestProfileService_UpdateAvailability_DirectOnly(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilitySoon, nil)
+	direct := profile.AvailabilitySoon
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), &direct, nil)
 	require.NoError(t, err)
-	assert.Equal(t, profile.AvailabilitySoon, capDirect)
+	require.NotNil(t, capDirect)
+	assert.Equal(t, profile.AvailabilitySoon, *capDirect)
 	assert.Nil(t, capRef)
 }
 
 func TestProfileService_UpdateAvailability_WithReferrerSlot(t *testing.T) {
+	var capDirect *profile.AvailabilityStatus
 	var capRef *profile.AvailabilityStatus
 	repo := &mockProfileRepo{
-		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, r *profile.AvailabilityStatus) error {
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, d *profile.AvailabilityStatus, r *profile.AvailabilityStatus) error {
+			capDirect = d
 			capRef = r
 			return nil
 		},
@@ -634,22 +638,37 @@ func TestProfileService_UpdateAvailability_WithReferrerSlot(t *testing.T) {
 	svc := NewService(repo)
 
 	refStatus := profile.AvailabilityNot
-	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityNow, &refStatus)
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), nil, &refStatus)
 	require.NoError(t, err)
+	assert.Nil(t, capDirect)
 	require.NotNil(t, capRef)
 	assert.Equal(t, profile.AvailabilityNot, *capRef)
 }
 
+func TestProfileService_UpdateAvailability_NoneProvided(t *testing.T) {
+	repo := &mockProfileRepo{
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+			t.Fatal("repository should not be called when nothing is provided")
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), nil, nil)
+	assert.ErrorIs(t, err, profile.ErrInvalidAvailabilityStatus)
+}
+
 func TestProfileService_UpdateAvailability_InvalidDirect(t *testing.T) {
 	repo := &mockProfileRepo{
-		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
 			t.Fatal("repository should not be called on validation failure")
 			return nil
 		},
 	}
 	svc := NewService(repo)
 
-	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityStatus("maybe"), nil)
+	bad := profile.AvailabilityStatus("maybe")
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), &bad, nil)
 	assert.ErrorIs(t, err, profile.ErrInvalidAvailabilityStatus)
 }
 
@@ -657,20 +676,22 @@ func TestProfileService_UpdateAvailability_InvalidReferrer(t *testing.T) {
 	repo := &mockProfileRepo{}
 	svc := NewService(repo)
 
+	direct := profile.AvailabilityNow
 	bad := profile.AvailabilityStatus("sort of")
-	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityNow, &bad)
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), &direct, &bad)
 	assert.ErrorIs(t, err, profile.ErrInvalidAvailabilityStatus)
 }
 
 func TestProfileService_UpdateAvailability_PersistError(t *testing.T) {
 	repo := &mockProfileRepo{
-		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
 			return errors.New("db gone")
 		},
 	}
 	svc := NewService(repo)
 
-	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityNow, nil)
+	direct := profile.AvailabilityNow
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), &direct, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "update availability")
 }

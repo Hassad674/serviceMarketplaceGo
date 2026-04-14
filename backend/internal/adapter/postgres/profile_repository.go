@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -202,29 +203,35 @@ func (r *ProfileRepository) UpdateLanguages(ctx context.Context, orgID uuid.UUID
 	return nil
 }
 
-// UpdateAvailability writes both availability slots. Referrer is
-// nullable: passing nil clears the column to NULL (UI hides the
-// referrer section), passing a value sets it.
-func (r *ProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+// UpdateAvailability patches one or both availability columns. Nil
+// pointers mean "leave this column alone" — the UPDATE is built
+// dynamically so omitted slots keep their current value. This
+// prevents the direct-profile save flow from clobbering the
+// referrer column (and vice versa) after they were split across
+// two independent pages.
+func (r *ProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	if direct == nil && referrer == nil {
+		return profile.ErrInvalidAvailabilityStatus
+	}
+
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	var referrerParam sql.NullString
+	sets := make([]string, 0, 2)
+	args := make([]any, 0, 3)
+	args = append(args, orgID)
+	if direct != nil {
+		args = append(args, string(*direct))
+		sets = append(sets, fmt.Sprintf("availability_status = $%d", len(args)))
+	}
 	if referrer != nil {
-		referrerParam = sql.NullString{String: string(*referrer), Valid: true}
+		args = append(args, string(*referrer))
+		sets = append(sets, fmt.Sprintf("referrer_availability_status = $%d", len(args)))
 	}
 
-	query := `
-		UPDATE profiles
-		SET availability_status          = $2,
-		    referrer_availability_status = $3
-		WHERE organization_id = $1`
+	query := "UPDATE profiles SET " + strings.Join(sets, ", ") + " WHERE organization_id = $1"
 
-	result, err := r.db.ExecContext(ctx, query,
-		orgID,
-		string(direct),
-		referrerParam,
-	)
+	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update profile availability: %w", err)
 	}

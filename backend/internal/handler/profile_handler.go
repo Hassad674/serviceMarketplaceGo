@@ -228,9 +228,12 @@ func (h *ProfileHandler) UpdateMyLanguages(w http.ResponseWriter, r *http.Reques
 	h.writeProfileFromOrg(w, r, orgID)
 }
 
-// UpdateMyAvailability writes the direct + optional referrer
-// availability statuses. Referrer may be omitted (nil pointer in
-// the request) to clear the column.
+// UpdateMyAvailability patches one or both availability slots.
+// Both fields are optional in the request body — the handler only
+// touches columns that were explicitly provided, so the freelance
+// profile page and the referrer profile page can each mutate their
+// own slot without clobbering the other. At least one of the two
+// must be present.
 func (h *ProfileHandler) UpdateMyAvailability(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -239,18 +242,26 @@ func (h *ProfileHandler) UpdateMyAvailability(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		AvailabilityStatus         string  `json:"availability_status"`
+		AvailabilityStatus         *string `json:"availability_status"`
 		ReferrerAvailabilityStatus *string `json:"referrer_availability_status"`
 	}
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-
-	direct, err := profile.ParseAvailabilityStatus(req.AvailabilityStatus)
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+	if req.AvailabilityStatus == nil && req.ReferrerAvailabilityStatus == nil {
+		res.Error(w, http.StatusBadRequest, "validation_error", "at least one availability field is required")
 		return
+	}
+
+	var direct *profile.AvailabilityStatus
+	if req.AvailabilityStatus != nil {
+		parsed, err := profile.ParseAvailabilityStatus(*req.AvailabilityStatus)
+		if err != nil {
+			res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		direct = &parsed
 	}
 	var referrer *profile.AvailabilityStatus
 	if req.ReferrerAvailabilityStatus != nil {

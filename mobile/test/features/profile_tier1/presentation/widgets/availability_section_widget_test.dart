@@ -23,11 +23,52 @@ Widget _wrap(Widget child) {
 }
 
 void main() {
-  testWidgets('renders a single badge when referrer is disabled',
+  testWidgets('direct variant renders only the direct badge',
       (tester) async {
     await tester.pumpWidget(
       _wrap(
         AvailabilitySectionWidget(
+          variant: AvailabilityVariant.direct,
+          initialDirect: AvailabilityStatus.availableNow,
+          initialReferrer: AvailabilityStatus.notAvailable,
+          referrerEnabled: true,
+          canEdit: true,
+          onSaved: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Available now'), findsOneWidget);
+    expect(find.text('Unavailable'), findsNothing);
+  });
+
+  testWidgets('referrer variant renders only the referrer badge',
+      (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        AvailabilitySectionWidget(
+          variant: AvailabilityVariant.referrer,
+          initialDirect: AvailabilityStatus.availableNow,
+          initialReferrer: AvailabilityStatus.notAvailable,
+          referrerEnabled: true,
+          canEdit: true,
+          onSaved: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unavailable'), findsOneWidget);
+    expect(find.text('Available now'), findsNothing);
+  });
+
+  testWidgets('referrer variant self-hides when referrer disabled',
+      (tester) async {
+    await tester.pumpWidget(
+      _wrap(
+        AvailabilitySectionWidget(
+          variant: AvailabilityVariant.referrer,
           initialDirect: AvailabilityStatus.availableNow,
           initialReferrer: null,
           referrerEnabled: false,
@@ -38,36 +79,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Available now'), findsOneWidget);
-    // When referrer is disabled, the referral prefix must not render.
-    expect(find.textContaining('Referrer'), findsNothing);
-  });
-
-  testWidgets('renders two prefixed badges when referrer is enabled',
-      (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        AvailabilitySectionWidget(
-          initialDirect: AvailabilityStatus.availableSoon,
-          initialReferrer: AvailabilityStatus.notAvailable,
-          referrerEnabled: true,
-          canEdit: true,
-          onSaved: () {},
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('Services'), findsOneWidget);
-    expect(find.textContaining('Referrer'), findsOneWidget);
-    expect(find.textContaining('Available soon'), findsOneWidget);
-    expect(find.textContaining('Unavailable'), findsOneWidget);
+    expect(find.textContaining('Availability'), findsNothing);
   });
 
   testWidgets('hides edit button when canEdit is false', (tester) async {
     await tester.pumpWidget(
       _wrap(
         AvailabilitySectionWidget(
+          variant: AvailabilityVariant.direct,
           initialDirect: AvailabilityStatus.availableNow,
           initialReferrer: null,
           referrerEnabled: false,

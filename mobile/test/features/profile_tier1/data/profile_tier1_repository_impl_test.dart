@@ -58,7 +58,7 @@ void main() {
   });
 
   group('updateAvailability', () {
-    test('sends only the direct status when referrer is null', () async {
+    test('direct-only payload omits the referrer field', () async {
       Map<String, dynamic>? captured;
       fakeApi.putHandlers['/api/v1/profile/availability'] = (data) async {
         captured = data as Map<String, dynamic>;
@@ -66,15 +66,14 @@ void main() {
       };
 
       await repo.updateAvailability(
-        AvailabilityStatus.availableSoon,
-        null,
+        direct: AvailabilityStatus.availableSoon,
       );
 
       expect(captured!['availability_status'], 'available_soon');
       expect(captured!.containsKey('referrer_availability_status'), isFalse);
     });
 
-    test('sends both statuses when referrer is set', () async {
+    test('referrer-only payload omits the direct field', () async {
       Map<String, dynamic>? captured;
       fakeApi.putHandlers['/api/v1/profile/availability'] = (data) async {
         captured = data as Map<String, dynamic>;
@@ -82,12 +81,11 @@ void main() {
       };
 
       await repo.updateAvailability(
-        AvailabilityStatus.availableNow,
-        AvailabilityStatus.notAvailable,
+        referrer: AvailabilityStatus.notAvailable,
       );
 
-      expect(captured!['availability_status'], 'available_now');
       expect(captured!['referrer_availability_status'], 'not_available');
+      expect(captured!.containsKey('availability_status'), isFalse);
     });
   });
 
