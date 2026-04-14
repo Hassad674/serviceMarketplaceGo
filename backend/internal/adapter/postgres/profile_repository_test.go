@@ -194,7 +194,8 @@ func TestProfileRepository_UpdateAvailability_DirectOnly(t *testing.T) {
 	repo := postgres.NewProfileRepository(db)
 	orgID := newTestOrgForProfile(t)
 
-	require.NoError(t, repo.UpdateAvailability(context.Background(), orgID, profile.AvailabilitySoon, nil))
+	direct := profile.AvailabilitySoon
+	require.NoError(t, repo.UpdateAvailability(context.Background(), orgID, &direct, nil))
 
 	p, err := repo.GetByOrganizationID(context.Background(), orgID)
 	require.NoError(t, err)
@@ -207,8 +208,9 @@ func TestProfileRepository_UpdateAvailability_WithReferrerSlot(t *testing.T) {
 	repo := postgres.NewProfileRepository(db)
 	orgID := newTestOrgForProfile(t)
 
+	direct := profile.AvailabilityNow
 	ref := profile.AvailabilityNot
-	require.NoError(t, repo.UpdateAvailability(context.Background(), orgID, profile.AvailabilityNow, &ref))
+	require.NoError(t, repo.UpdateAvailability(context.Background(), orgID, &direct, &ref))
 
 	p, err := repo.GetByOrganizationID(context.Background(), orgID)
 	require.NoError(t, err)
@@ -216,17 +218,26 @@ func TestProfileRepository_UpdateAvailability_WithReferrerSlot(t *testing.T) {
 	assert.Equal(t, profile.AvailabilityNot, *p.ReferrerAvailabilityStatus)
 }
 
-func TestProfileRepository_UpdateAvailability_ClearReferrer(t *testing.T) {
+// A nil pointer means "do not touch this column" — after setting the
+// referrer slot, a subsequent direct-only update must leave the
+// referrer value intact. This is the core guarantee the split pages
+// rely on.
+func TestProfileRepository_UpdateAvailability_NilLeavesReferrerIntact(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewProfileRepository(db)
 	orgID := newTestOrgForProfile(t)
 
 	ctx := context.Background()
+	directInitial := profile.AvailabilityNow
 	ref := profile.AvailabilitySoon
-	require.NoError(t, repo.UpdateAvailability(ctx, orgID, profile.AvailabilityNow, &ref))
-	require.NoError(t, repo.UpdateAvailability(ctx, orgID, profile.AvailabilityNow, nil))
+	require.NoError(t, repo.UpdateAvailability(ctx, orgID, &directInitial, &ref))
+
+	directNext := profile.AvailabilityNot
+	require.NoError(t, repo.UpdateAvailability(ctx, orgID, &directNext, nil))
 
 	p, err := repo.GetByOrganizationID(ctx, orgID)
 	require.NoError(t, err)
-	assert.Nil(t, p.ReferrerAvailabilityStatus)
+	assert.Equal(t, profile.AvailabilityNot, p.AvailabilityStatus)
+	require.NotNil(t, p.ReferrerAvailabilityStatus)
+	assert.Equal(t, profile.AvailabilitySoon, *p.ReferrerAvailabilityStatus)
 }

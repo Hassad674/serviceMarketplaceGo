@@ -4,11 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
-import type {
-  Pricing,
-  PricingKind,
-  PricingType,
-} from "../api/profile-api"
+import type { Pricing, PricingKind } from "../api/profile-api"
 import { formatPricing, type PricingLocale } from "../lib/pricing-format"
 import { usePricing } from "../hooks/use-pricing"
 import { useUpsertPricing } from "../hooks/use-upsert-pricing"
@@ -17,20 +13,22 @@ import { PricingKindForm } from "./pricing-kind-form"
 
 interface PricingEditorModalProps {
   open: boolean
-  onClose: () => void
+  variant: PricingKind
   orgType: string | undefined
   referrerEnabled: boolean | undefined
+  onClose: () => void
 }
 
-// Modal that owns the edit session. Renders up to two forms side-by-
-// side (direct + referral) depending on the org's capabilities. Each
-// form is a self-contained sub-editor; this parent just orchestrates
-// opening/closing + the preview row at the top.
+// Modal that owns the edit session for ONE pricing kind. The split
+// across two pages (/profile for direct, /referral for referral)
+// means a single modal instance never mixes both — the form inside
+// is static and the preview strip tracks only one live row.
 export function PricingEditorModal({
   open,
-  onClose,
+  variant,
   orgType,
   referrerEnabled,
+  onClose,
 }: PricingEditorModalProps) {
   const t = useTranslations("profile.pricing")
   const locale = useLocale() === "fr" ? "fr" : "en"
@@ -38,17 +36,11 @@ export function PricingEditorModal({
   const upsert = useUpsertPricing()
   const remove = useDeletePricing()
 
-  // Local previews let the user see "how it will render on the card"
-  // even for rows that are still unsaved. The previews reset when the
-  // modal closes — done during render via a tracked key instead of in
-  // an effect to satisfy react-hooks/set-state-in-effect.
-  const [previews, setPreviews] = useState<Record<PricingKind, Pricing | null>>(
-    { direct: null, referral: null },
-  )
+  const [preview, setPreviewState] = useState<Pricing | null>(null)
   const [prevOpen, setPrevOpen] = useState(open)
   if (prevOpen !== open) {
     setPrevOpen(open)
-    if (!open) setPreviews({ direct: null, referral: null })
+    if (!open) setPreviewState(null)
   }
 
   useEffect(() => {
@@ -60,20 +52,12 @@ export function PricingEditorModal({
     return () => document.removeEventListener("keydown", handleKey)
   }, [open, onClose])
 
-  const canEditDirect = useMemo(
-    () => orgType === "provider_personal" || orgType === "agency",
-    [orgType],
-  )
-  const canEditReferral = useMemo(
-    () => orgType === "provider_personal" && referrerEnabled === true,
-    [orgType, referrerEnabled],
-  )
-
-  const persistedByKind = useMemo(() => {
-    const map: Partial<Record<PricingKind, Pricing>> = {}
-    for (const row of persisted ?? []) map[row.kind] = row
-    return map
-  }, [persisted])
+  const persistedRow = useMemo(() => {
+    for (const row of persisted ?? []) {
+      if (row.kind === variant) return row
+    }
+    return null
+  }, [persisted, variant])
 
   const handleSave = useCallback(
     async (row: Pricing) => {
@@ -82,23 +66,23 @@ export function PricingEditorModal({
     [upsert],
   )
 
-  const handleDelete = useCallback(
-    async (kind: PricingKind) => {
-      await remove.mutateAsync(kind)
-      setPreviews((current) => ({ ...current, [kind]: null }))
-    },
-    [remove],
-  )
+  const handleDelete = useCallback(async () => {
+    await remove.mutateAsync(variant)
+    setPreviewState(null)
+  }, [remove, variant])
 
-  const setPreview = useCallback(
-    (kind: PricingKind, row: Pricing | null) => {
-      setPreviews((current) => ({ ...current, [kind]: row }))
-    },
-    [],
-  )
+  // Stable callback with empty deps — PricingKindForm uses this in
+  // an effect. With a single form per modal we can use plain
+  // setState which already has a stable reference.
+  const setPreview = useCallback((row: Pricing | null) => {
+    setPreviewState(row)
+  }, [])
 
   if (!open) return null
   if (typeof window === "undefined") return null
+
+  const title =
+    variant === "direct" ? t("directModalTitle") : t("referralModalTitle")
 
   const body = (
     <div
@@ -108,16 +92,16 @@ export function PricingEditorModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="pricing-editor-title"
+        aria-labelledby={`pricing-editor-title-${variant}`}
         onClick={(event) => event.stopPropagation()}
         className="flex h-[90vh] max-h-[720px] w-full max-w-2xl flex-col rounded-xl border border-border bg-background shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2
-            id="pricing-editor-title"
+            id={`pricing-editor-title-${variant}`}
             className="text-lg font-semibold text-foreground"
           >
-            {t("modalTitle")}
+            {title}
           </h2>
           <button
             type="button"
@@ -130,31 +114,21 @@ export function PricingEditorModal({
         </div>
 
         <PreviewStrip
-          previews={previews}
-          persistedDirect={persistedByKind.direct ?? null}
-          persistedReferral={persistedByKind.referral ?? null}
+          preview={preview ?? persistedRow}
+          variant={variant}
           locale={locale}
         />
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-          {canEditDirect ? (
-            <PricingKindForm
-              kind="direct"
-              persisted={persistedByKind.direct ?? null}
-              onSave={handleSave}
-              onDelete={handleDelete}
-              onPreviewChange={(row) => setPreview("direct", row)}
-            />
-          ) : null}
-          {canEditReferral ? (
-            <PricingKindForm
-              kind="referral"
-              persisted={persistedByKind.referral ?? null}
-              onSave={handleSave}
-              onDelete={handleDelete}
-              onPreviewChange={(row) => setPreview("referral", row)}
-            />
-          ) : null}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <PricingKindForm
+            kind={variant}
+            orgType={orgType}
+            referrerEnabled={referrerEnabled}
+            persisted={persistedRow}
+            onSave={handleSave}
+            onDelete={handleDelete}
+            onPreviewChange={setPreview}
+          />
         </div>
 
         <div className="border-t border-border px-6 py-4 flex justify-end">
@@ -173,64 +147,33 @@ export function PricingEditorModal({
   return createPortal(body, document.body)
 }
 
-// ----- Preview strip ----------------------------------------------------
-
-const EMPTY_PREVIEWS: Record<PricingKind, Pricing | null> = {
-  direct: null,
-  referral: null,
-}
-
 interface PreviewStripProps {
-  previews: Record<PricingKind, Pricing | null>
-  persistedDirect: Pricing | null
-  persistedReferral: Pricing | null
+  preview: Pricing | null
+  variant: PricingKind
   locale: PricingLocale
 }
 
-function PreviewStrip({
-  previews = EMPTY_PREVIEWS,
-  persistedDirect,
-  persistedReferral,
-  locale,
-}: PreviewStripProps) {
+function PreviewStrip({ preview, variant, locale }: PreviewStripProps) {
   const t = useTranslations("profile.pricing")
-  const direct = previews.direct ?? persistedDirect
-  const referral = previews.referral ?? persistedReferral
-
-  if (!direct && !referral) return null
-
+  if (!preview) return null
   return (
     <div className="border-b border-border px-6 py-3 bg-muted/30">
       <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
         {t("previewHeading")}
       </p>
-      <div className="flex flex-wrap gap-3">
-        {direct ? (
-          <PreviewChip
-            label={t("kindDirect")}
-            value={formatPricing(direct, locale)}
-          />
-        ) : null}
-        {referral ? (
-          <PreviewChip
-            label={t("kindReferral")}
-            value={formatPricing(referral, locale)}
-          />
+      <div className="inline-flex flex-col rounded-lg border border-border bg-background px-3 py-1.5 text-sm">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          {variant === "direct" ? t("kindDirect") : t("kindReferral")}
+        </span>
+        <span className="font-semibold text-foreground">
+          {formatPricing(preview, locale)}
+        </span>
+        {preview.negotiable ? (
+          <span className="mt-1 inline-flex w-fit items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+            {t("negotiableBadge")}
+          </span>
         ) : null}
       </div>
     </div>
   )
 }
-
-function PreviewChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="inline-flex flex-col rounded-lg border border-border bg-background px-3 py-1.5 text-sm">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <span className="font-semibold text-foreground">{value}</span>
-    </div>
-  )
-}
-
-export type { PricingType }

@@ -21,10 +21,15 @@ abstract class ProfileTier1Repository {
     List<String> conversational,
   );
 
-  Future<void> updateAvailability(
-    AvailabilityStatus direct,
+  /// Patches one or both availability slots. A null argument means
+  /// "do not touch this slot" — the backend only updates fields
+  /// explicitly present in the payload, so the direct profile and
+  /// referrer profile screens can mutate their own slot without
+  /// clobbering the other. At least one argument must be non-null.
+  Future<void> updateAvailability({
+    AvailabilityStatus? direct,
     AvailabilityStatus? referrer,
-  );
+  });
 
   /// Fetches the 0..2 pricing rows declared by the current
   /// organization. Returns an empty list when nothing is declared.

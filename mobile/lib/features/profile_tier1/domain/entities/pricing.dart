@@ -23,6 +23,7 @@ class Pricing {
     required this.maxAmount,
     required this.currency,
     required this.note,
+    required this.negotiable,
   });
 
   final PricingKind kind;
@@ -42,9 +43,14 @@ class Pricing {
   /// at the column level.
   final String currency;
 
-  /// Optional note — e.g. "Négociable selon scope". Max length is
-  /// enforced server-side; the editor caps at 160 characters.
+  /// Optional free-form note — e.g. "Payment in three phases". Max
+  /// length enforced server-side; the editor caps at 160 characters.
   final String note;
+
+  /// Explicit yes/no flag surfaced as a "negotiable" badge on the
+  /// public profile card. Distinct from [note] which describes
+  /// constraints; this flag declares commercial flexibility.
+  final bool negotiable;
 
   factory Pricing.fromJson(Map<String, dynamic> json) {
     final kind = PricingKind.fromWireOrNull(json['kind'] as String?);
@@ -61,6 +67,7 @@ class Pricing {
       maxAmount: _readInt(json['max_amount']),
       currency: (json['currency'] as String?) ?? 'EUR',
       note: (json['note'] as String?) ?? '',
+      negotiable: (json['negotiable'] as bool?) ?? false,
     );
   }
 
@@ -74,6 +81,7 @@ class Pricing {
         'max_amount': maxAmount,
         'currency': currency,
         'note': note,
+        'negotiable': negotiable,
       };
 
   Pricing copyWith({
@@ -84,6 +92,7 @@ class Pricing {
     bool clearMax = false,
     String? currency,
     String? note,
+    bool? negotiable,
   }) {
     return Pricing(
       kind: kind ?? this.kind,
@@ -92,6 +101,7 @@ class Pricing {
       maxAmount: clearMax ? null : (maxAmount ?? this.maxAmount),
       currency: currency ?? this.currency,
       note: note ?? this.note,
+      negotiable: negotiable ?? this.negotiable,
     );
   }
 
@@ -104,12 +114,20 @@ class Pricing {
         other.minAmount == minAmount &&
         other.maxAmount == maxAmount &&
         other.currency == currency &&
-        other.note == note;
+        other.note == note &&
+        other.negotiable == negotiable;
   }
 
   @override
-  int get hashCode =>
-      Object.hash(kind, type, minAmount, maxAmount, currency, note);
+  int get hashCode => Object.hash(
+        kind,
+        type,
+        minAmount,
+        maxAmount,
+        currency,
+        note,
+        negotiable,
+      );
 
   static int? _readInt(dynamic raw) {
     if (raw == null) return null;

@@ -5,7 +5,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/languages.dart';
 import '../providers/profile_tier1_providers.dart';
-import '../utils/flag_emoji.dart';
 import '../utils/language_catalog.dart';
 import 'language_picker_bottom_sheet.dart';
 
@@ -189,7 +188,6 @@ class _LanguageChipRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -198,25 +196,27 @@ class _LanguageChipRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: appColors?.muted,
-              borderRadius: BorderRadius.circular(12),
+              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: appColors?.border ?? theme.dividerColor,
+                color: theme.colorScheme.primary.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  countryCodeToFlagEmoji(
-                    LanguageCatalog.findByCode(code)?.flagCountryCode ?? '',
-                  ),
-                  style: const TextStyle(fontSize: 14),
+                Icon(
+                  Icons.public,
+                  size: 14,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.75),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   LanguageCatalog.labelFor(code, locale: locale),
-                  style: theme.textTheme.labelMedium,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),

@@ -31,6 +31,8 @@ export type PricingType =
 //  - basis points (1/100 of a percent) when currency === "pct", used
 //    exclusively by commission_pct.
 // `max_amount` is null when the row does not have an upper bound.
+// `negotiable` is the explicit yes/no flag surfaced as a "négociable"
+// badge on the profile card — distinct from the free-text `note`.
 export type Pricing = {
   kind: PricingKind
   type: PricingType
@@ -38,6 +40,7 @@ export type Pricing = {
   max_amount: number | null
   currency: string
   note: string
+  negotiable: boolean
 }
 
 // Profile is the organization's shared marketplace identity: the same
@@ -98,6 +101,12 @@ export async function updateProfile(
 export type UpdateLocationInput = {
   city: string
   country_code: string
+  // Canonical coordinates from the client-side city autocomplete
+  // (BAN + Photon). When both are non-null the backend trusts them
+  // verbatim and skips the server-side Nominatim geocoder — saving
+  // a 2s bounded round-trip on every save.
+  latitude: number | null
+  longitude: number | null
   work_mode: WorkMode[]
   travel_radius_km: number | null
 }
@@ -126,8 +135,8 @@ export async function updateLanguages(
 }
 
 export type UpdateAvailabilityInput = {
-  availability_status: AvailabilityStatus
-  referrer_availability_status?: AvailabilityStatus | null
+  availability_status?: AvailabilityStatus
+  referrer_availability_status?: AvailabilityStatus
 }
 
 export async function updateAvailability(

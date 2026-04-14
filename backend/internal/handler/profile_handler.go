@@ -170,9 +170,13 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 // ---------------------------------------------------------------
 
 // UpdateMyLocation writes the org's location block (city, country
-// code, work modes, travel radius). Coordinates are derived
-// server-side via the geocoder — the request body never carries
-// lat/lng to prevent clients from forging coordinates.
+// code, work modes, travel radius). The web / mobile clients use a
+// client-side city autocomplete (BAN + Photon) that ships canonical
+// latitude / longitude alongside the selected municipality — when
+// both are present the server trusts them verbatim and skips
+// geocoding. When lat/lng are absent the server falls back to the
+// optional Nominatim-backed geocoder so admin tooling and
+// programmatic writes keep working without an embedded geocoder.
 func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -183,6 +187,8 @@ func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request
 	var req struct {
 		City           string   `json:"city"`
 		CountryCode    string   `json:"country_code"`
+		Latitude       *float64 `json:"latitude"`
+		Longitude      *float64 `json:"longitude"`
 		WorkMode       []string `json:"work_mode"`
 		TravelRadiusKm *int     `json:"travel_radius_km"`
 	}
@@ -194,6 +200,8 @@ func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request
 	err := h.profileService.UpdateLocation(r.Context(), orgID, profileapp.UpdateLocationInput{
 		City:           req.City,
 		CountryCode:    req.CountryCode,
+		Latitude:       req.Latitude,
+		Longitude:      req.Longitude,
 		WorkMode:       req.WorkMode,
 		TravelRadiusKm: req.TravelRadiusKm,
 	})
@@ -228,9 +236,12 @@ func (h *ProfileHandler) UpdateMyLanguages(w http.ResponseWriter, r *http.Reques
 	h.writeProfileFromOrg(w, r, orgID)
 }
 
-// UpdateMyAvailability writes the direct + optional referrer
-// availability statuses. Referrer may be omitted (nil pointer in
-// the request) to clear the column.
+// UpdateMyAvailability patches one or both availability slots.
+// Both fields are optional in the request body — the handler only
+// touches columns that were explicitly provided, so the freelance
+// profile page and the referrer profile page can each mutate their
+// own slot without clobbering the other. At least one of the two
+// must be present.
 func (h *ProfileHandler) UpdateMyAvailability(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -239,18 +250,26 @@ func (h *ProfileHandler) UpdateMyAvailability(w http.ResponseWriter, r *http.Req
 	}
 
 	var req struct {
-		AvailabilityStatus         string  `json:"availability_status"`
+		AvailabilityStatus         *string `json:"availability_status"`
 		ReferrerAvailabilityStatus *string `json:"referrer_availability_status"`
 	}
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-
-	direct, err := profile.ParseAvailabilityStatus(req.AvailabilityStatus)
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+	if req.AvailabilityStatus == nil && req.ReferrerAvailabilityStatus == nil {
+		res.Error(w, http.StatusBadRequest, "validation_error", "at least one availability field is required")
 		return
+	}
+
+	var direct *profile.AvailabilityStatus
+	if req.AvailabilityStatus != nil {
+		parsed, err := profile.ParseAvailabilityStatus(*req.AvailabilityStatus)
+		if err != nil {
+			res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		direct = &parsed
 	}
 	var referrer *profile.AvailabilityStatus
 	if req.ReferrerAvailabilityStatus != nil {

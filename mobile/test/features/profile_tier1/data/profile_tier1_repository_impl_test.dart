@@ -17,7 +17,7 @@ void main() {
   });
 
   group('updateLocation', () {
-    test('sends the location update payload', () async {
+    test('sends the location update payload without coords when missing', () async {
       Map<String, dynamic>? captured;
       fakeApi.putHandlers['/api/v1/profile/location'] = (data) async {
         captured = data as Map<String, dynamic>;
@@ -40,6 +40,27 @@ void main() {
       expect(captured!['travel_radius_km'], 30);
       expect(captured!.containsKey('latitude'), isFalse);
     });
+
+    test('includes lat/lng when the client autocomplete provided them', () async {
+      Map<String, dynamic>? captured;
+      fakeApi.putHandlers['/api/v1/profile/location'] = (data) async {
+        captured = data as Map<String, dynamic>;
+        return FakeApiClient.ok({'data': {'ok': true}});
+      };
+
+      const loc = Location(
+        city: 'Lyon',
+        countryCode: 'FR',
+        latitude: 45.758,
+        longitude: 4.835,
+        workMode: ['remote'],
+        travelRadiusKm: null,
+      );
+      await repo.updateLocation(loc);
+
+      expect(captured!['latitude'], 45.758);
+      expect(captured!['longitude'], 4.835);
+    });
   });
 
   group('updateLanguages', () {
@@ -58,7 +79,7 @@ void main() {
   });
 
   group('updateAvailability', () {
-    test('sends only the direct status when referrer is null', () async {
+    test('direct-only payload omits the referrer field', () async {
       Map<String, dynamic>? captured;
       fakeApi.putHandlers['/api/v1/profile/availability'] = (data) async {
         captured = data as Map<String, dynamic>;
@@ -66,15 +87,14 @@ void main() {
       };
 
       await repo.updateAvailability(
-        AvailabilityStatus.availableSoon,
-        null,
+        direct: AvailabilityStatus.availableSoon,
       );
 
       expect(captured!['availability_status'], 'available_soon');
       expect(captured!.containsKey('referrer_availability_status'), isFalse);
     });
 
-    test('sends both statuses when referrer is set', () async {
+    test('referrer-only payload omits the direct field', () async {
       Map<String, dynamic>? captured;
       fakeApi.putHandlers['/api/v1/profile/availability'] = (data) async {
         captured = data as Map<String, dynamic>;
@@ -82,12 +102,11 @@ void main() {
       };
 
       await repo.updateAvailability(
-        AvailabilityStatus.availableNow,
-        AvailabilityStatus.notAvailable,
+        referrer: AvailabilityStatus.notAvailable,
       );
 
-      expect(captured!['availability_status'], 'available_now');
       expect(captured!['referrer_availability_status'], 'not_available');
+      expect(captured!.containsKey('availability_status'), isFalse);
     });
   });
 
@@ -162,6 +181,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final echoed = await repo.upsertPricing(draft);
 
@@ -183,6 +203,7 @@ void main() {
         maxAmount: null,
         currency: 'USD',
         note: '',
+        negotiable: false,
       );
       final result = await repo.upsertPricing(draft);
       expect(result, draft);

@@ -64,12 +64,19 @@ class Location {
   }
 
   /// The shape the backend expects on `PUT /api/v1/profile/location`.
-  /// Coordinates are intentionally NOT sent — they are geocoded
-  /// server-side from `city + country_code`.
+  ///
+  /// Canonical latitude / longitude come from the client-side city
+  /// autocomplete (BAN + Photon). When both are non-null the
+  /// backend trusts them verbatim and skips the server-side
+  /// Nominatim geocoder — saving a bounded 2s round-trip on every
+  /// save. When both are null we omit the fields so legacy /
+  /// programmatic callers still trigger the server-side fallback.
   Map<String, dynamic> toUpdatePayload() {
     return <String, dynamic>{
       'city': city,
       'country_code': countryCode,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
       'work_mode': workMode,
       'travel_radius_km': travelRadiusKm,
     };
@@ -83,12 +90,13 @@ class Location {
     List<String>? workMode,
     int? travelRadiusKm,
     bool clearTravelRadius = false,
+    bool clearCoordinates = false,
   }) {
     return Location(
       city: city ?? this.city,
       countryCode: countryCode ?? this.countryCode,
-      latitude: latitude ?? this.latitude,
-      longitude: longitude ?? this.longitude,
+      latitude: clearCoordinates ? null : (latitude ?? this.latitude),
+      longitude: clearCoordinates ? null : (longitude ?? this.longitude),
       workMode: workMode ?? this.workMode,
       travelRadiusKm: clearTravelRadius
           ? null

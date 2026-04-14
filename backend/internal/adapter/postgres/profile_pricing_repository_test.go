@@ -49,19 +49,29 @@ func TestProfilePricingRepository_UpsertFindRoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	// direct daily
-	p1, err := domainpricing.NewPricing(
-		orgID, domainpricing.KindDirect, domainpricing.TypeDaily,
-		60000, nil, "EUR", "TJM standard",
-	)
+	p1, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeDaily,
+		MinAmount:      60000,
+		Currency:       "EUR",
+		Note:           "TJM standard",
+		Negotiable:     true,
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, p1))
 
 	// referral commission_pct
 	max := int64(1500)
-	p2, err := domainpricing.NewPricing(
-		orgID, domainpricing.KindReferral, domainpricing.TypeCommissionPct,
-		500, &max, "pct", "apporteur",
-	)
+	p2, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindReferral,
+		Type:           domainpricing.TypeCommissionPct,
+		MinAmount:      500,
+		MaxAmount:      &max,
+		Currency:       "pct",
+		Note:           "apporteur",
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, p2))
 
@@ -75,6 +85,7 @@ func TestProfilePricingRepository_UpsertFindRoundTrip(t *testing.T) {
 	assert.Nil(t, got[0].MaxAmount)
 	assert.Equal(t, "EUR", got[0].Currency)
 	assert.Equal(t, "TJM standard", got[0].Note)
+	assert.True(t, got[0].Negotiable)
 	assert.False(t, got[0].CreatedAt.IsZero())
 
 	assert.Equal(t, domainpricing.KindReferral, got[1].Kind)
@@ -83,6 +94,7 @@ func TestProfilePricingRepository_UpsertFindRoundTrip(t *testing.T) {
 	require.NotNil(t, got[1].MaxAmount)
 	assert.Equal(t, int64(1500), *got[1].MaxAmount)
 	assert.Equal(t, "pct", got[1].Currency)
+	assert.False(t, got[1].Negotiable)
 }
 
 func TestProfilePricingRepository_UpsertUpdatesExistingRow(t *testing.T) {
@@ -92,12 +104,27 @@ func TestProfilePricingRepository_UpsertUpdatesExistingRow(t *testing.T) {
 
 	ctx := context.Background()
 
-	p1, err := domainpricing.NewPricing(orgID, domainpricing.KindDirect, domainpricing.TypeDaily, 50000, nil, "EUR", "v1")
+	p1, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeDaily,
+		MinAmount:      50000,
+		Currency:       "EUR",
+		Note:           "v1",
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, p1))
 
 	// Second upsert of the same kind replaces the previous row.
-	p2, err := domainpricing.NewPricing(orgID, domainpricing.KindDirect, domainpricing.TypeHourly, 8000, nil, "USD", "v2")
+	p2, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeHourly,
+		MinAmount:      8000,
+		Currency:       "USD",
+		Note:           "v2",
+		Negotiable:     true,
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, p2))
 
@@ -108,6 +135,7 @@ func TestProfilePricingRepository_UpsertUpdatesExistingRow(t *testing.T) {
 	assert.Equal(t, int64(8000), got[0].MinAmount)
 	assert.Equal(t, "USD", got[0].Currency)
 	assert.Equal(t, "v2", got[0].Note)
+	assert.True(t, got[0].Negotiable)
 }
 
 func TestProfilePricingRepository_FindByOrgID_EmptyReturnsEmptySlice(t *testing.T) {
@@ -128,7 +156,13 @@ func TestProfilePricingRepository_ListByOrgIDs_SeedsEveryInput(t *testing.T) {
 	orgB := newTestOrgForPricing(t)
 
 	// Only orgA has pricing.
-	p, err := domainpricing.NewPricing(orgA, domainpricing.KindDirect, domainpricing.TypeDaily, 50000, nil, "EUR", "")
+	p, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgA,
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeDaily,
+		MinAmount:      50000,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(context.Background(), p))
 
@@ -156,7 +190,13 @@ func TestProfilePricingRepository_DeleteByKind_Idempotent(t *testing.T) {
 	orgID := newTestOrgForPricing(t)
 
 	ctx := context.Background()
-	p, err := domainpricing.NewPricing(orgID, domainpricing.KindDirect, domainpricing.TypeDaily, 50000, nil, "EUR", "")
+	p, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeDaily,
+		MinAmount:      50000,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, p))
 
@@ -178,12 +218,25 @@ func TestProfilePricingRepository_DeleteByKind_PreservesOtherKind(t *testing.T) 
 
 	ctx := context.Background()
 
-	pDirect, err := domainpricing.NewPricing(orgID, domainpricing.KindDirect, domainpricing.TypeDaily, 50000, nil, "EUR", "")
+	pDirect, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeDaily,
+		MinAmount:      50000,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, pDirect))
 
 	max := int64(1000)
-	pReferral, err := domainpricing.NewPricing(orgID, domainpricing.KindReferral, domainpricing.TypeCommissionPct, 500, &max, "pct", "")
+	pReferral, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           domainpricing.KindReferral,
+		Type:           domainpricing.TypeCommissionPct,
+		MinAmount:      500,
+		MaxAmount:      &max,
+		Currency:       "pct",
+	})
 	require.NoError(t, err)
 	require.NoError(t, repo.Upsert(ctx, pReferral))
 

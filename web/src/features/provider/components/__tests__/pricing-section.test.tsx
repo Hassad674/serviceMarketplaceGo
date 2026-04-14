@@ -27,6 +27,7 @@ function renderSection(
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   const defaults = {
+    variant: "direct" as const,
     orgType: "provider_personal",
     referrerEnabled: false,
     readOnly: false,
@@ -51,6 +52,35 @@ describe("PricingSection", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
+  it("renders nothing for referral variant when referrer_enabled is false", () => {
+    const { container } = renderSection({
+      variant: "referral",
+      orgType: "provider_personal",
+      referrerEnabled: false,
+    })
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it("renders the referral variant for providers with referrer_enabled", () => {
+    renderSection({
+      variant: "referral",
+      orgType: "provider_personal",
+      referrerEnabled: true,
+    })
+    expect(
+      screen.getByText(messages.profile.pricing.referralSectionTitle),
+    ).toBeInTheDocument()
+  })
+
+  it("renders nothing for referral variant when org is agency", () => {
+    const { container } = renderSection({
+      variant: "referral",
+      orgType: "agency",
+      referrerEnabled: true,
+    })
+    expect(container).toBeEmptyDOMElement()
+  })
+
   it("renders the empty state when no pricing rows are persisted", () => {
     renderSection()
     expect(
@@ -63,7 +93,7 @@ describe("PricingSection", () => {
     ).toBeInTheDocument()
   })
 
-  it("renders the direct pricing row as a chip", () => {
+  it("renders the direct pricing row as a chip with negotiable badge", () => {
     mockRows = [
       {
         kind: "direct",
@@ -72,13 +102,14 @@ describe("PricingSection", () => {
         max_amount: null,
         currency: "EUR",
         note: "",
+        negotiable: true,
       },
     ]
     renderSection()
-    expect(
-      screen.getByText(messages.profile.pricing.kindDirect),
-    ).toBeInTheDocument()
     expect(screen.getByText(/500/)).toBeInTheDocument()
+    expect(
+      screen.getByText(messages.profile.pricing.negotiableBadge),
+    ).toBeInTheDocument()
   })
 
   it("opens the modal when the edit button is clicked", async () => {
@@ -101,6 +132,7 @@ describe("PricingSection", () => {
         max_amount: null,
         currency: "EUR",
         note: "",
+        negotiable: false,
       },
     ]
     renderSection({ readOnly: true })
@@ -109,5 +141,30 @@ describe("PricingSection", () => {
         name: new RegExp(messages.profile.pricing.editButton, "i"),
       }),
     ).not.toBeInTheDocument()
+  })
+
+  it("only displays the row matching the variant", () => {
+    mockRows = [
+      {
+        kind: "direct",
+        type: "daily",
+        min_amount: 50000,
+        max_amount: null,
+        currency: "EUR",
+        note: "",
+        negotiable: false,
+      },
+      {
+        kind: "referral",
+        type: "commission_pct",
+        min_amount: 500,
+        max_amount: 1500,
+        currency: "pct",
+        note: "",
+        negotiable: false,
+      },
+    ]
+    renderSection({ variant: "direct" })
+    expect(screen.getByText(/500/)).toBeInTheDocument()
   })
 })

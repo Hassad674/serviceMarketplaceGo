@@ -21,6 +21,13 @@ var (
 	// daily. HTTP 400.
 	ErrTypeNotAllowedForKind = errors.New("pricing type not allowed for this pricing kind")
 
+	// ErrTypeNotAllowedForOrg — the pricing type is legal for the
+	// kind but forbidden for this organization role. The canonical
+	// example is agency + direct + daily: daily is valid under the
+	// direct kind but agencies may only declare project_from /
+	// project_range because they sell outcomes, not TJM. HTTP 400.
+	ErrTypeNotAllowedForOrg = errors.New("pricing type not allowed for this organization role")
+
 	// ErrKindNotAllowedForRole — the org-role / referrer-enabled
 	// combination does not permit a pricing row of the given kind.
 	// For instance, an agency trying to declare a referral kind, or

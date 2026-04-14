@@ -26,15 +26,19 @@ const STATUS_STYLES: Record<AvailabilityStatus, string> = {
     "bg-rose-50 text-rose-700 border-rose-200 hover:border-rose-400 aria-checked:bg-rose-500 aria-checked:text-white aria-checked:border-rose-500 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30",
 }
 
+type AvailabilityVariant = "direct" | "referrer"
+
 interface AvailabilitySectionProps {
   orgType: string | undefined
   referrerEnabled: boolean | undefined
+  variant: AvailabilityVariant
   readOnly?: boolean
 }
 
 export function AvailabilitySection({
   orgType,
   referrerEnabled,
+  variant,
   readOnly = false,
 }: AvailabilitySectionProps) {
   const t = useTranslations("profile.availability")
@@ -44,42 +48,44 @@ export function AvailabilitySection({
   const persistedDirect = profile?.availability_status ?? "available_now"
   const persistedReferrer = profile?.referrer_availability_status ?? null
 
-  // Track the persisted values through a React "derive state during
-  // render" pattern instead of an effect. When the profile changes, we
-  // snapshot the new values and reset the local draft without
-  // triggering a cascading render — this mirrors React's official
-  // recommendation for syncing local state to props.
+  // Sync local draft to persisted values through the "derive state
+  // during render" pattern instead of an effect — this mirrors
+  // React's official recommendation for resetting state on prop
+  // changes without an extra render pass.
   const [prevDirect, setPrevDirect] = useState(persistedDirect)
   const [prevReferrer, setPrevReferrer] = useState(persistedReferrer)
   const [direct, setDirect] = useState<AvailabilityStatus>(persistedDirect)
-  const [referrer, setReferrer] = useState<AvailabilityStatus | null>(
-    persistedReferrer,
+  const [referrer, setReferrer] = useState<AvailabilityStatus>(
+    persistedReferrer ?? "available_now",
   )
   if (prevDirect !== persistedDirect || prevReferrer !== persistedReferrer) {
     setPrevDirect(persistedDirect)
     setPrevReferrer(persistedReferrer)
     setDirect(persistedDirect)
-    setReferrer(persistedReferrer)
+    setReferrer(persistedReferrer ?? "available_now")
   }
 
-  const showReferrerGroup = useMemo(
+  const referrerAllowed = useMemo(
     () => orgType === "provider_personal" && referrerEnabled === true,
     [orgType, referrerEnabled],
   )
 
-  const isDirty =
-    direct !== persistedDirect ||
-    (showReferrerGroup && referrer !== persistedReferrer)
+  const isDirect = variant === "direct"
+  const isDirty = isDirect
+    ? direct !== persistedDirect
+    : referrer !== (persistedReferrer ?? "available_now")
 
   const handleSave = useCallback(() => {
-    mutation.mutate({
-      availability_status: direct,
-      referrer_availability_status: showReferrerGroup ? referrer : null,
-    })
-  }, [direct, referrer, showReferrerGroup, mutation])
+    mutation.mutate(
+      isDirect
+        ? { availability_status: direct }
+        : { referrer_availability_status: referrer },
+    )
+  }, [isDirect, direct, referrer, mutation])
 
   if (orgType === "enterprise") return null
   if (readOnly) return null
+  if (!isDirect && !referrerAllowed) return null
 
   return (
     <section
@@ -97,18 +103,19 @@ export function AvailabilitySection({
       </header>
 
       <div className="space-y-4">
-        <StatusRadioGroup
-          label={t("directTitle")}
-          value={direct}
-          onChange={setDirect}
-        />
-        {showReferrerGroup ? (
+        {isDirect ? (
+          <StatusRadioGroup
+            label={t("directTitle")}
+            value={direct}
+            onChange={setDirect}
+          />
+        ) : (
           <StatusRadioGroup
             label={t("referrerTitle")}
-            value={referrer ?? "available_now"}
-            onChange={(next) => setReferrer(next)}
+            value={referrer}
+            onChange={setReferrer}
           />
-        ) : null}
+        )}
         <SaveRow
           isDirty={isDirty}
           isSaving={mutation.isPending}

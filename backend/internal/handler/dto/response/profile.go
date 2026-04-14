@@ -44,16 +44,17 @@ func NewProfileSkillSummaryList(skills []*domainskill.ProfileSkill) []ProfileSki
 }
 
 // PricingSummary is the public DTO for one pricing row. Mirrors
-// the profile_pricing table (migration 083) one-to-one: six
-// user-facing fields plus the composite key (kind). Timestamps are
-// internal bookkeeping and not exposed in the response.
+// the profile_pricing table (migration 083) one-to-one: user-facing
+// fields plus the composite key (kind). Timestamps are internal
+// bookkeeping and not exposed in the response.
 type PricingSummary struct {
-	Kind      string `json:"kind"`
-	Type      string `json:"type"`
-	MinAmount int64  `json:"min_amount"`
-	MaxAmount *int64 `json:"max_amount"`
-	Currency  string `json:"currency"`
-	Note      string `json:"note"`
+	Kind       string `json:"kind"`
+	Type       string `json:"type"`
+	MinAmount  int64  `json:"min_amount"`
+	MaxAmount  *int64 `json:"max_amount"`
+	Currency   string `json:"currency"`
+	Note       string `json:"note"`
+	Negotiable bool   `json:"negotiable"`
 }
 
 // NewPricingSummary converts a domain Pricing to its DTO. Nil
@@ -61,12 +62,13 @@ type PricingSummary struct {
 // pre-filter nils from their slices.
 func NewPricingSummary(p *domainpricing.Pricing) PricingSummary {
 	return PricingSummary{
-		Kind:      string(p.Kind),
-		Type:      string(p.Type),
-		MinAmount: p.MinAmount,
-		MaxAmount: p.MaxAmount,
-		Currency:  p.Currency,
-		Note:      p.Note,
+		Kind:       string(p.Kind),
+		Type:       string(p.Type),
+		MinAmount:  p.MinAmount,
+		MaxAmount:  p.MaxAmount,
+		Currency:   p.Currency,
+		Note:       p.Note,
+		Negotiable: p.Negotiable,
 	}
 }
 

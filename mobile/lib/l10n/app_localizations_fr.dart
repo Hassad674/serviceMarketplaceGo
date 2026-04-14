@@ -2432,6 +2432,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1LocationEditButton => 'Mettre à jour ma localisation';
 
   @override
+  String get tier1LocationCityAutocompletePlaceholder => 'Rechercher une ville…';
+
+  @override
+  String get tier1LocationCityAutocompleteHint =>
+      'Tape au moins 2 caractères pour rechercher';
+
+  @override
+  String get tier1LocationCityAutocompleteEmpty => 'Aucune ville trouvée';
+
+  @override
   String get tier1LanguagesSectionTitle => 'Langues';
 
   @override
@@ -2456,7 +2466,27 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get tier1LanguagesNoResults => 'Aucune langue trouvée';
+
+  @override
+  String get tier1LanguagesClearAll => 'Tout effacer';
+
+  @override
+  String get tier1LanguagesProfessionalHelp =>
+      'Je peux travailler et livrer en ces langues.';
+
+  @override
+  String get tier1LanguagesConversationalHelp =>
+      'Je peux discuter mais pas livrer en ces langues.';
+
+  @override
   String get tier1PricingSectionTitle => 'Tarifs';
+
+  @override
+  String get tier1PricingDirectSectionTitle => 'Tarifs';
+
+  @override
+  String get tier1PricingReferralSectionTitle => 'Tarifs d\'apport d\'affaires';
 
   @override
   String get tier1PricingEmpty => 'Aucun tarif déclaré';
@@ -2468,10 +2498,28 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1PricingModalTitle => 'Mes tarifs';
 
   @override
+  String get tier1PricingDirectModalTitle => 'Modifier mes tarifs';
+
+  @override
+  String get tier1PricingReferralModalTitle => 'Modifier mes tarifs d\'apport';
+
+  @override
   String get tier1PricingKindDirect => 'Prestation directe';
 
   @override
   String get tier1PricingKindReferral => 'Apport d\'affaires';
+
+  @override
+  String get tier1PricingNegotiableLabel => 'Est-ce négociable ?';
+
+  @override
+  String get tier1PricingNegotiableYes => 'Oui';
+
+  @override
+  String get tier1PricingNegotiableNo => 'Non';
+
+  @override
+  String get tier1PricingNegotiableBadge => 'négociable';
 
   @override
   String get tier1PricingTypeDaily => 'TJM (taux journalier)';

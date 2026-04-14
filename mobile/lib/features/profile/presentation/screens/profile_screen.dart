@@ -19,6 +19,7 @@ import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
 import '../../../profile_tier1/domain/entities/availability_status.dart';
 import '../../../profile_tier1/domain/entities/languages.dart';
 import '../../../profile_tier1/domain/entities/location.dart';
+import '../../../profile_tier1/domain/entities/pricing_kind.dart';
 import '../../../profile_tier1/presentation/widgets/availability_section_widget.dart';
 import '../../../profile_tier1/presentation/widgets/languages_section_widget.dart';
 import '../../../profile_tier1/presentation/widgets/location_section_widget.dart';
@@ -145,6 +146,7 @@ class ProfileScreen extends ConsumerWidget {
               // enterprise orgs, who do not declare offers in these blocks.
               if (tier1Enabled) ...[
                 AvailabilitySectionWidget(
+                  variant: AvailabilityVariant.direct,
                   initialDirect: currentAvailability,
                   initialReferrer: currentReferrerAvailability,
                   referrerEnabled: referrerEnabled,
@@ -153,14 +155,26 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 PricingSectionWidget(
+                  variant: PricingKind.direct,
                   orgType: orgType,
                   referrerEnabled: referrerEnabled,
                   canEdit: canEditProfile,
                   onSaved: () => ref.invalidate(profileProvider),
                 ),
+                if (referrerEnabled) ...[
+                  const SizedBox(height: 16),
+                  PricingSectionWidget(
+                    variant: PricingKind.referral,
+                    orgType: orgType,
+                    referrerEnabled: referrerEnabled,
+                    canEdit: canEditProfile,
+                    onSaved: () => ref.invalidate(profileProvider),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 LocationSectionWidget(
                   initialLocation: currentLocation,
+                  orgType: orgType,
                   canEdit: canEditProfile,
                   onSaved: () => ref.invalidate(profileProvider),
                 ),

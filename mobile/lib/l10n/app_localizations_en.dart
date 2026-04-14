@@ -2416,6 +2416,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tier1LocationEditButton => 'Update location';
 
   @override
+  String get tier1LocationCityAutocompletePlaceholder => 'Search for a city…';
+
+  @override
+  String get tier1LocationCityAutocompleteHint =>
+      'Type at least 2 characters to search';
+
+  @override
+  String get tier1LocationCityAutocompleteEmpty => 'No city found';
+
+  @override
   String get tier1LanguagesSectionTitle => 'Languages';
 
   @override
@@ -2439,7 +2449,27 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get tier1LanguagesNoResults => 'No language found';
+
+  @override
+  String get tier1LanguagesClearAll => 'Clear all';
+
+  @override
+  String get tier1LanguagesProfessionalHelp =>
+      'I can deliver work in these languages.';
+
+  @override
+  String get tier1LanguagesConversationalHelp =>
+      'I can chat but not deliver in these languages.';
+
+  @override
   String get tier1PricingSectionTitle => 'Pricing';
+
+  @override
+  String get tier1PricingDirectSectionTitle => 'Pricing';
+
+  @override
+  String get tier1PricingReferralSectionTitle => 'Referral pricing';
 
   @override
   String get tier1PricingEmpty => 'No pricing declared yet';
@@ -2451,10 +2481,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tier1PricingModalTitle => 'My pricing';
 
   @override
+  String get tier1PricingDirectModalTitle => 'Edit pricing';
+
+  @override
+  String get tier1PricingReferralModalTitle => 'Edit referral pricing';
+
+  @override
   String get tier1PricingKindDirect => 'Direct service';
 
   @override
   String get tier1PricingKindReferral => 'Business referrer';
+
+  @override
+  String get tier1PricingNegotiableLabel => 'Is it negotiable?';
+
+  @override
+  String get tier1PricingNegotiableYes => 'Yes';
+
+  @override
+  String get tier1PricingNegotiableNo => 'No';
+
+  @override
+  String get tier1PricingNegotiableBadge => 'negotiable';
 
   @override
   String get tier1PricingTypeDaily => 'Daily rate';

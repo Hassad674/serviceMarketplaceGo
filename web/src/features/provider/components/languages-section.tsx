@@ -1,15 +1,16 @@
 "use client"
 
-import { useCallback, useState } from "react"
-import { Check, Loader2, X } from "lucide-react"
+import { useCallback, useId, useState } from "react"
+import { Check, Globe, Loader2, X } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
-import {
-  LANGUAGE_OPTIONS,
-  getLanguageLabel,
-} from "../lib/language-options"
+import { getLanguageLabel } from "../lib/language-options"
 import { useProfile } from "../hooks/use-profile"
 import { useUpdateLanguages } from "../hooks/use-update-languages"
+import {
+  LanguageCombobox,
+  type LanguageComboboxLocale,
+} from "./language-combobox"
 
 type LanguageBucket = "professional" | "conversational"
 
@@ -23,13 +24,167 @@ export function LanguagesSection({
   readOnly = false,
 }: LanguagesSectionProps) {
   const t = useTranslations("profile.languages")
-  const locale = useLocale() === "fr" ? "fr" : "en"
+  const locale: LanguageComboboxLocale = useLocale() === "fr" ? "fr" : "en"
+  const draft = useLanguagesDraft(locale)
+
+  if (orgType === "enterprise") return null
+  if (readOnly) return null
+
+  return (
+    <section
+      aria-labelledby="languages-section-title"
+      className="bg-card border border-border rounded-xl p-6 shadow-sm"
+    >
+      <header className="mb-5 flex flex-col gap-1">
+        <h2
+          id="languages-section-title"
+          className="text-lg font-semibold text-foreground"
+        >
+          {t("sectionTitle")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t("sectionSubtitle")}</p>
+      </header>
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        role="status"
+      >
+        {draft.liveMessage}
+      </div>
+      <div className="flex flex-col gap-6">
+        <LanguageBucketEditor bucket="professional" locale={locale} draft={draft} />
+        <div className="h-px bg-border" role="presentation" />
+        <LanguageBucketEditor
+          bucket="conversational"
+          locale={locale}
+          draft={draft}
+        />
+        <LanguagesSaveButton
+          isDirty={draft.isDirty}
+          isPending={draft.isSaving}
+          onSave={draft.save}
+        />
+      </div>
+    </section>
+  )
+}
+
+interface LanguagesSaveButtonProps {
+  isDirty: boolean
+  isPending: boolean
+  onSave: () => void
+}
+
+function LanguagesSaveButton({
+  isDirty,
+  isPending,
+  onSave,
+}: LanguagesSaveButtonProps) {
+  const t = useTranslations("profile.languages")
+  return (
+    <div className="flex items-center justify-end">
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={!isDirty || isPending}
+        className={cn(
+          "bg-primary text-primary-foreground rounded-md h-9 px-4 text-sm font-medium",
+          "hover:opacity-90 transition-opacity duration-150",
+          "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          "inline-flex items-center gap-2",
+        )}
+      >
+        {isPending ? (
+          <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+        ) : (
+          <Check className="w-4 h-4" aria-hidden="true" />
+        )}
+        {isPending ? t("saving") : t("save")}
+      </button>
+    </div>
+  )
+}
+
+interface LanguagesDraft {
+  professional: string[]
+  conversational: string[]
+  liveMessage: string
+  isDirty: boolean
+  isSaving: boolean
+  add: (bucket: LanguageBucket, code: string) => void
+  remove: (bucket: LanguageBucket, code: string) => void
+  clear: (bucket: LanguageBucket) => void
+  save: () => void
+}
+
+function useLanguagesDraft(locale: LanguageComboboxLocale): LanguagesDraft {
+  const t = useTranslations("profile.languages")
   const { data: profile } = useProfile()
   const mutation = useUpdateLanguages()
+  const buckets = useBucketsSyncedWithProfile(profile)
+  const [liveMessage, setLiveMessage] = useState("")
 
-  // Depend on a stable string key, not the array reference, and reset
-  // the local draft during render instead of in an effect (the React
-  // recommended pattern for syncing state to props).
+  const announce = useCallback(
+    (code: string, added: boolean) => {
+      const key = added ? "addedAnnounce" : "removedAnnounce"
+      setLiveMessage(t(key, { language: getLanguageLabel(code, locale) }))
+    },
+    [locale, t],
+  )
+  const add = useCallback(
+    (bucket: LanguageBucket, code: string) => {
+      if (!code) return
+      buckets.moveTo(bucket, code)
+      announce(code, true)
+    },
+    [announce, buckets],
+  )
+  const remove = useCallback(
+    (bucket: LanguageBucket, code: string) => {
+      buckets.removeFrom(bucket, code)
+      announce(code, false)
+    },
+    [announce, buckets],
+  )
+  const save = useCallback(
+    () =>
+      mutation.mutate({
+        professional: buckets.professional,
+        conversational: buckets.conversational,
+      }),
+    [buckets.conversational, buckets.professional, mutation],
+  )
+
+  return {
+    professional: buckets.professional,
+    conversational: buckets.conversational,
+    liveMessage,
+    isDirty: buckets.isDirty,
+    isSaving: mutation.isPending,
+    add,
+    remove,
+    clear: buckets.clear,
+    save,
+  }
+}
+
+interface BucketsState {
+  professional: string[]
+  conversational: string[]
+  isDirty: boolean
+  moveTo: (bucket: LanguageBucket, code: string) => void
+  removeFrom: (bucket: LanguageBucket, code: string) => void
+  clear: (bucket: LanguageBucket) => void
+}
+
+function useBucketsSyncedWithProfile(
+  profile: { languages_professional?: string[]; languages_conversational?: string[] } | undefined,
+): BucketsState {
+  // Sync draft to server state during render, not in an effect: the
+  // React-recommended pattern. We key on a stable joined string so
+  // we only reset when the persisted arrays change by value.
   const persistedProKey = (profile?.languages_professional ?? []).join(",")
   const persistedConvKey = (profile?.languages_conversational ?? []).join(",")
 
@@ -41,6 +196,7 @@ export function LanguagesSection({
   const [conversational, setConversational] = useState<string[]>(
     profile?.languages_conversational ?? [],
   )
+
   if (prevProKey !== persistedProKey || prevConvKey !== persistedConvKey) {
     setPrevProKey(persistedProKey)
     setPrevConvKey(persistedConvKey)
@@ -52,163 +208,153 @@ export function LanguagesSection({
     professional.join(",") !== persistedProKey ||
     conversational.join(",") !== persistedConvKey
 
-  const addLanguage = useCallback(
-    (bucket: LanguageBucket, code: string) => {
-      if (!code) return
-      if (bucket === "professional") {
-        setProfessional((current) =>
-          current.includes(code) ? current : [...current, code],
-        )
-        setConversational((current) => current.filter((c) => c !== code))
-      } else {
-        setConversational((current) =>
-          current.includes(code) ? current : [...current, code],
-        )
-        setProfessional((current) => current.filter((c) => c !== code))
-      }
-    },
-    [],
-  )
+  const moveTo = useCallback((bucket: LanguageBucket, code: string) => {
+    const addTo = bucket === "professional" ? setProfessional : setConversational
+    const removeFrom =
+      bucket === "professional" ? setConversational : setProfessional
+    addTo((current) => (current.includes(code) ? current : [...current, code]))
+    removeFrom((current) => current.filter((c) => c !== code))
+  }, [])
 
-  const removeLanguage = useCallback(
-    (bucket: LanguageBucket, code: string) => {
-      if (bucket === "professional") {
-        setProfessional((current) => current.filter((c) => c !== code))
-      } else {
-        setConversational((current) => current.filter((c) => c !== code))
-      }
-    },
-    [],
-  )
+  const removeFrom = useCallback((bucket: LanguageBucket, code: string) => {
+    const target = bucket === "professional" ? setProfessional : setConversational
+    target((current) => current.filter((c) => c !== code))
+  }, [])
 
-  const handleSave = useCallback(() => {
-    mutation.mutate({ professional, conversational })
-  }, [conversational, mutation, professional])
+  const clear = useCallback((bucket: LanguageBucket) => {
+    if (bucket === "professional") setProfessional([])
+    else setConversational([])
+  }, [])
 
-  if (orgType === "enterprise") return null
-  if (readOnly) return null
-
-  return (
-    <section
-      aria-labelledby="languages-section-title"
-      className="bg-card border border-border rounded-xl p-6 shadow-sm"
-    >
-      <header className="mb-4 flex flex-col gap-1">
-        <h2
-          id="languages-section-title"
-          className="text-lg font-semibold text-foreground"
-        >
-          {t("sectionTitle")}
-        </h2>
-        <p className="text-sm text-muted-foreground">{t("sectionSubtitle")}</p>
-      </header>
-
-      <div className="space-y-5">
-        <LanguageBucketEditor
-          bucket="professional"
-          selected={professional}
-          locale={locale}
-          onAdd={(code) => addLanguage("professional", code)}
-          onRemove={(code) => removeLanguage("professional", code)}
-        />
-        <LanguageBucketEditor
-          bucket="conversational"
-          selected={conversational}
-          locale={locale}
-          onAdd={(code) => addLanguage("conversational", code)}
-          onRemove={(code) => removeLanguage("conversational", code)}
-        />
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!isDirty || mutation.isPending}
-            className="bg-primary text-primary-foreground rounded-md h-9 px-4 text-sm font-medium hover:opacity-90 transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-          >
-            {mutation.isPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Check className="w-4 h-4" aria-hidden="true" />
-            )}
-            {mutation.isPending ? t("saving") : t("save")}
-          </button>
-        </div>
-      </div>
-    </section>
-  )
+  return { professional, conversational, isDirty, moveTo, removeFrom, clear }
 }
 
 interface LanguageBucketEditorProps {
   bucket: LanguageBucket
-  selected: string[]
-  locale: "fr" | "en"
-  onAdd: (code: string) => void
-  onRemove: (code: string) => void
+  locale: LanguageComboboxLocale
+  draft: LanguagesDraft
 }
 
 function LanguageBucketEditor({
   bucket,
-  selected,
   locale,
-  onAdd,
-  onRemove,
+  draft,
 }: LanguageBucketEditorProps) {
   const t = useTranslations("profile.languages")
-  const labelKey = bucket === "professional" ? "professionalLabel" : "conversationalLabel"
-  const helpKey = bucket === "professional" ? "professionalHelp" : "conversationalHelp"
-  const inputId = `languages-${bucket}-select`
-
-  const unselected = LANGUAGE_OPTIONS.filter(
-    (option) => !selected.includes(option.code),
-  )
+  const labelKey =
+    bucket === "professional" ? "professionalLabel" : "conversationalLabel"
+  const helpKey =
+    bucket === "professional" ? "professionalHelp" : "conversationalHelp"
+  const selected =
+    bucket === "professional" ? draft.professional : draft.conversational
+  const labelId = useId()
 
   return (
-    <div>
-      <label htmlFor={inputId} className="block text-sm font-medium text-foreground">
-        {t(labelKey)}
-      </label>
-      <p className="text-xs text-muted-foreground mb-2">{t(helpKey)}</p>
-
-      {selected.length > 0 ? (
-        <ul className="mb-2 flex flex-wrap gap-1.5" aria-label={t(labelKey)}>
-          {selected.map((code) => (
-            <li key={code}>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2.5 py-1 text-xs font-medium border border-primary/20">
-                {getLanguageLabel(code, locale)}
-                <button
-                  type="button"
-                  onClick={() => onRemove(code)}
-                  aria-label={`${t("remove")} ${getLanguageLabel(code, locale)}`}
-                  className={cn(
-                    "inline-flex h-4 w-4 items-center justify-center rounded-full",
-                    "hover:bg-primary/20 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
-                  )}
-                >
-                  <X className="h-3 w-3" aria-hidden="true" />
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      <select
-        id={inputId}
-        value=""
-        onChange={(e) => {
-          onAdd(e.target.value)
-          e.currentTarget.value = ""
-        }}
-        className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
-      >
-        <option value="">{t("searchPlaceholder")}</option>
-        {unselected.map((option) => (
-          <option key={option.code} value={option.code}>
-            {getLanguageLabel(option.code, locale)}
-          </option>
-        ))}
-      </select>
+    <div aria-labelledby={labelId} role="group">
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <h3
+          id={labelId}
+          className="text-[15px] font-semibold text-foreground tracking-tight"
+        >
+          {t(labelKey)}
+        </h3>
+        {selected.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => draft.clear(bucket)}
+            className={cn(
+              "text-xs font-medium text-muted-foreground rounded",
+              "hover:text-foreground transition-colors duration-150",
+              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+            )}
+          >
+            {t("clearAll")}
+          </button>
+        ) : null}
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">{t(helpKey)}</p>
+      <SelectedLanguageList bucket={bucket} locale={locale} draft={draft} />
+      <LanguageCombobox
+        selectedCodes={selected}
+        locale={locale}
+        onPick={(code) => draft.add(bucket, code)}
+      />
+      <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+        {t("selectionCount", { count: selected.length })}
+      </p>
     </div>
   )
 }
 
+interface SelectedLanguageListProps {
+  bucket: LanguageBucket
+  locale: LanguageComboboxLocale
+  draft: LanguagesDraft
+}
+
+function SelectedLanguageList({
+  bucket,
+  locale,
+  draft,
+}: SelectedLanguageListProps) {
+  const t = useTranslations("profile.languages")
+  const codes =
+    bucket === "professional" ? draft.professional : draft.conversational
+  if (codes.length === 0) return null
+  const listLabelKey =
+    bucket === "professional" ? "professionalLabel" : "conversationalLabel"
+
+  return (
+    <ul className="mb-3 flex flex-wrap gap-2" aria-label={t(listLabelKey)}>
+      {codes.map((code) => (
+        <li key={code}>
+          <LanguageChip
+            code={code}
+            locale={locale}
+            onRemove={() => draft.remove(bucket, code)}
+          />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+interface LanguageChipProps {
+  code: string
+  locale: LanguageComboboxLocale
+  onRemove: () => void
+}
+
+function LanguageChip({ code, locale, onRemove }: LanguageChipProps) {
+  const t = useTranslations("profile.languages")
+  const label = getLanguageLabel(code, locale)
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full",
+        "bg-primary/10 text-primary border border-primary/20",
+        "px-2.5 py-1 text-xs font-medium",
+        "transition-colors duration-150",
+      )}
+    >
+      <Globe
+        className="h-3.5 w-3.5 opacity-70"
+        aria-hidden="true"
+        strokeWidth={2.25}
+      />
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`${t("remove")} ${label}`}
+        className={cn(
+          "inline-flex h-4 w-4 items-center justify-center rounded-full",
+          "hover:bg-primary/20 transition-colors duration-150",
+          "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+        )}
+      >
+        <X className="h-3 w-3" aria-hidden="true" />
+      </button>
+    </span>
+  )
+}

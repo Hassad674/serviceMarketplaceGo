@@ -36,7 +36,7 @@ func NewProfilePricingRepository(db *sql.DB) *ProfilePricingRepository {
 // column means updating this string and the paired Scan call.
 const pricingSelectColumns = `
 	organization_id, pricing_kind, pricing_type,
-	min_amount, max_amount, currency, pricing_note,
+	min_amount, max_amount, currency, pricing_note, negotiable,
 	created_at, updated_at`
 
 // Upsert writes or updates the pricing row identified by
@@ -54,15 +54,16 @@ func (r *ProfilePricingRepository) Upsert(ctx context.Context, p *profilepricing
 	query := `
 		INSERT INTO profile_pricing (
 			organization_id, pricing_kind, pricing_type,
-			min_amount, max_amount, currency, pricing_note
+			min_amount, max_amount, currency, pricing_note, negotiable
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (organization_id, pricing_kind) DO UPDATE
 		SET pricing_type = EXCLUDED.pricing_type,
 		    min_amount   = EXCLUDED.min_amount,
 		    max_amount   = EXCLUDED.max_amount,
 		    currency     = EXCLUDED.currency,
-		    pricing_note = EXCLUDED.pricing_note`
+		    pricing_note = EXCLUDED.pricing_note,
+		    negotiable   = EXCLUDED.negotiable`
 
 	var maxAmount sql.NullInt64
 	if p.MaxAmount != nil {
@@ -71,7 +72,7 @@ func (r *ProfilePricingRepository) Upsert(ctx context.Context, p *profilepricing
 
 	if _, err := r.db.ExecContext(ctx, query,
 		p.OrganizationID, string(p.Kind), string(p.Type),
-		p.MinAmount, maxAmount, p.Currency, p.Note,
+		p.MinAmount, maxAmount, p.Currency, p.Note, p.Negotiable,
 	); err != nil {
 		return fmt.Errorf("upsert profile pricing: %w", err)
 	}
@@ -180,12 +181,13 @@ func (r *ProfilePricingRepository) DeleteByKind(ctx context.Context, orgID uuid.
 // NewPricing on write, so we cast without re-validating.
 func scanPricingRow(rows *sql.Rows) (*profilepricing.Pricing, error) {
 	var (
-		p        profilepricing.Pricing
-		kind     string
-		ptype    string
-		maxAmt   sql.NullInt64
-		currency string
-		note     string
+		p          profilepricing.Pricing
+		kind       string
+		ptype      string
+		maxAmt     sql.NullInt64
+		currency   string
+		note       string
+		negotiable bool
 	)
 	if err := rows.Scan(
 		&p.OrganizationID,
@@ -195,6 +197,7 @@ func scanPricingRow(rows *sql.Rows) (*profilepricing.Pricing, error) {
 		&maxAmt,
 		&currency,
 		&note,
+		&negotiable,
 		&p.CreatedAt,
 		&p.UpdatedAt,
 	); err != nil {
@@ -204,6 +207,7 @@ func scanPricingRow(rows *sql.Rows) (*profilepricing.Pricing, error) {
 	p.Type = profilepricing.PricingType(ptype)
 	p.Currency = currency
 	p.Note = note
+	p.Negotiable = negotiable
 	if maxAmt.Valid {
 		v := maxAmt.Int64
 		p.MaxAmount = &v
