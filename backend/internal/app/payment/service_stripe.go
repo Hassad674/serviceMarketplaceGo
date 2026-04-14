@@ -14,22 +14,24 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 )
 
-// CreatePaymentIntent creates a Stripe PaymentIntent for a proposal payment.
-// If a payment_record already exists for this proposal (idempotent retry),
-// Stripe returns the same PaymentIntent via the idempotency key.
+// CreatePaymentIntent creates a Stripe PaymentIntent for a milestone
+// payment. Phase 4: the idempotency key is the milestone id, not the
+// proposal id, so a proposal with N milestones can be funded N times
+// (one PaymentIntent per milestone) without the second call reusing
+// the first milestone's intent.
 func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
 	if s.stripe == nil {
 		return nil, errors.New("stripe not configured")
 	}
 
-	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
+	existing, err := s.records.GetByMilestoneID(ctx, input.MilestoneID)
 	if err == nil && existing != nil {
 		return s.createPaymentIntentFromExisting(ctx, input)
 	}
 
 	stripeFee := domain.EstimateStripeFee(input.ProposalAmount)
 	record := domain.NewPaymentRecord(
-		input.ProposalID, input.ClientID, input.ProviderID,
+		input.ProposalID, input.MilestoneID, input.ClientID, input.ProviderID,
 		input.ProposalAmount, stripeFee,
 	)
 
@@ -62,9 +64,9 @@ func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.Pay
 }
 
 // createPaymentIntentFromExisting re-creates a PaymentIntent for an
-// existing record (idempotent via Stripe's idempotency key).
+// existing milestone record (idempotent via Stripe's idempotency key).
 func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input portservice.PaymentIntentInput) (*portservice.PaymentIntentOutput, error) {
-	existing, err := s.records.GetByProposalID(ctx, input.ProposalID)
+	existing, err := s.records.GetByMilestoneID(ctx, input.MilestoneID)
 	if err != nil {
 		return nil, fmt.Errorf("fetch existing record: %w", err)
 	}

@@ -10,6 +10,7 @@ import (
 
 func TestNewPaymentRecord(t *testing.T) {
 	proposalID := uuid.New()
+	milestoneID := uuid.New()
 	clientID := uuid.New()
 	providerID := uuid.New()
 
@@ -65,9 +66,10 @@ func TestNewPaymentRecord(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := NewPaymentRecord(proposalID, clientID, providerID, tt.amount, tt.stripeFee)
+			rec := NewPaymentRecord(proposalID, milestoneID, clientID, providerID, tt.amount, tt.stripeFee)
 
 			assert.Equal(t, proposalID, rec.ProposalID)
+			assert.Equal(t, milestoneID, rec.MilestoneID)
 			assert.Equal(t, clientID, rec.ClientID)
 			assert.Equal(t, providerID, rec.ProviderID)
 			assert.Equal(t, tt.amount, rec.ProposalAmount)
@@ -87,7 +89,7 @@ func TestNewPaymentRecord(t *testing.T) {
 
 func TestPaymentRecord_MarkPaid(t *testing.T) {
 	t.Run("success from pending", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 
 		err := rec.MarkPaid()
 
@@ -97,7 +99,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 	})
 
 	t.Run("fails from succeeded", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 		_ = rec.MarkPaid()
 
 		err := rec.MarkPaid()
@@ -106,7 +108,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 	})
 
 	t.Run("fails from failed", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 		rec.MarkFailed()
 
 		err := rec.MarkPaid()
@@ -116,7 +118,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 }
 
 func TestPaymentRecord_MarkFailed(t *testing.T) {
-	rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+	rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 
 	rec.MarkFailed()
 
@@ -125,7 +127,7 @@ func TestPaymentRecord_MarkFailed(t *testing.T) {
 
 func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	t.Run("success from succeeded+pending transfer", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 		_ = rec.MarkPaid()
 
 		err := rec.MarkTransferred("tr_abc123")
@@ -137,7 +139,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	})
 
 	t.Run("fails when payment not succeeded", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 
 		err := rec.MarkTransferred("tr_abc")
 
@@ -145,7 +147,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	})
 
 	t.Run("fails when transfer already done", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 		_ = rec.MarkPaid()
 		_ = rec.MarkTransferred("tr_first")
 
@@ -155,7 +157,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	})
 
 	t.Run("fails when transfer failed then retried", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 		_ = rec.MarkPaid()
 		rec.MarkTransferFailed()
 
@@ -166,7 +168,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 }
 
 func TestPaymentRecord_MarkTransferFailed(t *testing.T) {
-	rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+	rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
 
 	rec.MarkTransferFailed()
 
