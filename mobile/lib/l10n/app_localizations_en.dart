@@ -2416,6 +2416,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tier1LocationEditButton => 'Update location';
 
   @override
+  String get tier1LocationCityAutocompletePlaceholder => 'Search for a city…';
+
+  @override
+  String get tier1LocationCityAutocompleteHint =>
+      'Type at least 2 characters to search';
+
+  @override
+  String get tier1LocationCityAutocompleteEmpty => 'No city found';
+
+  @override
   String get tier1LanguagesSectionTitle => 'Languages';
 
   @override

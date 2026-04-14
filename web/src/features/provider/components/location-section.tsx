@@ -11,6 +11,7 @@ import {
 } from "../lib/country-options"
 import { useProfile } from "../hooks/use-profile"
 import { useUpdateLocation } from "../hooks/use-update-location"
+import { CityAutocomplete, type CitySelection } from "./city-autocomplete"
 
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 
@@ -34,13 +35,22 @@ export function LocationSection({
   // effects.
   const persistedCity = profile?.city ?? ""
   const persistedCountry = profile?.country_code ?? ""
+  const persistedLat = profile?.latitude ?? null
+  const persistedLng = profile?.longitude ?? null
   const persistedWorkModeKey = (profile?.work_mode ?? []).join(",")
   const persistedRadius = profile?.travel_radius_km ?? null
 
-  const [prevKey, setPrevKey] = useState(
-    `${persistedCity}|${persistedCountry}|${persistedWorkModeKey}|${persistedRadius ?? ""}`,
+  const persistedSelection = buildSelection(
+    persistedCity,
+    persistedCountry,
+    persistedLat,
+    persistedLng,
   )
-  const [city, setCity] = useState(persistedCity)
+
+  const [prevKey, setPrevKey] = useState(
+    `${persistedCity}|${persistedCountry}|${persistedLat ?? ""}|${persistedLng ?? ""}|${persistedWorkModeKey}|${persistedRadius ?? ""}`,
+  )
+  const [selection, setSelection] = useState<CitySelection | null>(persistedSelection)
   const [country, setCountry] = useState(persistedCountry)
   const [workMode, setWorkMode] = useState<WorkMode[]>(
     profile?.work_mode ?? [],
@@ -49,18 +59,20 @@ export function LocationSection({
     persistedRadius === null ? "" : String(persistedRadius),
   )
 
-  const currentKey = `${persistedCity}|${persistedCountry}|${persistedWorkModeKey}|${persistedRadius ?? ""}`
+  const currentKey = `${persistedCity}|${persistedCountry}|${persistedLat ?? ""}|${persistedLng ?? ""}|${persistedWorkModeKey}|${persistedRadius ?? ""}`
   if (prevKey !== currentKey) {
     setPrevKey(currentKey)
-    setCity(persistedCity)
+    setSelection(persistedSelection)
     setCountry(persistedCountry)
     setWorkMode(persistedWorkModeKey ? (persistedWorkModeKey.split(",") as WorkMode[]) : [])
     setRadius(persistedRadius === null ? "" : String(persistedRadius))
   }
 
   const isDirty =
-    city !== persistedCity ||
+    (selection?.city ?? "") !== persistedCity ||
     country !== persistedCountry ||
+    (selection?.latitude ?? null) !== persistedLat ||
+    (selection?.longitude ?? null) !== persistedLng ||
     workMode.join(",") !== persistedWorkModeKey ||
     (radius === "" ? persistedRadius !== null : Number(radius) !== persistedRadius)
 
@@ -72,6 +84,16 @@ export function LocationSection({
     )
   }
 
+  const handleCountryChange = (nextCountry: string) => {
+    setCountry(nextCountry)
+    // Changing country invalidates the city selection — the user
+    // must pick a city in the new country so the coordinates and
+    // canonical name stay consistent.
+    if (selection && selection.countryCode !== nextCountry) {
+      setSelection(null)
+    }
+  }
+
   const handleSave = useCallback(() => {
     const radiusValue = radius.trim() === "" ? null : Number(radius)
     const sanitizedRadius =
@@ -79,17 +101,21 @@ export function LocationSection({
         ? Math.round(radiusValue)
         : null
     mutation.mutate({
-      city: city.trim(),
-      country_code: country,
+      city: selection?.city ?? "",
+      country_code: selection?.countryCode ?? country,
+      latitude: selection?.latitude ?? null,
+      longitude: selection?.longitude ?? null,
       work_mode: workMode,
       travel_radius_km: sanitizedRadius,
     })
-  }, [city, country, mutation, radius, workMode])
+  }, [country, mutation, radius, selection, workMode])
 
   if (orgType === "enterprise") return null
   if (readOnly) return null
 
-  const needsRadius = workMode.includes("on_site") || workMode.includes("hybrid")
+  const showWorkMode = orgType !== "agency"
+  const needsRadius =
+    showWorkMode && (workMode.includes("on_site") || workMode.includes("hybrid"))
 
   return (
     <section
@@ -114,14 +140,13 @@ export function LocationSection({
           >
             {t("cityLabel")}
           </label>
-          <input
-            id="location-city"
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder={t("cityPlaceholder")}
-            className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
-          />
+          <div id="location-city">
+            <CityAutocomplete
+              value={selection}
+              countryCode={country}
+              onChange={setSelection}
+            />
+          </div>
         </div>
 
         <div>
@@ -134,7 +159,7 @@ export function LocationSection({
           <select
             id="location-country"
             value={country}
-            onChange={(e) => setCountry(e.target.value)}
+            onChange={(e) => handleCountryChange(e.target.value)}
             className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
           >
             <option value="">{t("countryPlaceholder")}</option>
@@ -147,36 +172,38 @@ export function LocationSection({
         </div>
       </div>
 
-      <div className="mt-4">
-        <p className="block text-sm font-medium text-foreground mb-2">
-          {t("workModeLabel")}
-        </p>
-        <div role="group" aria-label={t("workModeLabel")} className="flex flex-wrap gap-2">
-          {ALL_WORK_MODES.map((mode) => {
-            const isSelected = workMode.includes(mode)
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => toggleWorkMode(mode)}
-                aria-pressed={isSelected}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-all duration-150",
-                  "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
-                  isSelected
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-foreground border-border hover:border-primary/60 hover:bg-muted",
-                )}
-              >
-                {isSelected ? (
-                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                ) : null}
-                {t(workModeKey(mode))}
-              </button>
-            )
-          })}
+      {showWorkMode ? (
+        <div className="mt-4">
+          <p className="block text-sm font-medium text-foreground mb-2">
+            {t("workModeLabel")}
+          </p>
+          <div role="group" aria-label={t("workModeLabel")} className="flex flex-wrap gap-2">
+            {ALL_WORK_MODES.map((mode) => {
+              const isSelected = workMode.includes(mode)
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => toggleWorkMode(mode)}
+                  aria-pressed={isSelected}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium border transition-all duration-150",
+                    "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+                    isSelected
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-foreground border-border hover:border-primary/60 hover:bg-muted",
+                  )}
+                >
+                  {isSelected ? (
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                  ) : null}
+                  {t(workModeKey(mode))}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {needsRadius ? (
         <div className="mt-4 max-w-xs">
@@ -215,6 +242,22 @@ export function LocationSection({
       </div>
     </section>
   )
+}
+
+// buildSelection rehydrates a CitySelection from the persisted
+// profile fields. Returns null when the profile has no canonical
+// city yet (e.g. a fresh account) or when the stored coordinates
+// are incomplete — forcing the user to re-pick rather than saving
+// a half-geocoded row.
+function buildSelection(
+  city: string,
+  countryCode: string,
+  latitude: number | null,
+  longitude: number | null,
+): CitySelection | null {
+  if (!city || !countryCode) return null
+  if (latitude === null || longitude === null) return null
+  return { city, countryCode, latitude, longitude }
 }
 
 function workModeKey(mode: WorkMode): string {

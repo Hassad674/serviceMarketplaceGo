@@ -527,6 +527,66 @@ func TestProfileService_UpdateLocation_GeocoderFailure_StillSavesWithoutCoords(t
 	assert.Equal(t, "Atlantis", captured.City, "city still persisted")
 }
 
+func TestProfileService_UpdateLocation_ClientCoords_SkipsGeocoder(t *testing.T) {
+	var captured repository.LocationInput
+	var geocodeCalled bool
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, in repository.LocationInput) error {
+			captured = in
+			return nil
+		},
+	}
+	geo := &mockGeocoder{
+		fn: func(_ context.Context, _, _ string) (float64, float64, error) {
+			geocodeCalled = true
+			return 99, 99, nil
+		},
+	}
+	svc := NewService(repo).WithGeocoder(geo)
+
+	clientLat := 45.758
+	clientLng := 4.835
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "Lyon",
+		CountryCode: "FR",
+		Latitude:    &clientLat,
+		Longitude:   &clientLng,
+	})
+	require.NoError(t, err)
+	assert.False(t, geocodeCalled, "client-supplied coords must short-circuit the geocoder")
+	require.NotNil(t, captured.Latitude)
+	require.NotNil(t, captured.Longitude)
+	assert.InDelta(t, 45.758, *captured.Latitude, 0.0001)
+	assert.InDelta(t, 4.835, *captured.Longitude, 0.0001)
+}
+
+func TestProfileService_UpdateLocation_PartialClientCoords_FallsBackToGeocoder(t *testing.T) {
+	var captured repository.LocationInput
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, in repository.LocationInput) error {
+			captured = in
+			return nil
+		},
+	}
+	geo := &mockGeocoder{
+		fn: func(_ context.Context, _, _ string) (float64, float64, error) {
+			return 48.8566, 2.3522, nil
+		},
+	}
+	svc := NewService(repo).WithGeocoder(geo)
+
+	clientLat := 45.758
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "Paris",
+		CountryCode: "FR",
+		Latitude:    &clientLat, // only one of the two → fall back to geocoder
+	})
+	require.NoError(t, err)
+	require.NotNil(t, captured.Latitude)
+	assert.InDelta(t, 48.8566, *captured.Latitude, 0.0001,
+		"partial client coords must trigger the geocoder fallback")
+}
+
 func TestProfileService_UpdateLocation_EmptyCityCountry_SkipsGeocoder(t *testing.T) {
 	var geocodeCalled bool
 	repo := &mockProfileRepo{}

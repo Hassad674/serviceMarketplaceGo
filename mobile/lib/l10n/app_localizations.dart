@@ -4562,6 +4562,24 @@ abstract class AppLocalizations {
   /// **'Update location'**
   String get tier1LocationEditButton;
 
+  /// No description provided for @tier1LocationCityAutocompletePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for a city…'**
+  String get tier1LocationCityAutocompletePlaceholder;
+
+  /// No description provided for @tier1LocationCityAutocompleteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type at least 2 characters to search'**
+  String get tier1LocationCityAutocompleteHint;
+
+  /// No description provided for @tier1LocationCityAutocompleteEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No city found'**
+  String get tier1LocationCityAutocompleteEmpty;
+
   /// No description provided for @tier1LanguagesSectionTitle.
   ///
   /// In en, this message translates to:
