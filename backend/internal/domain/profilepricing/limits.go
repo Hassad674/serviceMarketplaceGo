@@ -67,6 +67,42 @@ func IsTypeAllowedForKind(kind PricingKind, t PricingType) bool {
 	return false
 }
 
+// AllowedTypesForOrg returns the pricing types valid for an
+// organization-role, referrer-state, and pricing-kind triplet. It
+// is stricter than AllowedTypesForKind because some org roles do
+// not unlock every type that is otherwise compatible with the kind.
+//
+// Current product rules:
+//
+//   - agency + direct → project_from and project_range only
+//     (agencies sell outcomes, not TJM or taux horaire)
+//   - provider_personal + direct → all four direct types
+//   - *_ + referral → both commission types
+//
+// Unknown (org, kind) combinations fall through to nil, which makes
+// IsTypeAllowedForOrg safely return false.
+func AllowedTypesForOrg(orgType OrgType, referrerEnabled bool, kind PricingKind) []PricingType {
+	if !IsKindAllowedForOrg(orgType, referrerEnabled, kind) {
+		return nil
+	}
+	if orgType == OrgTypeAgency && kind == KindDirect {
+		return []PricingType{TypeProjectFrom, TypeProjectRange}
+	}
+	return AllowedTypesForKind(kind)
+}
+
+// IsTypeAllowedForOrg reports whether a pricing row of the given
+// type may be declared by the given (org, referrer, kind) triplet.
+// O(n) over the small AllowedTypesForOrg slice.
+func IsTypeAllowedForOrg(orgType OrgType, referrerEnabled bool, kind PricingKind, t PricingType) bool {
+	for _, allowed := range AllowedTypesForOrg(orgType, referrerEnabled, kind) {
+		if allowed == t {
+			return true
+		}
+	}
+	return false
+}
+
 // IsKindAllowedForOrg reports whether an organization of the given
 // type and referrer state may declare a pricing row of the given
 // kind.
