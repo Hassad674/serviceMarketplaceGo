@@ -4,58 +4,46 @@ import { useTranslations } from "next-intl"
 import { useUser, useOrganization } from "@/shared/hooks/use-user"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useProfileRating } from "@/shared/hooks/profile/use-profile-rating"
-import { useReferrerProfile } from "@/features/referrer-profile/hooks/use-referrer-profile"
 import {
-  useUpdateReferrerProfile,
-  useUpdateReferrerAvailability,
-  useUpdateReferrerExpertise,
-} from "@/features/referrer-profile/hooks/use-update-referrer-profile"
+  useFreelanceProfile,
+} from "@/features/freelance-profile/hooks/use-freelance-profile"
 import {
-  useUploadReferrerVideo,
-  useDeleteReferrerVideo,
-} from "@/features/referrer-profile/hooks/use-referrer-video"
-import { ReferrerPublicProfile } from "@/features/referrer-profile/components/referrer-public-profile"
+  useUpdateFreelanceProfile,
+  useUpdateFreelanceAvailability,
+  useUpdateFreelanceExpertise,
+} from "@/features/freelance-profile/hooks/use-update-freelance-profile"
+import {
+  useUploadFreelanceVideo,
+  useDeleteFreelanceVideo,
+} from "@/features/freelance-profile/hooks/use-freelance-video"
+import { FreelancePublicProfile } from "@/features/freelance-profile/components/freelance-public-profile"
 import {
   useUploadOrganizationPhoto,
 } from "@/features/organization-shared/hooks/use-update-organization-photo"
 import { useOrganizationShared } from "@/features/organization-shared/hooks/use-organization-shared"
 import { SharedLocationSection } from "@/features/organization-shared/components/shared-location-section"
 import { SharedLanguagesSection } from "@/features/organization-shared/components/shared-languages-section"
+import { SkillsSection } from "@/features/skill/components/skills-section"
 
-// /referral renders the authenticated user's referrer profile in
-// editable mode. Shared fields (photo, location, languages) are
-// intentionally NOT rendered here — their canonical home is
-// /profile, and updating them there invalidates this cache via the
-// org-shared mutation fan-out.
-//
-// Gating: the page is only meaningful for provider accounts. An
-// enterprise or agency user landing here sees the "provider only"
-// explainer instead.
-export default function ReferralPage() {
+// Editable /profile view for provider_personal users. Renders the
+// freelance persona: split pricing/availability/expertise on top of
+// the shared identity fields (location, languages, photo) which live
+// on the organization and are mirrored onto /referral via cache
+// invalidation.
+export function FreelanceOwnProfilePage() {
   const { data: user } = useUser()
   const { data: org } = useOrganization()
-  const { data: profile, isLoading, error } = useReferrerProfile()
+  const { data: profile, isLoading, error } = useFreelanceProfile()
   useOrganizationShared()
   const { data: rating } = useProfileRating(org?.id)
-  const updateProfile = useUpdateReferrerProfile()
-  const updateAvailability = useUpdateReferrerAvailability()
-  const updateExpertise = useUpdateReferrerExpertise()
+  const updateProfile = useUpdateFreelanceProfile()
+  const updateAvailability = useUpdateFreelanceAvailability()
+  const updateExpertise = useUpdateFreelanceExpertise()
   const photoUpload = useUploadOrganizationPhoto()
-  const videoUpload = useUploadReferrerVideo()
-  const videoDelete = useDeleteReferrerVideo()
+  const videoUpload = useUploadFreelanceVideo()
+  const videoDelete = useDeleteFreelanceVideo()
   const canEditProfile = useHasPermission("org_profile.edit")
   const t = useTranslations("profile")
-  const tReferrer = useTranslations("profile.referrer")
-
-  if (user && user.role !== "provider") {
-    return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          {tReferrer("providerOnly")}
-        </p>
-      </div>
-    )
-  }
 
   if (error) {
     return (
@@ -64,19 +52,21 @@ export default function ReferralPage() {
       </div>
     )
   }
-  if (isLoading || !profile) return <ReferralSkeleton />
+  if (isLoading || !profile) return <ProfileSkeleton />
 
-  const displayName = user
-    ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim()
-    : ""
+  const displayName =
+    user?.display_name ??
+    `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
   return (
     <div className="space-y-6">
-      <ReferrerPublicProfile
+      <FreelancePublicProfile
         profile={profile}
         displayName={displayName}
         rating={
-          rating ? { average: rating.average, count: rating.count } : undefined
+          rating
+            ? { average: rating.average, count: rating.count }
+            : undefined
         }
         editable={
           canEditProfile
@@ -128,13 +118,14 @@ export default function ReferralPage() {
         <>
           <SharedLocationSection />
           <SharedLanguagesSection />
+          <SkillsSection orgType={org?.type} readOnly={false} />
         </>
       ) : null}
     </div>
   )
 }
 
-function ReferralSkeleton() {
+function ProfileSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-live="polite">
       <div className="h-32 rounded-xl border border-border bg-muted/40 animate-shimmer" />

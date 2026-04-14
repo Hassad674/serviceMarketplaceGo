@@ -8,6 +8,10 @@ import {
   COUNTRY_OPTIONS,
   getCountryLabel,
 } from "@/shared/lib/profile/country-options"
+import {
+  CityAutocomplete,
+  type CitySelection,
+} from "@/features/provider/components/city-autocomplete"
 import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUpdateOrganizationLocation } from "../hooks/use-update-organization-location"
 import type { WorkMode } from "../api/organization-shared-api"
@@ -36,13 +40,10 @@ export function SharedLocationSection() {
         ? Math.round(radiusValue)
         : null
     mutation.mutate({
-      city: draft.city.trim(),
-      country_code: draft.country,
-      // lat/lng are left null; the backend geocodes from city+country.
-      // When an autocomplete component is wired later it can supply
-      // both and the backend will trust them verbatim.
-      latitude: null,
-      longitude: null,
+      city: draft.selection?.city ?? "",
+      country_code: draft.selection?.countryCode ?? draft.country,
+      latitude: draft.selection?.latitude ?? null,
+      longitude: draft.selection?.longitude ?? null,
       work_mode: draft.workMode,
       travel_radius_km: sanitized,
     })
@@ -67,10 +68,21 @@ export function SharedLocationSection() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <CityField
-          value={draft.city}
-          onChange={(next) => draft.setCity(next)}
-        />
+        <div>
+          <label
+            htmlFor="shared-location-city"
+            className="block text-sm font-medium text-foreground mb-1.5"
+          >
+            {t("cityLabel")}
+          </label>
+          <div id="shared-location-city">
+            <CityAutocomplete
+              value={draft.selection}
+              countryCode={draft.country}
+              onChange={draft.setSelection}
+            />
+          </div>
+        </div>
         <CountryField
           value={draft.country}
           locale={locale}
@@ -100,33 +112,6 @@ export function SharedLocationSection() {
 }
 
 // ----- Field sub-components keep the main function under 50 lines ----
-
-interface CityFieldProps {
-  value: string
-  onChange: (next: string) => void
-}
-
-function CityField({ value, onChange }: CityFieldProps) {
-  const t = useTranslations("profile.location")
-  return (
-    <div>
-      <label
-        htmlFor="shared-location-city"
-        className="block text-sm font-medium text-foreground mb-1.5"
-      >
-        {t("cityLabel")}
-      </label>
-      <input
-        id="shared-location-city"
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={t("cityPlaceholder")}
-        className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
-      />
-    </div>
-  )
-}
 
 interface CountryFieldProps {
   value: string
@@ -264,17 +249,39 @@ function SaveRow({ isDirty, isSaving, onSave }: SaveRowProps) {
 // ----- Draft hook: mirrors the react-recommended derive-during-render pattern
 
 interface PersistedLocation {
-  city: string
+  selection: CitySelection | null
   country: string
   workMode: WorkMode[]
   radius: string
 }
 
+type SharedLocationFields = {
+  city?: string
+  country_code?: string
+  latitude?: number | null
+  longitude?: number | null
+  work_mode?: WorkMode[]
+  travel_radius_km?: number | null
+}
+
 function buildPersistedSnapshot(
-  shared: { city?: string; country_code?: string; work_mode?: WorkMode[]; travel_radius_km?: number | null } | undefined,
+  shared: SharedLocationFields | undefined,
 ): PersistedLocation {
+  const hasCoords =
+    shared?.latitude !== null &&
+    shared?.latitude !== undefined &&
+    shared?.longitude !== null &&
+    shared?.longitude !== undefined
   return {
-    city: shared?.city ?? "",
+    selection:
+      shared?.city && shared?.country_code && hasCoords
+        ? {
+            city: shared.city,
+            countryCode: shared.country_code,
+            latitude: shared.latitude as number,
+            longitude: shared.longitude as number,
+          }
+        : null,
     country: shared?.country_code ?? "",
     workMode: shared?.work_mode ?? [],
     radius:
@@ -285,7 +292,7 @@ function buildPersistedSnapshot(
 }
 
 interface LocationDraft extends PersistedLocation {
-  setCity: (next: string) => void
+  setSelection: (next: CitySelection | null) => void
   setCountry: (next: string) => void
   setRadius: (next: string) => void
   toggleWorkMode: (mode: WorkMode) => void
@@ -293,16 +300,16 @@ interface LocationDraft extends PersistedLocation {
 }
 
 function useLocationDraft(persisted: PersistedLocation): LocationDraft {
-  const persistedKey = `${persisted.city}|${persisted.country}|${persisted.workMode.join(",")}|${persisted.radius}`
+  const persistedKey = `${persisted.selection?.city ?? ""}|${persisted.selection?.countryCode ?? ""}|${persisted.selection?.latitude ?? ""}|${persisted.selection?.longitude ?? ""}|${persisted.country}|${persisted.workMode.join(",")}|${persisted.radius}`
   const [prevKey, setPrevKey] = useState(persistedKey)
-  const [city, setCity] = useState(persisted.city)
+  const [selection, setSelection] = useState<CitySelection | null>(persisted.selection)
   const [country, setCountry] = useState(persisted.country)
   const [workMode, setWorkMode] = useState<WorkMode[]>(persisted.workMode)
   const [radius, setRadius] = useState(persisted.radius)
 
   if (prevKey !== persistedKey) {
     setPrevKey(persistedKey)
-    setCity(persisted.city)
+    setSelection(persisted.selection)
     setCountry(persisted.country)
     setWorkMode(persisted.workMode)
     setRadius(persisted.radius)
@@ -316,19 +323,32 @@ function useLocationDraft(persisted: PersistedLocation): LocationDraft {
     )
   }
 
+  // Changing the country wipes the city selection so the user is
+  // forced to re-pick a canonical municipality in the new country —
+  // keeps lat/lng consistent with the ISO code we persist.
+  const setCountryAndClearCity = (next: string) => {
+    setCountry(next)
+    if (selection && selection.countryCode !== next) {
+      setSelection(null)
+    }
+  }
+
+  const selectionKey = `${selection?.city ?? ""}|${selection?.countryCode ?? ""}|${selection?.latitude ?? ""}|${selection?.longitude ?? ""}`
+  const persistedSelectionKey = `${persisted.selection?.city ?? ""}|${persisted.selection?.countryCode ?? ""}|${persisted.selection?.latitude ?? ""}|${persisted.selection?.longitude ?? ""}`
+
   const isDirty =
-    city !== persisted.city ||
+    selectionKey !== persistedSelectionKey ||
     country !== persisted.country ||
     workMode.join(",") !== persisted.workMode.join(",") ||
     radius !== persisted.radius
 
   return {
-    city,
+    selection,
     country,
     workMode,
     radius,
-    setCity,
-    setCountry,
+    setSelection,
+    setCountry: setCountryAndClearCity,
     setRadius,
     toggleWorkMode,
     isDirty,
