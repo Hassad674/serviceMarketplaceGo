@@ -1,3 +1,19 @@
+// LEGACY profile handler — agency-only going forward.
+//
+// Since the split-profile refactor (migrations 096-104) the
+// provider_personal path is served by FreelanceProfileHandler and
+// ReferrerProfileHandler. The GET /api/v1/profile and related
+// endpoints defined in this file continue to back the agency
+// workflow until the agency refactor ships.
+//
+// A frontend that moves a provider_personal org onto the new
+// /freelance-profile or /referrer-profile endpoints and keeps
+// hitting /profile here will receive data from the legacy agency-
+// scoped profiles table — which no longer contains rows for that
+// org after migration 104 — and get a 404. That is intentional:
+// the split flipped the ownership model and any client still
+// using these URLs for provider_personal is broken on purpose.
+
 package handler
 
 import (

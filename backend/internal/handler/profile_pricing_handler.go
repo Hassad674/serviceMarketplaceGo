@@ -1,3 +1,9 @@
+// LEGACY profile pricing handler — agency-only going forward.
+// The provider_personal pricing path now goes through
+// FreelancePricingHandler and ReferrerPricingHandler (migrations
+// 099-100). This handler remains in place only for the agency
+// workflow until the agency refactor ships.
+
 package handler
 
 import (
