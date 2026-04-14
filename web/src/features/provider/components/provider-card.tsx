@@ -1,11 +1,13 @@
 "use client"
 
-import { Star } from "lucide-react"
-import { useTranslations } from "next-intl"
+import { MapPin, Star } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { PublicProfileSummary, SearchType } from "../api/search-api"
 import { SkillsDisplay } from "./skills-display"
+import { getFlagEmoji } from "../lib/country-options"
+import { formatPricing, type PricingLocale } from "../lib/pricing-format"
 
 // Keeps the card compact — the directory grid must stay scannable even
 // for providers with many skills. Anything beyond this count collapses
@@ -61,8 +63,13 @@ interface ProviderCardProps {
 
 export function ProviderCard({ profile, type }: ProviderCardProps) {
   const t = useTranslations("search")
+  const locale: PricingLocale = useLocale() === "fr" ? "fr" : "en"
   const badgeStyle = BADGE_STYLES[type] ?? BADGE_STYLES.freelancer
   const badgeLabel = BADGE_LABELS[type] ?? type
+  const primaryPricing = pickPrimaryPricing(profile)
+  const primaryPricingLabel = primaryPricing
+    ? formatPricing(primaryPricing, locale)
+    : ""
 
   return (
     <Link
@@ -124,6 +131,10 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
               </span>
             </div>
           )}
+          <ProviderCardSignals
+            profile={profile}
+            primaryPricingLabel={primaryPricingLabel}
+          />
           {profile.skills && profile.skills.length > 0 && (
             <SkillsDisplay
               skills={profile.skills}
@@ -135,4 +146,78 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
       </div>
     </Link>
   )
+}
+
+// ----- Inline signals row ------------------------------------------------
+
+const AVAILABILITY_DOT_STYLES = {
+  available_now: "bg-emerald-500",
+  available_soon: "bg-amber-500",
+  not_available: "bg-rose-500",
+} as const
+
+interface ProviderCardSignalsProps {
+  profile: PublicProfileSummary
+  primaryPricingLabel: string
+}
+
+function ProviderCardSignals({
+  profile,
+  primaryPricingLabel,
+}: ProviderCardSignalsProps) {
+  const languages = profile.languages_professional ?? []
+  const hasLocation = Boolean(profile.city || profile.country_code)
+  const hasAvailability = Boolean(profile.availability_status)
+  const hasLanguages = languages.length > 0
+  const hasPricing = primaryPricingLabel !== ""
+
+  if (!hasLocation && !hasAvailability && !hasLanguages && !hasPricing) {
+    return null
+  }
+
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+      {hasLocation ? (
+        <span className="inline-flex items-center gap-1 truncate max-w-[160px]">
+          <MapPin className="h-3 w-3" aria-hidden="true" strokeWidth={1.5} />
+          {profile.country_code ? (
+            <span aria-hidden="true">{getFlagEmoji(profile.country_code)}</span>
+          ) : null}
+          <span className="truncate">{profile.city ?? profile.country_code}</span>
+        </span>
+      ) : null}
+      {hasAvailability ? (
+        <span className="inline-flex items-center gap-1">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              AVAILABILITY_DOT_STYLES[profile.availability_status ?? "not_available"],
+            )}
+          />
+        </span>
+      ) : null}
+      {hasLanguages ? (
+        <span className="inline-flex items-center gap-0.5 uppercase font-medium">
+          {languages.slice(0, 3).map((code, index) => (
+            <span key={code}>
+              {index > 0 ? <span aria-hidden="true"> · </span> : null}
+              {code}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {hasPricing ? (
+        <span className="inline-flex items-center font-semibold text-gray-900 dark:text-white">
+          {primaryPricingLabel}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+function pickPrimaryPricing(profile: PublicProfileSummary) {
+  const rows = profile.pricing ?? []
+  if (rows.length === 0) return null
+  return rows.find((row) => row.kind === "direct") ?? rows[0]
 }
