@@ -838,6 +838,23 @@
       "amountAriaLabel": "montant",
       "deadlineAriaLabel": "date limite"
     },
+    "milestoneTracker": {
+      "title": "Suivi du projet",
+      "ariaLabel": "Liste des jalons du projet",
+      "milestone": "Jalon",
+      "count": "{total} jalons",
+      "dueNow": "À financer",
+      "dueBy": "Échéance {date}",
+      "oneTimePayment": "Paiement unique",
+      "statusPendingFunding": "En attente de financement",
+      "statusFunded": "Travail en cours",
+      "statusSubmitted": "En attente de validation",
+      "statusApproved": "Validé",
+      "statusReleased": "Payé",
+      "statusDisputed": "En litige",
+      "statusCancelled": "Annulé",
+      "statusRefunded": "Remboursé"
+    },
     "proposalFrom": "Proposition de {name}",
     "totalAmount": "Montant total",
     "startProject": "Proposer un projet",
