@@ -2,6 +2,7 @@ package profileapp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -10,15 +11,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/domain/profile"
+	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/port/service"
 )
 
 // --- mock ---
 
 type mockProfileRepo struct {
-	getByOrgIDFn   func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
-	updateFn       func(ctx context.Context, p *profile.Profile) error
-	createFn       func(ctx context.Context, p *profile.Profile) error
-	searchPublicFn func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
+	getByOrgIDFn          func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
+	updateFn              func(ctx context.Context, p *profile.Profile) error
+	createFn              func(ctx context.Context, p *profile.Profile) error
+	searchPublicFn        func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
+	updateLocationFn      func(ctx context.Context, orgID uuid.UUID, input repository.LocationInput) error
+	updateLanguagesFn     func(ctx context.Context, orgID uuid.UUID, pro, conv []string) error
+	updateAvailabilityFn  func(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -55,6 +61,40 @@ func (m *mockProfileRepo) GetPublicProfilesByOrgIDs(_ context.Context, _ []uuid.
 
 func (m *mockProfileRepo) OrgProfilesByUserIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error) {
 	return map[uuid.UUID]*profile.PublicProfile{}, nil
+}
+
+func (m *mockProfileRepo) UpdateLocation(ctx context.Context, orgID uuid.UUID, input repository.LocationInput) error {
+	if m.updateLocationFn != nil {
+		return m.updateLocationFn(ctx, orgID, input)
+	}
+	return nil
+}
+
+func (m *mockProfileRepo) UpdateLanguages(ctx context.Context, orgID uuid.UUID, pro, conv []string) error {
+	if m.updateLanguagesFn != nil {
+		return m.updateLanguagesFn(ctx, orgID, pro, conv)
+	}
+	return nil
+}
+
+func (m *mockProfileRepo) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	if m.updateAvailabilityFn != nil {
+		return m.updateAvailabilityFn(ctx, orgID, direct, referrer)
+	}
+	return nil
+}
+
+// --- mock Geocoder ---
+
+type mockGeocoder struct {
+	fn func(ctx context.Context, city, country string) (float64, float64, error)
+}
+
+func (m *mockGeocoder) Geocode(ctx context.Context, city, country string) (float64, float64, error) {
+	if m.fn == nil {
+		return 0, 0, service.ErrGeocodingFailed
+	}
+	return m.fn(ctx, city, country)
 }
 
 // --- helpers ---
@@ -381,4 +421,264 @@ func TestProfileService_SearchPublic_LimitPassthrough(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 50, capturedLimit)
+}
+
+// -----------------------------------------------------------------
+// Tier 1 completion: UpdateLocation
+// -----------------------------------------------------------------
+
+func TestProfileService_UpdateLocation_NormalizesAndPersists(t *testing.T) {
+	orgID := uuid.New()
+	var captured repository.LocationInput
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, in repository.LocationInput) error {
+			captured = in
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	radius := 50
+	err := svc.UpdateLocation(context.Background(), orgID, UpdateLocationInput{
+		City:           "  Paris  ",
+		CountryCode:    "  fr ",
+		WorkMode:       []string{"remote", "remote", "nomad", "hybrid"},
+		TravelRadiusKm: &radius,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "Paris", captured.City, "city should be trimmed")
+	assert.Equal(t, "FR", captured.CountryCode, "country code should be upper + trimmed")
+	assert.Equal(t, []string{"remote", "hybrid"}, captured.WorkMode,
+		"work modes should be deduped and filtered")
+	require.NotNil(t, captured.TravelRadiusKm)
+	assert.Equal(t, 50, *captured.TravelRadiusKm)
+	// Without a geocoder, coordinates stay nil.
+	assert.Nil(t, captured.Latitude)
+	assert.Nil(t, captured.Longitude)
+}
+
+func TestProfileService_UpdateLocation_InvalidCountryCode(t *testing.T) {
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, _ repository.LocationInput) error {
+			t.Fatal("repository should not be called on validation failure")
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "Paris",
+		CountryCode: "france",
+	})
+	assert.ErrorIs(t, err, profile.ErrInvalidCountryCode)
+}
+
+func TestProfileService_UpdateLocation_WithGeocoder_SuccessAttachesCoords(t *testing.T) {
+	var captured repository.LocationInput
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, in repository.LocationInput) error {
+			captured = in
+			return nil
+		},
+	}
+	geo := &mockGeocoder{
+		fn: func(_ context.Context, city, country string) (float64, float64, error) {
+			assert.Equal(t, "Paris", city)
+			assert.Equal(t, "FR", country)
+			return 48.8566, 2.3522, nil
+		},
+	}
+	svc := NewService(repo).WithGeocoder(geo)
+
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "Paris",
+		CountryCode: "FR",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, captured.Latitude)
+	require.NotNil(t, captured.Longitude)
+	assert.InDelta(t, 48.8566, *captured.Latitude, 0.0001)
+	assert.InDelta(t, 2.3522, *captured.Longitude, 0.0001)
+}
+
+func TestProfileService_UpdateLocation_GeocoderFailure_StillSavesWithoutCoords(t *testing.T) {
+	var captured repository.LocationInput
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, in repository.LocationInput) error {
+			captured = in
+			return nil
+		},
+	}
+	geo := &mockGeocoder{
+		fn: func(_ context.Context, _, _ string) (float64, float64, error) {
+			return 0, 0, service.ErrGeocodingFailed
+		},
+	}
+	svc := NewService(repo).WithGeocoder(geo)
+
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "Atlantis",
+		CountryCode: "FR",
+	})
+	require.NoError(t, err, "geocoder failure must not fail the save")
+	assert.Nil(t, captured.Latitude)
+	assert.Nil(t, captured.Longitude)
+	assert.Equal(t, "Atlantis", captured.City, "city still persisted")
+}
+
+func TestProfileService_UpdateLocation_EmptyCityCountry_SkipsGeocoder(t *testing.T) {
+	var geocodeCalled bool
+	repo := &mockProfileRepo{}
+	geo := &mockGeocoder{
+		fn: func(_ context.Context, _, _ string) (float64, float64, error) {
+			geocodeCalled = true
+			return 0, 0, nil
+		},
+	}
+	svc := NewService(repo).WithGeocoder(geo)
+
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "",
+		CountryCode: "",
+	})
+	require.NoError(t, err)
+	assert.False(t, geocodeCalled, "empty inputs should not trigger a geocode call")
+}
+
+func TestProfileService_UpdateLocation_PersistError(t *testing.T) {
+	repo := &mockProfileRepo{
+		updateLocationFn: func(_ context.Context, _ uuid.UUID, _ repository.LocationInput) error {
+			return errors.New("db blew up")
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateLocation(context.Background(), uuid.New(), UpdateLocationInput{
+		City:        "Paris",
+		CountryCode: "FR",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "update location")
+	assert.Contains(t, err.Error(), "persist")
+}
+
+// -----------------------------------------------------------------
+// Tier 1 completion: UpdateLanguages
+// -----------------------------------------------------------------
+
+func TestProfileService_UpdateLanguages_NormalizesAndPersists(t *testing.T) {
+	var capPro, capConv []string
+	repo := &mockProfileRepo{
+		updateLanguagesFn: func(_ context.Context, _ uuid.UUID, pro, conv []string) error {
+			capPro = pro
+			capConv = conv
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateLanguages(context.Background(), uuid.New(),
+		[]string{"fr", "fr", "FR", "en", "english"},
+		[]string{"es", "it", "xx"},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"fr", "en"}, capPro)
+	assert.Equal(t, []string{"es", "it", "xx"}, capConv,
+		"xx passes the 2-letter shape check — validation is intentionally lenient")
+}
+
+func TestProfileService_UpdateLanguages_PersistError(t *testing.T) {
+	repo := &mockProfileRepo{
+		updateLanguagesFn: func(_ context.Context, _ uuid.UUID, _, _ []string) error {
+			return errors.New("disk full")
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateLanguages(context.Background(), uuid.New(), []string{"fr"}, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "update languages")
+}
+
+// -----------------------------------------------------------------
+// Tier 1 completion: UpdateAvailability
+// -----------------------------------------------------------------
+
+func TestProfileService_UpdateAvailability_DirectOnly(t *testing.T) {
+	var capDirect profile.AvailabilityStatus
+	var capRef *profile.AvailabilityStatus
+	repo := &mockProfileRepo{
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, d profile.AvailabilityStatus, r *profile.AvailabilityStatus) error {
+			capDirect = d
+			capRef = r
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilitySoon, nil)
+	require.NoError(t, err)
+	assert.Equal(t, profile.AvailabilitySoon, capDirect)
+	assert.Nil(t, capRef)
+}
+
+func TestProfileService_UpdateAvailability_WithReferrerSlot(t *testing.T) {
+	var capRef *profile.AvailabilityStatus
+	repo := &mockProfileRepo{
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, r *profile.AvailabilityStatus) error {
+			capRef = r
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	refStatus := profile.AvailabilityNot
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityNow, &refStatus)
+	require.NoError(t, err)
+	require.NotNil(t, capRef)
+	assert.Equal(t, profile.AvailabilityNot, *capRef)
+}
+
+func TestProfileService_UpdateAvailability_InvalidDirect(t *testing.T) {
+	repo := &mockProfileRepo{
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+			t.Fatal("repository should not be called on validation failure")
+			return nil
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityStatus("maybe"), nil)
+	assert.ErrorIs(t, err, profile.ErrInvalidAvailabilityStatus)
+}
+
+func TestProfileService_UpdateAvailability_InvalidReferrer(t *testing.T) {
+	repo := &mockProfileRepo{}
+	svc := NewService(repo)
+
+	bad := profile.AvailabilityStatus("sort of")
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityNow, &bad)
+	assert.ErrorIs(t, err, profile.ErrInvalidAvailabilityStatus)
+}
+
+func TestProfileService_UpdateAvailability_PersistError(t *testing.T) {
+	repo := &mockProfileRepo{
+		updateAvailabilityFn: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+			return errors.New("db gone")
+		},
+	}
+	svc := NewService(repo)
+
+	err := svc.UpdateAvailability(context.Background(), uuid.New(), profile.AvailabilityNow, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "update availability")
+}
+
+// Safety check: WithGeocoder(nil) must be a no-op — keeps existing
+// call sites that pass nil from crashing.
+func TestProfileService_WithGeocoder_NilIsNoOp(t *testing.T) {
+	svc := NewService(&mockProfileRepo{}).WithGeocoder(nil)
+	require.NotNil(t, svc)
+	assert.Nil(t, svc.geocoder)
 }

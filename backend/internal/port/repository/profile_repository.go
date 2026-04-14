@@ -8,6 +8,30 @@ import (
 	"marketplace-backend/internal/domain/profile"
 )
 
+// LocationInput is the write payload for ProfileRepository.UpdateLocation.
+// Grouped in a struct (rather than passed as 6 positional arguments)
+// so the adapter signature stays under the 4-parameter cap and the
+// caller can omit fields explicitly via their zero value.
+//
+// Nullable fields are modeled as pointers — nil means "clear the
+// column" at the database level (NULL), never "leave it untouched":
+// UpdateLocation always writes the full location block atomically.
+type LocationInput struct {
+	City           string
+	CountryCode    string
+	Latitude       *float64
+	Longitude      *float64
+	WorkMode       []string
+	TravelRadiusKm *int
+}
+
+// ProfileRepository persists the organization's public profile row.
+// The Tier 1 completion (migration 083) added three targeted update
+// methods (UpdateLocation / UpdateLanguages / UpdateAvailability)
+// rather than bloating the existing Update(Profile) signature, so
+// each block can be persisted in a single SQL UPDATE that touches
+// only its own columns — cheaper in Postgres (smaller WAL per write)
+// and clearer in the audit trail.
 type ProfileRepository interface {
 	Create(ctx context.Context, p *profile.Profile) error
 	GetByOrganizationID(ctx context.Context, organizationID uuid.UUID) (*profile.Profile, error)
@@ -20,4 +44,23 @@ type ProfileRepository interface {
 	// user (job applications, reviews) but need to display that
 	// user's team identity. The mapping happens via users.organization_id.
 	OrgProfilesByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]*profile.PublicProfile, error)
+
+	// UpdateLocation writes the location block (city, country_code,
+	// lat/lng, work_mode[], travel_radius_km) in a single SQL UPDATE.
+	// Implementations MUST NOT touch any other column on the profiles
+	// row — callers rely on the other blocks (title, about, languages,
+	// availability) staying untouched after this call.
+	UpdateLocation(ctx context.Context, orgID uuid.UUID, input LocationInput) error
+
+	// UpdateLanguages replaces the two language arrays atomically.
+	// Both slices are expected to be domain-normalized (ISO 639-1
+	// lowercase, deduped) by the caller — the repository persists
+	// them verbatim.
+	UpdateLanguages(ctx context.Context, orgID uuid.UUID, professional, conversational []string) error
+
+	// UpdateAvailability updates both availability columns. Pass a
+	// nil referrer to clear the referrer slot in the database (NULL);
+	// pass a non-nil value to set it. The direct status is always
+	// persisted — the enum has no "clear" state.
+	UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 }
