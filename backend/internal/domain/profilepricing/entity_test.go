@@ -118,7 +118,15 @@ func TestIsKindAllowedForOrg(t *testing.T) {
 
 func TestNewPricing_HappyPath_Daily(t *testing.T) {
 	orgID := uuid.New()
-	p, err := NewPricing(orgID, KindDirect, TypeDaily, 60000, nil, "EUR", "TJM standard")
+	p, err := NewPricing(NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           KindDirect,
+		Type:           TypeDaily,
+		MinAmount:      60000,
+		Currency:       "EUR",
+		Note:           "TJM standard",
+		Negotiable:     true,
+	})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	assert.Equal(t, orgID, p.OrganizationID)
@@ -128,24 +136,41 @@ func TestNewPricing_HappyPath_Daily(t *testing.T) {
 	assert.Nil(t, p.MaxAmount)
 	assert.Equal(t, "EUR", p.Currency)
 	assert.Equal(t, "TJM standard", p.Note)
+	assert.True(t, p.Negotiable)
 	assert.True(t, p.CreatedAt.IsZero())
 }
 
 func TestNewPricing_HappyPath_ProjectRange(t *testing.T) {
 	orgID := uuid.New()
 	max := int64(500000)
-	p, err := NewPricing(orgID, KindDirect, TypeProjectRange, 100000, &max, "EUR", "")
+	p, err := NewPricing(NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           KindDirect,
+		Type:           TypeProjectRange,
+		MinAmount:      100000,
+		MaxAmount:      &max,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	assert.Equal(t, int64(100000), p.MinAmount)
 	require.NotNil(t, p.MaxAmount)
 	assert.Equal(t, int64(500000), *p.MaxAmount)
+	assert.False(t, p.Negotiable)
 }
 
 func TestNewPricing_HappyPath_CommissionPct(t *testing.T) {
 	orgID := uuid.New()
 	max := int64(1500) // 15%
-	p, err := NewPricing(orgID, KindReferral, TypeCommissionPct, 500, &max, "pct", "apporteur")
+	p, err := NewPricing(NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           KindReferral,
+		Type:           TypeCommissionPct,
+		MinAmount:      500,
+		MaxAmount:      &max,
+		Currency:       "pct",
+		Note:           "apporteur",
+	})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	assert.Equal(t, "pct", p.Currency)
@@ -156,7 +181,13 @@ func TestNewPricing_HappyPath_CommissionPct(t *testing.T) {
 
 func TestNewPricing_HappyPath_CommissionFlat(t *testing.T) {
 	orgID := uuid.New()
-	p, err := NewPricing(orgID, KindReferral, TypeCommissionFlat, 25000, nil, "EUR", "")
+	p, err := NewPricing(NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           KindReferral,
+		Type:           TypeCommissionFlat,
+		MinAmount:      25000,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	assert.Equal(t, TypeCommissionFlat, p.Type)
@@ -242,7 +273,14 @@ func TestNewPricing_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := NewPricing(orgID, tc.kind, tc.ptype, tc.min, tc.max, tc.currency, "")
+			_, err := NewPricing(NewPricingInput{
+				OrganizationID: orgID,
+				Kind:           tc.kind,
+				Type:           tc.ptype,
+				MinAmount:      tc.min,
+				MaxAmount:      tc.max,
+				Currency:       tc.currency,
+			})
 			assert.ErrorIs(t, err, tc.wantErrIs)
 		})
 	}
@@ -254,7 +292,14 @@ func TestNewPricing_Errors(t *testing.T) {
 func TestNewPricing_MaxEqualsMinIsAccepted(t *testing.T) {
 	orgID := uuid.New()
 	m := int64(100)
-	p, err := NewPricing(orgID, KindDirect, TypeProjectRange, 100, &m, "EUR", "")
+	p, err := NewPricing(NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           KindDirect,
+		Type:           TypeProjectRange,
+		MinAmount:      100,
+		MaxAmount:      &m,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	require.NotNil(t, p.MaxAmount)
 	assert.Equal(t, int64(100), *p.MaxAmount)
@@ -264,7 +309,70 @@ func TestNewPricing_MaxEqualsMinIsAccepted(t *testing.T) {
 // on request" or "starting from 0".
 func TestNewPricing_ZeroMinIsAccepted(t *testing.T) {
 	orgID := uuid.New()
-	p, err := NewPricing(orgID, KindDirect, TypeDaily, 0, nil, "EUR", "")
+	p, err := NewPricing(NewPricingInput{
+		OrganizationID: orgID,
+		Kind:           KindDirect,
+		Type:           TypeDaily,
+		MinAmount:      0,
+		Currency:       "EUR",
+	})
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), p.MinAmount)
+}
+
+// ---- Agency org-level type restriction ----
+
+func TestAllowedTypesForOrg_AgencyDirect(t *testing.T) {
+	got := AllowedTypesForOrg(OrgTypeAgency, false, KindDirect)
+	assert.ElementsMatch(t,
+		[]PricingType{TypeProjectFrom, TypeProjectRange},
+		got,
+		"agency direct pricing must exclude daily and hourly",
+	)
+}
+
+func TestAllowedTypesForOrg_ProviderDirectUnchanged(t *testing.T) {
+	got := AllowedTypesForOrg(OrgTypeProviderPersonal, false, KindDirect)
+	assert.ElementsMatch(t,
+		[]PricingType{TypeDaily, TypeHourly, TypeProjectFrom, TypeProjectRange},
+		got,
+	)
+}
+
+func TestAllowedTypesForOrg_ReferralUnaffected(t *testing.T) {
+	got := AllowedTypesForOrg(OrgTypeProviderPersonal, true, KindReferral)
+	assert.ElementsMatch(t,
+		[]PricingType{TypeCommissionPct, TypeCommissionFlat},
+		got,
+	)
+}
+
+func TestAllowedTypesForOrg_ForbiddenPairs(t *testing.T) {
+	assert.Nil(t, AllowedTypesForOrg(OrgTypeAgency, false, KindReferral))
+	assert.Nil(t, AllowedTypesForOrg(OrgTypeEnterprise, false, KindDirect))
+	assert.Nil(t, AllowedTypesForOrg(OrgTypeProviderPersonal, false, KindReferral))
+}
+
+func TestIsTypeAllowedForOrg(t *testing.T) {
+	tests := []struct {
+		name       string
+		orgType    OrgType
+		referrer   bool
+		kind       PricingKind
+		typ        PricingType
+		wantAllow  bool
+	}{
+		{"agency + direct + daily", OrgTypeAgency, false, KindDirect, TypeDaily, false},
+		{"agency + direct + hourly", OrgTypeAgency, false, KindDirect, TypeHourly, false},
+		{"agency + direct + project_from", OrgTypeAgency, false, KindDirect, TypeProjectFrom, true},
+		{"agency + direct + project_range", OrgTypeAgency, false, KindDirect, TypeProjectRange, true},
+		{"provider + direct + daily", OrgTypeProviderPersonal, false, KindDirect, TypeDaily, true},
+		{"provider + referral + commission_pct", OrgTypeProviderPersonal, true, KindReferral, TypeCommissionPct, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := IsTypeAllowedForOrg(tc.orgType, tc.referrer, tc.kind, tc.typ)
+			assert.Equal(t, tc.wantAllow, got)
+		})
+	}
 }

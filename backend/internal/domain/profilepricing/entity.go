@@ -101,6 +101,13 @@ type Pricing struct {
 	// "minimum engagement 3 months", ...). Empty by default.
 	Note string
 
+	// Negotiable is an explicit yes/no flag surfaced on the public
+	// profile card as a "négociable" tag. Distinct from Note: Note
+	// describes constraints, Negotiable declares commercial
+	// flexibility. Picked by the provider on every save — the
+	// request DTO is required to send it.
+	Negotiable bool
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -124,38 +131,45 @@ type Pricing struct {
 //
 // Timestamps are left at their zero value — the repository layer
 // fills CreatedAt / UpdatedAt from the DB defaults on insert.
-func NewPricing(
-	orgID uuid.UUID,
-	kind PricingKind,
-	pricingType PricingType,
-	minAmount int64,
-	maxAmount *int64,
-	currency string,
-	note string,
-) (*Pricing, error) {
-	if !kind.IsValid() {
+// NewPricingInput groups the raw inputs to NewPricing so the
+// constructor stays under the 4-parameter cap. Every field is
+// required — there are no optional defaults at this layer.
+type NewPricingInput struct {
+	OrganizationID uuid.UUID
+	Kind           PricingKind
+	Type           PricingType
+	MinAmount      int64
+	MaxAmount      *int64
+	Currency       string
+	Note           string
+	Negotiable     bool
+}
+
+func NewPricing(in NewPricingInput) (*Pricing, error) {
+	if !in.Kind.IsValid() {
 		return nil, ErrInvalidKind
 	}
-	if !pricingType.IsValid() {
+	if !in.Type.IsValid() {
 		return nil, ErrInvalidType
 	}
-	if !IsTypeAllowedForKind(kind, pricingType) {
+	if !IsTypeAllowedForKind(in.Kind, in.Type) {
 		return nil, ErrTypeNotAllowedForKind
 	}
-	if err := validateAmounts(pricingType, minAmount, maxAmount); err != nil {
+	if err := validateAmounts(in.Type, in.MinAmount, in.MaxAmount); err != nil {
 		return nil, err
 	}
-	if err := validateCurrency(pricingType, currency); err != nil {
+	if err := validateCurrency(in.Type, in.Currency); err != nil {
 		return nil, err
 	}
 	return &Pricing{
-		OrganizationID: orgID,
-		Kind:           kind,
-		Type:           pricingType,
-		MinAmount:      minAmount,
-		MaxAmount:      maxAmount,
-		Currency:       currency,
-		Note:           note,
+		OrganizationID: in.OrganizationID,
+		Kind:           in.Kind,
+		Type:           in.Type,
+		MinAmount:      in.MinAmount,
+		MaxAmount:      in.MaxAmount,
+		Currency:       in.Currency,
+		Note:           in.Note,
+		Negotiable:     in.Negotiable,
 	}, nil
 }
 

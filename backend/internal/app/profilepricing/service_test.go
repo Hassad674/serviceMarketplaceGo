@@ -15,7 +15,7 @@ import (
 
 // ---- Upsert ----
 
-func TestService_Upsert_HappyPath_DirectDaily(t *testing.T) {
+func TestService_Upsert_HappyPath_ProviderDirectDaily(t *testing.T) {
 	orgID := uuid.New()
 	var persisted *domainpricing.Pricing
 
@@ -27,7 +27,7 @@ func TestService_Upsert_HappyPath_DirectDaily(t *testing.T) {
 	}
 	resolver := &mockOrgInfoResolver{
 		GetOrgInfoFn: func(_ context.Context, _ uuid.UUID) (string, bool, error) {
-			return domainpricing.OrgTypeAgency, false, nil
+			return domainpricing.OrgTypeProviderPersonal, false, nil
 		},
 	}
 	svc := NewService(repo, resolver)
@@ -39,6 +39,7 @@ func TestService_Upsert_HappyPath_DirectDaily(t *testing.T) {
 		MinAmount:      60000,
 		Currency:       "EUR",
 		Note:           "TJM standard",
+		Negotiable:     true,
 	})
 
 	require.NoError(t, err)
@@ -49,6 +50,69 @@ func TestService_Upsert_HappyPath_DirectDaily(t *testing.T) {
 	assert.Equal(t, domainpricing.TypeDaily, p.Type)
 	assert.Equal(t, int64(60000), p.MinAmount)
 	assert.Equal(t, "EUR", p.Currency)
+	assert.True(t, p.Negotiable)
+}
+
+func TestService_Upsert_Agency_DailyRejected(t *testing.T) {
+	repo := &mockPricingRepo{
+		UpsertFn: func(_ context.Context, _ *domainpricing.Pricing) error { return nil },
+	}
+	resolver := &mockOrgInfoResolver{
+		GetOrgInfoFn: func(_ context.Context, _ uuid.UUID) (string, bool, error) {
+			return domainpricing.OrgTypeAgency, false, nil
+		},
+	}
+	svc := NewService(repo, resolver)
+
+	_, err := svc.Upsert(context.Background(), UpsertInput{
+		OrganizationID: uuid.New(),
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeDaily,
+		MinAmount:      60000,
+		Currency:       "EUR",
+	})
+	assert.ErrorIs(t, err, domainpricing.ErrTypeNotAllowedForOrg)
+}
+
+func TestService_Upsert_Agency_HourlyRejected(t *testing.T) {
+	repo := &mockPricingRepo{}
+	resolver := &mockOrgInfoResolver{
+		GetOrgInfoFn: func(_ context.Context, _ uuid.UUID) (string, bool, error) {
+			return domainpricing.OrgTypeAgency, false, nil
+		},
+	}
+	svc := NewService(repo, resolver)
+
+	_, err := svc.Upsert(context.Background(), UpsertInput{
+		OrganizationID: uuid.New(),
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeHourly,
+		MinAmount:      7500,
+		Currency:       "EUR",
+	})
+	assert.ErrorIs(t, err, domainpricing.ErrTypeNotAllowedForOrg)
+}
+
+func TestService_Upsert_Agency_ProjectFromAccepted(t *testing.T) {
+	repo := &mockPricingRepo{
+		UpsertFn: func(_ context.Context, _ *domainpricing.Pricing) error { return nil },
+	}
+	resolver := &mockOrgInfoResolver{
+		GetOrgInfoFn: func(_ context.Context, _ uuid.UUID) (string, bool, error) {
+			return domainpricing.OrgTypeAgency, false, nil
+		},
+	}
+	svc := NewService(repo, resolver)
+
+	p, err := svc.Upsert(context.Background(), UpsertInput{
+		OrganizationID: uuid.New(),
+		Kind:           domainpricing.KindDirect,
+		Type:           domainpricing.TypeProjectFrom,
+		MinAmount:      1000000,
+		Currency:       "EUR",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, domainpricing.TypeProjectFrom, p.Type)
 }
 
 func TestService_Upsert_HappyPath_ReferralCommissionPct(t *testing.T) {

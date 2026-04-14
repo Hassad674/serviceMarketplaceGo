@@ -63,12 +63,13 @@ func (h *ProfilePricingHandler) UpsertMyPricing(w http.ResponseWriter, r *http.R
 	}
 
 	var req struct {
-		Kind      string `json:"kind"`
-		Type      string `json:"type"`
-		MinAmount int64  `json:"min_amount"`
-		MaxAmount *int64 `json:"max_amount"`
-		Currency  string `json:"currency"`
-		Note      string `json:"note"`
+		Kind       string `json:"kind"`
+		Type       string `json:"type"`
+		MinAmount  int64  `json:"min_amount"`
+		MaxAmount  *int64 `json:"max_amount"`
+		Currency   string `json:"currency"`
+		Note       string `json:"note"`
+		Negotiable bool   `json:"negotiable"`
 	}
 	if err := validator.DecodeJSON(r, &req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
@@ -83,6 +84,7 @@ func (h *ProfilePricingHandler) UpsertMyPricing(w http.ResponseWriter, r *http.R
 		MaxAmount:      req.MaxAmount,
 		Currency:       req.Currency,
 		Note:           req.Note,
+		Negotiable:     req.Negotiable,
 	})
 	if err != nil {
 		handlePricingError(w, err)
@@ -123,6 +125,7 @@ func handlePricingError(w http.ResponseWriter, err error) {
 	case errors.Is(err, domainpricing.ErrInvalidKind),
 		errors.Is(err, domainpricing.ErrInvalidType),
 		errors.Is(err, domainpricing.ErrTypeNotAllowedForKind),
+		errors.Is(err, domainpricing.ErrTypeNotAllowedForOrg),
 		errors.Is(err, domainpricing.ErrNegativeAmount),
 		errors.Is(err, domainpricing.ErrMaxLessThanMin),
 		errors.Is(err, domainpricing.ErrRangeNotAllowedForType),
