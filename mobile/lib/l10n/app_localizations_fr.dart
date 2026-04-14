@@ -2365,4 +2365,181 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get skillsErrorGeneric => 'Une erreur est survenue';
+
+  @override
+  String get tier1AvailabilitySectionTitle => 'Disponibilité';
+
+  @override
+  String get tier1AvailabilityStatusAvailableNow => 'Disponible maintenant';
+
+  @override
+  String get tier1AvailabilityStatusAvailableSoon => 'Disponible bientôt';
+
+  @override
+  String get tier1AvailabilityStatusNotAvailable => 'Indisponible';
+
+  @override
+  String get tier1AvailabilityReferrerTitle =>
+      'Disponibilité en tant qu\'apporteur d\'affaires';
+
+  @override
+  String get tier1AvailabilityDirectLabel => 'Prestation';
+
+  @override
+  String get tier1AvailabilityReferrerLabel => 'Apport d\'affaires';
+
+  @override
+  String get tier1AvailabilityEditButton => 'Mettre à jour ma disponibilité';
+
+  @override
+  String get tier1LocationSectionTitle => 'Localisation';
+
+  @override
+  String get tier1LocationCityLabel => 'Ville';
+
+  @override
+  String get tier1LocationCityPlaceholder => 'Paris';
+
+  @override
+  String get tier1LocationCountryLabel => 'Pays';
+
+  @override
+  String get tier1LocationCountryPlaceholder => 'Sélectionner un pays';
+
+  @override
+  String get tier1LocationWorkModeLabel => 'Mode de travail';
+
+  @override
+  String get tier1LocationWorkModeRemote => 'À distance';
+
+  @override
+  String get tier1LocationWorkModeOnSite => 'Sur site';
+
+  @override
+  String get tier1LocationWorkModeHybrid => 'Hybride';
+
+  @override
+  String get tier1LocationTravelRadiusLabel => 'Rayon de déplacement (km)';
+
+  @override
+  String get tier1LocationTravelRadiusPlaceholder => 'ex. 50';
+
+  @override
+  String get tier1LocationEmpty =>
+      'Ajoute ta ville pour être plus facile à trouver';
+
+  @override
+  String get tier1LocationEditButton => 'Mettre à jour ma localisation';
+
+  @override
+  String get tier1LanguagesSectionTitle => 'Langues';
+
+  @override
+  String get tier1LanguagesProfessionalLabel => 'Langues professionnelles';
+
+  @override
+  String get tier1LanguagesConversationalLabel => 'Langues conversationnelles';
+
+  @override
+  String get tier1LanguagesSearchPlaceholder => 'Rechercher une langue...';
+
+  @override
+  String get tier1LanguagesEmpty =>
+      'Déclare les langues dans lesquelles tu peux travailler';
+
+  @override
+  String get tier1LanguagesEditButton => 'Mettre à jour mes langues';
+
+  @override
+  String tier1LanguagesCountLabel(int count) {
+    return '$count sélectionnée(s)';
+  }
+
+  @override
+  String get tier1PricingSectionTitle => 'Tarifs';
+
+  @override
+  String get tier1PricingEmpty => 'Aucun tarif déclaré';
+
+  @override
+  String get tier1PricingEditButton => 'Modifier mes tarifs';
+
+  @override
+  String get tier1PricingModalTitle => 'Mes tarifs';
+
+  @override
+  String get tier1PricingKindDirect => 'Prestation directe';
+
+  @override
+  String get tier1PricingKindReferral => 'Apport d\'affaires';
+
+  @override
+  String get tier1PricingTypeDaily => 'TJM (taux journalier)';
+
+  @override
+  String get tier1PricingTypeHourly => 'Taux horaire';
+
+  @override
+  String get tier1PricingTypeProjectFrom => 'À partir de (par projet)';
+
+  @override
+  String get tier1PricingTypeProjectRange => 'Fourchette par projet';
+
+  @override
+  String get tier1PricingTypeCommissionPct => 'Commission en pourcentage';
+
+  @override
+  String get tier1PricingTypeCommissionFlat => 'Commission forfaitaire';
+
+  @override
+  String get tier1PricingMinLabel => 'Montant min';
+
+  @override
+  String get tier1PricingMaxLabel => 'Montant max';
+
+  @override
+  String get tier1PricingCurrencyLabel => 'Devise';
+
+  @override
+  String get tier1PricingNoteLabel => 'Note';
+
+  @override
+  String get tier1PricingNotePlaceholder => 'Négociable selon scope...';
+
+  @override
+  String get tier1PricingPreviewHeading => 'Aperçu sur ta card';
+
+  @override
+  String get tier1PricingEmptyPreview => '–';
+
+  @override
+  String get tier1PricingDeleteKind => 'Supprimer cette ligne';
+
+  @override
+  String get tier1PricingEnableReferralRow =>
+      'Ajouter une ligne apport d\'affaires';
+
+  @override
+  String get tier1Save => 'Enregistrer';
+
+  @override
+  String get tier1Saving => 'Enregistrement...';
+
+  @override
+  String get tier1Cancel => 'Annuler';
+
+  @override
+  String get tier1Delete => 'Supprimer';
+
+  @override
+  String get tier1Close => 'Fermer';
+
+  @override
+  String get tier1ErrorGeneric => 'Une erreur est survenue';
+
+  @override
+  String get tier1ErrorPricingInvalidAmount => 'Saisis un montant valide';
+
+  @override
+  String get tier1ErrorLocationRequireCity => 'La ville est obligatoire';
 }
