@@ -239,6 +239,13 @@ const PROPOSAL_SYSTEM_TYPES = new Set([
   "proposal_completed",
   "proposal_completion_rejected",
   "proposal_modified",
+  // Phase 12: new milestone-scoped types emitted by the proposal
+  // service (mid-project release notifications) and the scheduler
+  // worker (auto-approval, auto-close).
+  "milestone_released",
+  "milestone_auto_approved",
+  "proposal_cancelled",
+  "proposal_auto_closed",
 ])
 
 const DISPUTE_REASON_LABELS: Record<string, string> = {
