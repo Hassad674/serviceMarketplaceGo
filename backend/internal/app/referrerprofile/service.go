@@ -47,6 +47,20 @@ func (s *Service) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.
 	return view, nil
 }
 
+// GetReferrerProfileIDByOrgID resolves the surrogate profile ID
+// from an organization ID. Used by the pricing handler — mirrors
+// GetFreelanceProfileIDByOrgID on the freelance side. Lazily
+// creates a default referrer profile if the row does not yet
+// exist, so the pricing handler can write a row for a fresh
+// provider without a separate "initialize profile" call.
+func (s *Service) GetReferrerProfileIDByOrgID(ctx context.Context, orgID uuid.UUID) (uuid.UUID, error) {
+	view, err := s.profiles.GetOrCreateByOrgID(ctx, orgID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve referrer profile id: %w", err)
+	}
+	return view.Profile.ID, nil
+}
+
 // UpdateCoreInput groups the core text edits (title, about, video).
 type UpdateCoreInput struct {
 	Title    string
