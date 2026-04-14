@@ -155,6 +155,16 @@ type mockMilestoneRepo struct {
 	// byProposal keeps the proposal_id -> milestones[] index in sync
 	// with store so ListByProposal and GetCurrentActive can walk it.
 	byProposal map[uuid.UUID][]*milestone.Milestone
+
+	// autoSynthStatus, when non-empty, makes GetCurrentActive and
+	// ListByProposal lazily synthesise a single milestone in the
+	// given status for any proposal id that has never been seeded.
+	// This is a pragmatic shortcut for action-method tests that
+	// previously only stubbed the proposal side and assumed the
+	// macro status mapped directly onto the proposal. Tests that
+	// need a specific milestone shape still call seedMilestone.
+	autoSynthStatus milestone.MilestoneStatus
+	autoSynthAmount int64
 }
 
 func (m *mockMilestoneRepo) init() {
@@ -201,7 +211,16 @@ func (m *mockMilestoneRepo) ListByProposal(ctx context.Context, proposalID uuid.
 		return m.listByProposalFn(ctx, proposalID)
 	}
 	m.init()
-	return m.byProposal[proposalID], nil
+	existing := m.byProposal[proposalID]
+	if len(existing) == 0 && m.autoSynthStatus != "" {
+		amount := m.autoSynthAmount
+		if amount == 0 {
+			amount = 100000
+		}
+		mm := m.seedMilestone(proposalID, m.autoSynthStatus, amount)
+		return []*milestone.Milestone{mm}, nil
+	}
+	return existing, nil
 }
 
 func (m *mockMilestoneRepo) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error) {
@@ -219,10 +238,26 @@ func (m *mockMilestoneRepo) GetCurrentActive(ctx context.Context, proposalID uui
 			current = mm
 		}
 	}
-	if current == nil {
-		return nil, milestone.ErrMilestoneNotFound
+	if current != nil {
+		return current, nil
 	}
-	return current, nil
+	// Auto-synthesis fallback: when the test has set autoSynthStatus,
+	// lazily create a single milestone in that status and remember
+	// it so subsequent calls see the same instance. Default amount
+	// is 100000 centimes (1000 EUR) unless overridden.
+	if m.autoSynthStatus != "" {
+		amount := m.autoSynthAmount
+		if amount == 0 {
+			amount = 100000
+		}
+		return m.seedMilestone(proposalID, m.autoSynthStatus, amount), nil
+	}
+	return nil, milestone.ErrMilestoneNotFound
+}
+
+func (m *mockMilestoneRepo) enableAutoSynth(status milestone.MilestoneStatus, amount int64) {
+	m.autoSynthStatus = status
+	m.autoSynthAmount = amount
 }
 
 func (m *mockMilestoneRepo) Update(ctx context.Context, mm *milestone.Milestone) error {
@@ -268,6 +303,53 @@ func (m *mockMilestoneRepo) ListByProposals(ctx context.Context, proposalIDs []u
 		}
 	}
 	return out, nil
+}
+
+// seedMilestone is a test helper that injects a single milestone at
+// sequence=1 into the mock repository's in-memory store. Used by
+// action-method tests to simulate the post-CreateProposal state
+// (where exactly one milestone exists in pending_funding or later).
+//
+// The status argument lets each test express the precondition it
+// needs: pending_funding for InitiatePayment/ConfirmPayment, funded
+// for RequestCompletion, submitted for CompleteProposal and
+// RejectCompletion. The milestone carries the supplied amount and
+// a fixed title/description so debug output is readable.
+func (m *mockMilestoneRepo) seedMilestone(proposalID uuid.UUID, status milestone.MilestoneStatus, amount int64) *milestone.Milestone {
+	m.init()
+	mm := &milestone.Milestone{
+		ID:          uuid.New(),
+		ProposalID:  proposalID,
+		Sequence:    1,
+		Title:       "Seeded milestone",
+		Description: "Seeded for action-method tests",
+		Amount:      amount,
+		Status:      status,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	// Populate timestamps consistent with the status so the macro
+	// status projection stays coherent.
+	now := time.Now()
+	switch status {
+	case milestone.StatusFunded:
+		mm.FundedAt = &now
+	case milestone.StatusSubmitted:
+		mm.FundedAt = &now
+		mm.SubmittedAt = &now
+	case milestone.StatusApproved:
+		mm.FundedAt = &now
+		mm.SubmittedAt = &now
+		mm.ApprovedAt = &now
+	case milestone.StatusReleased:
+		mm.FundedAt = &now
+		mm.SubmittedAt = &now
+		mm.ApprovedAt = &now
+		mm.ReleasedAt = &now
+	}
+	m.store[mm.ID] = mm
+	m.byProposal[proposalID] = append(m.byProposal[proposalID], mm)
+	return mm
 }
 
 var _ repository.MilestoneRepository = (*mockMilestoneRepo)(nil)

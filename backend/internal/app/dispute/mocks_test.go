@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	disputedomain "marketplace-backend/internal/domain/dispute"
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -159,6 +160,9 @@ type mockProposalRepo struct {
 
 func (m *mockProposalRepo) Create(context.Context, *proposal.Proposal) error               { return nil }
 func (m *mockProposalRepo) CreateWithDocuments(context.Context, *proposal.Proposal, []*proposal.ProposalDocument) error {
+	return nil
+}
+func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(context.Context, *proposal.Proposal, []*proposal.ProposalDocument, []*milestonedomain.Milestone) error {
 	return nil
 }
 func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error) {

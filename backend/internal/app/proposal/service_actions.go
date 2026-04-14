@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
@@ -153,8 +154,12 @@ func (s *Service) ModifyProposal(ctx context.Context, input ModifyProposalInput)
 	return modified, nil
 }
 
-// InitiatePayment creates a Stripe PaymentIntent or falls back to simulation.
-// Returns nil output when simulation mode completes the payment immediately.
+// InitiatePayment creates a Stripe PaymentIntent for the proposal's
+// current active milestone (phase 4 refactor). The Stripe amount comes
+// from the milestone.amount, not the proposal.amount — the proposal is
+// now a header and the milestone is the concrete escrow unit.
+//
+// Falls back to simulation mode when no PaymentProcessor is configured.
 func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (*service.PaymentIntentOutput, error) {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {
@@ -170,17 +175,35 @@ func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (
 		return nil, err
 	}
 
-	if p.Status != domain.StatusAccepted {
+	// A payment is legal only when the proposal is accepted (no
+	// milestone funded yet) OR active (previous milestones released
+	// and the next one is waiting for funding). Anything else — pending,
+	// disputed, completed — rejects the call.
+	if p.Status != domain.StatusAccepted && p.Status != domain.StatusActive {
 		return nil, domain.ErrInvalidStatus
 	}
 
-	// Real Stripe mode
+	// Locate the milestone awaiting funding. The strict-sequential
+	// rule means there is exactly one such milestone at any instant:
+	// the lowest-sequence non-terminal one, which must be in
+	// pending_funding for a fund call to be legal.
+	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get current milestone: %w", err)
+	}
+	if current.Status != milestone.StatusPendingFunding {
+		return nil, domain.ErrInvalidStatus
+	}
+
+	// Real Stripe mode: ask the payment processor for an intent on the
+	// milestone's amount. The processor is responsible for persisting a
+	// PaymentRecord with milestone_id (phase 7 outbox integration).
 	if s.payments != nil {
 		result, err := s.payments.CreatePaymentIntent(ctx, service.PaymentIntentInput{
 			ProposalID:     p.ID,
 			ClientID:       p.ClientID,
 			ProviderID:     p.ProviderID,
-			ProposalAmount: p.Amount,
+			ProposalAmount: current.Amount,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("create payment intent: %w", err)
@@ -188,24 +211,23 @@ func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (
 		return result, nil
 	}
 
-	// Simulation fallback (dev mode)
-	return nil, s.simulatePayment(ctx, p, input.UserID)
+	// Simulation fallback (dev mode): fund the milestone immediately
+	// and recompute the macro status.
+	return nil, s.simulatePayment(ctx, p, current, input.UserID)
 }
 
-// simulatePayment immediately marks the proposal as paid+active (dev mode only).
-func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, userID uuid.UUID) error {
-	if err := p.MarkPaid(); err != nil {
-		return err
+// simulatePayment immediately funds the given milestone (dev mode only)
+// and recomputes the proposal's macro status. Called by InitiatePayment
+// when no real payment processor is wired.
+func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, current *milestone.Milestone, userID uuid.UUID) error {
+	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
+		return m.Fund()
+	}); err != nil {
+		return fmt.Errorf("fund milestone: %w", err)
 	}
-	if err := p.MarkActive(); err != nil {
-		return err
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
 	}
-	if err := s.proposals.Update(ctx, p); err != nil {
-		return fmt.Errorf("update proposal: %w", err)
-	}
-
-	// Award bonus credits with fraud detection
-	s.awardBonusWithFraudCheck(ctx, p)
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, userID, "proposal_paid", metadata)
@@ -215,30 +237,45 @@ func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, userI
 	return nil
 }
 
-// ConfirmPaymentAndActivate is called by the webhook handler after Stripe confirms payment.
+// ConfirmPaymentAndActivate is called by the webhook handler (or the
+// frontend fallback) after Stripe has confirmed a PaymentIntent. It
+// transitions the current active milestone from pending_funding to
+// funded and recomputes the proposal's macro status.
+//
+// Idempotent: if the milestone is already funded (or beyond), the call
+// is a no-op and returns nil, so duplicate webhook deliveries don't
+// double-fund. The dedicated stripe_webhook_events table (phase 7)
+// adds a second layer of idempotency at the webhook boundary.
+//
+// The credit-bonus fraud check and the KYC first-earning timestamp are
+// NOT fired here — per user decisions F4 and F5 they are triggered
+// when the LAST milestone of a proposal is released (i.e. when the
+// macro status transitions to completed), not at first funding.
 func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid.UUID) error {
 	p, err := s.proposals.GetByID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
-	// Idempotency: already paid/active
-	if p.Status == domain.StatusPaid || p.Status == domain.StatusActive {
+	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("get current milestone: %w", err)
+	}
+	// Idempotency: if the milestone is already beyond pending_funding
+	// (funded, submitted, approved, released, etc.) the webhook has
+	// already been processed and we have nothing to do.
+	if current.Status != milestone.StatusPendingFunding {
 		return nil
 	}
 
-	if err := p.MarkPaid(); err != nil {
-		return err
+	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
+		return m.Fund()
+	}); err != nil {
+		return fmt.Errorf("fund milestone: %w", err)
 	}
-	if err := p.MarkActive(); err != nil {
-		return err
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
 	}
-	if err := s.proposals.Update(ctx, p); err != nil {
-		return fmt.Errorf("update proposal: %w", err)
-	}
-
-	// Award bonus credits with fraud detection
-	s.awardBonusWithFraudCheck(ctx, p)
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, p.ClientID, "proposal_paid", metadata)
@@ -268,6 +305,10 @@ func (s *Service) AuthorizeClientOrg(ctx context.Context, proposalID, orgID uuid
 	return s.requireOrgIsSide(ctx, p.ClientID, orgID, domain.ErrNotAuthorized)
 }
 
+// RequestCompletion transitions the proposal's current active milestone
+// from funded to submitted. The provider calls it when the milestone's
+// deliverables are ready for client review — starting the auto-approval
+// timer that the phase-6 scheduler will fire in 7 days (default).
 func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletionInput) error {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {
@@ -279,12 +320,22 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 		return err
 	}
 
-	if err := p.RequestCompletion(p.ProviderID); err != nil {
-		return err
+	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("get current milestone: %w", err)
+	}
+	if current.Status != milestone.StatusFunded {
+		return domain.ErrInvalidStatus
 	}
 
-	if err := s.proposals.Update(ctx, p); err != nil {
-		return fmt.Errorf("update proposal: %w", err)
+	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
+		return m.Submit()
+	}); err != nil {
+		return fmt.Errorf("submit milestone: %w", err)
+	}
+
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
 	}
 
 	metadata := buildStatusMetadata(p)
@@ -297,6 +348,13 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 	return nil
 }
 
+// CompleteProposal approves AND releases the proposal's current active
+// milestone in a single locked transition. If the released milestone
+// was the LAST one of the proposal, the macro status transitions to
+// completed — at which point the credit-bonus fraud check runs and
+// the KYC first-earning timestamp is recorded (user decisions F4/F5).
+// Otherwise the proposal drops back to "active" (the next milestone
+// now becomes the current one, awaiting funding).
 func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalInput) error {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {
@@ -310,58 +368,101 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		return err
 	}
 
-	if err := p.ConfirmCompletion(p.ClientID); err != nil {
-		return err
+	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("get current milestone: %w", err)
+	}
+	if current.Status != milestone.StatusSubmitted {
+		return domain.ErrInvalidStatus
 	}
 
-	if err := s.proposals.Update(ctx, p); err != nil {
-		return fmt.Errorf("update proposal: %w", err)
-	}
-
-	metadata := s.buildCompletedMetadata(ctx, p)
-	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
-
-	// Double-blind reviews (since phase R18): a SINGLE evaluation_request
-	// system message is posted in the shared conversation. Both parties
-	// see it and can click the CTA — the frontend derives the viewer's
-	// side from the client/provider organization ids carried in metadata
-	// and opens the right review variant. Neither side will see the
-	// other's review until both have submitted or 14 days have elapsed.
-	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "evaluation_request", metadata)
-
-	s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
-		"Your mission has been marked as complete. Leave a review for the client before the 14-day window closes.",
-		buildNotificationData(p.ID, p.ConversationID, p.Title))
-	s.sendNotification(ctx, p.ClientID, "proposal_completed", "Mission completed",
-		"The mission is marked as complete. Leave a review for the provider before the 14-day window closes.",
-		buildNotificationData(p.ID, p.ConversationID, p.Title))
-
-	// Transfer funds to provider (non-blocking — log errors but don't fail completion)
-	if s.payments != nil {
-		if err := s.payments.TransferToProvider(ctx, p.ID); err != nil {
-			slog.Error("failed to transfer to provider", "proposal_id", p.ID, "error", err)
+	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
+		if err := m.Approve(); err != nil {
+			return err
 		}
+		return m.Release()
+	}); err != nil {
+		return fmt.Errorf("approve+release milestone: %w", err)
 	}
 
-	// Record first earning for KYC enforcement — triggers the 14-day
-	// countdown on the provider's organization (the merchant of record
-	// since phase R5). Idempotent: only writes when the org row still
-	// has a NULL kyc_first_earning_at.
-	if s.orgs != nil && s.users != nil {
-		providerUser, lookupErr := s.users.GetByID(ctx, p.ProviderID)
-		if lookupErr == nil && providerUser.OrganizationID != nil {
-			if err := s.orgs.SetKYCFirstEarning(ctx, *providerUser.OrganizationID, time.Now()); err != nil {
-				slog.Warn("kyc: failed to record first earning",
-					"provider_id", p.ProviderID,
-					"org_id", providerUser.OrganizationID,
-					"error", err)
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
+	}
+
+	// If the macro status is now completed, this was the LAST milestone
+	// of the proposal: run the end-of-project side effects (fraud bonus,
+	// KYC first earning, double-blind review unlock, completion notifs).
+	// Otherwise we're mid-project: the next milestone is waiting for
+	// funding and we emit a lighter-weight "milestone released" signal.
+	if p.Status == domain.StatusCompleted {
+		metadata := s.buildCompletedMetadata(ctx, p)
+		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
+
+		// Double-blind reviews (since phase R18): a SINGLE evaluation_request
+		// system message is posted in the shared conversation. Both parties
+		// see it and can click the CTA — the frontend derives the viewer's
+		// side from the client/provider organization ids carried in metadata
+		// and opens the right review variant. Neither side will see the
+		// other's review until both have submitted or 14 days have elapsed.
+		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "evaluation_request", metadata)
+
+		s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
+			"Your mission has been marked as complete. Leave a review for the client before the 14-day window closes.",
+			buildNotificationData(p.ID, p.ConversationID, p.Title))
+		s.sendNotification(ctx, p.ClientID, "proposal_completed", "Mission completed",
+			"The mission is marked as complete. Leave a review for the provider before the 14-day window closes.",
+			buildNotificationData(p.ID, p.ConversationID, p.Title))
+
+		// End-of-project fraud bonus (user decision F4): runs only on
+		// macro completion, not on every milestone release, so a client
+		// cannot game the system by funding M1 and ghosting.
+		s.awardBonusWithFraudCheck(ctx, p)
+
+		// Transfer funds to provider (non-blocking — log errors but
+		// don't fail completion). Phase 7 replaces this direct call
+		// with an outbox event for exactly-once delivery.
+		if s.payments != nil {
+			if err := s.payments.TransferToProvider(ctx, p.ID); err != nil {
+				slog.Error("failed to transfer to provider", "proposal_id", p.ID, "error", err)
 			}
 		}
+
+		// Record first earning for KYC enforcement — triggers the
+		// 14-day countdown on the provider's organization (the
+		// merchant of record since phase R5). Idempotent: only writes
+		// when the org row still has a NULL kyc_first_earning_at.
+		if s.orgs != nil && s.users != nil {
+			providerUser, lookupErr := s.users.GetByID(ctx, p.ProviderID)
+			if lookupErr == nil && providerUser.OrganizationID != nil {
+				if err := s.orgs.SetKYCFirstEarning(ctx, *providerUser.OrganizationID, time.Now()); err != nil {
+					slog.Warn("kyc: failed to record first earning",
+						"provider_id", p.ProviderID,
+						"org_id", providerUser.OrganizationID,
+						"error", err)
+				}
+			}
+		}
+	} else {
+		// Mid-project: a single milestone was released, the next is
+		// now waiting for funding. Emit a lighter-weight message so
+		// the UI can render "milestone N released — please fund M+1".
+		metadata := buildStatusMetadata(p)
+		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "milestone_released", metadata)
+		s.sendNotification(ctx, p.ClientID, "milestone_released", "Milestone released",
+			"A milestone was released to the provider. Please fund the next milestone to continue.",
+			buildNotificationData(p.ID, p.ConversationID, p.Title))
+		s.sendNotification(ctx, p.ProviderID, "milestone_released", "Milestone released",
+			"Your milestone has been approved and paid. Work on the next milestone can start once the client funds it.",
+			buildNotificationData(p.ID, p.ConversationID, p.Title))
 	}
 
 	return nil
 }
 
+// RejectCompletion transitions a submitted milestone back to funded.
+// The provider then has to re-address the deliverables and call
+// RequestCompletion again — which restarts the auto-approval timer
+// because SubmittedAt was cleared by milestone.Reject.
 func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionInput) error {
 	p, err := s.proposals.GetByID(ctx, input.ProposalID)
 	if err != nil {
@@ -373,12 +474,22 @@ func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionIn
 		return err
 	}
 
-	if err := p.RejectCompletion(p.ClientID); err != nil {
-		return err
+	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("get current milestone: %w", err)
+	}
+	if current.Status != milestone.StatusSubmitted {
+		return domain.ErrInvalidStatus
 	}
 
-	if err := s.proposals.Update(ctx, p); err != nil {
-		return fmt.Errorf("update proposal: %w", err)
+	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
+		return m.Reject()
+	}); err != nil {
+		return fmt.Errorf("reject milestone: %w", err)
+	}
+
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
 	}
 
 	metadata := buildStatusMetadata(p)
