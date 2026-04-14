@@ -3,123 +3,121 @@
 import { useTranslations } from "next-intl"
 import { useUser, useOrganization } from "@/shared/hooks/use-user"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
-import { useProfileRating } from "@/features/provider/hooks/use-profile-rating"
-import { useUploadPhoto, useUploadVideo, useDeleteVideo } from "@/features/provider/hooks/use-upload"
-import { ProfileHeader } from "@/features/provider/components/profile-header"
-import { ProfileVideo } from "@/features/provider/components/profile-video"
-import { ProfileAbout } from "@/features/provider/components/profile-about"
-import { ProfileHistory } from "@/features/provider/components/profile-history"
-import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
-import { SocialLinksSection } from "@/features/provider/components/social-links-section"
-import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
-import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
-import { AvailabilitySection } from "@/features/provider/components/availability-section"
-import { PricingSection } from "@/features/provider/components/pricing-section"
-import { LocationSection } from "@/features/provider/components/location-section"
-import { LanguagesSection } from "@/features/provider/components/languages-section"
+import { useProfileRating } from "@/shared/hooks/profile/use-profile-rating"
+import {
+  useFreelanceProfile,
+} from "@/features/freelance-profile/hooks/use-freelance-profile"
+import {
+  useUpdateFreelanceProfile,
+} from "@/features/freelance-profile/hooks/use-update-freelance-profile"
+import {
+  useUploadFreelanceVideo,
+  useDeleteFreelanceVideo,
+} from "@/features/freelance-profile/hooks/use-freelance-video"
+import { FreelancePublicProfile } from "@/features/freelance-profile/components/freelance-public-profile"
+import {
+  useUploadOrganizationPhoto,
+} from "@/features/organization-shared/hooks/use-update-organization-photo"
+import { useOrganizationShared } from "@/features/organization-shared/hooks/use-organization-shared"
+import { SharedLocationSection } from "@/features/organization-shared/components/shared-location-section"
+import { SharedLanguagesSection } from "@/features/organization-shared/components/shared-languages-section"
 import { SkillsSection } from "@/features/skill/components/skills-section"
 
-function orgTypeToRoleContext(orgType: string | undefined): "agency" | "provider" | "referrer" {
-  if (orgType === "agency") return "agency"
-  return "provider"
-}
-
+// /profile renders the authenticated user's freelance profile in
+// editable mode. Shared fields (location, languages, photo) live in
+// the organization-shared feature and are rendered ONCE on this page
+// as their canonical home — /referral does not duplicate the UI.
+// Writes flow through the org-shared mutation hooks, which fan out
+// invalidations to every persona cache so the next render of the
+// referrer page sees the fresh values.
 export default function ProfilePage() {
   const { data: user } = useUser()
   const { data: org } = useOrganization()
-  const { data: profile, isLoading, error } = useProfile()
+  const { data: profile, isLoading, error } = useFreelanceProfile()
+  // Prime the org-shared cache so the sections below read from the
+  // same snapshot the freelance profile just delivered. TanStack
+  // deduplicates the request so this is essentially free.
+  useOrganizationShared()
   const { data: rating } = useProfileRating(org?.id)
-  const updateProfile = useUpdateProfile()
-  const photoUpload = useUploadPhoto()
-  const videoUpload = useUploadVideo()
-  const videoDelete = useDeleteVideo()
+  const updateProfile = useUpdateFreelanceProfile()
+  const photoUpload = useUploadOrganizationPhoto()
+  const videoUpload = useUploadFreelanceVideo()
+  const videoDelete = useDeleteFreelanceVideo()
   const canEditProfile = useHasPermission("org_profile.edit")
   const t = useTranslations("profile")
 
-  if (isLoading) return <ProfileSkeleton />
-
-  if (error || !profile) {
+  if (error) {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
-        <p className="text-sm text-destructive">
-          {t("loadError")}
-        </p>
+        <p className="text-sm text-destructive">{t("loadError")}</p>
       </div>
     )
   }
+  if (isLoading || !profile) return <ProfileSkeleton />
 
-  const orgType = org?.type ?? "provider_personal"
-  const displayName = user?.display_name ?? `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
-  const roleContext = orgTypeToRoleContext(orgType)
-  const aboutLabel = orgType === "agency" ? t("aboutAgency") : t("about")
-  const aboutPlaceholder = orgType === "agency" ? t("aboutAgencyPlaceholder") : t("aboutPlaceholder")
-  const videoDesc = orgType === "agency" ? t("addVideoDescAgency") : undefined
+  const displayName =
+    user?.display_name ??
+    `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
 
   return (
     <div className="space-y-6">
-      <ProfileHeader
+      <FreelancePublicProfile
         profile={profile}
         displayName={displayName}
-        roleContext={roleContext}
-        onUpdateTitle={canEditProfile ? (title) => updateProfile.mutate({ title }) : undefined}
-        onUploadPhoto={canEditProfile ? async (file) => { await photoUpload.mutateAsync(file) } : undefined}
-        uploadingPhoto={photoUpload.isPending}
-        readOnly={!canEditProfile}
-        averageRating={rating?.average}
-        reviewCount={rating?.count}
+        rating={
+          rating
+            ? { average: rating.average, count: rating.count }
+            : undefined
+        }
+        editable={
+          canEditProfile
+            ? {
+                onSaveTitle: (title) =>
+                  updateProfile.mutate({
+                    title,
+                    about: profile.about,
+                    video_url: profile.video_url,
+                  }),
+                onSaveAbout: async (about) => {
+                  await updateProfile.mutateAsync({
+                    title: profile.title,
+                    about,
+                    video_url: profile.video_url,
+                  })
+                },
+                savingAbout: updateProfile.isPending,
+                onUploadPhoto: async (file) => {
+                  await photoUpload.mutateAsync(file)
+                },
+                uploadingPhoto: photoUpload.isPending,
+                onUploadVideo: async (file) => {
+                  await videoUpload.mutateAsync(file)
+                },
+                uploadingVideo: videoUpload.isPending,
+                onDeleteVideo: () => videoDelete.mutate(),
+                deletingVideo: videoDelete.isPending,
+              }
+            : undefined
+        }
       />
-      <AvailabilitySection
-        orgType={orgType}
-        referrerEnabled={user?.referrer_enabled}
-        variant="direct"
-        readOnly={!canEditProfile}
-      />
-      <PricingSection
-        variant="direct"
-        orgType={orgType}
-        referrerEnabled={user?.referrer_enabled}
-        readOnly={!canEditProfile}
-      />
-      <LocationSection
-        orgType={orgType}
-        readOnly={!canEditProfile}
-      />
-      <LanguagesSection
-        orgType={orgType}
-        readOnly={!canEditProfile}
-      />
-      <ProfileVideo
-        videoUrl={profile?.presentation_video_url}
-        emptyDescription={videoDesc}
-        onUploadVideo={canEditProfile ? async (file) => { await videoUpload.mutateAsync(file) } : undefined}
-        uploadingVideo={videoUpload.isPending}
-        onDeleteVideo={canEditProfile ? () => videoDelete.mutate() : undefined}
-        deletingVideo={videoDelete.isPending}
-        readOnly={!canEditProfile}
-      />
-      <ProfileAbout
-        content={profile?.about || ""}
-        onSave={canEditProfile ? async (text) => {
-          await updateProfile.mutateAsync({ about: text })
-        } : undefined}
-        saving={updateProfile.isPending}
-        label={aboutLabel}
-        placeholder={aboutPlaceholder}
-        readOnly={!canEditProfile}
-      />
-      <ExpertiseEditor
-        domains={profile?.expertise_domains}
-        orgType={orgType}
-        readOnly={!canEditProfile}
-      />
-      <SkillsSection
-        orgType={orgType}
-        readOnly={!canEditProfile}
-      />
-      <SocialLinksSection />
-      <PortfolioSection />
-      <ProfileHistory orgId={org?.id} />
+
+      {canEditProfile ? (
+        <>
+          <SharedLocationSection />
+          <SharedLanguagesSection />
+          <SkillsSection orgType={org?.type} readOnly={false} />
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-live="polite">
+      <div className="h-32 rounded-xl border border-border bg-muted/40 animate-shimmer" />
+      <div className="h-40 rounded-xl border border-border bg-muted/40 animate-shimmer" />
+      <div className="h-64 rounded-xl border border-border bg-muted/40 animate-shimmer" />
     </div>
   )
 }
