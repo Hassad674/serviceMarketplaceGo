@@ -34,6 +34,7 @@ import (
 	kycapp "marketplace-backend/internal/app/kyc"
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
+	milestoneapp "marketplace-backend/internal/app/milestone"
 	notifapp "marketplace-backend/internal/app/notification"
 	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -190,6 +191,16 @@ func main() {
 
 	// Proposal
 	proposalRepo := postgres.NewProposalRepository(db)
+
+	// Milestone — per-step funding/delivery sub-aggregate of a proposal.
+	// The proposal app service consumes milestoneSvc to delegate the
+	// Fund/Submit/Approve/Release transitions, and the dispute service
+	// (phase 8) delegates OpenDispute/RestoreFromDispute to it as well.
+	milestoneRepo := postgres.NewMilestoneRepository(db)
+	milestoneSvc := milestoneapp.NewService(milestoneapp.ServiceDeps{
+		Milestones: milestoneRepo,
+	})
+	_ = milestoneSvc // wired into proposal service deps below
 
 	// Job feature
 	jobRepo := postgres.NewJobRepository(db)
@@ -388,6 +399,7 @@ func main() {
 	// Wire services that depend on notifications
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
 		Proposals:     proposalRepo,
+		Milestones:    milestoneRepo,
 		Users:         userRepo,
 		Organizations: organizationRepo,
 		Messages:      messagingSvc,

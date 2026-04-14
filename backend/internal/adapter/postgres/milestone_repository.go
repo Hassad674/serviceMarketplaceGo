@@ -1,0 +1,313 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+
+	"marketplace-backend/internal/domain/milestone"
+)
+
+// MilestoneRepository is the postgres implementation of the milestone port.
+//
+// All mutations go through an optimistic-locked UPDATE (matching id AND
+// version) and return milestone.ErrConcurrentUpdate on a zero-row result.
+// This prevents two concurrent transitions from silently clobbering each
+// other — essential for the "client approves" vs "client opens dispute"
+// race that can happen on a submitted milestone.
+type MilestoneRepository struct {
+	db *sql.DB
+}
+
+// NewMilestoneRepository wires a milestone repository against the given
+// database handle. The handle is expected to be a pool (sql.DB), not a
+// single connection, so the adapter can serve concurrent callers.
+func NewMilestoneRepository(db *sql.DB) *MilestoneRepository {
+	return &MilestoneRepository{db: db}
+}
+
+// CreateBatch inserts every milestone of a proposal in a single transaction.
+// The slice must come from milestone.NewMilestoneBatch so sequences are
+// consecutive and the 20-milestone cap is enforced.
+func (r *MilestoneRepository) CreateBatch(ctx context.Context, milestones []*milestone.Milestone) error {
+	if len(milestones) == 0 {
+		return milestone.ErrEmptyBatch
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, m := range milestones {
+		if _, err := tx.ExecContext(ctx, queryInsertMilestone,
+			m.ID, m.ProposalID, m.Sequence, m.Title, m.Description, m.Amount, m.Deadline,
+			string(m.Status), m.Version,
+			m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
+			m.DisputedAt, m.CancelledAt,
+			m.ActiveDisputeID, m.LastDisputeID,
+			m.CreatedAt, m.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert milestone: %w", err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetByID fetches a milestone without taking a lock. Suitable for read-only
+// queries (listings, projections, UI detail views).
+func (r *MilestoneRepository) GetByID(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	row := r.db.QueryRowContext(ctx, queryGetMilestoneByID, id)
+	m, err := scanMilestone(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, milestone.ErrMilestoneNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get milestone by id: %w", err)
+	}
+	return m, nil
+}
+
+// GetByIDForUpdate takes a row-level lock via SELECT ... FOR UPDATE. The
+// call opens a short-lived transaction, reads the row, and immediately
+// commits — the lock is released at commit. The version returned MUST be
+// passed back to Update() unchanged except for the domain transition.
+//
+// The brief transaction window is intentional: we don't hold the lock
+// across app-layer side effects (notifications, Stripe calls). The
+// optimistic version check in Update is what prevents races.
+func (r *MilestoneRepository) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	row := tx.QueryRowContext(ctx, queryGetMilestoneByIDForUpdate, id)
+	m, err := scanMilestone(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, milestone.ErrMilestoneNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get milestone for update: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit lock tx: %w", err)
+	}
+	return m, nil
+}
+
+// ListByProposal returns every milestone of a proposal, ordered by
+// ascending sequence. Used to render the milestone tracker, compute the
+// macro status, and recompute the proposal.amount cache.
+func (r *MilestoneRepository) ListByProposal(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryListMilestonesByProposal, proposalID)
+	if err != nil {
+		return nil, fmt.Errorf("list milestones: %w", err)
+	}
+	defer rows.Close()
+
+	var milestones []*milestone.Milestone
+	for rows.Next() {
+		m, err := scanMilestone(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan milestone: %w", err)
+		}
+		milestones = append(milestones, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows err: %w", err)
+	}
+	return milestones, nil
+}
+
+// GetCurrentActive returns the first non-terminal milestone of the proposal
+// by ascending sequence. Returns milestone.ErrMilestoneNotFound if every
+// milestone is terminal — the caller uses that as a signal that the
+// proposal has no work left to do.
+func (r *MilestoneRepository) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	row := r.db.QueryRowContext(ctx, queryGetCurrentActiveMilestone, proposalID)
+	m, err := scanMilestone(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, milestone.ErrMilestoneNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get current active milestone: %w", err)
+	}
+	return m, nil
+}
+
+// Update persists a domain transition with optimistic concurrency.
+//
+// The WHERE clause matches id AND the pre-transition version; on success
+// the version column is bumped by the SQL. If zero rows are affected, we
+// return milestone.ErrConcurrentUpdate. The caller's in-memory copy is
+// then stale and must be refetched before retrying.
+//
+// Note: the Go struct's Version field is incremented to match the DB on
+// successful return, so subsequent updates within the same call chain
+// see the new value.
+func (r *MilestoneRepository) Update(ctx context.Context, m *milestone.Milestone) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, queryUpdateMilestone,
+		m.ID, m.Version, string(m.Status),
+		m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
+		m.DisputedAt, m.CancelledAt,
+		m.ActiveDisputeID, m.LastDisputeID,
+		m.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("update milestone: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return milestone.ErrConcurrentUpdate
+	}
+	m.Version++
+	return nil
+}
+
+// CreateDeliverable stores a file attached to a milestone.
+func (r *MilestoneRepository) CreateDeliverable(ctx context.Context, d *milestone.Deliverable) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, queryInsertMilestoneDeliverable,
+		d.ID, d.MilestoneID, d.Filename, d.URL, d.Size, d.MimeType, d.UploadedBy, d.CreatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert deliverable: %w", err)
+	}
+	return nil
+}
+
+// ListDeliverables returns every deliverable for a milestone ordered by created_at ASC.
+func (r *MilestoneRepository) ListDeliverables(ctx context.Context, milestoneID uuid.UUID) ([]*milestone.Deliverable, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryListMilestoneDeliverables, milestoneID)
+	if err != nil {
+		return nil, fmt.Errorf("list deliverables: %w", err)
+	}
+	defer rows.Close()
+
+	var out []*milestone.Deliverable
+	for rows.Next() {
+		var d milestone.Deliverable
+		if err := rows.Scan(
+			&d.ID, &d.MilestoneID, &d.Filename, &d.URL, &d.Size, &d.MimeType, &d.UploadedBy, &d.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan deliverable: %w", err)
+		}
+		out = append(out, &d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows err: %w", err)
+	}
+	return out, nil
+}
+
+// DeleteDeliverable removes a deliverable by ID. Mutability enforcement
+// (status must be pending_funding or funded) is the caller's job.
+func (r *MilestoneRepository) DeleteDeliverable(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, queryDeleteMilestoneDeliverable, id)
+	if err != nil {
+		return fmt.Errorf("delete deliverable: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return milestone.ErrDeliverableNotFound
+	}
+	return nil
+}
+
+// ListByProposals resolves a batch of proposals in one round trip and
+// groups the results by proposal_id. Used by list endpoints to fan out
+// milestone summaries without generating N+1 queries.
+func (r *MilestoneRepository) ListByProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error) {
+	if len(proposalIDs) == 0 {
+		return map[uuid.UUID][]*milestone.Milestone{}, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	// pq.Array marshals the Go slice into a postgres uuid[] that
+	// matches the WHERE proposal_id = ANY($1::uuid[]) clause.
+	rows, err := r.db.QueryContext(ctx, queryListMilestonesByProposals, pq.Array(proposalIDs))
+	if err != nil {
+		return nil, fmt.Errorf("list milestones by proposals: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[uuid.UUID][]*milestone.Milestone, len(proposalIDs))
+	for rows.Next() {
+		m, err := scanMilestone(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan milestone: %w", err)
+		}
+		result[m.ProposalID] = append(result[m.ProposalID], m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows err: %w", err)
+	}
+	return result, nil
+}
+
+// scanner abstracts *sql.Row and *sql.Rows so scanMilestone can serve both.
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+// scanMilestone materialises a milestone row into a domain struct. Status
+// is converted from TEXT to the typed enum so callers never see a raw string.
+func scanMilestone(s scanner) (*milestone.Milestone, error) {
+	var m milestone.Milestone
+	var status string
+	if err := s.Scan(
+		&m.ID, &m.ProposalID, &m.Sequence, &m.Title, &m.Description, &m.Amount, &m.Deadline,
+		&status, &m.Version,
+		&m.FundedAt, &m.SubmittedAt, &m.ApprovedAt, &m.ReleasedAt,
+		&m.DisputedAt, &m.CancelledAt,
+		&m.ActiveDisputeID, &m.LastDisputeID,
+		&m.CreatedAt, &m.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	m.Status = milestone.MilestoneStatus(status)
+	return &m, nil
+}

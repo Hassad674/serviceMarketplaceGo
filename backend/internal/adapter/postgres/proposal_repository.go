@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/pkg/cursor"
 )
@@ -42,6 +43,23 @@ func (r *ProposalRepository) Create(ctx context.Context, p *proposal.Proposal) e
 }
 
 func (r *ProposalRepository) CreateWithDocuments(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument) error {
+	return r.CreateWithDocumentsAndMilestones(ctx, p, docs, nil)
+}
+
+// CreateWithDocumentsAndMilestones persists the proposal, its
+// documents, and its milestone batch in a single transaction so all
+// three land together or not at all. Passing nil for milestones keeps
+// backward compatibility with the legacy CreateWithDocuments path —
+// used by phase 4 refactor paths that don't yet supply milestones
+// (e.g. legacy tests) and safe because the caller will create the
+// synthetic milestone in a follow-up step. Prefer the full form
+// whenever possible.
+func (r *ProposalRepository) CreateWithDocumentsAndMilestones(
+	ctx context.Context,
+	p *proposal.Proposal,
+	docs []*proposal.ProposalDocument,
+	milestones []*milestone.Milestone,
+) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -49,7 +67,7 @@ func (r *ProposalRepository) CreateWithDocuments(ctx context.Context, p *proposa
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx, queryInsertProposal,
 		p.ID, p.ConversationID, p.SenderID, p.RecipientID,
@@ -68,6 +86,19 @@ func (r *ProposalRepository) CreateWithDocuments(ctx context.Context, p *proposa
 			doc.ID, doc.ProposalID, doc.Filename, doc.URL, doc.Size, doc.MimeType, doc.CreatedAt,
 		); err != nil {
 			return fmt.Errorf("insert document: %w", err)
+		}
+	}
+
+	for _, m := range milestones {
+		if _, err := tx.ExecContext(ctx, queryInsertMilestone,
+			m.ID, m.ProposalID, m.Sequence, m.Title, m.Description, m.Amount, m.Deadline,
+			string(m.Status), m.Version,
+			m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
+			m.DisputedAt, m.CancelledAt,
+			m.ActiveDisputeID, m.LastDisputeID,
+			m.CreatedAt, m.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert milestone: %w", err)
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
@@ -451,6 +452,9 @@ func TestRequestCompletion_TableDriven(t *testing.T) {
 				},
 			}
 			svc := newTestService(repo, userRepo, msgs, nil)
+			// Mirror the proposal status onto the auto-synth milestone
+			// state so the action method sees the right precondition.
+			svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestoneStatusFor(tt.status), 100000)
 
 			err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
 				ProposalID: uuid.New(),
@@ -467,6 +471,27 @@ func TestRequestCompletion_TableDriven(t *testing.T) {
 			assert.Equal(t, "proposal_completion_requested", msgs.calls[0].Type)
 		})
 	}
+}
+
+// milestoneStatusFor maps a proposal macro status onto the milestone
+// status that a synthetic single-milestone proposal would carry at
+// the same point in its lifecycle. Used by table-driven tests so each
+// subcase exercises the right milestone precondition.
+func milestoneStatusFor(s domain.ProposalStatus) milestone.MilestoneStatus {
+	switch s {
+	case domain.StatusAccepted:
+		return milestone.StatusPendingFunding
+	case domain.StatusPaid, domain.StatusActive:
+		return milestone.StatusFunded
+	case domain.StatusCompletionRequested:
+		return milestone.StatusSubmitted
+	case domain.StatusCompleted:
+		return milestone.StatusReleased
+	}
+	// Pending / declined / withdrawn / disputed: return pending_funding
+	// as a harmless default — the action methods reject these
+	// statuses on the proposal-level check first anyway.
+	return milestone.StatusPendingFunding
 }
 
 // --- CompleteProposal table-driven tests ---
@@ -545,6 +570,7 @@ func TestCompleteProposal_TableDriven(t *testing.T) {
 				},
 			}
 			svc := newTestService(repo, userRepo, msgs, nil)
+			svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestoneStatusFor(tt.status), 100000)
 
 			err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 				ProposalID: uuid.New(),
@@ -585,6 +611,7 @@ func TestCompleteProposal_RepoUpdateError(t *testing.T) {
 		},
 	}
 	svc := newTestService(repo, orgAwareUserRepo(clientOrgID), nil, nil)
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusSubmitted, 100000)
 
 	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 		ProposalID: uuid.New(),
@@ -593,7 +620,9 @@ func TestCompleteProposal_RepoUpdateError(t *testing.T) {
 	})
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "update proposal")
+	// The error path now wraps the proposal repo update inside the
+	// recomputeMacroStatus helper called after milestone release.
+	assert.Contains(t, err.Error(), "disk full")
 }
 
 // --- RejectCompletion table-driven tests ---
@@ -672,6 +701,7 @@ func TestRejectCompletion_TableDriven(t *testing.T) {
 				},
 			}
 			svc := newTestService(repo, userRepo, msgs, nil)
+			svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestoneStatusFor(tt.status), 100000)
 
 			err := svc.RejectCompletion(context.Background(), RejectCompletionInput{
 				ProposalID: uuid.New(),

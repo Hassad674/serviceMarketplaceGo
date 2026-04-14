@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	reviewdomain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/port/repository"
@@ -18,6 +19,9 @@ type mockProposalRepo struct {
 
 func (m *mockProposalRepo) Create(context.Context, *proposaldomain.Proposal) error { return nil }
 func (m *mockProposalRepo) CreateWithDocuments(context.Context, *proposaldomain.Proposal, []*proposaldomain.ProposalDocument) error {
+	return nil
+}
+func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(context.Context, *proposaldomain.Proposal, []*proposaldomain.ProposalDocument, []*milestonedomain.Milestone) error {
 	return nil
 }
 func (m *mockProposalRepo) GetByID(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
