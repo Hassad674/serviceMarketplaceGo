@@ -9,9 +9,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 )
+
+// seedServiceMilestone is a test helper that plants a single milestone
+// at sequence=1 into the service's in-memory mock repo, matching the
+// state that a real proposal of the given status would have at the
+// corresponding point in its lifecycle.
+//
+// Used by action-method tests that previously operated on the
+// proposal-level state machine directly and now need the milestone
+// sub-aggregate to carry the current active state.
+func seedServiceMilestone(svc *Service, proposalID uuid.UUID, mstatus milestone.MilestoneStatus, amount int64) *milestone.Milestone {
+	return svc.milestones.(*mockMilestoneRepo).seedMilestone(proposalID, mstatus, amount)
+}
 
 // --- helpers ---
 
@@ -57,8 +70,20 @@ func newTestServiceWithCreditsAndOrgs(
 	if storage == nil {
 		storage = &mockStorageService{}
 	}
+	// Auto-synth a pending_funding milestone for any proposal id the
+	// action methods look up. This is the common case for payment
+	// action tests (InitiatePayment, ConfirmPaymentAndActivate) which
+	// only stub the proposal side and don't want to reason about
+	// milestones. Tests that need a different initial milestone state
+	// override via svc.milestones.(*mockMilestoneRepo).enableAutoSynth
+	// BEFORE calling the action.
+	milestoneRepo := &mockMilestoneRepo{
+		autoSynthStatus: milestone.StatusPendingFunding,
+		autoSynthAmount: 500000,
+	}
 	deps := ServiceDeps{
 		Proposals:     proposalRepo,
+		Milestones:    milestoneRepo,
 		Users:         userRepo,
 		Organizations: orgRepo,
 		Messages:      msgSender,
@@ -915,6 +940,8 @@ func TestRequestCompletion_Success(t *testing.T) {
 	msgSender := &mockMessageSender{}
 
 	svc := newTestService(proposalRepo, orgAwareUserRepo(providerOrgID), msgSender, nil)
+	// RequestCompletion requires a funded milestone.
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusFunded, 500000)
 
 	err := svc.RequestCompletion(context.Background(), RequestCompletionInput{
 		ProposalID: uuid.New(),
@@ -1016,6 +1043,11 @@ func TestCompleteProposal_Success(t *testing.T) {
 	msgSender := &mockMessageSender{}
 
 	svc := newTestService(proposalRepo, orgAwareUserRepo(clientOrgID), msgSender, nil)
+	// CompleteProposal on the last milestone: the milestone must be
+	// submitted so ApproveAndRelease transitions it and the proposal
+	// reaches the macro completed state (which is what the test
+	// asserts via the proposal_completed + evaluation_request pair).
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusSubmitted, 500000)
 
 	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
 		ProposalID: uuid.New(),
@@ -1096,6 +1128,8 @@ func TestRejectCompletion_Success(t *testing.T) {
 	msgSender := &mockMessageSender{}
 
 	svc := newTestService(proposalRepo, orgAwareUserRepo(clientOrgID), msgSender, nil)
+	// Reject acts on a submitted milestone (transitions back to funded).
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusSubmitted, 500000)
 
 	err := svc.RejectCompletion(context.Background(), RejectCompletionInput{
 		ProposalID: uuid.New(),

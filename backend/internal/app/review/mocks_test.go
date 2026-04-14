@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domain "marketplace-backend/internal/domain/review"
 	userdomain "marketplace-backend/internal/domain/user"
@@ -103,6 +104,10 @@ func (m *mockProposalRepo) Create(ctx context.Context, p *proposaldomain.Proposa
 }
 
 func (m *mockProposalRepo) CreateWithDocuments(ctx context.Context, p *proposaldomain.Proposal, docs []*proposaldomain.ProposalDocument) error {
+	return nil
+}
+
+func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(ctx context.Context, p *proposaldomain.Proposal, docs []*proposaldomain.ProposalDocument, _ []*milestonedomain.Milestone) error {
 	return nil
 }
 

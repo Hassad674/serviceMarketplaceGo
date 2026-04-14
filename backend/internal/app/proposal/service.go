@@ -11,6 +11,7 @@ import (
 
 type ServiceDeps struct {
 	Proposals     repository.ProposalRepository
+	Milestones    repository.MilestoneRepository // required since phase 4 — every proposal has ≥1 milestone
 	Users         repository.UserRepository
 	Organizations repository.OrganizationRepository
 	Messages      service.MessageSender
@@ -23,6 +24,7 @@ type ServiceDeps struct {
 
 type Service struct {
 	proposals     repository.ProposalRepository
+	milestones    repository.MilestoneRepository
 	users         repository.UserRepository
 	orgs          repository.OrganizationRepository
 	messages      service.MessageSender
@@ -36,6 +38,7 @@ type Service struct {
 func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		proposals:     deps.Proposals,
+		milestones:    deps.Milestones,
 		users:         deps.Users,
 		orgs:          deps.Organizations,
 		messages:      deps.Messages,
@@ -47,15 +50,31 @@ func NewService(deps ServiceDeps) *Service {
 	}
 }
 
+// CreateProposalInput is the payload the create handler passes in.
+//
+// Since phase 4, a proposal ALWAYS has at least one milestone. Callers
+// have two ways of expressing this:
+//
+//  1. Milestone mode (new): PaymentMode="milestone" and Milestones is a
+//     non-empty slice. The proposal's total amount is derived from the
+//     sum of milestone amounts (the Amount field is ignored).
+//  2. One-time mode (legacy + default): PaymentMode="" or "one_time"
+//     and Milestones is empty. The service synthesises a single
+//     milestone at sequence=1 covering the full Amount.
+//
+// Either way, the downstream code path is identical — there is no
+// dual-branch logic beyond the CreateProposal factory.
 type CreateProposalInput struct {
 	ConversationID uuid.UUID
 	SenderID       uuid.UUID
 	RecipientID    uuid.UUID
 	Title          string
 	Description    string
-	Amount         int64
+	Amount         int64 // ignored when Milestones is non-empty
 	Deadline       *time.Time
 	Documents      []DocumentInput
+	PaymentMode    string // "one_time" (default) or "milestone"
+	Milestones     []MilestoneInput
 }
 
 type DocumentInput struct {
@@ -63,6 +82,17 @@ type DocumentInput struct {
 	URL      string
 	Size     int64
 	MimeType string
+}
+
+// MilestoneInput is the frontend-facing payload for a single milestone
+// in a multi-step proposal. Sequences must be consecutive starting at 1
+// (enforced by milestone.NewMilestoneBatch).
+type MilestoneInput struct {
+	Sequence    int
+	Title       string
+	Description string
+	Amount      int64
+	Deadline    *time.Time
 }
 
 // AcceptProposalInput, DeclineProposalInput, and every other mutation

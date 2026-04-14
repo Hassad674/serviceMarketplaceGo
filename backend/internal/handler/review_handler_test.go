@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	reviewapp "marketplace-backend/internal/app/review"
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
 	reviewdomain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/handler/middleware"
@@ -129,6 +130,13 @@ func (m *mockProposalRepo) CreateWithDocuments(ctx context.Context, p *proposal.
 		return m.createWithDocsFn(ctx, p, docs)
 	}
 	return nil
+}
+
+// CreateWithDocumentsAndMilestones is the phase-4 atomic insert path.
+// The handler tests don't exercise the milestone side, so this stub
+// just delegates to CreateWithDocuments and ignores the milestone slice.
+func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument, _ []*milestonedomain.Milestone) error {
+	return m.CreateWithDocuments(ctx, p, docs)
 }
 
 func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error) {
