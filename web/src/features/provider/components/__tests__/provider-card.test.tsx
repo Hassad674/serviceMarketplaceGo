@@ -257,6 +257,7 @@ describe("ProviderCard", () => {
           max_amount: null,
           currency: "EUR",
           note: "",
+          negotiable: false,
         },
       ],
     })
