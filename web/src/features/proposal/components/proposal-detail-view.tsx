@@ -16,9 +16,9 @@ import {
   useProposal,
   useAcceptProposal,
   useDeclineProposal,
-  useRequestCompletion,
-  useCompleteProposal,
-  useRejectCompletion,
+  useSubmitMilestone,
+  useApproveMilestone,
+  useRejectMilestone,
 } from "../hooks/use-proposals"
 import { ProposalStepper } from "./proposal-stepper"
 import { ActionsPanel } from "./proposal-actions-panel"
@@ -36,16 +36,16 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const { data: proposal, isLoading, isError } = useProposal(proposalId)
   const acceptMutation = useAcceptProposal()
   const declineMutation = useDeclineProposal()
-  const requestCompletionMutation = useRequestCompletion()
-  const completeProposalMutation = useCompleteProposal()
-  const rejectCompletionMutation = useRejectCompletion()
+  const submitMilestoneMutation = useSubmitMilestone()
+  const approveMilestoneMutation = useApproveMilestone()
+  const rejectMilestoneMutation = useRejectMilestone()
 
   const isMutating =
     acceptMutation.isPending ||
     declineMutation.isPending ||
-    requestCompletionMutation.isPending ||
-    completeProposalMutation.isPending ||
-    rejectCompletionMutation.isPending
+    submitMilestoneMutation.isPending ||
+    approveMilestoneMutation.isPending ||
+    rejectMilestoneMutation.isPending
 
   if (isLoading) {
     return <DetailSkeleton />
@@ -59,6 +59,16 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const isSender = user?.id === proposal.sender_id
   const isClient = user?.id === proposal.client_id
   const isProvider = user?.id === proposal.provider_id
+
+  // The backend sets current_milestone_sequence to the active milestone's
+  // sequence while the proposal is in a milestone-driven state (active,
+  // completion_requested, etc.). Grab the matching milestone so action
+  // handlers can pass its id to the per-milestone endpoints — a stale
+  // client view returns 409 on the action, and the TanStack Query
+  // invalidation on success will refetch the fresh sequence.
+  const currentMilestone = proposal.milestones?.find(
+    (m) => m.sequence === proposal.current_milestone_sequence,
+  )
 
   function handleAccept() {
     acceptMutation.mutate(proposalId)
@@ -83,15 +93,18 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   }
 
   function handleRequestCompletion() {
-    requestCompletionMutation.mutate(proposalId)
+    if (!currentMilestone) return
+    submitMilestoneMutation.mutate({ proposalID: proposalId, milestoneID: currentMilestone.id })
   }
 
   function handleCompleteProposal() {
-    completeProposalMutation.mutate(proposalId)
+    if (!currentMilestone) return
+    approveMilestoneMutation.mutate({ proposalID: proposalId, milestoneID: currentMilestone.id })
   }
 
   function handleRejectCompletion() {
-    rejectCompletionMutation.mutate(proposalId)
+    if (!currentMilestone) return
+    rejectMilestoneMutation.mutate({ proposalID: proposalId, milestoneID: currentMilestone.id })
   }
 
   return (
@@ -144,9 +157,9 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
                 isMutating={isMutating}
                 acceptPending={acceptMutation.isPending}
                 declinePending={declineMutation.isPending}
-                requestCompletionPending={requestCompletionMutation.isPending}
-                completePending={completeProposalMutation.isPending}
-                rejectCompletionPending={rejectCompletionMutation.isPending}
+                requestCompletionPending={submitMilestoneMutation.isPending}
+                completePending={approveMilestoneMutation.isPending}
+                rejectCompletionPending={rejectMilestoneMutation.isPending}
                 onAccept={handleAccept}
                 onDecline={handleDecline}
                 onModify={handleModify}
@@ -174,9 +187,9 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
         isMutating={isMutating}
         acceptPending={acceptMutation.isPending}
         declinePending={declineMutation.isPending}
-        requestCompletionPending={requestCompletionMutation.isPending}
-        completePending={completeProposalMutation.isPending}
-        rejectCompletionPending={rejectCompletionMutation.isPending}
+        requestCompletionPending={submitMilestoneMutation.isPending}
+        completePending={approveMilestoneMutation.isPending}
+        rejectCompletionPending={rejectMilestoneMutation.isPending}
         onAccept={handleAccept}
         onDecline={handleDecline}
         onModify={handleModify}

@@ -8,9 +8,9 @@ import {
   declineProposal,
   modifyProposal,
   initiatePayment,
-  requestCompletion,
-  completeProposal,
-  rejectCompletion,
+  submitMilestone,
+  approveMilestone,
+  rejectMilestone,
   listProjects,
 } from "../api/proposal-api"
 import type { CreateProposalData, ModifyProposalData } from "../api/proposal-api"
@@ -116,45 +116,55 @@ export function useInitiatePayment() {
   })
 }
 
-export function useRequestCompletion() {
+// Phase 11: per-milestone action hooks. Each mutation carries the
+// explicit milestone id so the backend can optimistic-lock against a
+// concrete row, instead of implicitly mutating the "current active
+// milestone" (which drifts when two tabs race). All three invalidate
+// the same set of queries as the legacy per-proposal hooks they
+// replaced so the stepper, project list, and conversation list all
+// refresh after a state transition.
+
+type MilestoneActionInput = {
+  proposalID: string
+  milestoneID: string
+}
+
+function invalidateProposalCaches(queryClient: ReturnType<typeof useQueryClient>, uid: string | undefined) {
+  queryClient.invalidateQueries({ queryKey: projectsQueryKey(uid) })
+  queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
+  queryClient.invalidateQueries({ queryKey: proposalQueryKey(uid) })
+}
+
+export function useSubmitMilestone() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
 
   return useMutation({
-    mutationFn: (id: string) => requestCompletion(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: proposalQueryKey(uid) })
-    },
+    mutationFn: ({ proposalID, milestoneID }: MilestoneActionInput) =>
+      submitMilestone(proposalID, milestoneID),
+    onSuccess: () => invalidateProposalCaches(queryClient, uid),
   })
 }
 
-export function useCompleteProposal() {
+export function useApproveMilestone() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
 
   return useMutation({
-    mutationFn: (id: string) => completeProposal(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: proposalQueryKey(uid) })
-    },
+    mutationFn: ({ proposalID, milestoneID }: MilestoneActionInput) =>
+      approveMilestone(proposalID, milestoneID),
+    onSuccess: () => invalidateProposalCaches(queryClient, uid),
   })
 }
 
-export function useRejectCompletion() {
+export function useRejectMilestone() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
 
   return useMutation({
-    mutationFn: (id: string) => rejectCompletion(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: conversationsQueryKey(uid) })
-      queryClient.invalidateQueries({ queryKey: proposalQueryKey(uid) })
-    },
+    mutationFn: ({ proposalID, milestoneID }: MilestoneActionInput) =>
+      rejectMilestone(proposalID, milestoneID),
+    onSuccess: () => invalidateProposalCaches(queryClient, uid),
   })
 }
 

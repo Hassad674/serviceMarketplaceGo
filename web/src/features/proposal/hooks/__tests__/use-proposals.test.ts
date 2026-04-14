@@ -9,9 +9,9 @@ const mockAcceptProposal = vi.fn()
 const mockDeclineProposal = vi.fn()
 const mockModifyProposal = vi.fn()
 const mockInitiatePayment = vi.fn()
-const mockRequestCompletion = vi.fn()
-const mockCompleteProposal = vi.fn()
-const mockRejectCompletion = vi.fn()
+const mockSubmitMilestone = vi.fn()
+const mockApproveMilestone = vi.fn()
+const mockRejectMilestone = vi.fn()
 const mockListProjects = vi.fn()
 
 vi.mock("../../api/proposal-api", () => ({
@@ -20,9 +20,9 @@ vi.mock("../../api/proposal-api", () => ({
   declineProposal: (...args: unknown[]) => mockDeclineProposal(...args),
   modifyProposal: (...args: unknown[]) => mockModifyProposal(...args),
   initiatePayment: (...args: unknown[]) => mockInitiatePayment(...args),
-  requestCompletion: (...args: unknown[]) => mockRequestCompletion(...args),
-  completeProposal: (...args: unknown[]) => mockCompleteProposal(...args),
-  rejectCompletion: (...args: unknown[]) => mockRejectCompletion(...args),
+  submitMilestone: (...args: unknown[]) => mockSubmitMilestone(...args),
+  approveMilestone: (...args: unknown[]) => mockApproveMilestone(...args),
+  rejectMilestone: (...args: unknown[]) => mockRejectMilestone(...args),
   listProjects: (...args: unknown[]) => mockListProjects(...args),
 }))
 
@@ -46,9 +46,9 @@ import {
   useDeclineProposal,
   useModifyProposal,
   useInitiatePayment,
-  useRequestCompletion,
-  useCompleteProposal,
-  useRejectCompletion,
+  useSubmitMilestone,
+  useApproveMilestone,
+  useRejectMilestone,
   useProjects,
   projectsQueryKey,
 } from "../use-proposals"
@@ -280,75 +280,75 @@ describe("useInitiatePayment", () => {
   })
 })
 
-describe("useRequestCompletion", () => {
+describe("useSubmitMilestone", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it("calls requestCompletion with proposal ID", async () => {
-    mockRequestCompletion.mockResolvedValueOnce(undefined)
+  it("calls submitMilestone with proposal and milestone IDs", async () => {
+    mockSubmitMilestone.mockResolvedValueOnce(undefined)
 
-    const { result } = renderHook(() => useRequestCompletion(), {
+    const { result } = renderHook(() => useSubmitMilestone(), {
       wrapper: createWrapper(),
     })
 
     act(() => {
-      result.current.mutate("proposal-1")
+      result.current.mutate({ proposalID: "proposal-1", milestoneID: "milestone-1" })
     })
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockRequestCompletion).toHaveBeenCalledWith("proposal-1")
+    expect(mockSubmitMilestone).toHaveBeenCalledWith("proposal-1", "milestone-1")
   })
 })
 
-describe("useCompleteProposal", () => {
+describe("useApproveMilestone", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it("calls completeProposal with proposal ID", async () => {
-    mockCompleteProposal.mockResolvedValueOnce(undefined)
+  it("calls approveMilestone with proposal and milestone IDs", async () => {
+    mockApproveMilestone.mockResolvedValueOnce(undefined)
 
-    const { result } = renderHook(() => useCompleteProposal(), {
+    const { result } = renderHook(() => useApproveMilestone(), {
       wrapper: createWrapper(),
     })
 
     act(() => {
-      result.current.mutate("proposal-1")
+      result.current.mutate({ proposalID: "proposal-1", milestoneID: "milestone-1" })
     })
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockCompleteProposal).toHaveBeenCalledWith("proposal-1")
+    expect(mockApproveMilestone).toHaveBeenCalledWith("proposal-1", "milestone-1")
   })
 })
 
-describe("useRejectCompletion", () => {
+describe("useRejectMilestone", () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it("calls rejectCompletion with proposal ID", async () => {
-    mockRejectCompletion.mockResolvedValueOnce(undefined)
+  it("calls rejectMilestone with proposal and milestone IDs", async () => {
+    mockRejectMilestone.mockResolvedValueOnce(undefined)
 
-    const { result } = renderHook(() => useRejectCompletion(), {
+    const { result } = renderHook(() => useRejectMilestone(), {
       wrapper: createWrapper(),
     })
 
     act(() => {
-      result.current.mutate("proposal-1")
+      result.current.mutate({ proposalID: "proposal-1", milestoneID: "milestone-1" })
     })
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true)
     })
 
-    expect(mockRejectCompletion).toHaveBeenCalledWith("proposal-1")
+    expect(mockRejectMilestone).toHaveBeenCalledWith("proposal-1", "milestone-1")
   })
 })
 
