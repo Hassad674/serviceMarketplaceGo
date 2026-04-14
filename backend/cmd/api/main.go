@@ -191,6 +191,12 @@ func main() {
 	// Proposal
 	proposalRepo := postgres.NewProposalRepository(db)
 
+	// Milestone repository (phase 3 wiring — not yet consumed by any
+	// service; phase 4 plugs it into the proposal app service which
+	// orchestrates per-milestone Fund/Submit/Approve/Release).
+	milestoneRepo := postgres.NewMilestoneRepository(db)
+	_ = milestoneRepo
+
 	// Job feature
 	jobRepo := postgres.NewJobRepository(db)
 	jobAppRepo := postgres.NewJobApplicationRepository(db)
