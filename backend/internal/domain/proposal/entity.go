@@ -103,9 +103,11 @@ func NewProposal(input NewProposalInput) (*Proposal, error) {
 	if input.Amount <= 0 {
 		return nil, ErrInvalidAmount
 	}
-	if input.Amount < 3000 {
-		return nil, ErrBelowMinimumAmount
-	}
+	// No minimum amount at the domain level: the 30 EUR floor
+	// documented in the legacy errors.go is a credit-bonus fraud rule
+	// that lives in the app layer (service_fraud.go below_minimum
+	// check), not a domain constraint. A freelancer is free to charge
+	// 1 centime for a milestone if both parties agree.
 	if input.SenderID == input.RecipientID {
 		return nil, ErrSameUser
 	}
