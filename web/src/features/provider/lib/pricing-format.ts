@@ -1,135 +1,30 @@
-import type { Pricing, PricingType } from "../api/profile-api"
-
-// Supported fiat currencies for Tier 1 pricing. "pct" is the synthetic
-// currency used exclusively by commission_pct rows — the amount is
-// stored in basis points (1/100 of a percent).
-export const SUPPORTED_FIAT_CURRENCIES = [
-  "EUR",
-  "USD",
-  "GBP",
-  "CAD",
-  "AUD",
-] as const
-
-export type FiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number]
-
-export type PricingLocale = "fr" | "en"
-
-// Smallest unit divisor for a given currency. All fiat currencies we
-// support are subdivided into hundredths (cents, pence, centimes...).
-// commission_pct is special: its "smallest unit" is a basis point, so
-// callers divide by 100 to go from stored value to percent.
-const UNIT_DIVISOR_FIAT = 100
-const UNIT_DIVISOR_PCT = 100
-
-// Formats the *amount* portion only (no unit suffix). Amounts are
-// converted from their stored smallest unit to human-readable display
-// units before going through Intl.NumberFormat so we get proper locale
-// grouping and decimal handling.
-function formatAmount(
-  amount: number,
-  currency: string,
-  locale: PricingLocale,
-): string {
-  const bcp = locale === "fr" ? "fr-FR" : "en-US"
-  if (currency === "pct") {
-    const pct = amount / UNIT_DIVISOR_PCT
-    return new Intl.NumberFormat(bcp, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(pct)
-  }
-  const value = amount / UNIT_DIVISOR_FIAT
-  return new Intl.NumberFormat(bcp, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value)
-}
-
-function suffixForType(type: PricingType, locale: PricingLocale): string {
-  if (locale === "fr") {
-    switch (type) {
-      case "daily":
-        return "/j"
-      case "hourly":
-        return "/h"
-      case "commission_flat":
-        return " / deal"
-      default:
-        return ""
-    }
-  }
-  switch (type) {
-    case "daily":
-      return "/day"
-    case "hourly":
-      return "/hr"
-    case "commission_flat":
-      return " per deal"
-    default:
-      return ""
-  }
-}
-
-function prefixForType(type: PricingType, locale: PricingLocale): string {
-  if (type !== "project_from") return ""
-  return locale === "fr" ? "À partir de " : "From "
-}
-
-// Formats a Pricing row into its canonical user-facing string.
+// Thin shim re-exporting the shared pricing formatter so the legacy
+// provider feature keeps working after the split-profile refactor.
+// The canonical implementation lives in shared/lib/profile so the
+// new freelance-profile and referrer-profile features can use it
+// without crossing feature boundaries.
 //
-// Examples (fr locale):
-//   daily            500 €/j
-//   hourly           75 €/h
-//   project_from     À partir de 10 000 €
-//   project_range    15 000 – 50 000 €
-//   commission_pct   5 – 15 %
-//   commission_flat  3 000 € / deal
-//
-// The pct type gets a trailing " %" suffix (with a non-breaking space)
-// instead of a currency code. When `max_amount` is null on a range type
-// we degrade gracefully by showing only the minimum — the backend
-// validator should reject this combination but we stay defensive.
-export function formatPricing(
-  row: Pricing,
-  locale: PricingLocale = "fr",
-): string {
-  const min = formatAmount(row.min_amount, row.currency, locale)
-  const hasMax = row.max_amount !== null && row.max_amount !== undefined
-  const max = hasMax
-    ? formatAmount(row.max_amount as number, row.currency, locale)
-    : ""
-  const prefix = prefixForType(row.type, locale)
-  const suffix = suffixForType(row.type, locale)
+// TODO: when the agency profile is refactored onto the split-profile
+// backend, move agency consumers to shared/lib/profile directly and
+// delete this shim.
 
-  if (row.type === "commission_pct") {
-    const body = hasMax ? `${min} – ${max}` : min
-    return `${body} %`
-  }
+import type { Pricing } from "../api/profile-api"
+import {
+  formatPricing as sharedFormatPricing,
+  type FormattablePricing,
+  type PricingLocale,
+} from "@/shared/lib/profile/pricing-format"
 
-  if (row.type === "project_range" && hasMax) {
-    // Avoid printing the currency symbol twice. Strip it from the min
-    // side, keep it on the max side. Works for both "500 €" (fr) and
-    // "€500" (en) layouts by locating the symbol position heuristically.
-    const stripped = stripCurrencySymbol(min, max, locale)
-    return `${stripped} – ${max}${suffix}`
-  }
+export {
+  SUPPORTED_FIAT_CURRENCIES,
+  type FiatCurrency,
+  type PricingLocale,
+} from "@/shared/lib/profile/pricing-format"
 
-  return `${prefix}${min}${suffix}`
-}
-
-// Best-effort removal of the currency symbol from `minFormatted` so a
-// range like "15 000 € – 50 000 €" renders as "15 000 – 50 000 €".
-// Locale-aware: symbol is trailing in fr and leading in en.
-function stripCurrencySymbol(
-  minFormatted: string,
-  maxFormatted: string,
-  locale: PricingLocale,
-): string {
-  if (locale === "fr") {
-    return minFormatted.replace(/\s*[^\d\s,.-].*$/u, "").trimEnd()
-  }
-  return minFormatted.replace(/^[^\d-]+/u, "")
+// formatPricing is the legacy signature used by the provider feature:
+// it takes the feature's own Pricing shape (which carries `kind` on
+// top of the shared fields). kind is not read by the formatter, so we
+// simply forward to the shared implementation.
+export function formatPricing(row: Pricing, locale: PricingLocale = "fr"): string {
+  return sharedFormatPricing(row as FormattablePricing, locale)
 }
