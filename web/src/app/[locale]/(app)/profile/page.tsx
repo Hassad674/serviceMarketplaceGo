@@ -14,6 +14,10 @@ import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
 import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
 import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
+import { AvailabilitySection } from "@/features/provider/components/availability-section"
+import { PricingSection } from "@/features/provider/components/pricing-section"
+import { LocationSection } from "@/features/provider/components/location-section"
+import { LanguagesSection } from "@/features/provider/components/languages-section"
 import { SkillsSection } from "@/features/skill/components/skills-section"
 
 function orgTypeToRoleContext(orgType: string | undefined): "agency" | "provider" | "referrer" {
@@ -64,6 +68,24 @@ export default function ProfilePage() {
         readOnly={!canEditProfile}
         averageRating={rating?.average}
         reviewCount={rating?.count}
+      />
+      <AvailabilitySection
+        orgType={orgType}
+        referrerEnabled={user?.referrer_enabled}
+        readOnly={!canEditProfile}
+      />
+      <PricingSection
+        orgType={orgType}
+        referrerEnabled={user?.referrer_enabled}
+        readOnly={!canEditProfile}
+      />
+      <LocationSection
+        orgType={orgType}
+        readOnly={!canEditProfile}
+      />
+      <LanguagesSection
+        orgType={orgType}
+        readOnly={!canEditProfile}
       />
       <ProfileVideo
         videoUrl={profile?.presentation_video_url}
