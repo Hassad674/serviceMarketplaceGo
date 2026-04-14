@@ -37,13 +37,27 @@ func NewService(profiles repository.FreelanceProfileRepository) *Service {
 }
 
 // GetByOrgID returns the hydrated freelance profile view (persona
-// columns + shared block) for the given org. Never creates a row
-// lazily — freelance profiles are seeded by the split migration
-// for every provider_personal org.
+// columns + shared block) for the given org. Used by the OWNER
+// side (authenticated self-read and every mutation) — lazily
+// creates a default row when none exists so new provider_personal
+// accounts registered after the split migration transparently get
+// one on first access instead of hitting a 404.
 func (s *Service) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
-	view, err := s.profiles.GetByOrgID(ctx, orgID)
+	view, err := s.profiles.GetOrCreateByOrgID(ctx, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("get freelance profile: %w", err)
+	}
+	return view, nil
+}
+
+// GetPublicByOrgID is the read path for the public /freelance-profiles/{id}
+// endpoint. Strict: returns freelanceprofile.ErrProfileNotFound when
+// the row does not exist instead of lazily creating one. Viewing
+// someone else's profile must never mutate its storage.
+func (s *Service) GetPublicByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
+	view, err := s.profiles.GetByOrgID(ctx, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("get public freelance profile: %w", err)
 	}
 	return view, nil
 }
@@ -54,9 +68,11 @@ func (s *Service) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.
 // to hit the freelance_pricing table. Exposed as a dedicated
 // method (rather than making the caller do a full GetByOrgID and
 // extract .Profile.ID) so the handler side stays agnostic of the
-// repository.FreelanceProfileView shape.
+// repository.FreelanceProfileView shape. Uses the lazy path so a
+// provider_personal owner who opens the pricing editor before
+// their profile row exists still gets a clean response.
 func (s *Service) GetFreelanceProfileIDByOrgID(ctx context.Context, orgID uuid.UUID) (uuid.UUID, error) {
-	view, err := s.profiles.GetByOrgID(ctx, orgID)
+	view, err := s.profiles.GetOrCreateByOrgID(ctx, orgID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("resolve freelance profile id: %w", err)
 	}

@@ -169,7 +169,9 @@ func (h *FreelanceProfileHandler) UpdateMyExpertise(w http.ResponseWriter, r *ht
 
 // GetPublic returns any organization's freelance profile. Route
 // param is the organization id, preserving the existing public URL
-// scheme the frontend uses (/freelancers/[orgID]).
+// scheme the frontend uses (/freelancers/[orgID]). Uses the strict
+// read path — viewing someone else's profile must never materialize
+// a row in their storage.
 func (h *FreelanceProfileHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
 	orgIDParam := chi.URLParam(r, "orgID")
 	orgID, err := uuid.Parse(orgIDParam)
@@ -178,7 +180,7 @@ func (h *FreelanceProfileHandler) GetPublic(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	view, err := h.svc.GetByOrgID(r.Context(), orgID)
+	view, err := h.svc.GetPublicByOrgID(r.Context(), orgID)
 	if err != nil {
 		handleFreelanceProfileError(w, err)
 		return

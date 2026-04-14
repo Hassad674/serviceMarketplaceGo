@@ -34,6 +34,12 @@ func (m *mockFreelanceProfileRepo) GetByOrgID(ctx context.Context, orgID uuid.UU
 	}
 	return nil, domainfreelance.ErrProfileNotFound
 }
+func (m *mockFreelanceProfileRepo) GetOrCreateByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
+	// Mirror GetByOrgID for tests that don't wire a dedicated
+	// lazy-create behaviour. The service's owner path now calls
+	// GetOrCreateByOrgID internally.
+	return m.GetByOrgID(ctx, orgID)
+}
 func (m *mockFreelanceProfileRepo) UpdateCore(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error {
 	if m.updateCoreFn != nil {
 		return m.updateCoreFn(ctx, orgID, title, about, videoURL)
