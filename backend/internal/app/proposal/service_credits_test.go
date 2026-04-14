@@ -14,54 +14,45 @@ import (
 	domain "marketplace-backend/internal/domain/proposal"
 )
 
-// --- ConfirmPaymentAndActivate bonus credits tests ---
+// Phase 4 (user decision F4) moved the bonus award out of
+// ConfirmPaymentAndActivate — it now fires when the LAST milestone of a
+// proposal is released (macro status → completed). The tests below
+// invoke awardBonusWithFraudCheck directly with a hand-built proposal
+// so they can assert the award mechanism in isolation, the same way
+// TestFraudCheck_* exercises the fraud-evaluation path. Full-lifecycle
+// coverage (milestones walking through fund → submit → release →
+// bonus) lives in the macro-status suite.
 
-func TestConfirmPaymentAndActivate_AwardsBonusCredits(t *testing.T) {
-	// Phase 4 (user decision F4): the credit bonus now fires when the
-	// LAST milestone of a proposal is released (macro status →
-	// completed), not on the first payment. This test still asserts
-	// the legacy behavior and needs to be rewritten to walk the
-	// proposal through fund → submit → approveAndRelease and assert
-	// the bonus only at completion. Skipping until the rewrite lands
-	// in a follow-up commit (tracked in BLOCKED-milestones-bonus.md).
-	t.Skip("TODO: rewrite for F4 — bonus fires on completion, not first payment")
+// --- Direct awardBonusWithFraudCheck tests (fallback-direct path) ---
+
+func TestAwardBonus_CleanProposal_AwardsBonusCredits(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
-	proposalID := uuid.New()
 	now := time.Now()
 
-	repo := &mockProposalRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
-			return &domain.Proposal{
-				ID:             proposalID,
-				ConversationID: uuid.New(),
-				SenderID:       clientID,
-				RecipientID:    providerID,
-				ClientID:       clientID,
-				ProviderID:     providerID,
-				Status:         domain.StatusAccepted,
-				AcceptedAt:     &now,
-				Title:          "Mission with bonus",
-				Amount:         500000,
-				Version:        1,
-			}, nil
-		},
+	p := &domain.Proposal{
+		ID:         uuid.New(),
+		ClientID:   clientID,
+		ProviderID: providerID,
+		Status:     domain.StatusCompleted,
+		Title:      "Mission with bonus",
+		Amount:     500000,
+		CreatedAt:  now.Add(-10 * time.Minute),
 	}
-	msgs := &mockMessageSender{}
+
 	credits := &mockJobCreditRepo{}
+	// No bonusLog wired → fraud check falls through to awardBonusDirect.
+	svc := newTestServiceWithCredits(nil, nil, nil, nil, credits)
 
-	svc := newTestServiceWithCredits(repo, nil, msgs, nil, credits)
+	svc.awardBonusWithFraudCheck(context.Background(), p)
 
-	err := svc.ConfirmPaymentAndActivate(context.Background(), proposalID)
-
-	require.NoError(t, err)
-
-	// Verify AddBonus was called exactly once with correct parameters
 	require.Len(t, credits.addBonusCalls, 1)
 	assert.Equal(t, providerID, credits.addBonusCalls[0].UserID)
 	assert.Equal(t, jobdomain.BonusPerMission, credits.addBonusCalls[0].Amount)
 	assert.Equal(t, jobdomain.MaxTokens, credits.addBonusCalls[0].MaxTokens)
 }
+
+// --- ConfirmPaymentAndActivate idempotency (orthogonal to bonus timing) ---
 
 func TestConfirmPaymentAndActivate_IdempotentSkipsBonus(t *testing.T) {
 	clientID := uuid.New()
@@ -104,48 +95,42 @@ func TestConfirmPaymentAndActivate_IdempotentSkipsBonus(t *testing.T) {
 
 			require.NoError(t, err)
 
-			// AddBonus must NOT be called for already-paid/active proposals
+			// AddBonus must NOT be called on already-paid/active proposals:
+			// activation short-circuits on status, and (post-F4) never
+			// touches the bonus path regardless.
 			assert.Empty(t, credits.addBonusCalls,
 				"AddBonus should not be called for %s proposal", tt.status)
 		})
 	}
 }
 
-func TestConfirmPaymentAndActivate_BonusExact5Credits(t *testing.T) {
-	t.Skip("TODO: rewrite for F4 — bonus fires on completion, not first payment")
-	clientID := uuid.New()
+func TestAwardBonus_ExactFiveCredits(t *testing.T) {
 	providerID := uuid.New()
 	now := time.Now()
 
-	repo := &mockProposalRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
-			return &domain.Proposal{
-				ID:             uuid.New(),
-				ConversationID: uuid.New(),
-				SenderID:       clientID,
-				RecipientID:    providerID,
-				ClientID:       clientID,
-				ProviderID:     providerID,
-				Status:         domain.StatusAccepted,
-				AcceptedAt:     &now,
-				Title:          "Verify exact amount",
-				Amount:         300000,
-				Version:        1,
-			}, nil
-		},
+	p := &domain.Proposal{
+		ID:         uuid.New(),
+		ClientID:   uuid.New(),
+		ProviderID: providerID,
+		Status:     domain.StatusCompleted,
+		Title:      "Verify exact amount",
+		Amount:     300000,
+		CreatedAt:  now.Add(-10 * time.Minute),
 	}
+
 	credits := &mockJobCreditRepo{}
-	svc := newTestServiceWithCredits(repo, nil, nil, nil, credits)
+	svc := newTestServiceWithCredits(nil, nil, nil, nil, credits)
 
-	err := svc.ConfirmPaymentAndActivate(context.Background(), uuid.New())
+	svc.awardBonusWithFraudCheck(context.Background(), p)
 
-	require.NoError(t, err)
 	require.Len(t, credits.addBonusCalls, 1)
-
-	// BonusPerMission is exactly 5
+	// Guard against accidental changes to the BonusPerMission constant —
+	// the product requirement is exactly 5 credits per completed mission.
 	assert.Equal(t, 5, credits.addBonusCalls[0].Amount,
-		"provider must receive exactly 5 bonus credits per mission")
+		"provider must receive exactly 5 bonus credits per completed mission")
 }
+
+// --- ConfirmPaymentAndActivate nil-credits safety (orthogonal to bonus) ---
 
 func TestConfirmPaymentAndActivate_NilCreditsRepoNoError(t *testing.T) {
 	clientID := uuid.New()
@@ -171,105 +156,43 @@ func TestConfirmPaymentAndActivate_NilCreditsRepoNoError(t *testing.T) {
 	}
 	msgs := &mockMessageSender{}
 
-	// credits is nil — should not panic or error
+	// credits is nil — should not panic or error.
 	svc := newTestServiceWithCredits(repo, nil, msgs, nil, nil)
 
 	err := svc.ConfirmPaymentAndActivate(context.Background(), uuid.New())
 
 	require.NoError(t, err)
-	// Proposal should still transition to active and send messages
+	// Proposal should still transition to active and send messages.
 	require.Len(t, msgs.calls, 1)
 	assert.Equal(t, "proposal_paid", msgs.calls[0].Type)
 }
 
-func TestConfirmPaymentAndActivate_BonusErrorDoesNotBlockActivation(t *testing.T) {
-	t.Skip("TODO: rewrite for F4 — bonus fires on completion, not first payment")
-	clientID := uuid.New()
+func TestAwardBonus_CreditsErrorIsSwallowed(t *testing.T) {
 	providerID := uuid.New()
 	now := time.Now()
 
-	repo := &mockProposalRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
-			return &domain.Proposal{
-				ID:             uuid.New(),
-				ConversationID: uuid.New(),
-				SenderID:       clientID,
-				RecipientID:    providerID,
-				ClientID:       clientID,
-				ProviderID:     providerID,
-				Status:         domain.StatusAccepted,
-				AcceptedAt:     &now,
-				Title:          "Bonus fails",
-				Amount:         100000,
-				Version:        1,
-			}, nil
-		},
+	p := &domain.Proposal{
+		ID:         uuid.New(),
+		ClientID:   uuid.New(),
+		ProviderID: providerID,
+		Status:     domain.StatusCompleted,
+		Title:      "Bonus fails",
+		Amount:     100000,
+		CreatedAt:  now.Add(-10 * time.Minute),
 	}
+
 	credits := &mockJobCreditRepo{
 		addBonusFn: func(_ context.Context, _ uuid.UUID, _ int, _ int) error {
 			return errors.New("redis connection lost")
 		},
 	}
-	msgs := &mockMessageSender{}
+	svc := newTestServiceWithCredits(nil, nil, nil, nil, credits)
 
-	svc := newTestServiceWithCredits(repo, nil, msgs, nil, credits)
-
-	err := svc.ConfirmPaymentAndActivate(context.Background(), uuid.New())
-
-	// The activation must succeed even if AddBonus fails
-	require.NoError(t, err)
-
-	// AddBonus was attempted
-	require.Len(t, credits.addBonusCalls, 1)
-
-	// Messages were still sent
-	require.Len(t, msgs.calls, 1)
-	assert.Equal(t, "proposal_paid", msgs.calls[0].Type)
-}
-
-// --- SimulatePayment bonus credits tests ---
-
-func TestSimulatePayment_AwardsBonusCredits(t *testing.T) {
-	t.Skip("TODO: rewrite for F4 — bonus fires on completion, not first payment")
-	clientID := uuid.New()
-	providerID := uuid.New()
-	clientOrgID := uuid.New()
-	now := time.Now()
-
-	repo := &mockProposalRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
-			return &domain.Proposal{
-				ID:             uuid.New(),
-				ConversationID: uuid.New(),
-				SenderID:       providerID,
-				RecipientID:    clientID,
-				ClientID:       clientID,
-				ProviderID:     providerID,
-				Status:         domain.StatusAccepted,
-				AcceptedAt:     &now,
-				Title:          "Simulated payment",
-				Amount:         400000,
-				Version:        1,
-			}, nil
-		},
-	}
-	msgs := &mockMessageSender{}
-	credits := &mockJobCreditRepo{}
-
-	// No payments service = simulation mode. Provide an org-aware user
-	// repo so the new client-side directional check passes.
-	svc := newTestServiceWithCredits(repo, orgAwareUserRepo(clientOrgID), msgs, nil, credits)
-
-	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
-		ProposalID: uuid.New(),
-		UserID:     clientID,
-		OrgID:      clientOrgID,
+	// Errors from credits.AddBonus must be logged and swallowed so a
+	// transient credits-store outage never blocks proposal completion.
+	require.NotPanics(t, func() {
+		svc.awardBonusWithFraudCheck(context.Background(), p)
 	})
 
-	require.NoError(t, err)
-
-	// Verify bonus was awarded in simulation mode too
-	require.Len(t, credits.addBonusCalls, 1)
-	assert.Equal(t, providerID, credits.addBonusCalls[0].UserID)
-	assert.Equal(t, jobdomain.BonusPerMission, credits.addBonusCalls[0].Amount)
+	require.Len(t, credits.addBonusCalls, 1, "AddBonus must still be attempted")
 }

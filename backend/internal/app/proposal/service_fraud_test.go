@@ -476,47 +476,9 @@ func TestRejectBonusEntry_NotPendingReview_Fails(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrInvalidStatus)
 }
 
-// --- SimulatePayment with fraud check ---
-
-func TestSimulatePayment_WithFraudCheck_Awarded(t *testing.T) {
-	t.Skip("TODO: rewrite for F4 — bonus fires on completion, not first payment")
-	clientID := uuid.New()
-	providerID := uuid.New()
-	clientOrgID := uuid.New()
-	now := time.Now()
-
-	repo := &mockProposalRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
-			return &domain.Proposal{
-				ID:             uuid.New(),
-				ConversationID: uuid.New(),
-				SenderID:       providerID,
-				RecipientID:    clientID,
-				ClientID:       clientID,
-				ProviderID:     providerID,
-				Status:         domain.StatusAccepted,
-				AcceptedAt:     &now,
-				Title:          "Simulated with fraud check",
-				Amount:         500000,
-				Version:        1,
-				CreatedAt:      now.Add(-10 * time.Minute),
-			}, nil
-		},
-	}
-	credits := &mockJobCreditRepo{}
-	bonusLog := &mockBonusLogRepo{}
-
-	svc := newTestServiceWithBonusLog(repo, orgAwareUserRepo(clientOrgID), nil, credits, bonusLog)
-
-	_, err := svc.InitiatePayment(context.Background(), PayProposalInput{
-		ProposalID: uuid.New(),
-		UserID:     clientID,
-		OrgID:      clientOrgID,
-	})
-	require.NoError(t, err)
-
-	// Bonus log and credits should both be populated
-	require.Len(t, bonusLog.insertCalls, 1)
-	assert.Equal(t, "awarded", bonusLog.insertCalls[0].Status)
-	require.Len(t, credits.addBonusCalls, 1)
-}
+// Note: the former TestSimulatePayment_WithFraudCheck_Awarded was
+// removed when F4 moved the bonus trigger from first-payment to
+// macro-completion. Its assertions (insert one "awarded" log entry +
+// call credits.AddBonus once) are now strictly a subset of
+// TestFraudCheck_CleanProposal_Awarded above, which invokes the same
+// code path directly. Keeping it would just duplicate coverage.
