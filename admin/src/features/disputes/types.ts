@@ -3,6 +3,14 @@ export type DisputeStatus = "open" | "negotiation" | "escalated" | "resolved" | 
 export type AdminDispute = {
   id: string
   proposal_id: string
+  // Phase 8: every dispute is scoped to a single milestone. The
+  // proposal_amount field actually carries the disputed milestone's
+  // amount — the field name is preserved for backward compatibility
+  // but the resolution split is on milestone.amount, not the
+  // proposal total.
+  milestone_id?: string
+  milestone_sequence?: number
+  milestone_title?: string
   conversation_id: string
   initiator_id: string
   respondent_id: string
