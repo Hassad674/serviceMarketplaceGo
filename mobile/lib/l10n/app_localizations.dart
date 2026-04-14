@@ -4604,6 +4604,30 @@ abstract class AppLocalizations {
   /// **'{count} selected'**
   String tier1LanguagesCountLabel(int count);
 
+  /// No description provided for @tier1LanguagesNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No language found'**
+  String get tier1LanguagesNoResults;
+
+  /// No description provided for @tier1LanguagesClearAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all'**
+  String get tier1LanguagesClearAll;
+
+  /// No description provided for @tier1LanguagesProfessionalHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'I can deliver work in these languages.'**
+  String get tier1LanguagesProfessionalHelp;
+
+  /// No description provided for @tier1LanguagesConversationalHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'I can chat but not deliver in these languages.'**
+  String get tier1LanguagesConversationalHelp;
+
   /// No description provided for @tier1PricingSectionTitle.
   ///
   /// In en, this message translates to:

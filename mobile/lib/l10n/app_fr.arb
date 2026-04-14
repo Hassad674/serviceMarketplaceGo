@@ -979,6 +979,10 @@
   "@tier1LanguagesCountLabel": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "tier1LanguagesNoResults": "Aucune langue trouvée",
+  "tier1LanguagesClearAll": "Tout effacer",
+  "tier1LanguagesProfessionalHelp": "Je peux travailler et livrer en ces langues.",
+  "tier1LanguagesConversationalHelp": "Je peux discuter mais pas livrer en ces langues.",
   "tier1PricingSectionTitle": "Tarifs",
   "tier1PricingEmpty": "Aucun tarif déclaré",
   "tier1PricingEditButton": "Modifier mes tarifs",

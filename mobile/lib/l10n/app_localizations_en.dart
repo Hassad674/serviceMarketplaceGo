@@ -2439,6 +2439,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get tier1LanguagesNoResults => 'No language found';
+
+  @override
+  String get tier1LanguagesClearAll => 'Clear all';
+
+  @override
+  String get tier1LanguagesProfessionalHelp =>
+      'I can deliver work in these languages.';
+
+  @override
+  String get tier1LanguagesConversationalHelp =>
+      'I can chat but not deliver in these languages.';
+
+  @override
   String get tier1PricingSectionTitle => 'Pricing';
 
   @override
