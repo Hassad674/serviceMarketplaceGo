@@ -816,6 +816,28 @@
     "proposalPreview": "Preview",
     "proposalSend": "Send proposal",
     "proposalCancel": "Cancel",
+    "paymentMode": {
+      "label": "Payment mode",
+      "oneTime": "One-time payment",
+      "milestone": "Milestone payments",
+      "oneTimeHint": "A single payment on acceptance triggers the start of work.",
+      "milestoneHint": "Break the project into steps. Each milestone is funded right before its kickoff."
+    },
+    "milestoneEditor": {
+      "label": "Project milestones",
+      "milestone": "Milestone",
+      "addMilestone": "Add a milestone",
+      "remove": "Remove milestone",
+      "count": "{current}/{max} milestones",
+      "total": "Project total",
+      "titlePlaceholder": "Milestone title (e.g. Wireframes)",
+      "titleAriaLabel": "title",
+      "descriptionPlaceholder": "Expected deliverables for this milestone",
+      "descriptionAriaLabel": "description",
+      "amountPlaceholder": "Amount",
+      "amountAriaLabel": "amount",
+      "deadlineAriaLabel": "deadline"
+    },
     "proposalFrom": "Proposal from {name}",
     "totalAmount": "Total amount",
     "startProject": "Start a project",

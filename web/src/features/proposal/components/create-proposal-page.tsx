@@ -7,13 +7,15 @@ import { X, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import type { ProposalFormData } from "../types"
-import { createEmptyProposalForm } from "../types"
+import type { ProposalFormData, MilestoneFormItem } from "../types"
+import { createEmptyProposalForm, sumMilestoneAmounts } from "../types"
 import { ProposalPreview } from "./proposal-preview"
 import { FileDropZone } from "./file-drop-zone"
+import { PaymentModeToggle } from "./payment-mode-toggle"
+import { MilestoneEditor } from "./milestone-editor"
 import { useCreateProposal, useModifyProposal } from "../hooks/use-proposals"
 import { getProposal, getUploadURL } from "../api/proposal-api"
-import type { CreateProposalData } from "../api/proposal-api"
+import type { CreateProposalData, MilestoneInputData } from "../api/proposal-api"
 
 const TITLE_MAX_LENGTH = 100
 
@@ -74,10 +76,24 @@ export function CreateProposalPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }, [])
 
-  const isValid =
-    formData.title.trim().length > 0 &&
-    formData.description.trim().length > 0 &&
-    Number(formData.amount) > 0
+  const isValid = (() => {
+    if (formData.title.trim().length === 0) return false
+    if (formData.description.trim().length === 0) return false
+    if (formData.paymentMode === "milestone") {
+      // Milestone mode: at least one milestone with a positive
+      // amount, and every milestone must have a title and a
+      // description (the backend domain enforces both).
+      if (formData.milestones.length === 0) return false
+      for (const m of formData.milestones) {
+        if (m.title.trim().length === 0) return false
+        if (m.description.trim().length === 0) return false
+        if (Number(m.amount) <= 0) return false
+      }
+      return sumMilestoneAmounts(formData.milestones) > 0
+    }
+    // One-time mode: a single positive amount.
+    return Number(formData.amount) > 0
+  })()
 
   async function uploadFiles(files: File[]) {
     const uploaded: NonNullable<CreateProposalData["documents"]> = []
@@ -103,7 +119,6 @@ export function CreateProposalPage() {
     if (!isValid || isSubmitting) return
     setSubmitError(null)
 
-    const amountCents = Math.round(Number(formData.amount) * 100)
     let documents: CreateProposalData["documents"]
 
     // Upload files to storage before submitting the proposal
@@ -119,6 +134,13 @@ export function CreateProposalPage() {
       setIsUploading(false)
     }
 
+    // Build the API payload depending on the payment mode. In
+    // milestone mode the amount field is derived from the milestone
+    // sum and the milestones array is sent verbatim; in one-time
+    // mode a single amount is sent and the backend synthesises a
+    // single milestone server-side.
+    const payload = buildCreatePayload(formData)
+
     if (modifyId) {
       modifyMutation.mutate(
         {
@@ -126,9 +148,11 @@ export function CreateProposalPage() {
           data: {
             title: formData.title.trim(),
             description: formData.description.trim(),
-            amount: amountCents,
+            amount: payload.amount,
             deadline: formData.deadline || undefined,
             documents,
+            payment_mode: formData.paymentMode,
+            milestones: payload.milestones,
           },
         },
         {
@@ -147,9 +171,11 @@ export function CreateProposalPage() {
           conversation_id: conversationId,
           title: formData.title.trim(),
           description: formData.description.trim(),
-          amount: amountCents,
+          amount: payload.amount,
           deadline: formData.deadline || undefined,
           documents,
+          payment_mode: formData.paymentMode,
+          milestones: payload.milestones,
         },
         {
           onSuccess: () => {
@@ -289,39 +315,57 @@ export function CreateProposalPage() {
               />
             </div>
 
-            {/* Amount */}
-            <div className="space-y-2">
-              <label
-                htmlFor="proposal-amount"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                {t("proposalAmount")} <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
-                  &euro;
-                </span>
-                <input
-                  id="proposal-amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => updateField("amount", e.target.value)}
-                  placeholder={t("proposalAmountPlaceholder")}
-                  className={cn(
-                    "h-11 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-4 text-sm",
-                    "shadow-xs transition-all duration-200",
-                    "placeholder:text-gray-400",
-                    "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-                    "dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500",
-                    "dark:focus:border-rose-400 dark:focus:ring-rose-400/10",
-                    "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-                  )}
-                  aria-required="true"
-                />
+            {/* Payment mode toggle (phase 10) */}
+            <PaymentModeToggle
+              value={formData.paymentMode}
+              onChange={(mode) => updateField("paymentMode", mode)}
+              disabled={isSubmitting}
+            />
+
+            {formData.paymentMode === "one_time" ? (
+              /* One-time mode: single amount field */
+              <div className="space-y-2" id="payment-mode-panel-one_time">
+                <label
+                  htmlFor="proposal-amount"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  {t("proposalAmount")} <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    &euro;
+                  </span>
+                  <input
+                    id="proposal-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => updateField("amount", e.target.value)}
+                    placeholder={t("proposalAmountPlaceholder")}
+                    className={cn(
+                      "h-11 w-full rounded-lg border border-gray-200 bg-white pl-9 pr-4 text-sm",
+                      "shadow-xs transition-all duration-200",
+                      "placeholder:text-gray-400",
+                      "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
+                      "dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500",
+                      "dark:focus:border-rose-400 dark:focus:ring-rose-400/10",
+                      "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                    )}
+                    aria-required="true"
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Milestone mode: repeatable editor */
+              <MilestoneEditor
+                milestones={formData.milestones}
+                onChange={(milestones: MilestoneFormItem[]) =>
+                  updateField("milestones", milestones)
+                }
+                disabled={isSubmitting}
+              />
+            )}
 
             {/* Deadline */}
             <div className="space-y-2">
@@ -399,6 +443,32 @@ export function CreateProposalPage() {
       </main>
     </div>
   )
+}
+
+// buildCreatePayload turns the form state into the API payload shape.
+// In one-time mode it forwards a single amount and leaves milestones
+// undefined (the backend synthesises a single milestone server-side).
+// In milestone mode it derives the total amount from the sum of
+// milestone amounts and serialises the array with consecutive
+// sequence numbers starting at 1.
+function buildCreatePayload(form: ProposalFormData): {
+  amount: number
+  milestones: MilestoneInputData[] | undefined
+} {
+  if (form.paymentMode === "one_time") {
+    const amount = Math.round(Number(form.amount) * 100)
+    return { amount, milestones: undefined }
+  }
+
+  const milestones: MilestoneInputData[] = form.milestones.map((m, idx) => ({
+    sequence: idx + 1,
+    title: m.title.trim(),
+    description: m.description.trim(),
+    amount: Math.round(Number(m.amount) * 100),
+    deadline: m.deadline || undefined,
+  }))
+  const amount = milestones.reduce((sum, m) => sum + m.amount, 0)
+  return { amount, milestones }
 }
 
 function RecipientField({ name }: { name: string }) {
