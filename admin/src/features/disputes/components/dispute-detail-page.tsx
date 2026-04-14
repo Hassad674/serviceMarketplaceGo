@@ -134,7 +134,21 @@ export function DisputeDetailPage() {
           <Card>
             <CardHeader><CardTitle>Informations</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <InfoRow label="Montant mission" value={formatCurrency(dispute.proposal_amount / 100)} />
+              {/* Phase 8 (admin): the dispute is now scoped to a
+                  single milestone of the proposal. proposal_amount
+                  carries the milestone amount post-phase-8 — the
+                  field name is preserved for backward compat. */}
+              {dispute.milestone_sequence != null && (
+                <InfoRow
+                  label="Jalon disputé"
+                  value={
+                    dispute.milestone_title
+                      ? `Jalon ${dispute.milestone_sequence} — ${dispute.milestone_title}`
+                      : `Jalon ${dispute.milestone_sequence}`
+                  }
+                />
+              )}
+              <InfoRow label="Montant du jalon" value={formatCurrency(dispute.proposal_amount / 100)} />
               <InfoRow label="Montant demande" value={formatCurrency(dispute.requested_amount / 100)} />
               <InfoRow label="Statut" value={<StatusBadge status={dispute.status} />} />
               <InfoRow label="Initiateur" value={dispute.initiator_role === "client" ? "Client" : "Prestataire"} />
