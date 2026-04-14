@@ -27,6 +27,7 @@ class PricingDraft {
     required this.max,
     required this.currency,
     required this.note,
+    required this.negotiable,
     required this.enabled,
   });
 
@@ -36,6 +37,7 @@ class PricingDraft {
   String max;
   String currency;
   String note;
+  bool negotiable;
 
   /// When `false`, save will issue a DELETE for this kind.
   bool enabled;
@@ -50,6 +52,7 @@ class PricingDraft {
       max: '',
       currency: kind == PricingKind.direct ? 'EUR' : 'pct',
       note: '',
+      negotiable: false,
       enabled: false,
     );
   }
@@ -62,6 +65,7 @@ class PricingDraft {
       max: p.maxAmount == null ? '' : _formatInput(p.maxAmount!, p.type),
       currency: p.currency,
       note: p.note,
+      negotiable: p.negotiable,
       enabled: true,
     );
   }
@@ -84,6 +88,7 @@ class PricingDraft {
       maxAmount: maxParsed,
       currency: type == PricingType.commissionPct ? 'pct' : currency,
       note: note.trim(),
+      negotiable: negotiable,
     );
   }
 
@@ -244,6 +249,17 @@ class _PricingRowCardState extends State<PricingRowCard> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            _NegotiableToggle(
+              value: draft.negotiable,
+              label: l10n.tier1PricingNegotiableLabel,
+              yesLabel: l10n.tier1PricingNegotiableYes,
+              noLabel: l10n.tier1PricingNegotiableNo,
+              onChanged: (next) {
+                setState(() => draft.negotiable = next);
+                widget.onChanged();
+              },
+            ),
           ],
         ],
       ),
@@ -338,6 +354,93 @@ class _AmountFields extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
+class _NegotiableToggle extends StatelessWidget {
+  const _NegotiableToggle({
+    required this.value,
+    required this.label,
+    required this.yesLabel,
+    required this.noLabel,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final String label;
+  final String yesLabel;
+  final String noLabel;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelMedium),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          children: [
+            _NegotiablePill(
+              label: yesLabel,
+              selected: value,
+              onTap: () => onChanged(true),
+            ),
+            _NegotiablePill(
+              label: noLabel,
+              selected: !value,
+              onTap: () => onChanged(false),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _NegotiablePill extends StatelessWidget {
+  const _NegotiablePill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.surface,
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary
+                : appColors?.border ?? theme.dividerColor,
+          ),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: selected
+                ? theme.colorScheme.onPrimary
+                : theme.colorScheme.onSurface,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }

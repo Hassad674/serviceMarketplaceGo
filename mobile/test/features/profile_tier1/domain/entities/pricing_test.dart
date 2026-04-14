@@ -11,14 +11,16 @@ void main() {
         'min_amount': 50000,
         'max_amount': null,
         'currency': 'EUR',
-        'note': 'Negotiable',
+        'note': 'Payment in advance',
+        'negotiable': true,
       });
       expect(p.kind, PricingKind.direct);
       expect(p.type, PricingType.daily);
       expect(p.minAmount, 50000);
       expect(p.maxAmount, isNull);
       expect(p.currency, 'EUR');
-      expect(p.note, 'Negotiable');
+      expect(p.note, 'Payment in advance');
+      expect(p.negotiable, isTrue);
     });
 
     test('parses a referral commission_pct row with basis points', () {
@@ -70,6 +72,7 @@ void main() {
         maxAmount: 5000000,
         currency: 'USD',
         note: 'Phase-based delivery',
+        negotiable: true,
       );
       final payload = original.toUpdatePayload();
       expect(payload['kind'], 'direct');
@@ -77,9 +80,20 @@ void main() {
       expect(payload['min_amount'], 1500000);
       expect(payload['max_amount'], 5000000);
       expect(payload['currency'], 'USD');
+      expect(payload['negotiable'], true);
 
       final restored = Pricing.fromJson(Map<String, dynamic>.from(payload));
       expect(restored, original);
+    });
+
+    test('defaults negotiable to false when missing in JSON', () {
+      final p = Pricing.fromJson(<String, dynamic>{
+        'kind': 'direct',
+        'type': 'daily',
+        'min_amount': 50000,
+        'currency': 'EUR',
+      });
+      expect(p.negotiable, isFalse);
     });
   });
 

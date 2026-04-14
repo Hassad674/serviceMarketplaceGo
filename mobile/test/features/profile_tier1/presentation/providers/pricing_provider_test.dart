@@ -68,6 +68,7 @@ void main() {
             maxAmount: null,
             currency: 'EUR',
             note: '',
+            negotiable: false,
           ),
         ];
       final notifier = PricingNotifier(repo);
@@ -103,6 +104,7 @@ void main() {
           maxAmount: null,
           currency: 'EUR',
           note: '',
+          negotiable: false,
         ),
       );
 
@@ -127,6 +129,7 @@ void main() {
           maxAmount: null,
           currency: 'EUR',
           note: '',
+          negotiable: false,
         ),
       );
 
@@ -145,6 +148,7 @@ void main() {
             maxAmount: null,
             currency: 'EUR',
             note: '',
+            negotiable: false,
           ),
           const Pricing(
             kind: PricingKind.referral,
@@ -153,6 +157,7 @@ void main() {
             maxAmount: null,
             currency: 'pct',
             note: '',
+            negotiable: false,
           ),
         ];
       final notifier = PricingNotifier(repo);
@@ -182,6 +187,7 @@ void main() {
           maxAmount: null,
           currency: 'EUR',
           note: '',
+          negotiable: false,
         ),
       );
       expect(notifier.state.error, isNotNull);

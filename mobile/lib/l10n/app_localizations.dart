@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr'),
+    Locale('fr')
   ];
 
   /// No description provided for @appTitle.
@@ -4610,6 +4610,18 @@ abstract class AppLocalizations {
   /// **'Pricing'**
   String get tier1PricingSectionTitle;
 
+  /// No description provided for @tier1PricingDirectSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pricing'**
+  String get tier1PricingDirectSectionTitle;
+
+  /// No description provided for @tier1PricingReferralSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Referral pricing'**
+  String get tier1PricingReferralSectionTitle;
+
   /// No description provided for @tier1PricingEmpty.
   ///
   /// In en, this message translates to:
@@ -4628,6 +4640,18 @@ abstract class AppLocalizations {
   /// **'My pricing'**
   String get tier1PricingModalTitle;
 
+  /// No description provided for @tier1PricingDirectModalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit pricing'**
+  String get tier1PricingDirectModalTitle;
+
+  /// No description provided for @tier1PricingReferralModalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit referral pricing'**
+  String get tier1PricingReferralModalTitle;
+
   /// No description provided for @tier1PricingKindDirect.
   ///
   /// In en, this message translates to:
@@ -4639,6 +4663,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Business referrer'**
   String get tier1PricingKindReferral;
+
+  /// No description provided for @tier1PricingNegotiableLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Is it negotiable?'**
+  String get tier1PricingNegotiableLabel;
+
+  /// No description provided for @tier1PricingNegotiableYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get tier1PricingNegotiableYes;
+
+  /// No description provided for @tier1PricingNegotiableNo.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get tier1PricingNegotiableNo;
+
+  /// No description provided for @tier1PricingNegotiableBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'negotiable'**
+  String get tier1PricingNegotiableBadge;
 
   /// No description provided for @tier1PricingTypeDaily.
   ///
@@ -4806,9 +4854,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

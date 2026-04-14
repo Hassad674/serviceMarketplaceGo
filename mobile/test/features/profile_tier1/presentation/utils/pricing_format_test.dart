@@ -18,6 +18,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final out = formatPricing(p, locale: 'fr');
       expect(out, contains('500'));
@@ -32,6 +33,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final out = formatPricing(p, locale: 'en');
       expect(out, contains('500'));
@@ -48,6 +50,7 @@ void main() {
         maxAmount: null,
         currency: 'USD',
         note: '',
+        negotiable: false,
       );
       final out = formatPricing(p, locale: 'fr');
       expect(out, contains('75'));
@@ -64,6 +67,7 @@ void main() {
         maxAmount: 5000000,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final out = formatPricing(p, locale: 'fr');
       expect(out, contains('–'));
@@ -79,6 +83,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final en = formatPricing(p, locale: 'en');
       expect(en, contains('From'));
@@ -97,6 +102,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final en = formatPricing(p, locale: 'en');
       expect(en, contains('From'));
@@ -111,6 +117,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final fr = formatPricing(p, locale: 'fr');
       expect(fr, contains('partir de'));
@@ -126,6 +133,7 @@ void main() {
         maxAmount: null,
         currency: 'pct',
         note: '',
+        negotiable: false,
       );
       final fr = formatPricing(p, locale: 'fr');
       expect(fr, contains('5.5'));
@@ -140,6 +148,7 @@ void main() {
         maxAmount: 1500,
         currency: 'pct',
         note: '',
+        negotiable: false,
       );
       final out = formatPricing(p, locale: 'en');
       expect(out, contains('5'));
@@ -158,6 +167,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final fr = formatPricing(p, locale: 'fr');
       expect(fr, contains('3'));
@@ -172,6 +182,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final en = formatPricing(p, locale: 'en');
       expect(en, contains('per deal'));
@@ -191,6 +202,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       const referral = Pricing(
         kind: PricingKind.referral,
@@ -199,6 +211,7 @@ void main() {
         maxAmount: null,
         currency: 'pct',
         note: '',
+        negotiable: false,
       );
       final out = formatPricingSummary(
         [direct, referral],
