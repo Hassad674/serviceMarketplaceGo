@@ -47,9 +47,7 @@ func (h *ProfilePricingHandler) ListMyPricing(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	res.JSON(w, http.StatusOK, map[string]any{
-		"data": response.NewPricingSummaryList(pricing),
-	})
+	res.JSON(w, http.StatusOK, response.NewPricingSummaryList(pricing))
 }
 
 // UpsertMyPricing writes or updates one pricing row for the
@@ -91,9 +89,7 @@ func (h *ProfilePricingHandler) UpsertMyPricing(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	res.JSON(w, http.StatusOK, map[string]any{
-		"data": response.NewPricingSummary(pricing),
-	})
+	res.JSON(w, http.StatusOK, response.NewPricingSummary(pricing))
 }
 
 // DeleteMyPricingByKind deletes one pricing row. The kind is a
