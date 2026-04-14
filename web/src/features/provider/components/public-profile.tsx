@@ -14,6 +14,7 @@ import { ProfileSkeleton } from "./profile-skeleton"
 import { PublicPortfolioSection } from "./portfolio-grid"
 import { ExpertiseDisplay } from "./expertise-display"
 import { SkillsDisplay } from "./skills-display"
+import { ProfileIdentityStrip } from "./profile-identity-strip"
 import { useProfileRating } from "../hooks/use-profile-rating"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
@@ -97,6 +98,8 @@ export function PublicProfile({ orgId, type }: PublicProfileProps) {
           averageRating={rating?.average}
           reviewCount={rating?.count}
         />
+
+        <ProfileIdentityStrip profile={profile} />
 
         <ProfileVideo
           videoUrl={videoUrl}
