@@ -122,11 +122,19 @@ func applyUpdates(p *profile.Profile, input UpdateProfileInput) {
 
 // UpdateLocationInput groups the user-facing inputs for the
 // location block so the service signature stays under the 4-param
-// budget. Latitude / longitude are not exposed to the caller —
-// they are derived from (city, country) via the geocoder.
+// budget. When the caller already has canonical coordinates (e.g.
+// from the web / mobile city autocomplete powered by BAN + Photon),
+// it MAY pass non-nil Latitude + Longitude and the service will
+// trust them verbatim — skipping the server-side geocoder entirely.
+// That saves a 2s bounded round-trip on every save and removes a
+// needless external dependency from the happy path. Legacy or
+// programmatic callers that omit the coordinates still fall back to
+// the optional server-side Geocoder.
 type UpdateLocationInput struct {
 	City           string
 	CountryCode    string
+	Latitude       *float64
+	Longitude      *float64
 	WorkMode       []string
 	TravelRadiusKm *int
 }
@@ -136,10 +144,12 @@ type UpdateLocationInput struct {
 //  1. Normalizes city (trim), country code (upper + trim), and
 //     work modes (dedup + filter).
 //  2. Validates the country code via the domain helper.
-//  3. Attempts to geocode (city, country) synchronously via the
-//     injected Geocoder, with a 2s bounded sub-context. Any
-//     failure is logged at WARN and the save proceeds without
-//     coordinates — never fatal.
+//  3. If the caller supplied both lat and lng (non-nil), trusts
+//     them as-is — the client-side autocomplete already resolved a
+//     canonical municipality + coordinates. Otherwise attempts a
+//     best-effort server-side geocode via the injected Geocoder
+//     with a 2s bounded sub-context; any failure is logged at WARN
+//     and the save proceeds without coordinates.
 //  4. Delegates to ProfileRepository.UpdateLocation which
 //     rewrites the entire location block atomically.
 //
@@ -154,7 +164,7 @@ func (s *Service) UpdateLocation(ctx context.Context, orgID uuid.UUID, input Upd
 	}
 	workMode := profile.NormalizeWorkModes(input.WorkMode)
 
-	lat, lng := s.tryGeocode(ctx, orgID, city, country)
+	lat, lng := s.resolveCoordinates(ctx, orgID, city, country, input.Latitude, input.Longitude)
 
 	if err := s.profiles.UpdateLocation(ctx, orgID, repository.LocationInput{
 		City:           city,
@@ -167,6 +177,23 @@ func (s *Service) UpdateLocation(ctx context.Context, orgID uuid.UUID, input Upd
 		return fmt.Errorf("update location: persist: %w", err)
 	}
 	return nil
+}
+
+// resolveCoordinates trusts client-supplied lat/lng when both are
+// non-nil — that is the fast path used by the web/mobile autocomplete.
+// When either is nil it falls back to the server-side geocoder so
+// admin tooling and programmatic writes keep working without having
+// to embed a geocoding client of their own.
+func (s *Service) resolveCoordinates(
+	ctx context.Context,
+	orgID uuid.UUID,
+	city, country string,
+	clientLat, clientLng *float64,
+) (*float64, *float64) {
+	if clientLat != nil && clientLng != nil {
+		return clientLat, clientLng
+	}
+	return s.tryGeocode(ctx, orgID, city, country)
 }
 
 // tryGeocode attempts a best-effort geocoding call. Returns nil
