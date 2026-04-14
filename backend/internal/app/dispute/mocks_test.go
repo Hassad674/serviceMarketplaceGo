@@ -323,6 +323,7 @@ func (m *mockAIAnalyzer) ChatAboutDispute(_ context.Context, _ service.DisputeAn
 func newTestService() (*Service, *mockDisputeRepo, *mockProposalRepo, *mockMessageSender, *mockNotificationSender, *mockPaymentProcessor) {
 	dr := &mockDisputeRepo{}
 	pr := &mockProposalRepo{}
+	mr := &mockMilestoneRepo{}
 	ur := &mockUserRepo{}
 	ms := &mockMessageSender{}
 	ns := &mockNotificationSender{}
@@ -332,6 +333,7 @@ func newTestService() (*Service, *mockDisputeRepo, *mockProposalRepo, *mockMessa
 	svc := NewService(ServiceDeps{
 		Disputes:      dr,
 		Proposals:     pr,
+		Milestones:    mr,
 		Users:         ur,
 		Messages:      ms,
 		Notifications: ns,
@@ -340,6 +342,79 @@ func newTestService() (*Service, *mockDisputeRepo, *mockProposalRepo, *mockMessa
 	})
 
 	return svc, dr, pr, ms, ns, pp
+}
+
+// mockMilestoneRepo is a minimal stub satisfying the milestone
+// repository port. It always returns a synthetic submitted milestone
+// matching the requested proposal id so the dispute happy-path tests
+// (which only exercise the proposal-level flow) keep passing without
+// per-test seeding.
+type mockMilestoneRepo struct{}
+
+func (m *mockMilestoneRepo) CreateBatch(_ context.Context, _ []*milestonedomain.Milestone) error {
+	return nil
+}
+
+func (m *mockMilestoneRepo) GetByID(_ context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
+	return synthDisputeMilestone(id), nil
+}
+
+func (m *mockMilestoneRepo) GetByIDForUpdate(_ context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
+	return synthDisputeMilestone(id), nil
+}
+
+func (m *mockMilestoneRepo) ListByProposal(_ context.Context, _ uuid.UUID) ([]*milestonedomain.Milestone, error) {
+	return nil, nil
+}
+
+func (m *mockMilestoneRepo) GetCurrentActive(_ context.Context, proposalID uuid.UUID) (*milestonedomain.Milestone, error) {
+	return synthDisputeMilestoneForProposal(proposalID), nil
+}
+
+func (m *mockMilestoneRepo) Update(_ context.Context, _ *milestonedomain.Milestone) error {
+	return nil
+}
+
+func (m *mockMilestoneRepo) CreateDeliverable(_ context.Context, _ *milestonedomain.Deliverable) error {
+	return nil
+}
+
+func (m *mockMilestoneRepo) ListDeliverables(_ context.Context, _ uuid.UUID) ([]*milestonedomain.Deliverable, error) {
+	return nil, nil
+}
+
+func (m *mockMilestoneRepo) DeleteDeliverable(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
+func (m *mockMilestoneRepo) ListByProposals(_ context.Context, _ []uuid.UUID) (map[uuid.UUID][]*milestonedomain.Milestone, error) {
+	return map[uuid.UUID][]*milestonedomain.Milestone{}, nil
+}
+
+// synthDisputeMilestone returns a freshly-built submitted milestone
+// at sequence=1 with a deterministic amount large enough to satisfy
+// every existing dispute test's RequestedAmount value (most tests
+// use small constants well under 100000 cents).
+func synthDisputeMilestone(id uuid.UUID) *milestonedomain.Milestone {
+	now := time.Now()
+	return &milestonedomain.Milestone{
+		ID:          id,
+		Sequence:    1,
+		Title:       "Synthetic milestone",
+		Description: "test fixture",
+		Amount:      1000000,
+		Status:      milestonedomain.StatusSubmitted,
+		FundedAt:    &now,
+		SubmittedAt: &now,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+}
+
+func synthDisputeMilestoneForProposal(proposalID uuid.UUID) *milestonedomain.Milestone {
+	m := synthDisputeMilestone(uuid.New())
+	m.ProposalID = proposalID
+	return m
 }
 
 func makeActiveProposal(clientID, providerID uuid.UUID) *proposal.Proposal {

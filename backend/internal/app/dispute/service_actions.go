@@ -9,9 +9,42 @@ import (
 
 	disputedomain "marketplace-backend/internal/domain/dispute"
 	"marketplace-backend/internal/domain/message"
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	portservice "marketplace-backend/internal/port/service"
 )
+
+// markMilestoneDisputed transitions the milestone to disputed status
+// inside an optimistic-locked update. Mirrors the proposal service's
+// withMilestoneLock pattern so the dispute service stays decoupled
+// from the proposal app service while still enforcing the same
+// concurrency guarantees.
+func (s *Service) markMilestoneDisputed(ctx context.Context, milestoneID, disputeID uuid.UUID) error {
+	m, err := s.milestones.GetByIDForUpdate(ctx, milestoneID)
+	if err != nil {
+		return err
+	}
+	if err := m.OpenDispute(disputeID); err != nil {
+		return err
+	}
+	return s.milestones.Update(ctx, m)
+}
+
+// restoreMilestoneFromDispute is the symmetric helper called from
+// dispute resolution / cancellation paths. The target status is
+// chosen by the dispute service based on the resolution type
+// (funded for partial refund, released for full release, refunded
+// for full refund).
+func (s *Service) restoreMilestoneFromDispute(ctx context.Context, milestoneID uuid.UUID, target milestonedomain.MilestoneStatus) error {
+	m, err := s.milestones.GetByIDForUpdate(ctx, milestoneID)
+	if err != nil {
+		return err
+	}
+	if err := m.RestoreFromDispute(target); err != nil {
+		return err
+	}
+	return s.milestones.Update(ctx, m)
+}
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -99,6 +132,21 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 		return nil, disputedomain.ErrAlreadyDisputed
 	}
 
+	// Phase 8: a dispute is scoped to a single milestone — the one
+	// currently in flight. Resolve it server-side from the proposal
+	// so the API surface stays simple (only proposal_id required).
+	// Reject if the milestone is not in funded or submitted state:
+	// pending_funding milestones have no escrow to dispute, and
+	// terminal milestones (released, cancelled, refunded) are
+	// immutable.
+	current, err := s.milestones.GetCurrentActive(ctx, p.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get current milestone: %w", err)
+	}
+	if current.Status != milestonedomain.StatusFunded && current.Status != milestonedomain.StatusSubmitted {
+		return nil, disputedomain.ErrProposalNotDisputable
+	}
+
 	respondentID := p.ProviderID
 	if in.InitiatorID == p.ProviderID {
 		respondentID = p.ClientID
@@ -119,8 +167,15 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 		return nil, fmt.Errorf("open dispute: participants must belong to an organization")
 	}
 
+	// Phase 8: clamp the requested amount to the milestone amount —
+	// a dispute can never claim more than the escrow it targets.
+	if in.RequestedAmount > current.Amount {
+		return nil, disputedomain.ErrInvalidAmount
+	}
+
 	d, err := disputedomain.NewDispute(disputedomain.NewDisputeInput{
 		ProposalID:             p.ID,
+		MilestoneID:            current.ID,
 		ConversationID:         p.ConversationID,
 		InitiatorID:            in.InitiatorID,
 		RespondentID:           respondentID,
@@ -131,7 +186,10 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 		Reason:                 disputedomain.Reason(in.Reason),
 		Description:            in.Description,
 		RequestedAmount:        in.RequestedAmount,
-		ProposalAmount:         p.Amount,
+		// ProposalAmount carries the milestone amount post-phase-8
+		// (the field name is preserved for backward compatibility
+		// with existing SQL queries and resolution split logic).
+		ProposalAmount: current.Amount,
 	})
 	if err != nil {
 		return nil, err
@@ -156,6 +214,13 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 		}
 	}
 
+	// Phase 8: also mark the milestone disputed in the same flow, so
+	// the macro state (proposal-level) and the milestone-level state
+	// stay coherent. The milestone repo applies optimistic locking.
+	if err := s.markMilestoneDisputed(ctx, current.ID, d.ID); err != nil {
+		return nil, fmt.Errorf("mark milestone disputed: %w", err)
+	}
+
 	if err := p.MarkDisputed(d.ID); err != nil {
 		return nil, fmt.Errorf("mark proposal disputed: %w", err)
 	}
@@ -165,20 +230,21 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 
 	// Auto-create the first proposal from the initiator's requested amount.
 	// This gives the other party something actionable immediately (accept/reject/counter).
+	// All amounts are scoped to the disputed milestone (post-phase-8).
 	var clientAmt, providerAmt int64
 	if in.InitiatorID == p.ClientID {
 		clientAmt = in.RequestedAmount
-		providerAmt = p.Amount - in.RequestedAmount
+		providerAmt = current.Amount - in.RequestedAmount
 	} else {
 		providerAmt = in.RequestedAmount
-		clientAmt = p.Amount - in.RequestedAmount
+		clientAmt = current.Amount - in.RequestedAmount
 	}
 	cp, cpErr := disputedomain.NewCounterProposal(disputedomain.NewCounterProposalInput{
 		DisputeID:      d.ID,
 		ProposerID:     in.InitiatorID,
 		AmountClient:   clientAmt,
 		AmountProvider: providerAmt,
-		ProposalAmount: p.Amount,
+		ProposalAmount: current.Amount,
 		Message:        in.MessageToParty,
 	})
 	if cpErr == nil {

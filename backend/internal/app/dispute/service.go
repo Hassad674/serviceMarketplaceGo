@@ -13,6 +13,7 @@ import (
 type ServiceDeps struct {
 	Disputes      repository.DisputeRepository
 	Proposals     repository.ProposalRepository
+	Milestones    repository.MilestoneRepository // phase 8 — required so disputes scope to a specific milestone
 	Users         repository.UserRepository
 	MessageRepo   repository.MessageRepository // read-side, used by AI summary
 	Messages      service.MessageSender
@@ -24,6 +25,7 @@ type ServiceDeps struct {
 type Service struct {
 	disputes      repository.DisputeRepository
 	proposals     repository.ProposalRepository
+	milestones    repository.MilestoneRepository
 	users         repository.UserRepository
 	messageRepo   repository.MessageRepository
 	messages      service.MessageSender
@@ -36,6 +38,7 @@ func NewService(deps ServiceDeps) *Service {
 	return &Service{
 		disputes:      deps.Disputes,
 		proposals:     deps.Proposals,
+		milestones:    deps.Milestones,
 		users:         deps.Users,
 		messageRepo:   deps.MessageRepo,
 		messages:      deps.Messages,
