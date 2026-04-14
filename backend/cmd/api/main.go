@@ -42,8 +42,12 @@ import (
 	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
+	freelancepricingapp "marketplace-backend/internal/app/freelancepricing"
+	freelanceprofileapp "marketplace-backend/internal/app/freelanceprofile"
 	profileapp "marketplace-backend/internal/app/profile"
 	profilepricingapp "marketplace-backend/internal/app/profilepricing"
+	referrerpricingapp "marketplace-backend/internal/app/referrerpricing"
+	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
@@ -649,6 +653,40 @@ func main() {
 	)
 	profilePricingHandler := handler.NewProfilePricingHandler(profilePricingSvc)
 
+	// Split-profile feature (migrations 096-104). The freelance /
+	// referrer / freelance pricing / referrer pricing aggregates
+	// are the new home for provider_personal profiles; the legacy
+	// profile / profilepricing stays in place for agency orgs
+	// until the agency refactor ships. Each feature is wired as a
+	// separate chain (repo -> service -> handler) so deleting the
+	// split means removing these lines only.
+	freelanceProfileRepo := postgres.NewFreelanceProfileRepository(db)
+	freelanceProfileSvc := freelanceprofileapp.NewService(freelanceProfileRepo)
+	freelancePricingRepo := postgres.NewFreelancePricingRepository(db)
+	freelancePricingSvc := freelancepricingapp.NewService(freelancePricingRepo)
+	freelanceProfileHandler := handler.
+		NewFreelanceProfileHandler(freelanceProfileSvc).
+		WithSkillsReader(skillSvc).
+		WithPricingReader(freelancePricingSvc)
+	freelancePricingHandler := handler.NewFreelancePricingHandler(freelancePricingSvc, freelanceProfileSvc)
+
+	referrerProfileRepo := postgres.NewReferrerProfileRepository(db)
+	referrerProfileSvc := referrerprofileapp.NewService(referrerProfileRepo)
+	referrerPricingRepo := postgres.NewReferrerPricingRepository(db)
+	referrerPricingSvc := referrerpricingapp.NewService(referrerPricingRepo)
+	referrerProfileHandler := handler.
+		NewReferrerProfileHandler(referrerProfileSvc).
+		WithPricingReader(referrerPricingSvc)
+	referrerPricingHandler := handler.NewReferrerPricingHandler(referrerPricingSvc, referrerProfileSvc)
+
+	// Organization shared-profile handler — writes the photo /
+	// location / languages columns that both personas JOIN at read
+	// time. Reuses the optional Nominatim geocoder from the legacy
+	// profile flow so behaviour stays byte-identical.
+	organizationSharedHandler := handler.
+		NewOrganizationSharedProfileHandler(organizationRepo).
+		WithGeocoder(profileGeocoder)
+
 	profileHandler := handler.
 		NewProfileHandler(profileSvc, expertiseSvc).
 		WithSkillsReader(skillSvc).
@@ -744,6 +782,14 @@ func main() {
 		RoleOverrides:  roleOverridesHandler,
 		Profile:        profileHandler,
 		ProfilePricing: profilePricingHandler,
+
+		// Split-profile handlers (migrations 096-104).
+		FreelanceProfile:   freelanceProfileHandler,
+		FreelancePricing:   freelancePricingHandler,
+		ReferrerProfile:    referrerProfileHandler,
+		ReferrerPricing:    referrerPricingHandler,
+		OrganizationShared: organizationSharedHandler,
+
 		Upload:         uploadHandler,
 		Health:         healthHandler,
 		Messaging:      messagingHandler,

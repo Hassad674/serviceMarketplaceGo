@@ -2630,4 +2630,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tier1ErrorLocationRequireCity => 'City is required';
+
+  @override
+  String get projectHistory => 'Project history';
+
+  @override
+  String get referrerProjectHistoryEmpty => 'No deals referred yet';
 }

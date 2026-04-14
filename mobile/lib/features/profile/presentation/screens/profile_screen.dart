@@ -30,6 +30,12 @@ import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../providers/profile_provider.dart';
 
+/// LEGACY AGENCY-ONLY profile screen. Kept for the agency org type
+/// until the agency path migrates to the split-profile architecture.
+/// `provider_personal` users now hit [FreelanceProfileScreen] via the
+/// router dispatcher. Do not add features to this file — create them
+/// on the split-profile modules instead.
+///
 /// Premium profile screen showing user info, photo, video, about, and logout.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});

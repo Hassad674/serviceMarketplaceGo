@@ -1051,5 +1051,7 @@
   "tier1Close": "Close",
   "tier1ErrorGeneric": "Something went wrong",
   "tier1ErrorPricingInvalidAmount": "Enter a valid amount",
-  "tier1ErrorLocationRequireCity": "City is required"
+  "tier1ErrorLocationRequireCity": "City is required",
+  "projectHistory": "Project history",
+  "referrerProjectHistoryEmpty": "No deals referred yet"
 }
