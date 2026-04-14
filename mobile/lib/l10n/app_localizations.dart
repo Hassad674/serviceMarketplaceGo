@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -4435,6 +4435,348 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Something went wrong'**
   String get skillsErrorGeneric;
+
+  /// No description provided for @tier1AvailabilitySectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability'**
+  String get tier1AvailabilitySectionTitle;
+
+  /// No description provided for @tier1AvailabilityStatusAvailableNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Available now'**
+  String get tier1AvailabilityStatusAvailableNow;
+
+  /// No description provided for @tier1AvailabilityStatusAvailableSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Available soon'**
+  String get tier1AvailabilityStatusAvailableSoon;
+
+  /// No description provided for @tier1AvailabilityStatusNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get tier1AvailabilityStatusNotAvailable;
+
+  /// No description provided for @tier1AvailabilityReferrerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability as a business referrer'**
+  String get tier1AvailabilityReferrerTitle;
+
+  /// No description provided for @tier1AvailabilityDirectLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Services'**
+  String get tier1AvailabilityDirectLabel;
+
+  /// No description provided for @tier1AvailabilityReferrerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Referrer'**
+  String get tier1AvailabilityReferrerLabel;
+
+  /// No description provided for @tier1AvailabilityEditButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update availability'**
+  String get tier1AvailabilityEditButton;
+
+  /// No description provided for @tier1LocationSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get tier1LocationSectionTitle;
+
+  /// No description provided for @tier1LocationCityLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'City'**
+  String get tier1LocationCityLabel;
+
+  /// No description provided for @tier1LocationCityPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Paris'**
+  String get tier1LocationCityPlaceholder;
+
+  /// No description provided for @tier1LocationCountryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Country'**
+  String get tier1LocationCountryLabel;
+
+  /// No description provided for @tier1LocationCountryPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a country'**
+  String get tier1LocationCountryPlaceholder;
+
+  /// No description provided for @tier1LocationWorkModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Work mode'**
+  String get tier1LocationWorkModeLabel;
+
+  /// No description provided for @tier1LocationWorkModeRemote.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote'**
+  String get tier1LocationWorkModeRemote;
+
+  /// No description provided for @tier1LocationWorkModeOnSite.
+  ///
+  /// In en, this message translates to:
+  /// **'On-site'**
+  String get tier1LocationWorkModeOnSite;
+
+  /// No description provided for @tier1LocationWorkModeHybrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Hybrid'**
+  String get tier1LocationWorkModeHybrid;
+
+  /// No description provided for @tier1LocationTravelRadiusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Travel radius (km)'**
+  String get tier1LocationTravelRadiusLabel;
+
+  /// No description provided for @tier1LocationTravelRadiusPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 50'**
+  String get tier1LocationTravelRadiusPlaceholder;
+
+  /// No description provided for @tier1LocationEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your city to help clients find you'**
+  String get tier1LocationEmpty;
+
+  /// No description provided for @tier1LocationEditButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update location'**
+  String get tier1LocationEditButton;
+
+  /// No description provided for @tier1LanguagesSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get tier1LanguagesSectionTitle;
+
+  /// No description provided for @tier1LanguagesProfessionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Professional'**
+  String get tier1LanguagesProfessionalLabel;
+
+  /// No description provided for @tier1LanguagesConversationalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Conversational'**
+  String get tier1LanguagesConversationalLabel;
+
+  /// No description provided for @tier1LanguagesSearchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search a language...'**
+  String get tier1LanguagesSearchPlaceholder;
+
+  /// No description provided for @tier1LanguagesEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Declare the languages you work in'**
+  String get tier1LanguagesEmpty;
+
+  /// No description provided for @tier1LanguagesEditButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update languages'**
+  String get tier1LanguagesEditButton;
+
+  /// No description provided for @tier1LanguagesCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String tier1LanguagesCountLabel(int count);
+
+  /// No description provided for @tier1PricingSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pricing'**
+  String get tier1PricingSectionTitle;
+
+  /// No description provided for @tier1PricingEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pricing declared yet'**
+  String get tier1PricingEmpty;
+
+  /// No description provided for @tier1PricingEditButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Update my pricing'**
+  String get tier1PricingEditButton;
+
+  /// No description provided for @tier1PricingModalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My pricing'**
+  String get tier1PricingModalTitle;
+
+  /// No description provided for @tier1PricingKindDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct service'**
+  String get tier1PricingKindDirect;
+
+  /// No description provided for @tier1PricingKindReferral.
+  ///
+  /// In en, this message translates to:
+  /// **'Business referrer'**
+  String get tier1PricingKindReferral;
+
+  /// No description provided for @tier1PricingTypeDaily.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily rate'**
+  String get tier1PricingTypeDaily;
+
+  /// No description provided for @tier1PricingTypeHourly.
+  ///
+  /// In en, this message translates to:
+  /// **'Hourly rate'**
+  String get tier1PricingTypeHourly;
+
+  /// No description provided for @tier1PricingTypeProjectFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From (per project)'**
+  String get tier1PricingTypeProjectFrom;
+
+  /// No description provided for @tier1PricingTypeProjectRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Range (per project)'**
+  String get tier1PricingTypeProjectRange;
+
+  /// No description provided for @tier1PricingTypeCommissionPct.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission percentage'**
+  String get tier1PricingTypeCommissionPct;
+
+  /// No description provided for @tier1PricingTypeCommissionFlat.
+  ///
+  /// In en, this message translates to:
+  /// **'Flat commission'**
+  String get tier1PricingTypeCommissionFlat;
+
+  /// No description provided for @tier1PricingMinLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Min amount'**
+  String get tier1PricingMinLabel;
+
+  /// No description provided for @tier1PricingMaxLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Max amount'**
+  String get tier1PricingMaxLabel;
+
+  /// No description provided for @tier1PricingCurrencyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Currency'**
+  String get tier1PricingCurrencyLabel;
+
+  /// No description provided for @tier1PricingNoteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get tier1PricingNoteLabel;
+
+  /// No description provided for @tier1PricingNotePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiable depending on scope...'**
+  String get tier1PricingNotePlaceholder;
+
+  /// No description provided for @tier1PricingPreviewHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Card preview'**
+  String get tier1PricingPreviewHeading;
+
+  /// No description provided for @tier1PricingEmptyPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'–'**
+  String get tier1PricingEmptyPreview;
+
+  /// No description provided for @tier1PricingDeleteKind.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this row'**
+  String get tier1PricingDeleteKind;
+
+  /// No description provided for @tier1PricingEnableReferralRow.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a business-referrer row'**
+  String get tier1PricingEnableReferralRow;
+
+  /// No description provided for @tier1Save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get tier1Save;
+
+  /// No description provided for @tier1Saving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get tier1Saving;
+
+  /// No description provided for @tier1Cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get tier1Cancel;
+
+  /// No description provided for @tier1Delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get tier1Delete;
+
+  /// No description provided for @tier1Close.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get tier1Close;
+
+  /// No description provided for @tier1ErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get tier1ErrorGeneric;
+
+  /// No description provided for @tier1ErrorPricingInvalidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid amount'**
+  String get tier1ErrorPricingInvalidAmount;
+
+  /// No description provided for @tier1ErrorLocationRequireCity.
+  ///
+  /// In en, this message translates to:
+  /// **'City is required'**
+  String get tier1ErrorLocationRequireCity;
 }
 
 class _AppLocalizationsDelegate
@@ -4464,8 +4806,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

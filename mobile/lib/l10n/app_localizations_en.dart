@@ -2350,4 +2350,178 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get skillsErrorGeneric => 'Something went wrong';
+
+  @override
+  String get tier1AvailabilitySectionTitle => 'Availability';
+
+  @override
+  String get tier1AvailabilityStatusAvailableNow => 'Available now';
+
+  @override
+  String get tier1AvailabilityStatusAvailableSoon => 'Available soon';
+
+  @override
+  String get tier1AvailabilityStatusNotAvailable => 'Unavailable';
+
+  @override
+  String get tier1AvailabilityReferrerTitle =>
+      'Availability as a business referrer';
+
+  @override
+  String get tier1AvailabilityDirectLabel => 'Services';
+
+  @override
+  String get tier1AvailabilityReferrerLabel => 'Referrer';
+
+  @override
+  String get tier1AvailabilityEditButton => 'Update availability';
+
+  @override
+  String get tier1LocationSectionTitle => 'Location';
+
+  @override
+  String get tier1LocationCityLabel => 'City';
+
+  @override
+  String get tier1LocationCityPlaceholder => 'Paris';
+
+  @override
+  String get tier1LocationCountryLabel => 'Country';
+
+  @override
+  String get tier1LocationCountryPlaceholder => 'Select a country';
+
+  @override
+  String get tier1LocationWorkModeLabel => 'Work mode';
+
+  @override
+  String get tier1LocationWorkModeRemote => 'Remote';
+
+  @override
+  String get tier1LocationWorkModeOnSite => 'On-site';
+
+  @override
+  String get tier1LocationWorkModeHybrid => 'Hybrid';
+
+  @override
+  String get tier1LocationTravelRadiusLabel => 'Travel radius (km)';
+
+  @override
+  String get tier1LocationTravelRadiusPlaceholder => 'e.g. 50';
+
+  @override
+  String get tier1LocationEmpty => 'Add your city to help clients find you';
+
+  @override
+  String get tier1LocationEditButton => 'Update location';
+
+  @override
+  String get tier1LanguagesSectionTitle => 'Languages';
+
+  @override
+  String get tier1LanguagesProfessionalLabel => 'Professional';
+
+  @override
+  String get tier1LanguagesConversationalLabel => 'Conversational';
+
+  @override
+  String get tier1LanguagesSearchPlaceholder => 'Search a language...';
+
+  @override
+  String get tier1LanguagesEmpty => 'Declare the languages you work in';
+
+  @override
+  String get tier1LanguagesEditButton => 'Update languages';
+
+  @override
+  String tier1LanguagesCountLabel(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get tier1PricingSectionTitle => 'Pricing';
+
+  @override
+  String get tier1PricingEmpty => 'No pricing declared yet';
+
+  @override
+  String get tier1PricingEditButton => 'Update my pricing';
+
+  @override
+  String get tier1PricingModalTitle => 'My pricing';
+
+  @override
+  String get tier1PricingKindDirect => 'Direct service';
+
+  @override
+  String get tier1PricingKindReferral => 'Business referrer';
+
+  @override
+  String get tier1PricingTypeDaily => 'Daily rate';
+
+  @override
+  String get tier1PricingTypeHourly => 'Hourly rate';
+
+  @override
+  String get tier1PricingTypeProjectFrom => 'From (per project)';
+
+  @override
+  String get tier1PricingTypeProjectRange => 'Range (per project)';
+
+  @override
+  String get tier1PricingTypeCommissionPct => 'Commission percentage';
+
+  @override
+  String get tier1PricingTypeCommissionFlat => 'Flat commission';
+
+  @override
+  String get tier1PricingMinLabel => 'Min amount';
+
+  @override
+  String get tier1PricingMaxLabel => 'Max amount';
+
+  @override
+  String get tier1PricingCurrencyLabel => 'Currency';
+
+  @override
+  String get tier1PricingNoteLabel => 'Note';
+
+  @override
+  String get tier1PricingNotePlaceholder => 'Negotiable depending on scope...';
+
+  @override
+  String get tier1PricingPreviewHeading => 'Card preview';
+
+  @override
+  String get tier1PricingEmptyPreview => '–';
+
+  @override
+  String get tier1PricingDeleteKind => 'Remove this row';
+
+  @override
+  String get tier1PricingEnableReferralRow => 'Add a business-referrer row';
+
+  @override
+  String get tier1Save => 'Save';
+
+  @override
+  String get tier1Saving => 'Saving...';
+
+  @override
+  String get tier1Cancel => 'Cancel';
+
+  @override
+  String get tier1Delete => 'Delete';
+
+  @override
+  String get tier1Close => 'Close';
+
+  @override
+  String get tier1ErrorGeneric => 'Something went wrong';
+
+  @override
+  String get tier1ErrorPricingInvalidAmount => 'Enter a valid amount';
+
+  @override
+  String get tier1ErrorLocationRequireCity => 'City is required';
 }
