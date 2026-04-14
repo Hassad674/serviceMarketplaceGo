@@ -33,7 +33,8 @@ type StripeService interface {
 type CreatePaymentIntentInput struct {
 	AmountCentimes int64  // total amount client pays
 	Currency       string // "eur"
-	ProposalID     string // metadata + idempotency
+	ProposalID     string // metadata + transfer group
+	MilestoneID    string // metadata + idempotency (phase 4)
 	ClientID       string // metadata
 	ProviderID     string // metadata
 	TransferGroup  string // groups related transfers
