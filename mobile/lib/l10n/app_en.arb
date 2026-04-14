@@ -989,6 +989,10 @@
   "@tier1LanguagesCountLabel": {
     "placeholders": { "count": { "type": "int" } }
   },
+  "tier1LanguagesNoResults": "No language found",
+  "tier1LanguagesClearAll": "Clear all",
+  "tier1LanguagesProfessionalHelp": "I can deliver work in these languages.",
+  "tier1LanguagesConversationalHelp": "I can chat but not deliver in these languages.",
   "tier1PricingSectionTitle": "Pricing",
   "tier1PricingEmpty": "No pricing declared yet",
   "tier1PricingEditButton": "Update my pricing",

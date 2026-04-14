@@ -524,7 +524,13 @@
       "searchPlaceholder": "Rechercher une langue...",
       "remove": "Retirer",
       "save": "Enregistrer",
-      "saving": "Enregistrement..."
+      "saving": "Enregistrement...",
+      "noResults": "Aucune langue trouvée",
+      "alreadyAdded": "déjà ajoutée",
+      "clearAll": "Tout effacer",
+      "selectionCount": "{count, plural, =0 {Aucune langue sélectionnée} one {1 langue sélectionnée} other {# langues sélectionnées}}",
+      "addedAnnounce": "{language} ajoutée",
+      "removedAnnounce": "{language} retirée"
     },
     "pricing": {
       "sectionTitle": "Tarifs",

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { NextIntlClientProvider } from "next-intl"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
@@ -55,6 +55,24 @@ function renderSection(
   )
 }
 
+function getProBucket(): HTMLElement {
+  const heading = screen.getByRole("heading", {
+    name: messages.profile.languages.professionalLabel,
+  })
+  const group = heading.closest('[role="group"]')
+  if (!group) throw new Error("professional group not found")
+  return group as HTMLElement
+}
+
+function getConvBucket(): HTMLElement {
+  const heading = screen.getByRole("heading", {
+    name: messages.profile.languages.conversationalLabel,
+  })
+  const group = heading.closest('[role="group"]')
+  if (!group) throw new Error("conversational group not found")
+  return group as HTMLElement
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   profileOverride = {}
@@ -66,27 +84,31 @@ describe("LanguagesSection", () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it("renders both professional and conversational labels", () => {
+  it("renders both professional and conversational headings", () => {
     renderSection()
     expect(
-      screen.getByText(messages.profile.languages.professionalLabel),
+      screen.getByRole("heading", {
+        name: messages.profile.languages.professionalLabel,
+      }),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(messages.profile.languages.conversationalLabel),
+      screen.getByRole("heading", {
+        name: messages.profile.languages.conversationalLabel,
+      }),
     ).toBeInTheDocument()
   })
 
-  it("persists values from the profile into both buckets", () => {
+  it("persists chips from the profile into both buckets", () => {
     profileOverride = {
       languages_professional: ["en", "fr"],
       languages_conversational: ["es"],
     }
     renderSection()
-    // The language name appears both inside a chip and inside the
-    // "add" <select>; we only need to confirm at least one match.
-    expect(screen.getAllByText("English").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("French").length).toBeGreaterThan(0)
-    expect(screen.getAllByText("Spanish").length).toBeGreaterThan(0)
+    expect(
+      within(getProBucket()).getByText("English"),
+    ).toBeInTheDocument()
+    expect(within(getProBucket()).getByText("French")).toBeInTheDocument()
+    expect(within(getConvBucket()).getByText("Spanish")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Remove English" }),
     ).toBeInTheDocument()
@@ -95,21 +117,71 @@ describe("LanguagesSection", () => {
     ).toBeInTheDocument()
   })
 
+  it("filters the combobox listbox by query and picks on Enter", async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const comboboxes = screen.getAllByRole("combobox")
+    const proCombobox = comboboxes[0]
+    await user.click(proCombobox)
+    await user.type(proCombobox, "Eng")
+    const listbox = await screen.findAllByRole("listbox")
+    const options = within(listbox[0]).getAllByRole("option")
+    // "English" should be the single match for "Eng"
+    expect(options).toHaveLength(1)
+    expect(options[0]).toHaveTextContent("English")
+    await user.keyboard("{Enter}")
+    // Chip appears in the pro bucket
+    expect(
+      within(getProBucket()).getByText("English"),
+    ).toBeInTheDocument()
+  })
+
+  it("shows the empty state when no language matches", async () => {
+    const user = userEvent.setup()
+    renderSection()
+    const comboboxes = screen.getAllByRole("combobox")
+    await user.click(comboboxes[0])
+    await user.type(comboboxes[0], "zzzzz")
+    expect(
+      await screen.findByText(messages.profile.languages.noResults),
+    ).toBeInTheDocument()
+  })
+
+  it("announces added and removed languages via aria-live", async () => {
+    profileOverride = { languages_professional: ["en"] }
+    const user = userEvent.setup()
+    renderSection()
+    const status = screen.getByRole("status")
+    const removeBtn = screen.getByRole("button", { name: "Remove English" })
+    await user.click(removeBtn)
+    expect(status).toHaveTextContent("English removed")
+  })
+
+  it("clears the bucket with the Clear all button", async () => {
+    profileOverride = { languages_professional: ["en", "fr"] }
+    const user = userEvent.setup()
+    renderSection()
+    const proBucket = getProBucket()
+    const clearBtn = within(proBucket).getByRole("button", {
+      name: messages.profile.languages.clearAll,
+    })
+    await user.click(clearBtn)
+    expect(within(proBucket).queryByText("English")).not.toBeInTheDocument()
+    expect(within(proBucket).queryByText("French")).not.toBeInTheDocument()
+  })
+
   it("calls the mutation with the selected lists on save", async () => {
     const user = userEvent.setup()
     renderSection()
-
-    const proSelect = screen.getByLabelText(
-      messages.profile.languages.professionalLabel,
-    )
-    await user.selectOptions(proSelect, "en")
-
+    const proCombobox = screen.getAllByRole("combobox")[0]
+    await user.click(proCombobox)
+    await user.type(proCombobox, "English")
+    await user.keyboard("{Enter}")
     const saveBtn = screen.getByRole("button", {
       name: new RegExp(messages.profile.languages.save, "i"),
     })
     expect(saveBtn).not.toBeDisabled()
     await user.click(saveBtn)
-
     expect(mockMutate).toHaveBeenCalledWith({
       professional: ["en"],
       conversational: [],

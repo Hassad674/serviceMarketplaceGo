@@ -524,7 +524,13 @@
       "searchPlaceholder": "Search a language...",
       "remove": "Remove",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "noResults": "No language found",
+      "alreadyAdded": "already added",
+      "clearAll": "Clear all",
+      "selectionCount": "{count, plural, =0 {No language selected} one {1 language selected} other {# languages selected}}",
+      "addedAnnounce": "{language} added",
+      "removedAnnounce": "{language} removed"
     },
     "pricing": {
       "sectionTitle": "Pricing",

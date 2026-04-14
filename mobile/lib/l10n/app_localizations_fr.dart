@@ -2466,6 +2466,20 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get tier1LanguagesNoResults => 'Aucune langue trouvée';
+
+  @override
+  String get tier1LanguagesClearAll => 'Tout effacer';
+
+  @override
+  String get tier1LanguagesProfessionalHelp =>
+      'Je peux travailler et livrer en ces langues.';
+
+  @override
+  String get tier1LanguagesConversationalHelp =>
+      'Je peux discuter mais pas livrer en ces langues.';
+
+  @override
   String get tier1PricingSectionTitle => 'Tarifs';
 
   @override
