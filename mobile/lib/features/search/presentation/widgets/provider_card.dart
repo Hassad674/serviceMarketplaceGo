@@ -3,6 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../profile_tier1/domain/entities/availability_status.dart';
+import '../../../profile_tier1/domain/entities/pricing.dart';
+import '../../../profile_tier1/presentation/utils/flag_emoji.dart';
+import '../../../profile_tier1/presentation/utils/language_catalog.dart';
+import '../../../profile_tier1/presentation/utils/pricing_format.dart';
+import '../../../profile_tier1/presentation/widgets/availability_section_widget.dart';
 import 'skills_display_widget.dart';
 
 /// A card displaying an organization's public marketplace summary.
@@ -73,6 +79,7 @@ class ProviderCard extends StatelessWidget {
                 _OrgTypeBadge(orgType: orgType),
               ],
             ),
+            _Tier1SignalsRow(profile: profile),
             if (skills != null && skills.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -268,6 +275,137 @@ class _InitialsAvatar extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Org-type badge — colored pill
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Tier 1 inline signals — city, availability, pricing, languages
+// Dense single row, sized to stay visually compact.
+// ---------------------------------------------------------------------------
+
+class _Tier1SignalsRow extends StatelessWidget {
+  const _Tier1SignalsRow({required this.profile});
+
+  final Map<String, dynamic> profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final locale = Localizations.localeOf(context).languageCode;
+    final signals = <Widget>[];
+
+    // -- City --
+    final city = (profile['city'] as String? ?? '').trim();
+    if (city.isNotEmpty) {
+      signals.add(
+        _SignalChip(
+          icon: Icons.location_on_outlined,
+          label: city,
+        ),
+      );
+    }
+
+    // -- Availability dot --
+    final availability = AvailabilityStatus.fromWireOrNull(
+      profile['availability_status'] as String?,
+    );
+    if (availability != null) {
+      signals.add(
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: availabilityColor(availability),
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+    }
+
+    // -- First pricing row --
+    final pricingRaw = profile['pricing'];
+    if (pricingRaw is List && pricingRaw.isNotEmpty) {
+      try {
+        final first = Pricing.fromJson(
+          Map<String, dynamic>.from(pricingRaw.first as Map),
+        );
+        signals.add(
+          _SignalChip(
+            icon: Icons.euro_outlined,
+            label: formatPricing(first, locale: locale),
+          ),
+        );
+      } on FormatException {
+        // Ignore malformed row.
+      }
+    }
+
+    // -- Top 3 professional languages as flag emojis --
+    final languages = (profile['languages_professional'] as List?)
+            ?.whereType<String>()
+            .toList() ??
+        const <String>[];
+    if (languages.isNotEmpty) {
+      final top = languages.take(3).toList();
+      final flags = top
+          .map(
+            (code) => countryCodeToFlagEmoji(
+              LanguageCatalog.findByCode(code)?.flagCountryCode ?? '',
+            ),
+          )
+          .where((f) => f.isNotEmpty)
+          .join(' ');
+      if (flags.isNotEmpty) {
+        signals.add(Text(flags, style: const TextStyle(fontSize: 14)));
+      }
+    }
+
+    if (signals.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: DefaultTextStyle(
+        style: TextStyle(
+          fontSize: 12,
+          color: appColors?.mutedForeground,
+        ),
+        child: Wrap(
+          spacing: 10,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: signals,
+        ),
+      ),
+    );
+  }
+}
+
+class _SignalChip extends StatelessWidget {
+  const _SignalChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 12, color: appColors?.mutedForeground),
+        const SizedBox(width: 3),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 120),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _OrgTypeBadge extends StatelessWidget {
   const _OrgTypeBadge({required this.orgType});

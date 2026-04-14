@@ -11,6 +11,7 @@ import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../expertise/presentation/widgets/expertise_display_widget.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
+import '../../../profile_tier1/presentation/widgets/profile_identity_strip.dart';
 import '../../../project_history/presentation/widgets/project_history_widget.dart';
 import '../../../review/presentation/providers/review_provider.dart';
 import '../providers/search_provider.dart';
@@ -195,6 +196,11 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
                 ),
               ),
             ),
+
+          // Tier 1 identity strip — availability, pricing, location,
+          // languages. Rendered read-only. Hidden entirely when the
+          // profile has nothing to show in any of the four blocks.
+          ProfileIdentityStrip.fromProfileJson(widget.profile),
 
           // Video section (playable)
           if (videoUrl != null && videoUrl.isNotEmpty)
