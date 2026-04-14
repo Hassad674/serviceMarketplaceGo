@@ -10,6 +10,7 @@ function row(overrides: Partial<Pricing>): Pricing {
     max_amount: null,
     currency: "EUR",
     note: "",
+    negotiable: false,
     ...overrides,
   }
 }

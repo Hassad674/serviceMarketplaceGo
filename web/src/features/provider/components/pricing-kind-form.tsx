@@ -14,47 +14,54 @@ import { SUPPORTED_FIAT_CURRENCIES } from "../lib/pricing-format"
 
 interface PricingKindFormProps {
   kind: PricingKind
+  orgType: string | undefined
+  referrerEnabled: boolean | undefined
   persisted: Pricing | null
   onSave: (row: Pricing) => Promise<void>
-  onDelete: (kind: PricingKind) => Promise<void>
+  onDelete: () => Promise<void>
   onPreviewChange: (row: Pricing | null) => void
 }
 
-// Form for one pricing kind (direct OR referral). Kind determines the
-// allowed pricing types — direct supports hourly/daily/project_*, while
-// referral only supports the two commission types.
-export function PricingKindForm({
-  kind,
-  persisted,
-  onSave,
-  onDelete,
-  onPreviewChange,
-}: PricingKindFormProps) {
+// Form for one pricing kind (direct OR referral). Kind and org
+// type together determine the allowed pricing types — e.g. an
+// agency on the direct variant only has project_from and
+// project_range (no daily / hourly).
+export function PricingKindForm(props: PricingKindFormProps) {
+  const {
+    kind,
+    orgType,
+    referrerEnabled,
+    persisted,
+    onSave,
+    onDelete,
+    onPreviewChange,
+  } = props
+
   const t = useTranslations("profile.pricing")
   const allowedTypes = useMemo(
-    () => (kind === "direct" ? DIRECT_TYPES : REFERRAL_TYPES),
-    [kind],
+    () => computeAllowedTypes(kind, orgType, referrerEnabled),
+    [kind, orgType, referrerEnabled],
   )
 
-  const initialType = persisted?.type ?? allowedTypes[0]
+  const initialType = pickInitialType(persisted?.type, allowedTypes)
   const initialCurrency = persisted?.currency ?? defaultCurrencyForType(initialType)
 
   const [type, setType] = useState<PricingType>(initialType)
   const [currencyRaw, setCurrencyRaw] = useState<string>(initialCurrency)
-  // Derive the effective currency during render so we don't need an
-  // effect to keep it in sync with the pricing type.
   const currency =
     type === "commission_pct" ? "pct" : currencyRaw === "pct" ? "EUR" : currencyRaw
-  const setCurrency = (next: string) => setCurrencyRaw(next)
   const [minDisplay, setMinDisplay] = useState<string>(
-    persisted ? displayFromStored(persisted.min_amount, persisted.type) : "",
+    persisted ? displayFromStored(persisted.min_amount) : "",
   )
   const [maxDisplay, setMaxDisplay] = useState<string>(
     persisted && persisted.max_amount !== null
-      ? displayFromStored(persisted.max_amount, persisted.type)
+      ? displayFromStored(persisted.max_amount)
       : "",
   )
   const [note, setNote] = useState<string>(persisted?.note ?? "")
+  const [negotiable, setNegotiable] = useState<boolean>(
+    persisted?.negotiable ?? false,
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -70,18 +77,15 @@ export function PricingKindForm({
     return {
       kind,
       type,
-      min_amount: storedFromDisplay(minNumber, type),
+      min_amount: storedFromDisplay(minNumber),
       max_amount:
-        hasRange && maxNumber !== null
-          ? storedFromDisplay(maxNumber, type)
-          : null,
+        hasRange && maxNumber !== null ? storedFromDisplay(maxNumber) : null,
       currency,
       note: note.trim(),
+      negotiable,
     }
-  }, [currency, kind, maxDisplay, minDisplay, note, type])
+  }, [currency, kind, maxDisplay, minDisplay, note, negotiable, type])
 
-  // Propagate preview upward whenever the form changes so the parent
-  // modal can render the preview strip live.
   useEffect(() => {
     onPreviewChange(toRow())
   }, [onPreviewChange, toRow])
@@ -107,28 +111,30 @@ export function PricingKindForm({
     setErrorMessage(null)
     setIsDeleting(true)
     try {
-      await onDelete(kind)
+      await onDelete()
       setMinDisplay("")
       setMaxDisplay("")
       setNote("")
+      setNegotiable(false)
     } catch (caught) {
       setErrorMessage(mapErrorToMessage(caught, t))
     } finally {
       setIsDeleting(false)
     }
-  }, [kind, onDelete, t])
+  }, [onDelete, t])
 
   const showMax = type === "project_range" || type === "commission_pct"
   const isPct = type === "commission_pct"
-  const title = kind === "direct" ? t("kindDirect") : t("kindReferral")
 
   return (
     <section
-      aria-label={title}
+      aria-label={kind === "direct" ? t("kindDirect") : t("kindReferral")}
       className="rounded-xl border border-border bg-card p-4"
     >
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-base font-semibold text-foreground">{title}</h3>
+        <h3 className="text-base font-semibold text-foreground">
+          {kind === "direct" ? t("kindDirect") : t("kindReferral")}
+        </h3>
         {persisted ? (
           <button
             type="button"
@@ -178,7 +184,7 @@ export function PricingKindForm({
           <select
             id={`pricing-${kind}-currency`}
             value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
+            onChange={(e) => setCurrencyRaw(e.target.value)}
             disabled={isPct}
             className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none disabled:opacity-60"
           >
@@ -211,6 +217,8 @@ export function PricingKindForm({
           />
         </div>
       </div>
+
+      <NegotiableRow kind={kind} value={negotiable} onChange={setNegotiable} />
 
       {errorMessage ? (
         <p
@@ -249,10 +257,39 @@ const DIRECT_TYPES: readonly PricingType[] = [
   "project_range",
 ] as const
 
+const AGENCY_DIRECT_TYPES: readonly PricingType[] = [
+  "project_from",
+  "project_range",
+] as const
+
 const REFERRAL_TYPES: readonly PricingType[] = [
   "commission_pct",
   "commission_flat",
 ] as const
+
+// computeAllowedTypes mirrors the backend AllowedTypesForOrg
+// function: agency orgs on the direct kind only see outcome-based
+// pricing (no TJM / taux horaire).
+function computeAllowedTypes(
+  kind: PricingKind,
+  orgType: string | undefined,
+  _referrerEnabled: boolean | undefined,
+): readonly PricingType[] {
+  if (kind === "referral") return REFERRAL_TYPES
+  if (orgType === "agency") return AGENCY_DIRECT_TYPES
+  return DIRECT_TYPES
+}
+
+// pickInitialType falls back to the first allowed type when the
+// persisted type was removed (e.g. an agency migrating from a
+// legacy daily row to the new outcome-only policy).
+function pickInitialType(
+  persistedType: PricingType | undefined,
+  allowed: readonly PricingType[],
+): PricingType {
+  if (persistedType && allowed.includes(persistedType)) return persistedType
+  return allowed[0] ?? "daily"
+}
 
 interface TypeRadioRowProps {
   allowedTypes: readonly PricingType[]
@@ -265,7 +302,7 @@ function TypeRadioRow({ allowedTypes, value, onChange }: TypeRadioRowProps) {
   return (
     <div
       role="radiogroup"
-      aria-label={t("sectionTitle")}
+      aria-label={t("typeGroupLabel")}
       className="flex flex-wrap gap-2"
     >
       {allowedTypes.map((type) => {
@@ -331,6 +368,52 @@ function AmountInput({ id, label, value, suffix, onChange }: AmountInputProps) {
   )
 }
 
+interface NegotiableRowProps {
+  kind: PricingKind
+  value: boolean
+  onChange: (next: boolean) => void
+}
+
+function NegotiableRow({ kind, value, onChange }: NegotiableRowProps) {
+  const t = useTranslations("profile.pricing")
+  return (
+    <div className="mt-3">
+      <p className="text-xs font-medium text-foreground mb-1">
+        {t("negotiableLabel")}
+      </p>
+      <div
+        role="radiogroup"
+        aria-label={t("negotiableLabel")}
+        className="flex flex-wrap gap-2"
+      >
+        {([true, false] as const).map((option) => {
+          const isSelected = option === value
+          const labelKey = option ? "negotiableYes" : "negotiableNo"
+          return (
+            <button
+              key={String(option)}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              onClick={() => onChange(option)}
+              data-testid={`pricing-${kind}-negotiable-${option ? "yes" : "no"}`}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150",
+                "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+                isSelected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-foreground border-border hover:border-primary/60 hover:bg-muted",
+              )}
+            >
+              {t(labelKey)}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ----- Helpers ---------------------------------------------------------
 
 function typeKey(type: PricingType): string {
@@ -356,17 +439,13 @@ function defaultCurrencyForType(type: PricingType): string {
 
 // Converts a user-entered display value (e.g. "500" for 500€ or "5.5"
 // for 5.5%) to the backend's canonical smallest unit (50000 or 550).
-function storedFromDisplay(display: number, type: PricingType): number {
-  if (type === "commission_pct") {
-    return Math.round(display * 100)
-  }
+// The mapping is identical for every type we currently support, so
+// the signature no longer needs the pricing type.
+function storedFromDisplay(display: number): number {
   return Math.round(display * 100)
 }
 
-function displayFromStored(stored: number, type: PricingType): string {
-  if (type === "commission_pct") {
-    return String(stored / 100)
-  }
+function displayFromStored(stored: number): string {
   return String(stored / 100)
 }
 
@@ -376,6 +455,8 @@ function mapErrorToMessage(
 ): string {
   if (error instanceof ApiError) {
     if (error.code === "kind_not_allowed") return t("errorKindNotAllowed")
+    if (error.code === "forbidden") return t("errorKindNotAllowed")
+    if (error.code === "validation_error") return t("errorKindNotAllowed")
   }
   return t("errorGeneric")
 }

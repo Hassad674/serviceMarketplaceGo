@@ -9,17 +9,15 @@ import '../providers/pricing_provider.dart';
 import '../utils/pricing_format.dart';
 import 'pricing_row_card.dart';
 
-/// Opens the pricing editor as a modal bottom sheet. The sheet
-/// handles both kinds at once — a direct row and (when referrers
-/// are enabled) a referral row. Each kind has its own form; the
-/// save button upserts the enabled rows and deletes any the user
-/// turned off.
+/// Opens the pricing editor as a modal bottom sheet for ONE kind.
+/// The split across two screens (profile for direct, referral for
+/// referral) means a single sheet instance never mixes both.
 ///
-/// Resolves to `true` when the sheet closes after at least one
-/// successful save operation — the caller uses it to refresh the
-/// parent card.
+/// Resolves to `true` when the sheet closes after a successful
+/// save or delete — the caller uses it to refresh the parent card.
 Future<bool?> showPricingEditorBottomSheet({
   required BuildContext context,
+  required PricingKind variant,
   required String? orgType,
   required bool referrerEnabled,
   required List<Pricing> initialPricings,
@@ -33,6 +31,7 @@ Future<bool?> showPricingEditorBottomSheet({
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (_) => PricingEditorBottomSheet(
+      variant: variant,
       orgType: orgType,
       referrerEnabled: referrerEnabled,
       initialPricings: initialPricings,
@@ -43,11 +42,13 @@ Future<bool?> showPricingEditorBottomSheet({
 class PricingEditorBottomSheet extends ConsumerStatefulWidget {
   const PricingEditorBottomSheet({
     super.key,
+    required this.variant,
     required this.orgType,
     required this.referrerEnabled,
     required this.initialPricings,
   });
 
+  final PricingKind variant;
   final String? orgType;
   final bool referrerEnabled;
   final List<Pricing> initialPricings;
@@ -59,14 +60,20 @@ class PricingEditorBottomSheet extends ConsumerStatefulWidget {
 
 class _PricingEditorBottomSheetState
     extends ConsumerState<PricingEditorBottomSheet> {
-  late PricingDraft _direct;
-  late PricingDraft _referral;
+  late PricingDraft _draft;
+  late final List<PricingType> _allowedTypes;
 
   @override
   void initState() {
     super.initState();
-    _direct = _findOrEmpty(PricingKind.direct);
-    _referral = _findOrEmpty(PricingKind.referral);
+    _draft = _findOrEmpty(widget.variant);
+    _allowedTypes = _computeAllowedTypes();
+    // If the persisted type is no longer allowed (e.g. an agency
+    // loading a legacy daily row), fall back to the first allowed
+    // type so the form never renders an invalid state.
+    if (_draft.enabled && !_allowedTypes.contains(_draft.type)) {
+      _draft.type = _allowedTypes.first;
+    }
   }
 
   PricingDraft _findOrEmpty(PricingKind kind) {
@@ -76,67 +83,56 @@ class _PricingEditorBottomSheetState
     return PricingDraft.empty(kind: kind);
   }
 
-  bool get _showReferralRow => widget.referrerEnabled;
-
-  List<PricingType> get _directTypes => const <PricingType>[
-        PricingType.daily,
-        PricingType.hourly,
-        PricingType.projectFrom,
-        PricingType.projectRange,
-      ];
-
-  List<PricingType> get _referralTypes => const <PricingType>[
+  // computeAllowedTypes mirrors the backend AllowedTypesForOrg:
+  // agencies on the direct kind only see outcome-based pricing.
+  List<PricingType> _computeAllowedTypes() {
+    if (widget.variant == PricingKind.referral) {
+      return const <PricingType>[
         PricingType.commissionPct,
         PricingType.commissionFlat,
       ];
+    }
+    if (widget.orgType == 'agency') {
+      return const <PricingType>[
+        PricingType.projectFrom,
+        PricingType.projectRange,
+      ];
+    }
+    return const <PricingType>[
+      PricingType.daily,
+      PricingType.hourly,
+      PricingType.projectFrom,
+      PricingType.projectRange,
+    ];
+  }
 
   Future<void> _save() async {
     final notifier = ref.read(pricingProvider.notifier);
     final l10n = AppLocalizations.of(context)!;
 
-    final hadDirect =
-        widget.initialPricings.any((p) => p.kind == PricingKind.direct);
-    final hadReferral =
-        widget.initialPricings.any((p) => p.kind == PricingKind.referral);
+    final hadRow = widget.initialPricings.any((p) => p.kind == widget.variant);
 
-    var anyChange = false;
-
-    // -- Direct row --
-    if (_direct.enabled) {
-      final pricing = _direct.toPricing();
+    if (_draft.enabled) {
+      final pricing = _draft.toPricing();
       if (pricing == null) {
         _showError(l10n.tier1ErrorPricingInvalidAmount);
         return;
       }
       final ok = await notifier.upsert(pricing);
-      if (!ok) return _showError(l10n.tier1ErrorGeneric);
-      anyChange = true;
-    } else if (hadDirect) {
-      final ok = await notifier.remove(PricingKind.direct);
-      if (!ok) return _showError(l10n.tier1ErrorGeneric);
-      anyChange = true;
-    }
-
-    // -- Referral row (only when gated on) --
-    if (_showReferralRow) {
-      if (_referral.enabled) {
-        final pricing = _referral.toPricing();
-        if (pricing == null) {
-          _showError(l10n.tier1ErrorPricingInvalidAmount);
-          return;
-        }
-        final ok = await notifier.upsert(pricing);
-        if (!ok) return _showError(l10n.tier1ErrorGeneric);
-        anyChange = true;
-      } else if (hadReferral) {
-        final ok = await notifier.remove(PricingKind.referral);
-        if (!ok) return _showError(l10n.tier1ErrorGeneric);
-        anyChange = true;
+      if (!ok) {
+        _showError(l10n.tier1ErrorGeneric);
+        return;
+      }
+    } else if (hadRow) {
+      final ok = await notifier.remove(widget.variant);
+      if (!ok) {
+        _showError(l10n.tier1ErrorGeneric);
+        return;
       }
     }
 
     if (!mounted) return;
-    Navigator.of(context).pop(anyChange);
+    Navigator.of(context).pop(true);
   }
 
   void _showError(String message) {
@@ -154,6 +150,10 @@ class _PricingEditorBottomSheetState
     final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(pricingProvider);
 
+    final title = widget.variant == PricingKind.direct
+        ? l10n.tier1PricingDirectModalTitle
+        : l10n.tier1PricingReferralModalTitle;
+
     return SafeArea(
       top: false,
       child: Padding(
@@ -168,7 +168,7 @@ class _PricingEditorBottomSheetState
           builder: (_, scrollController) {
             return Column(
               children: [
-                _SheetHeader(title: l10n.tier1PricingModalTitle),
+                _SheetHeader(title: title),
                 const Divider(height: 1),
                 Expanded(
                   child: ListView(
@@ -190,44 +190,28 @@ class _PricingEditorBottomSheetState
   }
 
   List<Widget> _buildBody(BuildContext context, AppLocalizations l10n) {
+    final cardTitle = widget.variant == PricingKind.direct
+        ? l10n.tier1PricingKindDirect
+        : l10n.tier1PricingKindReferral;
     return <Widget>[
       _PreviewStrip(
         heading: l10n.tier1PricingPreviewHeading,
-        direct: _directPreview(context),
-        referral: _showReferralRow ? _referralPreview(context) : null,
+        value: _draftPreview(context),
       ),
       const SizedBox(height: 20),
       PricingRowCard(
-        title: l10n.tier1PricingKindDirect,
-        draft: _direct,
-        allowedTypes: _directTypes,
+        title: cardTitle,
+        draft: _draft,
+        allowedTypes: _allowedTypes,
         onChanged: () => setState(() {}),
       ),
-      if (_showReferralRow) ...[
-        const SizedBox(height: 16),
-        PricingRowCard(
-          title: l10n.tier1PricingKindReferral,
-          draft: _referral,
-          allowedTypes: _referralTypes,
-          onChanged: () => setState(() {}),
-        ),
-      ],
     ];
   }
 
-  String _directPreview(BuildContext context) {
+  String _draftPreview(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    if (!_direct.enabled) return l10n.tier1PricingEmptyPreview;
-    final pricing = _direct.toPricing();
-    if (pricing == null) return l10n.tier1PricingEmptyPreview;
-    final locale = Localizations.localeOf(context).languageCode;
-    return formatPricing(pricing, locale: locale);
-  }
-
-  String _referralPreview(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    if (!_referral.enabled) return l10n.tier1PricingEmptyPreview;
-    final pricing = _referral.toPricing();
+    if (!_draft.enabled) return l10n.tier1PricingEmptyPreview;
+    final pricing = _draft.toPricing();
     if (pricing == null) return l10n.tier1PricingEmptyPreview;
     final locale = Localizations.localeOf(context).languageCode;
     return formatPricing(pricing, locale: locale);
@@ -241,13 +225,11 @@ class _PricingEditorBottomSheetState
 class _PreviewStrip extends StatelessWidget {
   const _PreviewStrip({
     required this.heading,
-    required this.direct,
-    required this.referral,
+    required this.value,
   });
 
   final String heading;
-  final String direct;
-  final String? referral;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -274,22 +256,12 @@ class _PreviewStrip extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            direct,
+            value,
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
-          if (referral != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              referral!,
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ],
       ),
     );

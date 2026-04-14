@@ -2466,6 +2466,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tier1PricingSectionTitle => 'Pricing';
 
   @override
+  String get tier1PricingDirectSectionTitle => 'Pricing';
+
+  @override
+  String get tier1PricingReferralSectionTitle => 'Referral pricing';
+
+  @override
   String get tier1PricingEmpty => 'No pricing declared yet';
 
   @override
@@ -2475,10 +2481,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tier1PricingModalTitle => 'My pricing';
 
   @override
+  String get tier1PricingDirectModalTitle => 'Edit pricing';
+
+  @override
+  String get tier1PricingReferralModalTitle => 'Edit referral pricing';
+
+  @override
   String get tier1PricingKindDirect => 'Direct service';
 
   @override
   String get tier1PricingKindReferral => 'Business referrer';
+
+  @override
+  String get tier1PricingNegotiableLabel => 'Is it negotiable?';
+
+  @override
+  String get tier1PricingNegotiableYes => 'Yes';
+
+  @override
+  String get tier1PricingNegotiableNo => 'No';
+
+  @override
+  String get tier1PricingNegotiableBadge => 'negotiable';
 
   @override
   String get tier1PricingTypeDaily => 'Daily rate';

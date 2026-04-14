@@ -54,9 +54,9 @@ func NewService(
 	return &Service{pricing: pricing, orgs: orgs}
 }
 
-// UpsertInput is the payload for Upsert. Grouping the seven raw
-// inputs in a struct keeps the Upsert signature under the 4-param
-// cap and gives the handler layer a stable point of entry.
+// UpsertInput is the payload for Upsert. Grouping the raw inputs
+// in a struct keeps the Upsert signature under the 4-param cap and
+// gives the handler layer a stable point of entry.
 type UpsertInput struct {
 	OrganizationID uuid.UUID
 	Kind           domainpricing.PricingKind
@@ -65,6 +65,7 @@ type UpsertInput struct {
 	MaxAmount      *int64
 	Currency       string
 	Note           string
+	Negotiable     bool
 }
 
 // Upsert writes or updates a pricing row after a three-stage
@@ -92,16 +93,23 @@ func (s *Service) Upsert(ctx context.Context, input UpsertInput) (*domainpricing
 	if !domainpricing.IsKindAllowedForOrg(orgType, referrerEnabled, input.Kind) {
 		return nil, domainpricing.ErrKindNotAllowedForRole
 	}
+	// Stricter than the kind-level check: some org roles are not
+	// allowed to declare every type otherwise valid for the kind
+	// (e.g. agencies cannot declare daily / hourly direct pricing).
+	if !domainpricing.IsTypeAllowedForOrg(orgType, referrerEnabled, input.Kind, input.Type) {
+		return nil, domainpricing.ErrTypeNotAllowedForOrg
+	}
 
-	p, err := domainpricing.NewPricing(
-		input.OrganizationID,
-		input.Kind,
-		input.Type,
-		input.MinAmount,
-		input.MaxAmount,
-		input.Currency,
-		input.Note,
-	)
+	p, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
+		OrganizationID: input.OrganizationID,
+		Kind:           input.Kind,
+		Type:           input.Type,
+		MinAmount:      input.MinAmount,
+		MaxAmount:      input.MaxAmount,
+		Currency:       input.Currency,
+		Note:           input.Note,
+		Negotiable:     input.Negotiable,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("profile pricing upsert: validate: %w", err)
 	}

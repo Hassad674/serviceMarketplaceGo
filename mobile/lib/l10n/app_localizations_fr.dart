@@ -2483,6 +2483,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1PricingSectionTitle => 'Tarifs';
 
   @override
+  String get tier1PricingDirectSectionTitle => 'Tarifs';
+
+  @override
+  String get tier1PricingReferralSectionTitle => 'Tarifs d\'apport d\'affaires';
+
+  @override
   String get tier1PricingEmpty => 'Aucun tarif déclaré';
 
   @override
@@ -2492,10 +2498,28 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1PricingModalTitle => 'Mes tarifs';
 
   @override
+  String get tier1PricingDirectModalTitle => 'Modifier mes tarifs';
+
+  @override
+  String get tier1PricingReferralModalTitle => 'Modifier mes tarifs d\'apport';
+
+  @override
   String get tier1PricingKindDirect => 'Prestation directe';
 
   @override
   String get tier1PricingKindReferral => 'Apport d\'affaires';
+
+  @override
+  String get tier1PricingNegotiableLabel => 'Est-ce négociable ?';
+
+  @override
+  String get tier1PricingNegotiableYes => 'Oui';
+
+  @override
+  String get tier1PricingNegotiableNo => 'Non';
+
+  @override
+  String get tier1PricingNegotiableBadge => 'négociable';
 
   @override
   String get tier1PricingTypeDaily => 'TJM (taux journalier)';

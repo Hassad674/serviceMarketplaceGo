@@ -10,6 +10,7 @@ import { ProfileAbout } from "@/features/provider/components/profile-about"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
+import { PricingSection } from "@/features/provider/components/pricing-section"
 
 export default function ReferralPage() {
   const { data: user } = useUser()
@@ -64,6 +65,12 @@ export default function ReferralPage() {
         orgType={org?.type}
         referrerEnabled={user?.referrer_enabled}
         variant="referrer"
+        readOnly={!canEditProfile}
+      />
+      <PricingSection
+        variant="referral"
+        orgType={org?.type}
+        referrerEnabled={user?.referrer_enabled}
         readOnly={!canEditProfile}
       />
       <ProfileVideo

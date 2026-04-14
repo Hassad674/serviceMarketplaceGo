@@ -76,6 +76,7 @@ export default function ProfilePage() {
         readOnly={!canEditProfile}
       />
       <PricingSection
+        variant="direct"
         orgType={orgType}
         referrerEnabled={user?.referrer_enabled}
         readOnly={!canEditProfile}

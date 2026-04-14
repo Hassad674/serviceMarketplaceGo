@@ -181,6 +181,7 @@ void main() {
         maxAmount: null,
         currency: 'EUR',
         note: '',
+        negotiable: false,
       );
       final echoed = await repo.upsertPricing(draft);
 
@@ -202,6 +203,7 @@ void main() {
         maxAmount: null,
         currency: 'USD',
         note: '',
+        negotiable: false,
       );
       final result = await repo.upsertPricing(draft);
       expect(result, draft);
