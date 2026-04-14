@@ -16,6 +16,13 @@ import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../expertise/domain/entities/expertise_catalog.dart';
 import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
+import '../../../profile_tier1/domain/entities/availability_status.dart';
+import '../../../profile_tier1/domain/entities/languages.dart';
+import '../../../profile_tier1/domain/entities/location.dart';
+import '../../../profile_tier1/presentation/widgets/availability_section_widget.dart';
+import '../../../profile_tier1/presentation/widgets/languages_section_widget.dart';
+import '../../../profile_tier1/presentation/widgets/location_section_widget.dart';
+import '../../../profile_tier1/presentation/widgets/pricing_section_widget.dart';
 import '../../../skill/domain/entities/skill_limits.dart';
 import '../../../skill/presentation/widgets/skills_section_widget.dart';
 import '../../../portfolio/presentation/widgets/portfolio_grid_widget.dart';
@@ -62,6 +69,28 @@ class ProfileScreen extends ConsumerWidget {
         ) ??
         const <String>[];
     final orgType = authState.organization?['type'] as String?;
+    final referrerEnabled =
+        (authState.user?['referrer_enabled'] as bool?) ?? false;
+    final tier1Enabled = _isTier1EnabledForOrgType(orgType);
+
+    final currentLocation = profileAsync.whenOrNull(
+          data: (p) => Location.fromJson(p),
+        ) ??
+        Location.empty;
+    final currentLanguages = profileAsync.whenOrNull(
+          data: (p) => Languages.fromJson(p),
+        ) ??
+        Languages.empty;
+    final currentAvailability = AvailabilityStatus.fromWire(
+      profileAsync.whenOrNull(
+        data: (p) => p['availability_status'] as String?,
+      ),
+    );
+    final currentReferrerAvailability = AvailabilityStatus.fromWireOrNull(
+      profileAsync.whenOrNull(
+        data: (p) => p['referrer_availability_status'] as String?,
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -110,6 +139,39 @@ class ProfileScreen extends ConsumerWidget {
               ),
               if (SkillLimits.isFeatureEnabledForOrgType(orgType))
                 const SizedBox(height: 16),
+
+              // Tier 1 completion — availability / pricing / location / languages
+              // Grouped above the long-form sections. Hidden entirely for
+              // enterprise orgs, who do not declare offers in these blocks.
+              if (tier1Enabled) ...[
+                AvailabilitySectionWidget(
+                  initialDirect: currentAvailability,
+                  initialReferrer: currentReferrerAvailability,
+                  referrerEnabled: referrerEnabled,
+                  canEdit: canEditProfile,
+                  onSaved: () => ref.invalidate(profileProvider),
+                ),
+                const SizedBox(height: 16),
+                PricingSectionWidget(
+                  orgType: orgType,
+                  referrerEnabled: referrerEnabled,
+                  canEdit: canEditProfile,
+                  onSaved: () => ref.invalidate(profileProvider),
+                ),
+                const SizedBox(height: 16),
+                LocationSectionWidget(
+                  initialLocation: currentLocation,
+                  canEdit: canEditProfile,
+                  onSaved: () => ref.invalidate(profileProvider),
+                ),
+                const SizedBox(height: 16),
+                LanguagesSectionWidget(
+                  initialLanguages: currentLanguages,
+                  canEdit: canEditProfile,
+                  onSaved: () => ref.invalidate(profileProvider),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Title section
               _ProfileSectionCard(
@@ -346,6 +408,19 @@ class ProfileScreen extends ConsumerWidget {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  /// Tier 1 completion blocks (availability / pricing / location /
+  /// languages) only apply to service-side orgs. Enterprise orgs
+  /// do not declare offers so the entire group is hidden.
+  bool _isTier1EnabledForOrgType(String? orgType) {
+    switch (orgType) {
+      case 'agency':
+      case 'provider_personal':
+        return true;
+      default:
+        return false;
+    }
   }
 }
 
