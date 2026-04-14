@@ -16,6 +16,7 @@ import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../types/proposal.dart';
 import '../providers/proposal_provider.dart';
+import '../widgets/milestone_tracker_widget.dart';
 
 /// Displays all details for a proposal: title, description, amount, deadline,
 /// documents, status, and action buttons (accept/decline/modify/pay).
@@ -141,6 +142,19 @@ class _ProposalDetailBody extends ConsumerWidget {
             version: proposal.version,
           ),
           const SizedBox(height: 20),
+
+          // Phase 13 (mobile): milestone tracker. Shows the project's
+          // milestone list for milestone-mode proposals; collapses to
+          // a compact single card for one-time proposals so the
+          // legacy detail-view UX is preserved.
+          if (proposal.milestones.isNotEmpty) ...[
+            MilestoneTrackerWidget(
+              milestones: proposal.milestones,
+              paymentMode: proposal.paymentMode,
+              currentSequence: proposal.currentMilestoneSequence,
+            ),
+            const SizedBox(height: 20),
+          ],
           if (proposal.description.isNotEmpty) ...[
             Text(
               l10n.proposalDescription,

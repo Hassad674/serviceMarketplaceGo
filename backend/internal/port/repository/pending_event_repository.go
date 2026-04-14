@@ -1,0 +1,51 @@
+package repository
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+
+	"marketplace-backend/internal/domain/pendingevent"
+)
+
+// PendingEventRepository defines persistence operations for the
+// unified scheduler + outbox queue.
+//
+// The worker is the only writer that owns the lifecycle: it pops
+// due events with PopDue (which uses FOR UPDATE SKIP LOCKED so two
+// workers never claim the same row), runs the handler, then calls
+// MarkDone or MarkFailed on the result.
+//
+// Schedule is the public writer for everywhere else — services call
+// it inside their own transactions when they want a future side
+// effect (e.g. proposal service schedules milestone_auto_approve
+// when a milestone is submitted).
+type PendingEventRepository interface {
+	// Schedule inserts a new pending event. Idempotency at the
+	// caller level is the writer's responsibility — schedule the
+	// same payload twice and you get two rows.
+	Schedule(ctx context.Context, e *pendingevent.PendingEvent) error
+
+	// PopDue claims up to `limit` events whose fires_at is in the
+	// past, marks them processing in the same transaction, and
+	// returns them. Uses FOR UPDATE SKIP LOCKED so concurrent
+	// workers never see the same row twice. The attempts counter is
+	// bumped per-row inside the same transaction.
+	//
+	// The events returned are already in StatusProcessing — the
+	// worker calls MarkDone or MarkFailed once the handler returns.
+	PopDue(ctx context.Context, limit int) ([]*pendingevent.PendingEvent, error)
+
+	// MarkDone settles a processing event as completed. Called by
+	// the worker after a handler returns nil.
+	MarkDone(ctx context.Context, e *pendingevent.PendingEvent) error
+
+	// MarkFailed settles a processing event as failed and reschedules
+	// it according to the backoff embedded in the entity. Called by
+	// the worker after a handler returns an error.
+	MarkFailed(ctx context.Context, e *pendingevent.PendingEvent) error
+
+	// GetByID fetches a single event without taking any lock. Used
+	// by admin endpoints to inspect a stuck event.
+	GetByID(ctx context.Context, id uuid.UUID) (*pendingevent.PendingEvent, error)
+}

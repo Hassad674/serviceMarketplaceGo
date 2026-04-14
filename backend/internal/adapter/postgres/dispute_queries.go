@@ -8,8 +8,11 @@ package postgres
 // dispute SELECT fails ("expected 33 destination arguments in Scan, not 35") and
 // every INSERT fails ("bind message supplies 35 parameters, but prepared
 // statement requires 33"), silently breaking the scheduler and any GET dispute.
+// disputeColumns must match scanDispute / scanDisputeFromRows in
+// dispute_repository.go. milestone_id was added in phase 8 — every
+// dispute is now scoped to a single milestone of its proposal.
 const disputeColumns = `
-	id, proposal_id, conversation_id, initiator_id, respondent_id,
+	id, proposal_id, milestone_id, conversation_id, initiator_id, respondent_id,
 	client_id, provider_id, client_organization_id, provider_organization_id,
 	reason, description,
 	requested_amount, proposal_amount, status,
@@ -25,7 +28,7 @@ const disputeColumns = `
 
 const queryInsertDispute = `
 	INSERT INTO disputes (
-		id, proposal_id, conversation_id, initiator_id, respondent_id,
+		id, proposal_id, milestone_id, conversation_id, initiator_id, respondent_id,
 		client_id, provider_id, client_organization_id, provider_organization_id,
 		reason, description,
 		requested_amount, proposal_amount, status,
@@ -40,18 +43,18 @@ const queryInsertDispute = `
 		version, created_at, updated_at
 	) VALUES (
 		$1, $2, $3, $4, $5,
-		$6, $7, $8, $9,
-		$10, $11,
-		$12, $13, $14,
-		$15, $16, $17,
-		$18, $19, $20,
-		$21, $22, $23,
-		$24, $25,
-		$26, $27,
-		$28, $29,
-		$30, $31,
-		$32,
-		$33, $34, $35
+		$6, $7, $8, $9, $10,
+		$11, $12,
+		$13, $14, $15,
+		$16, $17, $18,
+		$19, $20, $21,
+		$22, $23, $24,
+		$25, $26,
+		$27, $28,
+		$29, $30,
+		$31, $32,
+		$33,
+		$34, $35, $36
 	)`
 
 const queryGetDisputeByID = `

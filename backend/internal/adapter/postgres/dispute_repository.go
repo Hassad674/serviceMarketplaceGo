@@ -30,7 +30,7 @@ func (r *DisputeRepository) Create(ctx context.Context, d *dispute.Dispute) erro
 	defer cancel()
 
 	_, err := r.db.ExecContext(ctx, queryInsertDispute,
-		d.ID, d.ProposalID, d.ConversationID, d.InitiatorID, d.RespondentID,
+		d.ID, d.ProposalID, d.MilestoneID, d.ConversationID, d.InitiatorID, d.RespondentID,
 		d.ClientID, d.ProviderID, d.ClientOrganizationID, d.ProviderOrganizationID,
 		string(d.Reason), d.Description,
 		d.RequestedAmount, d.ProposalAmount, string(d.Status),
@@ -405,7 +405,7 @@ func scanDispute(row *sql.Row) (*dispute.Dispute, error) {
 	var resType sql.NullString
 
 	err := row.Scan(
-		&d.ID, &d.ProposalID, &d.ConversationID, &d.InitiatorID, &d.RespondentID,
+		&d.ID, &d.ProposalID, &d.MilestoneID, &d.ConversationID, &d.InitiatorID, &d.RespondentID,
 		&d.ClientID, &d.ProviderID, &d.ClientOrganizationID, &d.ProviderOrganizationID,
 		&reason, &d.Description,
 		&d.RequestedAmount, &d.ProposalAmount, &status,
@@ -438,7 +438,7 @@ func scanDisputeFromRows(rows *sql.Rows) (*dispute.Dispute, error) {
 	var resType sql.NullString
 
 	err := rows.Scan(
-		&d.ID, &d.ProposalID, &d.ConversationID, &d.InitiatorID, &d.RespondentID,
+		&d.ID, &d.ProposalID, &d.MilestoneID, &d.ConversationID, &d.InitiatorID, &d.RespondentID,
 		&d.ClientID, &d.ProviderID, &d.ClientOrganizationID, &d.ProviderOrganizationID,
 		&reason, &d.Description,
 		&d.RequestedAmount, &d.ProposalAmount, &status,

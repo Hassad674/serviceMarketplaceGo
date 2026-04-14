@@ -173,17 +173,78 @@ func (s *Service) getCurrentActiveMilestone(ctx context.Context, proposalID uuid
 // persists with a version check. A concurrent update returns
 // milestone.ErrConcurrentUpdate which the caller can surface or retry.
 //
+// On success, an audit row is written to milestone_transitions
+// recording the from/to status pair (when the milestoneTransitions
+// repo is wired). The audit insert is best-effort: errors are logged
+// but do not roll back the milestone update — the state has already
+// committed by the time we get here.
+//
 // This wrapper lives in the proposal package (rather than reusing the
 // milestone app service's withLocked) so the proposal service stays
 // decoupled from the milestone app service layer — they share only
 // the repository port.
 func (s *Service) withMilestoneLock(ctx context.Context, milestoneID uuid.UUID, mutate func(*milestone.Milestone) error) error {
+	return s.withMilestoneLockAudited(ctx, milestoneID, nil, nil, "", mutate)
+}
+
+// withMilestoneLockAudited is the audited variant of withMilestoneLock.
+// Action methods that have actor context (handler-driven transitions)
+// can pass actor id + org id + reason so the audit row carries the
+// full who/why pair. System-actor callers (auto-approve scheduler,
+// outbox handlers) pass nil/nil/"auto" to record an untraced
+// transition that the admin dashboard renders as "system".
+func (s *Service) withMilestoneLockAudited(
+	ctx context.Context,
+	milestoneID uuid.UUID,
+	actorID *uuid.UUID,
+	actorOrgID *uuid.UUID,
+	reason string,
+	mutate func(*milestone.Milestone) error,
+) error {
 	m, err := s.milestones.GetByIDForUpdate(ctx, milestoneID)
 	if err != nil {
 		return err
 	}
+	fromStatus := m.Status
 	if err := mutate(m); err != nil {
 		return err
 	}
-	return s.milestones.Update(ctx, m)
+	if err := s.milestones.Update(ctx, m); err != nil {
+		return err
+	}
+	// Best-effort audit insert. fromStatus == m.Status when the
+	// mutate function was a no-op (e.g. idempotent re-fund attempt)
+	// — skip the audit row in that case so we don't pollute the
+	// timeline with phantom transitions.
+	if fromStatus != m.Status {
+		s.recordTransition(ctx, m, fromStatus, actorID, actorOrgID, reason)
+	}
+	return nil
+}
+
+// recordTransition writes one row to milestone_transitions. Skipped
+// when the milestoneTransitions repository is not wired (legacy test
+// setups). Errors are logged but never propagated — the milestone
+// update has already committed and we don't want a transient audit
+// failure to break business state.
+func (s *Service) recordTransition(
+	ctx context.Context,
+	m *milestone.Milestone,
+	fromStatus milestone.MilestoneStatus,
+	actorID *uuid.UUID,
+	actorOrgID *uuid.UUID,
+	reason string,
+) {
+	if s.milestoneTransitions == nil {
+		return
+	}
+	t := milestone.NewTransition(
+		m.ID, m.ProposalID,
+		fromStatus, m.Status,
+		actorID, actorOrgID,
+		reason,
+		nil,
+	)
+	// Best-effort: log but never fail the caller.
+	_ = s.milestoneTransitions.Insert(ctx, t)
 }

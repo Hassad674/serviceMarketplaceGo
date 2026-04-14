@@ -1,5 +1,23 @@
 import { apiClient } from "@/shared/lib/api-client"
-import type { ProposalResponse, ProjectListResponse, UploadURLResponse, PaymentIntentResponse } from "../types"
+import type {
+  ProposalResponse,
+  ProjectListResponse,
+  UploadURLResponse,
+  PaymentIntentResponse,
+  PaymentMode,
+} from "../types"
+
+// MilestoneInputData is the per-milestone payload a milestone-mode
+// CreateProposal call sends to the API. amount is in centimes.
+// sequence MUST be consecutive starting at 1 — the backend domain
+// rejects gaps and duplicates.
+export type MilestoneInputData = {
+  sequence: number
+  title: string
+  description: string
+  amount: number
+  deadline?: string
+}
 
 export type CreateProposalData = {
   recipient_id: string
@@ -9,6 +27,9 @@ export type CreateProposalData = {
   amount: number
   deadline?: string
   documents?: { filename: string; url: string; size: number; mime_type: string }[]
+  // Phase 5 additions:
+  payment_mode?: PaymentMode
+  milestones?: MilestoneInputData[]
 }
 
 export type ModifyProposalData = {
@@ -17,6 +38,8 @@ export type ModifyProposalData = {
   amount: number
   deadline?: string
   documents?: { filename: string; url: string; size: number; mime_type: string }[]
+  payment_mode?: PaymentMode
+  milestones?: MilestoneInputData[]
 }
 
 export function createProposal(data: CreateProposalData): Promise<ProposalResponse> {
@@ -75,4 +98,43 @@ export function getUploadURL(filename: string, contentType: string): Promise<Upl
     method: "POST",
     body: { filename, content_type: contentType },
   })
+}
+
+// Phase 5: milestone-explicit endpoints. The {mid} segment is
+// validated against the proposal's current active milestone — a
+// stale client view returns 409 Conflict so the frontend can refetch
+// and retry on a fresh milestone id.
+export function fundMilestone(
+  proposalID: string,
+  milestoneID: string,
+): Promise<PaymentIntentResponse> {
+  return apiClient<PaymentIntentResponse>(
+    `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/fund`,
+    { method: "POST" },
+  )
+}
+
+export function submitMilestone(proposalID: string, milestoneID: string): Promise<void> {
+  return apiClient<void>(
+    `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/submit`,
+    { method: "POST" },
+  )
+}
+
+export function approveMilestone(proposalID: string, milestoneID: string): Promise<void> {
+  return apiClient<void>(
+    `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/approve`,
+    { method: "POST" },
+  )
+}
+
+export function rejectMilestone(proposalID: string, milestoneID: string): Promise<void> {
+  return apiClient<void>(
+    `/api/v1/proposals/${proposalID}/milestones/${milestoneID}/reject`,
+    { method: "POST" },
+  )
+}
+
+export function cancelProposal(proposalID: string): Promise<void> {
+  return apiClient<void>(`/api/v1/proposals/${proposalID}/cancel`, { method: "POST" })
 }

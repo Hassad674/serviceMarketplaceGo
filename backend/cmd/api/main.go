@@ -35,6 +35,9 @@ import (
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	milestoneapp "marketplace-backend/internal/app/milestone"
+	"marketplace-backend/internal/adapter/worker"
+	"marketplace-backend/internal/adapter/worker/handlers"
+	"marketplace-backend/internal/domain/pendingevent"
 	notifapp "marketplace-backend/internal/app/notification"
 	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -396,19 +399,58 @@ func main() {
 	// Credit bonus fraud log
 	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
 
+	// Pending events queue (phase 6 — unified scheduler + Stripe outbox).
+	// The proposal service writes events here when a milestone is
+	// submitted (auto-approve), released (fund-reminder + auto-close),
+	// or released into the Stripe outbox (phase 7).
+	pendingEventsRepo := postgres.NewPendingEventRepository(db)
+
+	// Milestone audit trail (phase 9 — append-only). Every successful
+	// withMilestoneLock writes one row recording from→to status pair,
+	// actor id + org, and an optional reason string. The DB user
+	// holds INSERT/SELECT only on this table (Update/Delete are
+	// forbidden so the timeline cannot be rewritten).
+	milestoneTransitionsRepo := postgres.NewMilestoneTransitionRepository(db)
+
 	// Wire services that depend on notifications
 	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
-		Proposals:     proposalRepo,
-		Milestones:    milestoneRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		Messages:      messagingSvc,
-		Storage:       storageSvc,
-		Notifications: notifSvc,
-		Payments:      paymentProcessor(paymentInfoSvc, cfg),
-		Credits:       jobCreditRepo,
-		BonusLog:      bonusLogRepo,
+		Proposals:            proposalRepo,
+		Milestones:           milestoneRepo,
+		MilestoneTransitions: milestoneTransitionsRepo,
+		PendingEvents:        pendingEventsRepo,
+		Users:                userRepo,
+		Organizations:        organizationRepo,
+		Messages:             messagingSvc,
+		Storage:              storageSvc,
+		Notifications:        notifSvc,
+		Payments:             paymentProcessor(paymentInfoSvc, cfg),
+		Credits:              jobCreditRepo,
+		BonusLog:             bonusLogRepo,
+		// Phase 6 timer defaults (override via env in production):
+		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
 	})
+
+	// Phase 6: pending_events worker. Runs in a background goroutine
+	// alongside the API server, ticks every 30 seconds, and drives the
+	// auto-approval, fund-reminder, and auto-close timers. Multiple
+	// instances of this binary are safe to run side by side — PopDue
+	// uses FOR UPDATE SKIP LOCKED so workers never claim the same row.
+	pendingEventsWorker := worker.New(pendingEventsRepo, worker.Config{
+		TickInterval: 30 * time.Second,
+		BatchSize:    20,
+	})
+	pendingEventsWorker.Register(pendingevent.TypeMilestoneAutoApprove, handlers.NewMilestoneAutoApproveHandler(proposalSvc))
+	pendingEventsWorker.Register(pendingevent.TypeMilestoneFundReminder, handlers.NewMilestoneFundReminderHandler(proposalSvc))
+	pendingEventsWorker.Register(pendingevent.TypeProposalAutoClose, handlers.NewProposalAutoCloseHandler(proposalSvc))
+	pendingEventsWorker.Register(pendingevent.TypeStripeTransfer, handlers.NewStripeTransferHandler(proposalSvc))
+	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
+	defer pendingEventsCancel()
+	go func() {
+		if err := pendingEventsWorker.Run(pendingEventsCtx); err != nil {
+			slog.Error("pending events worker exited", "error", err)
+		}
+	}()
+	slog.Info("phase 6: pending events worker started")
 	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
 		Reviews:       reviewRepo,
 		Proposals:     proposalRepo,
@@ -652,6 +694,7 @@ func main() {
 	disputeSvc := disputeapp.NewService(disputeapp.ServiceDeps{
 		Disputes:      disputeRepo,
 		Proposals:     proposalRepo,
+		Milestones:    milestoneRepo,
 		Users:         userRepo,
 		MessageRepo:   messageRepo,
 		Messages:      messagingSvc,

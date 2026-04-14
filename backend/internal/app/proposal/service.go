@@ -10,43 +10,73 @@ import (
 )
 
 type ServiceDeps struct {
-	Proposals     repository.ProposalRepository
-	Milestones    repository.MilestoneRepository // required since phase 4 — every proposal has ≥1 milestone
-	Users         repository.UserRepository
-	Organizations repository.OrganizationRepository
-	Messages      service.MessageSender
-	Storage       service.StorageService
-	Notifications service.NotificationSender
-	Payments      service.PaymentProcessor            // nil if Stripe not configured
-	Credits       repository.JobCreditRepository      // nil if credits not configured
-	BonusLog      repository.CreditBonusLogRepository // nil if not configured
+	Proposals           repository.ProposalRepository
+	Milestones          repository.MilestoneRepository          // required since phase 4 — every proposal has ≥1 milestone
+	MilestoneTransitions repository.MilestoneTransitionRepository // optional since phase 9 — when nil, audit writes are no-ops
+	PendingEvents       repository.PendingEventRepository        // optional since phase 6 — when nil, scheduling is a no-op
+	Users               repository.UserRepository
+	Organizations       repository.OrganizationRepository
+	Messages            service.MessageSender
+	Storage             service.StorageService
+	Notifications       service.NotificationSender
+	Payments            service.PaymentProcessor            // nil if Stripe not configured
+	Credits             repository.JobCreditRepository      // nil if credits not configured
+	BonusLog            repository.CreditBonusLogRepository // nil if not configured
+
+	// Phase 6 timers (zero values use sensible defaults).
+	AutoApprovalDelay time.Duration // default 7 days
+	FundReminderDelay time.Duration // default 7 days
+	AutoCloseDelay    time.Duration // default 14 days
 }
 
 type Service struct {
-	proposals     repository.ProposalRepository
-	milestones    repository.MilestoneRepository
-	users         repository.UserRepository
-	orgs          repository.OrganizationRepository
-	messages      service.MessageSender
-	storage       service.StorageService
-	notifications service.NotificationSender
-	payments      service.PaymentProcessor
-	credits       repository.JobCreditRepository
-	bonusLog      repository.CreditBonusLogRepository
+	proposals            repository.ProposalRepository
+	milestones           repository.MilestoneRepository
+	milestoneTransitions repository.MilestoneTransitionRepository
+	pendingEvents        repository.PendingEventRepository
+	users                repository.UserRepository
+	orgs                 repository.OrganizationRepository
+	messages             service.MessageSender
+	storage              service.StorageService
+	notifications        service.NotificationSender
+	payments             service.PaymentProcessor
+	credits              repository.JobCreditRepository
+	bonusLog             repository.CreditBonusLogRepository
+
+	autoApprovalDelay time.Duration
+	fundReminderDelay time.Duration
+	autoCloseDelay    time.Duration
 }
 
 func NewService(deps ServiceDeps) *Service {
+	autoApproval := deps.AutoApprovalDelay
+	if autoApproval <= 0 {
+		autoApproval = 7 * 24 * time.Hour
+	}
+	fundReminder := deps.FundReminderDelay
+	if fundReminder <= 0 {
+		fundReminder = 7 * 24 * time.Hour
+	}
+	autoClose := deps.AutoCloseDelay
+	if autoClose <= 0 {
+		autoClose = 14 * 24 * time.Hour
+	}
 	return &Service{
-		proposals:     deps.Proposals,
-		milestones:    deps.Milestones,
-		users:         deps.Users,
-		orgs:          deps.Organizations,
-		messages:      deps.Messages,
-		storage:       deps.Storage,
-		notifications: deps.Notifications,
-		payments:      deps.Payments,
-		credits:       deps.Credits,
-		bonusLog:      deps.BonusLog,
+		proposals:            deps.Proposals,
+		milestones:           deps.Milestones,
+		milestoneTransitions: deps.MilestoneTransitions,
+		pendingEvents:        deps.PendingEvents,
+		users:                deps.Users,
+		orgs:                 deps.Organizations,
+		messages:             deps.Messages,
+		storage:              deps.Storage,
+		notifications:        deps.Notifications,
+		payments:             deps.Payments,
+		credits:              deps.Credits,
+		bonusLog:             deps.BonusLog,
+		autoApprovalDelay:    autoApproval,
+		fundReminderDelay:    fundReminder,
+		autoCloseDelay:       autoClose,
 	}
 }
 

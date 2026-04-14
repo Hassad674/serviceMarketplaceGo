@@ -22,6 +22,7 @@ import {
 } from "../hooks/use-proposals"
 import { ProposalStepper } from "./proposal-stepper"
 import { ActionsPanel } from "./proposal-actions-panel"
+import { MilestoneTracker } from "./milestone-tracker"
 import type { ProposalResponse } from "../types"
 
 interface ProposalDetailViewProps {
@@ -105,10 +106,23 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
         {t("backToProjects")}
       </button>
 
-      {/* Stepper */}
+      {/* Stepper (proposal-level macro state) */}
       <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
         <ProposalStepper status={proposal.status} />
       </div>
+
+      {/* Milestone tracker (phase 11). Renders the project's milestone
+          list as a vertical timeline for milestone-mode proposals, or
+          collapses to a compact single card for one-time mode. */}
+      {proposal.milestones && proposal.milestones.length > 0 && (
+        <div className="mb-8">
+          <MilestoneTracker
+            milestones={proposal.milestones}
+            paymentMode={proposal.payment_mode}
+            currentSequence={proposal.current_milestone_sequence}
+          />
+        </div>
+      )}
 
       {/* Split layout */}
       <div className="flex flex-col lg:flex-row gap-6">

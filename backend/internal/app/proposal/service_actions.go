@@ -3,8 +3,8 @@ package proposal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -291,6 +291,134 @@ func (s *Service) GetProposalByID(ctx context.Context, id uuid.UUID) (*domain.Pr
 	return s.proposals.GetByID(ctx, id)
 }
 
+// ListMilestones returns every milestone of a proposal ordered by
+// ascending sequence. Read-only — the handler calls it alongside
+// GetProposal to materialise the milestone tracker in the response.
+//
+// Returns an empty slice when the milestones repository is not wired
+// (legacy test setups that predate phase 4) so the response degrades
+// gracefully to the one-time UX instead of panicking.
+func (s *Service) ListMilestones(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error) {
+	if s.milestones == nil {
+		return nil, nil
+	}
+	return s.milestones.ListByProposal(ctx, proposalID)
+}
+
+// ListMilestonesForProposals batches the milestone lookup across many
+// proposals in a single round trip — used by the project list endpoint
+// to avoid N+1 queries when rendering each card with its current
+// milestone CTA.
+//
+// Same nil-safety as ListMilestones for legacy test setups.
+func (s *Service) ListMilestonesForProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error) {
+	if s.milestones == nil {
+		return map[uuid.UUID][]*milestone.Milestone{}, nil
+	}
+	return s.milestones.ListByProposals(ctx, proposalIDs)
+}
+
+// CancelProposalInput is the input for the boundary cancel flow.
+type CancelProposalInput struct {
+	ProposalID uuid.UUID
+	UserID     uuid.UUID
+	OrgID      uuid.UUID
+}
+
+// CancelProposal performs a milestone-boundary cancellation: every
+// pending_funding milestone is cancelled in place, leaving released
+// milestones untouched. Either side (client or provider) can call it
+// since neither party is committing additional money.
+//
+// Cancellation is only legal when there is NO funded/submitted/disputed
+// milestone (i.e. nothing in flight). If a milestone is mid-execution
+// the caller must use the dispute flow to negotiate an exit instead.
+//
+// After cancellation, the proposal macro status is recomputed:
+//   - If at least one milestone was released → completed (project
+//     ended early but with deliverables — the existing macro projection
+//     handles this).
+//   - If no milestones were released → declined (hard-stop).
+//
+// This method does not currently support partial-fund recovery — that
+// path goes through the dispute service (phase 8).
+func (s *Service) CancelProposal(ctx context.Context, input CancelProposalInput) error {
+	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+
+	// Either party may cancel at a milestone boundary — no money is
+	// changing hands so the directional check is not needed. We just
+	// require the caller to be on EITHER side of the proposal.
+	if err := s.requireOrgIsParticipant(ctx, p, input.OrgID); err != nil {
+		return err
+	}
+
+	milestones, err := s.milestones.ListByProposal(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("list milestones: %w", err)
+	}
+
+	// Forbid cancellation while a milestone is in flight: funded /
+	// submitted / approved / disputed all hold escrow money. The
+	// dispute flow handles those transitions instead.
+	for _, m := range milestones {
+		switch m.Status {
+		case milestone.StatusFunded, milestone.StatusSubmitted, milestone.StatusApproved, milestone.StatusDisputed:
+			return domain.ErrInvalidStatus
+		}
+	}
+
+	// Cancel every pending_funding milestone via the optimistic-locked
+	// path. Concurrent updates are swallowed per-item so a parallel
+	// transition (e.g. another operator funding the milestone right
+	// now) doesn't crash the sweep.
+	for _, m := range milestones {
+		if m.Status != milestone.StatusPendingFunding {
+			continue
+		}
+		if err := s.withMilestoneLock(ctx, m.ID, func(mm *milestone.Milestone) error {
+			return mm.Cancel()
+		}); err != nil {
+			if errors.Is(err, milestone.ErrConcurrentUpdate) {
+				continue
+			}
+			return fmt.Errorf("cancel milestone %s: %w", m.ID, err)
+		}
+	}
+
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
+	}
+
+	metadata := buildStatusMetadata(p)
+	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_cancelled", metadata)
+
+	s.sendNotification(ctx, p.ClientID, "proposal_cancelled", "Project cancelled",
+		"The project has been cancelled at a milestone boundary.",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+	s.sendNotification(ctx, p.ProviderID, "proposal_cancelled", "Project cancelled",
+		"The project has been cancelled at a milestone boundary.",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+
+	return nil
+}
+
+// requireOrgIsParticipant returns nil if the caller's org owns either
+// the client side OR the provider side of the proposal. Used by
+// non-directional actions (cancel at boundary) where both parties may
+// initiate the call.
+func (s *Service) requireOrgIsParticipant(ctx context.Context, p *domain.Proposal, callerOrgID uuid.UUID) error {
+	if err := s.requireOrgIsSide(ctx, p.ClientID, callerOrgID, domain.ErrNotAuthorized); err == nil {
+		return nil
+	}
+	if err := s.requireOrgIsSide(ctx, p.ProviderID, callerOrgID, domain.ErrNotAuthorized); err == nil {
+		return nil
+	}
+	return domain.ErrNotAuthorized
+}
+
 // AuthorizeClientOrg returns nil if the caller's org owns the client
 // side of the proposal, or domain.ErrNotAuthorized otherwise. Used by
 // the ConfirmPayment handler, which still executes several payment
@@ -337,6 +465,14 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 	if err := s.recomputeMacroStatus(ctx, p); err != nil {
 		return fmt.Errorf("recompute macro status: %w", err)
 	}
+
+	// Schedule auto-approval: if the client doesn't act within
+	// autoApprovalDelay (default 7 days), the worker will pick this
+	// event up and call AutoApproveMilestone, transitioning the
+	// milestone all the way to released. Failure to schedule is
+	// logged but doesn't block the submission — we'd rather miss
+	// auto-approval than reject a legitimate provider call.
+	s.scheduleMilestoneAutoApprove(ctx, current.ID)
 
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completion_requested", metadata)
@@ -390,62 +526,14 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	}
 
 	// If the macro status is now completed, this was the LAST milestone
-	// of the proposal: run the end-of-project side effects (fraud bonus,
-	// KYC first earning, double-blind review unlock, completion notifs).
-	// Otherwise we're mid-project: the next milestone is waiting for
-	// funding and we emit a lighter-weight "milestone released" signal.
+	// of the proposal: run the end-of-project side effects (shared with
+	// AutoApproveMilestone via runEndOfProjectEffects).
+	// Otherwise we're mid-project: emit a lighter "milestone released"
+	// signal and schedule the fund-reminder + auto-close timers so a
+	// ghosting client triggers a graceful auto-close.
 	if p.Status == domain.StatusCompleted {
-		metadata := s.buildCompletedMetadata(ctx, p)
-		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
-
-		// Double-blind reviews (since phase R18): a SINGLE evaluation_request
-		// system message is posted in the shared conversation. Both parties
-		// see it and can click the CTA — the frontend derives the viewer's
-		// side from the client/provider organization ids carried in metadata
-		// and opens the right review variant. Neither side will see the
-		// other's review until both have submitted or 14 days have elapsed.
-		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "evaluation_request", metadata)
-
-		s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
-			"Your mission has been marked as complete. Leave a review for the client before the 14-day window closes.",
-			buildNotificationData(p.ID, p.ConversationID, p.Title))
-		s.sendNotification(ctx, p.ClientID, "proposal_completed", "Mission completed",
-			"The mission is marked as complete. Leave a review for the provider before the 14-day window closes.",
-			buildNotificationData(p.ID, p.ConversationID, p.Title))
-
-		// End-of-project fraud bonus (user decision F4): runs only on
-		// macro completion, not on every milestone release, so a client
-		// cannot game the system by funding M1 and ghosting.
-		s.awardBonusWithFraudCheck(ctx, p)
-
-		// Transfer funds to provider (non-blocking — log errors but
-		// don't fail completion). Phase 7 replaces this direct call
-		// with an outbox event for exactly-once delivery.
-		if s.payments != nil {
-			if err := s.payments.TransferToProvider(ctx, p.ID); err != nil {
-				slog.Error("failed to transfer to provider", "proposal_id", p.ID, "error", err)
-			}
-		}
-
-		// Record first earning for KYC enforcement — triggers the
-		// 14-day countdown on the provider's organization (the
-		// merchant of record since phase R5). Idempotent: only writes
-		// when the org row still has a NULL kyc_first_earning_at.
-		if s.orgs != nil && s.users != nil {
-			providerUser, lookupErr := s.users.GetByID(ctx, p.ProviderID)
-			if lookupErr == nil && providerUser.OrganizationID != nil {
-				if err := s.orgs.SetKYCFirstEarning(ctx, *providerUser.OrganizationID, time.Now()); err != nil {
-					slog.Warn("kyc: failed to record first earning",
-						"provider_id", p.ProviderID,
-						"org_id", providerUser.OrganizationID,
-						"error", err)
-				}
-			}
-		}
+		s.runEndOfProjectEffects(ctx, p)
 	} else {
-		// Mid-project: a single milestone was released, the next is
-		// now waiting for funding. Emit a lighter-weight message so
-		// the UI can render "milestone N released — please fund M+1".
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "milestone_released", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_released", "Milestone released",
@@ -454,6 +542,11 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		s.sendNotification(ctx, p.ProviderID, "milestone_released", "Milestone released",
 			"Your milestone has been approved and paid. Work on the next milestone can start once the client funds it.",
 			buildNotificationData(p.ID, p.ConversationID, p.Title))
+
+		if next, nextErr := s.milestones.GetCurrentActive(ctx, p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
+			s.scheduleMilestoneFundReminder(ctx, next.ID)
+			s.scheduleProposalAutoClose(ctx, p.ID)
+		}
 	}
 
 	return nil

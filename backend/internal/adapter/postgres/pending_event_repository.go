@@ -1,0 +1,174 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+
+	"marketplace-backend/internal/domain/pendingevent"
+)
+
+// PendingEventRepository is the postgres-backed implementation of the
+// scheduler + outbox queue. It is intentionally small: 5 methods, all
+// driven by single SQL statements in pending_event_queries.go.
+//
+// The hot path (PopDue) uses FOR UPDATE SKIP LOCKED inside a CTE so
+// concurrent workers can pop disjoint batches of events without ever
+// blocking each other or claiming the same row twice.
+type PendingEventRepository struct {
+	db *sql.DB
+}
+
+// NewPendingEventRepository wires the adapter against a sql.DB pool.
+func NewPendingEventRepository(db *sql.DB) *PendingEventRepository {
+	return &PendingEventRepository{db: db}
+}
+
+// Schedule inserts a new pending event. Callers typically do this
+// inside their own transaction by passing a tx-bound DB — but the
+// public method takes the pool because the most common caller (the
+// proposal app service) writes a single event after committing its
+// own work.
+func (r *PendingEventRepository) Schedule(ctx context.Context, e *pendingevent.PendingEvent) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx, queryInsertPendingEvent,
+		e.ID, string(e.EventType), e.Payload, e.FiresAt,
+		string(e.Status), e.Attempts, e.LastError,
+		e.ProcessedAt, e.CreatedAt, e.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert pending event: %w", err)
+	}
+	return nil
+}
+
+// PopDue claims up to `limit` due events in a single round trip,
+// marking them processing inside the same statement. Returns the
+// freshly-claimed events so the worker can dispatch them to handlers
+// without a second SELECT.
+//
+// Concurrent workers are safe: FOR UPDATE SKIP LOCKED hands disjoint
+// batches to each caller. There is no possibility of double-pop, no
+// row-level deadlock, and no need for an external lock.
+func (r *PendingEventRepository) PopDue(ctx context.Context, limit int) ([]*pendingevent.PendingEvent, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, queryPopDuePendingEvents, limit)
+	if err != nil {
+		return nil, fmt.Errorf("pop due pending events: %w", err)
+	}
+	defer rows.Close()
+
+	var events []*pendingevent.PendingEvent
+	for rows.Next() {
+		e, err := scanPendingEvent(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan pending event: %w", err)
+		}
+		events = append(events, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows err: %w", err)
+	}
+	return events, nil
+}
+
+// MarkDone settles a processing event as completed. Called by the
+// worker after a successful handler run.
+func (r *PendingEventRepository) MarkDone(ctx context.Context, e *pendingevent.PendingEvent) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, queryMarkPendingEventDone, e.ID)
+	if err != nil {
+		return fmt.Errorf("mark pending event done: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		// Row was not in processing status — likely another worker
+		// claimed it concurrently. Surface as not found so the worker
+		// can move on without crashing.
+		return pendingevent.ErrEventNotFound
+	}
+	return nil
+}
+
+// MarkFailed records a handler error and reschedules the event for
+// a later retry according to the backoff already computed by the
+// domain entity (in MarkFailed on the in-memory copy).
+func (r *PendingEventRepository) MarkFailed(ctx context.Context, e *pendingevent.PendingEvent) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var lastErr sql.NullString
+	if e.LastError != nil {
+		lastErr.String = *e.LastError
+		lastErr.Valid = true
+	}
+	result, err := r.db.ExecContext(ctx, queryMarkPendingEventFailed, e.ID, lastErr, e.FiresAt)
+	if err != nil {
+		return fmt.Errorf("mark pending event failed: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if affected == 0 {
+		return pendingevent.ErrEventNotFound
+	}
+	return nil
+}
+
+// GetByID fetches a single event without locking. Used by admin
+// inspection paths.
+func (r *PendingEventRepository) GetByID(ctx context.Context, id uuid.UUID) (*pendingevent.PendingEvent, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	row := r.db.QueryRowContext(ctx, queryGetPendingEventByID, id)
+	e, err := scanPendingEvent(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, pendingevent.ErrEventNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get pending event by id: %w", err)
+	}
+	return e, nil
+}
+
+// scanPendingEvent materialises a row into a domain entity. Status
+// and EventType are converted from TEXT to typed enums.
+func scanPendingEvent(s scanner) (*pendingevent.PendingEvent, error) {
+	var e pendingevent.PendingEvent
+	var (
+		eventType string
+		status    string
+		lastError sql.NullString
+	)
+	if err := s.Scan(
+		&e.ID, &eventType, &e.Payload, &e.FiresAt,
+		&status, &e.Attempts, &lastError,
+		&e.ProcessedAt, &e.CreatedAt, &e.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	e.EventType = pendingevent.EventType(eventType)
+	e.Status = pendingevent.Status(status)
+	if lastError.Valid {
+		err := lastError.String
+		e.LastError = &err
+	}
+	return &e, nil
+}

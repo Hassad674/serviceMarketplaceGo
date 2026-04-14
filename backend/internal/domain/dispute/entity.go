@@ -86,6 +86,11 @@ const (
 type Dispute struct {
 	ID             uuid.UUID
 	ProposalID     uuid.UUID
+	// MilestoneID scopes the dispute to a single milestone of the
+	// proposal (phase 8). Resolution splits the milestone amount,
+	// not the proposal amount. Existing pre-phase-8 disputes were
+	// backfilled to their proposal's only synthetic milestone.
+	MilestoneID    uuid.UUID
 	ConversationID uuid.UUID
 	InitiatorID    uuid.UUID
 	RespondentID   uuid.UUID
@@ -146,6 +151,7 @@ type Dispute struct {
 
 type NewDisputeInput struct {
 	ProposalID             uuid.UUID
+	MilestoneID            uuid.UUID
 	ConversationID         uuid.UUID
 	InitiatorID            uuid.UUID
 	RespondentID           uuid.UUID
@@ -156,7 +162,11 @@ type NewDisputeInput struct {
 	Reason                 Reason
 	Description            string
 	RequestedAmount        int64
-	ProposalAmount         int64
+	// ProposalAmount carries the milestone amount (post-phase-8)
+	// rather than the proposal total. Field name kept for backward
+	// compatibility with existing SQL queries; the semantics moved
+	// to "the milestone in dispute".
+	ProposalAmount int64
 }
 
 func NewDispute(in NewDisputeInput) (*Dispute, error) {
@@ -179,6 +189,7 @@ func NewDispute(in NewDisputeInput) (*Dispute, error) {
 	return &Dispute{
 		ID:                     uuid.New(),
 		ProposalID:             in.ProposalID,
+		MilestoneID:            in.MilestoneID,
 		ConversationID:         in.ConversationID,
 		InitiatorID:            in.InitiatorID,
 		RespondentID:           in.RespondentID,

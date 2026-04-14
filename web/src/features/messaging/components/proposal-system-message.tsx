@@ -148,6 +148,36 @@ const SYSTEM_MESSAGE_STYLES: Record<string, SystemMessageConfig> = {
     cardBg: "bg-amber-50 dark:bg-amber-900/20",
     cardBorder: "border-amber-200 dark:border-amber-800",
   },
+  // Phase 12: milestone-scoped system messages emitted by the
+  // proposal app service (phase 4b-ii) and the scheduler (phase 6c).
+  milestone_released: {
+    icon: CheckCircle2,
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    iconBg: "bg-emerald-100 dark:bg-emerald-500/20",
+    cardBg: "bg-emerald-50 dark:bg-emerald-900/20",
+    cardBorder: "border-emerald-200 dark:border-emerald-800",
+  },
+  milestone_auto_approved: {
+    icon: Clock,
+    iconColor: "text-amber-600 dark:text-amber-400",
+    iconBg: "bg-amber-100 dark:bg-amber-500/20",
+    cardBg: "bg-amber-50 dark:bg-amber-900/20",
+    cardBorder: "border-amber-200 dark:border-amber-800",
+  },
+  proposal_cancelled: {
+    icon: XCircle,
+    iconColor: "text-slate-600 dark:text-slate-400",
+    iconBg: "bg-slate-100 dark:bg-slate-500/20",
+    cardBg: "bg-slate-50 dark:bg-slate-800/50",
+    cardBorder: "border-slate-200 dark:border-slate-700",
+  },
+  proposal_auto_closed: {
+    icon: XCircle,
+    iconColor: "text-slate-600 dark:text-slate-400",
+    iconBg: "bg-slate-100 dark:bg-slate-500/20",
+    cardBg: "bg-slate-50 dark:bg-slate-800/50",
+    cardBorder: "border-slate-200 dark:border-slate-700",
+  },
 }
 
 function getSystemMessageTitle(type: string, t: ReturnType<typeof useTranslations<"proposal">>) {
@@ -161,6 +191,11 @@ function getSystemMessageTitle(type: string, t: ReturnType<typeof useTranslation
     proposal_modified: t("systemModified"),
     proposal_payment_requested: t("systemPaymentRequested"),
     evaluation_request: t("systemEvaluationRequest"),
+    // Phase 12: milestone-scoped system messages.
+    milestone_released: t("systemMilestoneReleased"),
+    milestone_auto_approved: t("systemMilestoneAutoApproved"),
+    proposal_cancelled: t("systemProposalCancelled"),
+    proposal_auto_closed: t("systemProposalAutoClosed"),
     dispute_opened: "Litige ouvert",
     dispute_counter_proposal: "Contre-proposition",
     dispute_counter_accepted: "Proposition acceptee",
