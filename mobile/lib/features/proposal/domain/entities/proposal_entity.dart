@@ -24,6 +24,9 @@ class ProposalEntity {
     this.acceptedAt,
     this.paidAt,
     required this.createdAt,
+    this.paymentMode = 'one_time',
+    this.milestones = const [],
+    this.currentMilestoneSequence,
   });
 
   final String id;
@@ -49,13 +52,27 @@ class ProposalEntity {
   final String? paidAt;
   final String createdAt;
 
+  // Phase 5 (mobile parity): every proposal has at least one milestone.
+  // payment_mode is the UX hint for which detail-view variant to render
+  // ("one_time" collapses to a single card, "milestone" shows the full
+  // tracker). Pre-phase-4 proposals were backfilled with one synthetic
+  // milestone on the backend, so this list is never empty for fresh data.
+  final String paymentMode;
+  final List<MilestoneEntity> milestones;
+  final int? currentMilestoneSequence;
+
   /// Amount converted from centimes to euros for display.
   double get amountInEuros => amount / 100.0;
 
   factory ProposalEntity.fromJson(Map<String, dynamic> json) {
     final docs = (json['documents'] as List<dynamic>?)
-            ?.map((d) =>
-                ProposalDocumentEntity.fromJson(d as Map<String, dynamic>))
+            ?.map(
+              (d) => ProposalDocumentEntity.fromJson(d as Map<String, dynamic>),
+            )
+            .toList() ??
+        [];
+    final milestones = (json['milestones'] as List<dynamic>?)
+            ?.map((m) => MilestoneEntity.fromJson(m as Map<String, dynamic>))
             .toList() ??
         [];
 
@@ -79,6 +96,98 @@ class ProposalEntity {
       acceptedAt: json['accepted_at'] as String?,
       paidAt: json['paid_at'] as String?,
       createdAt: json['created_at'] as String,
+      paymentMode: json['payment_mode'] as String? ?? 'one_time',
+      milestones: milestones,
+      currentMilestoneSequence: json['current_milestone_sequence'] as int?,
+    );
+  }
+}
+
+/// Per-milestone payload nested inside a [ProposalEntity]. Mirrors the
+/// backend `MilestoneResponse` DTO from phase 5. Amount is in centimes
+/// (1 EUR = 100), same convention as [ProposalEntity.amount].
+class MilestoneEntity {
+  const MilestoneEntity({
+    required this.id,
+    required this.sequence,
+    required this.title,
+    required this.description,
+    required this.amount,
+    this.deadline,
+    required this.status,
+    required this.version,
+    this.fundedAt,
+    this.submittedAt,
+    this.approvedAt,
+    this.releasedAt,
+    this.disputedAt,
+    this.cancelledAt,
+  });
+
+  final String id;
+  final int sequence;
+  final String title;
+  final String description;
+  final int amount;
+  final String? deadline;
+  // Status enum mirrors backend internal/domain/milestone:
+  // pending_funding | funded | submitted | approved | released
+  // | disputed | cancelled | refunded
+  final String status;
+  final int version;
+  final String? fundedAt;
+  final String? submittedAt;
+  final String? approvedAt;
+  final String? releasedAt;
+  final String? disputedAt;
+  final String? cancelledAt;
+
+  /// Amount converted from centimes to euros for display.
+  double get amountInEuros => amount / 100.0;
+
+  /// True when the milestone is in a state that holds escrow (funded,
+  /// submitted, approved) or is currently disputed. Used to highlight
+  /// the active milestone in the tracker UI.
+  bool get isActive {
+    switch (status) {
+      case 'funded':
+      case 'submitted':
+      case 'approved':
+      case 'disputed':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// True when the milestone has reached a terminal state.
+  bool get isTerminal {
+    switch (status) {
+      case 'released':
+      case 'cancelled':
+      case 'refunded':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  factory MilestoneEntity.fromJson(Map<String, dynamic> json) {
+    return MilestoneEntity(
+      id: json['id'] as String,
+      sequence: json['sequence'] as int,
+      title: json['title'] as String,
+      description: json['description'] as String,
+      amount: (json['amount'] as num).toInt(),
+      deadline: json['deadline'] as String?,
+      status: json['status'] as String,
+      version: json['version'] as int? ?? 0,
+      fundedAt: json['funded_at'] as String?,
+      submittedAt: json['submitted_at'] as String?,
+      approvedAt: json['approved_at'] as String?,
+      releasedAt: json['released_at'] as String?,
+      disputedAt: json['disputed_at'] as String?,
+      cancelledAt: json['cancelled_at'] as String?,
     );
   }
 }
