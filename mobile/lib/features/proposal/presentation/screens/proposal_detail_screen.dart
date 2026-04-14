@@ -545,7 +545,8 @@ class _ActionButtons extends ConsumerWidget {
       );
     }
 
-    // Accepted: client can pay (requires proposals.respond permission)
+    // Accepted: client can pay the FIRST milestone (escrow mode: the
+    // proposal jumps to active as soon as milestone 1 is funded).
     if (status == ProposalStatus.accepted &&
         proposal.clientId == currentUserId) {
       if (!canRespond) return const SizedBox.shrink();
@@ -568,37 +569,65 @@ class _ActionButtons extends ConsumerWidget {
       );
     }
 
-    // Active: provider can submit the current milestone for approval.
-    // The backend tracks which milestone is "current" via
-    // current_milestone_sequence; we resolve the matching entity here
-    // so the sheet can pass its id to the per-milestone endpoint.
-    if (status == ProposalStatus.active &&
-        proposal.providerId == currentUserId) {
-      if (!canRespond) return const SizedBox.shrink();
+    // Active state — the proposal macro status stays "active" while
+    // the cursor walks from milestone N → milestone N+1. The correct
+    // CTA depends on the CURRENT milestone sub-state:
+    //   pending_funding → client funds it (next-milestone payment)
+    //   funded          → provider submits it for approval
+    if (status == ProposalStatus.active) {
       final current = _currentActiveMilestone(proposal);
       if (current == null) return const SizedBox.shrink();
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () => MilestoneActionBottomSheet.show(
-            context,
-            proposalId: proposal.id,
-            milestone: current,
-            action: MilestoneAction.submit,
-          ),
-          icon: const Icon(Icons.check_circle_outline, size: 18),
-          label: Text(l10n.submitWork),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: theme.colorScheme.primary,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(0, 48),
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+
+      // Client-side: fund the next milestone.
+      if (proposal.clientId == currentUserId &&
+          current.status == 'pending_funding') {
+        if (!canRespond) return const SizedBox.shrink();
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => _pay(context),
+            icon: const Icon(Icons.payment_outlined, size: 18),
+            label: Text(l10n.payNow),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 48),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
+
+      // Provider-side: submit the funded milestone for approval.
+      if (proposal.providerId == currentUserId &&
+          current.status == 'funded') {
+        if (!canRespond) return const SizedBox.shrink();
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => MilestoneActionBottomSheet.show(
+              context,
+              proposalId: proposal.id,
+              milestone: current,
+              action: MilestoneAction.submit,
+            ),
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: Text(l10n.submitWork),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 48),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              ),
+            ),
+          ),
+        );
+      }
     }
 
     // Completion requested: client can approve (release escrow and

@@ -21,7 +21,7 @@ import {
   useRejectMilestone,
 } from "../hooks/use-proposals"
 import { ProposalStepper } from "./proposal-stepper"
-import { ActionsPanel } from "./proposal-actions-panel"
+import { ActionsPanel, type ActionsPanelProps } from "./proposal-actions-panel"
 import { MilestoneTracker } from "./milestone-tracker"
 import type { ProposalResponse } from "../types"
 
@@ -150,6 +150,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
             <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
               <ActionsPanel
                 proposal={proposal}
+                currentMilestone={currentMilestone}
                 isRecipient={isRecipient}
                 isSender={isSender}
                 isClient={isClient}
@@ -180,6 +181,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
       {/* Mobile sticky action bar */}
       <MobileActionBar
         proposal={proposal}
+        currentMilestone={currentMilestone}
         isRecipient={isRecipient}
         isSender={isSender}
         isClient={isClient}
@@ -394,7 +396,12 @@ function ParticipantRow({ name, role, badgeClass, avatarClass }: ParticipantRowP
 
 function MobileActionBar(props: React.ComponentProps<typeof ActionsPanel>) {
   // Only show on mobile when there are actions
-  const hasActions = shouldShowActions(props.proposal, props)
+  const hasActions = shouldShowActions(props.proposal, {
+    isRecipient: props.isRecipient,
+    isClient: props.isClient,
+    isProvider: props.isProvider,
+    currentMilestone: props.currentMilestone,
+  })
   if (!hasActions) return null
 
   return (
@@ -406,11 +413,33 @@ function MobileActionBar(props: React.ComponentProps<typeof ActionsPanel>) {
 
 function shouldShowActions(
   proposal: ProposalResponse,
-  flags: { isRecipient: boolean; isClient: boolean; isProvider: boolean },
+  flags: {
+    isRecipient: boolean
+    isClient: boolean
+    isProvider: boolean
+    currentMilestone: ActionsPanelProps["currentMilestone"]
+  },
 ): boolean {
   if (proposal.status === "pending" && flags.isRecipient) return true
   if (proposal.status === "accepted" && flags.isClient) return true
-  if (proposal.status === "active" && flags.isProvider) return true
+  if (proposal.status === "active") {
+    // In the milestone world, `active` maps to two different CTAs
+    // depending on the current milestone's sub-state:
+    //   pending_funding → client funds the next milestone
+    //   funded          → provider submits it for approval
+    if (
+      flags.isClient &&
+      flags.currentMilestone?.status === "pending_funding"
+    ) {
+      return true
+    }
+    if (
+      flags.isProvider &&
+      flags.currentMilestone?.status === "funded"
+    ) {
+      return true
+    }
+  }
   if (proposal.status === "completion_requested" && flags.isClient) return true
   return false
 }

@@ -35,14 +35,21 @@ export function PaymentSimulation() {
       .then((p) => {
         if (cancelled) return
         setProposal(p)
-        // The payment page only makes sense while the proposal is in
-        // the "accepted" state (ready to pay). For any later state the
-        // user has no business here — most common trigger is clicking a
-        // stale "Pay" button on an older system message whose metadata
-        // snapshot still says accepted. Redirect to the project detail
-        // page so the user sees the real current state instead of a
-        // misleading "Payment confirmed" screen that freezes the flow.
-        if (p.status !== "accepted") {
+        // The payment page is valid for two states:
+        //   1. accepted — client funds the FIRST milestone (no
+        //      milestone has been paid yet).
+        //   2. active AND current milestone is pending_funding —
+        //      client funds the NEXT milestone after a previous one
+        //      has been released.
+        // Any other state (pending, disputed, completed, etc.)
+        // redirects back to the detail page.
+        const currentMs = p.milestones?.find(
+          (m) => m.sequence === p.current_milestone_sequence,
+        )
+        const validAccepted = p.status === "accepted"
+        const validActivePending =
+          p.status === "active" && currentMs?.status === "pending_funding"
+        if (!validAccepted && !validActivePending) {
           router.replace(`/projects/${proposalId}`)
           return
         }

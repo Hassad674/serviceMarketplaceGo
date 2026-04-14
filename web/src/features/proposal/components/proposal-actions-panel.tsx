@@ -15,10 +15,18 @@ import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import type { ProposalResponse, ProposalStatus } from "../types"
+import type { MilestoneResponse, ProposalResponse, ProposalStatus } from "../types"
 
-interface ActionsPanelProps {
+export interface ActionsPanelProps {
   proposal: ProposalResponse
+  // currentMilestone is the milestone whose sequence matches
+  // proposal.current_milestone_sequence — the one the backend would
+  // operate on for any per-milestone action. The button visibility
+  // logic depends on its status, not only on the proposal macro
+  // status: with multi-milestone proposals the macro stays "active"
+  // while the cursor advances through pending_funding → funded →
+  // submitted, and each sub-state owns a different CTA.
+  currentMilestone: MilestoneResponse | undefined
   isRecipient: boolean
   isSender: boolean
   isClient: boolean
@@ -177,6 +185,7 @@ function getStatusConfig(
 
 function ActionButtons({
   proposal,
+  currentMilestone,
   isRecipient,
   isSender,
   isClient,
@@ -225,7 +234,7 @@ function ActionButtons({
     )
   }
 
-  // Accepted - client can proceed to payment
+  // Accepted - client can proceed to payment (first milestone funding)
   if (proposal.status === "accepted" && isClient) {
     return (
       <PrimaryButton
@@ -238,17 +247,44 @@ function ActionButtons({
     )
   }
 
-  // Active - provider can request completion
-  if (proposal.status === "active" && isProvider) {
-    return (
-      <PrimaryButton
-        onClick={onRequestCompletion}
-        disabled={isMutating}
-        pending={requestCompletionPending}
-        icon={CheckCircle2}
-        label={t("terminateMission")}
-      />
-    )
+  // Active state — the macro status stays "active" while the cursor
+  // walks from milestone N → milestone N+1. The right CTA depends on
+  // what the CURRENT milestone needs next:
+  //   - pending_funding → client funds it (multi-milestone pay flow)
+  //   - funded          → provider submits it for approval
+  // We fall through to the legacy "no CTA" branch for any other
+  // sub-state so stale client views never render a broken button.
+  if (proposal.status === "active") {
+    if (
+      isClient &&
+      currentMilestone &&
+      currentMilestone.status === "pending_funding"
+    ) {
+      return (
+        <PrimaryButton
+          onClick={onPay}
+          disabled={false}
+          pending={false}
+          icon={CreditCard}
+          label={t("proceedToPayment")}
+        />
+      )
+    }
+    if (
+      isProvider &&
+      currentMilestone &&
+      currentMilestone.status === "funded"
+    ) {
+      return (
+        <PrimaryButton
+          onClick={onRequestCompletion}
+          disabled={isMutating}
+          pending={requestCompletionPending}
+          icon={CheckCircle2}
+          label={t("terminateMission")}
+        />
+      )
+    }
   }
 
   // Completion requested - client can confirm or reject
