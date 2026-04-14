@@ -1,4 +1,9 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type {
+  AvailabilityStatus,
+  Pricing,
+  WorkMode,
+} from "./profile-api"
 
 // PublicProfileSummarySkill matches the compact skill shape returned
 // by the search endpoint — same contract as the full profile, kept
@@ -24,6 +29,14 @@ export type PublicProfileSummary = {
   // an array (possibly empty) — never null. Older clients should treat
   // `undefined` as empty.
   skills?: PublicProfileSummarySkill[]
+  // --- Tier 1 signals surfaced on the listing card. All fields are
+  // optional because older orgs may not have completed Tier 1 yet.
+  city?: string
+  country_code?: string
+  work_mode?: WorkMode[]
+  languages_professional?: string[]
+  availability_status?: AvailabilityStatus
+  pricing?: Pricing[]
 }
 
 export type SearchType = "freelancer" | "agency" | "enterprise" | "referrer"

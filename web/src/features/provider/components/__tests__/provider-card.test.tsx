@@ -18,6 +18,8 @@ const messages = {
   },
 }
 
+const PROVIDER_CARD_LOCALE = "en"
+
 vi.mock("@i18n/navigation", () => ({
   Link: ({
     href,
@@ -65,7 +67,7 @@ function renderProviderCard(
   type: SearchType = "freelancer",
 ) {
   return render(
-    <NextIntlClientProvider locale="en" messages={messages}>
+    <NextIntlClientProvider locale={PROVIDER_CARD_LOCALE} messages={messages}>
       <ProviderCard profile={profile} type={type} />
     </NextIntlClientProvider>,
   )
@@ -237,5 +239,45 @@ describe("ProviderCard", () => {
     renderProviderCard(profile, "freelancer")
 
     expect(screen.queryByRole("list", { name: "List of skills" })).not.toBeInTheDocument()
+  })
+
+  it("renders the city inline signal when city is present", () => {
+    const profile = createProfile({ city: "Paris", country_code: "FR" })
+    renderProviderCard(profile, "freelancer")
+    expect(screen.getByText("Paris")).toBeInTheDocument()
+  })
+
+  it("renders the pricing snippet from the direct row when present", () => {
+    const profile = createProfile({
+      pricing: [
+        {
+          kind: "direct",
+          type: "daily",
+          min_amount: 50000,
+          max_amount: null,
+          currency: "EUR",
+          note: "",
+        },
+      ],
+    })
+    renderProviderCard(profile, "freelancer")
+    expect(screen.getByText(/500/)).toBeInTheDocument()
+    expect(screen.getByText(/\/day/)).toBeInTheDocument()
+  })
+
+  it("renders language codes for professional languages", () => {
+    const profile = createProfile({
+      languages_professional: ["fr", "en"],
+    })
+    renderProviderCard(profile, "freelancer")
+    expect(screen.getByText("fr")).toBeInTheDocument()
+    expect(screen.getByText("en")).toBeInTheDocument()
+  })
+
+  it("does not render the signals row when none of the new fields are set", () => {
+    const profile = createProfile()
+    const { container } = renderProviderCard(profile, "freelancer")
+    // The signals row uses a unique MapPin icon; absence = no row.
+    expect(container.querySelector(".lucide-map-pin")).toBeNull()
   })
 })
