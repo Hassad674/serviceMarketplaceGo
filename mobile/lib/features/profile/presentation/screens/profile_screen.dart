@@ -145,6 +145,7 @@ class ProfileScreen extends ConsumerWidget {
               // enterprise orgs, who do not declare offers in these blocks.
               if (tier1Enabled) ...[
                 AvailabilitySectionWidget(
+                  variant: AvailabilityVariant.direct,
                   initialDirect: currentAvailability,
                   initialReferrer: currentReferrerAvailability,
                   referrerEnabled: referrerEnabled,

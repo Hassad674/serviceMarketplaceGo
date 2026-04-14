@@ -1,10 +1,11 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { useUser } from "@/shared/hooks/use-user"
+import { useUser, useOrganization } from "@/shared/hooks/use-user"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useProfile, useUpdateProfile } from "@/features/provider/hooks/use-profile"
 import { useUploadPhoto, useUploadReferrerVideo, useDeleteReferrerVideo } from "@/features/provider/hooks/use-upload"
+import { AvailabilitySection } from "@/features/provider/components/availability-section"
 import { ProfileAbout } from "@/features/provider/components/profile-about"
 import { ProfileHeader } from "@/features/provider/components/profile-header"
 import { ProfileVideo } from "@/features/provider/components/profile-video"
@@ -12,6 +13,7 @@ import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton
 
 export default function ReferralPage() {
   const { data: user } = useUser()
+  const { data: org } = useOrganization()
   const { data: profile, isLoading, error } = useProfile()
   const updateProfile = useUpdateProfile()
   const photoUpload = useUploadPhoto()
@@ -56,6 +58,12 @@ export default function ReferralPage() {
         onUpdateTitle={canEditProfile ? (title) => updateProfile.mutate({ title }) : undefined}
         onUploadPhoto={canEditProfile ? async (file) => { await photoUpload.mutateAsync(file) } : undefined}
         uploadingPhoto={photoUpload.isPending}
+        readOnly={!canEditProfile}
+      />
+      <AvailabilitySection
+        orgType={org?.type}
+        referrerEnabled={user?.referrer_enabled}
+        variant="referrer"
         readOnly={!canEditProfile}
       />
       <ProfileVideo

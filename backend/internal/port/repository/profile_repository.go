@@ -58,9 +58,10 @@ type ProfileRepository interface {
 	// them verbatim.
 	UpdateLanguages(ctx context.Context, orgID uuid.UUID, professional, conversational []string) error
 
-	// UpdateAvailability updates both availability columns. Pass a
-	// nil referrer to clear the referrer slot in the database (NULL);
-	// pass a non-nil value to set it. The direct status is always
-	// persisted — the enum has no "clear" state.
-	UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
+	// UpdateAvailability patches one or both availability columns.
+	// A nil pointer means "do not touch this column" — implementations
+	// MUST build the UPDATE statement dynamically so omitted columns
+	// keep their current value. At least one pointer must be non-nil;
+	// passing both nil is a programmer error.
+	UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 }

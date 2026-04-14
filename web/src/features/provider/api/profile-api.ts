@@ -126,8 +126,8 @@ export async function updateLanguages(
 }
 
 export type UpdateAvailabilityInput = {
-  availability_status: AvailabilityStatus
-  referrer_availability_status?: AvailabilityStatus | null
+  availability_status?: AvailabilityStatus
+  referrer_availability_status?: AvailabilityStatus
 }
 
 export async function updateAvailability(
