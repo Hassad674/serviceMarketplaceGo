@@ -129,11 +129,17 @@ class _ProposalDetailBody extends ConsumerWidget {
               currentUserId: currentUserId,
             ),
 
-          // Report a problem button (only when no active dispute and mission active)
+          // Report a problem button (only when no active dispute and mission active).
+          // Amount passed to the dispute form is the CURRENT active
+          // milestone's amount — not the proposal total — because a
+          // dispute can only concern the escrow that has actually been
+          // paid in. A fallback to the proposal total covers legacy
+          // single-milestone proposals where currentMilestoneSequence
+          // is null.
           if (canOpenDispute)
             _ReportProblemButton(
               proposalId: proposal.id,
-              proposalAmount: proposal.amount,
+              proposalAmount: _currentMilestoneAmount(proposal) ?? proposal.amount,
               userRole: userRole,
             ),
 
@@ -245,6 +251,19 @@ class _ProposalDetailBody extends ConsumerWidget {
       'completed' => ProposalStatus.completed,
       _ => ProposalStatus.pending,
     };
+  }
+
+  // Resolves the amount of the milestone whose sequence matches the
+  // proposal's current_milestone_sequence. Returns null when the
+  // proposal has no milestones or the active sequence cannot be
+  // matched — the caller then falls back to the proposal total.
+  int? _currentMilestoneAmount(ProposalEntity proposal) {
+    final seq = proposal.currentMilestoneSequence;
+    if (seq == null || proposal.milestones.isEmpty) return null;
+    for (final m in proposal.milestones) {
+      if (m.sequence == seq) return m.amount;
+    }
+    return null;
   }
 }
 

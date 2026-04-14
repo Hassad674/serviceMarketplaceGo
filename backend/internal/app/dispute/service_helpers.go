@@ -11,6 +11,7 @@ import (
 
 	disputedomain "marketplace-backend/internal/domain/dispute"
 	"marketplace-backend/internal/domain/message"
+	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	portservice "marketplace-backend/internal/port/service"
 )
@@ -57,6 +58,24 @@ func (s *Service) notifyBothParties(ctx context.Context, d *disputedomain.Disput
 // Fund distribution + proposal restore
 // ---------------------------------------------------------------------------
 
+// restoreProposalAndDistribute is the post-resolution cleanup path.
+// Once a dispute is settled (amiable, admin or auto), we:
+//
+//  1. Restore the disputed milestone to a terminal state based on the
+//     split — released if the provider keeps any of the escrow, refunded
+//     if the client gets 100%.
+//  2. Cancel every other pending_funding milestone: a dispute has ended
+//     the working relationship on a concrete deliverable, so keeping
+//     future milestones alive would create a zombie project. Either
+//     party who wants to continue can create a fresh proposal.
+//  3. Move the proposal to `completed` so the stepper reflects reality.
+//  4. Emit `proposal_completed` + `evaluation_request` system messages
+//     so both parties see a clean close and get the 14-day review CTA.
+//  5. Distribute funds through the payment processor (unchanged).
+//
+// Any step failure is logged but does not short-circuit the rest —
+// fund distribution MUST run even if a downstream message send fails,
+// and vice versa.
 func (s *Service) restoreProposalAndDistribute(ctx context.Context, d *disputedomain.Dispute) {
 	p, err := s.proposals.GetByID(ctx, d.ProposalID)
 	if err != nil {
@@ -64,23 +83,55 @@ func (s *Service) restoreProposalAndDistribute(ctx context.Context, d *disputedo
 		return
 	}
 
-	// Determine target status: if provider gets 100%, mission is completed.
-	// Otherwise, it was partially refunded — consider it completed too.
-	target := proposaldomain.StatusCompleted
-	if err := p.RestoreFromDispute(target); err != nil {
-		slog.Error("dispute: restore proposal from dispute", "error", err)
-		return
+	// 1 — restore the disputed milestone. Full-refund → refunded,
+	//     anything else → released (the provider keeps at least part
+	//     of the escrow).
+	milestoneTarget := milestonedomain.StatusReleased
+	if d.ResolutionAmountProvider != nil && *d.ResolutionAmountProvider == 0 {
+		milestoneTarget = milestonedomain.StatusRefunded
 	}
-	if err := s.proposals.Update(ctx, p); err != nil {
-		slog.Error("dispute: update proposal after resolution", "error", err)
-		return
+	if err := s.restoreMilestoneFromDispute(ctx, d.MilestoneID, milestoneTarget); err != nil {
+		slog.Error("dispute: restore milestone from dispute",
+			"milestone_id", d.MilestoneID, "target", milestoneTarget, "error", err)
 	}
 
+	// 2 — cancel every pending_funding milestone so the project can't
+	//     linger. Ignores already-terminal milestones by design.
+	s.cancelPendingFundingMilestones(ctx, p.ID)
+
+	// 3 — mark the proposal complete.
+	if err := p.RestoreFromDispute(proposaldomain.StatusCompleted); err != nil {
+		slog.Error("dispute: restore proposal from dispute", "error", err)
+	} else {
+		if err := s.proposals.Update(ctx, p); err != nil {
+			slog.Error("dispute: update proposal after resolution", "error", err)
+		}
+	}
+
+	// 4 — close-out system messages. Sender = uuid.Nil is the system
+	//     actor; SendSystemMessage handles the nil-org branch so the
+	//     evaluation prompt reaches both parties.
+	completedMeta := buildProposalCompletedMetadata(p)
+	s.sendSystemMessage(ctx, p.ConversationID, uuid.Nil,
+		message.MessageType("proposal_completed"), completedMeta)
+	s.sendSystemMessage(ctx, p.ConversationID, uuid.Nil,
+		message.MessageType("evaluation_request"), completedMeta)
+	s.sendNotification(ctx, p.ClientID, "proposal_completed",
+		"Mission terminée",
+		"La mission est marquée comme terminée après résolution du litige. Laissez un avis avant la fin de la fenêtre de 14 jours.",
+		d.ID)
+	s.sendNotification(ctx, p.ProviderID, "proposal_completed",
+		"Mission terminée",
+		"La mission est marquée comme terminée après résolution du litige. Laissez un avis avant la fin de la fenêtre de 14 jours.",
+		d.ID)
+
+	// 5 — distribute escrow per the resolution split. Unchanged from
+	//     pre-fix behaviour except it is now always reached even when
+	//     earlier steps logged a non-fatal error.
 	if s.payments == nil {
 		return
 	}
 
-	// Transfer provider's portion (partial or full)
 	if d.ResolutionAmountProvider != nil && *d.ResolutionAmountProvider > 0 {
 		if err := s.payments.TransferPartialToProvider(ctx, d.ProposalID, *d.ResolutionAmountProvider); err != nil {
 			slog.Error("dispute: transfer to provider failed",
@@ -88,13 +139,74 @@ func (s *Service) restoreProposalAndDistribute(ctx context.Context, d *disputedo
 		}
 	}
 
-	// Refund client's portion (partial or full)
 	if d.ResolutionAmountClient != nil && *d.ResolutionAmountClient > 0 {
 		if err := s.payments.RefundToClient(ctx, d.ProposalID, *d.ResolutionAmountClient); err != nil {
 			slog.Error("dispute: refund to client failed",
 				"proposal_id", d.ProposalID, "amount", *d.ResolutionAmountClient, "error", err)
 		}
 	}
+}
+
+// cancelPendingFundingMilestones iterates the proposal's milestones and
+// cancels every one still in pending_funding. Used by the dispute
+// auto-complete path and by any future "stop the project early" flow.
+// Non-terminal non-pending milestones (funded, submitted, disputed) are
+// skipped — they already have a resolution path of their own.
+func (s *Service) cancelPendingFundingMilestones(ctx context.Context, proposalID uuid.UUID) {
+	milestones, err := s.milestones.ListByProposal(ctx, proposalID)
+	if err != nil {
+		slog.Error("dispute: list milestones for cancellation",
+			"proposal_id", proposalID, "error", err)
+		return
+	}
+	for _, m := range milestones {
+		if m.Status != milestonedomain.StatusPendingFunding {
+			continue
+		}
+		// Refetch with lock to apply the optimistic update cleanly.
+		locked, err := s.milestones.GetByIDForUpdate(ctx, m.ID)
+		if err != nil {
+			slog.Error("dispute: lock milestone for cancel",
+				"milestone_id", m.ID, "error", err)
+			continue
+		}
+		if err := locked.Cancel(); err != nil {
+			slog.Error("dispute: cancel milestone",
+				"milestone_id", m.ID, "error", err)
+			continue
+		}
+		if err := s.milestones.Update(ctx, locked); err != nil {
+			slog.Error("dispute: update cancelled milestone",
+				"milestone_id", m.ID, "error", err)
+		}
+	}
+}
+
+// buildProposalCompletedMetadata mirrors the shape of the proposal
+// service's own "proposal_completed" metadata so the frontend message
+// component can render it with the same fields (proposal_id,
+// proposal_title, client/provider names when available, amount).
+//
+// We intentionally only include the identifiers the web
+// ProposalSystemMessage component uses — no dispute-specific fields —
+// so the message looks exactly like a normal end-of-project close.
+func buildProposalCompletedMetadata(p *proposaldomain.Proposal) json.RawMessage {
+	m := map[string]any{
+		"proposal_id":          p.ID.String(),
+		"proposal_title":       p.Title,
+		"proposal_amount":      p.Amount,
+		"proposal_status":      string(p.Status),
+		"proposal_client_id":   p.ClientID.String(),
+		"proposal_provider_id": p.ProviderID.String(),
+		"proposal_version":     p.Version,
+	}
+	if p.ParentID != nil {
+		m["proposal_parent_id"] = p.ParentID.String()
+	} else {
+		m["proposal_parent_id"] = nil
+	}
+	data, _ := json.Marshal(m)
+	return data
 }
 
 // ---------------------------------------------------------------------------

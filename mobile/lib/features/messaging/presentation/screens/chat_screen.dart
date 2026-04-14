@@ -557,6 +557,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         .where((c) => c.id == widget.conversationId)
         .firstOrNull;
 
+    // Hide stale "proposal_completion_requested" system cards once a
+    // later message resolves them (proposal_completed, rejected,
+    // milestone_released, etc.). Keeps the conversation timeline
+    // readable during multi-milestone flows — mirrors the web
+    // MessageArea filter.
+    final visibleMessages = _filterVisibleMessages(msgState.messages);
+
     // Auto-scroll when new messages are appended (not older-page prepends).
     ref.listen<MessagesState>(
       messagesProvider(widget.conversationId),
@@ -621,7 +628,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
 
           Expanded(
-            child: msgState.messages.isEmpty
+            child: visibleMessages.isEmpty
                 ? const EmptyChatState()
                 : ListView.builder(
                     controller: _scrollController,
@@ -629,9 +636,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       horizontal: 16,
                       vertical: 12,
                     ),
-                    itemCount: msgState.messages.length,
+                    itemCount: visibleMessages.length,
                     itemBuilder: (context, index) {
-                      final message = msgState.messages[index];
+                      final message = visibleMessages[index];
                       final isOwn = message.senderId == currentUserId;
                       return MessageBubble(
                         message: message,
@@ -689,5 +696,47 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ],
       ),
     );
+  }
+
+  // Filters out stale "proposal_completion_requested" cards whose
+  // proposal has already moved past that state. A completion request
+  // is resolved by any of: proposal_completed, proposal_completion_rejected,
+  // milestone_released, milestone_auto_approved, proposal_cancelled,
+  // proposal_auto_closed. Once any of those is in the conversation for
+  // a given proposal_id, the earlier yellow "Completion requested"
+  // card becomes noise and is hidden.
+  //
+  // Multi-milestone proposals emit a fresh completion_requested card
+  // for each milestone, so hiding is keyed on the proposal id AND the
+  // relative order — we compute the set of resolved proposal ids once
+  // per render and drop any completion_requested that belongs to them.
+  List<MessageEntity> _filterVisibleMessages(List<MessageEntity> messages) {
+    final resolved = <String>{};
+    const resolverTypes = <String>{
+      'proposal_completed',
+      'proposal_completion_rejected',
+      'milestone_released',
+      'milestone_auto_approved',
+      'proposal_cancelled',
+      'proposal_auto_closed',
+    };
+    for (final m in messages) {
+      if (!resolverTypes.contains(m.type)) continue;
+      final meta = m.metadata;
+      if (meta is Map<String, dynamic>) {
+        final pid = meta['proposal_id'];
+        if (pid is String) resolved.add(pid);
+      }
+    }
+    if (resolved.isEmpty) return messages;
+    return messages.where((m) {
+      if (m.type != 'proposal_completion_requested') return true;
+      final meta = m.metadata;
+      if (meta is Map<String, dynamic>) {
+        final pid = meta['proposal_id'];
+        if (pid is String) return !resolved.contains(pid);
+      }
+      return true;
+    }).toList();
   }
 }

@@ -36,6 +36,12 @@ func (s *Service) FindOrCreateConversation(ctx context.Context, input service.Fi
 // SendSystemMessage injects a system-level message into a conversation.
 // This is used by other features (e.g. proposals) to send event messages
 // without rate limiting or participant verification.
+//
+// A zero SenderID (uuid.Nil) denotes a SYSTEM ACTOR — used by the
+// scheduler worker and the end-of-project effects that do not attribute
+// to a specific user. In that case the org-based exclusion is skipped
+// (there is no sender org to exclude) and every participant gets the
+// +1 unread bump, same as the broadcast path.
 func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMessageInput) error {
 	msgType := message.MessageType(input.Type)
 
@@ -55,11 +61,18 @@ func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMes
 	}
 
 	// Resolve the sender's org so the +1 unread bump excludes their
-	// whole team. System messages still attribute to a user id, so
-	// this lookup is always well-defined.
-	senderOrgID, err := s.resolveUserOrgID(ctx, input.SenderID)
-	if err != nil {
-		return fmt.Errorf("resolve system sender org: %w", err)
+	// whole team. For system-actor sends (uuid.Nil) there is no org
+	// to look up: pass uuid.Nil through and let the repo bump every
+	// participant. Previously this path called resolveUserOrgID with
+	// uuid.Nil which returned "user not found" and caused the whole
+	// message to silently drop — notably the proposal_completed and
+	// evaluation_request notifications at end of project.
+	var senderOrgID uuid.UUID
+	if input.SenderID != uuid.Nil {
+		senderOrgID, err = s.resolveUserOrgID(ctx, input.SenderID)
+		if err != nil {
+			return fmt.Errorf("resolve system sender org: %w", err)
+		}
 	}
 	if err := s.messages.IncrementUnreadForRecipients(ctx, input.ConversationID, input.SenderID, senderOrgID); err != nil {
 		return fmt.Errorf("increment unread: %w", err)

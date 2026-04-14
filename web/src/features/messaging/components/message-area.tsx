@@ -103,6 +103,17 @@ export function MessageArea({
     return computeSupersededIds(messages)
   }, [messages])
 
+  // Compute which proposals have already resolved their
+  // "completion_requested" state. Once a proposal_completed,
+  // proposal_completion_rejected, milestone_released, or
+  // milestone_auto_approved system message lands for a given proposal,
+  // the earlier "Complétion demandée" card is stale — the client has
+  // either approved, rejected, or the whole proposal has moved on.
+  // Hiding it keeps the conversation timeline readable.
+  const resolvedCompletionProposalIds = useMemo(() => {
+    return computeResolvedCompletionIds(messages)
+  }, [messages])
+
   if (isLoading) {
     return <MessageAreaSkeleton />
   }
@@ -138,21 +149,32 @@ export function MessageArea({
           </div>
         )}
 
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            isOwn={message.sender_id === currentUserId || message.sender_id === "optimistic"}
-            currentUserId={currentUserId}
-            conversationId={conversationId}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onReply={onReply}
-            onReport={onReport}
-            supersededProposalIds={supersededProposalIds}
-            onReview={onReview}
-          />
-        ))}
+        {messages
+          .filter((message) => {
+            if (
+              message.type === "proposal_completion_requested" &&
+              isProposalMetadata(message.metadata)
+            ) {
+              const meta = message.metadata as ProposalMessageMetadata
+              return !resolvedCompletionProposalIds.has(meta.proposal_id)
+            }
+            return true
+          })
+          .map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              isOwn={message.sender_id === currentUserId || message.sender_id === "optimistic"}
+              currentUserId={currentUserId}
+              conversationId={conversationId}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onReply={onReply}
+              onReport={onReport}
+              supersededProposalIds={supersededProposalIds}
+              onReview={onReview}
+            />
+          ))}
       </div>
     </div>
   )
@@ -201,6 +223,37 @@ function computeSupersededIds(messages: Message[]): Set<string> {
     }
   }
   return superseded
+}
+
+// computeResolvedCompletionIds returns the set of proposal ids whose
+// "completion_requested" state has been resolved by a subsequent system
+// message in the same conversation. The message types listed below all
+// signal that the client has already acted on (or moved past) the
+// completion request, making the earlier yellow card stale.
+//
+// We deliberately include milestone_released / milestone_auto_approved
+// so that approving milestone N of a multi-milestone proposal hides the
+// old "Complétion demandée" bubble for THAT proposal, even though the
+// proposal as a whole will see more completion requests for milestones
+// N+1, N+2, etc. Each new request gets its own fresh card after the
+// provider re-submits.
+function computeResolvedCompletionIds(messages: Message[]): Set<string> {
+  const resolved = new Set<string>()
+  const resolverTypes = new Set([
+    "proposal_completed",
+    "proposal_completion_rejected",
+    "milestone_released",
+    "milestone_auto_approved",
+    "proposal_cancelled",
+    "proposal_auto_closed",
+  ])
+  for (const msg of messages) {
+    if (resolverTypes.has(msg.type) && isProposalMetadata(msg.metadata)) {
+      const meta = msg.metadata as ProposalMessageMetadata
+      resolved.add(meta.proposal_id)
+    }
+  }
+  return resolved
 }
 
 interface MessageBubbleProps {

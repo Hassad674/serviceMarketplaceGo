@@ -124,7 +124,15 @@ export default function ProjectDetailPage({
         </div>
       )}
 
-      {/* Dispute form — inline when opening a new dispute */}
+      {/* Dispute form — inline when opening a new dispute.
+          A dispute is always scoped to the CURRENT ACTIVE milestone
+          (the one in funded / submitted state), not the full proposal:
+          resolutions split the escrow that has actually been paid in,
+          and the user should only be able to request a refund up to
+          that milestone's amount. We resolve it client-side here and
+          pass it through to the form. If the current milestone cannot
+          be resolved we fall back to the proposal total (legacy
+          one-time proposals). */}
       {showDisputeForm && proposal && (
         <div className="mx-auto max-w-5xl px-4 pt-8">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -133,7 +141,11 @@ export default function ProjectDetailPage({
             </h3>
             <DisputeForm
               proposalId={proposal.id}
-              proposalAmount={proposal.amount}
+              proposalAmount={
+                proposal.milestones?.find(
+                  (m) => m.sequence === proposal.current_milestone_sequence,
+                )?.amount ?? proposal.amount
+              }
               userRole={userRole}
               onSuccess={() => {
                 setShowDisputeForm(false)

@@ -532,9 +532,12 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	// If the macro status is now completed, this was the LAST milestone
 	// of the proposal: run the end-of-project side effects (shared with
 	// AutoApproveMilestone via runEndOfProjectEffects).
-	// Otherwise we're mid-project: emit a lighter "milestone released"
-	// signal and schedule the fund-reminder + auto-close timers so a
-	// ghosting client triggers a graceful auto-close.
+	// Otherwise we're mid-project: emit the "milestone released" signal
+	// AND a "payment requested" prompt for the next milestone so the
+	// client gets a clickable CTA in the conversation (the same one
+	// they saw when the proposal was first accepted), then schedule the
+	// fund-reminder + auto-close timers so a ghosting client triggers a
+	// graceful auto-close.
 	if p.Status == domain.StatusCompleted {
 		s.runEndOfProjectEffects(ctx, p)
 	} else {
@@ -548,6 +551,13 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 			buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 		if next, nextErr := s.milestones.GetCurrentActive(ctx, p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
+			// Re-use the existing proposal_payment_requested message
+			// type so the client sees the same "Pay now" CTA in the
+			// conversation that appeared after the initial accept.
+			// The payment page (web + mobile) already handles the
+			// "active + pending-funding milestone" case.
+			s.sendProposalMessage(ctx, p.ConversationID, input.UserID,
+				"proposal_payment_requested", metadata)
 			s.scheduleMilestoneFundReminder(ctx, next.ID)
 			s.scheduleProposalAutoClose(ctx, p.ID)
 		}

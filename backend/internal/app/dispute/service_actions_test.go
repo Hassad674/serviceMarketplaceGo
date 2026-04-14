@@ -548,7 +548,11 @@ func TestAdminResolve_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, ms.lastInput)
-	assert.Len(t, ns.sent, 2) // both parties notified
+	// Four notifications in total: two for the dispute resolution
+	// decision (one per party) + two for the auto-complete that fires
+	// from restoreProposalAndDistribute so both parties get the
+	// 14-day review prompt. Before the auto-complete fix this was 2.
+	assert.Len(t, ns.sent, 4)
 	assert.True(t, pp.transferCalled)
 }
 
