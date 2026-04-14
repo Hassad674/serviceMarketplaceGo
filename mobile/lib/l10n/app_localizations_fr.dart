@@ -892,6 +892,64 @@ class AppLocalizationsFr extends AppLocalizations {
   String get proposalModifiedMessage => 'Proposition modifiée';
 
   @override
+  String get milestoneActionFailed =>
+      'Impossible de mettre à jour ce jalon. Réessayez.';
+
+  @override
+  String milestoneSequenceLabel(int sequence) {
+    return 'Jalon $sequence';
+  }
+
+  @override
+  String get milestoneFundTitle => 'Financer ce jalon';
+
+  @override
+  String get milestoneFundDescription =>
+      'Libérer l\'escrow pour ce jalon afin que le prestataire puisse commencer à travailler dessus.';
+
+  @override
+  String get milestoneFundConfirm => 'Financer le jalon';
+
+  @override
+  String get milestoneSubmitTitle => 'Soumettre pour validation';
+
+  @override
+  String get milestoneSubmitDescription =>
+      'Marquer ce jalon comme livré. Le client sera notifié et devra l\'approuver.';
+
+  @override
+  String get milestoneSubmitConfirm => 'Soumettre le jalon';
+
+  @override
+  String get milestoneApproveTitle => 'Approuver le jalon';
+
+  @override
+  String get milestoneApproveDescription =>
+      'Libérer l\'escrow vers le prestataire et passer au jalon suivant (s\'il y en a).';
+
+  @override
+  String get milestoneApproveConfirm => 'Approuver et payer';
+
+  @override
+  String get milestoneRejectTitle => 'Demander des révisions';
+
+  @override
+  String get milestoneRejectDescription =>
+      'Renvoyer le jalon au prestataire pour révision. L\'escrow reste en attente.';
+
+  @override
+  String get milestoneRejectConfirm => 'Demander des révisions';
+
+  @override
+  String get submitWork => 'Soumettre le travail';
+
+  @override
+  String get approveWork => 'Approuver le travail';
+
+  @override
+  String get requestRevisions => 'Demander des révisions';
+
+  @override
   String get payNow => 'Payer maintenant';
 
   @override
@@ -2432,7 +2490,8 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1LocationEditButton => 'Mettre à jour ma localisation';
 
   @override
-  String get tier1LocationCityAutocompletePlaceholder => 'Rechercher une ville…';
+  String get tier1LocationCityAutocompletePlaceholder =>
+      'Rechercher une ville…';
 
   @override
   String get tier1LocationCityAutocompleteHint =>

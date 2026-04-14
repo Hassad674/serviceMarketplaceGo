@@ -83,6 +83,34 @@ class ProposalRepositoryImpl implements ProposalRepository {
   }
 
   @override
+  Future<void> fundMilestone(String proposalId, String milestoneId) async {
+    await apiClient.post(
+      '/api/v1/proposals/$proposalId/milestones/$milestoneId/fund',
+    );
+  }
+
+  @override
+  Future<void> submitMilestone(String proposalId, String milestoneId) async {
+    await apiClient.post(
+      '/api/v1/proposals/$proposalId/milestones/$milestoneId/submit',
+    );
+  }
+
+  @override
+  Future<void> approveMilestone(String proposalId, String milestoneId) async {
+    await apiClient.post(
+      '/api/v1/proposals/$proposalId/milestones/$milestoneId/approve',
+    );
+  }
+
+  @override
+  Future<void> rejectMilestone(String proposalId, String milestoneId) async {
+    await apiClient.post(
+      '/api/v1/proposals/$proposalId/milestones/$milestoneId/reject',
+    );
+  }
+
+  @override
   Future<List<ProposalEntity>> listProjects() async {
     final response = await apiClient.get('/api/v1/projects');
     final raw = response.data;

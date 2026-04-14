@@ -889,6 +889,64 @@ class AppLocalizationsEn extends AppLocalizations {
   String get proposalModifiedMessage => 'Proposal modified';
 
   @override
+  String get milestoneActionFailed =>
+      'Could not update milestone. Please try again.';
+
+  @override
+  String milestoneSequenceLabel(int sequence) {
+    return 'Milestone $sequence';
+  }
+
+  @override
+  String get milestoneFundTitle => 'Fund this milestone';
+
+  @override
+  String get milestoneFundDescription =>
+      'Release the escrow amount for this milestone so the provider can start working on it.';
+
+  @override
+  String get milestoneFundConfirm => 'Fund milestone';
+
+  @override
+  String get milestoneSubmitTitle => 'Submit for approval';
+
+  @override
+  String get milestoneSubmitDescription =>
+      'Mark this milestone as delivered. The client will be notified and asked to approve.';
+
+  @override
+  String get milestoneSubmitConfirm => 'Submit milestone';
+
+  @override
+  String get milestoneApproveTitle => 'Approve milestone';
+
+  @override
+  String get milestoneApproveDescription =>
+      'Release the escrow to the provider and move to the next milestone (if any).';
+
+  @override
+  String get milestoneApproveConfirm => 'Approve and pay';
+
+  @override
+  String get milestoneRejectTitle => 'Request revisions';
+
+  @override
+  String get milestoneRejectDescription =>
+      'Send the milestone back to the provider for revisions. The escrow stays in hold.';
+
+  @override
+  String get milestoneRejectConfirm => 'Request revisions';
+
+  @override
+  String get submitWork => 'Submit work';
+
+  @override
+  String get approveWork => 'Approve work';
+
+  @override
+  String get requestRevisions => 'Request revisions';
+
+  @override
   String get payNow => 'Pay now';
 
   @override

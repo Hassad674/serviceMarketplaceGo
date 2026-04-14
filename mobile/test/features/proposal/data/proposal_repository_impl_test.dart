@@ -188,6 +188,60 @@ void main() {
     });
   });
 
+  // Phase 13 — per-milestone state transitions. Each endpoint hits
+  // /api/v1/proposals/{id}/milestones/{mid}/{action} and the backend
+  // resolves the active milestone server-side. The client's job is
+  // just to pass both ids through unchanged.
+  group('ProposalRepositoryImpl milestone actions', () {
+    test('fundMilestone calls the fund endpoint with both ids', () async {
+      var called = false;
+      fakeApi.postHandlers['/api/v1/proposals/prop-1/milestones/ms-7/fund'] =
+          (_) async {
+        called = true;
+        return FakeApiClient.ok({'status': 'ok'});
+      };
+
+      await repo.fundMilestone('prop-1', 'ms-7');
+      expect(called, true);
+    });
+
+    test('submitMilestone calls the submit endpoint', () async {
+      var called = false;
+      fakeApi.postHandlers['/api/v1/proposals/prop-1/milestones/ms-7/submit'] =
+          (_) async {
+        called = true;
+        return FakeApiClient.ok({'status': 'ok'});
+      };
+
+      await repo.submitMilestone('prop-1', 'ms-7');
+      expect(called, true);
+    });
+
+    test('approveMilestone calls the approve endpoint', () async {
+      var called = false;
+      fakeApi.postHandlers['/api/v1/proposals/prop-1/milestones/ms-7/approve'] =
+          (_) async {
+        called = true;
+        return FakeApiClient.ok({'status': 'ok'});
+      };
+
+      await repo.approveMilestone('prop-1', 'ms-7');
+      expect(called, true);
+    });
+
+    test('rejectMilestone calls the reject endpoint', () async {
+      var called = false;
+      fakeApi.postHandlers['/api/v1/proposals/prop-1/milestones/ms-7/reject'] =
+          (_) async {
+        called = true;
+        return FakeApiClient.ok({'status': 'ok'});
+      };
+
+      await repo.rejectMilestone('prop-1', 'ms-7');
+      expect(called, true);
+    });
+  });
+
   group('ProposalRepositoryImpl.listProjects', () {
     test('returns list from data array', () async {
       fakeApi.getHandlers['/api/v1/projects'] = (_) async {

@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -1813,6 +1813,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Proposal modified'**
   String get proposalModifiedMessage;
+
+  /// No description provided for @milestoneActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update milestone. Please try again.'**
+  String get milestoneActionFailed;
+
+  /// No description provided for @milestoneSequenceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Milestone {sequence}'**
+  String milestoneSequenceLabel(int sequence);
+
+  /// No description provided for @milestoneFundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fund this milestone'**
+  String get milestoneFundTitle;
+
+  /// No description provided for @milestoneFundDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Release the escrow amount for this milestone so the provider can start working on it.'**
+  String get milestoneFundDescription;
+
+  /// No description provided for @milestoneFundConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Fund milestone'**
+  String get milestoneFundConfirm;
+
+  /// No description provided for @milestoneSubmitTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit for approval'**
+  String get milestoneSubmitTitle;
+
+  /// No description provided for @milestoneSubmitDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark this milestone as delivered. The client will be notified and asked to approve.'**
+  String get milestoneSubmitDescription;
+
+  /// No description provided for @milestoneSubmitConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit milestone'**
+  String get milestoneSubmitConfirm;
+
+  /// No description provided for @milestoneApproveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve milestone'**
+  String get milestoneApproveTitle;
+
+  /// No description provided for @milestoneApproveDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Release the escrow to the provider and move to the next milestone (if any).'**
+  String get milestoneApproveDescription;
+
+  /// No description provided for @milestoneApproveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve and pay'**
+  String get milestoneApproveConfirm;
+
+  /// No description provided for @milestoneRejectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Request revisions'**
+  String get milestoneRejectTitle;
+
+  /// No description provided for @milestoneRejectDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Send the milestone back to the provider for revisions. The escrow stays in hold.'**
+  String get milestoneRejectDescription;
+
+  /// No description provided for @milestoneRejectConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Request revisions'**
+  String get milestoneRejectConfirm;
+
+  /// No description provided for @submitWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit work'**
+  String get submitWork;
+
+  /// No description provided for @approveWork.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve work'**
+  String get approveWork;
+
+  /// No description provided for @requestRevisions.
+  ///
+  /// In en, this message translates to:
+  /// **'Request revisions'**
+  String get requestRevisions;
 
   /// No description provided for @payNow.
   ///
@@ -4896,8 +4998,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

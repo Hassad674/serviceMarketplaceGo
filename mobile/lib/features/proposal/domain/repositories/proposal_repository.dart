@@ -43,4 +43,13 @@ abstract class ProposalRepository {
   Future<ProposalEntity> modifyProposal(String id, ModifyProposalData data);
   Future<void> simulatePayment(String id);
   Future<List<ProposalEntity>> listProjects();
+
+  // Phase 13 — per-milestone state transitions. The backend resolves
+  // the milestone id server-side against the proposal's current
+  // active milestone; mismatches return 409 Conflict so the app can
+  // refetch and retry.
+  Future<void> fundMilestone(String proposalId, String milestoneId);
+  Future<void> submitMilestone(String proposalId, String milestoneId);
+  Future<void> approveMilestone(String proposalId, String milestoneId);
+  Future<void> rejectMilestone(String proposalId, String milestoneId);
 }

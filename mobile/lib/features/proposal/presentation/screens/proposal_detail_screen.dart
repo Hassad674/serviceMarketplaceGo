@@ -16,6 +16,7 @@ import '../../../review/presentation/widgets/review_bottom_sheet.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../types/proposal.dart';
 import '../providers/proposal_provider.dart';
+import '../widgets/milestone_action_bottom_sheet.dart';
 import '../widgets/milestone_tracker_widget.dart';
 
 /// Displays all details for a proposal: title, description, amount, deadline,
@@ -567,6 +568,98 @@ class _ActionButtons extends ConsumerWidget {
       );
     }
 
+    // Active: provider can submit the current milestone for approval.
+    // The backend tracks which milestone is "current" via
+    // current_milestone_sequence; we resolve the matching entity here
+    // so the sheet can pass its id to the per-milestone endpoint.
+    if (status == ProposalStatus.active &&
+        proposal.providerId == currentUserId) {
+      if (!canRespond) return const SizedBox.shrink();
+      final current = _currentActiveMilestone(proposal);
+      if (current == null) return const SizedBox.shrink();
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => MilestoneActionBottomSheet.show(
+            context,
+            proposalId: proposal.id,
+            milestone: current,
+            action: MilestoneAction.submit,
+          ),
+          icon: const Icon(Icons.check_circle_outline, size: 18),
+          label: Text(l10n.submitWork),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(0, 48),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Completion requested: client can approve (release escrow and
+    // advance to the next milestone) or request revisions.
+    if (status == ProposalStatus.completionRequested &&
+        proposal.clientId == currentUserId) {
+      if (!canRespond) return const SizedBox.shrink();
+      final current = _currentActiveMilestone(proposal);
+      if (current == null) return const SizedBox.shrink();
+      return Column(
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => MilestoneActionBottomSheet.show(
+                context,
+                proposalId: proposal.id,
+                milestone: current,
+                action: MilestoneAction.approve,
+              ),
+              icon: const Icon(Icons.check_circle_outline, size: 18),
+              label: Text(l10n.approveWork),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: appColors?.success ?? Colors.green,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 48),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => MilestoneActionBottomSheet.show(
+                context,
+                proposalId: proposal.id,
+                milestone: current,
+                action: MilestoneAction.reject,
+              ),
+              icon: const Icon(Icons.undo_outlined, size: 18),
+              label: Text(l10n.requestRevisions),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+                side: BorderSide(
+                  color: theme.colorScheme.error.withValues(alpha: 0.3),
+                ),
+                minimumSize: const Size(0, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     // Completed: show leave review. The direction is derived from the
     // operator's organization vs the proposal participants so the sheet
     // renders the right variant (client side with sub-criteria, or
@@ -661,6 +754,19 @@ class _ActionButtons extends ConsumerWidget {
 
   void _pay(BuildContext context) {
     GoRouter.of(context).push('/projects/pay/${proposal.id}');
+  }
+
+  // Resolves the milestone whose sequence matches
+  // `current_milestone_sequence`. Returns null when the proposal has
+  // no milestones or the active sequence is missing from the list
+  // (shouldn't happen in practice, but guard against stale payloads).
+  static MilestoneEntity? _currentActiveMilestone(ProposalEntity proposal) {
+    final seq = proposal.currentMilestoneSequence;
+    if (seq == null || proposal.milestones.isEmpty) return null;
+    for (final m in proposal.milestones) {
+      if (m.sequence == seq) return m;
+    }
+    return null;
   }
 }
 

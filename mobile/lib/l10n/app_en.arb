@@ -307,6 +307,28 @@
   "reviewErrorNotParticipant": "Only the participants of this mission can leave a review.",
   "proposalNewMessage": "New proposal",
   "proposalModifiedMessage": "Proposal modified",
+  "milestoneActionFailed": "Could not update milestone. Please try again.",
+  "milestoneSequenceLabel": "Milestone {sequence}",
+  "@milestoneSequenceLabel": {
+    "placeholders": {
+      "sequence": { "type": "int" }
+    }
+  },
+  "milestoneFundTitle": "Fund this milestone",
+  "milestoneFundDescription": "Release the escrow amount for this milestone so the provider can start working on it.",
+  "milestoneFundConfirm": "Fund milestone",
+  "milestoneSubmitTitle": "Submit for approval",
+  "milestoneSubmitDescription": "Mark this milestone as delivered. The client will be notified and asked to approve.",
+  "milestoneSubmitConfirm": "Submit milestone",
+  "milestoneApproveTitle": "Approve milestone",
+  "milestoneApproveDescription": "Release the escrow to the provider and move to the next milestone (if any).",
+  "milestoneApproveConfirm": "Approve and pay",
+  "milestoneRejectTitle": "Request revisions",
+  "milestoneRejectDescription": "Send the milestone back to the provider for revisions. The escrow stays in hold.",
+  "milestoneRejectConfirm": "Request revisions",
+  "submitWork": "Submit work",
+  "approveWork": "Approve work",
+  "requestRevisions": "Request revisions",
   "payNow": "Pay now",
   "confirmPayment": "Confirm payment",
   "paymentSimulation": "Payment",

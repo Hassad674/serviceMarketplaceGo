@@ -300,6 +300,28 @@
   "reviewErrorNotParticipant": "Seuls les participants de cette mission peuvent laisser un avis.",
   "proposalNewMessage": "Nouvelle proposition",
   "proposalModifiedMessage": "Proposition modifiée",
+  "milestoneActionFailed": "Impossible de mettre à jour ce jalon. Réessayez.",
+  "milestoneSequenceLabel": "Jalon {sequence}",
+  "@milestoneSequenceLabel": {
+    "placeholders": {
+      "sequence": { "type": "int" }
+    }
+  },
+  "milestoneFundTitle": "Financer ce jalon",
+  "milestoneFundDescription": "Libérer l'escrow pour ce jalon afin que le prestataire puisse commencer à travailler dessus.",
+  "milestoneFundConfirm": "Financer le jalon",
+  "milestoneSubmitTitle": "Soumettre pour validation",
+  "milestoneSubmitDescription": "Marquer ce jalon comme livré. Le client sera notifié et devra l'approuver.",
+  "milestoneSubmitConfirm": "Soumettre le jalon",
+  "milestoneApproveTitle": "Approuver le jalon",
+  "milestoneApproveDescription": "Libérer l'escrow vers le prestataire et passer au jalon suivant (s'il y en a).",
+  "milestoneApproveConfirm": "Approuver et payer",
+  "milestoneRejectTitle": "Demander des révisions",
+  "milestoneRejectDescription": "Renvoyer le jalon au prestataire pour révision. L'escrow reste en attente.",
+  "milestoneRejectConfirm": "Demander des révisions",
+  "submitWork": "Soumettre le travail",
+  "approveWork": "Approuver le travail",
+  "requestRevisions": "Demander des révisions",
   "payNow": "Payer maintenant",
   "confirmPayment": "Confirmer le paiement",
   "paymentSimulation": "Paiement",

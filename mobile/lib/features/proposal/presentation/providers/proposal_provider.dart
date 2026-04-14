@@ -91,3 +91,68 @@ Future<bool> simulatePayment(Ref ref, String id) async {
     return false;
   }
 }
+
+// Phase 13 — per-milestone transitions. Each helper returns true on
+// success and false on error, mirroring the existing pattern. Callers
+// show a SnackBar + refetch the proposal via
+// `ref.invalidate(proposalByIdProvider(id))` when true.
+
+Future<bool> fundMilestone(
+  Ref ref,
+  String proposalId,
+  String milestoneId,
+) async {
+  try {
+    final repo = ref.read(proposalRepositoryProvider);
+    await repo.fundMilestone(proposalId, milestoneId);
+    return true;
+  } catch (e) {
+    debugPrint('[ProposalProvider] fundMilestone error: $e');
+    return false;
+  }
+}
+
+Future<bool> submitMilestone(
+  Ref ref,
+  String proposalId,
+  String milestoneId,
+) async {
+  try {
+    final repo = ref.read(proposalRepositoryProvider);
+    await repo.submitMilestone(proposalId, milestoneId);
+    return true;
+  } catch (e) {
+    debugPrint('[ProposalProvider] submitMilestone error: $e');
+    return false;
+  }
+}
+
+Future<bool> approveMilestone(
+  Ref ref,
+  String proposalId,
+  String milestoneId,
+) async {
+  try {
+    final repo = ref.read(proposalRepositoryProvider);
+    await repo.approveMilestone(proposalId, milestoneId);
+    return true;
+  } catch (e) {
+    debugPrint('[ProposalProvider] approveMilestone error: $e');
+    return false;
+  }
+}
+
+Future<bool> rejectMilestone(
+  Ref ref,
+  String proposalId,
+  String milestoneId,
+) async {
+  try {
+    final repo = ref.read(proposalRepositoryProvider);
+    await repo.rejectMilestone(proposalId, milestoneId);
+    return true;
+  } catch (e) {
+    debugPrint('[ProposalProvider] rejectMilestone error: $e');
+    return false;
+  }
+}
