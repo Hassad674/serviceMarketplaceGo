@@ -47,8 +47,37 @@ const freelanceProfileSelectColumns = `
 
 // GetByOrgID fetches the freelance profile for the given org JOINed
 // with the organization's shared-profile block. One round-trip —
-// no N+1 between freelance_profiles and organizations.
+// no N+1 between freelance_profiles and organizations. Strict read:
+// surfaces freelanceprofile.ErrProfileNotFound when the row is
+// missing. Callers that want lazy creation use GetOrCreateByOrgID.
 func (r *FreelanceProfileRepository) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
+	return r.queryByOrgID(ctx, orgID)
+}
+
+// GetOrCreateByOrgID fetches the freelance profile for the given
+// org and, if no row exists, inserts a fresh default row before
+// returning it. Used by the owner-side GetByOrgID path so a newly
+// registered provider_personal user (whose account predates the
+// split migration) transparently gets a row on first visit instead
+// of hitting a 404. Never returns ErrProfileNotFound.
+func (r *FreelanceProfileRepository) GetOrCreateByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
+	view, err := r.queryByOrgID(ctx, orgID)
+	if err == nil {
+		return view, nil
+	}
+	if !errors.Is(err, freelanceprofile.ErrProfileNotFound) {
+		return nil, err
+	}
+	if err := r.insertDefault(ctx, orgID); err != nil {
+		return nil, err
+	}
+	return r.queryByOrgID(ctx, orgID)
+}
+
+// queryByOrgID is the strict read path shared between GetByOrgID
+// and the lazy GetOrCreateByOrgID fallback. Extracted so both
+// call sites scan the same JOINed row shape without drifting.
+func (r *FreelanceProfileRepository) queryByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -66,6 +95,32 @@ func (r *FreelanceProfileRepository) GetByOrgID(ctx context.Context, orgID uuid.
 		return nil, fmt.Errorf("get freelance profile by org id: %w", err)
 	}
 	return view, nil
+}
+
+// insertDefault inserts a fresh freelance profile row with domain
+// defaults. Used by the lazy GetOrCreate path. The ON CONFLICT
+// clause makes the insert idempotent so concurrent first-access
+// requests don't fight.
+func (r *FreelanceProfileRepository) insertDefault(ctx context.Context, orgID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	p := freelanceprofile.New(orgID)
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO freelance_profiles (
+			id, organization_id, title, about, video_url,
+			availability_status, expertise_domains, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (organization_id) DO NOTHING`,
+		p.ID, p.OrganizationID, p.Title, p.About, p.VideoURL,
+		string(p.AvailabilityStatus), pq.Array(p.ExpertiseDomains),
+		p.CreatedAt, p.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert default freelance profile: %w", err)
+	}
+	return nil
 }
 
 // UpdateCore writes the title / about / video_url triplet.

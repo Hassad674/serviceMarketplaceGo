@@ -31,18 +31,22 @@ type FreelanceProfileView struct {
 // (core text, availability, expertise) so a bug in one save flow
 // cannot clobber the other slots — mirrors the pattern already used
 // by the legacy ProfileRepository's UpdateLocation / UpdateLanguages
-// / UpdateAvailability triplet. Create is NOT exposed because every
-// provider_personal org gets a freelance profile row seeded by the
-// split migration — the handler never needs to create one lazily.
+// / UpdateAvailability triplet. A lazy GetOrCreateByOrgID path
+// exists for the owner-side read so new provider_personal accounts
+// registered after the split migration transparently get a row on
+// first access instead of hitting a 404.
 type FreelanceProfileRepository interface {
 	// GetByOrgID returns the freelance profile for the org, JOINed
 	// with the organizations shared-profile block. Callers receive a
 	// FreelanceProfileView ready for direct DTO mapping. Returns
 	// freelanceprofile.ErrProfileNotFound when no freelance row
-	// exists — in the current split this only happens for agency
-	// orgs (which never get a freelance profile) and for
-	// provider_personal orgs whose owners deleted their profile.
+	// exists — used by the public endpoint (strict read).
 	GetByOrgID(ctx context.Context, orgID uuid.UUID) (*FreelanceProfileView, error)
+
+	// GetOrCreateByOrgID is the lazy variant used by the owner-side
+	// read path: if no row exists it inserts a fresh default and
+	// re-fetches. Never returns ErrProfileNotFound.
+	GetOrCreateByOrgID(ctx context.Context, orgID uuid.UUID) (*FreelanceProfileView, error)
 
 	// UpdateCore writes the title / about / video_url triplet in a
 	// single SQL UPDATE. Callers supply all three values — empty

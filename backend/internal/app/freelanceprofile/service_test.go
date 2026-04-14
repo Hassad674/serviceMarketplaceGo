@@ -20,12 +20,22 @@ import (
 // swap behaviours without constructing a new mock type each time.
 type mockFreelanceProfileRepo struct {
 	getByOrgID             func(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error)
+	getOrCreateByOrgID     func(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error)
 	updateCore             func(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error
 	updateAvailability     func(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error
 	updateExpertiseDomains func(ctx context.Context, orgID uuid.UUID, domains []string) error
 }
 
 func (m *mockFreelanceProfileRepo) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
+	return m.getByOrgID(ctx, orgID)
+}
+func (m *mockFreelanceProfileRepo) GetOrCreateByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
+	if m.getOrCreateByOrgID != nil {
+		return m.getOrCreateByOrgID(ctx, orgID)
+	}
+	// Fallback to the strict read so tests that only wire getByOrgID
+	// keep working — the service's owner path now calls
+	// GetOrCreateByOrgID internally.
 	return m.getByOrgID(ctx, orgID)
 }
 func (m *mockFreelanceProfileRepo) UpdateCore(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error {
