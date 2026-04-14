@@ -21,6 +21,7 @@ import {
 import { useOrganizationShared } from "@/features/organization-shared/hooks/use-organization-shared"
 import { SharedLocationSection } from "@/features/organization-shared/components/shared-location-section"
 import { SharedLanguagesSection } from "@/features/organization-shared/components/shared-languages-section"
+import { SkillsSection } from "@/features/skill/components/skills-section"
 
 // /profile renders the authenticated user's freelance profile in
 // editable mode. Shared fields (location, languages, photo) live in
@@ -104,6 +105,7 @@ export default function ProfilePage() {
         <>
           <SharedLocationSection />
           <SharedLanguagesSection />
+          <SkillsSection orgType={org?.type} readOnly={false} />
         </>
       ) : null}
     </div>
