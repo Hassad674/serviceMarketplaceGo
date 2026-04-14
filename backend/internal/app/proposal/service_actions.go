@@ -3,6 +3,7 @@ package proposal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -289,6 +290,134 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 // Used by the handler for ownership verification.
 func (s *Service) GetProposalByID(ctx context.Context, id uuid.UUID) (*domain.Proposal, error) {
 	return s.proposals.GetByID(ctx, id)
+}
+
+// ListMilestones returns every milestone of a proposal ordered by
+// ascending sequence. Read-only — the handler calls it alongside
+// GetProposal to materialise the milestone tracker in the response.
+//
+// Returns an empty slice when the milestones repository is not wired
+// (legacy test setups that predate phase 4) so the response degrades
+// gracefully to the one-time UX instead of panicking.
+func (s *Service) ListMilestones(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error) {
+	if s.milestones == nil {
+		return nil, nil
+	}
+	return s.milestones.ListByProposal(ctx, proposalID)
+}
+
+// ListMilestonesForProposals batches the milestone lookup across many
+// proposals in a single round trip — used by the project list endpoint
+// to avoid N+1 queries when rendering each card with its current
+// milestone CTA.
+//
+// Same nil-safety as ListMilestones for legacy test setups.
+func (s *Service) ListMilestonesForProposals(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID][]*milestone.Milestone, error) {
+	if s.milestones == nil {
+		return map[uuid.UUID][]*milestone.Milestone{}, nil
+	}
+	return s.milestones.ListByProposals(ctx, proposalIDs)
+}
+
+// CancelProposalInput is the input for the boundary cancel flow.
+type CancelProposalInput struct {
+	ProposalID uuid.UUID
+	UserID     uuid.UUID
+	OrgID      uuid.UUID
+}
+
+// CancelProposal performs a milestone-boundary cancellation: every
+// pending_funding milestone is cancelled in place, leaving released
+// milestones untouched. Either side (client or provider) can call it
+// since neither party is committing additional money.
+//
+// Cancellation is only legal when there is NO funded/submitted/disputed
+// milestone (i.e. nothing in flight). If a milestone is mid-execution
+// the caller must use the dispute flow to negotiate an exit instead.
+//
+// After cancellation, the proposal macro status is recomputed:
+//   - If at least one milestone was released → completed (project
+//     ended early but with deliverables — the existing macro projection
+//     handles this).
+//   - If no milestones were released → declined (hard-stop).
+//
+// This method does not currently support partial-fund recovery — that
+// path goes through the dispute service (phase 8).
+func (s *Service) CancelProposal(ctx context.Context, input CancelProposalInput) error {
+	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	if err != nil {
+		return fmt.Errorf("get proposal: %w", err)
+	}
+
+	// Either party may cancel at a milestone boundary — no money is
+	// changing hands so the directional check is not needed. We just
+	// require the caller to be on EITHER side of the proposal.
+	if err := s.requireOrgIsParticipant(ctx, p, input.OrgID); err != nil {
+		return err
+	}
+
+	milestones, err := s.milestones.ListByProposal(ctx, p.ID)
+	if err != nil {
+		return fmt.Errorf("list milestones: %w", err)
+	}
+
+	// Forbid cancellation while a milestone is in flight: funded /
+	// submitted / approved / disputed all hold escrow money. The
+	// dispute flow handles those transitions instead.
+	for _, m := range milestones {
+		switch m.Status {
+		case milestone.StatusFunded, milestone.StatusSubmitted, milestone.StatusApproved, milestone.StatusDisputed:
+			return domain.ErrInvalidStatus
+		}
+	}
+
+	// Cancel every pending_funding milestone via the optimistic-locked
+	// path. Concurrent updates are swallowed per-item so a parallel
+	// transition (e.g. another operator funding the milestone right
+	// now) doesn't crash the sweep.
+	for _, m := range milestones {
+		if m.Status != milestone.StatusPendingFunding {
+			continue
+		}
+		if err := s.withMilestoneLock(ctx, m.ID, func(mm *milestone.Milestone) error {
+			return mm.Cancel()
+		}); err != nil {
+			if errors.Is(err, milestone.ErrConcurrentUpdate) {
+				continue
+			}
+			return fmt.Errorf("cancel milestone %s: %w", m.ID, err)
+		}
+	}
+
+	if err := s.recomputeMacroStatus(ctx, p); err != nil {
+		return fmt.Errorf("recompute macro status: %w", err)
+	}
+
+	metadata := buildStatusMetadata(p)
+	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_cancelled", metadata)
+
+	s.sendNotification(ctx, p.ClientID, "proposal_cancelled", "Project cancelled",
+		"The project has been cancelled at a milestone boundary.",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+	s.sendNotification(ctx, p.ProviderID, "proposal_cancelled", "Project cancelled",
+		"The project has been cancelled at a milestone boundary.",
+		buildNotificationData(p.ID, p.ConversationID, p.Title))
+
+	return nil
+}
+
+// requireOrgIsParticipant returns nil if the caller's org owns either
+// the client side OR the provider side of the proposal. Used by
+// non-directional actions (cancel at boundary) where both parties may
+// initiate the call.
+func (s *Service) requireOrgIsParticipant(ctx context.Context, p *domain.Proposal, callerOrgID uuid.UUID) error {
+	if err := s.requireOrgIsSide(ctx, p.ClientID, callerOrgID, domain.ErrNotAuthorized); err == nil {
+		return nil
+	}
+	if err := s.requireOrgIsSide(ctx, p.ProviderID, callerOrgID, domain.ErrNotAuthorized); err == nil {
+		return nil
+	}
+	return domain.ErrNotAuthorized
 }
 
 // AuthorizeClientOrg returns nil if the caller's org owns the client
