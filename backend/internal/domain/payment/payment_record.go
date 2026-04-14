@@ -26,6 +26,7 @@ const (
 type PaymentRecord struct {
 	ID                    uuid.UUID
 	ProposalID            uuid.UUID
+	MilestoneID           uuid.UUID // phase 4: one payment_record per milestone
 	ClientID              uuid.UUID
 	ProviderID            uuid.UUID
 	StripePaymentIntentID string
@@ -51,13 +52,19 @@ const platformFeePercent = 5
 
 // NewPaymentRecord creates a payment record and computes all fee amounts.
 // stripeFeeAmount is the estimated or actual Stripe processing fee.
-func NewPaymentRecord(proposalID, clientID, providerID uuid.UUID, proposalAmount, stripeFeeAmount int64) *PaymentRecord {
+//
+// Phase 4: every payment is scoped to a specific milestone, not the
+// whole proposal. The milestone_id column in payment_records is NOT
+// NULL, so a zero milestoneID will trip the DB constraint and fail
+// loudly at insert time — that is intentional.
+func NewPaymentRecord(proposalID, milestoneID, clientID, providerID uuid.UUID, proposalAmount, stripeFeeAmount int64) *PaymentRecord {
 	platformFee := proposalAmount * platformFeePercent / 100
 
 	now := time.Now()
 	return &PaymentRecord{
 		ID:                uuid.New(),
 		ProposalID:        proposalID,
+		MilestoneID:       milestoneID,
 		ClientID:          clientID,
 		ProviderID:        providerID,
 		ProposalAmount:    proposalAmount,

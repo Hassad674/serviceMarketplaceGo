@@ -31,9 +31,10 @@ type PaymentProcessor interface {
 
 type PaymentIntentInput struct {
 	ProposalID     uuid.UUID
+	MilestoneID    uuid.UUID // phase 4: every payment is scoped to a single milestone
 	ClientID       uuid.UUID
 	ProviderID     uuid.UUID
-	ProposalAmount int64 // centimes
+	ProposalAmount int64 // centimes — the milestone's amount, not the proposal's total
 }
 
 type PaymentIntentOutput struct {

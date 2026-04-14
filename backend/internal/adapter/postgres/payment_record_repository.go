@@ -27,9 +27,14 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 	// client — Agencies/Enterprises get their org denormalized onto the
 	// record, Providers stay NULL. Used by the dashboard wallet view for
 	// operators in later phases.
+	//
+	// milestone_id is phase-4: the payment record is scoped to a single
+	// milestone, enforced NOT NULL by migration 093. Passing a zero UUID
+	// will correctly fail at insert time — rejecting callers that forgot
+	// to plumb the milestone through.
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO payment_records (
-			id, proposal_id, client_id, provider_id,
+			id, proposal_id, milestone_id, client_id, provider_id,
 			stripe_payment_intent_id, stripe_transfer_id,
 			proposal_amount, stripe_fee_amount, platform_fee_amount,
 			client_total_amount, provider_payout,
@@ -37,10 +42,10 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 			paid_at, transferred_at, created_at, updated_at,
 			organization_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
-			(SELECT organization_id FROM organization_members WHERE user_id = $3 LIMIT 1)
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
+			(SELECT organization_id FROM organization_members WHERE user_id = $4 LIMIT 1)
 		)`,
-		rec.ID, rec.ProposalID, rec.ClientID, rec.ProviderID,
+		rec.ID, rec.ProposalID, rec.MilestoneID, rec.ClientID, rec.ProviderID,
 		ptrString(rec.StripePaymentIntentID), ptrString(rec.StripeTransferID),
 		rec.ProposalAmount, rec.StripeFeeAmount, rec.PlatformFeeAmount,
 		rec.ClientTotalAmount, rec.ProviderPayout,
@@ -53,18 +58,44 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 	return nil
 }
 
+// GetByProposalID returns the MOST RECENT payment record for a proposal.
+// Phase 4: a proposal can now own multiple records (one per milestone),
+// so this lookup is kept for legacy callers but returns the newest row
+// by created_at. For strict milestone-level idempotency, use
+// GetByMilestoneID instead.
 func (r *PaymentRecordRepository) GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*payment.PaymentRecord, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	return r.scanRecord(r.db.QueryRowContext(ctx, `
-		SELECT id, proposal_id, client_id, provider_id,
+		SELECT id, proposal_id, milestone_id, client_id, provider_id,
 			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
 			proposal_amount, stripe_fee_amount, platform_fee_amount,
 			client_total_amount, provider_payout,
 			currency, status, transfer_status,
 			paid_at, transferred_at, created_at, updated_at
-		FROM payment_records WHERE proposal_id = $1`, proposalID))
+		FROM payment_records
+		WHERE proposal_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`, proposalID))
+}
+
+// GetByMilestoneID returns the single payment record for a milestone.
+// Used by CreatePaymentIntent as the idempotency key so a retry on the
+// same milestone reuses the existing Stripe PaymentIntent instead of
+// creating a duplicate one.
+func (r *PaymentRecordRepository) GetByMilestoneID(ctx context.Context, milestoneID uuid.UUID) (*payment.PaymentRecord, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return r.scanRecord(r.db.QueryRowContext(ctx, `
+		SELECT id, proposal_id, milestone_id, client_id, provider_id,
+			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
+			proposal_amount, stripe_fee_amount, platform_fee_amount,
+			client_total_amount, provider_payout,
+			currency, status, transfer_status,
+			paid_at, transferred_at, created_at, updated_at
+		FROM payment_records WHERE milestone_id = $1`, milestoneID))
 }
 
 func (r *PaymentRecordRepository) GetByPaymentIntentID(ctx context.Context, piID string) (*payment.PaymentRecord, error) {
@@ -72,7 +103,7 @@ func (r *PaymentRecordRepository) GetByPaymentIntentID(ctx context.Context, piID
 	defer cancel()
 
 	return r.scanRecord(r.db.QueryRowContext(ctx, `
-		SELECT id, proposal_id, client_id, provider_id,
+		SELECT id, proposal_id, milestone_id, client_id, provider_id,
 			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
 			proposal_amount, stripe_fee_amount, platform_fee_amount,
 			client_total_amount, provider_payout,
@@ -113,7 +144,7 @@ func (r *PaymentRecordRepository) ListByOrganization(ctx context.Context, orgID 
 	defer cancel()
 
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT pr.id, pr.proposal_id, pr.client_id, pr.provider_id,
+		SELECT pr.id, pr.proposal_id, pr.milestone_id, pr.client_id, pr.provider_id,
 			COALESCE(pr.stripe_payment_intent_id, ''), COALESCE(pr.stripe_transfer_id, ''),
 			pr.proposal_amount, pr.stripe_fee_amount, pr.platform_fee_amount,
 			pr.client_total_amount, pr.provider_payout,
@@ -133,7 +164,7 @@ func (r *PaymentRecordRepository) ListByOrganization(ctx context.Context, orgID 
 		var rec payment.PaymentRecord
 		var status, transferStatus string
 		if err := rows.Scan(
-			&rec.ID, &rec.ProposalID, &rec.ClientID, &rec.ProviderID,
+			&rec.ID, &rec.ProposalID, &rec.MilestoneID, &rec.ClientID, &rec.ProviderID,
 			&rec.StripePaymentIntentID, &rec.StripeTransferID,
 			&rec.ProposalAmount, &rec.StripeFeeAmount, &rec.PlatformFeeAmount,
 			&rec.ClientTotalAmount, &rec.ProviderPayout,
@@ -154,7 +185,7 @@ func (r *PaymentRecordRepository) scanRecord(row *sql.Row) (*payment.PaymentReco
 	var status, transferStatus string
 
 	err := row.Scan(
-		&rec.ID, &rec.ProposalID, &rec.ClientID, &rec.ProviderID,
+		&rec.ID, &rec.ProposalID, &rec.MilestoneID, &rec.ClientID, &rec.ProviderID,
 		&rec.StripePaymentIntentID, &rec.StripeTransferID,
 		&rec.ProposalAmount, &rec.StripeFeeAmount, &rec.PlatformFeeAmount,
 		&rec.ClientTotalAmount, &rec.ProviderPayout,

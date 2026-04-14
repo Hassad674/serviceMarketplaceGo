@@ -196,11 +196,15 @@ func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (
 	}
 
 	// Real Stripe mode: ask the payment processor for an intent on the
-	// milestone's amount. The processor is responsible for persisting a
-	// PaymentRecord with milestone_id (phase 7 outbox integration).
+	// milestone's amount. The processor persists a PaymentRecord keyed
+	// on milestone_id, so repeated calls on the same current milestone
+	// re-use the same PaymentIntent (idempotency by milestone, not by
+	// proposal — a proposal with N milestones legitimately owns N
+	// payment records).
 	if s.payments != nil {
 		result, err := s.payments.CreatePaymentIntent(ctx, service.PaymentIntentInput{
 			ProposalID:     p.ID,
+			MilestoneID:    current.ID,
 			ClientID:       p.ClientID,
 			ProviderID:     p.ProviderID,
 			ProposalAmount: current.Amount,
