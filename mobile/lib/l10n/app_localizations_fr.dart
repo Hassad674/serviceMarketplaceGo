@@ -2649,4 +2649,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tier1ErrorLocationRequireCity => 'La ville est obligatoire';
+
+  @override
+  String get projectHistory => 'Historique de projets';
+
+  @override
+  String get referrerProjectHistoryEmpty =>
+      'Aucun deal apporté enregistré pour l\'instant';
 }
