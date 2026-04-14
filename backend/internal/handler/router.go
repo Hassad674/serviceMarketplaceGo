@@ -18,6 +18,7 @@ type RouterDeps struct {
 	Team           *TeamHandler
 	RoleOverrides  *RoleOverridesHandler
 	Profile        *ProfileHandler
+	ProfilePricing *ProfilePricingHandler
 	Upload         *UploadHandler
 	Health         *HealthHandler
 	Messaging      *MessagingHandler
@@ -158,6 +159,24 @@ func NewRouter(deps RouterDeps) chi.Router {
 			if deps.Skill != nil {
 				r.Get("/skills", deps.Skill.GetMyProfileSkills)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/skills", deps.Skill.PutMyProfileSkills)
+			}
+			// Profile Tier 1 completion (migration 083): location,
+			// languages, availability blocks. Same edit-profile
+			// permission as the main profile fields — all three
+			// are public profile decorations shared by the whole org.
+			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/location", deps.Profile.UpdateMyLocation)
+			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/languages", deps.Profile.UpdateMyLanguages)
+			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.Profile.UpdateMyAvailability)
+
+			// Profile pricing (migration 083). Wired through a
+			// dedicated handler (ProfilePricingHandler) to preserve
+			// the feature-isolation principle — deleting the
+			// pricing feature means deleting that file + wiring
+			// without touching ProfileHandler.
+			if deps.ProfilePricing != nil {
+				r.Get("/pricing", deps.ProfilePricing.ListMyPricing)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.ProfilePricing.UpsertMyPricing)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing/{kind}", deps.ProfilePricing.DeleteMyPricingByKind)
 			}
 		})
 

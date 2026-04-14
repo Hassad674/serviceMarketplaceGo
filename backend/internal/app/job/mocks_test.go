@@ -231,6 +231,18 @@ func (m *mockProfileRepo) OrgProfilesByUserIDs(ctx context.Context, userIDs []uu
 	return map[uuid.UUID]*profile.PublicProfile{}, nil
 }
 
+// Tier 1 completion stubs — the job feature does not exercise
+// these paths but must satisfy the interface surface.
+func (m *mockProfileRepo) UpdateLocation(_ context.Context, _ uuid.UUID, _ repository.LocationInput) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateLanguages(_ context.Context, _ uuid.UUID, _, _ []string) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+	return nil
+}
+
 // --- mockMsgSender ---
 
 type mockMsgSender struct {

@@ -7,10 +7,18 @@ import (
 )
 
 // Profile is the organization's public-facing marketplace profile:
-// the shared photo, presentation video, about text, and title that
-// every team member edits collaboratively. Phase R2 of the team
-// refactor moves the anchor from user_id to organization_id so
-// operators invited into the same org see the same profile.
+// the shared photo, presentation video, about text, title, location,
+// languages, and availability that every team member edits
+// collaboratively. Phase R2 of the team refactor moved the anchor
+// from user_id to organization_id so operators invited into the same
+// org see the same profile; migration 083 layered the Tier 1
+// completion blocks (location / languages / availability).
+//
+// Pricing is NOT on this struct even though it is logically part of
+// "profile Tier 1" — it lives in its own domain package
+// (domain/profilepricing) because its cardinality is up to 2 rows per
+// org and it persists to a dedicated table (profile_pricing) so edits
+// do not churn the full profile row.
 type Profile struct {
 	OrganizationID       uuid.UUID
 	Title                string
@@ -19,16 +27,47 @@ type Profile struct {
 	PresentationVideoURL string
 	ReferrerAbout        string
 	ReferrerVideoURL     string
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+
+	// ---- Location (migration 083) ----
+	City           string
+	CountryCode    string // ISO 3166-1 alpha-2, uppercase (empty = unset)
+	Latitude       *float64
+	Longitude      *float64
+	WorkMode       []string // subset of {"remote", "on_site", "hybrid"}
+	TravelRadiusKm *int     // nil when unset / remote-only
+
+	// ---- Languages (migration 083) ----
+	LanguagesProfessional   []string // ISO 639-1 codes (lowercase)
+	LanguagesConversational []string
+
+	// ---- Availability (migration 083) ----
+	// AvailabilityStatus applies to the org's default offering (direct
+	// freelance / agency work). Always set.
+	AvailabilityStatus AvailabilityStatus
+	// ReferrerAvailabilityStatus applies to the separate "apporteur"
+	// offering. Nil for any org that is not a provider_personal with
+	// referrer_enabled=true — the UI then hides the referrer section.
+	ReferrerAvailabilityStatus *AvailabilityStatus
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
+// NewProfile seeds a fresh Profile struct with the Tier 1 fields at
+// their default values: empty strings / empty slices for the arrays,
+// nil for the nullable scalars, and AvailabilityNow as the default
+// availability so newly-created orgs appear as "available now" on the
+// marketplace until they explicitly opt out.
 func NewProfile(organizationID uuid.UUID) *Profile {
 	now := time.Now()
 	return &Profile{
-		OrganizationID: organizationID,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		OrganizationID:          organizationID,
+		WorkMode:                []string{},
+		LanguagesProfessional:   []string{},
+		LanguagesConversational: []string{},
+		AvailabilityStatus:      AvailabilityNow,
+		CreatedAt:               now,
+		UpdatedAt:               now,
 	}
 }
 

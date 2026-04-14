@@ -14,6 +14,7 @@ import (
 	comprehendadapter "marketplace-backend/internal/adapter/comprehend"
 	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
+	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/noop"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
@@ -38,6 +39,7 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
+	profilepricingapp "marketplace-backend/internal/app/profilepricing"
 	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
@@ -167,7 +169,13 @@ func main() {
 		Orgs:        organizationSvc,
 		FrontendURL: cfg.FrontendURL,
 	})
-	profileSvc := profileapp.NewService(profileRepo)
+	// Profile service + Tier 1 geocoder (migration 083). The
+	// Nominatim adapter is used as-is in every environment because
+	// the public endpoint is free and the profile save flow
+	// gracefully degrades on any geocoding failure — see
+	// adapter/nominatim/geocoder.go and app/profile/service.go.
+	profileGeocoder := nominatim.NewGeocoder("marketplace-backend/1.0 (contact@marketplace.local)")
+	profileSvc := profileapp.NewService(profileRepo).WithGeocoder(profileGeocoder)
 	messagingSvc := messaging.NewService(messaging.ServiceDeps{
 		Messages:      messageRepo,
 		Users:         userRepo,
@@ -574,9 +582,23 @@ func main() {
 	)
 	skillHandler := handler.NewSkillHandler(skillSvc)
 
+	// Profile pricing feature (migration 083). Uses a local
+	// org-info resolver adapter (profile_pricing_org_info_resolver.go)
+	// to bridge the existing organization + user repos to the
+	// pricing service's dependency contract, keeping the
+	// profilepricing package independent of domain/organization
+	// and domain/user.
+	profilePricingRepo := postgres.NewProfilePricingRepository(db)
+	profilePricingSvc := profilepricingapp.NewService(
+		profilePricingRepo,
+		newProfilePricingOrgInfoResolverAdapter(organizationRepo, userRepo),
+	)
+	profilePricingHandler := handler.NewProfilePricingHandler(profilePricingSvc)
+
 	profileHandler := handler.
 		NewProfileHandler(profileSvc, expertiseSvc).
-		WithSkillsReader(skillSvc)
+		WithSkillsReader(skillSvc).
+		WithPricingReader(profilePricingSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
@@ -666,6 +688,7 @@ func main() {
 		Team:           teamHandler,
 		RoleOverrides:  roleOverridesHandler,
 		Profile:        profileHandler,
+		ProfilePricing: profilePricingHandler,
 		Upload:         uploadHandler,
 		Health:         healthHandler,
 		Messaging:      messagingHandler,

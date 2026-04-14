@@ -10,9 +10,16 @@ import (
 	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/profile"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/pkg/cursor"
 )
 
+// ProfileRepository is the PostgreSQL-backed implementation of
+// repository.ProfileRepository. Migration 083 added the Tier 1
+// completion blocks (location, languages, availability) as extra
+// columns on the profiles row — the create/update/read queries in
+// this file select every one of them so the domain struct is
+// always hydrated with the full profile state.
 type ProfileRepository struct {
 	db *sql.DB
 }
@@ -21,12 +28,32 @@ func NewProfileRepository(db *sql.DB) *ProfileRepository {
 	return &ProfileRepository{db: db}
 }
 
+// profileSelectColumns enumerates every column the adapter reads
+// when hydrating a *profile.Profile. Centralised in a const so the
+// GetByOrganizationID, ensureProfile, and future batch reads stay
+// in sync — adding a new column means updating this string and the
+// paired Scan call, nothing else.
+const profileSelectColumns = `
+	organization_id, title, about, photo_url, presentation_video_url,
+	referrer_about, referrer_video_url,
+	city, country_code, latitude, longitude, work_mode, travel_radius_km,
+	languages_professional, languages_conversational,
+	availability_status, referrer_availability_status,
+	created_at, updated_at`
+
 func (r *ProfileRepository) Create(ctx context.Context, p *profile.Profile) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	// The create path only seeds the classic columns (title/about/
+	// photo/...). Tier 1 blocks receive their database defaults
+	// (empty strings, empty arrays, 'available_now') so a brand-new
+	// profile appears consistently across every read.
 	query := `
-		INSERT INTO profiles (organization_id, title, about, photo_url, presentation_video_url, referrer_about, referrer_video_url, created_at, updated_at)
+		INSERT INTO profiles (
+			organization_id, title, about, photo_url, presentation_video_url,
+			referrer_about, referrer_video_url, created_at, updated_at
+		)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (organization_id) DO NOTHING`
 
@@ -58,6 +85,11 @@ func (r *ProfileRepository) GetByOrganizationID(ctx context.Context, orgID uuid.
 	return r.ensureProfile(ctx, orgID)
 }
 
+// Update rewrites the "classic" profile fields (title, about,
+// photo, videos, referrer about). The Tier 1 blocks have their own
+// focused update methods — this function intentionally leaves them
+// alone so a caller saving a new title cannot accidentally clobber
+// the location / languages / availability state.
 func (r *ProfileRepository) Update(ctx context.Context, p *profile.Profile) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -86,15 +118,149 @@ func (r *ProfileRepository) Update(ctx context.Context, p *profile.Profile) erro
 	return nil
 }
 
-func (r *ProfileRepository) queryByOrgID(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error) {
+// UpdateLocation writes the entire location block (city, country,
+// coordinates, work modes, travel radius) in a single SQL UPDATE.
+// Every column is always written — a nil pointer clears the column
+// to NULL at the database level, preserving the "atomic block"
+// semantics the service layer relies on.
+func (r *ProfileRepository) UpdateLocation(ctx context.Context, orgID uuid.UUID, input repository.LocationInput) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	workMode := input.WorkMode
+	if workMode == nil {
+		workMode = []string{}
+	}
+
 	query := `
-		SELECT organization_id, title, about, photo_url, presentation_video_url, referrer_about, referrer_video_url, created_at, updated_at
-		FROM profiles WHERE organization_id = $1`
+		UPDATE profiles
+		SET city              = $2,
+		    country_code      = $3,
+		    latitude          = $4,
+		    longitude         = $5,
+		    work_mode         = $6,
+		    travel_radius_km  = $7
+		WHERE organization_id = $1`
+
+	result, err := r.db.ExecContext(ctx, query,
+		orgID,
+		input.City,
+		input.CountryCode,
+		nullFloat(input.Latitude),
+		nullFloat(input.Longitude),
+		pq.Array(workMode),
+		nullInt(input.TravelRadiusKm),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile location: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for location update: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
+// UpdateLanguages replaces the two language arrays atomically. Both
+// slices are persisted verbatim — the caller (app/profile service)
+// is responsible for normalization and dedup.
+func (r *ProfileRepository) UpdateLanguages(ctx context.Context, orgID uuid.UUID, professional, conversational []string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if professional == nil {
+		professional = []string{}
+	}
+	if conversational == nil {
+		conversational = []string{}
+	}
+
+	query := `
+		UPDATE profiles
+		SET languages_professional   = $2,
+		    languages_conversational = $3
+		WHERE organization_id = $1`
+
+	result, err := r.db.ExecContext(ctx, query,
+		orgID,
+		pq.Array(professional),
+		pq.Array(conversational),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile languages: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for languages update: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
+// UpdateAvailability writes both availability slots. Referrer is
+// nullable: passing nil clears the column to NULL (UI hides the
+// referrer section), passing a value sets it.
+func (r *ProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var referrerParam sql.NullString
+	if referrer != nil {
+		referrerParam = sql.NullString{String: string(*referrer), Valid: true}
+	}
+
+	query := `
+		UPDATE profiles
+		SET availability_status          = $2,
+		    referrer_availability_status = $3
+		WHERE organization_id = $1`
+
+	result, err := r.db.ExecContext(ctx, query,
+		orgID,
+		string(direct),
+		referrerParam,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile availability: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for availability update: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
+// queryByOrgID fetches the full profile row (including every Tier 1
+// column). Extracted from GetByOrganizationID so the auto-create
+// fallback can reuse it without paying a second SELECT.
+func (r *ProfileRepository) queryByOrgID(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error) {
+	query := `SELECT ` + profileSelectColumns + ` FROM profiles WHERE organization_id = $1`
 
 	p := &profile.Profile{}
+	var (
+		lat, lng          sql.NullFloat64
+		travelRadius      sql.NullInt64
+		availabilityStr   string
+		referrerAvailStr  sql.NullString
+		workMode          []string
+		languagesPro      []string
+		languagesConvList []string
+	)
 	err := r.db.QueryRowContext(ctx, query, orgID).Scan(
 		&p.OrganizationID, &p.Title, &p.About, &p.PhotoURL,
 		&p.PresentationVideoURL, &p.ReferrerAbout, &p.ReferrerVideoURL,
+		&p.City, &p.CountryCode, &lat, &lng,
+		pq.Array(&workMode), &travelRadius,
+		pq.Array(&languagesPro), pq.Array(&languagesConvList),
+		&availabilityStr, &referrerAvailStr,
 		&p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -104,7 +270,58 @@ func (r *ProfileRepository) queryByOrgID(ctx context.Context, orgID uuid.UUID) (
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
+	hydrateProfileTier1(p, profileTier1Row{
+		Latitude:          lat,
+		Longitude:         lng,
+		WorkMode:          workMode,
+		TravelRadiusKm:    travelRadius,
+		LanguagesPro:      languagesPro,
+		LanguagesConv:     languagesConvList,
+		Availability:      availabilityStr,
+		ReferrerAvailable: referrerAvailStr,
+	})
 	return p, nil
+}
+
+// profileTier1Row is the raw-sql shape of the Tier 1 columns. Kept
+// local to this file so hydrateProfileTier1 stays a thin type-swap
+// and the Scan signature never exceeds the parameter budget.
+type profileTier1Row struct {
+	Latitude          sql.NullFloat64
+	Longitude         sql.NullFloat64
+	WorkMode          []string
+	TravelRadiusKm    sql.NullInt64
+	LanguagesPro      []string
+	LanguagesConv     []string
+	Availability      string
+	ReferrerAvailable sql.NullString
+}
+
+// hydrateProfileTier1 copies the raw SQL Tier 1 values onto the
+// domain struct, translating SQL nullables to their *T / typed-enum
+// equivalents. Separated from the main Scan so the 50-line / nested
+// caps stay respected in queryByOrgID.
+func hydrateProfileTier1(p *profile.Profile, row profileTier1Row) {
+	if row.Latitude.Valid {
+		v := row.Latitude.Float64
+		p.Latitude = &v
+	}
+	if row.Longitude.Valid {
+		v := row.Longitude.Float64
+		p.Longitude = &v
+	}
+	p.WorkMode = nilToEmpty(row.WorkMode)
+	if row.TravelRadiusKm.Valid {
+		v := int(row.TravelRadiusKm.Int64)
+		p.TravelRadiusKm = &v
+	}
+	p.LanguagesProfessional = nilToEmpty(row.LanguagesPro)
+	p.LanguagesConversational = nilToEmpty(row.LanguagesConv)
+	p.AvailabilityStatus = profile.AvailabilityStatus(row.Availability)
+	if row.ReferrerAvailable.Valid {
+		a := profile.AvailabilityStatus(row.ReferrerAvailable.String)
+		p.ReferrerAvailabilityStatus = &a
+	}
 }
 
 // SearchPublic returns orgs filtered by type and referrer flag, paginated.
@@ -326,4 +543,36 @@ func (r *ProfileRepository) ensureProfile(ctx context.Context, orgID uuid.UUID) 
 	}
 
 	return r.queryByOrgID(ctx, orgID)
+}
+
+// ---- small helpers for sql.Null → *T conversions ----
+
+// nullFloat converts a nullable *float64 to a sql.NullFloat64 for
+// write paths. nil → Invalid (writes NULL), non-nil → Valid (writes
+// the value). Symmetric helper for nullInt / nullString.
+func nullFloat(f *float64) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{}
+	}
+	return sql.NullFloat64{Float64: *f, Valid: true}
+}
+
+// nullInt converts a nullable *int to a sql.NullInt64.
+func nullInt(i *int) sql.NullInt64 {
+	if i == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*i), Valid: true}
+}
+
+// nilToEmpty returns a guaranteed non-nil slice. Postgres TEXT[]
+// reads may return nil when the row value is '{}' depending on
+// driver version — the domain expects empty (non-nil) slices so
+// downstream DTO construction can marshal them to `[]` without a
+// nil check.
+func nilToEmpty(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return in
 }

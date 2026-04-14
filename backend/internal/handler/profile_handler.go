@@ -12,6 +12,7 @@ import (
 	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/domain/expertise"
 	"marketplace-backend/internal/domain/profile"
+	domainpricing "marketplace-backend/internal/domain/profilepricing"
 	domainskill "marketplace-backend/internal/domain/skill"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
@@ -35,21 +36,39 @@ type SkillsReader interface {
 	GetProfileSkillsBatch(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainskill.ProfileSkill, error)
 }
 
+// PricingReader is the minimal read contract the profile handler
+// needs to decorate public profile responses with the org's
+// declared pricing rows. Same "local interface" pattern as
+// SkillsReader — keeps the profile handler independent of the
+// profile pricing app package's public surface.
+//
+// A nil PricingReader is tolerated by every read path: the
+// handler returns an empty pricing slice, never fails the outer
+// profile read. In production cmd/api/main.go injects
+// *profilepricingapp.Service.
+type PricingReader interface {
+	GetForOrg(ctx context.Context, orgID uuid.UUID) ([]*domainpricing.Pricing, error)
+	GetForOrgsBatch(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainpricing.Pricing, error)
+}
+
 // ProfileHandler wires the profile-related HTTP endpoints to the
-// profile application services. The expertise service and skills
-// reader are optional at the struct level so existing unit tests
-// that only care about the main profile flow can pass nil — in
-// production wiring (cmd/api/main.go) they are always non-nil.
+// profile application services. The expertise service, skills
+// reader, and pricing reader are optional at the struct level so
+// existing unit tests that only care about the main profile flow
+// can pass nil — in production wiring (cmd/api/main.go) they are
+// always non-nil.
 type ProfileHandler struct {
 	profileService   *profileapp.Service
 	expertiseService *profileapp.ExpertiseService
 	skillsReader     SkillsReader
+	pricingReader    PricingReader
 }
 
 // NewProfileHandler constructs the handler with the profile service
-// and an optional expertise service. Skills are wired via
-// WithSkillsReader after construction to keep existing call sites
-// (older unit tests) intact without forcing a signature change.
+// and an optional expertise service. Skills and pricing are wired
+// via WithSkillsReader / WithPricingReader after construction to
+// keep existing call sites (older unit tests) intact without
+// forcing a signature change.
 func NewProfileHandler(
 	profileService *profileapp.Service,
 	expertiseService *profileapp.ExpertiseService,
@@ -67,6 +86,16 @@ func NewProfileHandler(
 func (h *ProfileHandler) WithSkillsReader(reader SkillsReader) *ProfileHandler {
 	if reader != nil {
 		h.skillsReader = reader
+	}
+	return h
+}
+
+// WithPricingReader sets the pricing reader used to decorate public
+// profile responses with the org's declared pricing rows. Returns
+// the same handler for fluent wiring. Passing nil is a no-op.
+func (h *ProfileHandler) WithPricingReader(reader PricingReader) *ProfileHandler {
+	if reader != nil {
+		h.pricingReader = reader
 	}
 	return h
 }
@@ -89,7 +118,8 @@ func (h *ProfileHandler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 
 	domains := h.loadExpertise(r, orgID)
 	skills := h.loadSkills(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains, skills))
+	pricing := h.loadPricing(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
 }
 
 // UpdateMyProfile updates the authenticated user's org profile.
@@ -131,7 +161,128 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 
 	domains := h.loadExpertise(r, orgID)
 	skills := h.loadSkills(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains, skills))
+	pricing := h.loadPricing(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
+}
+
+// ---------------------------------------------------------------
+// Tier 1 completion endpoints (migration 083)
+// ---------------------------------------------------------------
+
+// UpdateMyLocation writes the org's location block (city, country
+// code, work modes, travel radius). Coordinates are derived
+// server-side via the geocoder — the request body never carries
+// lat/lng to prevent clients from forging coordinates.
+func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
+
+	var req struct {
+		City           string   `json:"city"`
+		CountryCode    string   `json:"country_code"`
+		WorkMode       []string `json:"work_mode"`
+		TravelRadiusKm *int     `json:"travel_radius_km"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	err := h.profileService.UpdateLocation(r.Context(), orgID, profileapp.UpdateLocationInput{
+		City:           req.City,
+		CountryCode:    req.CountryCode,
+		WorkMode:       req.WorkMode,
+		TravelRadiusKm: req.TravelRadiusKm,
+	})
+	if err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	h.writeProfileFromOrg(w, r, orgID)
+}
+
+// UpdateMyLanguages replaces the two language arrays.
+func (h *ProfileHandler) UpdateMyLanguages(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
+
+	var req struct {
+		Professional   []string `json:"professional"`
+		Conversational []string `json:"conversational"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	if err := h.profileService.UpdateLanguages(r.Context(), orgID, req.Professional, req.Conversational); err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	h.writeProfileFromOrg(w, r, orgID)
+}
+
+// UpdateMyAvailability writes the direct + optional referrer
+// availability statuses. Referrer may be omitted (nil pointer in
+// the request) to clear the column.
+func (h *ProfileHandler) UpdateMyAvailability(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := middleware.GetOrganizationID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
+		return
+	}
+
+	var req struct {
+		AvailabilityStatus         string  `json:"availability_status"`
+		ReferrerAvailabilityStatus *string `json:"referrer_availability_status"`
+	}
+	if err := validator.DecodeJSON(r, &req); err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+
+	direct, err := profile.ParseAvailabilityStatus(req.AvailabilityStatus)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+		return
+	}
+	var referrer *profile.AvailabilityStatus
+	if req.ReferrerAvailabilityStatus != nil {
+		parsed, err := profile.ParseAvailabilityStatus(*req.ReferrerAvailabilityStatus)
+		if err != nil {
+			res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+			return
+		}
+		referrer = &parsed
+	}
+
+	if err := h.profileService.UpdateAvailability(r.Context(), orgID, direct, referrer); err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	h.writeProfileFromOrg(w, r, orgID)
+}
+
+// writeProfileFromOrg fetches and writes the full profile DTO for
+// the given org — used by every Tier 1 mutation endpoint so the
+// client always receives the canonical post-write shape in one
+// roundtrip.
+func (h *ProfileHandler) writeProfileFromOrg(w http.ResponseWriter, r *http.Request, orgID uuid.UUID) {
+	p, err := h.profileService.GetProfile(r.Context(), orgID)
+	if err != nil {
+		handleProfileError(w, err)
+		return
+	}
+	domains := h.loadExpertise(r, orgID)
+	skills := h.loadSkills(r, orgID)
+	pricing := h.loadPricing(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
 }
 
 // SearchProfiles surfaces org-level public profiles for discovery.
@@ -173,16 +324,15 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Batch-load skills for the entire search result page in a single
-	// database roundtrip. Keeps the listing endpoint O(1) queries for
-	// skill decoration (vs N+1 that would kick in with per-card fetch).
-	// Expertise is intentionally NOT loaded here — the detail page
-	// still fetches it lazily. The TODO on the expertise side can be
-	// actioned by mirroring this exact pattern against
-	// ExpertiseRepository.ListByOrganizationIDs.
+	// Batch-load skills AND pricing for the entire search result
+	// page in a single database roundtrip each. Keeps the listing
+	// endpoint O(1) queries for decoration (vs N+1 that would kick
+	// in with per-card fetch). Expertise is intentionally NOT
+	// loaded here — the detail page still fetches it lazily.
 	skillsByOrg := h.loadSkillsBatch(r, profiles)
+	pricingByOrg := h.loadPricingBatch(r, profiles)
 	res.JSON(w, http.StatusOK, map[string]any{
-		"data":        response.NewPublicProfileSummaryListWithSkills(profiles, skillsByOrg),
+		"data":        response.NewPublicProfileSummaryListWithExtras(profiles, skillsByOrg, pricingByOrg),
 		"next_cursor": nextCursor,
 		"has_more":    nextCursor != "",
 	})
@@ -206,7 +356,8 @@ func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request
 
 	domains := h.loadExpertise(r, orgID)
 	skills := h.loadSkills(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponse(p, domains, skills))
+	pricing := h.loadPricing(r, orgID)
+	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
 }
 
 // UpdateMyExpertise replaces the authenticated organization's full
@@ -295,6 +446,21 @@ func (h *ProfileHandler) loadSkills(r *http.Request, orgID uuid.UUID) []*domains
 	return skills
 }
 
+// loadPricing fetches the org's pricing rows (0, 1 or 2) for
+// embedding in a profile response. Graceful degradation matches
+// loadSkills: any failure yields an empty slice so the profile
+// read never fails because of a pricing glitch.
+func (h *ProfileHandler) loadPricing(r *http.Request, orgID uuid.UUID) []*domainpricing.Pricing {
+	if h.pricingReader == nil {
+		return []*domainpricing.Pricing{}
+	}
+	pricing, err := h.pricingReader.GetForOrg(r.Context(), orgID)
+	if err != nil {
+		return []*domainpricing.Pricing{}
+	}
+	return pricing
+}
+
 // loadSkillsBatch fetches skills for every org in a search result
 // page in a single database roundtrip. Returns a map keyed by org
 // ID with a guaranteed empty slice for orgs that have no skills so
@@ -323,10 +489,32 @@ func (h *ProfileHandler) loadSkillsBatch(r *http.Request, profiles []*profile.Pu
 	return skills
 }
 
+// loadPricingBatch batches pricing fetches across a search result
+// page — mirrors loadSkillsBatch semantics and tolerates the same
+// graceful-degradation paths (nil reader, error, empty input).
+func (h *ProfileHandler) loadPricingBatch(r *http.Request, profiles []*profile.PublicProfile) map[uuid.UUID][]*domainpricing.Pricing {
+	empty := map[uuid.UUID][]*domainpricing.Pricing{}
+	if h.pricingReader == nil || len(profiles) == 0 {
+		return empty
+	}
+	orgIDs := make([]uuid.UUID, 0, len(profiles))
+	for _, p := range profiles {
+		orgIDs = append(orgIDs, p.OrganizationID)
+	}
+	pricing, err := h.pricingReader.GetForOrgsBatch(r.Context(), orgIDs)
+	if err != nil {
+		return empty
+	}
+	return pricing
+}
+
 func handleProfileError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, profile.ErrProfileNotFound):
 		res.Error(w, http.StatusNotFound, "profile_not_found", err.Error())
+	case errors.Is(err, profile.ErrInvalidCountryCode),
+		errors.Is(err, profile.ErrInvalidAvailabilityStatus):
+		res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
 	default:
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 	}
