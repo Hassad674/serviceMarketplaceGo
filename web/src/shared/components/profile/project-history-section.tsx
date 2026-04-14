@@ -11,6 +11,11 @@ import {
 interface ProjectHistorySectionProps {
   orgId: string | undefined
   readOnly?: boolean
+  // When true the section skips the query and always renders the
+  // empty state. Used by the referrer profile where the freelance
+  // project history would otherwise leak across personas (both share
+  // the same organization_id).
+  forceEmpty?: boolean
   emptyOverride?: {
     title: string
     description: string
@@ -24,11 +29,14 @@ interface ProjectHistorySectionProps {
 // freelance phrasing. Keeps data fetching + rendering in one place
 // so features don't re-implement the skeleton/empty/error trio.
 export function ProjectHistorySection(props: ProjectHistorySectionProps) {
-  const { orgId, readOnly = false, emptyOverride } = props
+  const { orgId, readOnly = false, forceEmpty = false, emptyOverride } = props
   const t = useTranslations("profile")
-  const { data, isLoading, isError } = useProjectHistory(orgId)
+  const query = useProjectHistory(forceEmpty ? undefined : orgId)
+  const data = forceEmpty ? undefined : query.data
+  const isLoading = forceEmpty ? false : query.isLoading
+  const isError = forceEmpty ? false : query.isError
 
-  const entries = data?.data ?? []
+  const entries = forceEmpty ? [] : (data?.data ?? [])
   const count = entries.length
 
   // Public viewers normally want the section hidden when there is

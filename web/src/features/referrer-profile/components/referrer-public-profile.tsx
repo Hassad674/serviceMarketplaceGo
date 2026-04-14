@@ -5,6 +5,11 @@ import { ProfileAboutCard } from "@/shared/components/profile/profile-about-card
 import { ProfileVideoCard } from "@/shared/components/profile/profile-video-card"
 import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
 import { ExpertiseDisplay } from "@/shared/components/profile/expertise-display"
+import {
+  AvailabilityEditorCard,
+  type AvailabilityStatus,
+} from "@/shared/components/profile/availability-editor-card"
+import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
 import type { ReferrerProfile } from "../api/referrer-profile-api"
 import { ReferrerProfileHeader } from "./referrer-profile-header"
 import { ReferrerPricingSection } from "./referrer-pricing-section"
@@ -26,6 +31,16 @@ export interface EditableWiring {
   uploadingVideo?: boolean
   onDeleteVideo?: () => void
   deletingVideo?: boolean
+  availability?: {
+    value: AvailabilityStatus
+    onSave: (next: AvailabilityStatus) => Promise<void>
+    isSaving: boolean
+  }
+  expertise?: {
+    value: string[]
+    onSave: (next: string[]) => Promise<void>
+    isSaving: boolean
+  }
 }
 
 // ReferrerPublicProfile mirrors the freelance counterpart structurally
@@ -85,17 +100,36 @@ export function ReferrerPublicProfile(props: ReferrerPublicProfileProps) {
         readOnly={readOnly}
       />
 
-      <ExpertiseDisplay domains={profile.expertise_domains} />
+      {editable?.availability ? (
+        <AvailabilityEditorCard
+          value={editable.availability.value}
+          onSave={editable.availability.onSave}
+          isSaving={editable.availability.isSaving}
+        />
+      ) : null}
+
+      {editable?.expertise ? (
+        <ExpertiseEditor
+          domains={editable.expertise.value}
+          orgType="provider_personal"
+          onSaveOverride={editable.expertise.onSave}
+          savingOverride={editable.expertise.isSaving}
+        />
+      ) : (
+        <ExpertiseDisplay domains={profile.expertise_domains} />
+      )}
 
       <ReferrerPricingSection readOnly={readOnly} />
 
-      {/* TODO(referrer): replace with a real referral-deals feed
-          once the dedicated referral_deals backend aggregate is
-          exposed — for now the history component stays but always
-          renders the empty state for referrer profiles. */}
+      {/* History is always empty on referrer profiles — we force the
+          empty state so the section reads "no deals yet" instead of
+          leaking the freelance project history (both personas share
+          the same organization_id). A dedicated referral_deals feed
+          will replace this placeholder when that feature ships. */}
       <ProjectHistorySection
         orgId={profile.organization_id}
         readOnly={readOnly}
+        forceEmpty
         emptyOverride={{
           title: tReferrer("historyEmptyTitle"),
           description: tReferrer("historyEmptyDescription"),

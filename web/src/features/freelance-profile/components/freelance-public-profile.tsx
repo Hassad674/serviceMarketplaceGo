@@ -5,6 +5,11 @@ import { ProfileAboutCard } from "@/shared/components/profile/profile-about-card
 import { ProfileVideoCard } from "@/shared/components/profile/profile-video-card"
 import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
 import { ExpertiseDisplay } from "@/shared/components/profile/expertise-display"
+import {
+  AvailabilityEditorCard,
+  type AvailabilityStatus,
+} from "@/shared/components/profile/availability-editor-card"
+import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
 import type { FreelanceProfile } from "../api/freelance-profile-api"
 import { FreelanceProfileHeader } from "./freelance-profile-header"
 import { FreelancePricingSection } from "./freelance-pricing-section"
@@ -32,6 +37,16 @@ export interface EditableWiring {
   uploadingVideo?: boolean
   onDeleteVideo?: () => void
   deletingVideo?: boolean
+  availability?: {
+    value: AvailabilityStatus
+    onSave: (next: AvailabilityStatus) => Promise<void>
+    isSaving: boolean
+  }
+  expertise?: {
+    value: string[]
+    onSave: (next: string[]) => Promise<void>
+    isSaving: boolean
+  }
 }
 
 // FreelancePublicProfile is the single source of truth for both the
@@ -91,9 +106,28 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
         readOnly={readOnly}
       />
 
-      <ExpertiseDisplay domains={profile.expertise_domains} />
+      {editable?.availability ? (
+        <AvailabilityEditorCard
+          value={editable.availability.value}
+          onSave={editable.availability.onSave}
+          isSaving={editable.availability.isSaving}
+        />
+      ) : null}
 
-      <FreelanceSkillsStrip skills={profile.skills} />
+      {editable?.expertise ? (
+        <ExpertiseEditor
+          domains={editable.expertise.value}
+          orgType="provider_personal"
+          onSaveOverride={editable.expertise.onSave}
+          savingOverride={editable.expertise.isSaving}
+        />
+      ) : (
+        <ExpertiseDisplay domains={profile.expertise_domains} />
+      )}
+
+      {readOnly ? (
+        <FreelanceSkillsStrip skills={profile.skills} />
+      ) : null}
 
       <FreelancePricingSection readOnly={readOnly} />
 
