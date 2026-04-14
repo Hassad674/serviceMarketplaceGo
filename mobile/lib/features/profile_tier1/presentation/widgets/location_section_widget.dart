@@ -19,11 +19,18 @@ class LocationSectionWidget extends ConsumerStatefulWidget {
     required this.initialLocation,
     required this.canEdit,
     required this.onSaved,
+    this.orgType,
   });
 
   final Location initialLocation;
   final bool canEdit;
   final VoidCallback onSaved;
+
+  /// When the profile belongs to an agency we hide the work-mode
+  /// section entirely — work mode is only meaningful for individual
+  /// freelance providers. Null / other values fall back to the
+  /// freelance behavior so existing call sites keep working.
+  final String? orgType;
 
   @override
   ConsumerState<LocationSectionWidget> createState() =>
@@ -99,6 +106,7 @@ class _LocationSectionWidgetState
     final next = await showLocationEditorBottomSheet(
       context: context,
       initial: _pending,
+      orgType: widget.orgType,
     );
     if (next == null) return;
 

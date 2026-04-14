@@ -48,7 +48,7 @@ void main() {
   });
 
   group('Location.toUpdatePayload', () {
-    test('omits latitude and longitude (server-geocoded)', () {
+    test('includes latitude and longitude when the client has them', () {
       const loc = Location(
         city: 'Lyon',
         countryCode: 'FR',
@@ -58,12 +58,28 @@ void main() {
         travelRadiusKm: 20,
       );
       final payload = loc.toUpdatePayload();
-      expect(payload.containsKey('latitude'), isFalse);
-      expect(payload.containsKey('longitude'), isFalse);
+      expect(payload['latitude'], 45.75);
+      expect(payload['longitude'], 4.85);
       expect(payload['city'], 'Lyon');
       expect(payload['country_code'], 'FR');
       expect(payload['work_mode'], ['remote']);
       expect(payload['travel_radius_km'], 20);
+    });
+
+    test('omits latitude and longitude when the client has none', () {
+      const loc = Location(
+        city: 'Paris',
+        countryCode: 'FR',
+        latitude: null,
+        longitude: null,
+        workMode: [],
+        travelRadiusKm: null,
+      );
+      final payload = loc.toUpdatePayload();
+      expect(payload.containsKey('latitude'), isFalse);
+      expect(payload.containsKey('longitude'), isFalse);
+      expect(payload['city'], 'Paris');
+      expect(payload['country_code'], 'FR');
     });
   });
 

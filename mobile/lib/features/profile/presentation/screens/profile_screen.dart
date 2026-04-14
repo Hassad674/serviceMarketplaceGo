@@ -162,6 +162,7 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 LocationSectionWidget(
                   initialLocation: currentLocation,
+                  orgType: orgType,
                   canEdit: canEditProfile,
                   onSaved: () => ref.invalidate(profileProvider),
                 ),

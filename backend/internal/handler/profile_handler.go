@@ -170,9 +170,13 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 // ---------------------------------------------------------------
 
 // UpdateMyLocation writes the org's location block (city, country
-// code, work modes, travel radius). Coordinates are derived
-// server-side via the geocoder — the request body never carries
-// lat/lng to prevent clients from forging coordinates.
+// code, work modes, travel radius). The web / mobile clients use a
+// client-side city autocomplete (BAN + Photon) that ships canonical
+// latitude / longitude alongside the selected municipality — when
+// both are present the server trusts them verbatim and skips
+// geocoding. When lat/lng are absent the server falls back to the
+// optional Nominatim-backed geocoder so admin tooling and
+// programmatic writes keep working without an embedded geocoder.
 func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -183,6 +187,8 @@ func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request
 	var req struct {
 		City           string   `json:"city"`
 		CountryCode    string   `json:"country_code"`
+		Latitude       *float64 `json:"latitude"`
+		Longitude      *float64 `json:"longitude"`
 		WorkMode       []string `json:"work_mode"`
 		TravelRadiusKm *int     `json:"travel_radius_km"`
 	}
@@ -194,6 +200,8 @@ func (h *ProfileHandler) UpdateMyLocation(w http.ResponseWriter, r *http.Request
 	err := h.profileService.UpdateLocation(r.Context(), orgID, profileapp.UpdateLocationInput{
 		City:           req.City,
 		CountryCode:    req.CountryCode,
+		Latitude:       req.Latitude,
+		Longitude:      req.Longitude,
 		WorkMode:       req.WorkMode,
 		TravelRadiusKm: req.TravelRadiusKm,
 	})

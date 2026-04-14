@@ -10,10 +10,14 @@ import {
 import { profileQueryKey } from "./use-profile"
 
 // Optimistic mutation for the org's location block (city, country,
-// work modes, travel radius). Same pattern as useUpdateExpertiseDomains
-// — patch the cache synchronously so the UI reflects the new values
-// immediately, roll back on error, invalidate on success so we pick up
-// server-side geocoding (latitude/longitude) the next render.
+// coordinates, work modes, travel radius). Same pattern as
+// useUpdateExpertiseDomains — patch the cache synchronously so the
+// UI reflects the new values immediately, roll back on error,
+// invalidate on success so the next render picks up any server
+// normalization. Coordinates come straight from the client-side
+// city autocomplete (BAN + Photon) so the optimistic cache already
+// matches what the server will persist — the post-success refetch
+// is mostly a sanity check.
 export function useUpdateLocation() {
   const queryClient = useQueryClient()
   const uid = useCurrentUserId()
@@ -29,6 +33,8 @@ export function useUpdateLocation() {
           ...previous,
           city: input.city,
           country_code: input.country_code,
+          latitude: input.latitude,
+          longitude: input.longitude,
           work_mode: input.work_mode,
           travel_radius_km: input.travel_radius_km,
         })
@@ -41,7 +47,6 @@ export function useUpdateLocation() {
       }
     },
     onSuccess: () => {
-      // Refetch so we also pick up the server-side geocoded coordinates.
       queryClient.invalidateQueries({ queryKey: key })
     },
   })
