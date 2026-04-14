@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -467,6 +466,14 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 		return fmt.Errorf("recompute macro status: %w", err)
 	}
 
+	// Schedule auto-approval: if the client doesn't act within
+	// autoApprovalDelay (default 7 days), the worker will pick this
+	// event up and call AutoApproveMilestone, transitioning the
+	// milestone all the way to released. Failure to schedule is
+	// logged but doesn't block the submission — we'd rather miss
+	// auto-approval than reject a legitimate provider call.
+	s.scheduleMilestoneAutoApprove(ctx, current.ID)
+
 	metadata := buildStatusMetadata(p)
 	s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completion_requested", metadata)
 
@@ -519,62 +526,14 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	}
 
 	// If the macro status is now completed, this was the LAST milestone
-	// of the proposal: run the end-of-project side effects (fraud bonus,
-	// KYC first earning, double-blind review unlock, completion notifs).
-	// Otherwise we're mid-project: the next milestone is waiting for
-	// funding and we emit a lighter-weight "milestone released" signal.
+	// of the proposal: run the end-of-project side effects (shared with
+	// AutoApproveMilestone via runEndOfProjectEffects).
+	// Otherwise we're mid-project: emit a lighter "milestone released"
+	// signal and schedule the fund-reminder + auto-close timers so a
+	// ghosting client triggers a graceful auto-close.
 	if p.Status == domain.StatusCompleted {
-		metadata := s.buildCompletedMetadata(ctx, p)
-		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "proposal_completed", metadata)
-
-		// Double-blind reviews (since phase R18): a SINGLE evaluation_request
-		// system message is posted in the shared conversation. Both parties
-		// see it and can click the CTA — the frontend derives the viewer's
-		// side from the client/provider organization ids carried in metadata
-		// and opens the right review variant. Neither side will see the
-		// other's review until both have submitted or 14 days have elapsed.
-		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "evaluation_request", metadata)
-
-		s.sendNotification(ctx, p.ProviderID, "proposal_completed", "Mission completed",
-			"Your mission has been marked as complete. Leave a review for the client before the 14-day window closes.",
-			buildNotificationData(p.ID, p.ConversationID, p.Title))
-		s.sendNotification(ctx, p.ClientID, "proposal_completed", "Mission completed",
-			"The mission is marked as complete. Leave a review for the provider before the 14-day window closes.",
-			buildNotificationData(p.ID, p.ConversationID, p.Title))
-
-		// End-of-project fraud bonus (user decision F4): runs only on
-		// macro completion, not on every milestone release, so a client
-		// cannot game the system by funding M1 and ghosting.
-		s.awardBonusWithFraudCheck(ctx, p)
-
-		// Transfer funds to provider (non-blocking — log errors but
-		// don't fail completion). Phase 7 replaces this direct call
-		// with an outbox event for exactly-once delivery.
-		if s.payments != nil {
-			if err := s.payments.TransferToProvider(ctx, p.ID); err != nil {
-				slog.Error("failed to transfer to provider", "proposal_id", p.ID, "error", err)
-			}
-		}
-
-		// Record first earning for KYC enforcement — triggers the
-		// 14-day countdown on the provider's organization (the
-		// merchant of record since phase R5). Idempotent: only writes
-		// when the org row still has a NULL kyc_first_earning_at.
-		if s.orgs != nil && s.users != nil {
-			providerUser, lookupErr := s.users.GetByID(ctx, p.ProviderID)
-			if lookupErr == nil && providerUser.OrganizationID != nil {
-				if err := s.orgs.SetKYCFirstEarning(ctx, *providerUser.OrganizationID, time.Now()); err != nil {
-					slog.Warn("kyc: failed to record first earning",
-						"provider_id", p.ProviderID,
-						"org_id", providerUser.OrganizationID,
-						"error", err)
-				}
-			}
-		}
+		s.runEndOfProjectEffects(ctx, p)
 	} else {
-		// Mid-project: a single milestone was released, the next is
-		// now waiting for funding. Emit a lighter-weight message so
-		// the UI can render "milestone N released — please fund M+1".
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "milestone_released", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_released", "Milestone released",
@@ -583,6 +542,11 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		s.sendNotification(ctx, p.ProviderID, "milestone_released", "Milestone released",
 			"Your milestone has been approved and paid. Work on the next milestone can start once the client funds it.",
 			buildNotificationData(p.ID, p.ConversationID, p.Title))
+
+		if next, nextErr := s.milestones.GetCurrentActive(ctx, p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
+			s.scheduleMilestoneFundReminder(ctx, next.ID)
+			s.scheduleProposalAutoClose(ctx, p.ID)
+		}
 	}
 
 	return nil
