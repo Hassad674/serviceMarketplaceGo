@@ -1,3 +1,13 @@
+// LEGACY AGENCY-ONLY repository.
+//
+// Since the split-profile refactor (migrations 096-104) this file
+// backs ONLY the profiles table rows for agency organizations —
+// the provider_personal rows were migrated out to the split
+// freelance_profiles / referrer_profiles tables in migration 104.
+// Do NOT extend this file for provider_personal use cases; a
+// follow-up refactor will split the agency path into its own
+// aggregate and retire this file.
+
 package postgres
 
 import (

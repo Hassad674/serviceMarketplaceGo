@@ -569,6 +569,23 @@
       "previewHeading": "Comment ça apparaîtra sur ta card",
       "errorGeneric": "Une erreur est survenue. Réessaie.",
       "errorKindNotAllowed": "Ce type de tarification n'est pas disponible pour ton compte."
+    },
+    "freelance": {
+      "publicTitleSuffix": "Freelance",
+      "publicDescription": "{name}, freelance{title, select, empty {} other { — {title}}}. Profil sur Marketplace Service.",
+      "loadError": "Impossible de charger ce profil freelance. Réessaie dans un instant.",
+      "notFoundTitle": "Profil freelance introuvable",
+      "notFoundDescription": "Ce profil n'existe plus ou son propriétaire l'a supprimé."
+    },
+    "referrer": {
+      "publicTitleSuffix": "Apporteur d'affaires",
+      "publicDescription": "{name}, apporteur d'affaires{title, select, empty {} other { — {title}}}. Profil sur Marketplace Service.",
+      "loadError": "Impossible de charger ce profil d'apporteur d'affaires. Réessaie dans un instant.",
+      "notFoundTitle": "Profil d'apporteur introuvable",
+      "notFoundDescription": "Ce profil n'existe plus ou son propriétaire l'a supprimé.",
+      "historyEmptyTitle": "Aucun deal apporté enregistré pour l'instant",
+      "historyEmptyDescription": "Les deals que tu apportes apparaîtront ici une fois conclus.",
+      "providerOnly": "Cette page est réservée aux comptes prestataires."
     }
   },
   "upload": {

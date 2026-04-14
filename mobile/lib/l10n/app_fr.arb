@@ -1044,5 +1044,7 @@
   "tier1Close": "Fermer",
   "tier1ErrorGeneric": "Une erreur est survenue",
   "tier1ErrorPricingInvalidAmount": "Saisis un montant valide",
-  "tier1ErrorLocationRequireCity": "La ville est obligatoire"
+  "tier1ErrorLocationRequireCity": "La ville est obligatoire",
+  "projectHistory": "Historique de projets",
+  "referrerProjectHistoryEmpty": "Aucun deal apporté enregistré pour l'instant"
 }

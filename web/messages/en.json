@@ -569,6 +569,23 @@
       "previewHeading": "How it will show on your card",
       "errorGeneric": "Something went wrong. Please try again.",
       "errorKindNotAllowed": "This pricing type is not available for your account."
+    },
+    "freelance": {
+      "publicTitleSuffix": "Freelancer",
+      "publicDescription": "{name}, freelancer{title, select, empty {} other { — {title}}}. Profile on Marketplace Service.",
+      "loadError": "Could not load this freelancer profile. Please try again.",
+      "notFoundTitle": "Freelancer profile not found",
+      "notFoundDescription": "This profile no longer exists or was removed by its owner."
+    },
+    "referrer": {
+      "publicTitleSuffix": "Business referrer",
+      "publicDescription": "{name}, business referrer{title, select, empty {} other { — {title}}}. Profile on Marketplace Service.",
+      "loadError": "Could not load this referrer profile. Please try again.",
+      "notFoundTitle": "Referrer profile not found",
+      "notFoundDescription": "This profile no longer exists or was removed by its owner.",
+      "historyEmptyTitle": "No referred deals yet",
+      "historyEmptyDescription": "Deals you bring in will appear here once they are closed.",
+      "providerOnly": "This page is reserved for provider accounts."
     }
   },
   "upload": {

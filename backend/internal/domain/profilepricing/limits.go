@@ -1,3 +1,17 @@
+// Package profilepricing — LEGACY AGENCY-ONLY aggregate.
+//
+// Since the split-profile refactor (migrations 096-104) this
+// package backs ONLY agency organizations. The provider_personal
+// path now goes through domain/freelancepricing and
+// domain/referrerpricing. A follow-up refactor will migrate the
+// agency pricing path to its own dedicated aggregate; until then
+// this package keeps compiling for the agency handler chain.
+//
+// Do NOT extend this package for provider_personal use cases —
+// add fields to freelancepricing or referrerpricing instead.
+//
+// Original documentation below.
+//
 // Package profilepricing owns the domain model for organizations'
 // pricing rows exposed on their public profile. It is intentionally
 // independent of the main `profile` package because pricing persists

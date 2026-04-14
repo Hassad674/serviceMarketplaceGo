@@ -16,7 +16,11 @@ import '../../features/messaging/presentation/providers/messaging_provider.dart'
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/messaging/presentation/screens/new_chat_screen.dart';
+import '../../features/freelance_profile/presentation/screens/freelance_profile_screen.dart';
+import '../../features/freelance_profile/presentation/screens/freelance_public_profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/referrer_profile/presentation/screens/referrer_profile_screen.dart';
+import '../../features/referrer_profile/presentation/screens/referrer_public_profile_screen.dart';
 import '../../features/job/presentation/screens/create_job_screen.dart';
 import '../../features/job/presentation/screens/jobs_screen.dart';
 import '../../features/job/presentation/screens/opportunities_screen.dart';
@@ -74,6 +78,14 @@ class RoutePaths {
   static const String projectsPay = '/projects/pay';
   static const String projectsList = '/projects/list';
   static const String profile = '/profile';
+  static const String referralProfile = '/referral';
+
+  /// Read-only split-profile public routes introduced with the
+  /// freelance/referrer split. The legacy `/profiles/:id` path is
+  /// still used by agencies and as a fallback when the caller has
+  /// no hint about the persona they are opening.
+  static const String freelancerPublic = '/freelancers';
+  static const String referrerPublic = '/referrers';
   static const String paymentInfo = '/payment-info';
   static const String wallet = '/wallet';
   static const String team = '/team';
@@ -110,6 +122,8 @@ const _authRoutes = [
 /// that does not require authentication (search results, public profiles).
 bool _isPublicRoute(String location) {
   return location.startsWith('/profiles/') ||
+      location.startsWith('/freelancers/') ||
+      location.startsWith('/referrers/') ||
       location.startsWith('/search/');
 }
 
@@ -180,6 +194,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             orgId: state.pathParameters['id'] ?? '',
             displayName: extras?['display_name'] as String?,
             orgType: extras?['org_type'] as String?,
+          );
+        },
+      ),
+
+      // --- Split-profile public routes (accessible without bottom nav) ---
+      // Introduced with the freelance/referrer split so each persona
+      // has its own shareable URL. The path param is an organization
+      // id. The extras map may carry display_name to seed the header
+      // while the payload is in flight.
+      GoRoute(
+        path: '/freelancers/:id',
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>?;
+          return FreelancePublicProfileScreen(
+            organizationId: state.pathParameters['id'] ?? '',
+            displayName: extras?['display_name'] as String?,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/referrers/:id',
+        builder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>?;
+          return ReferrerPublicProfileScreen(
+            organizationId: state.pathParameters['id'] ?? '',
+            displayName: extras?['display_name'] as String?,
           );
         },
       ),
@@ -344,7 +384,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: RoutePaths.profile,
-            builder: (context, state) => const ProfileScreen(),
+            // Dispatches based on org type: provider_personal users
+            // see the new FreelanceProfileScreen; agency users still
+            // see the legacy ProfileScreen (the legacy /api/v1/profile
+            // endpoint is agency-only now and the refactor is tracked
+            // as a separate follow-up).
+            builder: (context, state) => const _ProfileDispatcher(),
+          ),
+          GoRoute(
+            path: RoutePaths.referralProfile,
+            builder: (context, state) => const ReferrerProfileScreen(),
           ),
           GoRoute(
             path: RoutePaths.paymentInfo,
@@ -537,6 +586,29 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profile dispatcher — selects freelance vs legacy based on org type
+// ---------------------------------------------------------------------------
+
+/// Thin wrapper that picks the right profile screen for the signed-in
+/// operator. `provider_personal` users get the new split-profile
+/// [FreelanceProfileScreen]; any other org type (currently just
+/// `agency`) keeps rendering the legacy [ProfileScreen] until the
+/// agency refactor ships.
+class _ProfileDispatcher extends ConsumerWidget {
+  const _ProfileDispatcher();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final orgType = authState.organization?['type'] as String?;
+    if (orgType == 'provider_personal') {
+      return const FreelanceProfileScreen();
+    }
+    return const ProfileScreen();
   }
 }
 

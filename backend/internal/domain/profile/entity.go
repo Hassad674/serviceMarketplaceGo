@@ -1,3 +1,15 @@
+// Package profile — LEGACY AGENCY-ONLY aggregate.
+//
+// Since the split-profile refactor (migrations 096-104) this
+// package backs ONLY agency organizations. The provider_personal
+// path now goes through domain/freelanceprofile and
+// domain/referrerprofile. A follow-up refactor will migrate the
+// agency path to its own dedicated aggregate and delete this
+// package, but for now it remains in place so the agency
+// handler/service/adapter chain keeps compiling.
+//
+// Do NOT extend this package with new fields for provider_personal
+// use cases — add them to the split aggregates instead.
 package profile
 
 import (
