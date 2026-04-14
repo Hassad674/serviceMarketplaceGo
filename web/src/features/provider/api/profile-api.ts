@@ -98,6 +98,12 @@ export async function updateProfile(
 export type UpdateLocationInput = {
   city: string
   country_code: string
+  // Canonical coordinates from the client-side city autocomplete
+  // (BAN + Photon). When both are non-null the backend trusts them
+  // verbatim and skips the server-side Nominatim geocoder — saving
+  // a 2s bounded round-trip on every save.
+  latitude: number | null
+  longitude: number | null
   work_mode: WorkMode[]
   travel_radius_km: number | null
 }

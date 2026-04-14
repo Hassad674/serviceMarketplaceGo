@@ -17,7 +17,7 @@ void main() {
   });
 
   group('updateLocation', () {
-    test('sends the location update payload', () async {
+    test('sends the location update payload without coords when missing', () async {
       Map<String, dynamic>? captured;
       fakeApi.putHandlers['/api/v1/profile/location'] = (data) async {
         captured = data as Map<String, dynamic>;
@@ -39,6 +39,27 @@ void main() {
       expect(captured!['work_mode'], ['remote', 'hybrid']);
       expect(captured!['travel_radius_km'], 30);
       expect(captured!.containsKey('latitude'), isFalse);
+    });
+
+    test('includes lat/lng when the client autocomplete provided them', () async {
+      Map<String, dynamic>? captured;
+      fakeApi.putHandlers['/api/v1/profile/location'] = (data) async {
+        captured = data as Map<String, dynamic>;
+        return FakeApiClient.ok({'data': {'ok': true}});
+      };
+
+      const loc = Location(
+        city: 'Lyon',
+        countryCode: 'FR',
+        latitude: 45.758,
+        longitude: 4.835,
+        workMode: ['remote'],
+        travelRadiusKm: null,
+      );
+      await repo.updateLocation(loc);
+
+      expect(captured!['latitude'], 45.758);
+      expect(captured!['longitude'], 4.835);
     });
   });
 

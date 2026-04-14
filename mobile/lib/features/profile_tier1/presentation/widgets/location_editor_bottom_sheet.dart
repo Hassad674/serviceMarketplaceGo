@@ -4,20 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../data/city_search_service.dart';
 import '../../domain/entities/location.dart';
 import '../providers/profile_tier1_providers.dart';
 import '../utils/country_catalog.dart';
 import '../utils/flag_emoji.dart';
+import 'city_search_field.dart';
 import 'country_picker_bottom_sheet.dart';
 
 const List<String> kWorkModeKeys = <String>['remote', 'on_site', 'hybrid'];
 
 /// Opens the location editor as a modal bottom sheet. Resolves to
 /// the new [Location] when the user saves, or `null` when they
-/// dismiss without confirming.
+/// dismiss without confirming. Passing [orgType] == 'agency' hides
+/// the work-mode row — agencies don't pick a personal work mode.
 Future<Location?> showLocationEditorBottomSheet({
   required BuildContext context,
   required Location initial,
+  String? orgType,
 }) {
   return showModalBottomSheet<Location>(
     context: context,
@@ -27,14 +31,19 @@ Future<Location?> showLocationEditorBottomSheet({
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => LocationEditorBottomSheet(initial: initial),
+    builder: (_) => LocationEditorBottomSheet(initial: initial, orgType: orgType),
   );
 }
 
 class LocationEditorBottomSheet extends StatefulWidget {
-  const LocationEditorBottomSheet({super.key, required this.initial});
+  const LocationEditorBottomSheet({
+    super.key,
+    required this.initial,
+    this.orgType,
+  });
 
   final Location initial;
+  final String? orgType;
 
   @override
   State<LocationEditorBottomSheet> createState() =>
@@ -42,27 +51,39 @@ class LocationEditorBottomSheet extends StatefulWidget {
 }
 
 class _LocationEditorBottomSheetState extends State<LocationEditorBottomSheet> {
-  late TextEditingController _city;
   late TextEditingController _radius;
   late String _countryCode;
   late Set<String> _workModes;
+  late CitySearchResult? _selection;
 
   @override
   void initState() {
     super.initState();
-    _city = TextEditingController(text: widget.initial.city);
     _radius = TextEditingController(
       text: widget.initial.travelRadiusKm?.toString() ?? '',
     );
     _countryCode = widget.initial.countryCode;
     _workModes = widget.initial.workMode.toSet();
+    _selection = _rehydrateInitialSelection(widget.initial);
   }
 
   @override
   void dispose() {
-    _city.dispose();
     _radius.dispose();
     super.dispose();
+  }
+
+  CitySearchResult? _rehydrateInitialSelection(Location loc) {
+    if (loc.city.isEmpty || loc.countryCode.isEmpty) return null;
+    if (loc.latitude == null || loc.longitude == null) return null;
+    return CitySearchResult(
+      city: loc.city,
+      postcode: '',
+      countryCode: loc.countryCode,
+      latitude: loc.latitude!,
+      longitude: loc.longitude!,
+      context: '',
+    );
   }
 
   Future<void> _pickCountry() async {
@@ -70,21 +91,33 @@ class _LocationEditorBottomSheetState extends State<LocationEditorBottomSheet> {
       context: context,
       initialCode: _countryCode,
     );
-    if (code != null) setState(() => _countryCode = code);
+    if (code == null) return;
+    setState(() {
+      _countryCode = code;
+      // Changing country invalidates the city selection — the
+      // coordinates belong to the previous country and would be
+      // meaningless once we rewrite country_code.
+      if (_selection != null && _selection!.countryCode != code) {
+        _selection = null;
+      }
+    });
   }
 
   void _save() {
     final radiusInt = int.tryParse(_radius.text.trim());
+    final pick = _selection;
     final next = Location(
-      city: _city.text.trim(),
-      countryCode: _countryCode,
-      latitude: widget.initial.latitude,
-      longitude: widget.initial.longitude,
+      city: pick?.city ?? '',
+      countryCode: pick?.countryCode ?? _countryCode,
+      latitude: pick?.latitude,
+      longitude: pick?.longitude,
       workMode: kWorkModeKeys.where(_workModes.contains).toList(),
       travelRadiusKm: radiusInt,
     );
     Navigator.of(context).pop(next);
   }
+
+  bool get _isAgency => widget.orgType == 'agency';
 
   @override
   Widget build(BuildContext context) {
@@ -114,20 +147,6 @@ class _LocationEditorBottomSheetState extends State<LocationEditorBottomSheet> {
                     controller: scrollController,
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                     children: [
-                      _LabelText(text: l10n.tier1LocationCityLabel),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: _city,
-                        textInputAction: TextInputAction.next,
-                        decoration: InputDecoration(
-                          hintText: l10n.tier1LocationCityPlaceholder,
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusMd),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       _LabelText(text: l10n.tier1LocationCountryLabel),
                       const SizedBox(height: 6),
                       _CountryField(
@@ -138,18 +157,29 @@ class _LocationEditorBottomSheetState extends State<LocationEditorBottomSheet> {
                         onTap: _pickCountry,
                       ),
                       const SizedBox(height: 16),
-                      _LabelText(text: l10n.tier1LocationWorkModeLabel),
+                      _LabelText(text: l10n.tier1LocationCityLabel),
                       const SizedBox(height: 6),
-                      _WorkModeSelector(
-                        selected: _workModes,
-                        onToggle: (key) => setState(() {
-                          if (_workModes.contains(key)) {
-                            _workModes.remove(key);
-                          } else {
-                            _workModes.add(key);
-                          }
-                        }),
+                      CitySearchField(
+                        selection: _selection,
+                        countryCode: _countryCode,
+                        onSelected: (next) =>
+                            setState(() => _selection = next),
                       ),
+                      if (!_isAgency) ...[
+                        const SizedBox(height: 16),
+                        _LabelText(text: l10n.tier1LocationWorkModeLabel),
+                        const SizedBox(height: 6),
+                        _WorkModeSelector(
+                          selected: _workModes,
+                          onToggle: (key) => setState(() {
+                            if (_workModes.contains(key)) {
+                              _workModes.remove(key);
+                            } else {
+                              _workModes.add(key);
+                            }
+                          }),
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       _LabelText(
                         text: l10n.tier1LocationTravelRadiusLabel,

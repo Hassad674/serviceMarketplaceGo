@@ -2432,6 +2432,16 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1LocationEditButton => 'Mettre à jour ma localisation';
 
   @override
+  String get tier1LocationCityAutocompletePlaceholder => 'Rechercher une ville…';
+
+  @override
+  String get tier1LocationCityAutocompleteHint =>
+      'Tape au moins 2 caractères pour rechercher';
+
+  @override
+  String get tier1LocationCityAutocompleteEmpty => 'Aucune ville trouvée';
+
+  @override
   String get tier1LanguagesSectionTitle => 'Langues';
 
   @override
