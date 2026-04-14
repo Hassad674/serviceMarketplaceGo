@@ -686,6 +686,7 @@ func main() {
 	disputeSvc := disputeapp.NewService(disputeapp.ServiceDeps{
 		Disputes:      disputeRepo,
 		Proposals:     proposalRepo,
+		Milestones:    milestoneRepo,
 		Users:         userRepo,
 		MessageRepo:   messageRepo,
 		Messages:      messagingSvc,
