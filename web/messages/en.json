@@ -838,6 +838,23 @@
       "amountAriaLabel": "amount",
       "deadlineAriaLabel": "deadline"
     },
+    "milestoneTracker": {
+      "title": "Project tracker",
+      "ariaLabel": "Project milestone list",
+      "milestone": "Milestone",
+      "count": "{total} milestones",
+      "dueNow": "Due now",
+      "dueBy": "Due {date}",
+      "oneTimePayment": "One-time payment",
+      "statusPendingFunding": "Awaiting funding",
+      "statusFunded": "In progress",
+      "statusSubmitted": "Awaiting review",
+      "statusApproved": "Approved",
+      "statusReleased": "Paid",
+      "statusDisputed": "Disputed",
+      "statusCancelled": "Cancelled",
+      "statusRefunded": "Refunded"
+    },
     "proposalFrom": "Proposal from {name}",
     "totalAmount": "Total amount",
     "startProject": "Start a project",
