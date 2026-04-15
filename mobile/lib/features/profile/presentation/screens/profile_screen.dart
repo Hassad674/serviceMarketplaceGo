@@ -234,20 +234,25 @@ class ProfileScreen extends ConsumerWidget {
                 child: _ProfileSectionCard(
                   title: l10n.about,
                   icon: Icons.info_outline,
-                  child: profileAbout != null && profileAbout.isNotEmpty
-                      ? Text(
-                          profileAbout,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            height: 1.5,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: profileAbout != null && profileAbout.isNotEmpty
+                        ? Text(
+                            profileAbout,
+                            softWrap: true,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.5,
+                            ),
+                          )
+                        : Text(
+                            l10n.aboutPlaceholder,
+                            softWrap: true,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: appColors?.mutedForeground,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
-                        )
-                      : Text(
-                          l10n.aboutPlaceholder,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: appColors?.mutedForeground,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
