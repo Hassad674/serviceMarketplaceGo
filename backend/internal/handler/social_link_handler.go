@@ -16,17 +16,24 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
-// SocialLinkHandler handles HTTP requests for social link CRUD.
+// SocialLinkHandler handles HTTP requests for a single persona's
+// social link CRUD surface. A new handler instance is created per
+// persona (agency / freelance / referrer) in cmd/api/main.go, each
+// wired with its own service. Routes are mounted per persona in the
+// router so the REST surface mirrors the data model.
 type SocialLinkHandler struct {
 	socialLinkSvc *profileapp.SocialLinkService
 }
 
-// NewSocialLinkHandler creates a new handler for social link endpoints.
+// NewSocialLinkHandler creates a new handler for social link
+// endpoints. The handler is scoped to whichever persona the given
+// service was constructed with — the caller controls that mapping.
 func NewSocialLinkHandler(svc *profileapp.SocialLinkService) *SocialLinkHandler {
 	return &SocialLinkHandler{socialLinkSvc: svc}
 }
 
-// ListMySocialLinks returns social links for the authenticated user's org.
+// ListMySocialLinks returns social links for the authenticated
+// user's org under this handler's persona.
 func (h *SocialLinkHandler) ListMySocialLinks(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -43,7 +50,8 @@ func (h *SocialLinkHandler) ListMySocialLinks(w http.ResponseWriter, r *http.Req
 	res.JSON(w, http.StatusOK, response.NewSocialLinkListResponse(links))
 }
 
-// UpsertSocialLink creates or updates a social link for the authenticated user's org.
+// UpsertSocialLink creates or updates a social link for the
+// authenticated user's org under this handler's persona.
 func (h *SocialLinkHandler) UpsertSocialLink(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -69,7 +77,8 @@ func (h *SocialLinkHandler) UpsertSocialLink(w http.ResponseWriter, r *http.Requ
 	res.NoContent(w)
 }
 
-// DeleteSocialLink removes a social link for the authenticated user's org.
+// DeleteSocialLink removes a social link for the authenticated
+// user's org under this handler's persona.
 func (h *SocialLinkHandler) DeleteSocialLink(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
@@ -86,7 +95,8 @@ func (h *SocialLinkHandler) DeleteSocialLink(w http.ResponseWriter, r *http.Requ
 	res.NoContent(w)
 }
 
-// ListPublicSocialLinks returns social links for any organization (public).
+// ListPublicSocialLinks returns social links for any organization
+// under this handler's persona (public, no auth required).
 func (h *SocialLinkHandler) ListPublicSocialLinks(w http.ResponseWriter, r *http.Request) {
 	orgIDParam := chi.URLParam(r, "orgId")
 	orgID, err := uuid.Parse(orgIDParam)
@@ -110,6 +120,8 @@ func handleSocialLinkError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "invalid_platform", err.Error())
 	case errors.Is(err, profile.ErrInvalidURL):
 		res.Error(w, http.StatusBadRequest, "invalid_url", err.Error())
+	case errors.Is(err, profile.ErrInvalidPersona):
+		res.Error(w, http.StatusBadRequest, "invalid_persona", err.Error())
 	default:
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 	}

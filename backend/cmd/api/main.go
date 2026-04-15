@@ -56,6 +56,7 @@ import (
 	skillapp "marketplace-backend/internal/app/skill"
 	"marketplace-backend/internal/config"
 	jobdomain "marketplace-backend/internal/domain/job"
+	profiledomain "marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/pkg/crypto"
@@ -234,10 +235,28 @@ func main() {
 	// Review feature
 	reviewRepo := postgres.NewReviewRepository(db)
 
-	// Social links feature
+	// Social links feature — one service instance per persona,
+	// each bound at construction time so the downstream handler
+	// stays unaware of the persona dimension.
 	socialLinkRepo := postgres.NewSocialLinkRepository(db)
-	socialLinkSvc := profileapp.NewSocialLinkService(socialLinkRepo)
-	socialLinkHandler := handler.NewSocialLinkHandler(socialLinkSvc)
+	agencySocialLinkSvc, err := profileapp.NewSocialLinkService(socialLinkRepo, profiledomain.PersonaAgency)
+	if err != nil {
+		slog.Error("failed to init agency social link service", "error", err)
+		os.Exit(1)
+	}
+	freelanceSocialLinkSvc, err := profileapp.NewSocialLinkService(socialLinkRepo, profiledomain.PersonaFreelance)
+	if err != nil {
+		slog.Error("failed to init freelance social link service", "error", err)
+		os.Exit(1)
+	}
+	referrerSocialLinkSvc, err := profileapp.NewSocialLinkService(socialLinkRepo, profiledomain.PersonaReferrer)
+	if err != nil {
+		slog.Error("failed to init referrer social link service", "error", err)
+		os.Exit(1)
+	}
+	socialLinkHandler := handler.NewSocialLinkHandler(agencySocialLinkSvc)
+	freelanceSocialLinkHandler := handler.NewSocialLinkHandler(freelanceSocialLinkSvc)
+	referrerSocialLinkHandler := handler.NewSocialLinkHandler(referrerSocialLinkSvc)
 
 	// Portfolio feature
 	portfolioRepo := postgres.NewPortfolioRepository(db)
@@ -844,7 +863,9 @@ func main() {
 		Review:         reviewHandler,
 		Report:         reportHandler,
 		Call:           callHandler,
-		SocialLink:     socialLinkHandler,
+		SocialLink:          socialLinkHandler,
+		FreelanceSocialLink: freelanceSocialLinkHandler,
+		ReferrerSocialLink:  referrerSocialLinkHandler,
 		Embedded:       handler.NewEmbeddedHandler(organizationRepo, cfg.FrontendURL),
 		Notification:   notifHandler,
 		Stripe:         stripeHandler,

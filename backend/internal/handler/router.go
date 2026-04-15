@@ -43,7 +43,9 @@ type RouterDeps struct {
 	JobApplication *JobApplicationHandler
 	Review         *ReviewHandler
 	Call           *CallHandler
-	SocialLink     *SocialLinkHandler
+	SocialLink          *SocialLinkHandler // legacy agency-scoped handler
+	FreelanceSocialLink *SocialLinkHandler // persona=freelance handler
+	ReferrerSocialLink  *SocialLinkHandler // persona=referrer handler
 	Embedded       *EmbeddedHandler
 	Notification   *NotificationHandler
 	Stripe         *StripeHandler
@@ -445,18 +447,47 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		}
 
-		// Social link routes
+		// Social link routes — legacy agency-scoped path. Kept for
+		// backwards compatibility with the agency profile flow.
 		if deps.SocialLink != nil {
-			// Public: read social links
+			// Public: read agency social links
 			r.Get("/profiles/{orgId}/social-links", deps.SocialLink.ListPublicSocialLinks)
 
-			// Authenticated: manage own social links
+			// Authenticated: manage own agency social links
 			r.Route("/profile/social-links", func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.SocialLink.ListMySocialLinks)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.SocialLink.UpsertSocialLink)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
+			})
+		}
+
+		// Freelance persona social link routes — independent set
+		// scoped to the freelance identity of provider_personal users.
+		if deps.FreelanceSocialLink != nil {
+			r.Get("/freelance-profiles/{orgId}/social-links", deps.FreelanceSocialLink.ListPublicSocialLinks)
+
+			r.Route("/freelance-profile/social-links", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/", deps.FreelanceSocialLink.ListMySocialLinks)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceSocialLink.UpsertSocialLink)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.FreelanceSocialLink.DeleteSocialLink)
+			})
+		}
+
+		// Referrer persona social link routes — independent set
+		// scoped to the apporteur d'affaires identity.
+		if deps.ReferrerSocialLink != nil {
+			r.Get("/referrer-profiles/{orgId}/social-links", deps.ReferrerSocialLink.ListPublicSocialLinks)
+
+			r.Route("/referrer-profile/social-links", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/", deps.ReferrerSocialLink.ListMySocialLinks)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerSocialLink.UpsertSocialLink)
+				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.ReferrerSocialLink.DeleteSocialLink)
 			})
 		}
 
