@@ -13,10 +13,10 @@ import {
   useUploadVideo,
   useDeleteVideo,
 } from "@/features/provider/hooks/use-upload"
-import { ProfileHeader } from "@/features/provider/components/profile-header"
-import { ProfileVideo } from "@/features/provider/components/profile-video"
-import { ProfileAbout } from "@/features/provider/components/profile-about"
-import { ProfileHistory } from "@/features/provider/components/profile-history"
+import { ProfileAboutCard } from "@/shared/components/profile/profile-about-card"
+import { ProfileVideoCard } from "@/shared/components/profile/profile-video-card"
+import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
+import { AgencyProfileHeader } from "@/features/provider/components/agency-profile-header"
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
 import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
@@ -28,10 +28,12 @@ import { LanguagesSection } from "@/features/provider/components/languages-secti
 import { SkillsSection } from "@/features/skill/components/skills-section"
 
 // Agency editable profile page — uses the legacy /api/v1/profile
-// endpoints via the restored provider hooks. This is intentionally
-// the pre-split flow: agencies have not yet been migrated to the
-// split-profile backend, so their editable screen keeps the proven
-// legacy UI until a dedicated follow-up refactor lands.
+// endpoints via the restored provider hooks. Visual shell is now
+// harmonized with the freelance editable page: shared profile
+// header, ProfileAboutCard and ProfileVideoCard shells, plus the
+// same card spacing so the two surfaces drift in lockstep. Hook
+// wiring stays legacy on purpose — agencies have not been migrated
+// to the split-profile backend yet.
 export function AgencyProfilePage() {
   const { data: user } = useUser()
   const { data: org } = useOrganization()
@@ -57,66 +59,52 @@ export function AgencyProfilePage() {
   const displayName =
     user?.display_name ??
     `${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim()
-  const aboutLabel = t("aboutAgency")
-  const aboutPlaceholder = t("aboutAgencyPlaceholder")
-  const videoDesc = t("addVideoDescAgency")
 
   return (
     <div className="space-y-6">
-      <ProfileHeader
+      <AgencyProfileHeader
         profile={profile}
         displayName={displayName}
-        roleContext="agency"
-        onUpdateTitle={
-          canEditProfile
-            ? (title) => updateProfile.mutate({ title })
+        rating={
+          rating
+            ? { average: rating.average, count: rating.count }
             : undefined
         }
-        onUploadPhoto={
+        editable={
           canEditProfile
-            ? async (file) => {
-                await photoUpload.mutateAsync(file)
+            ? {
+                onSaveTitle: (title) => updateProfile.mutate({ title }),
+                onUploadPhoto: async (file) => {
+                  await photoUpload.mutateAsync(file)
+                },
+                uploadingPhoto: photoUpload.isPending,
               }
             : undefined
         }
-        uploadingPhoto={photoUpload.isPending}
-        readOnly={!canEditProfile}
-        averageRating={rating?.average}
-        reviewCount={rating?.count}
       />
+
       <AvailabilitySection
         orgType="agency"
         referrerEnabled={false}
         variant="direct"
         readOnly={!canEditProfile}
       />
+
       <PricingSection
         variant="direct"
         orgType="agency"
         referrerEnabled={false}
         readOnly={!canEditProfile}
       />
+
       <LocationSection orgType="agency" readOnly={!canEditProfile} />
+
       <LanguagesSection orgType="agency" readOnly={!canEditProfile} />
-      <ProfileVideo
-        videoUrl={profile?.presentation_video_url}
-        emptyDescription={videoDesc}
-        onUploadVideo={
-          canEditProfile
-            ? async (file) => {
-                await videoUpload.mutateAsync(file)
-              }
-            : undefined
-        }
-        uploadingVideo={videoUpload.isPending}
-        onDeleteVideo={
-          canEditProfile ? () => videoDelete.mutate() : undefined
-        }
-        deletingVideo={videoDelete.isPending}
-        readOnly={!canEditProfile}
-      />
-      <ProfileAbout
-        content={profile?.about || ""}
+
+      <ProfileAboutCard
+        content={profile.about ?? ""}
+        label={t("aboutAgency")}
+        placeholder={t("aboutAgencyPlaceholder")}
         onSave={
           canEditProfile
             ? async (text) => {
@@ -125,19 +113,44 @@ export function AgencyProfilePage() {
             : undefined
         }
         saving={updateProfile.isPending}
-        label={aboutLabel}
-        placeholder={aboutPlaceholder}
         readOnly={!canEditProfile}
       />
+
+      <ProfileVideoCard
+        videoUrl={profile.presentation_video_url ?? ""}
+        labels={{
+          title: t("videoTitle"),
+          emptyLabel: t("noVideo"),
+          emptyDescription: t("addVideoDescAgency"),
+        }}
+        actions={
+          canEditProfile
+            ? {
+                onUpload: async (file) => {
+                  await videoUpload.mutateAsync(file)
+                },
+                uploading: videoUpload.isPending,
+                onDelete: () => videoDelete.mutate(),
+                deleting: videoDelete.isPending,
+              }
+            : undefined
+        }
+        readOnly={!canEditProfile}
+      />
+
       <ExpertiseEditor
-        domains={profile?.expertise_domains}
+        domains={profile.expertise_domains}
         orgType="agency"
         readOnly={!canEditProfile}
       />
+
       <SkillsSection orgType="agency" readOnly={!canEditProfile} />
+
       <SocialLinksSection />
+
       <PortfolioSection />
-      <ProfileHistory orgId={org?.id} />
+
+      <ProjectHistorySection orgId={org?.id} />
     </div>
   )
 }
