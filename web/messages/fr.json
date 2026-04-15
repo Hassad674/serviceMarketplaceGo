@@ -1304,5 +1304,65 @@
     "restrictedDescription": "Vous n'avez pas les permissions nécessaires pour accéder à cette fonctionnalité. Contactez le propriétaire de votre organisation pour obtenir l'accès.",
     "permissionDenied": "Permission refusée",
     "noOrganization": "Vous devez appartenir à une organisation pour effectuer cette action"
+  },
+  "referral": {
+    "title": "Apports d'affaires",
+    "subtitle": "Vos mises en relation et leurs commissions.",
+    "newIntro": "Nouvelle intro",
+    "section": {
+      "inbox": "À traiter",
+      "inboxDescription": "Mises en relation où vous devez accepter, négocier ou refuser.",
+      "pending": "En attente de réponse",
+      "pendingDescription": "Vos intros qui attendent une action d'une autre partie.",
+      "active": "Mises en relation actives",
+      "activeDescription": "Vos intros activées dans leur fenêtre d'exclusivité.",
+      "history": "Historique",
+      "historyDescription": "Intros terminées, expirées ou annulées.",
+      "empty": "Rien à afficher pour le moment."
+    },
+    "stats": {
+      "pending": "En cours",
+      "active": "Actives",
+      "total": "Total"
+    },
+    "status": {
+      "pending_provider": "En attente du prestataire",
+      "pending_referrer": "En attente de l'apporteur",
+      "pending_client": "En attente du client",
+      "active": "Active",
+      "rejected": "Refusée",
+      "expired": "Expirée",
+      "cancelled": "Annulée",
+      "terminated": "Terminée"
+    },
+    "create": {
+      "title": "Nouvelle mise en relation",
+      "subtitle": "Présentez un prestataire à un client. Vous négociez la commission avec le prestataire en privé ; le client accepte ou refuse la mise en relation sans voir le taux.",
+      "submit": "Envoyer l'introduction",
+      "errorGeneric": "Une erreur est survenue lors de la création de l'intro."
+    },
+    "detail": {
+      "headerTitle": "Mise en relation",
+      "metricCommission": "Commission",
+      "metricDuration": "Durée",
+      "actionsTitle": "Vos actions",
+      "negotiationHistory": "Historique de négociation",
+      "introNote": "Mot de l'apporteur",
+      "loadError": "Impossible de charger cette mise en relation.",
+      "notAParty": "Vous n'êtes pas partie à cette mise en relation."
+    },
+    "actions": {
+      "accept": "Accepter",
+      "acceptCounter": "Accepter le contre",
+      "negotiate": "Négocier",
+      "reject": "Refuser",
+      "cancelIntro": "Annuler l'intro",
+      "endReferral": "Terminer l'intro"
+    },
+    "errors": {
+      "couplesLocked": "Une mise en relation est déjà active pour ce couple.",
+      "notAuthorized": "Vous n'êtes pas autorisé à effectuer cette action.",
+      "invalidTransition": "Cette action n'est pas disponible dans l'état actuel."
+    }
   }
 }
