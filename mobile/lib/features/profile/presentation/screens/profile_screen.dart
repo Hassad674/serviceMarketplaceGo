@@ -127,29 +127,12 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // Areas of expertise — hidden for enterprise org type
-              ExpertiseSectionWidget(
-                orgType: orgType,
-                initialDomains: profileExpertise,
-                canEdit: canEditProfile,
-                onSaved: () => ref.invalidate(profileProvider),
-              ),
-              if (ExpertiseCatalog.isFeatureEnabledForOrgType(orgType))
-                const SizedBox(height: 16),
-
-              // Skills — hidden for enterprise org type
-              SkillsSectionWidget(
-                orgType: orgType,
-                expertiseKeys: profileExpertise,
-                canEdit: canEditProfile,
-                onSaved: () => ref.invalidate(profileProvider),
-              ),
-              if (SkillLimits.isFeatureEnabledForOrgType(orgType))
-                const SizedBox(height: 16),
-
               // Tier 1 completion — availability / pricing / location / languages
-              // Grouped above the long-form sections. Hidden entirely for
-              // enterprise orgs, who do not declare offers in these blocks.
+              // Ordered to match the harmonized agency layout:
+              // availability -> pricing -> location -> languages, placed
+              // directly under the header so the identity block leads
+              // the page. Hidden entirely for enterprise orgs which do
+              // not declare offers in these blocks.
               if (tier1Enabled) ...[
                 AvailabilitySectionWidget(
                   variant: AvailabilityVariant.direct,
@@ -193,7 +176,9 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
               ],
 
-              // Title section
+              // Title section — kept with the about / video pair to
+              // match the web agency-profile-page layout (no "title"
+              // slot in the brief-listed order, so group it here).
               _ProfileSectionCard(
                 title: l10n.professionalTitle,
                 icon: Icons.badge_outlined,
@@ -212,7 +197,40 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // Presentation video section
+              // About section — now sits before the video to match
+              // the harmonized web layout.
+              GestureDetector(
+                onTap: canEditProfile
+                    ? () => _openEditAbout(context, ref, profileAbout)
+                    : null,
+                child: _ProfileSectionCard(
+                  title: l10n.about,
+                  icon: Icons.info_outline,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: profileAbout != null && profileAbout.isNotEmpty
+                        ? Text(
+                            profileAbout,
+                            softWrap: true,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              height: 1.5,
+                            ),
+                          )
+                        : Text(
+                            l10n.aboutPlaceholder,
+                            softWrap: true,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: appColors?.mutedForeground,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Presentation video section — follows the about block
+              // so the two long-form media cards sit together.
               _VideoSectionCard(
                 videoUrl: profileAsync.whenOrNull(
                   data: (p) => p['presentation_video_url'] as String?,
@@ -226,31 +244,25 @@ class ProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // About section
-              GestureDetector(
-                onTap: canEditProfile
-                    ? () => _openEditAbout(context, ref, profileAbout)
-                    : null,
-                child: _ProfileSectionCard(
-                  title: l10n.about,
-                  icon: Icons.info_outline,
-                  child: profileAbout != null && profileAbout.isNotEmpty
-                      ? Text(
-                          profileAbout,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            height: 1.5,
-                          ),
-                        )
-                      : Text(
-                          l10n.aboutPlaceholder,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: appColors?.mutedForeground,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                ),
+              // Areas of expertise — hidden for enterprise org type.
+              ExpertiseSectionWidget(
+                orgType: orgType,
+                initialDomains: profileExpertise,
+                canEdit: canEditProfile,
+                onSaved: () => ref.invalidate(profileProvider),
               ),
-              const SizedBox(height: 16),
+              if (ExpertiseCatalog.isFeatureEnabledForOrgType(orgType))
+                const SizedBox(height: 16),
+
+              // Skills — hidden for enterprise org type.
+              SkillsSectionWidget(
+                orgType: orgType,
+                expertiseKeys: profileExpertise,
+                canEdit: canEditProfile,
+                onSaved: () => ref.invalidate(profileProvider),
+              ),
+              if (SkillLimits.isFeatureEnabledForOrgType(orgType))
+                const SizedBox(height: 16),
 
               // Portfolio section
               if (profileOrgId != null) ...[
