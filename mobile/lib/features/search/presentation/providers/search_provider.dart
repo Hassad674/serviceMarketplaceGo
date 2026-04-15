@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../shared/search/search_key_repository.dart';
+import '../../data/typesense_search_repository.dart';
 
 /// State for the paginated search results.
 class SearchState {
@@ -111,6 +113,52 @@ final searchProvider = StateNotifierProvider.autoDispose
   // Auto-load first page
   Future.microtask(() => notifier.load());
   return notifier;
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Typesense path (gated by --dart-define=SEARCH_ENGINE=typesense).
+// ---------------------------------------------------------------------------
+
+/// kSearchEngine is the compile-time flag that selects the search
+/// backend. Default "sql" keeps the legacy path active. Pass
+/// `--dart-define=SEARCH_ENGINE=typesense` at build time to switch
+/// to the Typesense path end-to-end.
+const kSearchEngine =
+    String.fromEnvironment('SEARCH_ENGINE', defaultValue: 'sql');
+
+/// isTypesenseEnabled is the convenience boolean for screens.
+bool get isTypesenseEnabled => kSearchEngine == 'typesense';
+
+/// searchKeyRepositoryProvider exposes a singleton SearchKeyRepository
+/// for the whole app. The repo holds an in-memory cache keyed on
+/// persona, so a single instance keeps the cache hot across screens.
+final searchKeyRepositoryProvider = Provider<SearchKeyRepository>((ref) {
+  return SearchKeyRepository(ref.watch(apiClientProvider));
+});
+
+/// typesenseSearchRepositoryProvider exposes the data-layer
+/// repository for the Typesense path.
+final typesenseSearchRepositoryProvider =
+    Provider<TypesenseSearchRepository>((ref) {
+  return TypesenseSearchRepository(
+    keys: ref.watch(searchKeyRepositoryProvider),
+  );
+});
+
+/// typesenseSearchProvider runs a single search against the
+/// Typesense cluster for the given persona. Returns a typed result
+/// in an AsyncValue so the screen can render loading/error/data
+/// uniformly. The family parameter is `(persona, query)` so cache
+/// invalidation tracks both.
+final typesenseSearchProvider = FutureProvider.autoDispose.family<
+    TypesenseSearchResult, ({String persona, String query})>((ref, args) async {
+  final repo = ref.watch(typesenseSearchRepositoryProvider);
+  return repo.search(
+    TypesenseSearchInput(
+      persona: args.persona,
+      query: args.query,
+    ),
+  );
 });
 
 /// Fetches a single public profile from GET /api/v1/profiles/{orgId}.

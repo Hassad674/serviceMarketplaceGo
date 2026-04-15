@@ -16,6 +16,7 @@ import (
 	domainpricing "marketplace-backend/internal/domain/profilepricing"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/search"
 	"marketplace-backend/pkg/validator"
 
 	res "marketplace-backend/pkg/response"
@@ -28,14 +29,24 @@ import (
 // domain / app / adapter packages without touching the classic
 // profile flow.
 type ProfilePricingHandler struct {
-	svc *profilepricingapp.Service
+	svc           *profilepricingapp.Service
+	searchPublish SearchIndexPublisher
 }
 
 // NewProfilePricingHandler constructs the handler with the app
-// service. Both arguments are mandatory — there are no optional
-// collaborators.
+// service. The optional Typesense publisher is attached via
+// WithSearchIndexPublisher so existing call sites stay intact.
 func NewProfilePricingHandler(svc *profilepricingapp.Service) *ProfilePricingHandler {
 	return &ProfilePricingHandler{svc: svc}
+}
+
+// WithSearchIndexPublisher attaches an optional Typesense publisher.
+// Successful pricing mutations on the legacy agency path trigger a
+// best-effort agency reindex so the public listing reflects the
+// new amounts within the publisher cooldown window.
+func (h *ProfilePricingHandler) WithSearchIndexPublisher(p SearchIndexPublisher) *ProfilePricingHandler {
+	h.searchPublish = p
+	return h
 }
 
 // ListMyPricing returns every pricing row for the authenticated
@@ -97,6 +108,7 @@ func (h *ProfilePricingHandler) UpsertMyPricing(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	publishReindexBestEffort(r.Context(), h.searchPublish, orgID, search.PersonaAgency, "profile_pricing.upsert")
 	res.JSON(w, http.StatusOK, response.NewPricingSummary(pricing))
 }
 
@@ -115,6 +127,7 @@ func (h *ProfilePricingHandler) DeleteMyPricingByKind(w http.ResponseWriter, r *
 		handlePricingError(w, err)
 		return
 	}
+	publishReindexBestEffort(r.Context(), h.searchPublish, orgID, search.PersonaAgency, "profile_pricing.delete")
 	res.NoContent(w)
 }
 

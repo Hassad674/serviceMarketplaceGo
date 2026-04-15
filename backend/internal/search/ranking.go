@@ -193,31 +193,30 @@ func clampScore(score int) int {
 // DefaultSortBy returns the canonical sort_by string used by the
 // query path when no user-specified sort is provided.
 //
-// The formula blends BM25 text relevance, vector distance, and
-// business signals in this order:
+// Typesense 28.0 caps sort_by at THREE fields, so the formula picks
+// the three highest-impact signals and lets the other quality
+// signals (verified, top_rated, completion_score, last_active_at)
+// influence ranking through the bayesian rating_score plus the
+// underlying _text_match scoring:
 //
-//  1. _text_match buckets of 10 keep visually-similar matches grouped
-//     so the other fields can break ties cleanly.
-//  2. _vector_distance:asc boosts semantically close documents.
-//  3. availability_priority:desc pushes actors available NOW to the top.
-//  4. rating_score:desc (Bayesian) prefers well-reviewed actors.
-//  5. profile_completion_score:desc prefers complete profiles.
-//  6. is_verified:desc prefers KYC-verified actors.
-//  7. is_top_rated:desc prefers the top-rated badge holders.
-//  8. last_active_at:desc prefers recently-active actors.
+//  1. _text_match(buckets:10):desc — group visually-similar matches
+//     into 10 buckets so business signals break the ties inside
+//     each bucket.
+//  2. availability_priority:desc — actors available NOW float to
+//     the top of every bucket.
+//  3. rating_score:desc — Bayesian-weighted rating score acts as
+//     the universal quality tiebreaker.
 //
 // Changing the order here MUST be followed by a full bulk reindex —
 // even though the formula lives on the query side, reviewers need to
 // re-tune the weights after any change.
+//
+// Phase 3 will swap _text_match for the hybrid (_text_match + vector)
+// variant once the embedding field is populated.
 func DefaultSortBy() string {
 	return strings.Join([]string{
 		"_text_match(buckets:10):desc",
-		"_vector_distance:asc",
 		"availability_priority:desc",
 		"rating_score:desc",
-		"profile_completion_score:desc",
-		"is_verified:desc",
-		"is_top_rated:desc",
-		"last_active_at:desc",
 	}, ",")
 }
