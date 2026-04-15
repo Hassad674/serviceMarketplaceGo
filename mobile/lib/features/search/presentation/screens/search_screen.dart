@@ -3,45 +3,42 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/search/search_document.dart';
+import '../../../../shared/widgets/search/search_result_card.dart';
 import '../providers/search_provider.dart';
-import '../widgets/provider_card.dart';
+import '../widgets/search_filter_bottom_sheet.dart';
 import '../widgets/shimmer_provider_card.dart';
 
-/// Screen displaying search results for a specific profile type.
-///
-/// Accepts a [type] parameter: `freelancer`, `agency`, or `referrer`.
-/// Fetches matching public profiles from the API with cursor-based pagination.
-class SearchScreen extends ConsumerWidget {
+/// Screen displaying search results for a specific persona directory
+/// — `freelancer`, `agency`, or `referrer`. Data fetching stays owned
+/// by the existing Riverpod searchProvider; this screen only wires the
+/// new shared SearchResultCard and the filter bottom sheet.
+class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key, required this.type});
 
   final String type;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(searchProvider(type));
-    final notifier = ref.read(searchProvider(type).notifier);
-    final l10n = AppLocalizations.of(context)!;
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(title: Text(_screenTitle(l10n))),
-      body: state.isLoading
-          ? const ShimmerProviderList()
-          : state.error != null && state.profiles.isEmpty
-              ? _ErrorState(onRetry: () => notifier.load())
-              : state.profiles.isEmpty
-                  ? const _EmptyState()
-                  : _ProfileList(
-                      profiles: state.profiles,
-                      hasMore: state.hasMore,
-                      isLoadingMore: state.isLoadingMore,
-                      onLoadMore: () => notifier.loadMore(),
-                      onRefresh: () => notifier.load(),
-                    ),
-    );
+class _SearchScreenState extends ConsumerState<SearchScreen> {
+  MobileSearchFilters _filters = kEmptyMobileFilters;
+
+  SearchDocumentPersona get _persona {
+    switch (widget.type) {
+      case 'agency':
+        return SearchDocumentPersona.agency;
+      case 'referrer':
+        return SearchDocumentPersona.referrer;
+      case 'freelancer':
+      default:
+        return SearchDocumentPersona.freelance;
+    }
   }
 
   String _screenTitle(AppLocalizations l10n) {
-    switch (type) {
+    switch (widget.type) {
       case 'freelancer':
         return l10n.findFreelancers;
       case 'agency':
@@ -52,15 +49,82 @@ class SearchScreen extends ConsumerWidget {
         return l10n.search;
     }
   }
+
+  Future<void> _openFilters() async {
+    final next = await showSearchFilterBottomSheet(context, initial: _filters);
+    if (next != null && mounted) setState(() => _filters = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(searchProvider(widget.type));
+    final notifier = ref.read(searchProvider(widget.type).notifier);
+    final l10n = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_screenTitle(l10n)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            tooltip: l10n.searchFiltersTitle,
+            onPressed: _openFilters,
+          ),
+        ],
+      ),
+      body: _SearchBody(
+        state: state,
+        persona: _persona,
+        onRefresh: () => notifier.load(),
+        onLoadMore: () => notifier.loadMore(),
+      ),
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Profile list — responsive layout with load more
+// Body — switches between loading / error / empty / results
 // ---------------------------------------------------------------------------
 
-class _ProfileList extends StatelessWidget {
-  const _ProfileList({
+class _SearchBody extends StatelessWidget {
+  const _SearchBody({
+    required this.state,
+    required this.persona,
+    required this.onRefresh,
+    required this.onLoadMore,
+  });
+
+  final SearchState state;
+  final SearchDocumentPersona persona;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.isLoading && state.profiles.isEmpty) {
+      return const ShimmerProviderList();
+    }
+    if (state.error != null && state.profiles.isEmpty) {
+      return _ErrorState(onRetry: onRefresh);
+    }
+    if (state.profiles.isEmpty) {
+      return _EmptyState(onRefresh: onRefresh);
+    }
+    return _ResultsList(
+      profiles: state.profiles,
+      persona: persona,
+      hasMore: state.hasMore,
+      isLoadingMore: state.isLoadingMore,
+      onLoadMore: onLoadMore,
+      onRefresh: onRefresh,
+    );
+  }
+}
+
+class _ResultsList extends StatelessWidget {
+  const _ResultsList({
     required this.profiles,
+    required this.persona,
     required this.hasMore,
     required this.isLoadingMore,
     required this.onLoadMore,
@@ -68,6 +132,7 @@ class _ProfileList extends StatelessWidget {
   });
 
   final List<Map<String, dynamic>> profiles;
+  final SearchDocumentPersona persona;
   final bool hasMore;
   final bool isLoadingMore;
   final VoidCallback onLoadMore;
@@ -75,8 +140,6 @@ class _ProfileList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // Total items = profiles + optional load-more button
     final itemCount = profiles.length + (hasMore ? 1 : 0);
 
     return RefreshIndicator(
@@ -84,40 +147,15 @@ class _ProfileList extends StatelessWidget {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: itemCount,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
         itemBuilder: (context, index) {
           if (index < profiles.length) {
-            return ProviderCard(profile: profiles[index]);
+            final doc = SearchDocument.fromLegacyJson(profiles[index], persona);
+            return SearchResultCard(document: doc);
           }
-
-          // Load more button
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Center(
-              child: isLoadingMore
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : TextButton(
-                      onPressed: onLoadMore,
-                      style: TextButton.styleFrom(
-                        foregroundColor: theme.colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: Text(
-                        AppLocalizations.of(context)!.loadMore,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-            ),
+          return _LoadMoreButton(
+            isLoadingMore: isLoadingMore,
+            onLoadMore: onLoadMore,
           );
         },
       ),
@@ -125,12 +163,55 @@ class _ProfileList extends StatelessWidget {
   }
 }
 
+class _LoadMoreButton extends StatelessWidget {
+  const _LoadMoreButton({required this.isLoadingMore, required this.onLoadMore});
+
+  final bool isLoadingMore;
+  final VoidCallback onLoadMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: isLoadingMore
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : TextButton(
+                onPressed: onLoadMore,
+                style: TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: Text(
+                  l10n.searchLoadMore,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Empty state
+// Empty + error states (aligned on the new search.empty namespace)
 // ---------------------------------------------------------------------------
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -158,14 +239,23 @@ class _EmptyState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(l10n.noProfilesFound, style: theme.textTheme.titleMedium),
+            Text(
+              l10n.searchEmptyTitle,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text(
-              l10n.searchTryAgain,
+              l10n.searchEmptyDescription,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: appColors?.mutedForeground,
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.searchEmptyCta),
             ),
           ],
         ),
@@ -174,14 +264,10 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Error state
-// ---------------------------------------------------------------------------
-
 class _ErrorState extends StatelessWidget {
   const _ErrorState({required this.onRetry});
 
-  final VoidCallback onRetry;
+  final Future<void> Function() onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -199,7 +285,8 @@ class _ErrorState extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: theme.colorScheme.error.withValues(alpha: 0.1),
+                // ignore: deprecated_member_use
+                color: theme.colorScheme.error.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusLg),
               ),
               child: Icon(
@@ -209,7 +296,10 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text(l10n.somethingWentWrong, style: theme.textTheme.titleMedium),
+            Text(
+              l10n.somethingWentWrong,
+              style: theme.textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             Text(
               l10n.couldNotLoadProfiles,
