@@ -12,6 +12,7 @@ import (
 	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/search"
 	"marketplace-backend/pkg/validator"
 
 	res "marketplace-backend/pkg/response"
@@ -33,14 +34,23 @@ type FreelanceProfileLookup interface {
 
 // FreelancePricingHandler owns the freelance pricing HTTP endpoints.
 type FreelancePricingHandler struct {
-	pricing  *freelancepricingapp.Service
-	profiles FreelanceProfileLookup
+	pricing       *freelancepricingapp.Service
+	profiles      FreelanceProfileLookup
+	searchPublish SearchIndexPublisher
 }
 
 // NewFreelancePricingHandler wires the handler with the pricing
 // service and a profile lookup.
 func NewFreelancePricingHandler(pricing *freelancepricingapp.Service, profiles FreelanceProfileLookup) *FreelancePricingHandler {
 	return &FreelancePricingHandler{pricing: pricing, profiles: profiles}
+}
+
+// WithSearchIndexPublisher attaches an optional Typesense publisher
+// so every successful pricing mutation triggers a best-effort
+// reindex of the freelance document.
+func (h *FreelancePricingHandler) WithSearchIndexPublisher(p SearchIndexPublisher) *FreelancePricingHandler {
+	h.searchPublish = p
+	return h
 }
 
 // GetMy returns the current authenticated user's freelance pricing
@@ -67,7 +77,7 @@ func (h *FreelancePricingHandler) GetMy(w http.ResponseWriter, r *http.Request) 
 
 // UpsertMy writes or updates the freelance pricing row.
 func (h *FreelancePricingHandler) UpsertMy(w http.ResponseWriter, r *http.Request) {
-	profileID, ok := h.resolveProfile(w, r)
+	orgID, profileID, ok := h.resolveOrgAndProfile(w, r)
 	if !ok {
 		return
 	}
@@ -91,6 +101,7 @@ func (h *FreelancePricingHandler) UpsertMy(w http.ResponseWriter, r *http.Reques
 		handleFreelancePricingError(w, err)
 		return
 	}
+	publishReindexBestEffort(r.Context(), h.searchPublish, orgID, search.PersonaFreelance, "freelance_pricing.upsert")
 	res.JSON(w, http.StatusOK, map[string]any{
 		"data": response.NewFreelancePricingSummary(p),
 	})
@@ -98,7 +109,7 @@ func (h *FreelancePricingHandler) UpsertMy(w http.ResponseWriter, r *http.Reques
 
 // DeleteMy removes the freelance pricing row.
 func (h *FreelancePricingHandler) DeleteMy(w http.ResponseWriter, r *http.Request) {
-	profileID, ok := h.resolveProfile(w, r)
+	orgID, profileID, ok := h.resolveOrgAndProfile(w, r)
 	if !ok {
 		return
 	}
@@ -107,6 +118,7 @@ func (h *FreelancePricingHandler) DeleteMy(w http.ResponseWriter, r *http.Reques
 		handleFreelancePricingError(w, err)
 		return
 	}
+	publishReindexBestEffort(r.Context(), h.searchPublish, orgID, search.PersonaFreelance, "freelance_pricing.delete")
 	res.NoContent(w)
 }
 
@@ -115,17 +127,24 @@ func (h *FreelancePricingHandler) DeleteMy(w http.ResponseWriter, r *http.Reques
 // when anything goes wrong. Extracted so the three endpoints share
 // a single failure path.
 func (h *FreelancePricingHandler) resolveProfile(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	_, profileID, ok := h.resolveOrgAndProfile(w, r)
+	return profileID, ok
+}
+
+// resolveOrgAndProfile returns both ids so the search publisher
+// (which keys on org id) can fire after a successful mutation.
+func (h *FreelancePricingHandler) resolveOrgAndProfile(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return uuid.Nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
 	profileID, err := h.profiles.GetFreelanceProfileIDByOrgID(r.Context(), orgID)
 	if err != nil {
 		handleFreelancePricingError(w, err)
-		return uuid.Nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
-	return profileID, true
+	return orgID, profileID, true
 }
 
 // handleFreelancePricingError maps domain-level errors to HTTP

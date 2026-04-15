@@ -239,14 +239,19 @@ func (c *Client) bulkUpsertBatch(ctx context.Context, collection string, batch [
 // SearchParams is the query-side struct posted to /collections/:name/documents/search.
 // Exposed for phase 2 which implements the query path.
 type SearchParams struct {
-	Q            string `json:"q"`
-	QueryBy      string `json:"query_by"`
-	FilterBy     string `json:"filter_by,omitempty"`
-	FacetBy      string `json:"facet_by,omitempty"`
-	SortBy       string `json:"sort_by,omitempty"`
-	Page         int    `json:"page,omitempty"`
-	PerPage      int    `json:"per_page,omitempty"`
-	IncludeFields string `json:"include_fields,omitempty"`
+	Q                  string `json:"q"`
+	QueryBy            string `json:"query_by"`
+	FilterBy           string `json:"filter_by,omitempty"`
+	FacetBy            string `json:"facet_by,omitempty"`
+	SortBy             string `json:"sort_by,omitempty"`
+	Page               int    `json:"page,omitempty"`
+	PerPage            int    `json:"per_page,omitempty"`
+	IncludeFields      string `json:"include_fields,omitempty"`
+	ExcludeFields      string `json:"exclude_fields,omitempty"`
+	HighlightFields    string `json:"highlight_fields,omitempty"`
+	HighlightFullFields string `json:"highlight_full_fields,omitempty"`
+	NumTypos           string `json:"num_typos,omitempty"`
+	MaxFacetValues     int    `json:"max_facet_values,omitempty"`
 }
 
 // Query calls the collection's /documents/search endpoint and
@@ -273,6 +278,21 @@ func (c *Client) Query(ctx context.Context, collection string, params SearchPara
 	}
 	if params.IncludeFields != "" {
 		q.Set("include_fields", params.IncludeFields)
+	}
+	if params.ExcludeFields != "" {
+		q.Set("exclude_fields", params.ExcludeFields)
+	}
+	if params.HighlightFields != "" {
+		q.Set("highlight_fields", params.HighlightFields)
+	}
+	if params.HighlightFullFields != "" {
+		q.Set("highlight_full_fields", params.HighlightFullFields)
+	}
+	if params.NumTypos != "" {
+		q.Set("num_typos", params.NumTypos)
+	}
+	if params.MaxFacetValues > 0 {
+		q.Set("max_facet_values", fmt.Sprintf("%d", params.MaxFacetValues))
 	}
 
 	path := fmt.Sprintf("/collections/%s/documents/search?%s",

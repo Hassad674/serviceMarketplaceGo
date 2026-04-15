@@ -12,7 +12,17 @@ import (
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/search"
 )
+
+// SearchIndexPublisher is the narrow port the legacy agency profile
+// service uses to trigger a Typesense reindex after a profile
+// mutation. Optional — a nil publisher is treated as a no-op so the
+// search engine can be disabled without breaking the legacy profile
+// flow. Defined locally to avoid cross-feature imports.
+type SearchIndexPublisher interface {
+	PublishReindex(ctx context.Context, orgID uuid.UUID, persona search.Persona) error
+}
 
 // Service is the application layer for the organization profile.
 // It orchestrates the repository port and — for the Tier 1
@@ -33,6 +43,10 @@ type Service struct {
 	// development environments that do not run with an HTTP
 	// geocoder available.
 	geocoder service.Geocoder
+
+	// searchIndex is the optional Typesense reindex publisher. Nil
+	// in tests + when the search engine is disabled.
+	searchIndex SearchIndexPublisher
 }
 
 // NewService wires the profile service with its mandatory
@@ -53,6 +67,27 @@ func (s *Service) WithGeocoder(g service.Geocoder) *Service {
 		s.geocoder = g
 	}
 	return s
+}
+
+// WithSearchIndexPublisher attaches a Typesense reindex publisher.
+// Returns the same service for fluent wiring in main.go. Passing
+// nil is allowed and disables publishing.
+func (s *Service) WithSearchIndexPublisher(p SearchIndexPublisher) *Service {
+	s.searchIndex = p
+	return s
+}
+
+// publishReindex is the best-effort wrapper. Logged but never
+// returned so a degraded search engine cannot block a profile
+// update.
+func (s *Service) publishReindex(ctx context.Context, orgID uuid.UUID) {
+	if s.searchIndex == nil {
+		return
+	}
+	if err := s.searchIndex.PublishReindex(ctx, orgID, search.PersonaAgency); err != nil {
+		slog.Warn("legacy profile: search reindex publish failed",
+			"org_id", orgID, "error", err)
+	}
 }
 
 func (s *Service) SearchPublic(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error) {
@@ -92,6 +127,7 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 		return nil, fmt.Errorf("update profile: %w", err)
 	}
 
+	s.publishReindex(ctx, orgID)
 	return p, nil
 }
 
@@ -176,6 +212,7 @@ func (s *Service) UpdateLocation(ctx context.Context, orgID uuid.UUID, input Upd
 	}); err != nil {
 		return fmt.Errorf("update location: persist: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return nil
 }
 
@@ -228,6 +265,7 @@ func (s *Service) UpdateLanguages(ctx context.Context, orgID uuid.UUID, professi
 	if err := s.profiles.UpdateLanguages(ctx, orgID, pro, conv); err != nil {
 		return fmt.Errorf("update languages: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return nil
 }
 
@@ -250,5 +288,6 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direc
 	if err := s.profiles.UpdateAvailability(ctx, orgID, direct, referrer); err != nil {
 		return fmt.Errorf("update availability: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return nil
 }

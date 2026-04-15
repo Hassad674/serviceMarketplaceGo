@@ -657,6 +657,8 @@
     "completedProjects": "{count, plural, one {# project} other {# projects}}",
     "moreSkills": "+{count}",
     "negotiable": "Negotiable",
+    "didYouMean": "Did you mean",
+    "didYouMeanCta": "Run the corrected search",
     "showFilters": "Filters",
     "hideFilters": "Hide filters",
     "clearFilters": "Clear filters",
