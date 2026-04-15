@@ -83,6 +83,11 @@ type ReferralRepository interface {
 	// distributor to know whether a milestone payout should split.
 	FindAttributionByProposal(ctx context.Context, proposalID uuid.UUID) (*referral.Attribution, error)
 
+	// FindAttributionByID returns a single attribution by its own id. Used by
+	// the clawback flow to resolve the parent referral for a commission row
+	// without having the proposal id on hand.
+	FindAttributionByID(ctx context.Context, id uuid.UUID) (*referral.Attribution, error)
+
 	// ListAttributionsByReferral lists every proposal attributed to a
 	// referral, for the dashboard timeline.
 	ListAttributionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Attribution, error)

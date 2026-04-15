@@ -92,6 +92,11 @@ const queryFindAttributionByProposal = `
 	FROM referral_attributions
 	WHERE proposal_id = $1`
 
+const queryFindAttributionByID = `
+	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
+	FROM referral_attributions
+	WHERE id = $1`
+
 const queryListAttributionsByReferral = `
 	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
 	FROM referral_attributions

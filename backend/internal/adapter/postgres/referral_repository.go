@@ -260,6 +260,23 @@ func (r *ReferralRepository) FindAttributionByProposal(ctx context.Context, prop
 	return a, nil
 }
 
+func (r *ReferralRepository) FindAttributionByID(ctx context.Context, id uuid.UUID) (*referral.Attribution, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	a := &referral.Attribution{}
+	err := r.db.QueryRowContext(ctx, queryFindAttributionByID, id).Scan(
+		&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID, &a.RatePctSnapshot, &a.AttributedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, referral.ErrAttributionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find attribution by id: %w", err)
+	}
+	return a, nil
+}
+
 func (r *ReferralRepository) ListAttributionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Attribution, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()
