@@ -120,6 +120,58 @@ func TestSendSystemMessage_IncrementUnreadError(t *testing.T) {
 	assert.Contains(t, err.Error(), "increment unread")
 }
 
+// TestSendSystemMessage_NilSender verifies the system-actor branch:
+// when SenderID is uuid.Nil (used by runEndOfProjectEffects for
+// proposal_completed and evaluation_request), the service must NOT
+// try to resolve the sender's org (which would fail "user not found"
+// and silently drop the message). It should persist the message and
+// trigger the unread fan-out with no exclusion.
+func TestSendSystemMessage_NilSender(t *testing.T) {
+	convID := uuid.New()
+	var createdMsg *message.Message
+	var unreadCalled bool
+	var observedSenderUserID, observedSenderOrgID uuid.UUID
+
+	msgRepo := &mockMessageRepo{
+		createMessageFn: func(_ context.Context, msg *message.Message) error {
+			createdMsg = msg
+			return nil
+		},
+		incrementUnreadForRecipientsFn: func(_ context.Context, _, sender, org uuid.UUID) error {
+			unreadCalled = true
+			observedSenderUserID = sender
+			observedSenderOrgID = org
+			return nil
+		},
+	}
+	// Fail loudly if anyone tries to look up the nil user — the fix
+	// must short-circuit before we get here.
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) {
+			t.Fatal("resolveUserOrgID must NOT be called for system-actor sends")
+			return nil, fmt.Errorf("unreachable")
+		},
+	}
+
+	svc := newTestServiceWithDeps(testServiceDeps{
+		msgRepo:  msgRepo,
+		userRepo: userRepo,
+	})
+
+	err := svc.SendSystemMessage(context.Background(), service.SystemMessageInput{
+		ConversationID: convID,
+		SenderID:       uuid.Nil, // system actor
+		Content:        "",
+		Type:           string(message.MessageTypeProposalCompleted),
+	})
+
+	require.NoError(t, err, "system-actor send must not error")
+	require.NotNil(t, createdMsg, "message must be persisted")
+	assert.True(t, unreadCalled, "unread fan-out must run")
+	assert.Equal(t, uuid.Nil, observedSenderUserID, "sender user passed unchanged")
+	assert.Equal(t, uuid.Nil, observedSenderOrgID, "sender org should be nil — no exclusion")
+}
+
 func TestSendSystemMessage_ProposalTypes(t *testing.T) {
 	tests := []struct {
 		name    string
