@@ -703,6 +703,14 @@ func main() {
 	paymentInfoSvc.SetReferralDistributor(referralSvc)
 	paymentInfoSvc.SetReferralClawback(referralSvc)
 	referralHandler := handler.NewReferralHandler(referralSvc)
+
+	// Referral scheduler — hourly tick running ExpireStaleIntros (14 days
+	// of silence on pending_* rows) and ExpireMaturedReferrals (active rows
+	// past expires_at). Runs in its own goroutine; stops when pendingEventsCtx
+	// is cancelled along with the rest of the background workers.
+	referralScheduler := referralapp.NewScheduler(referralSvc, 0)
+	go referralScheduler.Run(pendingEventsCtx)
+	slog.Info("referral scheduler started")
 	referrerProfileHandler := handler.
 		NewReferrerProfileHandler(referrerProfileSvc).
 		WithPricingReader(referrerPricingSvc)
