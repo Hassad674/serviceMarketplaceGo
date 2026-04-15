@@ -1,3 +1,21 @@
+// Package handler — upload_handler.go hosts the legacy upload
+// endpoints under /api/v1/upload/*.
+//
+// LEGACY AGENCY-ONLY NOTE:
+//
+//	UploadVideo, DeleteVideo, UploadReferrerVideo, DeleteReferrerVideo
+//	and UploadPhoto read from and write to the legacy profiles table.
+//	Migration 104 deleted every provider_personal row from that
+//	table, so these handlers only produce a correct result for
+//	AGENCY orgs. provider_personal (freelance + referrer) video
+//	uploads go through the per-persona handlers in
+//	freelance_profile_video_handler.go and referrer_profile_video_handler.go
+//	and provider_personal photo uploads go through the organization-
+//	shared /api/v1/organization/photo endpoint.
+//
+//	Do NOT merge the two flows: keeping them separate means deleting
+//	the split persona feature is a single-file delete, and keeping
+//	this file around means the agency path still works unchanged.
 package handler
 
 import (

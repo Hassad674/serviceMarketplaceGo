@@ -41,4 +41,15 @@ type ReferrerProfileRepository interface {
 
 	// UpdateExpertiseDomains replaces the expertise list atomically.
 	UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error
+
+	// UpdateVideo writes the video_url slot in isolation. Used by
+	// the per-persona video upload handler. See
+	// FreelanceProfileRepository.UpdateVideo for semantics. Returns
+	// referrerprofile.ErrProfileNotFound when no row exists.
+	UpdateVideo(ctx context.Context, orgID uuid.UUID, videoURL string) error
+
+	// GetVideoURL returns the currently stored video_url for the
+	// org. Returns referrerprofile.ErrProfileNotFound when no row
+	// exists.
+	GetVideoURL(ctx context.Context, orgID uuid.UUID) (string, error)
 }

@@ -93,6 +93,42 @@ func (r *ReferrerProfileRepository) UpdateAvailability(ctx context.Context, orgI
 	return checkReferrerRowsAffected(result)
 }
 
+// UpdateVideo writes the video_url slot in isolation.
+func (r *ReferrerProfileRepository) UpdateVideo(ctx context.Context, orgID uuid.UUID, videoURL string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE referrer_profiles
+		   SET video_url = $2
+		 WHERE organization_id = $1`,
+		orgID, videoURL,
+	)
+	if err != nil {
+		return fmt.Errorf("update referrer profile video: %w", err)
+	}
+	return checkReferrerRowsAffected(result)
+}
+
+// GetVideoURL returns the currently stored video_url for the org.
+func (r *ReferrerProfileRepository) GetVideoURL(ctx context.Context, orgID uuid.UUID) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var videoURL string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT video_url
+		  FROM referrer_profiles
+		 WHERE organization_id = $1`, orgID).Scan(&videoURL)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", referrerprofile.ErrProfileNotFound
+		}
+		return "", fmt.Errorf("get referrer profile video url: %w", err)
+	}
+	return videoURL, nil
+}
+
 // UpdateExpertiseDomains rewrites the expertise_domains TEXT[]
 // array atomically.
 func (r *ReferrerProfileRepository) UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error {

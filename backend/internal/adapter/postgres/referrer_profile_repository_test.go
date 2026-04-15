@@ -16,6 +16,7 @@ import (
 	"marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
+	"marketplace-backend/internal/domain/referrerprofile"
 )
 
 // newTestReferrerOrg creates a provider_personal org but does NOT
@@ -133,4 +134,58 @@ func TestReferrerProfileRepository_UpdateExpertiseDomains_ReplacesList(t *testin
 	view, err := repo.GetOrCreateByOrgID(ctx, orgID)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"marketing", "sales"}, view.Profile.ExpertiseDomains)
+}
+
+func TestReferrerProfileRepository_UpdateVideo_PersistsAndClears(t *testing.T) {
+	db := testDB(t)
+	orgID := newTestReferrerOrg(t)
+	repo := postgres.NewReferrerProfileRepository(db)
+	ctx := context.Background()
+
+	_, err := repo.GetOrCreateByOrgID(ctx, orgID) // lazy-create
+	require.NoError(t, err)
+
+	// Seed title/about so we can assert UpdateVideo never touches them.
+	require.NoError(t, repo.UpdateCore(ctx, orgID, "Top Apporteur", "Finds deals", ""))
+
+	require.NoError(t, repo.UpdateVideo(ctx, orgID, "https://example.com/intro.mp4"))
+	view, err := repo.GetOrCreateByOrgID(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/intro.mp4", view.Profile.VideoURL)
+	assert.Equal(t, "Top Apporteur", view.Profile.Title)
+
+	require.NoError(t, repo.UpdateVideo(ctx, orgID, ""))
+	view, err = repo.GetOrCreateByOrgID(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "", view.Profile.VideoURL)
+}
+
+func TestReferrerProfileRepository_UpdateVideo_NotFound(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewReferrerProfileRepository(db)
+
+	err := repo.UpdateVideo(context.Background(), uuid.New(), "https://example.com/v.mp4")
+	assert.ErrorIs(t, err, referrerprofile.ErrProfileNotFound)
+}
+
+func TestReferrerProfileRepository_GetVideoURL_ReturnsCurrentValueOrNotFound(t *testing.T) {
+	db := testDB(t)
+	orgID := newTestReferrerOrg(t)
+	repo := postgres.NewReferrerProfileRepository(db)
+	ctx := context.Background()
+
+	_, err := repo.GetOrCreateByOrgID(ctx, orgID) // lazy-create
+	require.NoError(t, err)
+
+	got, err := repo.GetVideoURL(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
+
+	require.NoError(t, repo.UpdateVideo(ctx, orgID, "https://example.com/v.mp4"))
+	got, err = repo.GetVideoURL(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/v.mp4", got)
+
+	_, err = repo.GetVideoURL(ctx, uuid.New())
+	assert.ErrorIs(t, err, referrerprofile.ErrProfileNotFound)
 }
