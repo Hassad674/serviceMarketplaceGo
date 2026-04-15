@@ -52,3 +52,12 @@ clean:
 
 # Dev alias
 dev: run
+
+# Search engine — bulk reindex every organization into Typesense.
+# Idempotent: safe to re-run. Accepts the same --persona and --batch
+# flags as the underlying CLI. Example:
+#   make reindex-bulk
+#   make reindex-bulk ARGS="--persona=freelance --batch=200"
+reindex-bulk:
+	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/reindex/main.go $(ARGS)
+

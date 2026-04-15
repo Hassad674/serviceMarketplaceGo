@@ -44,6 +44,19 @@ type Config struct {
 	SQSQueueURL                     string
 	ComprehendEnabled               bool
 	AnthropicAPIKey                 string
+
+	// Search engine (Typesense) — phase 1 infrastructure.
+	// SearchEngine selects the query backend for the public
+	// listings page. Values: "sql" (legacy, default) or
+	// "typesense" (hybrid Typesense path). The outbox
+	// publishers and bulk reindex CLI still run regardless
+	// of this flag so Typesense can be populated and verified
+	// before flipping the query path over.
+	SearchEngine          string
+	TypesenseHost         string
+	TypesenseAPIKey       string
+	OpenAIAPIKey          string
+	OpenAIEmbeddingsModel string
 }
 
 func Load() *Config {
@@ -84,7 +97,31 @@ func Load() *Config {
 		SQSQueueURL:                    getEnv("SQS_QUEUE_URL", ""),
 		ComprehendEnabled:              getEnv("COMPREHEND_ENABLED", "false") == "true",
 		AnthropicAPIKey:                getEnv("ANTHROPIC_API_KEY", ""),
+
+		// Search engine
+		SearchEngine:          getEnv("SEARCH_ENGINE", "sql"),
+		TypesenseHost:         getEnv("TYPESENSE_HOST", "http://localhost:8108"),
+		TypesenseAPIKey:       getEnv("TYPESENSE_API_KEY", ""),
+		OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
+		OpenAIEmbeddingsModel: getEnv("OPENAI_EMBEDDINGS_MODEL", "text-embedding-3-small"),
 	}
+}
+
+// TypesenseConfigured reports whether the backend has enough
+// configuration to talk to a Typesense cluster at all. Used by
+// the startup wiring to decide whether to instantiate the search
+// client + indexer.
+func (c *Config) TypesenseConfigured() bool {
+	return c.TypesenseHost != "" && c.TypesenseAPIKey != ""
+}
+
+// SearchEngineIsTypesense reports whether the query path should
+// route through Typesense. Separate from TypesenseConfigured so
+// a misconfigured prod (flag flipped without the env vars)
+// surfaces a clear boot error instead of silently falling back
+// to SQL.
+func (c *Config) SearchEngineIsTypesense() bool {
+	return strings.EqualFold(c.SearchEngine, "typesense")
 }
 
 func (c *Config) IsDevelopment() bool {

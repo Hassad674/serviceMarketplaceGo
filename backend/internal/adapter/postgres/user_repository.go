@@ -534,6 +534,24 @@ func (r *UserRepository) UpdateEmailNotificationsEnabled(ctx context.Context, us
 	return nil
 }
 
+// TouchLastActive bumps users.last_active_at to NOW() for the given
+// user. Called from the auth login path and the messaging "message
+// sent" path so the Typesense indexer can rank recently-active
+// profiles higher. Idempotent and cheap enough to call on every
+// request if needed — backed by the idx_users_last_active_at index
+// introduced in migration 110.
+func (r *UserRepository) TouchLastActive(ctx context.Context, userID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE users SET last_active_at = NOW() WHERE id = $1`, userID)
+	if err != nil {
+		return fmt.Errorf("touch last_active_at: %w", err)
+	}
+	return nil
+}
+
 // Stripe Connect and KYC enforcement used to live on UserRepository via
 // the stripe_* and kyc_* columns (migrations 040 / 044). Phase R5 moved
 // them onto the organization row — the merchant of record is the team,

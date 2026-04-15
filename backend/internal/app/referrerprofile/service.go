@@ -14,6 +14,7 @@ package referrerprofile
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -21,17 +22,53 @@ import (
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/referrerprofile"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/search"
 )
+
+// SearchIndexPublisher is the narrow port the service uses to
+// trigger a Typesense reindex after a mutation. Optional — nil
+// is accepted so the search engine can be disabled without
+// touching this service.
+type SearchIndexPublisher interface {
+	PublishReindex(ctx context.Context, orgID uuid.UUID, persona search.Persona) error
+}
 
 // Service orchestrates the referrer profile use cases.
 type Service struct {
-	profiles repository.ReferrerProfileRepository
+	profiles    repository.ReferrerProfileRepository
+	searchIndex SearchIndexPublisher
 }
 
 // NewService wires the referrer profile service with its single
 // dependency.
 func NewService(profiles repository.ReferrerProfileRepository) *Service {
 	return &Service{profiles: profiles}
+}
+
+// WithSearchIndexPublisher attaches a Typesense publisher that
+// emits a `search.reindex` event on every mutation. Mirrors the
+// freelance profile service — a builder method keeps NewService's
+// signature stable.
+func (s *Service) WithSearchIndexPublisher(publisher SearchIndexPublisher) *Service {
+	if s == nil {
+		return nil
+	}
+	clone := *s
+	clone.searchIndex = publisher
+	return &clone
+}
+
+// publishReindex is the best-effort wrapper that swallows the
+// error (logged only) so a degraded search engine cannot block a
+// profile update.
+func (s *Service) publishReindex(ctx context.Context, orgID uuid.UUID) {
+	if s.searchIndex == nil {
+		return
+	}
+	if err := s.searchIndex.PublishReindex(ctx, orgID, search.PersonaReferrer); err != nil {
+		slog.Warn("referrer profile: search reindex publish failed",
+			"org_id", orgID, "error", err)
+	}
 }
 
 // GetByOrgID returns the hydrated referrer profile view for the
@@ -85,6 +122,7 @@ func (s *Service) UpdateCore(ctx context.Context, orgID uuid.UUID, input UpdateC
 	if err := s.profiles.UpdateCore(ctx, orgID, title, about, videoURL); err != nil {
 		return nil, fmt.Errorf("update referrer profile core: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
@@ -101,6 +139,7 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, raw s
 	if err := s.profiles.UpdateAvailability(ctx, orgID, status); err != nil {
 		return nil, fmt.Errorf("update referrer profile availability: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
@@ -115,6 +154,7 @@ func (s *Service) UpdateExpertise(ctx context.Context, orgID uuid.UUID, domains 
 	if err := s.profiles.UpdateExpertiseDomains(ctx, orgID, normalized); err != nil {
 		return nil, fmt.Errorf("update referrer profile expertise: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 

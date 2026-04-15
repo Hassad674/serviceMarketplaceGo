@@ -1,0 +1,153 @@
+package searchindex_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"marketplace-backend/internal/app/searchindex"
+	"marketplace-backend/internal/domain/pendingevent"
+	"marketplace-backend/internal/search"
+)
+
+// fakePendingEvents records every Schedule call so tests can
+// assert on the emitted events. Implements only the subset of
+// repository.PendingEventRepository that the publisher uses.
+type fakePendingEvents struct {
+	scheduled []*pendingevent.PendingEvent
+	scheduleErr error
+}
+
+func (f *fakePendingEvents) Schedule(_ context.Context, e *pendingevent.PendingEvent) error {
+	if f.scheduleErr != nil {
+		return f.scheduleErr
+	}
+	f.scheduled = append(f.scheduled, e)
+	return nil
+}
+
+func (f *fakePendingEvents) PopDue(_ context.Context, _ int) ([]*pendingevent.PendingEvent, error) {
+	return nil, nil
+}
+func (f *fakePendingEvents) MarkDone(_ context.Context, _ *pendingevent.PendingEvent) error {
+	return nil
+}
+func (f *fakePendingEvents) MarkFailed(_ context.Context, _ *pendingevent.PendingEvent) error {
+	return nil
+}
+func (f *fakePendingEvents) GetByID(_ context.Context, _ uuid.UUID) (*pendingevent.PendingEvent, error) {
+	return nil, nil
+}
+
+func TestNewPublisher_RequiresRepo(t *testing.T) {
+	_, err := searchindex.NewPublisher(searchindex.PublisherConfig{})
+	assert.ErrorContains(t, err, "pending events repository")
+}
+
+func TestPublisher_Nil_IsSafe(t *testing.T) {
+	// A nil publisher must return nil from both methods so the
+	// feature services can pass the publisher conditionally.
+	var p *searchindex.Publisher
+	assert.NoError(t, p.PublishReindex(context.Background(), uuid.New(), search.PersonaFreelance))
+	assert.NoError(t, p.PublishDelete(context.Background(), uuid.New()))
+}
+
+func TestPublisher_PublishReindex_WritesEvent(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	require.NoError(t, pub.PublishReindex(context.Background(), orgID, search.PersonaFreelance))
+	require.Len(t, events.scheduled, 1)
+
+	ev := events.scheduled[0]
+	assert.Equal(t, pendingevent.TypeSearchReindex, ev.EventType)
+
+	var payload searchindex.ReindexPayload
+	require.NoError(t, json.Unmarshal(ev.Payload, &payload))
+	assert.Equal(t, orgID, payload.OrganizationID)
+	assert.Equal(t, search.PersonaFreelance, payload.Persona)
+}
+
+func TestPublisher_PublishReindex_DebouncedWithinCooldown(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{
+		Events:   events,
+		Cooldown: time.Hour,
+	})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	require.NoError(t, pub.PublishReindex(context.Background(), orgID, search.PersonaFreelance))
+	require.NoError(t, pub.PublishReindex(context.Background(), orgID, search.PersonaFreelance))
+	require.NoError(t, pub.PublishReindex(context.Background(), orgID, search.PersonaFreelance))
+
+	assert.Len(t, events.scheduled, 1, "three rapid publishes must dedupe to one")
+}
+
+func TestPublisher_PublishReindex_DifferentOrgsNotDeduped(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{
+		Events:   events,
+		Cooldown: time.Hour,
+	})
+	require.NoError(t, err)
+
+	orgA := uuid.New()
+	orgB := uuid.New()
+	require.NoError(t, pub.PublishReindex(context.Background(), orgA, search.PersonaFreelance))
+	require.NoError(t, pub.PublishReindex(context.Background(), orgB, search.PersonaFreelance))
+	assert.Len(t, events.scheduled, 2)
+}
+
+func TestPublisher_PublishReindex_RejectsInvalidInputs(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	assert.ErrorContains(t, pub.PublishReindex(context.Background(), uuid.Nil, search.PersonaFreelance), "orgID is required")
+	assert.ErrorContains(t, pub.PublishReindex(context.Background(), uuid.New(), "enterprise"), "invalid persona")
+	assert.Len(t, events.scheduled, 0)
+}
+
+func TestPublisher_PublishDelete_NotDebounced(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{
+		Events:   events,
+		Cooldown: time.Hour,
+	})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	require.NoError(t, pub.PublishDelete(context.Background(), orgID))
+	require.NoError(t, pub.PublishDelete(context.Background(), orgID))
+	assert.Len(t, events.scheduled, 2, "deletes must never debounce")
+
+	for _, ev := range events.scheduled {
+		assert.Equal(t, pendingevent.TypeSearchDelete, ev.EventType)
+	}
+}
+
+func TestPublisher_PublishDelete_RejectsNilOrg(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	assert.ErrorContains(t, pub.PublishDelete(context.Background(), uuid.Nil), "orgID is required")
+}
+
+func TestPublisher_RepoErrorPropagates(t *testing.T) {
+	events := &fakePendingEvents{scheduleErr: errors.New("db down")}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	err = pub.PublishReindex(context.Background(), uuid.New(), search.PersonaFreelance)
+	assert.ErrorContains(t, err, "db down")
+}
