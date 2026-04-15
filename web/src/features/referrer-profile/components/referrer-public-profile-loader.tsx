@@ -6,6 +6,7 @@ import { useRouter } from "@i18n/navigation"
 import { useProfileRating } from "@/shared/hooks/profile/use-profile-rating"
 import { usePublicReferrerProfile } from "../hooks/use-referrer-profile"
 import { ReferrerPublicProfile } from "./referrer-public-profile"
+import { PublicReferrerSocialLinks } from "./referrer-social-links-section"
 
 interface ReferrerPublicProfileLoaderProps {
   orgId: string
@@ -47,13 +48,16 @@ export function ReferrerPublicProfileLoader({
   const displayName = profile.title || profile.organization_id
 
   return (
-    <ReferrerPublicProfile
-      profile={profile}
-      displayName={displayName}
-      rating={
-        rating ? { average: rating.average, count: rating.count } : undefined
-      }
-    />
+    <div className="space-y-6">
+      <ReferrerPublicProfile
+        profile={profile}
+        displayName={displayName}
+        rating={
+          rating ? { average: rating.average, count: rating.count } : undefined
+        }
+      />
+      <PublicReferrerSocialLinks orgId={orgId} />
+    </div>
   )
 }
 
