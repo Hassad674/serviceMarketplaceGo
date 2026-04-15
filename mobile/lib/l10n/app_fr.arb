@@ -988,6 +988,10 @@
   "tier1LocationWorkModeOnSite": "Sur site",
   "tier1LocationWorkModeHybrid": "Hybride",
   "tier1LocationTravelRadiusLabel": "Rayon de déplacement (km)",
+  "tier1LocationTravelRadiusShort": "Jusqu'à {km} km",
+  "@tier1LocationTravelRadiusShort": {
+    "placeholders": { "km": { "type": "int" } }
+  },
   "tier1LocationTravelRadiusPlaceholder": "ex. 50",
   "tier1LocationEmpty": "Ajoute ta ville pour être plus facile à trouver",
   "tier1LocationEditButton": "Mettre à jour ma localisation",

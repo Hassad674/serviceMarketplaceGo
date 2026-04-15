@@ -995,6 +995,10 @@
   "tier1LocationWorkModeOnSite": "On-site",
   "tier1LocationWorkModeHybrid": "Hybrid",
   "tier1LocationTravelRadiusLabel": "Travel radius (km)",
+  "tier1LocationTravelRadiusShort": "Up to {km} km",
+  "@tier1LocationTravelRadiusShort": {
+    "placeholders": { "km": { "type": "int" } }
+  },
   "tier1LocationTravelRadiusPlaceholder": "e.g. 50",
   "tier1LocationEmpty": "Add your city to help clients find you",
   "tier1LocationEditButton": "Update location",

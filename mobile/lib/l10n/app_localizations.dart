@@ -4646,6 +4646,12 @@ abstract class AppLocalizations {
   /// **'Travel radius (km)'**
   String get tier1LocationTravelRadiusLabel;
 
+  /// No description provided for @tier1LocationTravelRadiusShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to {km} km'**
+  String tier1LocationTravelRadiusShort(int km);
+
   /// No description provided for @tier1LocationTravelRadiusPlaceholder.
   ///
   /// In en, this message translates to:
