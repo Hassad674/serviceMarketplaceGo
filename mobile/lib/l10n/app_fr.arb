@@ -103,6 +103,49 @@
   "checkConnectionRetry": "Vérifiez votre connexion et réessayez.",
   "somethingWentWrong": "Une erreur est survenue",
   "retry": "Réessayer",
+  "searchTotalEarnedLine": "{amount} gagnés",
+  "@searchTotalEarnedLine": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "searchCompletedProjects": "{count, plural, one{# mission} other{# missions}}",
+  "@searchCompletedProjects": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchNegotiableBadge": "Négociable",
+  "searchLoadMore": "Voir plus",
+  "searchEmptyTitle": "Aucun résultat",
+  "searchEmptyDescription": "Essaie d'élargir tes filtres.",
+  "searchEmptyCta": "Réinitialiser les filtres",
+  "searchFiltersTitle": "Filtres",
+  "searchFiltersAvailability": "Disponibilité",
+  "searchFiltersAvailableNow": "Maintenant",
+  "searchFiltersAvailableSoon": "Bientôt",
+  "searchFiltersAll": "Tout",
+  "searchFiltersPrice": "Tarif / jour",
+  "searchFiltersPriceMin": "Min",
+  "searchFiltersPriceMax": "Max",
+  "searchFiltersLocation": "Localisation",
+  "searchFiltersLocationCity": "Ville",
+  "searchFiltersLocationCountry": "Pays",
+  "searchFiltersLanguages": "Langues",
+  "searchFiltersExpertise": "Domaines d'expertise",
+  "searchFiltersSkills": "Compétences",
+  "searchFiltersRating": "Note minimum",
+  "searchFiltersWorkMode": "Mode de travail",
+  "searchFiltersRemote": "Remote",
+  "searchFiltersOnSite": "Sur site",
+  "searchFiltersHybrid": "Hybride",
+  "searchFiltersApply": "Appliquer",
+  "searchFiltersReset": "Réinitialiser",
+  "searchFiltersOpen": "Filtres",
   "tapToPlay": "Appuyez pour lire",
   "replaceVideo": "Remplacer la vidéo",
   "removeVideo": "Supprimer la vidéo",
