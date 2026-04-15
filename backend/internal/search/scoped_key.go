@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -20,14 +19,16 @@ import (
 // is:
 //
 //	scoped_key = base64(
-//	    hex(hmac_sha256(parent_key, embedded_params))[0:64]
+//	    base64(hmac_sha256(parent_key, embedded_params))
 //	    + parent_key_prefix
 //	    + embedded_params_json
 //	)
 //
 // where `parent_key_prefix` is the FIRST 4 characters of the parent
 // (master) API key. Typesense uses those 4 characters to look up the
-// parent key on its side and validate the HMAC.
+// parent key on its side and validate the HMAC. The HMAC is
+// base64-encoded, NOT hex — using hex produces a self-consistent but
+// wrong output that Typesense silently rejects at query time.
 //
 // The function is a pure helper — no I/O, no state, deterministic
 // output for fixed inputs. That makes it trivial to unit-test the
@@ -102,7 +103,7 @@ func generateScopedSearchKey(parentKey string, params EmbeddedSearchParams) (str
 		// defensive in case the stdlib contract ever changes.
 		return "", fmt.Errorf("scoped key: hmac write: %w", err)
 	}
-	digest := hex.EncodeToString(mac.Sum(nil))
+	digest := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 
 	prefix := trimmed[:4]
 	raw := digest + prefix + string(embedded)

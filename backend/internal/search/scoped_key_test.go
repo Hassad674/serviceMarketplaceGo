@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -14,6 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// digestPrefixOffset is the byte offset of the 4-char parent key
+// prefix inside the decoded scoped key payload. Base64-encoding a
+// SHA-256 HMAC (32 bytes) produces exactly 44 characters (32 → 44
+// with padding), so the prefix lives at [44:48] and the embedded
+// JSON starts at [48:].
+const digestPrefixOffset = 44
 
 // encodeNoHTML mirrors the production HMAC input encoding so tests
 // stay in sync with implementation drift.
@@ -50,7 +56,7 @@ func TestGenerateScopedSearchKey_HappyPath(t *testing.T) {
 	embedded := encodeNoHTML(t, params)
 	mac := hmac.New(sha256.New, []byte(parent))
 	_, _ = mac.Write(embedded)
-	digest := hex.EncodeToString(mac.Sum(nil))
+	digest := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	want := base64.StdEncoding.EncodeToString([]byte(digest + parent[:4] + string(embedded)))
 
 	assert.Equal(t, want, got, "scoped key wire format must match HMAC-SHA256 + base64 spec")
@@ -86,9 +92,9 @@ func TestGenerateScopedSearchKey_DifferentParentsProduceDifferentKeys(t *testing
 	require.NoError(t, err)
 	rawB, err := base64.StdEncoding.DecodeString(b)
 	require.NoError(t, err)
-	// digest is 64 hex chars, then 4-char prefix, then the json
-	assert.Equal(t, "aaaa", string(rawA[64:68]))
-	assert.Equal(t, "bbbb", string(rawB[64:68]))
+	// digest is 44 base64 chars (SHA-256 HMAC), then 4-char prefix, then the json
+	assert.Equal(t, "aaaa", string(rawA[digestPrefixOffset:digestPrefixOffset+4]))
+	assert.Equal(t, "bbbb", string(rawB[digestPrefixOffset:digestPrefixOffset+4]))
 }
 
 func TestGenerateScopedSearchKey_DifferentFiltersProduceDifferentKeys(t *testing.T) {
@@ -129,8 +135,8 @@ func TestGenerateScopedSearchKey_PrefixIsFirst4Chars(t *testing.T) {
 
 	raw, err := base64.StdEncoding.DecodeString(got)
 	require.NoError(t, err)
-	// 64-hex-char digest + 4-char prefix + json
-	assert.Equal(t, "k1k2", string(raw[64:68]),
+	// 44 base64-char digest + 4-char prefix + json
+	assert.Equal(t, "k1k2", string(raw[digestPrefixOffset:digestPrefixOffset+4]),
 		"scoped key must embed the first 4 chars of the parent key as Typesense uses it for lookup")
 }
 
@@ -147,7 +153,7 @@ func TestGenerateScopedSearchKey_EmbedsParamsAsJSON(t *testing.T) {
 	raw, err := base64.StdEncoding.DecodeString(got)
 	require.NoError(t, err)
 
-	embeddedJSON := string(raw[68:])
+	embeddedJSON := string(raw[digestPrefixOffset+4:])
 	assert.True(t, strings.Contains(embeddedJSON, `"filter_by":"persona:referrer && is_published:true"`),
 		"embedded params must contain filter_by as JSON")
 	assert.True(t, strings.Contains(embeddedJSON, `"expires_at":1234567890`),
