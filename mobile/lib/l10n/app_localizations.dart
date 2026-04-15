@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -715,6 +715,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Retry'**
   String get retry;
+
+  /// No description provided for @searchTotalEarnedLine.
+  ///
+  /// In en, this message translates to:
+  /// **'{amount} earned'**
+  String searchTotalEarnedLine(String amount);
+
+  /// No description provided for @searchCompletedProjects.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{# project} other{# projects}}'**
+  String searchCompletedProjects(int count);
+
+  /// No description provided for @searchNegotiableBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Negotiable'**
+  String get searchNegotiableBadge;
+
+  /// No description provided for @searchLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get searchLoadMore;
+
+  /// No description provided for @searchEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get searchEmptyTitle;
+
+  /// No description provided for @searchEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Try broadening your filters.'**
+  String get searchEmptyDescription;
+
+  /// No description provided for @searchEmptyCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset filters'**
+  String get searchEmptyCta;
+
+  /// No description provided for @searchFiltersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get searchFiltersTitle;
+
+  /// No description provided for @searchFiltersAvailability.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability'**
+  String get searchFiltersAvailability;
+
+  /// No description provided for @searchFiltersAvailableNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Now'**
+  String get searchFiltersAvailableNow;
+
+  /// No description provided for @searchFiltersAvailableSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get searchFiltersAvailableSoon;
+
+  /// No description provided for @searchFiltersAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get searchFiltersAll;
+
+  /// No description provided for @searchFiltersPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily rate'**
+  String get searchFiltersPrice;
+
+  /// No description provided for @searchFiltersPriceMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Min'**
+  String get searchFiltersPriceMin;
+
+  /// No description provided for @searchFiltersPriceMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Max'**
+  String get searchFiltersPriceMax;
+
+  /// No description provided for @searchFiltersLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get searchFiltersLocation;
+
+  /// No description provided for @searchFiltersLocationCity.
+  ///
+  /// In en, this message translates to:
+  /// **'City'**
+  String get searchFiltersLocationCity;
+
+  /// No description provided for @searchFiltersLocationCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Country'**
+  String get searchFiltersLocationCountry;
+
+  /// No description provided for @searchFiltersLanguages.
+  ///
+  /// In en, this message translates to:
+  /// **'Languages'**
+  String get searchFiltersLanguages;
+
+  /// No description provided for @searchFiltersExpertise.
+  ///
+  /// In en, this message translates to:
+  /// **'Expertise'**
+  String get searchFiltersExpertise;
+
+  /// No description provided for @searchFiltersSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Skills'**
+  String get searchFiltersSkills;
+
+  /// No description provided for @searchFiltersRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum rating'**
+  String get searchFiltersRating;
+
+  /// No description provided for @searchFiltersWorkMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Work mode'**
+  String get searchFiltersWorkMode;
+
+  /// No description provided for @searchFiltersRemote.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote'**
+  String get searchFiltersRemote;
+
+  /// No description provided for @searchFiltersOnSite.
+  ///
+  /// In en, this message translates to:
+  /// **'On site'**
+  String get searchFiltersOnSite;
+
+  /// No description provided for @searchFiltersHybrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Hybrid'**
+  String get searchFiltersHybrid;
+
+  /// No description provided for @searchFiltersApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get searchFiltersApply;
+
+  /// No description provided for @searchFiltersReset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get searchFiltersReset;
+
+  /// No description provided for @searchFiltersOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get searchFiltersOpen;
 
   /// No description provided for @tapToPlay.
   ///
@@ -5016,8 +5190,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

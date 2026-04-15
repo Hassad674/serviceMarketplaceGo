@@ -326,6 +326,103 @@ class AppLocalizationsFr extends AppLocalizations {
   String get retry => 'Réessayer';
 
   @override
+  String searchTotalEarnedLine(String amount) {
+    return '$amount gagnés';
+  }
+
+  @override
+  String searchCompletedProjects(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# missions',
+      one: '# mission',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchNegotiableBadge => 'Négociable';
+
+  @override
+  String get searchLoadMore => 'Voir plus';
+
+  @override
+  String get searchEmptyTitle => 'Aucun résultat';
+
+  @override
+  String get searchEmptyDescription => 'Essaie d\'élargir tes filtres.';
+
+  @override
+  String get searchEmptyCta => 'Réinitialiser les filtres';
+
+  @override
+  String get searchFiltersTitle => 'Filtres';
+
+  @override
+  String get searchFiltersAvailability => 'Disponibilité';
+
+  @override
+  String get searchFiltersAvailableNow => 'Maintenant';
+
+  @override
+  String get searchFiltersAvailableSoon => 'Bientôt';
+
+  @override
+  String get searchFiltersAll => 'Tout';
+
+  @override
+  String get searchFiltersPrice => 'Tarif / jour';
+
+  @override
+  String get searchFiltersPriceMin => 'Min';
+
+  @override
+  String get searchFiltersPriceMax => 'Max';
+
+  @override
+  String get searchFiltersLocation => 'Localisation';
+
+  @override
+  String get searchFiltersLocationCity => 'Ville';
+
+  @override
+  String get searchFiltersLocationCountry => 'Pays';
+
+  @override
+  String get searchFiltersLanguages => 'Langues';
+
+  @override
+  String get searchFiltersExpertise => 'Domaines d\'expertise';
+
+  @override
+  String get searchFiltersSkills => 'Compétences';
+
+  @override
+  String get searchFiltersRating => 'Note minimum';
+
+  @override
+  String get searchFiltersWorkMode => 'Mode de travail';
+
+  @override
+  String get searchFiltersRemote => 'Remote';
+
+  @override
+  String get searchFiltersOnSite => 'Sur site';
+
+  @override
+  String get searchFiltersHybrid => 'Hybride';
+
+  @override
+  String get searchFiltersApply => 'Appliquer';
+
+  @override
+  String get searchFiltersReset => 'Réinitialiser';
+
+  @override
+  String get searchFiltersOpen => 'Filtres';
+
+  @override
   String get tapToPlay => 'Appuyez pour lire';
 
   @override

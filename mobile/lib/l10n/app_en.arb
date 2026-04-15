@@ -110,6 +110,49 @@
   "checkConnectionRetry": "Check your connection and try again.",
   "somethingWentWrong": "Something went wrong",
   "retry": "Retry",
+  "searchTotalEarnedLine": "{amount} earned",
+  "@searchTotalEarnedLine": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "searchCompletedProjects": "{count, plural, one{# project} other{# projects}}",
+  "@searchCompletedProjects": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchNegotiableBadge": "Negotiable",
+  "searchLoadMore": "Load more",
+  "searchEmptyTitle": "No results",
+  "searchEmptyDescription": "Try broadening your filters.",
+  "searchEmptyCta": "Reset filters",
+  "searchFiltersTitle": "Filters",
+  "searchFiltersAvailability": "Availability",
+  "searchFiltersAvailableNow": "Now",
+  "searchFiltersAvailableSoon": "Soon",
+  "searchFiltersAll": "All",
+  "searchFiltersPrice": "Daily rate",
+  "searchFiltersPriceMin": "Min",
+  "searchFiltersPriceMax": "Max",
+  "searchFiltersLocation": "Location",
+  "searchFiltersLocationCity": "City",
+  "searchFiltersLocationCountry": "Country",
+  "searchFiltersLanguages": "Languages",
+  "searchFiltersExpertise": "Expertise",
+  "searchFiltersSkills": "Skills",
+  "searchFiltersRating": "Minimum rating",
+  "searchFiltersWorkMode": "Work mode",
+  "searchFiltersRemote": "Remote",
+  "searchFiltersOnSite": "On site",
+  "searchFiltersHybrid": "Hybrid",
+  "searchFiltersApply": "Apply",
+  "searchFiltersReset": "Reset",
+  "searchFiltersOpen": "Filters",
   "tapToPlay": "Tap to play",
   "replaceVideo": "Replace video",
   "removeVideo": "Remove video",

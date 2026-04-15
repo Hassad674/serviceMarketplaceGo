@@ -324,6 +324,103 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String searchTotalEarnedLine(String amount) {
+    return '$amount earned';
+  }
+
+  @override
+  String searchCompletedProjects(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '# projects',
+      one: '# project',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get searchNegotiableBadge => 'Negotiable';
+
+  @override
+  String get searchLoadMore => 'Load more';
+
+  @override
+  String get searchEmptyTitle => 'No results';
+
+  @override
+  String get searchEmptyDescription => 'Try broadening your filters.';
+
+  @override
+  String get searchEmptyCta => 'Reset filters';
+
+  @override
+  String get searchFiltersTitle => 'Filters';
+
+  @override
+  String get searchFiltersAvailability => 'Availability';
+
+  @override
+  String get searchFiltersAvailableNow => 'Now';
+
+  @override
+  String get searchFiltersAvailableSoon => 'Soon';
+
+  @override
+  String get searchFiltersAll => 'All';
+
+  @override
+  String get searchFiltersPrice => 'Daily rate';
+
+  @override
+  String get searchFiltersPriceMin => 'Min';
+
+  @override
+  String get searchFiltersPriceMax => 'Max';
+
+  @override
+  String get searchFiltersLocation => 'Location';
+
+  @override
+  String get searchFiltersLocationCity => 'City';
+
+  @override
+  String get searchFiltersLocationCountry => 'Country';
+
+  @override
+  String get searchFiltersLanguages => 'Languages';
+
+  @override
+  String get searchFiltersExpertise => 'Expertise';
+
+  @override
+  String get searchFiltersSkills => 'Skills';
+
+  @override
+  String get searchFiltersRating => 'Minimum rating';
+
+  @override
+  String get searchFiltersWorkMode => 'Work mode';
+
+  @override
+  String get searchFiltersRemote => 'Remote';
+
+  @override
+  String get searchFiltersOnSite => 'On site';
+
+  @override
+  String get searchFiltersHybrid => 'Hybrid';
+
+  @override
+  String get searchFiltersApply => 'Apply';
+
+  @override
+  String get searchFiltersReset => 'Reset';
+
+  @override
+  String get searchFiltersOpen => 'Filters';
+
+  @override
   String get tapToPlay => 'Tap to play';
 
   @override
