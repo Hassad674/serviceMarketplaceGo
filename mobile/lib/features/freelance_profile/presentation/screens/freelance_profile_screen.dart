@@ -23,6 +23,7 @@ import '../../domain/entities/freelance_profile.dart';
 import '../providers/freelance_profile_providers.dart';
 import '../widgets/freelance_pricing_section_widget.dart';
 import '../widgets/freelance_profile_header.dart';
+import '../widgets/freelance_social_links_section_widget.dart';
 
 /// Editable freelance profile screen mounted on `/profile` for
 /// provider_personal users. Renders persona-specific fields from
@@ -122,6 +123,11 @@ class _FreelanceProfileBody extends ConsumerWidget {
 
           // Pricing (freelance variants only)
           FreelancePricingSectionWidget(canEdit: canEdit),
+          const SizedBox(height: 16),
+
+          // Social links (freelance persona — independent from the
+          // referrer set on /referral).
+          FreelanceSocialLinksSectionWidget(canEdit: canEdit),
           const SizedBox(height: 16),
 
           // Shared org fields rendered only on the freelance edit screen

@@ -24,6 +24,7 @@ import { useOrganizationShared } from "@/features/organization-shared/hooks/use-
 import { SharedLocationSection } from "@/features/organization-shared/components/shared-location-section"
 import { SharedLanguagesSection } from "@/features/organization-shared/components/shared-languages-section"
 import { SkillsSection } from "@/features/skill/components/skills-section"
+import { FreelanceSocialLinksSection } from "@/features/freelance-profile/components/freelance-social-links-section"
 
 // Editable /profile view for provider_personal users. Renders the
 // freelance persona: split pricing/availability/expertise on top of
@@ -119,6 +120,7 @@ export function FreelanceOwnProfilePage() {
           <SharedLocationSection />
           <SharedLanguagesSection />
           <SkillsSection orgType={org?.type} readOnly={false} />
+          <FreelanceSocialLinksSection />
         </>
       ) : null}
     </div>

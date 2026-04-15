@@ -4987,6 +4987,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No deals referred yet'**
   String get referrerProjectHistoryEmpty;
+
+  /// No description provided for @socialLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'Social networks'**
+  String get socialLinks;
+
+  /// No description provided for @editSocialLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit social links'**
+  String get editSocialLinks;
+
+  /// No description provided for @noSocialLinks.
+  ///
+  /// In en, this message translates to:
+  /// **'No social links added yet'**
+  String get noSocialLinks;
+
+  /// No description provided for @socialLinksSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Social links saved'**
+  String get socialLinksSaved;
+
+  /// No description provided for @socialLinksSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save social links'**
+  String get socialLinksSaveError;
+
+  /// No description provided for @socialLinkEnterUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter URL'**
+  String get socialLinkEnterUrl;
+
+  /// No description provided for @socialLinkLinkedin.
+  ///
+  /// In en, this message translates to:
+  /// **'LinkedIn'**
+  String get socialLinkLinkedin;
+
+  /// No description provided for @socialLinkInstagram.
+  ///
+  /// In en, this message translates to:
+  /// **'Instagram'**
+  String get socialLinkInstagram;
+
+  /// No description provided for @socialLinkYoutube.
+  ///
+  /// In en, this message translates to:
+  /// **'YouTube'**
+  String get socialLinkYoutube;
+
+  /// No description provided for @socialLinkTwitter.
+  ///
+  /// In en, this message translates to:
+  /// **'Twitter'**
+  String get socialLinkTwitter;
+
+  /// No description provided for @socialLinkGithub.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub'**
+  String get socialLinkGithub;
+
+  /// No description provided for @socialLinkWebsite.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get socialLinkWebsite;
 }
 
 class _AppLocalizationsDelegate

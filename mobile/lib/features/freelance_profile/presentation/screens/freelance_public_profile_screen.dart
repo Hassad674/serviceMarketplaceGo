@@ -15,6 +15,7 @@ import '../../domain/entities/freelance_pricing.dart';
 import '../../domain/entities/freelance_profile.dart';
 import '../providers/freelance_profile_providers.dart';
 import '../widgets/freelance_profile_header.dart';
+import '../widgets/freelance_social_links_section_widget.dart';
 
 /// Read-only freelance profile surface for `/freelancers/:id`. All
 /// persona-specific sections plus skills and portfolio. Mirrors the
@@ -151,6 +152,10 @@ class _Body extends StatelessWidget {
             PortfolioGridWidget(orgId: profile.organizationId),
             const SizedBox(height: 16),
             ProjectHistoryWidget(orgId: profile.organizationId),
+            const SizedBox(height: 16),
+            PublicFreelanceSocialLinksWidget(
+              organizationId: profile.organizationId,
+            ),
           ],
         ],
       ),

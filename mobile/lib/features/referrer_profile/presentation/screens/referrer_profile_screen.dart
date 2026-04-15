@@ -14,6 +14,7 @@ import '../../domain/entities/referrer_profile.dart';
 import '../providers/referrer_profile_providers.dart';
 import '../widgets/referrer_pricing_section_widget.dart';
 import '../widgets/referrer_profile_header.dart';
+import '../widgets/referrer_social_links_section_widget.dart';
 
 /// Editable referrer profile screen mounted on `/referral`. Shows
 /// ONLY persona-specific fields — the shared org block (photo,
@@ -99,6 +100,11 @@ class _ReferrerBody extends ConsumerWidget {
 
           // Pricing (commission variants only)
           ReferrerPricingSectionWidget(canEdit: canEdit),
+          const SizedBox(height: 16),
+
+          // Social links (referrer persona — independent from the
+          // freelance set on /profile).
+          ReferrerSocialLinksSectionWidget(canEdit: canEdit),
           const SizedBox(height: 16),
 
           // Title section

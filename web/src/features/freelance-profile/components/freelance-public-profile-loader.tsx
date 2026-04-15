@@ -6,6 +6,7 @@ import { useRouter } from "@i18n/navigation"
 import { useProfileRating } from "@/shared/hooks/profile/use-profile-rating"
 import { usePublicFreelanceProfile } from "../hooks/use-freelance-profile"
 import { FreelancePublicProfile } from "./freelance-public-profile"
+import { PublicFreelanceSocialLinks } from "./freelance-social-links-section"
 
 interface FreelancePublicProfileLoaderProps {
   orgId: string
@@ -50,13 +51,16 @@ export function FreelancePublicProfileLoader({
   const displayName = profile.title || profile.organization_id
 
   return (
-    <FreelancePublicProfile
-      profile={profile}
-      displayName={displayName}
-      rating={
-        rating ? { average: rating.average, count: rating.count } : undefined
-      }
-    />
+    <div className="space-y-6">
+      <FreelancePublicProfile
+        profile={profile}
+        displayName={displayName}
+        rating={
+          rating ? { average: rating.average, count: rating.count } : undefined
+        }
+      />
+      <PublicFreelanceSocialLinks orgId={orgId} />
+    </div>
   )
 }
 

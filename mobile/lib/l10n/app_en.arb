@@ -1057,5 +1057,17 @@
   "tier1ErrorPricingInvalidAmount": "Enter a valid amount",
   "tier1ErrorLocationRequireCity": "City is required",
   "projectHistory": "Project history",
-  "referrerProjectHistoryEmpty": "No deals referred yet"
+  "referrerProjectHistoryEmpty": "No deals referred yet",
+  "socialLinks": "Social networks",
+  "editSocialLinks": "Edit social links",
+  "noSocialLinks": "No social links added yet",
+  "socialLinksSaved": "Social links saved",
+  "socialLinksSaveError": "Failed to save social links",
+  "socialLinkEnterUrl": "Enter URL",
+  "socialLinkLinkedin": "LinkedIn",
+  "socialLinkInstagram": "Instagram",
+  "socialLinkYoutube": "YouTube",
+  "socialLinkTwitter": "Twitter",
+  "socialLinkGithub": "GitHub",
+  "socialLinkWebsite": "Website"
 }
