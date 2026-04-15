@@ -541,6 +541,9 @@ func TestInvitationService_CancelInvitation_Success(t *testing.T) {
 func (m *mockUserRepoForInvites) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
 	return nil
 }
+func (m *mockUserRepoForInvites) TouchLastActive(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
 
 // --- Session version stubs (migration 056, Phase 3) ---
 func (m *mockUserRepoForInvites) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {

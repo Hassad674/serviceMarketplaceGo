@@ -74,3 +74,6 @@ web/test-results/
 # Claude worktrees
 .claude/worktrees/
 backend/api
+backend/reindex
+backend/migrate
+backend/seed

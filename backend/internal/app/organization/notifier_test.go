@@ -138,6 +138,9 @@ func (m *mockUserRepoForMembership) SaveKYCNotificationState(_ context.Context, 
 func (m *mockUserRepoForMembership) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
 	return nil
 }
+func (m *mockUserRepoForMembership) TouchLastActive(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
 func (m *mockUserRepoForMembership) BumpSessionVersion(_ context.Context, userID uuid.UUID) (int, error) {
 	m.bumpSessionCalls = append(m.bumpSessionCalls, userID)
 	m.sessionVersion[userID]++

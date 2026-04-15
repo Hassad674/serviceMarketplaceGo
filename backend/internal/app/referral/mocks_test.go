@@ -354,6 +354,9 @@ func (f *fakeUserRepo) GetSessionVersion(ctx context.Context, userID uuid.UUID) 
 func (f *fakeUserRepo) UpdateEmailNotificationsEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error {
 	return nil
 }
+func (f *fakeUserRepo) TouchLastActive(ctx context.Context, userID uuid.UUID) error {
+	return nil
+}
 
 // fakeMessageSender tracks system messages without doing anything else.
 type fakeMessageSender struct {
