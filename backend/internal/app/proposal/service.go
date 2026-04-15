@@ -43,9 +43,20 @@ type Service struct {
 	credits              repository.JobCreditRepository
 	bonusLog             repository.CreditBonusLogRepository
 
+	// Referral hook — wired post-construction via SetReferralAttributor to
+	// break the import cycle. Nil when the referral feature is not active.
+	referralAttributor service.ReferralAttributor
+
 	autoApprovalDelay time.Duration
 	fundReminderDelay time.Duration
 	autoCloseDelay    time.Duration
+}
+
+// SetReferralAttributor plugs the referral attributor in post-construction.
+// Called on a CreateProposal success path to attribute the new proposal to
+// any active referral covering the (provider, client) couple.
+func (s *Service) SetReferralAttributor(a service.ReferralAttributor) {
+	s.referralAttributor = a
 }
 
 func NewService(deps ServiceDeps) *Service {

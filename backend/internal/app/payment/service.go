@@ -22,6 +22,12 @@ type Service struct {
 	stripe        service.StripeService      // nil if Stripe not configured
 	notifications service.NotificationSender // nil if not configured
 	frontendURL   string
+
+	// Referral hooks — wired post-construction via setters to break the
+	// import cycle with the referral app service. Nil when the referral
+	// feature is not active; all call sites guard for nil before invoking.
+	referralDistributor service.ReferralCommissionDistributor
+	referralClawback    service.ReferralClawback
 }
 
 // ServiceDeps groups all dependencies for the payment service.
@@ -51,4 +57,18 @@ func NewService(deps ServiceDeps) *Service {
 // StripeConfigured returns true when the Stripe service is available.
 func (s *Service) StripeConfigured() bool {
 	return s.stripe != nil
+}
+
+// SetReferralDistributor plugs the referral commission distributor in
+// post-construction. Safe to call at app startup after both services exist.
+// Passing nil disables the hook.
+func (s *Service) SetReferralDistributor(d service.ReferralCommissionDistributor) {
+	s.referralDistributor = d
+}
+
+// SetReferralClawback plugs the referral clawback hook in post-construction.
+// Called from the refund / dispute-resolution flow when a milestone is
+// (partially) refunded.
+func (s *Service) SetReferralClawback(c service.ReferralClawback) {
+	s.referralClawback = c
 }

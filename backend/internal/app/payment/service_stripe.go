@@ -173,7 +173,31 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 		return fmt.Errorf("mark transferred: %w", err)
 	}
 
-	return s.records.Update(ctx, record)
+	if err := s.records.Update(ctx, record); err != nil {
+		return err
+	}
+
+	// Referral commission split — fire-and-forget into the referral feature.
+	// A non-nil distributor means the referral feature is wired; nil means
+	// we're running without it, skip silently. Errors here are logged and
+	// swallowed so a flaky referral service never blocks the provider's
+	// primary transfer.
+	if s.referralDistributor != nil && record.MilestoneID != uuid.Nil {
+		_, rErr := s.referralDistributor.DistributeIfApplicable(ctx, portservice.ReferralCommissionDistributorInput{
+			ProposalID:       record.ProposalID,
+			MilestoneID:      record.MilestoneID,
+			GrossAmountCents: record.ProposalAmount,
+			Currency:         record.Currency,
+		})
+		if rErr != nil {
+			slog.Warn("referral: commission distribution failed",
+				"proposal_id", record.ProposalID,
+				"milestone_id", record.MilestoneID,
+				"error", rErr)
+		}
+	}
+
+	return nil
 }
 
 // TransferPartialToProvider applies a dispute resolution split to the

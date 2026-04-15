@@ -46,6 +46,7 @@ import (
 	freelanceprofileapp "marketplace-backend/internal/app/freelanceprofile"
 	profileapp "marketplace-backend/internal/app/profile"
 	profilepricingapp "marketplace-backend/internal/app/profilepricing"
+	referralapp "marketplace-backend/internal/app/referral"
 	referrerpricingapp "marketplace-backend/internal/app/referrerpricing"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
 	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
@@ -272,11 +273,16 @@ func main() {
 		slog.Info("call feature disabled (LiveKit not configured)")
 	}
 
-	// Stripe payment adapter (optional — only when Stripe is configured)
+	// Stripe payment adapter (optional — only when Stripe is configured).
+	// The concrete stripeAdapter satisfies BOTH service.StripeService and
+	// service.StripeTransferReversalService, so we keep a typed reference
+	// to inject it into the referral feature alongside the narrower interface.
 	var stripeSvc service.StripeService
+	var stripeReversalSvc service.StripeTransferReversalService
 	if cfg.StripeConfigured() {
 		stripeAdapter := stripeadapter.NewService(cfg.StripeSecretKey, cfg.StripeWebhookSecret)
 		stripeSvc = stripeAdapter
+		stripeReversalSvc = stripeAdapter
 		slog.Info("stripe payment adapter enabled")
 	} else {
 		slog.Info("stripe payment adapter disabled (not configured)")
@@ -433,6 +439,7 @@ func main() {
 		// Phase 6 timer defaults (override via env in production):
 		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
 	})
+
 
 	// Phase 6: pending_events worker. Runs in a background goroutine
 	// alongside the API server, ticks every 30 seconds, and drives the
@@ -674,6 +681,28 @@ func main() {
 	referrerProfileSvc := referrerprofileapp.NewService(referrerProfileRepo)
 	referrerPricingRepo := postgres.NewReferrerPricingRepository(db)
 	referrerPricingSvc := referrerpricingapp.NewService(referrerPricingRepo)
+
+	// Referral (apport d'affaires) feature — wired AFTER proposal/payment/
+	// freelanceProfile because it plugs into them via setters to break the
+	// import cycle. The feature is purely optional: startup with no
+	// referral service leaves every exposed port nil, and every call site
+	// short-circuits on that check.
+	referralRepo := postgres.NewReferralRepository(db)
+	referralSvc := referralapp.NewService(referralapp.ServiceDeps{
+		Referrals:        referralRepo,
+		Users:            userRepo,
+		Messages:         messagingSvc,
+		Notifications:    notifSvc,
+		Stripe:           stripeSvc,
+		Reversals:        stripeReversalSvc,
+		SnapshotProfiles: referralapp.NewThinSnapshotLoader(freelanceProfileRepo),
+		StripeAccounts:   referralapp.NewOrgStripeAccountResolver(organizationRepo),
+	})
+	// Setter-based wiring to avoid import cycles between proposal/payment/embedded.
+	proposalSvc.SetReferralAttributor(referralSvc)
+	paymentInfoSvc.SetReferralDistributor(referralSvc)
+	paymentInfoSvc.SetReferralClawback(referralSvc)
+	referralHandler := handler.NewReferralHandler(referralSvc)
 	referrerProfileHandler := handler.
 		NewReferrerProfileHandler(referrerProfileSvc).
 		WithPricingReader(referrerPricingSvc)
@@ -715,6 +744,10 @@ func main() {
 			organizationRepo,
 			5*time.Minute,
 		)
+		// Wire the referral KYC listener on the embedded notifier so parked
+		// pending_kyc commissions are drained the moment the referrer's
+		// Stripe account becomes payable.
+		embeddedNotifier.SetReferralKYCListener(referralSvc)
 		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
 	}
 
@@ -814,6 +847,7 @@ func main() {
 		Dispute:        disputeHandler,
 		AdminDispute:   adminDisputeHandler,
 		Skill:          skillHandler,
+		Referral:       referralHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
