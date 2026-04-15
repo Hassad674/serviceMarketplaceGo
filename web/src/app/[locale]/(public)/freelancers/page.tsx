@@ -1,21 +1,9 @@
-import { getTranslations } from "next-intl/server"
+import { SearchPage } from "@/features/provider/components/search-page"
 
-export default async function FreelancersDirectoryPage() {
-  const t = await getTranslations("pages")
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {t("freelancerDirectory")}
-        </h1>
-        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-          {t("freelancerDirectoryDesc")}
-        </p>
-      </div>
-      <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-12 text-center text-sm text-gray-400 dark:text-gray-500">
-        {t("freelancerDirectoryPlaceholder")}
-      </div>
-    </div>
-  )
+// /freelancers lists every organization of type `provider_personal`.
+// The page is a thin route wrapper: data fetching + composition both
+// live in the provider feature's SearchPage component, which renders
+// the shared SearchPageLayout internally.
+export default function FreelancersDirectoryPage() {
+  return <SearchPage type="freelancer" />
 }

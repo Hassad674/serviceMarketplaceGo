@@ -96,9 +96,11 @@ describe("SearchPage", () => {
 
     renderSearchPage("freelancer")
 
-    // Skeleton renders 6 placeholder items with animate-pulse divs
-    const pulseElements = document.querySelectorAll(".animate-pulse")
-    expect(pulseElements.length).toBeGreaterThan(0)
+    // New shared layout uses the design system's animate-shimmer class
+    // for skeletons (never animate-pulse) — at least one placeholder
+    // bar must be present while the query is pending.
+    const shimmerElements = document.querySelectorAll(".animate-shimmer")
+    expect(shimmerElements.length).toBeGreaterThan(0)
   })
 
   it("shows empty state when no results", () => {
@@ -106,9 +108,14 @@ describe("SearchPage", () => {
 
     renderSearchPage("freelancer")
 
-    expect(screen.getByText(messages.search.noResults)).toBeInTheDocument()
+    // Empty state moved to the shared search.empty namespace. Assert on
+    // the unique description + reset CTA so the "No results" plural
+    // that also appears in the sidebar resultsCount does not clash.
     expect(
-      screen.getByText(messages.search.noResultsDesc),
+      screen.getByText(messages.search.empty.description),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: messages.search.empty.cta }),
     ).toBeInTheDocument()
   })
 
@@ -200,8 +207,11 @@ describe("SearchPage", () => {
 
     renderSearchPage("freelancer")
 
-    const links = screen.getAllByRole("link")
-    expect(links).toHaveLength(3)
+    // One semantic <article> per result card — a stable anchor that
+    // survives layout-level links (e.g. filter footer buttons) that
+    // would otherwise inflate the getAllByRole("link") count.
+    const articles = screen.getAllByRole("article")
+    expect(articles).toHaveLength(3)
   })
 
   it("shows load more button when hasNextPage is true", () => {
