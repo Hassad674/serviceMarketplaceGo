@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../entities/freelance_pricing.dart';
 import '../entities/freelance_profile.dart';
 
@@ -41,4 +43,15 @@ abstract class FreelanceProfileRepository {
   /// Remove the current pricing row. Succeeds even when no row
   /// exists — the backend treats the delete as idempotent.
   Future<void> deletePricing();
+
+  /// Uploads a presentation video for the freelance persona.
+  /// Posts the file as multipart form data to
+  /// `POST /api/v1/freelance-profile/video` and returns the
+  /// persisted public URL.
+  Future<String> uploadVideo(File file);
+
+  /// Removes the freelance presentation video. Calls
+  /// `DELETE /api/v1/freelance-profile/video`. Idempotent — succeeds
+  /// when no video is set.
+  Future<void> deleteVideo();
 }

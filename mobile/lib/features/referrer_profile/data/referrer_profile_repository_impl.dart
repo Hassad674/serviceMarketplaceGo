@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+
 import '../../../core/network/api_client.dart';
 import '../domain/entities/referrer_pricing.dart';
 import '../domain/entities/referrer_profile.dart';
@@ -14,6 +18,8 @@ import '../domain/repositories/referrer_profile_repository.dart';
 /// - `GET    /api/v1/referrer-profile/pricing`       -> getPricing
 /// - `PUT    /api/v1/referrer-profile/pricing`       -> upsertPricing
 /// - `DELETE /api/v1/referrer-profile/pricing`       -> deletePricing
+/// - `POST   /api/v1/referrer-profile/video`         -> uploadVideo
+/// - `DELETE /api/v1/referrer-profile/video`         -> deleteVideo
 /// - `GET    /api/v1/referrer-profiles/{orgID}`      -> getPublic
 class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
   ReferrerProfileRepositoryImpl(this._api);
@@ -101,6 +107,31 @@ class ReferrerProfileRepositoryImpl implements ReferrerProfileRepository {
   @override
   Future<void> deletePricing() async {
     await _api.delete<dynamic>('/api/v1/referrer-profile/pricing');
+  }
+
+  @override
+  Future<String> uploadVideo(File file) async {
+    final formData = FormData.fromMap(<String, dynamic>{
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.path.split('/').last,
+      ),
+    });
+    final response = await _api.upload<dynamic>(
+      '/api/v1/referrer-profile/video',
+      data: formData,
+    );
+    final body = _unwrapMap(response.data);
+    final url = body?['video_url'];
+    if (url is! String || url.isEmpty) {
+      throw const FormatException('referrer video upload: missing video_url');
+    }
+    return url;
+  }
+
+  @override
+  Future<void> deleteVideo() async {
+    await _api.delete<dynamic>('/api/v1/referrer-profile/video');
   }
 
   Map<String, dynamic>? _unwrapMap(dynamic raw) {

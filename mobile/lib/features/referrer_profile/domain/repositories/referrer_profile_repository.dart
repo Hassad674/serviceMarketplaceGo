@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../entities/referrer_pricing.dart';
 import '../entities/referrer_profile.dart';
 
@@ -35,4 +37,14 @@ abstract class ReferrerProfileRepository {
 
   /// Remove the current pricing row.
   Future<void> deletePricing();
+
+  /// Uploads a presentation video for the referrer persona.
+  /// Posts the file as multipart form data to
+  /// `POST /api/v1/referrer-profile/video` and returns the persisted
+  /// public URL.
+  Future<String> uploadVideo(File file);
+
+  /// Removes the referrer presentation video. Calls
+  /// `DELETE /api/v1/referrer-profile/video`.
+  Future<void> deleteVideo();
 }

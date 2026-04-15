@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marketplace_mobile/features/freelance_profile/data/freelance_profile_repository_impl.dart';
 import 'package:marketplace_mobile/features/freelance_profile/domain/entities/freelance_pricing.dart';
@@ -168,6 +171,56 @@ void main() {
         return FakeApiClient.ok({});
       };
       await repo.deletePricing();
+      expect(called, isTrue);
+    });
+  });
+
+  group('uploadVideo', () {
+    test('POSTs multipart to /api/v1/freelance-profile/video and returns video_url',
+        () async {
+      final tempFile = File('${Directory.systemTemp.path}/intro.mp4')
+        ..writeAsBytesSync(List<int>.filled(64, 0));
+      addTearDown(() => tempFile.deleteSync());
+
+      FormData? captured;
+      fakeApi.uploadHandlers['/api/v1/freelance-profile/video'] = (data) async {
+        captured = data;
+        return FakeApiClient.ok({
+          'data': {'video_url': 'https://cdn/example.mp4'},
+        });
+      };
+
+      final url = await repo.uploadVideo(tempFile);
+      expect(url, 'https://cdn/example.mp4');
+      expect(captured, isNotNull);
+      expect(captured!.files.first.key, 'file');
+    });
+
+    test('throws FormatException when the response is missing video_url',
+        () async {
+      final tempFile = File('${Directory.systemTemp.path}/intro2.mp4')
+        ..writeAsBytesSync(List<int>.filled(8, 0));
+      addTearDown(() => tempFile.deleteSync());
+
+      fakeApi.uploadHandlers['/api/v1/freelance-profile/video'] = (_) async {
+        return FakeApiClient.ok({'data': {}});
+      };
+
+      await expectLater(
+        repo.uploadVideo(tempFile),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
+
+  group('deleteVideo', () {
+    test('DELETEs /api/v1/freelance-profile/video', () async {
+      var called = false;
+      fakeApi.deleteHandlers['/api/v1/freelance-profile/video'] = () async {
+        called = true;
+        return FakeApiClient.ok({});
+      };
+      await repo.deleteVideo();
       expect(called, isTrue);
     });
   });
