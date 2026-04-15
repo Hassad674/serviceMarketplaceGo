@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -113,6 +114,27 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 
 	if err := s.proposals.CreateWithDocumentsAndMilestones(ctx, p, docs, milestones); err != nil {
 		return nil, fmt.Errorf("persist proposal: %w", err)
+	}
+
+	// Referral attribution hook — fires after the proposal is persisted.
+	// Looks up any active referral on the (provider, client) couple and
+	// creates an attribution row so future milestone payments split the
+	// commission to the apporteur. Nil-check guards the case where the
+	// referral feature is not wired (startup with no referral service).
+	// Errors here are logged but must never block the proposal flow —
+	// the apporteur's accounting is secondary to the contract creation.
+	if s.referralAttributor != nil {
+		if rErr := s.referralAttributor.CreateAttributionIfExists(ctx, service.ReferralAttributorInput{
+			ProposalID: p.ID,
+			ProviderID: p.ProviderID,
+			ClientID:   p.ClientID,
+		}); rErr != nil {
+			slog.Warn("referral: attribution creation failed",
+				"proposal_id", p.ID,
+				"provider_id", p.ProviderID,
+				"client_id", p.ClientID,
+				"error", rErr)
+		}
 	}
 
 	metadata := buildProposalMetadata(p, sender.DisplayName, len(docs))

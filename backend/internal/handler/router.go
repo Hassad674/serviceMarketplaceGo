@@ -55,6 +55,7 @@ type RouterDeps struct {
 	Dispute        *DisputeHandler
 	AdminDispute   *AdminDisputeHandler
 	Skill          *SkillHandler
+	Referral       *ReferralHandler
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -534,6 +535,23 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
 				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
+			})
+		}
+
+		// Referral (apport d'affaires) routes — authenticated, no per-route
+		// permission middleware: ownership (referrer / provider / client
+		// party of the referral) is enforced inside the service layer by
+		// loadAndAuthorise on every state transition.
+		if deps.Referral != nil {
+			r.Route("/referrals", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Referral.Create)
+				r.Get("/me", deps.Referral.ListMine)
+				r.Get("/incoming", deps.Referral.ListIncoming)
+				r.Get("/{id}", deps.Referral.Get)
+				r.Post("/{id}/respond", deps.Referral.Respond)
+				r.Get("/{id}/negotiations", deps.Referral.ListNegotiations)
 			})
 		}
 
