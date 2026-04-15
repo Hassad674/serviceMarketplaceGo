@@ -3,49 +3,29 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslations } from "next-intl"
 import { ArrowLeft } from "lucide-react"
-import { Link, useRouter } from "@i18n/navigation"
+import { useRouter } from "@i18n/navigation"
 import { apiClient } from "@/shared/lib/api-client"
 import type { Profile } from "../api/profile-api"
-import { ProfileHeader } from "./profile-header"
-import { ProfileVideo } from "./profile-video"
-import { ProfileAbout } from "./profile-about"
-import { ProfileHistory } from "./profile-history"
 import { ProfileSkeleton } from "./profile-skeleton"
-import { PublicPortfolioSection } from "./portfolio-grid"
-import { ExpertiseDisplay } from "./expertise-display"
-import { SkillsDisplay } from "./skills-display"
-import { ProfileIdentityStrip } from "./profile-identity-strip"
 import { useProfileRating } from "../hooks/use-profile-rating"
+import { AgencyPublicProfile } from "./agency-public-profile"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
-
-const TYPE_BACK_LINKS: Record<ProfileType, string> = {
-  agency: "/agencies",
-  freelancer: "/freelancers",
-  referrer: "/freelancers",
-}
-
-const TYPE_BACK_LABELS: Record<ProfileType, string> = {
-  agency: "backToAgencies",
-  freelancer: "backToFreelancers",
-  referrer: "backToFreelancers",
-}
-
-// Maps the visible profile type (used for routing and labels) to the
-// canonical organization type used by the expertise constants. Keeps
-// ExpertiseDisplay agnostic of the public-profile URL taxonomy.
-function publicProfileTypeToOrgType(type: ProfileType): string {
-  return type === "agency" ? "agency" : "provider_personal"
-}
 
 interface PublicProfileProps {
   orgId: string
   type: ProfileType
 }
 
-export function PublicProfile({ orgId, type }: PublicProfileProps) {
+// PublicProfile is the data boundary for the public /agencies/[id]
+// route. It fetches the legacy /api/v1/profiles/{id} aggregate and
+// hands it to the harmonized AgencyPublicProfile shell, which mirrors
+// the card order, shells and spacing of FreelancePublicProfile. The
+// `type` prop is kept for backward compatibility but only "agency"
+// is wired — freelance and referrer routes now use their dedicated
+// split-profile loaders.
+export function PublicProfile({ orgId, type: _type }: PublicProfileProps) {
   const t = useTranslations("publicProfile")
-  const tSkills = useTranslations("profile.skillsDisplay")
   const router = useRouter()
 
   const { data: profile, isLoading, error } = useQuery({
@@ -60,9 +40,7 @@ export function PublicProfile({ orgId, type }: PublicProfileProps) {
   if (error || !profile) {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
-        <p className="text-sm text-destructive">
-          {t("profileNotFound")}
-        </p>
+        <p className="text-sm text-destructive">{t("profileNotFound")}</p>
         <button
           onClick={() => router.back()}
           className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:opacity-80 transition-opacity"
@@ -74,10 +52,7 @@ export function PublicProfile({ orgId, type }: PublicProfileProps) {
     )
   }
 
-  const roleContext = type === "agency" ? "agency" : type === "referrer" ? "referrer" : "provider"
   const displayName = profile.title || t("untitledProfile")
-  const videoUrl = roleContext === "referrer" ? profile.referrer_video_url : profile.presentation_video_url
-  const aboutText = roleContext === "referrer" ? profile.referrer_about : profile.about
 
   return (
     <div className="space-y-6">
@@ -89,51 +64,12 @@ export function PublicProfile({ orgId, type }: PublicProfileProps) {
         {t("back")}
       </button>
 
-      <div className="space-y-4">
-        <ProfileHeader
-          profile={profile}
-          displayName={displayName}
-          roleContext={roleContext}
-          readOnly
-          averageRating={rating?.average}
-          reviewCount={rating?.count}
-        />
-
-        <ProfileIdentityStrip profile={profile} />
-
-        <ProfileVideo
-          videoUrl={videoUrl}
-          readOnly
-        />
-
-        <ProfileAbout
-          content={aboutText || ""}
-          readOnly
-        />
-
-        <ExpertiseDisplay
-          domains={profile.expertise_domains}
-          orgType={publicProfileTypeToOrgType(type)}
-        />
-
-        {profile.skills && profile.skills.length > 0 && (
-          <section
-            aria-labelledby="skills-display-title"
-            className="bg-card border border-border rounded-xl p-6 shadow-sm"
-          >
-            <h2
-              id="skills-display-title"
-              className="text-lg font-semibold text-foreground mb-3"
-            >
-              {tSkills("sectionTitle")}
-            </h2>
-            <SkillsDisplay skills={profile.skills} />
-          </section>
-        )}
-
-        <PublicPortfolioSection orgId={orgId} />
-        <ProfileHistory orgId={orgId} readOnly />
-      </div>
+      <AgencyPublicProfile
+        profile={profile}
+        orgId={orgId}
+        displayName={displayName}
+        rating={rating ? { average: rating.average, count: rating.count } : undefined}
+      />
     </div>
   )
 }
