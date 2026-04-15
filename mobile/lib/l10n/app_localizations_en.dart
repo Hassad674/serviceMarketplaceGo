@@ -2641,4 +2641,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get referrerProjectHistoryEmpty => 'No deals referred yet';
+
+  @override
+  String get socialLinks => 'Social networks';
+
+  @override
+  String get editSocialLinks => 'Edit social links';
+
+  @override
+  String get noSocialLinks => 'No social links added yet';
+
+  @override
+  String get socialLinksSaved => 'Social links saved';
+
+  @override
+  String get socialLinksSaveError => 'Failed to save social links';
+
+  @override
+  String get socialLinkEnterUrl => 'Enter URL';
+
+  @override
+  String get socialLinkLinkedin => 'LinkedIn';
+
+  @override
+  String get socialLinkInstagram => 'Instagram';
+
+  @override
+  String get socialLinkYoutube => 'YouTube';
+
+  @override
+  String get socialLinkTwitter => 'Twitter';
+
+  @override
+  String get socialLinkGithub => 'GitHub';
+
+  @override
+  String get socialLinkWebsite => 'Website';
 }

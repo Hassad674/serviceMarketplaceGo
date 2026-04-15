@@ -2661,4 +2661,40 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get referrerProjectHistoryEmpty =>
       'Aucun deal apporté enregistré pour l\'instant';
+
+  @override
+  String get socialLinks => 'Réseaux sociaux';
+
+  @override
+  String get editSocialLinks => 'Modifier les liens';
+
+  @override
+  String get noSocialLinks => 'Aucun lien renseigné pour l\'instant';
+
+  @override
+  String get socialLinksSaved => 'Liens enregistrés';
+
+  @override
+  String get socialLinksSaveError => 'Échec de l\'enregistrement des liens';
+
+  @override
+  String get socialLinkEnterUrl => 'Saisir l\'URL';
+
+  @override
+  String get socialLinkLinkedin => 'LinkedIn';
+
+  @override
+  String get socialLinkInstagram => 'Instagram';
+
+  @override
+  String get socialLinkYoutube => 'YouTube';
+
+  @override
+  String get socialLinkTwitter => 'Twitter';
+
+  @override
+  String get socialLinkGithub => 'GitHub';
+
+  @override
+  String get socialLinkWebsite => 'Site web';
 }

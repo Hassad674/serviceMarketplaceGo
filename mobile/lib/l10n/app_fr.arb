@@ -1050,5 +1050,17 @@
   "tier1ErrorPricingInvalidAmount": "Saisis un montant valide",
   "tier1ErrorLocationRequireCity": "La ville est obligatoire",
   "projectHistory": "Historique de projets",
-  "referrerProjectHistoryEmpty": "Aucun deal apporté enregistré pour l'instant"
+  "referrerProjectHistoryEmpty": "Aucun deal apporté enregistré pour l'instant",
+  "socialLinks": "Réseaux sociaux",
+  "editSocialLinks": "Modifier les liens",
+  "noSocialLinks": "Aucun lien renseigné pour l'instant",
+  "socialLinksSaved": "Liens enregistrés",
+  "socialLinksSaveError": "Échec de l'enregistrement des liens",
+  "socialLinkEnterUrl": "Saisir l'URL",
+  "socialLinkLinkedin": "LinkedIn",
+  "socialLinkInstagram": "Instagram",
+  "socialLinkYoutube": "YouTube",
+  "socialLinkTwitter": "Twitter",
+  "socialLinkGithub": "GitHub",
+  "socialLinkWebsite": "Site web"
 }
