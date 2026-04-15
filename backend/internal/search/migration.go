@@ -55,13 +55,28 @@ func EnsureSchema(ctx context.Context, deps EnsureSchemaDeps) error {
 	switch {
 	case err == nil:
 		// Alias exists — check drift on the current target.
-		return inspectExistingAlias(ctx, deps.Client, logger, target)
+		if inspectErr := inspectExistingAlias(ctx, deps.Client, logger, target); inspectErr != nil {
+			return inspectErr
+		}
 	case errors.Is(err, ErrNotFound):
 		// First boot on this cluster — create v1 from scratch.
-		return bootstrapFreshCollection(ctx, deps.Client, logger)
+		if bootErr := bootstrapFreshCollection(ctx, deps.Client, logger); bootErr != nil {
+			return bootErr
+		}
 	default:
 		return fmt.Errorf("search ensure schema: get alias %q: %w", AliasName, err)
 	}
+
+	// Synonyms are upserted on every boot. The seed list is small
+	// (~30 entries) and the operation is idempotent on the
+	// Typesense side, so the cost is negligible. We log a warning
+	// instead of failing hard so a degraded synonyms endpoint
+	// cannot block the API from starting.
+	if synErr := SeedSynonyms(ctx, deps.Client, logger); synErr != nil {
+		logger.Warn("search: synonyms seed failed, continuing without synonyms",
+			"error", synErr)
+	}
+	return nil
 }
 
 // bootstrapFreshCollection is the "first time on this cluster" code
