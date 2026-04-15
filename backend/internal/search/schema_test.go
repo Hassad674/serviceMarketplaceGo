@@ -105,7 +105,9 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 
 	require.Equal(t, search.CollectionName, schema.Name)
 	require.Equal(t, "rating_score", schema.DefaultSortingField)
-	require.Len(t, schema.Fields, 36,
+	// 35 explicit fields + the implicit `id` Typesense auto-creates
+	// = 36 total on the server side.
+	require.Len(t, schema.Fields, 35,
 		"schema must keep its canonical field count; update both schema and test deliberately")
 
 	byName := make(map[string]search.SchemaField, len(schema.Fields))
@@ -115,8 +117,8 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 
 	// A handful of anchor invariants — we don't assert on every
 	// field (the test would become a copy of the source) but we do
-	// pin the load-bearing ones.
-	assert.Equal(t, "string", byName["id"].Type)
+	// pin the load-bearing ones. `id` is deliberately absent: it is
+	// an implicit field on every Typesense collection.
 	assert.True(t, byName["persona"].Facet, "persona must be a facet")
 	assert.True(t, byName["skills"].Facet)
 	assert.True(t, byName["rating_score"].Sort)

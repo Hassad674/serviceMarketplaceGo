@@ -244,9 +244,13 @@ func boolPtr(b bool) *bool { return &b }
 //     semantic search. `num_dim` is mandatory on float[] fields.
 //   - default_sorting_field fires when a query omits `sort_by`.
 func CollectionSchemaDefinition() CollectionSchema {
+	// Note: Typesense implicitly creates the `id` field on every
+	// collection and does NOT accept it in the fields list. We
+	// skip declaring it here so the wire payload matches what the
+	// server actually persists — otherwise every EnsureSchema run
+	// on an existing collection logs a spurious drift warning.
 	fields := []SchemaField{
 		// Identity
-		{Name: "id", Type: "string"},
 		{Name: "persona", Type: "string", Facet: true},
 		{Name: "is_published", Type: "bool", Facet: true},
 

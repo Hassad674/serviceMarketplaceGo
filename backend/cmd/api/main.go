@@ -507,6 +507,7 @@ func main() {
 	// skip registration — the outbox events will land as "no
 	// handler registered" and stay in failed status until an
 	// operator re-enables indexing.
+	var typesenseClient *search.Client // nil when TYPESENSE_* env vars are absent
 	if cfg.TypesenseConfigured() {
 		tsClient, err := search.NewClient(cfg.TypesenseHost, cfg.TypesenseAPIKey)
 		if err != nil {
@@ -553,6 +554,7 @@ func main() {
 
 		pendingEventsWorker.Register(pendingevent.TypeSearchReindex, handlers.NewSearchReindexHandler(searchIndexSvc))
 		pendingEventsWorker.Register(pendingevent.TypeSearchDelete, handlers.NewSearchDeleteHandler(searchIndexSvc))
+		typesenseClient = tsClient
 		slog.Info("search: typesense indexer wired", "engine_mode", cfg.SearchEngine)
 	} else {
 		slog.Info("search: typesense not configured, outbox events for search.* will be dropped")
@@ -841,6 +843,12 @@ func main() {
 	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
 	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
+	if typesenseClient != nil {
+		// Treat Typesense as required only when SEARCH_ENGINE=typesense
+		// flips over — otherwise the query path falls back to SQL
+		// and a flaky Typesense should not take /ready red.
+		healthHandler = healthHandler.WithSearchPinger(typesenseClient, cfg.SearchEngineIsTypesense())
+	}
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
 	jobHandler := handler.NewJobHandler(jobSvc)
