@@ -135,11 +135,19 @@ type ProfileResponse struct {
 // behind the offering), not an individual user — the name is the
 // org's display name and the role is the org type.
 //
-// The Tier 1 fields are duplicated here (rather than reused from
-// ProfileResponse) because the listing shape is intentionally
-// leaner: it exposes only the fields useful in a search card.
+// The listing shape is intentionally leaner than ProfileResponse: it
+// exposes only the fields useful on a search card. The Tier 1 signal
+// fields (city, country_code, languages, availability) and the
+// aggregate fields (total_earned, completed_projects) are lit up by
+// the SearchPublic query; detail-view read paths leave them at their
+// zero values and the JSON marshals them as empty strings / empty
+// slices / zeros so the envelope shape stays stable across callers.
 type PublicProfileSummary struct {
-	OrganizationID  string                `json:"organization_id"`
+	OrganizationID string `json:"organization_id"`
+	// OwnerUserID is the id of the user at the top of the org — the
+	// "party id" the business-referral feature consumes when the
+	// apporteur picks a provider from the search results.
+	OwnerUserID     string                `json:"owner_user_id"`
 	Name            string                `json:"name"`
 	OrgType         string                `json:"org_type"`
 	Title           string                `json:"title"`
@@ -149,6 +157,20 @@ type PublicProfileSummary struct {
 	ReviewCount     int                   `json:"review_count"`
 	Skills          []ProfileSkillSummary `json:"skills"`
 	Pricing         []PricingSummary      `json:"pricing"`
+
+	// ---- Tier 1 signal fields lit by SearchPublic ----
+	City                  string   `json:"city"`
+	CountryCode           string   `json:"country_code"`
+	LanguagesProfessional []string `json:"languages_professional"`
+	AvailabilityStatus    string   `json:"availability_status"`
+
+	// ---- Aggregate fields lit by SearchPublic ----
+	// TotalEarned is in the smallest currency unit (centimes) — matches
+	// the proposal_milestones.amount scale. 0 when no released payments.
+	TotalEarned int64 `json:"total_earned"`
+	// CompletedProjects counts distinct proposals with at least one
+	// released milestone attributed to this org's owner.
+	CompletedProjects int `json:"completed_projects"`
 }
 
 // NewPublicProfileSummary builds the summary DTO without decorating
@@ -156,17 +178,28 @@ type PublicProfileSummary struct {
 // not wired the batch loaders yet. New code should prefer
 // NewPublicProfileSummaryListWithExtras.
 func NewPublicProfileSummary(p *profile.PublicProfile) PublicProfileSummary {
+	languages := p.LanguagesProfessional
+	if languages == nil {
+		languages = []string{}
+	}
 	return PublicProfileSummary{
-		OrganizationID:  p.OrganizationID.String(),
-		Name:            p.Name,
-		OrgType:         p.OrgType,
-		Title:           p.Title,
-		PhotoURL:        p.PhotoURL,
-		ReferrerEnabled: p.ReferrerEnabled,
-		AverageRating:   p.AverageRating,
-		ReviewCount:     p.ReviewCount,
-		Skills:          []ProfileSkillSummary{},
-		Pricing:         []PricingSummary{},
+		OrganizationID:        p.OrganizationID.String(),
+		OwnerUserID:           p.OwnerUserID.String(),
+		Name:                  p.Name,
+		OrgType:               p.OrgType,
+		Title:                 p.Title,
+		PhotoURL:              p.PhotoURL,
+		ReferrerEnabled:       p.ReferrerEnabled,
+		AverageRating:         p.AverageRating,
+		ReviewCount:           p.ReviewCount,
+		Skills:                []ProfileSkillSummary{},
+		Pricing:               []PricingSummary{},
+		City:                  p.City,
+		CountryCode:           p.CountryCode,
+		LanguagesProfessional: languages,
+		AvailabilityStatus:    p.AvailabilityStatus,
+		TotalEarned:           p.TotalEarned,
+		CompletedProjects:     p.CompletedProjects,
 	}
 }
 

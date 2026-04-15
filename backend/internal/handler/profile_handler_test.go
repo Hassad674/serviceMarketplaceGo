@@ -258,3 +258,49 @@ func TestProfileHandler_SearchProfiles(t *testing.T) {
 		})
 	}
 }
+
+// TestProfileHandler_SearchProfiles_AggregateFields verifies that the
+// Tier 1 signal columns (city, country_code, languages_professional,
+// availability_status) and the aggregate columns (total_earned,
+// completed_projects) lit by SearchPublic survive the DTO mapping
+// and land in the JSON envelope. This is the guard that catches any
+// future refactor that forgets to propagate a search-only column.
+func TestProfileHandler_SearchProfiles_AggregateFields(t *testing.T) {
+	repo := &mockProfileRepo{}
+	repo.searchPublicFn = func(_ context.Context, _ string, _ bool, _ string, _ int) ([]*profile.PublicProfile, string, error) {
+		return []*profile.PublicProfile{{
+			OrganizationID:        uuid.New(),
+			OwnerUserID:           uuid.New(),
+			Name:                  "Jane",
+			OrgType:               "provider_personal",
+			Title:                 "Senior Go Engineer",
+			City:                  "Paris",
+			CountryCode:           "FR",
+			LanguagesProfessional: []string{"fr", "en"},
+			AvailabilityStatus:    "available_now",
+			TotalEarned:           1500000,
+			CompletedProjects:     24,
+		}}, "", nil
+	}
+	h := newTestProfileHandler(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/search?type=freelancer", nil)
+	rec := httptest.NewRecorder()
+	h.SearchProfiles(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	data, ok := resp["data"].([]any)
+	require.True(t, ok)
+	require.Len(t, data, 1)
+	row := data[0].(map[string]any)
+	assert.Equal(t, "Paris", row["city"])
+	assert.Equal(t, "FR", row["country_code"])
+	assert.Equal(t, "available_now", row["availability_status"])
+	assert.Equal(t, float64(1500000), row["total_earned"])
+	assert.Equal(t, float64(24), row["completed_projects"])
+	langs, ok := row["languages_professional"].([]any)
+	require.True(t, ok)
+	assert.Len(t, langs, 2)
+}
