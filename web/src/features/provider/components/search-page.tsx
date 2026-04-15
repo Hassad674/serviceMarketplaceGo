@@ -3,12 +3,14 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { SearchPageLayout } from "@/shared/components/search/search-page-layout"
+import { isTypesenseEnabled } from "@/shared/lib/search/feature-flag"
 import type {
   SearchDocumentPersona,
 } from "@/shared/lib/search/search-document"
 import type { RawSearchDocumentLike } from "@/shared/lib/search/search-document-adapter"
 import { useSearchProfiles } from "../hooks/use-search"
 import type { SearchType } from "../api/search-api"
+import { TypesenseSearchPage } from "./typesense-search-page"
 
 // SearchPage is the thin provider-feature adapter that wires the
 // existing TanStack Query hook into the shared SearchPageLayout. The
@@ -43,6 +45,17 @@ interface SearchPageProps {
 }
 
 export function SearchPage({ type }: SearchPageProps) {
+  // Phase 2 feature flag: when NEXT_PUBLIC_SEARCH_ENGINE=typesense
+  // the listing page hits Typesense directly via the scoped key
+  // hook. Default ("sql") falls through to the legacy SQL adapter
+  // wired in this component below.
+  if (isTypesenseEnabled()) {
+    return <TypesenseSearchPage type={type} />
+  }
+  return <LegacySearchPage type={type} />
+}
+
+function LegacySearchPage({ type }: SearchPageProps) {
   const t = useTranslations("search")
   const [query, setQuery] = useState("")
   const {
