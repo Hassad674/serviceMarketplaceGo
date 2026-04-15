@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/theme_provider.dart';
 import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/widgets/upload_bottom_sheet.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../expertise/presentation/widgets/expertise_section_widget.dart';
@@ -199,7 +200,8 @@ class _FreelanceProfileBody extends ConsumerWidget {
           _VideoCard(
             videoUrl: profile.videoUrl,
             canEdit: canEdit,
-            onManage: () => _openVideoManage(context),
+            onUpload: () => _openVideoUpload(context, ref),
+            onDelete: () => _confirmDeleteVideo(context, ref),
           ),
           const SizedBox(height: 16),
 
@@ -236,12 +238,53 @@ class _FreelanceProfileBody extends ConsumerWidget {
     return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
   }
 
-  void _openVideoManage(BuildContext context) {
-    // Delegates to the existing upload_bottom_sheet flow — left as
-    // a no-op here because the freelance screen inherits the legacy
-    // upload widget via the shared header. A dedicated video
-    // management surface can replace this once we migrate the
-    // upload service to the split profile.
+  Future<void> _openVideoUpload(BuildContext context, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(context)!;
+    await showUploadBottomSheet(
+      context: context,
+      type: UploadMediaType.video,
+      maxSizeBytes: 50 * 1024 * 1024,
+      onUpload: (file) async {
+        final ok = await ref
+            .read(freelanceVideoEditorProvider.notifier)
+            .upload(file);
+        if (!ok) throw Exception('upload_failed');
+        ref.invalidate(freelanceProfileProvider);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.videoUpdated)),
+          );
+        }
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteVideo(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.removeVideoConfirmTitle),
+        content: Text(l10n.removeVideoConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.removeVideo),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final ok =
+        await ref.read(freelanceVideoEditorProvider.notifier).remove();
+    if (ok) ref.invalidate(freelanceProfileProvider);
   }
 
   Future<void> _openEditAboutSheet(
@@ -411,17 +454,19 @@ class _VideoCard extends StatelessWidget {
   const _VideoCard({
     required this.videoUrl,
     required this.canEdit,
-    required this.onManage,
+    required this.onUpload,
+    required this.onDelete,
   });
 
   final String videoUrl;
   final bool canEdit;
-  final VoidCallback onManage;
+  final VoidCallback onUpload;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
+    final hasVideo = videoUrl.isNotEmpty;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -433,48 +478,111 @@ class _VideoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.videocam_outlined,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(l10n.presentationVideo, style: theme.textTheme.titleMedium),
-            ],
+          _VideoCardHeader(
+            hasVideo: hasVideo,
+            canEdit: canEdit,
+            onReplace: onUpload,
+            onDelete: onDelete,
           ),
           const SizedBox(height: 16),
-          if (videoUrl.isNotEmpty)
+          if (hasVideo)
             VideoPlayerWidget(videoUrl: videoUrl)
           else
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                vertical: 24,
-                horizontal: 16,
-              ),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.videocam_outlined,
-                    size: 40,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    l10n.noVideo,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+            _VideoEmptyState(canEdit: canEdit, onAdd: onUpload),
+          if (!hasVideo) const SizedBox.shrink(),
+        ],
+      ),
+    );
+  }
+}
+
+class _VideoCardHeader extends StatelessWidget {
+  const _VideoCardHeader({
+    required this.hasVideo,
+    required this.canEdit,
+    required this.onReplace,
+    required this.onDelete,
+  });
+
+  final bool hasVideo;
+  final bool canEdit;
+  final VoidCallback onReplace;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Row(
+      children: [
+        Icon(
+          Icons.videocam_outlined,
+          size: 20,
+          color: theme.colorScheme.primary,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            l10n.presentationVideo,
+            style: theme.textTheme.titleMedium,
+          ),
+        ),
+        if (hasVideo && canEdit) ...[
+          TextButton.icon(
+            onPressed: onReplace,
+            icon: const Icon(Icons.cached, size: 18),
+            label: Text(l10n.replaceVideo),
+          ),
+          IconButton(
+            onPressed: onDelete,
+            icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+            tooltip: l10n.removeVideo,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _VideoEmptyState extends StatelessWidget {
+  const _VideoEmptyState({required this.canEdit, required this.onAdd});
+
+  final bool canEdit;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      ),
+      child: Column(
+        children: [
+          Icon(
+            Icons.videocam_outlined,
+            size: 40,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l10n.noVideo,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
+          if (canEdit) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add, size: 18),
+              label: Text(l10n.addVideo),
+            ),
+          ],
         ],
       ),
     );

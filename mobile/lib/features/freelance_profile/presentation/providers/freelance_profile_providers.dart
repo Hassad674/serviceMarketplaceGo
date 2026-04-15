@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -185,6 +187,53 @@ class FreelancePricingNotifier extends StateNotifier<FreelanceEditorState> {
 final freelancePricingEditorProvider = StateNotifierProvider<
     FreelancePricingNotifier, FreelanceEditorState>((ref) {
   return FreelancePricingNotifier(
+    ref.watch(freelanceProfileRepositoryProvider),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Video notifier
+// ---------------------------------------------------------------------------
+
+class FreelanceVideoNotifier extends StateNotifier<FreelanceEditorState> {
+  FreelanceVideoNotifier(this._repo) : super(const FreelanceEditorState());
+
+  final FreelanceProfileRepository _repo;
+
+  Future<bool> upload(File file) async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      await _repo.uploadVideo(file);
+      if (!mounted) return true;
+      state = state.copyWith(isSaving: false, clearError: true);
+      return true;
+    } catch (error, stackTrace) {
+      if (!mounted) return false;
+      debugPrint('FreelanceVideoNotifier.upload failed: $error\n$stackTrace');
+      state = state.copyWith(isSaving: false, error: 'generic');
+      return false;
+    }
+  }
+
+  Future<bool> remove() async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      await _repo.deleteVideo();
+      if (!mounted) return true;
+      state = state.copyWith(isSaving: false, clearError: true);
+      return true;
+    } catch (error, stackTrace) {
+      if (!mounted) return false;
+      debugPrint('FreelanceVideoNotifier.remove failed: $error\n$stackTrace');
+      state = state.copyWith(isSaving: false, error: 'generic');
+      return false;
+    }
+  }
+}
+
+final freelanceVideoEditorProvider = StateNotifierProvider<
+    FreelanceVideoNotifier, FreelanceEditorState>((ref) {
+  return FreelanceVideoNotifier(
     ref.watch(freelanceProfileRepositoryProvider),
   );
 });

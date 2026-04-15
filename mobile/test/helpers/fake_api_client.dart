@@ -59,6 +59,8 @@ class FakeApiClient extends ApiClient {
   final Map<String, Future<Response<dynamic>> Function(dynamic data)>
       putHandlers = {};
   final Map<String, Future<Response<dynamic>> Function()> deleteHandlers = {};
+  final Map<String, Future<Response<dynamic>> Function(FormData data)>
+      uploadHandlers = {};
 
   @override
   Future<Response<T>> get<T>(
@@ -107,6 +109,23 @@ class FakeApiClient extends ApiClient {
     final handler = deleteHandlers[path];
     if (handler != null) {
       final response = await handler();
+      return response as Response<T>;
+    }
+    throw DioException(
+      requestOptions: RequestOptions(path: path),
+      type: DioExceptionType.connectionError,
+    );
+  }
+
+  @override
+  Future<Response<T>> upload<T>(
+    String path, {
+    required FormData data,
+    void Function(int, int)? onSendProgress,
+  }) async {
+    final handler = uploadHandlers[path];
+    if (handler != null) {
+      final response = await handler(data);
       return response as Response<T>;
     }
     throw DioException(
