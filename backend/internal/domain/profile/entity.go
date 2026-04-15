@@ -88,6 +88,12 @@ func NewProfile(organizationID uuid.UUID) *Profile {
 // with review metrics and a referrer flag derived from the owner.
 type PublicProfile struct {
 	OrganizationID  uuid.UUID
+	// OwnerUserID is the user at the top of the org — the "party" id the
+	// business-referral feature uses when creating an intro, and the id
+	// review / reputation aggregates on. For provider_personal orgs this
+	// is the freelancer themselves; for agency / enterprise orgs this is
+	// the current owner.
+	OwnerUserID     uuid.UUID
 	Name            string
 	OrgType         string
 	Title           string

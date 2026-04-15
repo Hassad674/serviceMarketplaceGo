@@ -140,6 +140,10 @@ type ProfileResponse struct {
 // leaner: it exposes only the fields useful in a search card.
 type PublicProfileSummary struct {
 	OrganizationID  string                `json:"organization_id"`
+	// OwnerUserID is the id of the user at the top of the org — the
+	// "party id" the business-referral feature consumes when the
+	// apporteur picks a provider from the search results.
+	OwnerUserID     string                `json:"owner_user_id"`
 	Name            string                `json:"name"`
 	OrgType         string                `json:"org_type"`
 	Title           string                `json:"title"`
@@ -158,6 +162,7 @@ type PublicProfileSummary struct {
 func NewPublicProfileSummary(p *profile.PublicProfile) PublicProfileSummary {
 	return PublicProfileSummary{
 		OrganizationID:  p.OrganizationID.String(),
+		OwnerUserID:     p.OwnerUserID.String(),
 		Name:            p.Name,
 		OrgType:         p.OrgType,
 		Title:           p.Title,

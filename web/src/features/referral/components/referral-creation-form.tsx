@@ -6,6 +6,11 @@ import { Loader2, Send } from "lucide-react"
 
 import { useCreateReferral } from "../hooks/use-referrals"
 import type { CreateReferralInput, SnapshotToggles } from "../types"
+import { ClientPicker, type ClientPickerSelection } from "./client-picker"
+import {
+  ProviderPicker,
+  type ProviderPickerSelection,
+} from "./provider-picker"
 
 const DEFAULT_TOGGLES: SnapshotToggles = {
   include_expertise: true,
@@ -17,25 +22,22 @@ const DEFAULT_TOGGLES: SnapshotToggles = {
   include_availability: true,
 }
 
-interface ReferralCreationFormProps {
-  // Optional pre-fill: when navigated from a provider profile page or a
-  // conversation, the parent passes the provider id so the apporteur only
-  // has to pick the client.
-  initialProviderId?: string
-}
-
 // ReferralCreationForm renders the full intro creation surface as a single
 // page (V1). A future iteration can split it into a multi-step wizard if
 // the field count grows. The form intentionally keeps the rate slider close
 // to the messages so the apporteur can think holistically about the deal.
-export function ReferralCreationForm({
-  initialProviderId,
-}: ReferralCreationFormProps) {
+//
+// Party selection goes through dedicated pickers instead of raw UUIDs:
+//  - Provider: searchable dropdown over freelances + agences from the
+//    marketplace's public search (filters by name client-side).
+//  - Client: pickable from the apporteur's existing conversations with
+//    enterprises — cold intro is not supported on purpose.
+export function ReferralCreationForm() {
   const router = useRouter()
   const create = useCreateReferral()
 
-  const [providerId, setProviderId] = useState(initialProviderId ?? "")
-  const [clientId, setClientId] = useState("")
+  const [provider, setProvider] = useState<ProviderPickerSelection | null>(null)
+  const [client, setClient] = useState<ClientPickerSelection | null>(null)
   const [ratePct, setRatePct] = useState(5)
   const [durationMonths, setDurationMonths] = useState(6)
   const [pitchProvider, setPitchProvider] = useState("")
@@ -51,8 +53,12 @@ export function ReferralCreationForm({
     e.preventDefault()
     setSubmitError(null)
 
-    if (!providerId.trim() || !clientId.trim()) {
-      setSubmitError("Sélectionnez un prestataire et un client.")
+    if (!provider) {
+      setSubmitError("Sélectionnez un prestataire dans la liste.")
+      return
+    }
+    if (!client) {
+      setSubmitError("Sélectionnez un client parmi vos conversations.")
       return
     }
     if (ratePct < 0 || ratePct > 50) {
@@ -65,8 +71,8 @@ export function ReferralCreationForm({
     }
 
     const payload: CreateReferralInput = {
-      provider_id: providerId.trim(),
-      client_id: clientId.trim(),
+      provider_id: provider.userId,
+      client_id: client.userId,
       rate_pct: ratePct,
       duration_months: durationMonths,
       intro_message_provider: pitchProvider.trim(),
@@ -93,28 +99,10 @@ export function ReferralCreationForm({
     >
       <Section
         title="1 — Les parties à mettre en relation"
-        description="Choisissez le prestataire et le client. Vous pouvez les chercher par identifiant utilisateur en V1 ; un picker complet sera ajouté plus tard."
+        description="Cherchez un prestataire par nom, puis choisissez un client parmi vos conversations existantes. Vous ne pouvez introduire qu'un client avec qui vous avez déjà échangé."
       >
-        <Field label="ID du prestataire">
-          <input
-            type="text"
-            value={providerId}
-            onChange={(e) => setProviderId(e.target.value)}
-            placeholder="UUID du provider"
-            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
-            required
-          />
-        </Field>
-        <Field label="ID du client">
-          <input
-            type="text"
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            placeholder="UUID du client (entreprise ou agence)"
-            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
-            required
-          />
-        </Field>
+        <ProviderPicker value={provider} onChange={setProvider} />
+        <ClientPicker value={client} onChange={setClient} />
       </Section>
 
       <Section

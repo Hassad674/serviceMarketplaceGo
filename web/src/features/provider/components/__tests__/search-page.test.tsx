@@ -48,6 +48,7 @@ function createProfile(
 ): PublicProfileSummary {
   return {
     organization_id: "org-1",
+    owner_user_id: "user-1",
     name: "Test Org",
     org_type: "provider_personal",
     title: "Developer",

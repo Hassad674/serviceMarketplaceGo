@@ -356,7 +356,7 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, orgTypeFilter stri
 	}
 
 	base := `
-		SELECT o.id, o.name, o.type,
+		SELECT o.id, o.owner_user_id, o.name, o.type,
 		       COALESCE(p.title, ''), COALESCE(p.photo_url, ''),
 		       COALESCE(u.referrer_enabled, false),
 		       o.created_at,
@@ -403,7 +403,7 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, orgTypeFilter stri
 	for rows.Next() {
 		pp := &profile.PublicProfile{}
 		if err := rows.Scan(
-			&pp.OrganizationID, &pp.Name, &pp.OrgType,
+			&pp.OrganizationID, &pp.OwnerUserID, &pp.Name, &pp.OrgType,
 			&pp.Title, &pp.PhotoURL, &pp.ReferrerEnabled,
 			&pp.CreatedAt, &pp.AverageRating, &pp.ReviewCount,
 		); err != nil {
@@ -439,7 +439,7 @@ func (r *ProfileRepository) GetPublicProfilesByOrgIDs(ctx context.Context, orgID
 	}
 
 	query := `
-		SELECT o.id, o.name, o.type,
+		SELECT o.id, o.owner_user_id, o.name, o.type,
 		       COALESCE(p.title, ''), COALESCE(p.photo_url, ''),
 		       COALESCE(u.referrer_enabled, false),
 		       o.created_at,
@@ -472,7 +472,7 @@ func (r *ProfileRepository) GetPublicProfilesByOrgIDs(ctx context.Context, orgID
 	for rows.Next() {
 		pp := &profile.PublicProfile{}
 		if err := rows.Scan(
-			&pp.OrganizationID, &pp.Name, &pp.OrgType,
+			&pp.OrganizationID, &pp.OwnerUserID, &pp.Name, &pp.OrgType,
 			&pp.Title, &pp.PhotoURL, &pp.ReferrerEnabled,
 			&pp.CreatedAt, &pp.AverageRating, &pp.ReviewCount,
 		); err != nil {
@@ -505,7 +505,7 @@ func (r *ProfileRepository) OrgProfilesByUserIDs(ctx context.Context, userIDs []
 
 	query := `
 		SELECT u.id AS user_id,
-		       o.id, o.name, o.type,
+		       o.id, o.owner_user_id, o.name, o.type,
 		       COALESCE(p.title, ''), COALESCE(p.photo_url, ''),
 		       COALESCE(u.referrer_enabled, false),
 		       o.created_at,
@@ -539,7 +539,7 @@ func (r *ProfileRepository) OrgProfilesByUserIDs(ctx context.Context, userIDs []
 		pp := &profile.PublicProfile{}
 		if err := rows.Scan(
 			&userID,
-			&pp.OrganizationID, &pp.Name, &pp.OrgType,
+			&pp.OrganizationID, &pp.OwnerUserID, &pp.Name, &pp.OrgType,
 			&pp.Title, &pp.PhotoURL, &pp.ReferrerEnabled,
 			&pp.CreatedAt, &pp.AverageRating, &pp.ReviewCount,
 		); err != nil {
