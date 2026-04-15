@@ -251,8 +251,16 @@ func (r *ConversationRepository) CreateMessage(ctx context.Context, msg *message
 	}
 	msg.Seq = seq
 
+	// System messages emitted by background paths (end-of-project
+	// effects, dispute resolution, scheduler) carry uuid.Nil as the
+	// sender. The messages.sender_id column is FK-constrained on
+	// users(id), so binding the zero UUID would trip the foreign
+	// key check and silently drop the row (the proposal service
+	// ignores SendSystemMessage errors). Convert uuid.Nil → SQL NULL
+	// so system-actor sends persist correctly.
+	senderArg := senderForInsert(msg.SenderID)
 	if _, err := tx.ExecContext(ctx, queryInsertMessage,
-		msg.ID, msg.ConversationID, msg.SenderID, msg.Content,
+		msg.ID, msg.ConversationID, senderArg, msg.Content,
 		string(msg.Type), msg.Metadata, msg.ReplyToID, msg.Seq, string(msg.Status),
 		msg.CreatedAt, msg.UpdatedAt,
 	); err != nil {
@@ -607,11 +615,12 @@ func scanMessage(row *sql.Row) (*message.Message, error) {
 	msg := &message.Message{}
 	var msgType, status string
 	var metadata []byte
+	var senderID *uuid.UUID
 	var replyID, replySenderID *uuid.UUID
 	var replyContent, replyType *string
 
 	err := row.Scan(
-		&msg.ID, &msg.ConversationID, &msg.SenderID, &msg.Content,
+		&msg.ID, &msg.ConversationID, &senderID, &msg.Content,
 		&msgType, &metadata, &msg.ReplyToID, &msg.Seq, &status,
 		&msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt, &msg.UpdatedAt,
 		&replyID, &replySenderID, &replyContent, &replyType,
@@ -620,6 +629,7 @@ func scanMessage(row *sql.Row) (*message.Message, error) {
 		return nil, err
 	}
 
+	msg.SenderID = senderForRead(senderID)
 	if len(metadata) > 0 {
 		msg.Metadata = metadata
 	}
@@ -634,11 +644,12 @@ func scanMessageFromRows(rows *sql.Rows) (*message.Message, error) {
 	msg := &message.Message{}
 	var msgType, status string
 	var metadata []byte
+	var senderID *uuid.UUID
 	var replyID, replySenderID *uuid.UUID
 	var replyContent, replyType *string
 
 	err := rows.Scan(
-		&msg.ID, &msg.ConversationID, &msg.SenderID, &msg.Content,
+		&msg.ID, &msg.ConversationID, &senderID, &msg.Content,
 		&msgType, &metadata, &msg.ReplyToID, &msg.Seq, &status,
 		&msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt, &msg.UpdatedAt,
 		&replyID, &replySenderID, &replyContent, &replyType,
@@ -647,6 +658,7 @@ func scanMessageFromRows(rows *sql.Rows) (*message.Message, error) {
 		return nil, err
 	}
 
+	msg.SenderID = senderForRead(senderID)
 	if len(metadata) > 0 {
 		msg.Metadata = metadata
 	}
@@ -654,6 +666,28 @@ func scanMessageFromRows(rows *sql.Rows) (*message.Message, error) {
 	msg.Status = message.MessageStatus(status)
 	msg.ReplyPreview = buildReplyPreview(replyID, replySenderID, replyContent, replyType)
 	return msg, nil
+}
+
+// senderForInsert converts a uuid.UUID into the value to bind for the
+// messages.sender_id parameter. The system-actor sentinel uuid.Nil is
+// rewritten to nil so the database stores SQL NULL instead — required
+// because messages.sender_id has a foreign key into users(id) and the
+// zero UUID has no matching row.
+func senderForInsert(senderID uuid.UUID) any {
+	if senderID == uuid.Nil {
+		return nil
+	}
+	return senderID
+}
+
+// senderForRead converts a nullable sender_id read from the database
+// back into a uuid.UUID value. NULL becomes uuid.Nil — the same
+// system-actor sentinel the rest of the app uses.
+func senderForRead(senderID *uuid.UUID) uuid.UUID {
+	if senderID == nil {
+		return uuid.Nil
+	}
+	return *senderID
 }
 
 // buildReplyPreview constructs a ReplyPreview from nullable JOIN columns.
