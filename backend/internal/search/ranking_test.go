@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/search"
 )
@@ -175,16 +176,14 @@ func TestProfileCompletionScore(t *testing.T) {
 func TestDefaultSortBy(t *testing.T) {
 	sortBy := search.DefaultSortBy()
 
-	// Each of these expressions must appear in the canonical order.
+	// Typesense 28.0 caps sort_by at three fields. The default
+	// formula picks the three highest-impact signals and lets the
+	// remaining quality signals (verified, top_rated, completion
+	// score) influence ranking through the bayesian rating_score.
 	fragments := []string{
 		"_text_match(buckets:10):desc",
-		"_vector_distance:asc",
 		"availability_priority:desc",
 		"rating_score:desc",
-		"profile_completion_score:desc",
-		"is_verified:desc",
-		"is_top_rated:desc",
-		"last_active_at:desc",
 	}
 
 	last := -1
@@ -194,4 +193,9 @@ func TestDefaultSortBy(t *testing.T) {
 		assert.Greater(t, idx, last, "fragment %q out of order in sort_by", f)
 		last = idx
 	}
+
+	// And no more than 3 sort fields total — the cluster will
+	// reject any larger set with a 400.
+	require.Equal(t, 3, strings.Count(sortBy, ",")+1,
+		"sort_by must contain exactly 3 sort fields (Typesense 28.0 cap)")
 }
