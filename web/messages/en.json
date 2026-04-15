@@ -298,6 +298,7 @@
   "sidebar": {
     "dashboard": "Dashboard",
     "myProfile": "My Profile",
+    "referralDeals": "Referrals",
     "referrerProfile": "Referrer Profile",
     "businessReferrer": "Business Referrer",
     "freelanceDashboard": "Freelance Dashboard",
@@ -1303,5 +1304,65 @@
     "restrictedDescription": "You do not have the required permissions to access this feature. Contact your organization owner to get access.",
     "permissionDenied": "Permission denied",
     "noOrganization": "You must belong to an organization to perform this action"
+  },
+  "referral": {
+    "title": "Business referrals",
+    "subtitle": "Your introductions and their commissions.",
+    "newIntro": "New referral",
+    "section": {
+      "inbox": "Inbox",
+      "inboxDescription": "Referrals where you must accept, negotiate, or refuse.",
+      "pending": "Pending",
+      "pendingDescription": "Your intros waiting on another party.",
+      "active": "Active",
+      "activeDescription": "Activated, in their exclusivity window.",
+      "history": "History",
+      "historyDescription": "Terminated, expired, cancelled, rejected.",
+      "empty": "Nothing to show here yet."
+    },
+    "stats": {
+      "pending": "Pending",
+      "active": "Active",
+      "total": "Total"
+    },
+    "status": {
+      "pending_provider": "Pending provider",
+      "pending_referrer": "Pending referrer",
+      "pending_client": "Pending client",
+      "active": "Active",
+      "rejected": "Rejected",
+      "expired": "Expired",
+      "cancelled": "Cancelled",
+      "terminated": "Terminated"
+    },
+    "create": {
+      "title": "New introduction",
+      "subtitle": "Introduce a provider to a client. The client never sees the commission rate — you negotiate it privately with the provider.",
+      "submit": "Send introduction",
+      "errorGeneric": "Something went wrong creating the intro."
+    },
+    "detail": {
+      "headerTitle": "Business referral",
+      "metricCommission": "Commission",
+      "metricDuration": "Duration",
+      "actionsTitle": "Your actions",
+      "negotiationHistory": "Negotiation history",
+      "introNote": "A note from the referrer",
+      "loadError": "Could not load this referral.",
+      "notAParty": "You are not a party to this referral."
+    },
+    "actions": {
+      "accept": "Accept",
+      "acceptCounter": "Accept counter",
+      "negotiate": "Negotiate",
+      "reject": "Reject",
+      "cancelIntro": "Cancel intro",
+      "endReferral": "End referral"
+    },
+    "errors": {
+      "couplesLocked": "An active referral already exists for this couple.",
+      "notAuthorized": "You are not authorized to perform this action.",
+      "invalidTransition": "This action is not available in the current state."
+    }
   }
 }

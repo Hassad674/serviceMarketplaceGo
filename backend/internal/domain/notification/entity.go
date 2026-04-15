@@ -50,6 +50,21 @@ const (
 	TypeOrgTransferCancelled  NotificationType = "org_transfer_cancelled"
 	TypeOrgTransferDeclined   NotificationType = "org_transfer_declined"
 	TypeOrgTransferAccepted   NotificationType = "org_transfer_accepted"
+
+	// Referral (apport d'affaires) events — fired by the referral app
+	// service from intro creation through commission payout.
+	TypeReferralIntroCreated            NotificationType = "referral_intro_created"
+	TypeReferralIntroAcceptedByProvider NotificationType = "referral_intro_accepted_by_provider"
+	TypeReferralIntroAcceptedByClient   NotificationType = "referral_intro_accepted_by_client"
+	TypeReferralIntroNegotiated         NotificationType = "referral_intro_negotiated"
+	TypeReferralIntroRejected           NotificationType = "referral_intro_rejected"
+	TypeReferralIntroExpired            NotificationType = "referral_intro_expired"
+	TypeReferralIntroCancelled          NotificationType = "referral_intro_cancelled"
+	TypeReferralIntroTerminated         NotificationType = "referral_intro_terminated"
+	TypeReferralIntroActivated          NotificationType = "referral_intro_activated"
+	TypeReferralCommissionPaid          NotificationType = "referral_commission_paid"
+	TypeReferralCommissionClawedBack    NotificationType = "referral_commission_clawed_back"
+	TypeReferralCommissionPendingKYC    NotificationType = "referral_commission_pending_kyc"
 )
 
 var validTypes = map[NotificationType]bool{
@@ -87,6 +102,19 @@ var validTypes = map[NotificationType]bool{
 	TypeOrgTransferCancelled:  true,
 	TypeOrgTransferDeclined:   true,
 	TypeOrgTransferAccepted:   true,
+
+	TypeReferralIntroCreated:            true,
+	TypeReferralIntroAcceptedByProvider: true,
+	TypeReferralIntroAcceptedByClient:   true,
+	TypeReferralIntroNegotiated:         true,
+	TypeReferralIntroRejected:           true,
+	TypeReferralIntroExpired:            true,
+	TypeReferralIntroCancelled:          true,
+	TypeReferralIntroTerminated:         true,
+	TypeReferralIntroActivated:          true,
+	TypeReferralCommissionPaid:          true,
+	TypeReferralCommissionClawedBack:    true,
+	TypeReferralCommissionPendingKYC:    true,
 }
 
 // IsValid checks if the notification type is recognised.
@@ -111,6 +139,12 @@ func AllTypes() []NotificationType {
 		TypeOrgInvitationAccepted, TypeOrgMemberRoleChanged, TypeOrgMemberRemoved,
 		TypeOrgMemberLeft, TypeOrgTransferInitiated, TypeOrgTransferCancelled,
 		TypeOrgTransferDeclined, TypeOrgTransferAccepted,
+		TypeReferralIntroCreated, TypeReferralIntroAcceptedByProvider,
+		TypeReferralIntroAcceptedByClient, TypeReferralIntroNegotiated,
+		TypeReferralIntroRejected, TypeReferralIntroExpired,
+		TypeReferralIntroCancelled, TypeReferralIntroTerminated,
+		TypeReferralIntroActivated, TypeReferralCommissionPaid,
+		TypeReferralCommissionClawedBack, TypeReferralCommissionPendingKYC,
 	}
 }
 

@@ -65,6 +65,17 @@ type Notifier struct {
 
 	cooldown sync.Map // key: orgID|type, val: time.Time (last sent)
 	ttl      time.Duration
+
+	// Referral KYC listener — wired post-construction. Fires whenever the
+	// account transitions to a payable state so the referral feature can
+	// drain parked pending_kyc commissions for the owner user.
+	referralKYCListener portservice.ReferralKYCListener
+}
+
+// SetReferralKYCListener plugs the referral KYC listener in post-construction.
+// Safe to call at app startup. Passing nil disables the hook.
+func (n *Notifier) SetReferralKYCListener(l portservice.ReferralKYCListener) {
+	n.referralKYCListener = l
 }
 
 // NewNotifier wires the notifier. ttl sets the minimum interval between
@@ -119,6 +130,20 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 			continue
 		}
 		n.markSent(org.ID, ev.Key)
+	}
+
+	// Referral KYC drain — trigger when the account transitions to payable.
+	// "Payable" is defined as PayoutsEnabled=true AND ChargesEnabled=true.
+	// Prev state nil means this is the first webhook we've seen, which in
+	// practice happens right after onboarding completion, so we fire then too.
+	if n.referralKYCListener != nil && snap.PayoutsEnabled && snap.ChargesEnabled {
+		prevWasPayable := prev != nil && prev.PayoutsEnabled && prev.ChargesEnabled
+		if !prevWasPayable {
+			if err := n.referralKYCListener.OnStripeAccountReady(ctx, org.OwnerUserID); err != nil {
+				slog.Warn("referral: kyc drain failed",
+					"org_id", org.ID, "owner_user_id", org.OwnerUserID, "error", err)
+			}
+		}
 	}
 
 	// Persist the new state on the org row so the next webhook can

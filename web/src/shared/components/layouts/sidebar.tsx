@@ -57,6 +57,10 @@ const FREELANCE_NAV: NavItem[] = [
 const REFERRER_NAV: NavItem[] = [
   { labelKey: "dashboard", href: "/dashboard", icon: LayoutDashboard, exact: true, roles: ["provider"] },
   { labelKey: "messages", href: "/messages", icon: MessageSquare, roles: ["provider"] },
+  // /referrals (plural) is the deals dashboard for the apport d'affaires
+  // feature. Distinct from /referral (singular) which stays the public
+  // referrer profile editor below — both labels are intentionally close.
+  { labelKey: "referralDeals", href: "/referrals", icon: Sparkles, roles: ["provider"] },
   { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
   { labelKey: "accountSettings", href: "/account", icon: Settings, roles: ["provider"] },

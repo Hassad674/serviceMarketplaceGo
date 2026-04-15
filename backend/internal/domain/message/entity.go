@@ -43,6 +43,13 @@ const (
 	MessageTypeDisputeAutoResolved           MessageType = "dispute_auto_resolved"
 	MessageTypeDisputeCancellationRequested  MessageType = "dispute_cancellation_requested"
 	MessageTypeDisputeCancellationRefused    MessageType = "dispute_cancellation_refused"
+
+	// Referral (apport d'affaires) — the only system message the referral
+	// feature posts inside the provider↔client conversation, when a client
+	// accepts the introduction. Commission events (paid/clawed back) are
+	// notification-only and never appear in the conversation: the chat
+	// stays strictly 1:1 between the working parties (B2B confidentiality).
+	MessageTypeReferralIntroActivated MessageType = "referral_intro_activated"
 )
 
 // IsProposalType returns true if the message type is a proposal event type.
