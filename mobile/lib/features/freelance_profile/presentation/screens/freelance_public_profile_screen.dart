@@ -132,9 +132,13 @@ class _Body extends StatelessWidget {
             ProfileDisplayCardShell(
               title: l10n.about,
               icon: Icons.info_outline,
-              child: Text(
-                profile.about,
-                style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  profile.about,
+                  softWrap: true,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                ),
               ),
             ),
             const SizedBox(height: 16),

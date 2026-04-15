@@ -213,10 +213,14 @@ class _ProfileContentState extends ConsumerState<_ProfileContent> {
             _SectionCard(
               title: l10n.about,
               icon: Icons.info_outline,
-              child: Text(
-                about,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(height: 1.5),
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  about,
+                  softWrap: true,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(height: 1.5),
+                ),
               ),
             ),
           if (about != null && about.isNotEmpty)

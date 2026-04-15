@@ -63,7 +63,7 @@ export function ProfileAboutCard(props: ProfileAboutCardProps) {
   }
 
   return (
-    <section className="bg-card border border-border rounded-xl p-6 shadow-sm">
+    <section className="bg-card border border-border rounded-xl p-6 shadow-sm min-w-0 w-full">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">{label}</h2>
         {!editing && !readOnly && onSave ? (
@@ -90,7 +90,9 @@ export function ProfileAboutCard(props: ProfileAboutCardProps) {
           textareaRef={textareaRef}
         />
       ) : content ? (
-        <p className="text-sm text-foreground whitespace-pre-line">{content}</p>
+        <p className="text-sm text-foreground whitespace-pre-line break-words [overflow-wrap:anywhere] min-w-0">
+          {content}
+        </p>
       ) : (
         <p className="text-sm text-muted-foreground italic">
           {t("clickToEdit")}

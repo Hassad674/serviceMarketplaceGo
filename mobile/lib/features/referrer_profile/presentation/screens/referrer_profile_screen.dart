@@ -130,15 +130,19 @@ class _ReferrerBody extends ConsumerWidget {
             child: _SectionCard(
               title: l10n.about,
               icon: Icons.info_outline,
-              child: Text(
-                profile.about.isNotEmpty
-                    ? profile.about
-                    : l10n.aboutPlaceholder,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  height: 1.5,
-                  fontStyle: profile.about.isEmpty
-                      ? FontStyle.italic
-                      : FontStyle.normal,
+              child: SizedBox(
+                width: double.infinity,
+                child: Text(
+                  profile.about.isNotEmpty
+                      ? profile.about
+                      : l10n.aboutPlaceholder,
+                  softWrap: true,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    height: 1.5,
+                    fontStyle: profile.about.isEmpty
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                  ),
                 ),
               ),
             ),
