@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -206,6 +207,14 @@ func (s *Service) SendMessage(ctx context.Context, input SendMessageInput) (*mes
 
 	if err := s.messages.CreateMessage(ctx, msg); err != nil {
 		return nil, fmt.Errorf("create message: %w", err)
+	}
+
+	// Best-effort: bump the sender's last_active_at so the
+	// Typesense indexer can rank recently-active profiles higher.
+	// Failure must never block message delivery.
+	if err := s.users.TouchLastActive(ctx, input.SenderID); err != nil {
+		slog.Warn("messaging: touch last_active_at on message send failed",
+			"user_id", input.SenderID, "error", err)
 	}
 
 	// Populate reply preview for the broadcast and HTTP response.
