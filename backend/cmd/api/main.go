@@ -37,7 +37,10 @@ import (
 	milestoneapp "marketplace-backend/internal/app/milestone"
 	"marketplace-backend/internal/adapter/worker"
 	"marketplace-backend/internal/adapter/worker/handlers"
+	appsearch "marketplace-backend/internal/app/search"
+	"marketplace-backend/internal/app/searchindex"
 	"marketplace-backend/internal/domain/pendingevent"
+	"marketplace-backend/internal/search"
 	notifapp "marketplace-backend/internal/app/notification"
 	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
@@ -434,6 +437,29 @@ func main() {
 	// or released into the Stripe outbox (phase 7).
 	pendingEventsRepo := postgres.NewPendingEventRepository(db)
 
+	// Search engine publisher — built once so every service that
+	// mutates actor signals (freelance profile, referrer profile,
+	// pricing, skills, etc.) can emit a `search.reindex` event on
+	// the outbox without re-wiring the whole chain. The publisher
+	// debounces rapid repeats so a storm of profile updates does
+	// not translate to a storm of index rebuilds.
+	//
+	// Nil when Typesense is not configured — services receive the
+	// nil publisher and silently skip publishing. Removing the
+	// search feature entirely is a matter of deleting this block
+	// and the `.WithSearchIndexPublisher(searchPublisher)` calls.
+	var searchPublisher *searchindex.Publisher
+	if cfg.TypesenseConfigured() {
+		var pubErr error
+		searchPublisher, pubErr = searchindex.NewPublisher(searchindex.PublisherConfig{
+			Events: pendingEventsRepo,
+		})
+		if pubErr != nil {
+			slog.Error("search: failed to build publisher", "error", pubErr)
+			os.Exit(1)
+		}
+	}
+
 	// Milestone audit trail (phase 9 — append-only). Every successful
 	// withMilestoneLock writes one row recording from→to status pair,
 	// actor id + org, and an optional reason string. The DB user
@@ -473,6 +499,91 @@ func main() {
 	pendingEventsWorker.Register(pendingevent.TypeMilestoneFundReminder, handlers.NewMilestoneFundReminderHandler(proposalSvc))
 	pendingEventsWorker.Register(pendingevent.TypeProposalAutoClose, handlers.NewProposalAutoCloseHandler(proposalSvc))
 	pendingEventsWorker.Register(pendingevent.TypeStripeTransfer, handlers.NewStripeTransferHandler(proposalSvc))
+
+	// Search engine (Typesense) — phase 1 infrastructure. Always
+	// wires the indexer + event handlers when TYPESENSE_* config
+	// is present, even when SEARCH_ENGINE=sql, so the outbox
+	// pipeline can populate the index ahead of the query-path
+	// switch over. If Typesense is not configured we silently
+	// skip registration — the outbox events will land as "no
+	// handler registered" and stay in failed status until an
+	// operator re-enables indexing.
+	var typesenseClient *search.Client // nil when TYPESENSE_* env vars are absent
+	if cfg.TypesenseConfigured() {
+		tsClient, err := search.NewClient(cfg.TypesenseHost, cfg.TypesenseAPIKey)
+		if err != nil {
+			slog.Error("search: invalid typesense configuration", "error", err)
+			os.Exit(1)
+		}
+		if err := search.EnsureSchema(context.Background(), search.EnsureSchemaDeps{
+			Client: tsClient,
+			Logger: slog.Default(),
+		}); err != nil {
+			slog.Warn("search: ensure schema failed, continuing without indexing", "error", err)
+		}
+
+		var embedder search.EmbeddingsClient
+		if cfg.OpenAIAPIKey != "" {
+			openaiClient, openaiErr := search.NewOpenAIEmbeddings(cfg.OpenAIAPIKey, cfg.OpenAIEmbeddingsModel)
+			if openaiErr != nil {
+				slog.Warn("search: openai client unavailable, falling back to mock embeddings",
+					"error", openaiErr)
+				embedder = search.NewMockEmbeddings()
+			} else {
+				embedder = openaiClient
+			}
+		} else {
+			slog.Warn("search: OPENAI_API_KEY not set, using mock embeddings — search quality will be degraded")
+			embedder = search.NewMockEmbeddings()
+		}
+
+		searchDataRepo := postgres.NewSearchDocumentRepository(db)
+		searchIndexer, err := search.NewIndexer(searchDataRepo, embedder)
+		if err != nil {
+			slog.Error("search: failed to build indexer", "error", err)
+			os.Exit(1)
+		}
+		searchIndexSvc, err := searchindex.NewService(searchindex.Config{
+			Client:  tsClient,
+			Indexer: searchIndexer,
+			Logger:  slog.Default(),
+		})
+		if err != nil {
+			slog.Error("search: failed to build indexing service", "error", err)
+			os.Exit(1)
+		}
+
+		pendingEventsWorker.Register(pendingevent.TypeSearchReindex, handlers.NewSearchReindexHandler(searchIndexSvc))
+		pendingEventsWorker.Register(pendingevent.TypeSearchDelete, handlers.NewSearchDeleteHandler(searchIndexSvc))
+		typesenseClient = tsClient
+		slog.Info("search: typesense indexer wired", "engine_mode", cfg.SearchEngine)
+	} else {
+		slog.Info("search: typesense not configured, outbox events for search.* will be dropped")
+	}
+
+	// Search query service (phase 2). Wired only when Typesense is
+	// configured AND the SEARCH_ENGINE flag flips to typesense.
+	// Lives outside the previous block because the indexer + the
+	// query path are independent — we can index without serving and
+	// vice versa.
+	var searchQuerySvc *appsearch.Service
+	var searchHandler *handler.SearchHandler
+	if typesenseClient != nil {
+		searchQuerySvc = appsearch.NewService(appsearch.ServiceDeps{
+			Freelance: search.NewFreelanceClient(typesenseClient),
+			Agency:    search.NewAgencyClient(typesenseClient),
+			Referrer:  search.NewReferrerClient(typesenseClient),
+		})
+		searchHandler = handler.NewSearchHandler(handler.SearchHandlerDeps{
+			Service:       searchQuerySvc,
+			Client:        typesenseClient,
+			TypesenseHost: cfg.TypesenseHost,
+			APIKey:        cfg.TypesenseAPIKey,
+		})
+		slog.Info("search: query service wired",
+			"search_engine", cfg.SearchEngine,
+			"is_typesense", cfg.SearchEngineIsTypesense())
+	}
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
 	go func() {
@@ -665,6 +776,9 @@ func main() {
 		newOrgTypeResolverAdapter(organizationRepo),
 	)
 	skillHandler := handler.NewSkillHandler(skillSvc)
+	if searchPublisher != nil {
+		skillHandler = skillHandler.WithSearchIndexPublisher(searchPublisher)
+	}
 
 	// Profile pricing feature (migration 083). Uses a local
 	// org-info resolver adapter (profile_pricing_org_info_resolver.go)
@@ -678,6 +792,9 @@ func main() {
 		newProfilePricingOrgInfoResolverAdapter(organizationRepo, userRepo),
 	)
 	profilePricingHandler := handler.NewProfilePricingHandler(profilePricingSvc)
+	if searchPublisher != nil {
+		profilePricingHandler = profilePricingHandler.WithSearchIndexPublisher(searchPublisher)
+	}
 
 	// Split-profile feature (migrations 096-104). The freelance /
 	// referrer / freelance pricing / referrer pricing aggregates
@@ -688,6 +805,15 @@ func main() {
 	// split means removing these lines only.
 	freelanceProfileRepo := postgres.NewFreelanceProfileRepository(db)
 	freelanceProfileSvc := freelanceprofileapp.NewService(freelanceProfileRepo)
+	if searchPublisher != nil {
+		freelanceProfileSvc = freelanceProfileSvc.WithSearchIndexPublisher(searchPublisher)
+		// Phase 2 carry-over: the legacy agency profile service
+		// also publishes reindex events. Done via a setter here
+		// because profileSvc is created earlier (line ~191) for
+		// other downstream wiring; this keeps the publisher
+		// dependency optional and isolated.
+		profileSvc = profileSvc.WithSearchIndexPublisher(searchPublisher)
+	}
 	freelancePricingRepo := postgres.NewFreelancePricingRepository(db)
 	freelancePricingSvc := freelancepricingapp.NewService(freelancePricingRepo)
 	freelanceProfileHandler := handler.
@@ -695,9 +821,15 @@ func main() {
 		WithSkillsReader(skillSvc).
 		WithPricingReader(freelancePricingSvc)
 	freelancePricingHandler := handler.NewFreelancePricingHandler(freelancePricingSvc, freelanceProfileSvc)
+	if searchPublisher != nil {
+		freelancePricingHandler = freelancePricingHandler.WithSearchIndexPublisher(searchPublisher)
+	}
 
 	referrerProfileRepo := postgres.NewReferrerProfileRepository(db)
 	referrerProfileSvc := referrerprofileapp.NewService(referrerProfileRepo)
+	if searchPublisher != nil {
+		referrerProfileSvc = referrerProfileSvc.WithSearchIndexPublisher(searchPublisher)
+	}
 	referrerPricingRepo := postgres.NewReferrerPricingRepository(db)
 	referrerPricingSvc := referrerpricingapp.NewService(referrerPricingRepo)
 
@@ -734,6 +866,9 @@ func main() {
 		NewReferrerProfileHandler(referrerProfileSvc).
 		WithPricingReader(referrerPricingSvc)
 	referrerPricingHandler := handler.NewReferrerPricingHandler(referrerPricingSvc, referrerProfileSvc)
+	if searchPublisher != nil {
+		referrerPricingHandler = referrerPricingHandler.WithSearchIndexPublisher(searchPublisher)
+	}
 
 	// Organization shared-profile handler — writes the photo /
 	// location / languages columns that both personas JOIN at read
@@ -742,6 +877,9 @@ func main() {
 	organizationSharedHandler := handler.
 		NewOrganizationSharedProfileHandler(organizationRepo).
 		WithGeocoder(profileGeocoder)
+	if searchPublisher != nil {
+		organizationSharedHandler = organizationSharedHandler.WithSearchIndexPublisher(searchPublisher)
+	}
 
 	profileHandler := handler.
 		NewProfileHandler(profileSvc, expertiseSvc).
@@ -751,6 +889,12 @@ func main() {
 	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
 	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
+	if typesenseClient != nil {
+		// Treat Typesense as required only when SEARCH_ENGINE=typesense
+		// flips over — otherwise the query path falls back to SQL
+		// and a flaky Typesense should not take /ready red.
+		healthHandler = healthHandler.WithSearchPinger(typesenseClient, cfg.SearchEngineIsTypesense())
+	}
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
 	jobHandler := handler.NewJobHandler(jobSvc)
@@ -877,6 +1021,7 @@ func main() {
 		AdminDispute:   adminDisputeHandler,
 		Skill:          skillHandler,
 		Referral:       referralHandler,
+		Search:         searchHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -32,9 +33,20 @@ type skillService interface {
 	CreateUserSkill(ctx context.Context, in appskill.CreateUserSkillInput) (*domainskill.CatalogEntry, error)
 }
 
+// MultiPersonaSearchPublisher is the narrow port the skill handler
+// uses to trigger a reindex across every persona an org could
+// expose. Skills are persona-agnostic, so the handler does not
+// know whether the org is freelance, agency, or referrer — it
+// emits one event for each persona and lets the publisher's
+// debounce + the worker's "no profile" handling deduplicate.
+type MultiPersonaSearchPublisher interface {
+	PublishReindexAllPersonas(ctx context.Context, orgID uuid.UUID) error
+}
+
 // SkillHandler groups every HTTP endpoint exposed by the skill feature.
 type SkillHandler struct {
-	svc skillService
+	svc           skillService
+	searchPublish MultiPersonaSearchPublisher
 }
 
 // NewSkillHandler constructs the HTTP handler for skills. The interface
@@ -42,6 +54,14 @@ type SkillHandler struct {
 // mock that implements the same contract.
 func NewSkillHandler(svc skillService) *SkillHandler {
 	return &SkillHandler{svc: svc}
+}
+
+// WithSearchIndexPublisher attaches an optional Typesense publisher
+// that fires a multi-persona reindex after a successful skills
+// mutation.
+func (h *SkillHandler) WithSearchIndexPublisher(p MultiPersonaSearchPublisher) *SkillHandler {
+	h.searchPublish = p
+	return h
 }
 
 // ---- Public catalog reads (no auth required — browsing) ----
@@ -145,6 +165,15 @@ func (h *SkillHandler) PutMyProfileSkills(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		handleSkillError(w, err)
 		return
+	}
+
+	if h.searchPublish != nil {
+		if pubErr := h.searchPublish.PublishReindexAllPersonas(r.Context(), orgID); pubErr != nil {
+			// Best-effort. A degraded search engine must not
+			// block a profile mutation.
+			slog.Warn("skills: multi-persona reindex publish failed",
+				"org_id", orgID, "error", pubErr)
+		}
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"status": "ok"})

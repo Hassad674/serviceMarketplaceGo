@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -279,6 +280,13 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 	refreshToken, err := s.tokens.GenerateRefreshToken(u.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// Best-effort: bump last_active_at so the Typesense indexer can
+	// rank recently-active profiles higher. A failure here must
+	// never block a successful login — log and move on.
+	if err := s.users.TouchLastActive(ctx, u.ID); err != nil {
+		slog.Warn("auth: touch last_active_at on login failed", "user_id", u.ID, "error", err)
 	}
 
 	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
