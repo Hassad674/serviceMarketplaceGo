@@ -25,14 +25,18 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockSocialLinkRepo struct {
-	listByOrgFn func(ctx context.Context, orgID uuid.UUID) ([]*profile.SocialLink, error)
-	upsertFn    func(ctx context.Context, link *profile.SocialLink) error
-	deleteFn    func(ctx context.Context, orgID uuid.UUID, platform string) error
+	listFn   func(ctx context.Context, orgID uuid.UUID, persona profile.SocialLinkPersona) ([]*profile.SocialLink, error)
+	upsertFn func(ctx context.Context, link *profile.SocialLink) error
+	deleteFn func(ctx context.Context, orgID uuid.UUID, persona profile.SocialLinkPersona, platform string) error
 }
 
-func (m *mockSocialLinkRepo) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*profile.SocialLink, error) {
-	if m.listByOrgFn != nil {
-		return m.listByOrgFn(ctx, orgID)
+func (m *mockSocialLinkRepo) ListByOrganizationPersona(
+	ctx context.Context,
+	orgID uuid.UUID,
+	persona profile.SocialLinkPersona,
+) ([]*profile.SocialLink, error) {
+	if m.listFn != nil {
+		return m.listFn(ctx, orgID, persona)
 	}
 	return []*profile.SocialLink{}, nil
 }
@@ -44,9 +48,14 @@ func (m *mockSocialLinkRepo) Upsert(ctx context.Context, link *profile.SocialLin
 	return nil
 }
 
-func (m *mockSocialLinkRepo) Delete(ctx context.Context, orgID uuid.UUID, platform string) error {
+func (m *mockSocialLinkRepo) Delete(
+	ctx context.Context,
+	orgID uuid.UUID,
+	persona profile.SocialLinkPersona,
+	platform string,
+) error {
 	if m.deleteFn != nil {
-		return m.deleteFn(ctx, orgID, platform)
+		return m.deleteFn(ctx, orgID, persona, platform)
 	}
 	return nil
 }
@@ -55,8 +64,10 @@ func (m *mockSocialLinkRepo) Delete(ctx context.Context, orgID uuid.UUID, platfo
 // Helpers
 // ---------------------------------------------------------------------------
 
-func newTestSocialLinkHandler(repo *mockSocialLinkRepo) *SocialLinkHandler {
-	svc := profileapp.NewSocialLinkService(repo)
+func newTestSocialLinkHandler(t *testing.T, repo *mockSocialLinkRepo) *SocialLinkHandler {
+	t.Helper()
+	svc, err := profileapp.NewSocialLinkService(repo, profile.PersonaFreelance)
+	require.NoError(t, err)
 	return NewSocialLinkHandler(svc)
 }
 
@@ -64,6 +75,7 @@ func testSocialLink(orgID uuid.UUID, platform, url string) *profile.SocialLink {
 	return &profile.SocialLink{
 		ID:             uuid.New(),
 		OrganizationID: orgID,
+		Persona:        profile.PersonaFreelance,
 		Platform:       platform,
 		URL:            url,
 		CreatedAt:      time.Now(),
@@ -94,7 +106,7 @@ func TestSocialLinkHandler_ListMySocialLinks(t *testing.T) {
 			name:  "success with links",
 			orgID: &oid,
 			setupMock: func(r *mockSocialLinkRepo) {
-				r.listByOrgFn = func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
+				r.listFn = func(_ context.Context, _ uuid.UUID, _ profile.SocialLinkPersona) ([]*profile.SocialLink, error) {
 					return []*profile.SocialLink{
 						testSocialLink(oid, "github", "https://github.com/user"),
 						testSocialLink(oid, "linkedin", "https://linkedin.com/in/user"),
@@ -119,7 +131,7 @@ func TestSocialLinkHandler_ListMySocialLinks(t *testing.T) {
 			name:  "internal error",
 			orgID: &oid,
 			setupMock: func(r *mockSocialLinkRepo) {
-				r.listByOrgFn = func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
+				r.listFn = func(_ context.Context, _ uuid.UUID, _ profile.SocialLinkPersona) ([]*profile.SocialLink, error) {
 					return nil, errors.New("db failure")
 				}
 			},
@@ -133,7 +145,7 @@ func TestSocialLinkHandler_ListMySocialLinks(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(repo)
 			}
-			h := newTestSocialLinkHandler(repo)
+			h := newTestSocialLinkHandler(t, repo)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/social-links", nil)
 			if tc.orgID != nil {
@@ -228,7 +240,7 @@ func TestSocialLinkHandler_UpsertSocialLink(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(repo)
 			}
-			h := newTestSocialLinkHandler(repo)
+			h := newTestSocialLinkHandler(t, repo)
 
 			var bodyReader *bytes.Reader
 			if tc.body != nil {
@@ -292,7 +304,7 @@ func TestSocialLinkHandler_DeleteSocialLink(t *testing.T) {
 			orgID:    &oid,
 			platform: "github",
 			setupMock: func(r *mockSocialLinkRepo) {
-				r.deleteFn = func(_ context.Context, _ uuid.UUID, _ string) error {
+				r.deleteFn = func(_ context.Context, _ uuid.UUID, _ profile.SocialLinkPersona, _ string) error {
 					return errors.New("db failure")
 				}
 			},
@@ -306,7 +318,7 @@ func TestSocialLinkHandler_DeleteSocialLink(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(repo)
 			}
-			h := newTestSocialLinkHandler(repo)
+			h := newTestSocialLinkHandler(t, repo)
 
 			req := httptest.NewRequest(http.MethodDelete, "/api/v1/social-links/"+tc.platform, nil)
 			rctx := chi.NewRouteContext()
@@ -345,7 +357,7 @@ func TestSocialLinkHandler_ListPublicSocialLinks(t *testing.T) {
 			name:     "success",
 			orgParam: targetOrg.String(),
 			setupMock: func(r *mockSocialLinkRepo) {
-				r.listByOrgFn = func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
+				r.listFn = func(_ context.Context, _ uuid.UUID, _ profile.SocialLinkPersona) ([]*profile.SocialLink, error) {
 					return []*profile.SocialLink{
 						testSocialLink(targetOrg, "github", "https://github.com/u"),
 					}, nil
@@ -358,7 +370,7 @@ func TestSocialLinkHandler_ListPublicSocialLinks(t *testing.T) {
 			name:     "success empty",
 			orgParam: targetOrg.String(),
 			setupMock: func(r *mockSocialLinkRepo) {
-				r.listByOrgFn = func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
+				r.listFn = func(_ context.Context, _ uuid.UUID, _ profile.SocialLinkPersona) ([]*profile.SocialLink, error) {
 					return []*profile.SocialLink{}, nil
 				}
 			},
@@ -375,7 +387,7 @@ func TestSocialLinkHandler_ListPublicSocialLinks(t *testing.T) {
 			name:     "internal error",
 			orgParam: targetOrg.String(),
 			setupMock: func(r *mockSocialLinkRepo) {
-				r.listByOrgFn = func(_ context.Context, _ uuid.UUID) ([]*profile.SocialLink, error) {
+				r.listFn = func(_ context.Context, _ uuid.UUID, _ profile.SocialLinkPersona) ([]*profile.SocialLink, error) {
 					return nil, errors.New("db failure")
 				}
 			},
@@ -389,7 +401,7 @@ func TestSocialLinkHandler_ListPublicSocialLinks(t *testing.T) {
 			if tc.setupMock != nil {
 				tc.setupMock(repo)
 			}
-			h := newTestSocialLinkHandler(repo)
+			h := newTestSocialLinkHandler(t, repo)
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/profiles/"+tc.orgParam+"/social-links", nil)
 			rctx := chi.NewRouteContext()
