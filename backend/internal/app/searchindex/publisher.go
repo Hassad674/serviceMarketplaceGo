@@ -48,12 +48,23 @@ type Publisher struct {
 	events   repository.PendingEventRepository
 	cooldown time.Duration
 
-	// lastPublish is an in-process debounce map. Access is
-	// serialised via a mutex; the map is bounded by the number
-	// of distinct orgs that have published during the cooldown
-	// window, which is < 1k even at peak load.
+	// lastPublish is an in-process debounce map keyed by
+	// org-id+persona so PublishReindexAllPersonas can emit one
+	// event per persona without the cooldown swallowing two of
+	// them. Access is serialised via a mutex; the map is bounded
+	// by the number of distinct {org, persona} pairs that have
+	// published during the cooldown window — < 3k even at peak
+	// load.
 	mu          sync.Mutex
-	lastPublish map[uuid.UUID]time.Time
+	lastPublish map[debounceKey]time.Time
+}
+
+// debounceKey is the composite cooldown key. Defined as a typed
+// struct (not a string) so the map allocation stays cheap and the
+// equality semantics are explicit.
+type debounceKey struct {
+	OrgID   uuid.UUID
+	Persona search.Persona
 }
 
 // PublisherConfig groups constructor options for the publisher.
@@ -87,7 +98,7 @@ func NewPublisher(cfg PublisherConfig) (*Publisher, error) {
 	return &Publisher{
 		events:      cfg.Events,
 		cooldown:    cooldown,
-		lastPublish: make(map[uuid.UUID]time.Time),
+		lastPublish: make(map[debounceKey]time.Time),
 	}, nil
 }
 
@@ -114,7 +125,8 @@ func (p *Publisher) PublishReindex(ctx context.Context, orgID uuid.UUID, persona
 		return fmt.Errorf("search publisher: invalid persona %q", persona)
 	}
 
-	if p.isWithinCooldown(orgID) {
+	key := debounceKey{OrgID: orgID, Persona: persona}
+	if p.isWithinCooldown(key) {
 		return nil
 	}
 
@@ -137,7 +149,38 @@ func (p *Publisher) PublishReindex(ctx context.Context, orgID uuid.UUID, persona
 	if err := p.events.Schedule(ctx, event); err != nil {
 		return fmt.Errorf("search publisher: schedule reindex: %w", err)
 	}
-	p.recordPublish(orgID)
+	p.recordPublish(key)
+	return nil
+}
+
+// PublishReindexAllPersonas fires a reindex event for every persona
+// the given org could have. Used by mutation handlers that touch
+// persona-agnostic signals (skills, social links, shared profile
+// photo / location / languages) without knowing which persona the
+// org currently exposes.
+//
+// The 5-minute debounce in PublishReindex means the practical cost
+// is at most one event per persona per cooldown window — the
+// downstream worker handles the "this persona has no profile row"
+// case by indexing the document as not-published.
+//
+// We deliberately accept the duplication (3 events vs 1) instead of
+// dragging org-type knowledge into every handler that touches a
+// shared signal. Removing the search engine still drops to a no-op
+// because *Publisher is the receiver.
+func (p *Publisher) PublishReindexAllPersonas(ctx context.Context, orgID uuid.UUID) error {
+	if p == nil {
+		return nil
+	}
+	for _, persona := range []search.Persona{
+		search.PersonaFreelance,
+		search.PersonaAgency,
+		search.PersonaReferrer,
+	} {
+		if err := p.PublishReindex(ctx, orgID, persona); err != nil {
+			return fmt.Errorf("publish reindex all personas: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -171,27 +214,29 @@ func (p *Publisher) PublishDelete(ctx context.Context, orgID uuid.UUID) error {
 }
 
 // isWithinCooldown reports whether a reindex event was published
-// for this org within the cooldown window. Thread-safe.
-func (p *Publisher) isWithinCooldown(orgID uuid.UUID) bool {
+// for this {org, persona} pair within the cooldown window.
+// Thread-safe.
+func (p *Publisher) isWithinCooldown(key debounceKey) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	last, ok := p.lastPublish[orgID]
+	last, ok := p.lastPublish[key]
 	if !ok {
 		return false
 	}
 	return time.Since(last) < p.cooldown
 }
 
-// recordPublish stamps the current time against the org so the
-// next call within the cooldown window is a no-op. Also opportunistically
-// evicts stale entries so the map does not grow unbounded.
-func (p *Publisher) recordPublish(orgID uuid.UUID) {
+// recordPublish stamps the current time against the {org, persona}
+// pair so the next call within the cooldown window is a no-op.
+// Also opportunistically evicts stale entries so the map does not
+// grow unbounded.
+func (p *Publisher) recordPublish(key debounceKey) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
 	now := time.Now()
-	p.lastPublish[orgID] = now
+	p.lastPublish[key] = now
 
 	// Cheap housekeeping: if the map has grown beyond 10k
 	// entries, drop everything older than twice the cooldown.
