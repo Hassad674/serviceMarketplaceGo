@@ -47,6 +47,12 @@ func (m *mockFreelanceProfileRepo) UpdateAvailability(ctx context.Context, orgID
 func (m *mockFreelanceProfileRepo) UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error {
 	return m.updateExpertiseDomains(ctx, orgID, domains)
 }
+func (m *mockFreelanceProfileRepo) UpdateVideo(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+func (m *mockFreelanceProfileRepo) GetVideoURL(_ context.Context, _ uuid.UUID) (string, error) {
+	return "", nil
+}
 
 // newStubView returns a minimal FreelanceProfileView suitable for
 // tests that do not care about the payload shape, only whether

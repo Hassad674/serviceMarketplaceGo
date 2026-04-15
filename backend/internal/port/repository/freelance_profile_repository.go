@@ -64,4 +64,18 @@ type FreelanceProfileRepository interface {
 	// atomically. The caller is expected to have normalized /
 	// deduplicated the slice — the repository persists it verbatim.
 	UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error
+
+	// UpdateVideo writes the video_url slot in isolation. Used by
+	// the per-persona video upload handler so the upload flow never
+	// touches title/about — a race with an in-flight core edit cannot
+	// clobber the presentation text. Passing an empty string clears
+	// the column (used by the DELETE path). Returns
+	// freelanceprofile.ErrProfileNotFound when no row exists.
+	UpdateVideo(ctx context.Context, orgID uuid.UUID, videoURL string) error
+
+	// GetVideoURL returns the currently stored video_url for the
+	// org, used by the upload handler to delete the previous MinIO
+	// object before overwriting it. Returns
+	// freelanceprofile.ErrProfileNotFound when no row exists.
+	GetVideoURL(ctx context.Context, orgID uuid.UUID) (string, error)
 }

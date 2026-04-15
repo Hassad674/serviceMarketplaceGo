@@ -23,6 +23,8 @@ type mockReferrerProfileRepo struct {
 	updateCoreFn  func(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error
 	updateAvailFn func(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error
 	updateExpFn   func(ctx context.Context, orgID uuid.UUID, domains []string) error
+	updateVideoFn func(ctx context.Context, orgID uuid.UUID, videoURL string) error
+	getVideoFn    func(ctx context.Context, orgID uuid.UUID) (string, error)
 }
 
 func (m *mockReferrerProfileRepo) GetOrCreateByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.ReferrerProfileView, error) {
@@ -48,6 +50,18 @@ func (m *mockReferrerProfileRepo) UpdateExpertiseDomains(ctx context.Context, or
 		return m.updateExpFn(ctx, orgID, domains)
 	}
 	return nil
+}
+func (m *mockReferrerProfileRepo) UpdateVideo(ctx context.Context, orgID uuid.UUID, videoURL string) error {
+	if m.updateVideoFn != nil {
+		return m.updateVideoFn(ctx, orgID, videoURL)
+	}
+	return nil
+}
+func (m *mockReferrerProfileRepo) GetVideoURL(ctx context.Context, orgID uuid.UUID) (string, error) {
+	if m.getVideoFn != nil {
+		return m.getVideoFn(ctx, orgID)
+	}
+	return "", nil
 }
 
 func newReferrerHandler(repo *mockReferrerProfileRepo) *ReferrerProfileHandler {

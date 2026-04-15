@@ -157,6 +157,46 @@ func (r *FreelanceProfileRepository) UpdateAvailability(ctx context.Context, org
 	return checkFreelanceRowsAffected(result)
 }
 
+// UpdateVideo writes the video_url slot in isolation so the upload
+// handler never races with an in-flight core text edit. Empty string
+// clears the column (DELETE path).
+func (r *FreelanceProfileRepository) UpdateVideo(ctx context.Context, orgID uuid.UUID, videoURL string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE freelance_profiles
+		   SET video_url = $2
+		 WHERE organization_id = $1`,
+		orgID, videoURL,
+	)
+	if err != nil {
+		return fmt.Errorf("update freelance profile video: %w", err)
+	}
+	return checkFreelanceRowsAffected(result)
+}
+
+// GetVideoURL returns the currently stored video_url for the org so
+// the upload handler can delete the prior MinIO object before
+// overwriting. Returns ErrProfileNotFound when no row exists.
+func (r *FreelanceProfileRepository) GetVideoURL(ctx context.Context, orgID uuid.UUID) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var videoURL string
+	err := r.db.QueryRowContext(ctx, `
+		SELECT video_url
+		  FROM freelance_profiles
+		 WHERE organization_id = $1`, orgID).Scan(&videoURL)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", freelanceprofile.ErrProfileNotFound
+		}
+		return "", fmt.Errorf("get freelance profile video url: %w", err)
+	}
+	return videoURL, nil
+}
+
 // UpdateExpertiseDomains rewrites the expertise_domains TEXT[] array
 // atomically. A nil slice is coerced to an empty array so the NOT
 // NULL constraint is honored.

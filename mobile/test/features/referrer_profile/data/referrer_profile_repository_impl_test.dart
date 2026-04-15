@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:marketplace_mobile/features/referrer_profile/data/referrer_profile_repository_impl.dart';
 import 'package:marketplace_mobile/features/referrer_profile/domain/entities/referrer_pricing.dart';
@@ -86,6 +89,50 @@ void main() {
       return FakeApiClient.ok({});
     };
     await repo.deletePricing();
+    expect(called, isTrue);
+  });
+
+  test('uploadVideo POSTs multipart and returns video_url', () async {
+    final tempFile = File('${Directory.systemTemp.path}/referrer.mp4')
+      ..writeAsBytesSync(List<int>.filled(64, 0));
+    addTearDown(() => tempFile.deleteSync());
+
+    FormData? captured;
+    fakeApi.uploadHandlers['/api/v1/referrer-profile/video'] = (data) async {
+      captured = data;
+      return FakeApiClient.ok({
+        'data': {'video_url': 'https://cdn/r.mp4'},
+      });
+    };
+
+    final url = await repo.uploadVideo(tempFile);
+    expect(url, 'https://cdn/r.mp4');
+    expect(captured, isNotNull);
+    expect(captured!.files.first.key, 'file');
+  });
+
+  test('uploadVideo throws FormatException when video_url missing', () async {
+    final tempFile = File('${Directory.systemTemp.path}/referrer2.mp4')
+      ..writeAsBytesSync(List<int>.filled(8, 0));
+    addTearDown(() => tempFile.deleteSync());
+
+    fakeApi.uploadHandlers['/api/v1/referrer-profile/video'] = (_) async {
+      return FakeApiClient.ok({'data': {}});
+    };
+
+    await expectLater(
+      repo.uploadVideo(tempFile),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('deleteVideo DELETEs /api/v1/referrer-profile/video', () async {
+    var called = false;
+    fakeApi.deleteHandlers['/api/v1/referrer-profile/video'] = () async {
+      called = true;
+      return FakeApiClient.ok({});
+    };
+    await repo.deleteVideo();
     expect(called, isTrue);
   });
 }

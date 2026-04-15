@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:dio/dio.dart';
+
 import '../../../core/network/api_client.dart';
 import '../domain/entities/freelance_pricing.dart';
 import '../domain/entities/freelance_profile.dart';
@@ -14,6 +18,8 @@ import '../domain/repositories/freelance_profile_repository.dart';
 /// - `GET    /api/v1/freelance-profile/pricing`       -> getPricing
 /// - `PUT    /api/v1/freelance-profile/pricing`       -> upsertPricing
 /// - `DELETE /api/v1/freelance-profile/pricing`       -> deletePricing
+/// - `POST   /api/v1/freelance-profile/video`         -> uploadVideo
+/// - `DELETE /api/v1/freelance-profile/video`         -> deleteVideo
 /// - `GET    /api/v1/freelance-profiles/{orgID}`      -> getPublic
 ///
 /// Tolerates both `{ "data": ... }` envelopes and raw payloads.
@@ -103,6 +109,31 @@ class FreelanceProfileRepositoryImpl implements FreelanceProfileRepository {
   @override
   Future<void> deletePricing() async {
     await _api.delete<dynamic>('/api/v1/freelance-profile/pricing');
+  }
+
+  @override
+  Future<String> uploadVideo(File file) async {
+    final formData = FormData.fromMap(<String, dynamic>{
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.path.split('/').last,
+      ),
+    });
+    final response = await _api.upload<dynamic>(
+      '/api/v1/freelance-profile/video',
+      data: formData,
+    );
+    final body = _unwrapMap(response.data);
+    final url = body?['video_url'];
+    if (url is! String || url.isEmpty) {
+      throw const FormatException('freelance video upload: missing video_url');
+    }
+    return url;
+  }
+
+  @override
+  Future<void> deleteVideo() async {
+    await _api.delete<dynamic>('/api/v1/freelance-profile/video');
   }
 
   // ---------------------------------------------------------------------------

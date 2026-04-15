@@ -29,8 +29,10 @@ type RouterDeps struct {
 	// pointer is non-nil.
 	FreelanceProfile        *FreelanceProfileHandler
 	FreelancePricing        *FreelancePricingHandler
+	FreelanceProfileVideo   *FreelanceProfileVideoHandler
 	ReferrerProfile         *ReferrerProfileHandler
 	ReferrerPricing         *ReferrerPricingHandler
+	ReferrerProfileVideo    *ReferrerProfileVideoHandler
 	OrganizationShared      *OrganizationSharedProfileHandler
 
 	Upload         *UploadHandler
@@ -206,6 +208,10 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceProfile.UpdateMy)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.FreelanceProfile.UpdateMyAvailability)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.FreelanceProfile.UpdateMyExpertise)
+				if deps.FreelanceProfileVideo != nil {
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/video", deps.FreelanceProfileVideo.Upload)
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/video", deps.FreelanceProfileVideo.Delete)
+				}
 				if deps.FreelancePricing != nil {
 					r.Get("/pricing", deps.FreelancePricing.GetMy)
 					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.FreelancePricing.UpsertMy)
@@ -221,6 +227,10 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerProfile.UpdateMy)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.ReferrerProfile.UpdateMyAvailability)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.ReferrerProfile.UpdateMyExpertise)
+				if deps.ReferrerProfileVideo != nil {
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/video", deps.ReferrerProfileVideo.Upload)
+					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/video", deps.ReferrerProfileVideo.Delete)
+				}
 				if deps.ReferrerPricing != nil {
 					r.Get("/pricing", deps.ReferrerPricing.GetMy)
 					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.ReferrerPricing.UpsertMy)

@@ -168,3 +168,55 @@ func TestFreelanceProfileRepository_UpdateCore_NotFound(t *testing.T) {
 	err := repo.UpdateCore(context.Background(), uuid.New(), "x", "y", "z")
 	assert.ErrorIs(t, err, freelanceprofile.ErrProfileNotFound)
 }
+
+func TestFreelanceProfileRepository_UpdateVideo_PersistsAndClearsInIsolation(t *testing.T) {
+	db := testDB(t)
+	orgID, _ := newTestFreelanceOrg(t)
+	repo := postgres.NewFreelanceProfileRepository(db)
+	ctx := context.Background()
+
+	// Seed title/about so we can assert UpdateVideo never touches them.
+	require.NoError(t, repo.UpdateCore(ctx, orgID, "Senior Go Engineer", "Builds marketplaces.", ""))
+
+	require.NoError(t, repo.UpdateVideo(ctx, orgID, "https://example.com/intro.mp4"))
+	view, err := repo.GetByOrgID(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/intro.mp4", view.Profile.VideoURL)
+	assert.Equal(t, "Senior Go Engineer", view.Profile.Title)
+	assert.Equal(t, "Builds marketplaces.", view.Profile.About)
+
+	// Empty string clears the column (used by the DELETE path).
+	require.NoError(t, repo.UpdateVideo(ctx, orgID, ""))
+	view, err = repo.GetByOrgID(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "", view.Profile.VideoURL)
+	assert.Equal(t, "Senior Go Engineer", view.Profile.Title)
+}
+
+func TestFreelanceProfileRepository_UpdateVideo_NotFound(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewFreelanceProfileRepository(db)
+
+	err := repo.UpdateVideo(context.Background(), uuid.New(), "https://example.com/v.mp4")
+	assert.ErrorIs(t, err, freelanceprofile.ErrProfileNotFound)
+}
+
+func TestFreelanceProfileRepository_GetVideoURL_ReturnsCurrentValueOrNotFound(t *testing.T) {
+	db := testDB(t)
+	orgID, _ := newTestFreelanceOrg(t)
+	repo := postgres.NewFreelanceProfileRepository(db)
+	ctx := context.Background()
+
+	// Default seed leaves video_url empty.
+	got, err := repo.GetVideoURL(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "", got)
+
+	require.NoError(t, repo.UpdateVideo(ctx, orgID, "https://example.com/v.mp4"))
+	got, err = repo.GetVideoURL(ctx, orgID)
+	require.NoError(t, err)
+	assert.Equal(t, "https://example.com/v.mp4", got)
+
+	_, err = repo.GetVideoURL(ctx, uuid.New())
+	assert.ErrorIs(t, err, freelanceprofile.ErrProfileNotFound)
+}

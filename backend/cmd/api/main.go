@@ -692,6 +692,8 @@ func main() {
 		WithSkillsReader(skillSvc).
 		WithPricingReader(profilePricingSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
+	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
+	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
@@ -784,11 +786,13 @@ func main() {
 		ProfilePricing: profilePricingHandler,
 
 		// Split-profile handlers (migrations 096-104).
-		FreelanceProfile:   freelanceProfileHandler,
-		FreelancePricing:   freelancePricingHandler,
-		ReferrerProfile:    referrerProfileHandler,
-		ReferrerPricing:    referrerPricingHandler,
-		OrganizationShared: organizationSharedHandler,
+		FreelanceProfile:      freelanceProfileHandler,
+		FreelancePricing:      freelancePricingHandler,
+		FreelanceProfileVideo: freelanceProfileVideoHandler,
+		ReferrerProfile:       referrerProfileHandler,
+		ReferrerPricing:       referrerPricingHandler,
+		ReferrerProfileVideo:  referrerProfileVideoHandler,
+		OrganizationShared:    organizationSharedHandler,
 
 		Upload:         uploadHandler,
 		Health:         healthHandler,

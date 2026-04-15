@@ -22,10 +22,12 @@ import (
 // mockFreelanceProfileRepo is a minimal handler-layer mock for the
 // freelance profile repository interface.
 type mockFreelanceProfileRepo struct {
-	getFn        func(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error)
-	updateCoreFn func(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error
+	getFn         func(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error)
+	updateCoreFn  func(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error
 	updateAvailFn func(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error
-	updateExpFn  func(ctx context.Context, orgID uuid.UUID, domains []string) error
+	updateExpFn   func(ctx context.Context, orgID uuid.UUID, domains []string) error
+	updateVideoFn func(ctx context.Context, orgID uuid.UUID, videoURL string) error
+	getVideoFn    func(ctx context.Context, orgID uuid.UUID) (string, error)
 }
 
 func (m *mockFreelanceProfileRepo) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
@@ -57,6 +59,18 @@ func (m *mockFreelanceProfileRepo) UpdateExpertiseDomains(ctx context.Context, o
 		return m.updateExpFn(ctx, orgID, domains)
 	}
 	return nil
+}
+func (m *mockFreelanceProfileRepo) UpdateVideo(ctx context.Context, orgID uuid.UUID, videoURL string) error {
+	if m.updateVideoFn != nil {
+		return m.updateVideoFn(ctx, orgID, videoURL)
+	}
+	return nil
+}
+func (m *mockFreelanceProfileRepo) GetVideoURL(ctx context.Context, orgID uuid.UUID) (string, error) {
+	if m.getVideoFn != nil {
+		return m.getVideoFn(ctx, orgID)
+	}
+	return "", nil
 }
 
 func newFreelanceHandler(repo *mockFreelanceProfileRepo) *FreelanceProfileHandler {

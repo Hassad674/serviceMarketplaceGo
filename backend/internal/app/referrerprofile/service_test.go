@@ -34,6 +34,12 @@ func (m *mockReferrerProfileRepo) UpdateAvailability(ctx context.Context, orgID 
 func (m *mockReferrerProfileRepo) UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error {
 	return m.updateExpertiseDomains(ctx, orgID, domains)
 }
+func (m *mockReferrerProfileRepo) UpdateVideo(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+func (m *mockReferrerProfileRepo) GetVideoURL(_ context.Context, _ uuid.UUID) (string, error) {
+	return "", nil
+}
 
 func newStubView(orgID uuid.UUID) *repository.ReferrerProfileView {
 	return &repository.ReferrerProfileView{

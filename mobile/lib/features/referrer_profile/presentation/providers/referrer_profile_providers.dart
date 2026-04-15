@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -177,6 +179,53 @@ class ReferrerPricingNotifier extends StateNotifier<ReferrerEditorState> {
 final referrerPricingEditorProvider = StateNotifierProvider<
     ReferrerPricingNotifier, ReferrerEditorState>((ref) {
   return ReferrerPricingNotifier(
+    ref.watch(referrerProfileRepositoryProvider),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Video notifier
+// ---------------------------------------------------------------------------
+
+class ReferrerVideoNotifier extends StateNotifier<ReferrerEditorState> {
+  ReferrerVideoNotifier(this._repo) : super(const ReferrerEditorState());
+
+  final ReferrerProfileRepository _repo;
+
+  Future<bool> upload(File file) async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      await _repo.uploadVideo(file);
+      if (!mounted) return true;
+      state = state.copyWith(isSaving: false, clearError: true);
+      return true;
+    } catch (error, stackTrace) {
+      if (!mounted) return false;
+      debugPrint('ReferrerVideoNotifier.upload failed: $error\n$stackTrace');
+      state = state.copyWith(isSaving: false, error: 'generic');
+      return false;
+    }
+  }
+
+  Future<bool> remove() async {
+    state = state.copyWith(isSaving: true, clearError: true);
+    try {
+      await _repo.deleteVideo();
+      if (!mounted) return true;
+      state = state.copyWith(isSaving: false, clearError: true);
+      return true;
+    } catch (error, stackTrace) {
+      if (!mounted) return false;
+      debugPrint('ReferrerVideoNotifier.remove failed: $error\n$stackTrace');
+      state = state.copyWith(isSaving: false, error: 'generic');
+      return false;
+    }
+  }
+}
+
+final referrerVideoEditorProvider = StateNotifierProvider<
+    ReferrerVideoNotifier, ReferrerEditorState>((ref) {
+  return ReferrerVideoNotifier(
     ref.watch(referrerProfileRepositoryProvider),
   );
 });
