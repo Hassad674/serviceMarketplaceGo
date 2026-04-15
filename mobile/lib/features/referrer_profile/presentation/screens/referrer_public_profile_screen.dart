@@ -13,6 +13,7 @@ import '../../domain/entities/referrer_pricing.dart';
 import '../../domain/entities/referrer_profile.dart';
 import '../providers/referrer_profile_providers.dart';
 import '../widgets/referrer_profile_header.dart';
+import '../widgets/referrer_social_links_section_widget.dart';
 
 /// Read-only referrer profile surface for `/referrers/:id`. Matches
 /// the editable screen section-by-section minus editing affordances.
@@ -152,6 +153,12 @@ class _Body extends StatelessWidget {
             ),
           ),
           // TODO: wire referral_deals feature when backend ships
+          if (profile.organizationId.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            PublicReferrerSocialLinksWidget(
+              organizationId: profile.organizationId,
+            ),
+          ],
         ],
       ),
     );
