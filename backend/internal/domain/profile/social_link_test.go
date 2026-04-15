@@ -33,6 +33,27 @@ func TestIsValidPlatform(t *testing.T) {
 	}
 }
 
+func TestIsValidPersona(t *testing.T) {
+	tests := []struct {
+		name    string
+		persona SocialLinkPersona
+		want    bool
+	}{
+		{"freelance", PersonaFreelance, true},
+		{"referrer", PersonaReferrer, true},
+		{"agency", PersonaAgency, true},
+		{"empty string", SocialLinkPersona(""), false},
+		{"unknown", SocialLinkPersona("admin"), false},
+		{"case sensitive", SocialLinkPersona("FREELANCE"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, IsValidPersona(tt.persona))
+		})
+	}
+}
+
 func TestValidateSocialURL(t *testing.T) {
 	tests := []struct {
 		name    string
