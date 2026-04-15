@@ -511,6 +511,7 @@
       "workModeOnSite": "On site",
       "workModeHybrid": "Hybrid",
       "travelRadiusLabel": "Travel radius (km)",
+      "travelRadiusShort": "Up to {km} km",
       "save": "Save",
       "saving": "Saving..."
     },

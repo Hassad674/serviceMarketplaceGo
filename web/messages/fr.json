@@ -511,6 +511,7 @@
       "workModeOnSite": "Sur site",
       "workModeHybrid": "Hybride",
       "travelRadiusLabel": "Rayon de déplacement (km)",
+      "travelRadiusShort": "Jusqu'à {km} km",
       "save": "Enregistrer",
       "saving": "Enregistrement..."
     },

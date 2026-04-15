@@ -5,6 +5,9 @@ import { ProfileAboutCard } from "@/shared/components/profile/profile-about-card
 import { ProfileVideoCard } from "@/shared/components/profile/profile-video-card"
 import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
 import { ExpertiseDisplay } from "@/shared/components/profile/expertise-display"
+import { LocationDisplayCard } from "@/shared/components/profile/location-display-card"
+import { LanguagesDisplayCard } from "@/shared/components/profile/languages-display-card"
+import { PricingDisplayCard } from "@/shared/components/profile/pricing-display-card"
 import {
   AvailabilityEditorCard,
   type AvailabilityStatus,
@@ -129,7 +132,30 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
         <FreelanceSkillsStrip skills={profile.skills} />
       ) : null}
 
-      <FreelancePricingSection readOnly={readOnly} />
+      {readOnly ? (
+        <PricingDisplayCard
+          pricing={profile.pricing}
+          titleKey="directSectionTitle"
+        />
+      ) : (
+        <FreelancePricingSection readOnly={false} />
+      )}
+
+      {readOnly ? (
+        <LocationDisplayCard
+          city={profile.city}
+          countryCode={profile.country_code}
+          workMode={profile.work_mode}
+          travelRadiusKm={profile.travel_radius_km}
+        />
+      ) : null}
+
+      {readOnly ? (
+        <LanguagesDisplayCard
+          professional={profile.languages_professional}
+          conversational={profile.languages_conversational}
+        />
+      ) : null}
 
       <ProjectHistorySection
         orgId={profile.organization_id}
