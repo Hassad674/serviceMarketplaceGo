@@ -521,6 +521,17 @@ func main() {
 		}); err != nil {
 			slog.Warn("search: ensure schema failed, continuing without indexing", "error", err)
 		}
+		// Bootstrap the search-only parent key used as the HMAC
+		// parent for scoped search keys. Typesense refuses to derive
+		// scoped keys from the master admin key — we MUST use a key
+		// whose `actions` list contains `documents:search`. We cycle
+		// the key on every startup because Typesense only exposes
+		// the full value on creation.
+		if err := tsClient.EnsureSearchAPIKey(context.Background()); err != nil {
+			slog.Error("search: failed to bootstrap search API key", "error", err)
+			os.Exit(1)
+		}
+		slog.Info("search: search-only parent key bootstrapped")
 
 		var embedder search.EmbeddingsClient
 		if cfg.OpenAIAPIKey != "" {
@@ -578,7 +589,10 @@ func main() {
 			Service:       searchQuerySvc,
 			Client:        typesenseClient,
 			TypesenseHost: cfg.TypesenseHost,
-			APIKey:        cfg.TypesenseAPIKey,
+			// Use the bootstrapped search-only key as the HMAC parent
+			// for scoped key generation. Typesense rejects scoped keys
+			// derived from the master admin key.
+			APIKey: typesenseClient.SearchAPIKey(),
 		})
 		slog.Info("search: query service wired",
 			"search_engine", cfg.SearchEngine,

@@ -47,10 +47,18 @@ var ErrUnauthorized = errors.New("typesense: unauthorized")
 
 // Client is the thin HTTP wrapper. It is safe for concurrent use.
 type Client struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
+	baseURL       string
+	apiKey        string
+	searchAPIKey  string // bootstrapped via EnsureSearchAPIKey, used as HMAC parent for scoped keys
+	httpClient    *http.Client
 }
+
+// searchKeyDescription is the identifier used to find + recreate our
+// dedicated search-only parent key on each backend startup. Typesense
+// will not return a key's value after creation, so we cycle the key
+// on every boot: delete any stale copies matching this description,
+// then POST a fresh one and cache its value in memory.
+const searchKeyDescription = "marketplace-search-parent-v1"
 
 // Option mutates a Client during construction. Exposed as a
 // functional-options pattern so future configurability (retries,
@@ -91,6 +99,79 @@ func NewClient(host, apiKey string, opts ...Option) (*Client, error) {
 		opt(c)
 	}
 	return c, nil
+}
+
+// SearchAPIKey returns the bootstrapped search-only parent key used
+// as the HMAC parent for scoped search key generation. Returns empty
+// string if EnsureSearchAPIKey has not been called yet.
+func (c *Client) SearchAPIKey() string {
+	return c.searchAPIKey
+}
+
+// EnsureSearchAPIKey bootstraps a dedicated "Search API Key" on
+// Typesense (via POST /keys with actions: ["documents:search"]) and
+// caches its value on the Client for later use as the HMAC parent of
+// scoped search keys. Typesense refuses to derive a scoped key from
+// an admin/master key — scoped keys MUST be derived from a key whose
+// actions list contains documents:search and whose collections list
+// includes the target collection.
+//
+// Called once at backend startup. The method is idempotent across
+// restarts: it lists existing keys, deletes any previous
+// bootstrapped key matching our sentinel description, then POSTs a
+// fresh one. We have to cycle because Typesense only returns the
+// key value on creation — a subsequent GET /keys only exposes the
+// first 4 characters.
+func (c *Client) EnsureSearchAPIKey(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
+	defer cancel()
+
+	// 1. List existing keys, find any with our sentinel description.
+	var listResp struct {
+		Keys []struct {
+			ID          int    `json:"id"`
+			Description string `json:"description"`
+		} `json:"keys"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/keys", nil, &listResp); err != nil {
+		return fmt.Errorf("typesense list keys: %w", err)
+	}
+
+	// 2. Delete every stale copy. We cycle on every startup because
+	//    Typesense does not expose the full value after creation.
+	for _, k := range listResp.Keys {
+		if k.Description != searchKeyDescription {
+			continue
+		}
+		path := fmt.Sprintf("/keys/%d", k.ID)
+		if err := c.do(ctx, http.MethodDelete, path, nil, nil); err != nil {
+			return fmt.Errorf("typesense delete stale search key %d: %w", k.ID, err)
+		}
+	}
+
+	// 3. Create a fresh search-only key. The collections list is `["*"]`
+	//    so the same key parents scoped keys for every persona — the
+	//    scoped key's embedded filter_by locks the persona at query time.
+	createBody, err := json.Marshal(map[string]any{
+		"description": searchKeyDescription,
+		"actions":     []string{"documents:search"},
+		"collections": []string{"*"},
+	})
+	if err != nil {
+		return fmt.Errorf("typesense create search key: marshal: %w", err)
+	}
+	var createResp struct {
+		Value string `json:"value"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/keys", bytes.NewReader(createBody), &createResp); err != nil {
+		return fmt.Errorf("typesense create search key: %w", err)
+	}
+	if createResp.Value == "" {
+		return fmt.Errorf("typesense create search key: empty value in response")
+	}
+
+	c.searchAPIKey = createResp.Value
+	return nil
 }
 
 // Ping calls GET /health and returns nil on a 200 response. Used by
