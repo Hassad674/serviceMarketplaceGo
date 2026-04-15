@@ -2480,6 +2480,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get tier1LocationTravelRadiusLabel => 'Rayon de déplacement (km)';
 
   @override
+  String tier1LocationTravelRadiusShort(int km) {
+    return 'Jusqu\'à $km km';
+  }
+
+  @override
   String get tier1LocationTravelRadiusPlaceholder => 'ex. 50';
 
   @override

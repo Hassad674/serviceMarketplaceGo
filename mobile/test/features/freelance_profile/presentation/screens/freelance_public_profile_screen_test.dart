@@ -71,9 +71,12 @@ void main() {
     expect(find.textContaining('Paris'), findsWidgets);
     expect(find.text('About'), findsOneWidget);
     expect(find.textContaining('I build marketplaces'), findsOneWidget);
+    // Pricing card must render the owner's rate and the section title.
+    expect(find.text('Pricing'), findsOneWidget);
+    expect(find.textContaining('/ day'), findsOneWidget);
   });
 
-  testWidgets('shows empty pricing label when no pricing declared',
+  testWidgets('collapses the pricing card when no pricing declared',
       (tester) async {
     const profile = FreelanceProfile(
       id: 'p1',
@@ -97,6 +100,45 @@ void main() {
     );
     await tester.pumpWidget(_buildTestable(profile));
     await tester.pumpAndSettle();
-    expect(find.textContaining('No pricing'), findsOneWidget);
+    // No "Pricing" card rendered at all — mirrors the web behaviour.
+    expect(find.text('Pricing'), findsNothing);
+  });
+
+  testWidgets('renders the negotiable badge and travel radius pill',
+      (tester) async {
+    const profile = FreelanceProfile(
+      id: 'p1',
+      organizationId: 'org-123',
+      title: 'Full-stack engineer',
+      about: '',
+      videoUrl: '',
+      availabilityStatus: 'available_now',
+      expertiseDomains: <String>[],
+      photoUrl: '',
+      city: 'Paris',
+      countryCode: 'FR',
+      latitude: null,
+      longitude: null,
+      workMode: <String>['on_site'],
+      travelRadiusKm: 50,
+      languagesProfessional: <String>['fr'],
+      languagesConversational: <String>[],
+      skills: <Map<String, dynamic>>[],
+      pricing: FreelancePricing(
+        type: FreelancePricingType.daily,
+        minAmount: 50000,
+        maxAmount: null,
+        currency: 'EUR',
+        note: 'Discounts on long engagements',
+        negotiable: true,
+      ),
+    );
+
+    await tester.pumpWidget(_buildTestable(profile));
+    await tester.pumpAndSettle();
+
+    expect(find.text('negotiable'), findsOneWidget);
+    expect(find.textContaining('Discounts on long engagements'), findsOneWidget);
+    expect(find.textContaining('Up to 50 km'), findsOneWidget);
   });
 }
