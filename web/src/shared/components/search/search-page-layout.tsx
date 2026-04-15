@@ -41,7 +41,19 @@ export interface SearchPageLayoutProps {
   title: string
   subtitle?: string
   persona: SearchDocumentPersona
-  documents: RawSearchDocumentLike[]
+  /**
+   * documents is the raw legacy SQL response (PublicProfileSummary
+   * shape). The layout runs the adapter to convert each entry into
+   * the frozen SearchDocument shape before rendering. Mutually
+   * exclusive with `preMappedDocuments`.
+   */
+  documents?: RawSearchDocumentLike[]
+  /**
+   * preMappedDocuments is used by the Typesense path which already
+   * adapts the raw Typesense document into a SearchDocument before
+   * passing it down. When both are provided, pre-mapped wins.
+   */
+  preMappedDocuments?: SearchDocument[]
   status: SearchLayoutStatus
   hasMore: boolean
   isLoadingMore: boolean
@@ -57,10 +69,14 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
   const [sort, setSort] = useState<SortKey>("relevance")
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const mappedDocuments: SearchDocument[] = useMemo(
-    () => props.documents.map((raw) => toSearchDocument(raw, props.persona)),
-    [props.documents, props.persona],
-  )
+  const mappedDocuments: SearchDocument[] = useMemo(() => {
+    if (props.preMappedDocuments) {
+      return props.preMappedDocuments
+    }
+    return (props.documents ?? []).map((raw) =>
+      toSearchDocument(raw, props.persona),
+    )
+  }, [props.documents, props.preMappedDocuments, props.persona])
 
   const handleApply = () => {
     // UI-only filter wiring today — the backend does not accept

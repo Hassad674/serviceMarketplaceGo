@@ -27,6 +27,8 @@ func TestEventType_IsValid(t *testing.T) {
 		{pendingevent.TypeMilestoneFundReminder, true},
 		{pendingevent.TypeProposalAutoClose, true},
 		{pendingevent.TypeStripeTransfer, true},
+		{pendingevent.TypeSearchReindex, true},
+		{pendingevent.TypeSearchDelete, true},
 		{"", false},
 		{"unknown", false},
 	}

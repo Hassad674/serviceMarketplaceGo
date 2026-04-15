@@ -36,8 +36,9 @@ import (
 // they are trusted verbatim, otherwise the server best-effort
 // geocodes from city/country.
 type OrganizationSharedProfileHandler struct {
-	writer   repository.OrganizationSharedProfileWriter
-	geocoder service.Geocoder
+	writer        repository.OrganizationSharedProfileWriter
+	geocoder      service.Geocoder
+	searchPublish MultiPersonaSearchPublisher
 }
 
 // NewOrganizationSharedProfileHandler constructs the handler with
@@ -54,6 +55,26 @@ func (h *OrganizationSharedProfileHandler) WithGeocoder(g service.Geocoder) *Org
 		h.geocoder = g
 	}
 	return h
+}
+
+// WithSearchIndexPublisher attaches an optional Typesense publisher
+// that fires a multi-persona reindex after every successful
+// shared-profile mutation (location, languages, photo).
+func (h *OrganizationSharedProfileHandler) WithSearchIndexPublisher(p MultiPersonaSearchPublisher) *OrganizationSharedProfileHandler {
+	h.searchPublish = p
+	return h
+}
+
+// publishMultiPersona is the best-effort wrapper used after every
+// successful shared-profile mutation. Logged but never returned.
+func (h *OrganizationSharedProfileHandler) publishMultiPersona(ctx context.Context, orgID uuid.UUID, source string) {
+	if h.searchPublish == nil {
+		return
+	}
+	if err := h.searchPublish.PublishReindexAllPersonas(ctx, orgID); err != nil {
+		slog.Warn("organization shared profile: multi-persona reindex failed",
+			"source", source, "org_id", orgID, "error", err)
+	}
 }
 
 // GetSharedProfile returns the shared-profile block for the
@@ -111,6 +132,7 @@ func (h *OrganizationSharedProfileHandler) UpdateLocation(w http.ResponseWriter,
 		handleSharedProfileError(w, err)
 		return
 	}
+	h.publishMultiPersona(r.Context(), orgID, "shared.update_location")
 	h.writeCurrentShared(w, r, orgID)
 }
 
@@ -134,6 +156,7 @@ func (h *OrganizationSharedProfileHandler) UpdateLanguages(w http.ResponseWriter
 		handleSharedProfileError(w, err)
 		return
 	}
+	h.publishMultiPersona(r.Context(), orgID, "shared.update_languages")
 	h.writeCurrentShared(w, r, orgID)
 }
 
@@ -157,6 +180,7 @@ func (h *OrganizationSharedProfileHandler) UpdatePhoto(w http.ResponseWriter, r 
 		handleSharedProfileError(w, err)
 		return
 	}
+	h.publishMultiPersona(r.Context(), orgID, "shared.update_photo")
 	h.writeCurrentShared(w, r, orgID)
 }
 

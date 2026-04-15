@@ -14,6 +14,7 @@ package freelanceprofile
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -21,12 +22,25 @@ import (
 	"marketplace-backend/internal/domain/freelanceprofile"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/search"
 )
+
+// SearchIndexPublisher is the narrow port the service uses to
+// trigger a Typesense reindex after a profile mutation. Optional —
+// a nil publisher is accepted as a no-op so the search engine can
+// be disabled (or removed entirely) without breaking the freelance
+// profile flow. Defined locally to keep this package free of
+// cross-feature imports: it doesn't know about search.Publisher,
+// only about the method it calls.
+type SearchIndexPublisher interface {
+	PublishReindex(ctx context.Context, orgID uuid.UUID, persona search.Persona) error
+}
 
 // Service orchestrates the freelance profile use cases: read,
 // update core, update availability, update expertise.
 type Service struct {
-	profiles repository.FreelanceProfileRepository
+	profiles    repository.FreelanceProfileRepository
+	searchIndex SearchIndexPublisher
 }
 
 // NewService wires the freelance profile service with its single
@@ -34,6 +48,37 @@ type Service struct {
 // default.
 func NewService(profiles repository.FreelanceProfileRepository) *Service {
 	return &Service{profiles: profiles}
+}
+
+// WithSearchIndexPublisher returns a copy of the service with a
+// Typesense publisher attached. Every subsequent mutation will
+// emit a `search.reindex` event in a best-effort path (failures
+// are logged, not returned, so a degraded search engine cannot
+// block a profile update).
+//
+// Using a builder method instead of a bigger constructor keeps
+// the NewService signature stable for the 6+ call sites that
+// already exist.
+func (s *Service) WithSearchIndexPublisher(publisher SearchIndexPublisher) *Service {
+	if s == nil {
+		return nil
+	}
+	clone := *s
+	clone.searchIndex = publisher
+	return &clone
+}
+
+// publishReindex is the best-effort wrapper around the search
+// publisher. We swallow the error (logged only) because a
+// degraded search engine must never block a profile update.
+func (s *Service) publishReindex(ctx context.Context, orgID uuid.UUID) {
+	if s.searchIndex == nil {
+		return
+	}
+	if err := s.searchIndex.PublishReindex(ctx, orgID, search.PersonaFreelance); err != nil {
+		slog.Warn("freelance profile: search reindex publish failed",
+			"org_id", orgID, "error", err)
+	}
 }
 
 // GetByOrgID returns the hydrated freelance profile view (persona
@@ -100,6 +145,7 @@ func (s *Service) UpdateCore(ctx context.Context, orgID uuid.UUID, input UpdateC
 	if err := s.profiles.UpdateCore(ctx, orgID, title, about, videoURL); err != nil {
 		return nil, fmt.Errorf("update freelance profile core: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
@@ -114,6 +160,7 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, raw s
 	if err := s.profiles.UpdateAvailability(ctx, orgID, status); err != nil {
 		return nil, fmt.Errorf("update freelance profile availability: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
@@ -128,6 +175,7 @@ func (s *Service) UpdateExpertise(ctx context.Context, orgID uuid.UUID, domains 
 	if err := s.profiles.UpdateExpertiseDomains(ctx, orgID, normalized); err != nil {
 		return nil, fmt.Errorf("update freelance profile expertise: %w", err)
 	}
+	s.publishReindex(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 

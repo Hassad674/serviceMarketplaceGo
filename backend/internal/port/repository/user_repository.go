@@ -63,4 +63,11 @@ type UserRepository interface {
 	// kill-switch for a user. When false, no email notifications are
 	// sent regardless of per-type preferences.
 	UpdateEmailNotificationsEnabled(ctx context.Context, userID uuid.UUID, enabled bool) error
+
+	// TouchLastActive bumps the users.last_active_at column to NOW()
+	// for the given user. Called from the auth (login) and messaging
+	// (message sent) paths so the Typesense indexer can rank
+	// "recently active" profiles higher. Idempotent — safe to call
+	// hundreds of times per minute.
+	TouchLastActive(ctx context.Context, userID uuid.UUID) error
 }

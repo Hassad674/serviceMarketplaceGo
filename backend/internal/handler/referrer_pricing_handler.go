@@ -12,6 +12,7 @@ import (
 	"marketplace-backend/internal/handler/dto/request"
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
+	"marketplace-backend/internal/search"
 	"marketplace-backend/pkg/validator"
 
 	res "marketplace-backend/pkg/response"
@@ -28,13 +29,22 @@ type ReferrerProfileLookup interface {
 
 // ReferrerPricingHandler owns the referrer pricing HTTP endpoints.
 type ReferrerPricingHandler struct {
-	pricing  *referrerpricingapp.Service
-	profiles ReferrerProfileLookup
+	pricing       *referrerpricingapp.Service
+	profiles      ReferrerProfileLookup
+	searchPublish SearchIndexPublisher
 }
 
 // NewReferrerPricingHandler wires the handler.
 func NewReferrerPricingHandler(pricing *referrerpricingapp.Service, profiles ReferrerProfileLookup) *ReferrerPricingHandler {
 	return &ReferrerPricingHandler{pricing: pricing, profiles: profiles}
+}
+
+// WithSearchIndexPublisher attaches an optional Typesense publisher
+// so successful pricing mutations trigger a best-effort reindex of
+// the referrer document.
+func (h *ReferrerPricingHandler) WithSearchIndexPublisher(p SearchIndexPublisher) *ReferrerPricingHandler {
+	h.searchPublish = p
+	return h
 }
 
 // GetMy returns the authenticated user's referrer pricing row.
@@ -60,7 +70,7 @@ func (h *ReferrerPricingHandler) GetMy(w http.ResponseWriter, r *http.Request) {
 
 // UpsertMy writes or updates the referrer pricing row.
 func (h *ReferrerPricingHandler) UpsertMy(w http.ResponseWriter, r *http.Request) {
-	profileID, ok := h.resolveProfile(w, r)
+	orgID, profileID, ok := h.resolveOrgAndProfile(w, r)
 	if !ok {
 		return
 	}
@@ -84,6 +94,7 @@ func (h *ReferrerPricingHandler) UpsertMy(w http.ResponseWriter, r *http.Request
 		handleReferrerPricingError(w, err)
 		return
 	}
+	publishReindexBestEffort(r.Context(), h.searchPublish, orgID, search.PersonaReferrer, "referrer_pricing.upsert")
 	res.JSON(w, http.StatusOK, map[string]any{
 		"data": response.NewReferrerPricingSummary(p),
 	})
@@ -91,7 +102,7 @@ func (h *ReferrerPricingHandler) UpsertMy(w http.ResponseWriter, r *http.Request
 
 // DeleteMy removes the referrer pricing row.
 func (h *ReferrerPricingHandler) DeleteMy(w http.ResponseWriter, r *http.Request) {
-	profileID, ok := h.resolveProfile(w, r)
+	orgID, profileID, ok := h.resolveOrgAndProfile(w, r)
 	if !ok {
 		return
 	}
@@ -100,23 +111,31 @@ func (h *ReferrerPricingHandler) DeleteMy(w http.ResponseWriter, r *http.Request
 		handleReferrerPricingError(w, err)
 		return
 	}
+	publishReindexBestEffort(r.Context(), h.searchPublish, orgID, search.PersonaReferrer, "referrer_pricing.delete")
 	res.NoContent(w)
 }
 
 // resolveProfile resolves the referrer profile id or writes the
 // appropriate HTTP error and returns ok=false.
 func (h *ReferrerPricingHandler) resolveProfile(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	_, profileID, ok := h.resolveOrgAndProfile(w, r)
+	return profileID, ok
+}
+
+// resolveOrgAndProfile returns both ids so the search publisher
+// (which keys on org id) can fire after a successful mutation.
+func (h *ReferrerPricingHandler) resolveOrgAndProfile(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
 	orgID, ok := middleware.GetOrganizationID(r.Context())
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return uuid.Nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
 	profileID, err := h.profiles.GetReferrerProfileIDByOrgID(r.Context(), orgID)
 	if err != nil {
 		handleReferrerPricingError(w, err)
-		return uuid.Nil, false
+		return uuid.Nil, uuid.Nil, false
 	}
-	return profileID, true
+	return orgID, profileID, true
 }
 
 // handleReferrerPricingError maps domain-level errors to HTTP

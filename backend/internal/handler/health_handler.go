@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -9,12 +10,36 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
+// SearchPinger is the narrow contract the health handler needs
+// from the Typesense client. A nil implementation disables the
+// Typesense check (useful when SEARCH_ENGINE=sql).
+type SearchPinger interface {
+	Ping(ctx context.Context) error
+}
+
 type HealthHandler struct {
-	db *sql.DB
+	db            *sql.DB
+	searchPinger  SearchPinger
+	searchRequired bool
 }
 
 func NewHealthHandler(db *sql.DB) *HealthHandler {
 	return &HealthHandler{db: db}
+}
+
+// WithSearchPinger attaches a Typesense client to the health
+// check. The `required` flag controls whether a failed Typesense
+// ping is treated as fatal (503) or as a best-effort signal:
+//   - required=true when SEARCH_ENGINE=typesense — the query
+//     path depends on Typesense being healthy, so a failure is
+//     an outage.
+//   - required=false when SEARCH_ENGINE=sql — the query path
+//     falls back to Postgres, so Typesense can be flaky without
+//     taking the whole backend out of rotation.
+func (h *HealthHandler) WithSearchPinger(pinger SearchPinger, required bool) *HealthHandler {
+	h.searchPinger = pinger
+	h.searchRequired = required
+	return h
 }
 
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
@@ -25,6 +50,14 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.PingContext(r.Context()); err != nil {
 		res.Error(w, http.StatusServiceUnavailable, "not_ready", "database is not reachable")
 		return
+	}
+	if h.searchPinger != nil {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		if err := h.searchPinger.Ping(ctx); err != nil && h.searchRequired {
+			res.Error(w, http.StatusServiceUnavailable, "not_ready", "search engine is not reachable")
+			return
+		}
 	}
 	res.JSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }

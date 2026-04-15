@@ -85,6 +85,70 @@ class SearchDocument {
   final int completedProjects;
   final String createdAt;
 
+  /// fromTypesenseJson maps the raw Typesense document shape (the
+  /// flat `pricing_*` columns + scalar quality signals) into the
+  /// frozen UI [SearchDocument] shape. Used by the mobile Typesense
+  /// repository so the existing card stays source-agnostic.
+  factory SearchDocument.fromTypesenseJson(
+    Map<String, dynamic> json,
+    SearchDocumentPersona persona,
+  ) {
+    final skills = <String>[];
+    final rawSkills = json['skills'];
+    if (rawSkills is List) {
+      for (final entry in rawSkills) {
+        if (skills.length >= 6) break;
+        if (entry is String && entry.isNotEmpty) {
+          skills.add(entry);
+        }
+      }
+    }
+
+    SearchDocumentPricing? pricing;
+    final pricingType = _pricingTypeFromWire(json['pricing_type'] as String?);
+    if (pricingType != null) {
+      pricing = SearchDocumentPricing(
+        type: pricingType,
+        minAmount: _readInt(json['pricing_min_amount']),
+        maxAmount: json['pricing_max_amount'] is num
+            ? (json['pricing_max_amount'] as num).toInt()
+            : null,
+        currency: (json['pricing_currency'] ?? 'EUR') as String,
+        negotiable: json['pricing_negotiable'] == true,
+      );
+    }
+
+    final createdAtUnix = json['created_at'];
+    final createdAtIso = createdAtUnix is num
+        ? DateTime.fromMillisecondsSinceEpoch(createdAtUnix.toInt() * 1000)
+            .toUtc()
+            .toIso8601String()
+        : '';
+
+    return SearchDocument(
+      id: (json['id'] ?? '') as String,
+      persona: persona,
+      displayName: (json['display_name'] ?? '') as String,
+      title: (json['title'] ?? '') as String,
+      photoUrl: (json['photo_url'] ?? '') as String,
+      city: (json['city'] ?? '') as String,
+      countryCode: (json['country_code'] ?? '') as String,
+      languagesProfessional: _stringList(json['languages_professional']),
+      availabilityStatus:
+          _availabilityFromWire(json['availability_status'] as String?),
+      expertiseDomains: _stringList(json['expertise_domains']),
+      skills: skills,
+      pricing: pricing,
+      rating: SearchDocumentRating(
+        average: _readDouble(json['rating_average']),
+        count: _readInt(json['rating_count']),
+      ),
+      totalEarned: _readInt(json['total_earned']),
+      completedProjects: _readInt(json['completed_projects']),
+      createdAt: createdAtIso,
+    );
+  }
+
   // fromLegacyJson projects the legacy PublicProfileSummary envelope
   // into a fully-typed SearchDocument. Tolerates missing fields so
   // older backend versions can still feed the card. The `persona`

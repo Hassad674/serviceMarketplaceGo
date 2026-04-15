@@ -58,13 +58,30 @@ const (
 	// milestone release, executing the Stripe Transfer with retry
 	// + idempotency on the milestone_id.
 	TypeStripeTransfer EventType = "stripe_transfer"
+
+	// TypeSearchReindex is the outbox event emitted every time an
+	// actor's profile (or one of its signals) changes. The search
+	// worker consumes it to rebuild the Typesense SearchDocument for
+	// that actor so the index stays in lockstep with the database.
+	//
+	// Payload: { "organization_id": "<uuid>", "persona": "freelance|agency|referrer" }
+	TypeSearchReindex EventType = "search.reindex"
+
+	// TypeSearchDelete is the outbox event emitted when a user is
+	// deleted (RGPD right to erasure). The search worker consumes
+	// it to remove the actor's document from Typesense so personal
+	// data stops surfacing in search results within a few seconds.
+	//
+	// Payload: { "organization_id": "<uuid>" }
+	TypeSearchDelete EventType = "search.delete"
 )
 
 // IsValid reports whether the type is one of the recognised values.
 func (t EventType) IsValid() bool {
 	switch t {
 	case TypeMilestoneAutoApprove, TypeMilestoneFundReminder,
-		TypeProposalAutoClose, TypeStripeTransfer:
+		TypeProposalAutoClose, TypeStripeTransfer,
+		TypeSearchReindex, TypeSearchDelete:
 		return true
 	}
 	return false
