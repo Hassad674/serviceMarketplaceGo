@@ -1,10 +1,13 @@
 import { API_BASE_URL } from "@/shared/lib/api-client"
 
-// Legacy referrer-video endpoints — same rationale as the freelance
-// video wrapper. Kept inside the feature so the hook layer can treat
-// them like any other persona-owned mutation.
+// Per-persona video-upload boundary for the referrer aggregate.
+// Hits the dedicated endpoints under /api/v1/referrer-profile/video
+// which write directly to referrer_profiles.video_url. The legacy
+// /api/v1/upload/referrer-video path is unreachable for
+// provider_personal orgs since migration 104 removed their legacy
+// profiles row.
 
-type UploadVideoResponse = { url: string }
+type UploadVideoResponse = { video_url: string }
 
 export async function uploadReferrerVideo(
   file: File,
@@ -12,7 +15,7 @@ export async function uploadReferrerVideo(
   const formData = new FormData()
   formData.append("file", file)
   const res = await fetch(
-    `${API_BASE_URL}/api/v1/upload/referrer-video`,
+    `${API_BASE_URL}/api/v1/referrer-profile/video`,
     {
       method: "POST",
       credentials: "include",
@@ -28,7 +31,7 @@ export async function uploadReferrerVideo(
 
 export async function deleteReferrerVideo(): Promise<void> {
   const res = await fetch(
-    `${API_BASE_URL}/api/v1/upload/referrer-video`,
+    `${API_BASE_URL}/api/v1/referrer-profile/video`,
     {
       method: "DELETE",
       credentials: "include",
