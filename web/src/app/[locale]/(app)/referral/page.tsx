@@ -21,6 +21,7 @@ import {
 import { useOrganizationShared } from "@/features/organization-shared/hooks/use-organization-shared"
 import { SharedLocationSection } from "@/features/organization-shared/components/shared-location-section"
 import { SharedLanguagesSection } from "@/features/organization-shared/components/shared-languages-section"
+import { ReferrerSocialLinksSection } from "@/features/referrer-profile/components/referrer-social-links-section"
 
 // /referral renders the authenticated user's referrer profile in
 // editable mode. Shared fields (photo, location, languages) are
@@ -128,6 +129,7 @@ export default function ReferralPage() {
         <>
           <SharedLocationSection />
           <SharedLanguagesSection />
+          <ReferrerSocialLinksSection />
         </>
       ) : null}
     </div>
