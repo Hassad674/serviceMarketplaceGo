@@ -36,6 +36,9 @@ import '../../features/proposal/presentation/screens/payment_simulation_screen.d
 import '../../features/proposal/presentation/screens/projects_list_screen.dart';
 import '../../features/dispute/presentation/screens/counter_propose_screen.dart';
 import '../../features/dispute/presentation/screens/open_dispute_screen.dart';
+import '../../features/referral/presentation/screens/referral_creation_screen.dart';
+import '../../features/referral/presentation/screens/referral_dashboard_screen.dart';
+import '../../features/referral/presentation/screens/referral_detail_screen.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/team/presentation/screens/team_screen.dart';
@@ -104,6 +107,8 @@ class RoutePaths {
   static const String candidateDetail = '/candidates/detail';
   static const String disputeOpen = '/disputes/open';
   static const String disputeCounter = '/disputes/counter';
+  static const String referralsDashboard = '/referrals';
+  static const String referralCreate = '/referrals/new';
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +330,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             proposalAmount: extras['proposalAmount'] as int? ?? 0,
           );
         },
+      ),
+
+      // --- Referral feature (full-screen, no bottom nav) ---
+      // /referrals          → apporteur dashboard
+      // /referrals/new      → creation form
+      // /referrals/:id      → detail (adapts to viewer role)
+      GoRoute(
+        path: RoutePaths.referralsDashboard,
+        builder: (context, state) => const ReferralDashboardScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.referralCreate,
+        builder: (context, state) => const ReferralCreationScreen(),
+      ),
+      GoRoute(
+        path: '/referrals/:id',
+        builder: (context, state) => ReferralDetailScreen(
+          referralId: state.pathParameters['id'] ?? '',
+        ),
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---
