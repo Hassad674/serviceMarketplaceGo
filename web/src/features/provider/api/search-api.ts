@@ -18,6 +18,11 @@ export type PublicProfileSummarySkill = {
 // org type, photo, and review metrics.
 export type PublicProfileSummary = {
   organization_id: string
+  // owner_user_id is the user at the top of the org. The business-
+  // referral feature uses this as the "party id" when the apporteur
+  // picks a provider from the search results, since the referral
+  // backend indexes referrals on users, not orgs.
+  owner_user_id: string
   name: string
   org_type: string
   title: string

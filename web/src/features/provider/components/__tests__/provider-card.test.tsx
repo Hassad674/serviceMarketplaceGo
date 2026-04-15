@@ -51,6 +51,7 @@ function createProfile(
 ): PublicProfileSummary {
   return {
     organization_id: "org-123",
+    owner_user_id: "user-123",
     name: "John Doe",
     org_type: "provider_personal",
     title: "Full-Stack Developer",

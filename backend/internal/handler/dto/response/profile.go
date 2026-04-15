@@ -147,7 +147,7 @@ type PublicProfileSummary struct {
 	// OwnerUserID is the id of the user at the top of the org — the
 	// "party id" the business-referral feature consumes when the
 	// apporteur picks a provider from the search results.
-	OwnerUserID     string                `json:"owner_user_id"`
+	OwnerUserID    string `json:"owner_user_id"`
 	Name            string                `json:"name"`
 	OrgType         string                `json:"org_type"`
 	Title           string                `json:"title"`
