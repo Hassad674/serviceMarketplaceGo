@@ -3,13 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/referral_provider.dart';
+import '../widgets/client_picker_sheet.dart';
+import '../widgets/picker_selection.dart';
+import '../widgets/provider_picker_sheet.dart';
 
 /// ReferralCreationScreen — single-page form to create a new business
-/// referral. Mirrors the web wizard but flat (no multi-step) since the
-/// mobile keyboard makes pagination painful.
-///
-/// V1 takes provider/client UUIDs as raw text inputs. A picker integrated
-/// with the search feature is on the V2 backlog.
+/// referral. Provider and client parties are picked via dedicated modal
+/// bottom sheets (searchable for providers, conversation-restricted for
+/// clients) — the apporteur never types a raw UUID.
 class ReferralCreationScreen extends ConsumerStatefulWidget {
   const ReferralCreationScreen({super.key});
 
@@ -20,11 +21,11 @@ class ReferralCreationScreen extends ConsumerStatefulWidget {
 
 class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _providerCtrl = TextEditingController();
-  final _clientCtrl = TextEditingController();
   final _pitchProviderCtrl = TextEditingController();
   final _pitchClientCtrl = TextEditingController();
 
+  ProviderPickerSelection? _provider;
+  ClientPickerSelection? _client;
   double _ratePct = 5;
   int _durationMonths = 6;
   bool _submitting = false;
@@ -44,23 +45,41 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
 
   @override
   void dispose() {
-    _providerCtrl.dispose();
-    _clientCtrl.dispose();
     _pitchProviderCtrl.dispose();
     _pitchClientCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _pickProvider() async {
+    final selection = await showProviderPickerSheet(context);
+    if (!mounted || selection == null) return;
+    setState(() => _provider = selection);
+  }
+
+  Future<void> _pickClient() async {
+    final selection = await showClientPickerSheet(context);
+    if (!mounted || selection == null) return;
+    setState(() => _client = selection);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_provider == null) {
+      setState(() => _error = 'Sélectionnez un prestataire.');
+      return;
+    }
+    if (_client == null) {
+      setState(() => _error = 'Sélectionnez un client parmi vos conversations.');
+      return;
+    }
     setState(() {
       _submitting = true;
       _error = null;
     });
     final created = await createReferral(
       ref,
-      providerId: _providerCtrl.text.trim(),
-      clientId: _clientCtrl.text.trim(),
+      providerId: _provider!.userId,
+      clientId: _client!.userId,
       ratePct: _ratePct,
       durationMonths: _durationMonths,
       introMessageProvider: _pitchProviderCtrl.text.trim(),
@@ -71,7 +90,7 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
     if (created == null) {
       setState(() {
         _submitting = false;
-        _error = 'Could not create the intro. Check the IDs and try again.';
+        _error = 'Could not create the intro. Please try again.';
       });
       return;
     }
@@ -98,28 +117,24 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
               ),
               const SizedBox(height: 24),
               _SectionTitle('1 — Parties'),
-              TextFormField(
-                controller: _providerCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Provider ID',
-                  hintText: 'UUID of the provider you want to recommend',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Required'
-                    : null,
+              _PartyTile(
+                label: 'Prestataire',
+                placeholder: 'Rechercher ou choisir depuis une conversation…',
+                selectedName: _provider?.name,
+                selectedBadge: _provider != null ? orgTypeLabel(_provider!.orgType) : null,
+                leadingIcon: Icons.person_outline,
+                onTap: _pickProvider,
+                onClear: _provider != null ? () => setState(() => _provider = null) : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _clientCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Client ID',
-                  hintText: 'UUID of the enterprise or agency',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Required'
-                    : null,
+              _PartyTile(
+                label: 'Client',
+                placeholder: 'Choisir depuis une conversation…',
+                selectedName: _client?.name,
+                selectedBadge: _client != null ? 'Entreprise' : null,
+                leadingIcon: Icons.business_outlined,
+                onTap: _pickClient,
+                onClear: _client != null ? () => setState(() => _client = null) : null,
               ),
               const SizedBox(height: 24),
               _SectionTitle('2 — Terms'),
@@ -239,6 +254,90 @@ class _SectionTitle extends StatelessWidget {
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),
+      ),
+    );
+  }
+}
+
+/// _PartyTile renders a Material input-shaped trigger that opens one of
+/// the picker bottom sheets on tap. Keeps the form visually aligned with
+/// the other TextFormField entries while avoiding any raw UUID input.
+class _PartyTile extends StatelessWidget {
+  const _PartyTile({
+    required this.label,
+    required this.placeholder,
+    required this.selectedName,
+    required this.selectedBadge,
+    required this.leadingIcon,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final String label;
+  final String placeholder;
+  final String? selectedName;
+  final String? selectedBadge;
+  final IconData leadingIcon;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasValue = selectedName != null && selectedName!.isNotEmpty;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          prefixIcon: Icon(leadingIcon, size: 20),
+          suffixIcon: hasValue && onClear != null
+              ? IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: onClear,
+                  tooltip: 'Effacer',
+                )
+              : const Icon(Icons.chevron_right),
+        ),
+        child: hasValue
+            ? Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      selectedName!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  if (selectedBadge != null) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        selectedBadge!,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Text(
+                placeholder,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
       ),
     );
   }
