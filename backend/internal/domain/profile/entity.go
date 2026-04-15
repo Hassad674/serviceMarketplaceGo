@@ -86,8 +86,21 @@ func NewProfile(organizationID uuid.UUID) *Profile {
 // PublicProfile is the aggregated view used by search / discovery and
 // by the public org page. It combines org identity (name, type, photo)
 // with review metrics and a referrer flag derived from the owner.
+//
+// The signal fields at the bottom (City, CountryCode, LanguagesProfessional,
+// AvailabilityStatus, TotalEarned, CompletedProjects) are lit up by
+// the SearchPublic query and feed the search card's visible
+// hierarchy. Detail-view callers that only fetch by org id may leave
+// these zeroed — they do not participate in the public profile detail
+// endpoint today.
 type PublicProfile struct {
-	OrganizationID  uuid.UUID
+	OrganizationID uuid.UUID
+	// OwnerUserID is the user at the top of the org — the "party" id the
+	// business-referral feature uses when creating an intro, and the id
+	// review / reputation aggregates on. For provider_personal orgs this
+	// is the freelancer themselves; for agency / enterprise orgs this is
+	// the current owner.
+	OwnerUserID     uuid.UUID
 	Name            string
 	OrgType         string
 	Title           string
@@ -96,4 +109,34 @@ type PublicProfile struct {
 	AverageRating   float64 // average of received reviews (0 when no reviews)
 	ReviewCount     int     // number of non-hidden reviews received
 	CreatedAt       time.Time
+
+	// ---- Search card signals (optional on detail-view fetches) ----
+
+	// City / CountryCode mirror the org's location block. Empty when
+	// the org has not filled its location yet.
+	City        string
+	CountryCode string
+
+	// LanguagesProfessional is the ISO 639-1 list of languages the org
+	// declares at professional level. Used to render flag chips on the
+	// search card. Nil and empty are interchangeable for callers.
+	LanguagesProfessional []string
+
+	// AvailabilityStatus is the persona-scoped availability: freelance
+	// personas surface the freelance profile's status, referrer personas
+	// surface the referrer profile's status, agencies surface the legacy
+	// profiles row. Empty string means "unknown" (the frontend then
+	// coerces to available_now as a safe default).
+	AvailabilityStatus string
+
+	// TotalEarned is the sum — in centimes — of released milestone
+	// amounts where the org's owner is the provider. 0 for orgs with
+	// no completed payments. Computed per-row by SearchPublic via a
+	// batched LEFT JOIN subquery; detail fetches leave it at 0.
+	TotalEarned int64
+
+	// CompletedProjects counts the distinct proposals that have at
+	// least one released milestone attributed to the org's owner.
+	// Same batched-subquery source as TotalEarned.
+	CompletedProjects int
 }
