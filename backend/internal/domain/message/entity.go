@@ -44,12 +44,24 @@ const (
 	MessageTypeDisputeCancellationRequested  MessageType = "dispute_cancellation_requested"
 	MessageTypeDisputeCancellationRefused    MessageType = "dispute_cancellation_refused"
 
-	// Referral (apport d'affaires) — the only system message the referral
-	// feature posts inside the provider↔client conversation, when a client
-	// accepts the introduction. Commission events (paid/clawed back) are
-	// notification-only and never appear in the conversation: the chat
-	// stays strictly 1:1 between the working parties (B2B confidentiality).
-	MessageTypeReferralIntroActivated MessageType = "referral_intro_activated"
+	// Referral (apport d'affaires) system messages.
+	//
+	// These messages render as interactive cards in the conversation —
+	// accept / reject / negotiate buttons are available to the recipient
+	// based on their role in the referral. Posted into THREE distinct
+	// conv pairs depending on the lifecycle stage:
+	//
+	//   - apporteur ↔ provider  : throughout the lifecycle
+	//   - apporteur ↔ client    : once the intro reaches pending_client
+	//   - provider  ↔ client    : once activated (confidentiality barrier —
+	//                             apporteur is NOT a participant)
+	//
+	// Commission events (paid / clawed back) remain notification-only and
+	// never appear in any conversation: money events are private.
+	MessageTypeReferralIntroSent       MessageType = "referral_intro_sent"
+	MessageTypeReferralIntroNegotiated MessageType = "referral_intro_negotiated"
+	MessageTypeReferralIntroActivated  MessageType = "referral_intro_activated"
+	MessageTypeReferralIntroClosed     MessageType = "referral_intro_closed"
 )
 
 // IsProposalType returns true if the message type is a proposal event type.
@@ -78,6 +90,19 @@ func (mt MessageType) IsDisputeType() bool {
 	return false
 }
 
+// IsReferralType returns true if the message type is a referral
+// (apport d'affaires) lifecycle event. Used by the message-area
+// dispatcher in the frontend to pick the ReferralSystemMessage
+// interactive component instead of rendering as a plain text bubble.
+func (mt MessageType) IsReferralType() bool {
+	switch mt {
+	case MessageTypeReferralIntroSent, MessageTypeReferralIntroNegotiated,
+		MessageTypeReferralIntroActivated, MessageTypeReferralIntroClosed:
+		return true
+	}
+	return false
+}
+
 func (mt MessageType) IsValid() bool {
 	switch mt {
 	case MessageTypeText, MessageTypeFile, MessageTypeVoice,
@@ -92,7 +117,9 @@ func (mt MessageType) IsValid() bool {
 		MessageTypeDisputeCounterAccepted, MessageTypeDisputeCounterRejected,
 		MessageTypeDisputeEscalated, MessageTypeDisputeResolved,
 		MessageTypeDisputeCancelled, MessageTypeDisputeAutoResolved,
-		MessageTypeDisputeCancellationRequested, MessageTypeDisputeCancellationRefused:
+		MessageTypeDisputeCancellationRequested, MessageTypeDisputeCancellationRefused,
+		MessageTypeReferralIntroSent, MessageTypeReferralIntroNegotiated,
+		MessageTypeReferralIntroActivated, MessageTypeReferralIntroClosed:
 		return true
 	}
 	return false

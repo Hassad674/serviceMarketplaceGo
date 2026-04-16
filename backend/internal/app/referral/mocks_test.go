@@ -359,17 +359,37 @@ func (f *fakeUserRepo) TouchLastActive(ctx context.Context, userID uuid.UUID) er
 }
 
 // fakeMessageSender tracks system messages without doing anything else.
+// FindOrCreateConversation dedupes by unordered (UserA, UserB) pair, so
+// the referral service's several posts into the same conv reuse the same
+// convID — matching how the real messaging service behaves.
 type fakeMessageSender struct {
-	mu         sync.Mutex
+	mu           sync.Mutex
+	convs        map[string]uuid.UUID // unordered-pair key → convID
 	convsCreated []service.FindOrCreateConversationInput
 	sysMessages  []service.SystemMessageInput
+}
+
+func convPairKey(a, b uuid.UUID) string {
+	if a.String() < b.String() {
+		return a.String() + "|" + b.String()
+	}
+	return b.String() + "|" + a.String()
 }
 
 func (f *fakeMessageSender) FindOrCreateConversation(ctx context.Context, in service.FindOrCreateConversationInput) (uuid.UUID, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.convs == nil {
+		f.convs = map[string]uuid.UUID{}
+	}
+	key := convPairKey(in.UserA, in.UserB)
+	if existing, ok := f.convs[key]; ok {
+		return existing, nil
+	}
+	id := uuid.New()
+	f.convs[key] = id
 	f.convsCreated = append(f.convsCreated, in)
-	return uuid.New(), nil
+	return id, nil
 }
 
 func (f *fakeMessageSender) SendSystemMessage(ctx context.Context, in service.SystemMessageInput) error {
@@ -377,6 +397,21 @@ func (f *fakeMessageSender) SendSystemMessage(ctx context.Context, in service.Sy
 	defer f.mu.Unlock()
 	f.sysMessages = append(f.sysMessages, in)
 	return nil
+}
+
+// sysMessagesOfType returns every system message of the given type,
+// across every conv. Used by tests to assert on the Phase-B dispatch
+// shape without depending on call order.
+func (f *fakeMessageSender) sysMessagesOfType(t string) []service.SystemMessageInput {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []service.SystemMessageInput
+	for _, m := range f.sysMessages {
+		if m.Type == t {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // fakeNotifier records all notifications.

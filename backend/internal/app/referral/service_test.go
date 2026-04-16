@@ -2,6 +2,7 @@ package referral_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -208,15 +209,81 @@ func TestRespondAsClient_AcceptActivatesAndOpensConversation(t *testing.T) {
 	require.NotNil(t, updated.ActivatedAt)
 	require.NotNil(t, updated.ExpiresAt)
 
-	// Conversation created between provider and client (NOT with the referrer).
-	require.Len(t, f.msgs.convsCreated, 1)
-	conv := f.msgs.convsCreated[0]
-	assert.True(t, (conv.UserA == provID && conv.UserB == cliID) || (conv.UserA == cliID && conv.UserB == provID))
-	assert.NotEqual(t, conv.UserA, refID)
-	assert.NotEqual(t, conv.UserB, refID)
+	// Phase B: three distinct conv pairs are used through the lifecycle —
+	// apporteur↔provider (from creation), apporteur↔client (from
+	// pending_client), provider↔client (at activation). The apporteur
+	// is NEVER a participant of the provider↔client conv.
+	pairs := map[string]bool{}
+	for _, c := range f.msgs.convsCreated {
+		pairs[convPairKey(c.UserA, c.UserB)] = true
+	}
+	assert.True(t, pairs[convPairKey(refID, provID)], "apporteur↔provider conv must exist")
+	assert.True(t, pairs[convPairKey(refID, cliID)], "apporteur↔client conv must exist")
+	assert.True(t, pairs[convPairKey(provID, cliID)], "provider↔client conv must exist")
 
-	// Activation notification sent to the referrer + provider.
-	assert.GreaterOrEqual(t, f.notifier.typeCount(string(notification.TypeReferralIntroActivated)), 1)
+	// The activation system message lands in the provider↔client conv
+	// as well as in the two apporteur-facing conv pairs.
+	activations := f.msgs.sysMessagesOfType("referral_intro_activated")
+	assert.GreaterOrEqual(t, len(activations), 3,
+		"activation posts in provider↔client, apporteur↔provider, apporteur↔client")
+
+	// Activation notification sent to the three parties.
+	assert.GreaterOrEqual(t, f.notifier.typeCount(string(notification.TypeReferralIntroActivated)), 3)
+}
+
+func TestCreateIntro_PostsSystemMessageInApporteurProviderConv(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+
+	sent := f.msgs.sysMessagesOfType("referral_intro_sent")
+	require.Len(t, sent, 1, "one intro_sent message in apporteur↔provider conv on creation")
+
+	// Metadata must carry referral_id + rate_pct so the widget can render.
+	require.Contains(t, string(sent[0].Metadata), r.ID.String())
+	require.Contains(t, string(sent[0].Metadata), `"rate_pct":5`)
+}
+
+func TestProviderCounter_PostsNegotiatedSystemMessage(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+
+	_, err := f.svc.RespondAsProvider(context.Background(), referralapp.NewResponseInput(r.ID, provID, referral.NegoActionCountered, 3, "too high"))
+	require.NoError(t, err)
+
+	negotiated := f.msgs.sysMessagesOfType("referral_intro_negotiated")
+	require.Len(t, negotiated, 1, "one negotiated message per counter offer")
+	// The sender is the actor who just counter-offered (the provider).
+	assert.Equal(t, provID, negotiated[0].SenderID)
+	// Metadata carries the new rate so the widget shows the fresh offer.
+	assert.Contains(t, string(negotiated[0].Metadata), `"rate_pct":3`)
+}
+
+func TestClientAccept_StripsRateFromApporteurClientMessage(t *testing.T) {
+	f := newTestFixture(t, "acct_xyz")
+	refID, provID, cliID := f.seedActors(t)
+	r := f.createIntro(t, refID, provID, cliID, 5)
+	_, err := f.svc.RespondAsProvider(context.Background(), referralapp.NewResponseInput(r.ID, provID, referral.NegoActionAccepted, 0, ""))
+	require.NoError(t, err)
+
+	// Provider accept transitions to pending_client and posts intro_sent
+	// messages in BOTH apporteur↔provider (rate visible) AND apporteur↔client
+	// (rate stripped — Modèle A).
+	sent := f.msgs.sysMessagesOfType("referral_intro_sent")
+	withRate := 0
+	withoutRate := 0
+	for _, m := range sent {
+		if strings.Contains(string(m.Metadata), `"rate_pct":5`) {
+			withRate++
+			continue
+		}
+		withoutRate++
+	}
+	assert.GreaterOrEqual(t, withRate, 1, "apporteur↔provider intro_sent must carry the rate")
+	assert.GreaterOrEqual(t, withoutRate, 1, "apporteur↔client intro_sent must strip the rate (Modèle A)")
+	_ = refID
+	_ = r
 }
 
 func TestCancel_ReferrerOnly(t *testing.T) {

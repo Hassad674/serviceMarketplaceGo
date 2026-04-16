@@ -2,12 +2,11 @@ package referral
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
+
+	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/domain/referral"
-	"marketplace-backend/internal/port/service"
 )
 
 // activate is called once the client has accepted, the referral row has been
@@ -23,38 +22,30 @@ import (
 // All side-effects are best-effort and logged-on-failure: the referral state
 // is already persisted, so a downstream failure here must not roll it back.
 func (s *Service) activate(ctx context.Context, r *referral.Referral, prev referral.Status) {
+	// Open the provider ↔ client conv first — this is the activation
+	// handshake message. It is the ONE conversation the apporteur is
+	// NOT a participant of (Modèle A confidentiality).
 	s.openProviderClientConversation(ctx, r)
+	// Then fan out notifications and post mirrored system messages in
+	// the apporteur ↔ provider and apporteur ↔ client conv pairs.
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 }
 
 // openProviderClientConversation finds (or creates) the 1:1 conversation
 // between the provider and the client, and posts the activation system
-// message inside it. The system message is rendered as
-// MessageTypeReferralIntroActivated on the frontend with the apporteur's
-// name pulled from the metadata payload.
+// message inside it. Posts with rate STRIPPED (client never sees it) and
+// the full identity envelope so the interactive widget can link back to
+// the referral page.
 func (s *Service) openProviderClientConversation(ctx context.Context, r *referral.Referral) {
 	if s.messages == nil {
 		return
 	}
-
-	convID, err := s.messages.FindOrCreateConversation(ctx, service.FindOrCreateConversationInput{
-		UserA:   r.ProviderID,
-		UserB:   r.ClientID,
-		Content: "🤝 Mise en relation activée",
-		Type:    string(message.MessageTypeReferralIntroActivated),
-	})
-	if err != nil {
-		slog.Warn("referral: open provider-client conversation failed",
-			"referral_id", r.ID, "error", err)
-		return
-	}
-
-	// FindOrCreateConversation already posts the system message when the
-	// conv is freshly created. If the conv already existed (the parties had
-	// previously messaged) FindOrCreate also posts the system message
-	// because the messaging service implementation always sends it when
-	// Content is non-empty — verified in service_system.go. Nothing else
-	// to do here.
-	_ = convID
-	_ = fmt.Sprintf
+	meta := baseMetadata(r)
+	meta.IncludeRate = false
+	meta.PrevStatus = string(referral.StatusPendingClient)
+	s.postReferralSystemMessage(ctx, r.ProviderID, r.ClientID, uuid.Nil,
+		message.MessageTypeReferralIntroActivated,
+		"🤝 Mise en relation activée",
+		meta)
 }

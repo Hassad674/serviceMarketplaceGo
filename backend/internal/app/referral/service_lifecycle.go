@@ -24,6 +24,7 @@ func (s *Service) Cancel(ctx context.Context, referralID, actorID uuid.UUID) (*r
 		return nil, fmt.Errorf("update referral on cancel: %w", err)
 	}
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 	return r, nil
 }
 
@@ -43,6 +44,7 @@ func (s *Service) Terminate(ctx context.Context, referralID, actorID uuid.UUID) 
 		return nil, fmt.Errorf("update referral on terminate: %w", err)
 	}
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 	return r, nil
 }
 

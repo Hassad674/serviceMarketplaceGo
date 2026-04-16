@@ -91,6 +91,7 @@ func (s *Service) CreateIntro(ctx context.Context, input CreateIntroInput) (*ref
 	}
 
 	s.notifyStatusTransition(ctx, ref, "")
+	s.postTransitionMessages(ctx, ref, "")
 	return ref, nil
 }
 

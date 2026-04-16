@@ -94,5 +94,6 @@ func (s *Service) expireRow(ctx context.Context, r *referral.Referral) error {
 		return fmt.Errorf("persist expired referral: %w", err)
 	}
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 	return nil
 }

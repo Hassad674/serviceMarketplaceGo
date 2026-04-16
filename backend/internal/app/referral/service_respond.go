@@ -44,6 +44,7 @@ func (s *Service) RespondAsProvider(ctx context.Context, ref ResponseInput) (*re
 		return nil, err
 	}
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 	return r, nil
 }
 
@@ -78,6 +79,7 @@ func (s *Service) RespondAsReferrer(ctx context.Context, ref ResponseInput) (*re
 		return nil, err
 	}
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 	return r, nil
 }
 
@@ -119,6 +121,7 @@ func (s *Service) RespondAsClient(ctx context.Context, ref ResponseInput) (*refe
 		return nil, err
 	}
 	s.notifyStatusTransition(ctx, r, prev)
+	s.postTransitionMessages(ctx, r, prev)
 	return r, nil
 }
 
