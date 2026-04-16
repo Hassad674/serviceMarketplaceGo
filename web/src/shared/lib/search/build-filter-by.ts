@@ -83,12 +83,19 @@ function pricingClause(minAmt?: number | null, maxAmt?: number | null): string {
 
 function cityClause(city?: string): string {
   const trimmed = (city ?? "").trim()
-  return trimmed ? `city:=\`${trimmed}\`` : ""
+  // `:` (not `:=`) matches case-insensitively so users can type
+  // "amsterdam" or "Amsterdam" and both match the indexed value.
+  // Backticks escape the literal so multi-word cities (e.g.
+  // "New York") keep working.
+  return trimmed ? `city:\`${trimmed}\`` : ""
 }
 
 function countryClause(code?: string): string {
   const trimmed = (code ?? "").trim()
-  return trimmed ? `country_code:=${trimmed.toLowerCase()}` : ""
+  // ISO codes are uppercase in the index (NL, FR, …). The `:`
+  // operator is case-insensitive so we preserve the user's
+  // casing as-is and let Typesense match either way.
+  return trimmed ? `country_code:${trimmed}` : ""
 }
 
 function geoClause(

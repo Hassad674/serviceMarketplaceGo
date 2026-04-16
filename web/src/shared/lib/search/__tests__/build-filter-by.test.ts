@@ -38,17 +38,17 @@ describe("buildFilterBy", () => {
     expect(buildFilterBy({ pricingMax: 150000 })).toBe("pricing_min_amount:<=150000")
   })
 
-  it("emits city clause with backticks", () => {
-    expect(buildFilterBy({ city: "Paris" })).toBe("city:=`Paris`")
-    expect(buildFilterBy({ city: "New York" })).toBe("city:=`New York`")
-    expect(buildFilterBy({ city: "  Lyon  " })).toBe("city:=`Lyon`")
+  it("emits case-insensitive city clause with backticks", () => {
+    expect(buildFilterBy({ city: "Paris" })).toBe("city:`Paris`")
+    expect(buildFilterBy({ city: "New York" })).toBe("city:`New York`")
+    expect(buildFilterBy({ city: "  Lyon  " })).toBe("city:`Lyon`")
     expect(buildFilterBy({ city: "" })).toBe("")
     expect(buildFilterBy({ city: "   " })).toBe("")
   })
 
-  it("normalises country code to lowercase", () => {
-    expect(buildFilterBy({ countryCode: "FR" })).toBe("country_code:=fr")
-    expect(buildFilterBy({ countryCode: "fr" })).toBe("country_code:=fr")
+  it("preserves country code casing (match is case-insensitive)", () => {
+    expect(buildFilterBy({ countryCode: "FR" })).toBe("country_code:FR")
+    expect(buildFilterBy({ countryCode: "fr" })).toBe("country_code:fr")
     expect(buildFilterBy({ countryCode: "" })).toBe("")
   })
 
@@ -113,8 +113,8 @@ describe("buildFilterBy", () => {
     expect(got).toBe(
       "availability_status:[available_now]" +
         " && pricing_min_amount:>=40000 && pricing_min_amount:<=120000" +
-        " && city:=`Paris`" +
-        " && country_code:=fr" +
+        " && city:`Paris`" +
+        " && country_code:FR" +
         " && languages_professional:[fr,en]" +
         " && skills:[react]" +
         " && rating_average:>=4" +

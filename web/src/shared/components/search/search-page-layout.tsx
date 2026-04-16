@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Filter, Search, Users, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -33,7 +33,7 @@ import {
 // so the page can be server-rendered (title, description) with a
 // client-side slot for the actual data fetching hook.
 
-type SortKey = "relevance" | "rating" | "priceAsc" | "priceDesc" | "recent"
+export type SortKey = "relevance" | "rating" | "priceAsc" | "priceDesc" | "recent"
 
 export type SearchLayoutStatus = "idle" | "loading" | "error"
 
@@ -61,13 +61,53 @@ export interface SearchPageLayoutProps {
   onRetry?: () => void
   query: string
   onQueryChange: (next: string) => void
+  /**
+   * Controlled filter state. When provided, the layout forwards
+   * changes through `onFiltersChange` instead of keeping local
+   * state. Required for the Typesense path where the parent has to
+   * pipe filters back into the query hook.
+   */
+  filters?: SearchFilters
+  onFiltersChange?: (next: SearchFilters) => void
+  /**
+   * Controlled sort state. Same rationale as `filters`: the
+   * Typesense parent maps the SortKey to a Typesense `sort_by`
+   * string before passing it to useSearch.
+   */
+  sort?: SortKey
+  onSortChange?: (next: SortKey) => void
+  /**
+   * Total match count across all pages (Typesense `found`). Used
+   * by the sidebar header when larger than the currently-rendered
+   * document slice. Falls back to the local document count.
+   */
+  totalFound?: number
 }
 
 export function SearchPageLayout(props: SearchPageLayoutProps) {
   const t = useTranslations("search")
-  const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
-  const [sort, setSort] = useState<SortKey>("relevance")
+  const [internalFilters, setInternalFilters] = useState<SearchFilters>(
+    EMPTY_SEARCH_FILTERS,
+  )
+  const [internalSort, setInternalSort] = useState<SortKey>("relevance")
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const filters = props.filters ?? internalFilters
+  const setFilters = (next: SearchFilters) => {
+    if (props.onFiltersChange) {
+      props.onFiltersChange(next)
+    } else {
+      setInternalFilters(next)
+    }
+  }
+  const sort = props.sort ?? internalSort
+  const setSort = (next: SortKey) => {
+    if (props.onSortChange) {
+      props.onSortChange(next)
+    } else {
+      setInternalSort(next)
+    }
+  }
 
   const mappedDocuments: SearchDocument[] = useMemo(() => {
     if (props.preMappedDocuments) {
@@ -103,7 +143,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
             filters={filters}
             onChange={setFilters}
             onApply={handleApply}
-            resultsCount={mappedDocuments.length}
+            resultsCount={props.totalFound ?? mappedDocuments.length}
           />
         </div>
         <div className="flex flex-col gap-6">
@@ -125,7 +165,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
           filters={filters}
           onChange={setFilters}
           onApply={handleApply}
-          resultsCount={mappedDocuments.length}
+          resultsCount={props.totalFound ?? mappedDocuments.length}
           className="border-0 shadow-none"
         />
       </FilterDrawer>
@@ -253,17 +293,74 @@ function ResultsSection(props: ResultsSectionProps) {
         ))}
       </div>
       {props.hasMore ? (
-        <div className="flex justify-center pt-2">
-          <button
-            type="button"
-            onClick={props.onLoadMore}
-            disabled={props.isLoadingMore}
-            className="rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
-          >
-            {props.isLoadingMore ? props.loadingLabel : props.loadMoreLabel}
-          </button>
-        </div>
+        <InfiniteScrollFooter
+          onLoadMore={props.onLoadMore}
+          isLoadingMore={props.isLoadingMore}
+          loadMoreLabel={props.loadMoreLabel}
+          loadingLabel={props.loadingLabel}
+        />
       ) : null}
+    </>
+  )
+}
+
+/**
+ * InfiniteScrollFooter renders a sentinel `<div>` that auto-triggers
+ * `onLoadMore` when scrolled into view, and keeps a visible "Load
+ * more" button underneath as an accessible + no-JS fallback.
+ *
+ * The IntersectionObserver margin is 400px so we start fetching the
+ * next page before the user reaches the grid bottom — this gives
+ * the network request time to complete and the scroll feels smooth.
+ */
+function InfiniteScrollFooter({
+  onLoadMore,
+  isLoadingMore,
+  loadMoreLabel,
+  loadingLabel,
+}: {
+  onLoadMore: () => void
+  isLoadingMore: boolean
+  loadMoreLabel: string
+  loadingLabel: string
+}) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const loadMoreRef = useRef(onLoadMore)
+  const isLoadingRef = useRef(isLoadingMore)
+
+  useEffect(() => {
+    loadMoreRef.current = onLoadMore
+    isLoadingRef.current = isLoadingMore
+  }, [onLoadMore, isLoadingMore])
+
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || typeof IntersectionObserver === "undefined") return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isLoadingRef.current) {
+          loadMoreRef.current()
+        }
+      },
+      { rootMargin: "400px 0px" },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <>
+      <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+      <div className="flex justify-center pt-2">
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={isLoadingMore}
+          className="rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+        >
+          {isLoadingMore ? loadingLabel : loadMoreLabel}
+        </button>
+      </div>
     </>
   )
 }

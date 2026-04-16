@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import Image from "next/image"
 import { Star, MapPin } from "lucide-react"
 import { useLocale, useTranslations } from "next-intl"
@@ -85,16 +86,20 @@ export function SearchResultCard({ document }: SearchResultCardProps) {
 // ---------------------------------------------------------------------------
 
 function PhotoCover({ document }: { document: SearchDocument }) {
-  const hasPhoto = document.photo_url.trim().length > 0
+  const [loadFailed, setLoadFailed] = useState(false)
+  const showImage =
+    !loadFailed && isRenderableImageUrl(document.photo_url)
   return (
     <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
-      {hasPhoto ? (
+      {showImage ? (
         <Image
           src={document.photo_url}
           alt={document.display_name || "Profile photo"}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+          onError={() => setLoadFailed(true)}
+          unoptimized
         />
       ) : (
         <InitialsBackdrop name={document.display_name} />
@@ -254,6 +259,28 @@ function SkillChips({ skills }: { skills: string[] }) {
       ) : null}
     </ul>
   )
+}
+
+// isRenderableImageUrl guards PhotoCover against synthetic or malformed
+// URLs (fixtures, legacy rows, typos) that would otherwise trip
+// next/image's hostname allow-list and surface a runtime overlay
+// instead of the card. We accept only URLs that parse cleanly and
+// whose host looks like a real domain (contains a dot) or localhost.
+function isRenderableImageUrl(raw: string): boolean {
+  const trimmed = raw.trim()
+  if (trimmed.length === 0) return false
+  try {
+    const parsed = new URL(trimmed)
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return false
+    }
+    const host = parsed.hostname
+    if (host.length === 0) return false
+    if (host === "localhost") return true
+    return host.includes(".")
+  } catch {
+    return false
+  }
 }
 
 function getInitials(name: string): string {

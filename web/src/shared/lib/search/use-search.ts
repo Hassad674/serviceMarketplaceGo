@@ -9,13 +9,15 @@
  *   - buildFilterBy()        — translates filter inputs into
  *                              Typesense filter_by syntax
  *
- * The hook returns a typed result struct with documents, facet
- * counts, highlights, and the optional did-you-mean string. The
- * page composes these into the existing SearchPageLayout.
+ * Uses `useInfiniteQuery` under the hood so pagination is handled
+ * natively by TanStack Query — each page is a separate fetch that
+ * gets appended to the accumulated result set. The listing page
+ * only has to call `loadMore()` when the user scrolls past the
+ * fold.
  */
 
 import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useInfiniteQuery } from "@tanstack/react-query"
 import {
   TypesenseSearchClient,
   type RawSearchDocument,
@@ -44,6 +46,9 @@ export const DEFAULT_FACET_BY =
   "availability_status,city,country_code,languages_professional," +
   "expertise_domains,skills,work_mode,is_verified,is_top_rated,pricing_currency"
 
+/** DEFAULT_PER_PAGE is the page size used by the listing grid. */
+export const DEFAULT_PER_PAGE = 20
+
 /** UseSearchInput is the per-call parameter struct. */
 export interface UseSearchInput {
   /** Persona is the scoped client to use. */
@@ -54,9 +59,7 @@ export interface UseSearchInput {
   filters: SearchFilterInput
   /** Override the default sort_by. Empty = use DEFAULT_SORT_BY. */
   sortBy?: string
-  /** 1-indexed page number. */
-  page: number
-  /** Page size; capped at 60 by the backend service. */
+  /** Page size. Capped at 60 by the backend service. */
   perPage?: number
   /** Disables the query when false. */
   enabled?: boolean
@@ -69,40 +72,31 @@ export interface UseSearchResult {
   facetCounts: Record<string, Record<string, number>>
   found: number
   outOf: number
-  page: number
   perPage: number
   searchTimeMs: number
   correctedQuery: string | null
   isLoading: boolean
   isFetching: boolean
+  isFetchingMore: boolean
+  hasMore: boolean
+  loadMore: () => void
   error: Error | null
   refetch: () => void
-}
-
-/** EMPTY_RESULT is the placeholder returned while the key is loading. */
-const EMPTY_RESULT: Omit<UseSearchResult, "isLoading" | "isFetching" | "error" | "refetch"> = {
-  documents: [],
-  highlights: [],
-  facetCounts: {},
-  found: 0,
-  outOf: 0,
-  page: 1,
-  perPage: 20,
-  searchTimeMs: 0,
-  correctedQuery: null,
 }
 
 /**
  * useSearch is the top-level hook for the Typesense-backed listing
  * pages. It auto-fetches the scoped key, instantiates the client,
- * and runs the search whenever any input changes.
+ * and accumulates pages via TanStack Query's infinite-query flow.
  *
- * Cache key includes every input so the underlying TanStack cache
- * invalidates correctly on filter / sort / pagination changes.
+ * Cache key includes every query shape (persona, query, filters,
+ * sort) so mutating any of them transparently resets the
+ * accumulator back to page 1.
  */
 export function useSearch(input: UseSearchInput): UseSearchResult {
   const { key, isLoading: keyLoading, error: keyError } = useSearchKey(input.persona)
   const filterBy = useMemo(() => buildFilterBy(input.filters), [input.filters])
+  const perPage = input.perPage ?? DEFAULT_PER_PAGE
   const enabled = (input.enabled ?? true) && key !== null && input.persona !== null
 
   const queryKey = useMemo(
@@ -114,16 +108,16 @@ export function useSearch(input: UseSearchInput): UseSearchResult {
         input.query,
         filterBy,
         input.sortBy ?? "",
-        input.page,
-        input.perPage ?? 20,
+        perPage,
       ] as const,
-    [input.persona, input.query, filterBy, input.sortBy, input.page, input.perPage],
+    [input.persona, input.query, filterBy, input.sortBy, perPage],
   )
 
-  const query = useQuery({
+  const query = useInfiniteQuery({
     queryKey,
     enabled,
-    queryFn: async ({ signal }) => {
+    initialPageParam: 1,
+    queryFn: async ({ pageParam, signal }) => {
       if (!key) throw new Error("useSearch: scoped key not yet available")
       const client = new TypesenseSearchClient(key.host, key.key)
       return client.search(
@@ -134,8 +128,8 @@ export function useSearch(input: UseSearchInput): UseSearchResult {
           filter_by: filterBy || undefined,
           facet_by: DEFAULT_FACET_BY,
           sort_by: input.sortBy && input.sortBy.length > 0 ? input.sortBy : DEFAULT_SORT_BY,
-          page: input.page,
-          per_page: input.perPage ?? 20,
+          page: pageParam,
+          per_page: perPage,
           exclude_fields: "embedding",
           highlight_fields: "display_name,title,skills_text",
           highlight_full_fields: "display_name,title",
@@ -145,21 +139,33 @@ export function useSearch(input: UseSearchInput): UseSearchResult {
         signal,
       )
     },
+    getNextPageParam: (lastPage) => {
+      const effectivePerPage = lastPage.per_page ?? perPage
+      const loaded = lastPage.page * effectivePerPage
+      if (loaded >= lastPage.found) return undefined
+      return lastPage.page + 1
+    },
     staleTime: 30_000,
     retry: 1,
   })
 
-  const parsed = useMemo(() => {
-    if (!query.data) {
-      return EMPTY_RESULT
-    }
-    return parseTypesenseResponse(query.data)
-  }, [query.data])
+  const accumulated = useMemo(
+    () => accumulatePages(query.data?.pages ?? []),
+    [query.data],
+  )
 
   return {
-    ...parsed,
+    ...accumulated,
+    perPage,
     isLoading: keyLoading || query.isLoading,
     isFetching: query.isFetching,
+    isFetchingMore: query.isFetchingNextPage,
+    hasMore: Boolean(query.hasNextPage),
+    loadMore: () => {
+      if (query.hasNextPage && !query.isFetchingNextPage) {
+        void query.fetchNextPage()
+      }
+    },
     error: keyError ?? ((query.error as Error | null) ?? null),
     refetch: () => {
       void query.refetch()
@@ -167,29 +173,59 @@ export function useSearch(input: UseSearchInput): UseSearchResult {
   }
 }
 
-/** parseTypesenseResponse normalises the raw response into UseSearchResult. */
-function parseTypesenseResponse(
-  resp: TypesenseSearchResponse,
-): Omit<UseSearchResult, "isLoading" | "isFetching" | "error" | "refetch"> {
-  const documents = resp.hits.map((h) => h.document)
-  const highlights = resp.hits.map((h) => collectHighlights(h.highlights))
+/**
+ * accumulatePages flattens pages into a single result view. Found /
+ * facets / corrected-query come from the LATEST page so the counter
+ * reflects the current filter set (TanStack invalidates the cache
+ * whenever the queryKey changes).
+ */
+function accumulatePages(
+  pages: TypesenseSearchResponse[],
+): Omit<
+  UseSearchResult,
+  | "perPage"
+  | "isLoading"
+  | "isFetching"
+  | "isFetchingMore"
+  | "hasMore"
+  | "loadMore"
+  | "error"
+  | "refetch"
+> {
+  if (pages.length === 0) {
+    return {
+      documents: [],
+      highlights: [],
+      facetCounts: {},
+      found: 0,
+      outOf: 0,
+      searchTimeMs: 0,
+      correctedQuery: null,
+    }
+  }
+  const last = pages[pages.length - 1]
+  const documents: RawSearchDocument[] = []
+  const highlights: Record<string, string>[] = []
+  for (const p of pages) {
+    for (const h of p.hits) {
+      documents.push(h.document)
+      highlights.push(collectHighlights(h.highlights))
+    }
+  }
   const facetCounts: Record<string, Record<string, number>> = {}
-  for (const facet of resp.facet_counts ?? []) {
+  for (const facet of last.facet_counts ?? []) {
     const bucket: Record<string, number> = {}
     for (const c of facet.counts) bucket[c.value] = c.count
     facetCounts[facet.field_name] = bucket
   }
-  const corrected = pickCorrectedQuery(resp)
   return {
     documents,
     highlights,
     facetCounts,
-    found: resp.found,
-    outOf: resp.out_of,
-    page: resp.page,
-    perPage: resp.per_page ?? 20,
-    searchTimeMs: resp.search_time_ms,
-    correctedQuery: corrected,
+    found: last.found,
+    outOf: last.out_of,
+    searchTimeMs: last.search_time_ms,
+    correctedQuery: pickCorrectedQuery(last),
   }
 }
 
