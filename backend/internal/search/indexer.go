@@ -348,7 +348,12 @@ func (i *Indexer) assembleDocument(agg *indexAggregate, persona Persona) (*Searc
 	})
 
 	doc := &SearchDocument{
-		ID:                      s.OrganizationID.String(),
+		// Composite ID keeps one org + multiple personas isolated
+		// so the agency upsert cannot overwrite the freelance
+		// document (or vice versa). The frontend uses the
+		// OrganizationID field to build profile links.
+		ID:                      s.OrganizationID.String() + ":" + string(persona),
+		OrganizationID:          s.OrganizationID.String(),
 		Persona:                 persona,
 		IsPublished:             s.IsPublished,
 		DisplayName:             s.DisplayName,

@@ -48,6 +48,10 @@ type Service struct {
 type SearchClient interface {
 	UpsertDocument(ctx context.Context, collection string, doc *search.SearchDocument) error
 	DeleteDocument(ctx context.Context, collection, docID string) error
+	// DeleteDocumentsByFilter lets the delete handler remove every
+	// persona variant of an org in one call, matching the composite
+	// ID scheme chosen in phase 1.
+	DeleteDocumentsByFilter(ctx context.Context, collection, filterBy string) (int, error)
 }
 
 // DocumentBuilder mirrors the subset of search.Indexer this service
@@ -163,11 +167,17 @@ func (s *Service) HandleDelete(ctx context.Context, event *pendingevent.PendingE
 		return fmt.Errorf("searchindex delete: organization_id is required")
 	}
 
-	if err := s.client.DeleteDocument(ctx, s.collection, payload.OrganizationID.String()); err != nil {
+	// Wipe every persona variant (freelance / agency / referrer)
+	// in one call — the composite ID scheme means a per-ID delete
+	// would miss the others.
+	filter := fmt.Sprintf("organization_id:%s", payload.OrganizationID.String())
+	removed, err := s.client.DeleteDocumentsByFilter(ctx, s.collection, filter)
+	if err != nil {
 		return fmt.Errorf("searchindex delete: %w", err)
 	}
-	s.logger.Debug("searchindex delete: document removed",
-		"organization_id", payload.OrganizationID)
+	s.logger.Debug("searchindex delete: documents removed",
+		"organization_id", payload.OrganizationID,
+		"count", removed)
 	return nil
 }
 

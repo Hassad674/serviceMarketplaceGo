@@ -47,7 +47,8 @@ func newIntegrationDoc(t *testing.T, orgID uuid.UUID, persona search.Persona, di
 	t.Helper()
 	now := time.Now()
 	return &search.SearchDocument{
-		ID:                     orgID.String(),
+		ID:                     orgID.String() + ":" + string(persona),
+		OrganizationID:         orgID.String(),
 		Persona:                persona,
 		IsPublished:            true,
 		DisplayName:            displayName,

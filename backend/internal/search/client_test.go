@@ -31,12 +31,14 @@ func newTestClient(t *testing.T, handler http.Handler) (*search.Client, *httptes
 }
 
 func validDoc() *search.SearchDocument {
+	orgID := uuid.NewString()
 	return &search.SearchDocument{
-		ID:          uuid.NewString(),
-		Persona:     search.PersonaFreelance,
-		DisplayName: "Alice",
-		IsPublished: true,
-		WorkMode:    []string{"remote"},
+		ID:             orgID + ":freelance",
+		OrganizationID: orgID,
+		Persona:        search.PersonaFreelance,
+		DisplayName:    "Alice",
+		IsPublished:    true,
+		WorkMode:       []string{"remote"},
 	}
 }
 

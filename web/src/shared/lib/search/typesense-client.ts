@@ -35,6 +35,7 @@ export type SearchDocumentPersona = "freelance" | "agency" | "referrer"
  */
 export interface RawSearchDocument {
   id: string
+  organization_id?: string
   persona: SearchDocumentPersona
   is_published: boolean
   display_name: string

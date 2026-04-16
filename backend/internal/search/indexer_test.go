@@ -122,7 +122,8 @@ func TestIndexer_BuildDocument_FullProfile(t *testing.T) {
 	require.NoError(t, err)
 
 	// Identity + display
-	assert.Equal(t, repo.signals.OrganizationID.String(), doc.ID)
+	assert.Equal(t, repo.signals.OrganizationID.String(), doc.OrganizationID)
+	assert.Equal(t, repo.signals.OrganizationID.String()+":"+string(search.PersonaFreelance), doc.ID)
 	assert.Equal(t, search.PersonaFreelance, doc.Persona)
 	assert.True(t, doc.IsPublished)
 	assert.Equal(t, "Alice Dupont", doc.DisplayName)

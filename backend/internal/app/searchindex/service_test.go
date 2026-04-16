@@ -18,13 +18,16 @@ import (
 	"marketplace-backend/internal/search"
 )
 
-// fakeClient records every UpsertDocument + DeleteDocument call so
-// tests can assert that the service routed the payload correctly.
+// fakeClient records every UpsertDocument / DeleteDocument /
+// DeleteDocumentsByFilter call so tests can assert the service
+// routed the payload correctly.
 type fakeClient struct {
-	upserted []*search.SearchDocument
-	deleted  []string
-	upsertErr error
-	deleteErr error
+	upserted       []*search.SearchDocument
+	deleted        []string
+	deleteFilters  []string
+	upsertErr      error
+	deleteErr      error
+	deleteByFilter int
 }
 
 func (f *fakeClient) UpsertDocument(_ context.Context, _ string, doc *search.SearchDocument) error {
@@ -35,6 +38,14 @@ func (f *fakeClient) UpsertDocument(_ context.Context, _ string, doc *search.Sea
 func (f *fakeClient) DeleteDocument(_ context.Context, _ string, docID string) error {
 	f.deleted = append(f.deleted, docID)
 	return f.deleteErr
+}
+
+func (f *fakeClient) DeleteDocumentsByFilter(_ context.Context, _ string, filterBy string) (int, error) {
+	f.deleteFilters = append(f.deleteFilters, filterBy)
+	if f.deleteErr != nil {
+		return 0, f.deleteErr
+	}
+	return f.deleteByFilter, nil
 }
 
 // fakeIndexer builds a trivially-valid SearchDocument for any
@@ -51,13 +62,14 @@ func (f *fakeIndexer) BuildDocument(_ context.Context, orgID uuid.UUID, persona 
 	}
 	now := time.Now()
 	return &search.SearchDocument{
-		ID:          orgID.String(),
-		Persona:     persona,
-		DisplayName: "Test Org",
-		IsPublished: true,
-		WorkMode:    []string{"remote"},
-		CreatedAt:   now.Unix(),
-		UpdatedAt:   now.Unix(),
+		ID:             orgID.String() + ":" + string(persona),
+		OrganizationID: orgID.String(),
+		Persona:        persona,
+		DisplayName:    "Test Org",
+		IsPublished:    true,
+		WorkMode:       []string{"remote"},
+		CreatedAt:      now.Unix(),
+		UpdatedAt:      now.Unix(),
 	}, nil
 }
 
@@ -119,7 +131,8 @@ func TestHandleReindex_HappyPath(t *testing.T) {
 	require.NoError(t, svc.HandleReindex(context.Background(), ev))
 	assert.Equal(t, 1, indexer.calls)
 	require.Len(t, client.upserted, 1)
-	assert.Equal(t, orgID.String(), client.upserted[0].ID)
+	assert.Equal(t, orgID.String()+":freelance", client.upserted[0].ID)
+	assert.Equal(t, orgID.String(), client.upserted[0].OrganizationID)
 	assert.Equal(t, search.PersonaFreelance, client.upserted[0].Persona)
 }
 
@@ -207,8 +220,8 @@ func TestHandleDelete_HappyPath(t *testing.T) {
 	})
 
 	require.NoError(t, svc.HandleDelete(context.Background(), ev))
-	require.Len(t, client.deleted, 1)
-	assert.Equal(t, orgID.String(), client.deleted[0])
+	require.Len(t, client.deleteFilters, 1)
+	assert.Equal(t, "organization_id:"+orgID.String(), client.deleteFilters[0])
 }
 
 func TestHandleDelete_MissingPayload(t *testing.T) {

@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Star } from "lucide-react"
+import { useState, type KeyboardEvent } from "react"
+import { Star, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { EXPERTISE_DOMAIN_KEYS } from "@/shared/lib/profile/expertise"
@@ -30,11 +30,12 @@ interface SearchFilterSidebarProps {
   className?: string
 }
 
-// Top-N common skills kept as a static local list until the skills
-// catalog endpoint is wired. Matches the conventions of the shared
-// profile expertise list — a frozen constant that the filter UI can
-// render without a network call.
-const TOP_SKILLS = [
+// POPULAR_SKILLS is rendered as quick-add chips below the free-text
+// input so the user can one-click the common ones without having to
+// type them. The list is intentionally short — curated suggestions,
+// not an exhaustive directory. A proper catalog-driven autocomplete
+// ships in phase 3 alongside the server-side facet index.
+const POPULAR_SKILLS = [
   "React",
   "TypeScript",
   "Go",
@@ -348,53 +349,113 @@ function SkillsSection({
   onChange: (next: string[]) => void
 }) {
   const t = useTranslations("search.filters")
-  const [search, setSearch] = useState("")
+  const [draft, setDraft] = useState("")
 
-  // Filter the static list as the user types, and always include
-  // already-selected skills even when they would be filtered out —
-  // otherwise un-checking them becomes impossible.
-  const visible = useMemo<string[]>(() => {
-    const needle = search.trim().toLowerCase()
-    const selectedSet = new Set(selected)
-    const source: string[] =
-      needle.length === 0
-        ? [...TOP_SKILLS]
-        : TOP_SKILLS.filter((s) => s.toLowerCase().includes(needle))
-    for (const s of selected) {
-      if (!source.some((m) => m.toLowerCase() === s.toLowerCase())) {
-        source.push(s)
-      }
+  const addSkill = (raw: string) => {
+    const trimmed = raw.trim()
+    if (trimmed.length === 0) return
+    // Dedupe case-insensitively so "react" and "React" do not stack
+    // as separate filter clauses. Typesense's `:` operator is
+    // case-insensitive at query time too.
+    if (selected.some((s) => s.toLowerCase() === trimmed.toLowerCase())) return
+    onChange([...selected, trimmed])
+  }
+
+  const removeSkill = (value: string) => {
+    onChange(selected.filter((s) => s !== value))
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault()
+      addSkill(draft)
+      setDraft("")
+    } else if (e.key === "Backspace" && draft.length === 0 && selected.length > 0) {
+      removeSkill(selected[selected.length - 1])
     }
-    return source.sort((a: string, b: string) => {
-      const aSel = selectedSet.has(a) ? 0 : 1
-      const bSel = selectedSet.has(b) ? 0 : 1
-      if (aSel !== bSel) return aSel - bSel
-      return a.localeCompare(b)
-    })
-  }, [search, selected])
+  }
 
   return (
     <SectionShell title={t("skills")}>
+      <SelectedSkillsChips selected={selected} onRemove={removeSkill} />
       <input
-        type="search"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          if (draft.trim().length > 0) {
+            addSkill(draft)
+            setDraft("")
+          }
+        }}
         placeholder={t("skillsSearchPlaceholder")}
         aria-label={t("skillsSearchPlaceholder")}
         className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
       />
-      <ul className="flex flex-col gap-1">
-        {visible.map((skill) => (
-          <li key={skill}>
-            <CheckboxRow
-              checked={selected.includes(skill)}
-              onChange={() => onChange(toggle(selected, skill))}
-              label={skill}
-            />
-          </li>
-        ))}
-      </ul>
+      <PopularSkillChips
+        selected={selected}
+        onPick={(skill) => addSkill(skill)}
+      />
     </SectionShell>
+  )
+}
+
+function SelectedSkillsChips({
+  selected,
+  onRemove,
+}: {
+  selected: string[]
+  onRemove: (value: string) => void
+}) {
+  if (selected.length === 0) return null
+  return (
+    <ul
+      className="flex flex-wrap gap-1.5"
+      aria-label="selected skills"
+    >
+      {selected.map((skill) => (
+        <li key={skill}>
+          <button
+            type="button"
+            onClick={() => onRemove(skill)}
+            aria-label={`Remove ${skill}`}
+            className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:hover:bg-rose-500/25"
+          >
+            <span>{skill}</span>
+            <X className="h-3 w-3" aria-hidden strokeWidth={2.5} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function PopularSkillChips({
+  selected,
+  onPick,
+}: {
+  selected: string[]
+  onPick: (skill: string) => void
+}) {
+  const selectedLower = new Set(selected.map((s) => s.toLowerCase()))
+  const available = POPULAR_SKILLS.filter(
+    (s) => !selectedLower.has(s.toLowerCase()),
+  )
+  if (available.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-1">
+      {available.map((skill) => (
+        <button
+          key={skill}
+          type="button"
+          onClick={() => onPick(skill)}
+          className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-rose-300 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20 dark:hover:text-rose-300"
+        >
+          + {skill}
+        </button>
+      ))}
+    </div>
   )
 }
 

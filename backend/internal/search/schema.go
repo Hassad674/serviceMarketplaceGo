@@ -104,9 +104,21 @@ const EmbeddingDimensions = 1536
 // partial data during the early profile-completion phase.
 type SearchDocument struct {
 	// -------- Identity --------
-	ID          string  `json:"id"`
-	Persona     Persona `json:"persona"`
-	IsPublished bool    `json:"is_published"`
+	// ID is the Typesense primary key. It is a composite of
+	// `{organization_id}:{persona}` so one organisation can host
+	// documents under multiple personas (a user who is both a
+	// freelance and an agency) without the later persona overwriting
+	// the earlier one at upsert time.
+	ID string `json:"id"`
+
+	// OrganizationID is the raw org UUID, exposed as a separate
+	// field so the frontend can link to the correct profile page
+	// (/freelancers/{orgID}) without having to parse the composite
+	// ID. It is also the field the delete handler filters on so a
+	// single delete event removes every persona variant at once.
+	OrganizationID string  `json:"organization_id"`
+	Persona        Persona `json:"persona"`
+	IsPublished    bool    `json:"is_published"`
 
 	// -------- Display --------
 	DisplayName string `json:"display_name"`
@@ -174,8 +186,12 @@ func (d *SearchDocument) Validate() error {
 	if d.ID == "" {
 		return fmt.Errorf("search document: id is required")
 	}
-	if _, err := uuid.Parse(d.ID); err != nil {
-		return fmt.Errorf("search document: id %q is not a valid UUID: %w", d.ID, err)
+	if d.OrganizationID == "" {
+		return fmt.Errorf("search document: organization_id is required")
+	}
+	if _, err := uuid.Parse(d.OrganizationID); err != nil {
+		return fmt.Errorf("search document: organization_id %q is not a valid UUID: %w",
+			d.OrganizationID, err)
 	}
 	if !d.Persona.IsValid() {
 		return fmt.Errorf("search document: persona %q is invalid", d.Persona)
@@ -251,6 +267,7 @@ func CollectionSchemaDefinition() CollectionSchema {
 	// on an existing collection logs a spurious drift warning.
 	fields := []SchemaField{
 		// Identity
+		{Name: "organization_id", Type: "string", Facet: true},
 		{Name: "persona", Type: "string", Facet: true},
 		{Name: "is_published", Type: "bool", Facet: true},
 

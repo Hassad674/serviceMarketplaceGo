@@ -41,8 +41,11 @@ const PRICING_TYPES: readonly SearchDocumentPricingType[] = [
  * activity" line stays compatible with the legacy SQL adapter.
  */
 export function fromTypesenseDocument(raw: RawSearchDocument): SearchDocument {
+  // Typesense's primary key is now `{orgID}:{persona}` (phase 2
+  // ID collision fix). Expose the raw organisation UUID to the card
+  // so the profile link stays `/freelancers/{orgID}`.
   return {
-    id: raw.id,
+    id: raw.organization_id ?? raw.id.split(":")[0] ?? raw.id,
     persona: raw.persona as SearchDocumentPersona,
     display_name: raw.display_name ?? "",
     title: raw.title ?? "",

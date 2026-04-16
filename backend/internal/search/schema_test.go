@@ -37,10 +37,12 @@ func TestPersona_IsValid(t *testing.T) {
 
 func TestSearchDocument_Validate(t *testing.T) {
 	base := func() *search.SearchDocument {
+		orgID := uuid.NewString()
 		return &search.SearchDocument{
-			ID:          uuid.NewString(),
-			Persona:     search.PersonaFreelance,
-			DisplayName: "Alice Dupont",
+			ID:             orgID + ":freelance",
+			OrganizationID: orgID,
+			Persona:        search.PersonaFreelance,
+			DisplayName:    "Alice Dupont",
 		}
 	}
 
@@ -55,9 +57,15 @@ func TestSearchDocument_Validate(t *testing.T) {
 		assert.ErrorContains(t, doc.Validate(), "id is required")
 	})
 
-	t.Run("non-uuid id", func(t *testing.T) {
+	t.Run("empty organization_id", func(t *testing.T) {
 		doc := base()
-		doc.ID = "not-a-uuid"
+		doc.OrganizationID = ""
+		assert.ErrorContains(t, doc.Validate(), "organization_id is required")
+	})
+
+	t.Run("non-uuid organization_id", func(t *testing.T) {
+		doc := base()
+		doc.OrganizationID = "not-a-uuid"
 		assert.ErrorContains(t, doc.Validate(), "not a valid UUID")
 	})
 
@@ -105,9 +113,9 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 
 	require.Equal(t, search.CollectionName, schema.Name)
 	require.Equal(t, "rating_score", schema.DefaultSortingField)
-	// 35 explicit fields + the implicit `id` Typesense auto-creates
-	// = 36 total on the server side.
-	require.Len(t, schema.Fields, 35,
+	// 36 explicit fields + the implicit `id` Typesense auto-creates
+	// = 37 total on the server side.
+	require.Len(t, schema.Fields, 36,
 		"schema must keep its canonical field count; update both schema and test deliberately")
 
 	byName := make(map[string]search.SchemaField, len(schema.Fields))

@@ -275,6 +275,31 @@ func (c *Client) DeleteDocument(ctx context.Context, collection, docID string) e
 	return err
 }
 
+// DeleteDocumentsByFilter removes every document matching the given
+// Typesense filter_by expression. Used by the search.delete outbox
+// handler so a single event can wipe all persona variants of an
+// organisation (composite IDs make per-ID deletes insufficient).
+// Returns the number of documents removed; a zero count + no error
+// means the filter matched nothing, which is treated as idempotent
+// success upstream.
+func (c *Client) DeleteDocumentsByFilter(ctx context.Context, collection, filterBy string) (int, error) {
+	if filterBy == "" {
+		return 0, fmt.Errorf("delete by filter: filter_by is required")
+	}
+	path := fmt.Sprintf("/collections/%s/documents?filter_by=%s",
+		url.PathEscape(collection), url.QueryEscape(filterBy))
+	var out struct {
+		NumDeleted int `json:"num_deleted"`
+	}
+	if err := c.do(ctx, http.MethodDelete, path, nil, &out); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return out.NumDeleted, nil
+}
+
 // BulkUpsert indexes a slice of documents in batches of 100 using
 // the JSONL `/documents/import?action=upsert` endpoint. Returns the
 // first error encountered so the CLI can surface it without hiding
