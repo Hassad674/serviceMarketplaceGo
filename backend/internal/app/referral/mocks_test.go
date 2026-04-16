@@ -404,6 +404,21 @@ func (f *fakeNotifier) typeCount(t string) int {
 	return c
 }
 
+// toUserTypeCount counts notifications of a given type targeted at a
+// specific user id. Used by tests that need to prove fan-out reached a
+// specific party (not just that a notification went out somewhere).
+func (f *fakeNotifier) toUserTypeCount(uid uuid.UUID, t string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c := 0
+	for _, n := range f.notifications {
+		if n.Type == t && n.UserID == uid {
+			c++
+		}
+	}
+	return c
+}
+
 // fakeStripe tracks Stripe calls.
 type fakeStripe struct {
 	mu        sync.Mutex

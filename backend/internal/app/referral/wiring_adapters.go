@@ -78,3 +78,61 @@ func (r *OrgStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, u
 	}
 	return accountID, nil
 }
+
+// ─── OrgMemberResolver adapters ───────────────────────────────────────────
+
+// OrgDirectoryMemberResolver resolves the list of user ids that share an
+// organization with the given user, so referral notifications fan out to
+// every member of an agency or enterprise (and not just the contact that
+// happened to be named on the intro).
+//
+// Always includes the anchor user id in the returned slice, even when the
+// user has no org row — this is the single-user fallback.
+type OrgDirectoryMemberResolver struct {
+	orgs    repository.OrganizationRepository
+	members repository.OrganizationMemberRepository
+}
+
+// NewOrgDirectoryMemberResolver wires the resolver. Safe with nil
+// dependencies — the resolver degrades to single-recipient fan-out.
+func NewOrgDirectoryMemberResolver(
+	orgs repository.OrganizationRepository,
+	members repository.OrganizationMemberRepository,
+) *OrgDirectoryMemberResolver {
+	return &OrgDirectoryMemberResolver{orgs: orgs, members: members}
+}
+
+// ResolveMemberUserIDs returns the organization members for the given user,
+// or [userID] as a fallback when the user has no org / the lookup fails.
+func (r *OrgDirectoryMemberResolver) ResolveMemberUserIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {
+	fallback := []uuid.UUID{userID}
+	if r.orgs == nil || r.members == nil {
+		return fallback, nil
+	}
+	org, err := r.orgs.FindByUserID(ctx, userID)
+	if err != nil || org == nil {
+		return fallback, nil
+	}
+	byOrg, err := r.members.ListMemberUserIDsByOrgIDs(ctx, []uuid.UUID{org.ID})
+	if err != nil {
+		return fallback, nil
+	}
+	ids, ok := byOrg[org.ID]
+	if !ok || len(ids) == 0 {
+		return fallback, nil
+	}
+	// Guarantee the anchor user is present (cheap dedup).
+	seen := make(map[uuid.UUID]struct{}, len(ids)+1)
+	out := make([]uuid.UUID, 0, len(ids)+1)
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	if _, ok := seen[userID]; !ok {
+		out = append(out, userID)
+	}
+	return out, nil
+}

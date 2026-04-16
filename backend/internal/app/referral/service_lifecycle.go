@@ -16,13 +16,14 @@ func (s *Service) Cancel(ctx context.Context, referralID, actorID uuid.UUID) (*r
 	if err != nil {
 		return nil, err
 	}
+	prev := r.Status
 	if err := r.Cancel(actorID); err != nil {
 		return nil, err
 	}
 	if err := s.referrals.Update(ctx, r); err != nil {
 		return nil, fmt.Errorf("update referral on cancel: %w", err)
 	}
-	s.notifyCancelled(ctx, r)
+	s.notifyStatusTransition(ctx, r, prev)
 	return r, nil
 }
 
@@ -34,13 +35,14 @@ func (s *Service) Terminate(ctx context.Context, referralID, actorID uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
+	prev := r.Status
 	if err := r.Terminate(actorID); err != nil {
 		return nil, err
 	}
 	if err := s.referrals.Update(ctx, r); err != nil {
 		return nil, fmt.Errorf("update referral on terminate: %w", err)
 	}
-	s.notifyTerminated(ctx, r)
+	s.notifyStatusTransition(ctx, r, prev)
 	return r, nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/service"
 )
@@ -83,19 +82,12 @@ func (s *Service) ClawbackIfApplicable(ctx context.Context, in service.ReferralC
 		return fmt.Errorf("update commission to clawed_back: %w", err)
 	}
 
-	// Notify the referrer of the clawback so they understand their balance
-	// dropped. Lookup goes: commission → attribution (by id) → referral → referrer.
+	// Notify the referrer org of the clawback so every member sees the
+	// balance drop. Lookup goes: commission → attribution (by id) →
+	// referral → referrer. Fanned out to the whole org by the notifier.
 	if att, aerr := s.referrals.FindAttributionByID(ctx, commission.AttributionID); aerr == nil && att != nil {
 		if parent, perr := s.referrals.GetByID(ctx, att.ReferralID); perr == nil {
-			s.notify(ctx, parent.ReferrerID, notification.TypeReferralCommissionClawedBack,
-				"Commission reprise",
-				fmt.Sprintf("⚠️ %.2f € de commission ont été repris suite à un remboursement.", float64(clawbackAmount)/100),
-				map[string]any{
-					"referral_id":    parent.ID.String(),
-					"commission_id":  commission.ID.String(),
-					"clawback_cents": clawbackAmount,
-					"reversal_id":    reversalID,
-				})
+			s.notifyCommissionClawedBack(ctx, parent.ID, commission.ID, parent.ReferrerID, clawbackAmount, reversalID)
 		}
 	}
 	return nil

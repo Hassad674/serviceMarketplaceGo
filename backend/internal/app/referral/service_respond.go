@@ -12,28 +12,30 @@ import (
 // RespondAsProvider handles the provider's reaction to an intro that is in
 // pending_provider state. The provider can Accept (→ pending_client),
 // Negotiate (→ pending_referrer with new rate), or Reject (→ rejected).
+//
+// The prev→new transition is computed BEFORE the domain mutation so
+// notifyStatusTransition can route notifications correctly (who just acted,
+// who's up next).
 func (s *Service) RespondAsProvider(ctx context.Context, ref ResponseInput) (*referral.Referral, error) {
 	r, err := s.loadAndAuthorise(ctx, ref.ReferralID, ref.ActorID, referral.ActorProvider)
 	if err != nil {
 		return nil, err
 	}
 
+	prev := r.Status
 	switch ref.Action {
 	case referral.NegoActionAccepted:
 		if err := r.AcceptByProvider(ref.ActorID); err != nil {
 			return nil, err
 		}
-		s.notifyProviderResponded(ctx, r, true)
 	case referral.NegoActionRejected:
 		if err := r.RejectByProvider(ref.ActorID, ref.Message); err != nil {
 			return nil, err
 		}
-		s.notifyProviderResponded(ctx, r, false)
 	case referral.NegoActionCountered:
 		if err := r.NegotiateByProvider(ref.ActorID, ref.NewRatePct); err != nil {
 			return nil, err
 		}
-		s.notifyNegotiated(ctx, r, r.ReferrerID)
 	default:
 		return nil, referral.ErrInvalidTransition
 	}
@@ -41,6 +43,7 @@ func (s *Service) RespondAsProvider(ctx context.Context, ref ResponseInput) (*re
 	if err := s.persistResponse(ctx, r, ref, referral.ActorProvider); err != nil {
 		return nil, err
 	}
+	s.notifyStatusTransition(ctx, r, prev)
 	return r, nil
 }
 
@@ -53,6 +56,7 @@ func (s *Service) RespondAsReferrer(ctx context.Context, ref ResponseInput) (*re
 		return nil, err
 	}
 
+	prev := r.Status
 	switch ref.Action {
 	case referral.NegoActionAccepted:
 		if err := r.AcceptByReferrer(ref.ActorID); err != nil {
@@ -66,7 +70,6 @@ func (s *Service) RespondAsReferrer(ctx context.Context, ref ResponseInput) (*re
 		if err := r.NegotiateByReferrer(ref.ActorID, ref.NewRatePct); err != nil {
 			return nil, err
 		}
-		s.notifyNegotiated(ctx, r, r.ProviderID)
 	default:
 		return nil, referral.ErrInvalidTransition
 	}
@@ -74,6 +77,7 @@ func (s *Service) RespondAsReferrer(ctx context.Context, ref ResponseInput) (*re
 	if err := s.persistResponse(ctx, r, ref, referral.ActorReferrer); err != nil {
 		return nil, err
 	}
+	s.notifyStatusTransition(ctx, r, prev)
 	return r, nil
 }
 
@@ -86,6 +90,7 @@ func (s *Service) RespondAsClient(ctx context.Context, ref ResponseInput) (*refe
 		return nil, err
 	}
 
+	prev := r.Status
 	switch ref.Action {
 	case referral.NegoActionAccepted:
 		if err := r.AcceptByClient(ref.ActorID); err != nil {
@@ -100,13 +105,12 @@ func (s *Service) RespondAsClient(ctx context.Context, ref ResponseInput) (*refe
 		if err := s.appendNegotiation(ctx, r, ref, referral.ActorClient); err != nil {
 			return nil, err
 		}
-		s.activate(ctx, r)
+		s.activate(ctx, r, prev)
 		return r, nil
 	case referral.NegoActionRejected:
 		if err := r.RejectByClient(ref.ActorID, ref.Message); err != nil {
 			return nil, err
 		}
-		s.notifyClientResponded(ctx, r, false)
 	default:
 		return nil, referral.ErrInvalidTransition
 	}
@@ -114,6 +118,7 @@ func (s *Service) RespondAsClient(ctx context.Context, ref ResponseInput) (*refe
 	if err := s.persistResponse(ctx, r, ref, referral.ActorClient); err != nil {
 		return nil, err
 	}
+	s.notifyStatusTransition(ctx, r, prev)
 	return r, nil
 }
 

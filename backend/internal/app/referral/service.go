@@ -37,6 +37,7 @@ type ServiceDeps struct {
 	Reversals        service.StripeTransferReversalService
 	SnapshotProfiles SnapshotProfileLoader
 	StripeAccounts   StripeAccountResolver
+	OrgMembers       OrgMemberResolver
 }
 
 // Service is the referral feature's application service. It implements the
@@ -51,6 +52,7 @@ type Service struct {
 	reversals        service.StripeTransferReversalService
 	snapshotProfiles SnapshotProfileLoader
 	stripeAccounts   StripeAccountResolver
+	orgMembers       OrgMemberResolver
 }
 
 // Compile-time assertions that the Service satisfies the four exposed ports.
@@ -72,5 +74,6 @@ func NewService(deps ServiceDeps) *Service {
 		reversals:        deps.Reversals,
 		snapshotProfiles: deps.SnapshotProfiles,
 		stripeAccounts:   deps.StripeAccounts,
+		orgMembers:       deps.OrgMembers,
 	}
 }

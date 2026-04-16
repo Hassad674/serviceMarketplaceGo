@@ -158,7 +158,13 @@ func TestRespondAsProvider_AcceptMovesToPendingClient(t *testing.T) {
 	updated, err := f.svc.RespondAsProvider(context.Background(), referralapp.NewResponseInput(r.ID, provID, referral.NegoActionAccepted, 0, ""))
 	require.NoError(t, err)
 	assert.Equal(t, referral.StatusPendingClient, updated.Status)
+	// Referrer gets the "provider accepted" confirmation.
 	assert.Equal(t, 1, f.notifier.typeCount(string(notification.TypeReferralIntroAcceptedByProvider)))
+	// Client gets a "new intro awaiting your decision" notification too —
+	// this is the fan-out guarantee: both sides of the transition are
+	// informed, not just the side that just acted.
+	assert.GreaterOrEqual(t, f.notifier.toUserTypeCount(cliID, string(notification.TypeReferralIntroCreated)), 1,
+		"client must be notified when the provider accepts and status moves to pending_client")
 }
 
 func TestRespondAsProvider_CounterMovesToPendingReferrer(t *testing.T) {

@@ -90,7 +90,7 @@ func (s *Service) CreateIntro(ctx context.Context, input CreateIntroInput) (*ref
 		return nil, fmt.Errorf("append initial negotiation: %w", err)
 	}
 
-	s.notifyIntroCreated(ctx, ref)
+	s.notifyStatusTransition(ctx, ref, "")
 	return ref, nil
 }
 

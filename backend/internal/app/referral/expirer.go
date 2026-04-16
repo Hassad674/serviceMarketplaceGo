@@ -86,12 +86,13 @@ func (s *Service) RunExpirerCycle(ctx context.Context) (staleExpired, maturedExp
 // expireRow transitions a single referral to expired, persists it, and sends
 // the notifications. Any error bubbles up so the batch loop can count it.
 func (s *Service) expireRow(ctx context.Context, r *referral.Referral) error {
+	prev := r.Status
 	if err := r.Expire(); err != nil {
 		return err
 	}
 	if err := s.referrals.Update(ctx, r); err != nil {
 		return fmt.Errorf("persist expired referral: %w", err)
 	}
-	s.notifyExpired(ctx, r)
+	s.notifyStatusTransition(ctx, r, prev)
 	return nil
 }

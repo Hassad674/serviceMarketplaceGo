@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/service"
 )
@@ -90,11 +89,5 @@ func (s *Service) drainCommission(ctx context.Context, c *referral.Commission, u
 		return
 	}
 
-	s.notify(ctx, userID, notification.TypeReferralCommissionPaid,
-		"Commission reçue",
-		fmt.Sprintf("Vous avez reçu %.2f € de commission (KYC complété).", float64(c.CommissionCents)/100),
-		map[string]any{
-			"commission_cents": c.CommissionCents,
-			"transfer_id":      transferID,
-		})
+	s.notifyCommissionPaid(ctx, att.ReferralID, userID, c.CommissionCents, transferID)
 }

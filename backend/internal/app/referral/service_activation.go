@@ -18,13 +18,13 @@ import (
 //     apporteur is NOT a participant — Modèle A confidentiality.
 //  2. Post a system message in that conversation acknowledging the
 //     introduction and naming the apporteur.
-//  3. Notify the three parties.
+//  3. Notify the three parties (fanned out to every org member).
 //
 // All side-effects are best-effort and logged-on-failure: the referral state
 // is already persisted, so a downstream failure here must not roll it back.
-func (s *Service) activate(ctx context.Context, r *referral.Referral) {
+func (s *Service) activate(ctx context.Context, r *referral.Referral, prev referral.Status) {
 	s.openProviderClientConversation(ctx, r)
-	s.notifyClientResponded(ctx, r, true)
+	s.notifyStatusTransition(ctx, r, prev)
 }
 
 // openProviderClientConversation finds (or creates) the 1:1 conversation

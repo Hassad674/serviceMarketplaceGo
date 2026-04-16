@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 
-	"marketplace-backend/internal/domain/notification"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/service"
 )
@@ -88,10 +87,7 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 		if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
 			return service.ReferralCommissionFailed, fmt.Errorf("update commission to pending_kyc: %w", err)
 		}
-		s.notify(ctx, parent.ReferrerID, notification.TypeReferralCommissionPendingKYC,
-			"Action requise — KYC à compléter",
-			"Une commission est en attente. Complétez votre KYC pour la recevoir.",
-			map[string]any{"referral_id": parent.ID.String(), "commission_cents": commission.CommissionCents})
+		s.notifyCommissionPendingKYC(ctx, parent.ID, parent.ReferrerID, commission.CommissionCents)
 		return service.ReferralCommissionPendingKYC, nil
 	}
 
@@ -114,13 +110,6 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 	if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
 		return service.ReferralCommissionFailed, fmt.Errorf("update commission to paid: %w", err)
 	}
-	s.notify(ctx, parent.ReferrerID, notification.TypeReferralCommissionPaid,
-		"Commission reçue",
-		fmt.Sprintf("Vous avez reçu %.2f € de commission.", float64(commission.CommissionCents)/100),
-		map[string]any{
-			"referral_id":      parent.ID.String(),
-			"commission_cents": commission.CommissionCents,
-			"transfer_id":      transferID,
-		})
+	s.notifyCommissionPaid(ctx, parent.ID, parent.ReferrerID, commission.CommissionCents, transferID)
 	return service.ReferralCommissionPaid, nil
 }
