@@ -4,6 +4,7 @@ import '../../../../../core/theme/app_theme.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../dispute/presentation/widgets/dispute_card.dart';
 import '../../../../proposal/types/proposal.dart';
+import '../../../../referral/presentation/widgets/referral_system_message_widget.dart';
 import '../../../domain/entities/message_entity.dart';
 import 'file_message_bubble.dart';
 import 'message_context_menu.dart';
@@ -155,6 +156,19 @@ class MessageBubble extends StatelessWidget {
     // dispute_resolved, dispute_auto_resolved, etc.)
     if (_isDisputeCard(message.type)) {
       return DisputeCard(message: message, currentUserId: currentUserId);
+    }
+
+    // Referral (apport d'affaires) system messages — interactive card
+    // with accept / reject / negotiate buttons scoped to the viewer's
+    // role in the referral. Backend posts these in three conv pairs
+    // (apporteur↔provider, apporteur↔client, provider↔client).
+    if (_isReferralSystemMessage(message.type)) {
+      return ReferralSystemMessageWidget(
+        type: message.type,
+        content: message.content,
+        metadata: message.metadata ?? const {},
+        currentUserId: currentUserId,
+      );
     }
 
     // Evaluation request — special system message with "Leave a review"
@@ -314,6 +328,16 @@ class MessageBubble extends StatelessWidget {
         type == 'dispute_escalated' ||
         type == 'dispute_cancelled' ||
         type == 'dispute_cancellation_refused';
+  }
+
+  /// Returns true for the four referral (apport d'affaires) system
+  /// message types posted by the Go backend. Each renders as an
+  /// interactive card via ReferralSystemMessageWidget.
+  bool _isReferralSystemMessage(String type) {
+    return type == 'referral_intro_sent' ||
+        type == 'referral_intro_negotiated' ||
+        type == 'referral_intro_activated' ||
+        type == 'referral_intro_closed';
   }
 
   /// Returns true for dispute messages that should render as a rich card.

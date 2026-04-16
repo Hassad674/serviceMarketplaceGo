@@ -18,6 +18,10 @@ import {
   EvaluationRequestMessage,
 } from "./proposal-system-message"
 import { DisputeSystemBubble } from "./dispute-system-message"
+import {
+  ReferralSystemMessage,
+  type ReferralSystemMessageMetadata,
+} from "@/features/referral/components/referral-system-message"
 
 interface MessageAreaProps {
   messages: Message[]
@@ -325,6 +329,18 @@ const DISPUTE_SYSTEM_TYPES = new Set([
   "dispute_cancellation_refused",
 ])
 
+// Referral (apport d'affaires) system messages. Every lifecycle event
+// posted by the Go referral service lands here — the widget renders
+// role-appropriate accept/reject/negotiate buttons from the current
+// user's perspective. See web/src/features/referral/components/
+// referral-system-message.tsx.
+const REFERRAL_SYSTEM_TYPES = new Set([
+  "referral_intro_sent",
+  "referral_intro_negotiated",
+  "referral_intro_activated",
+  "referral_intro_closed",
+])
+
 function MessageBubble({
   message,
   isOwn,
@@ -449,6 +465,20 @@ function MessageBubble({
         metadata={(message.metadata ?? {}) as Record<string, unknown>}
         currentUserId={currentUserId}
         conversationId={conversationId}
+      />
+    )
+  }
+
+  // Referral (apport d'affaires) system messages — interactive card
+  // with accept / reject / negotiate buttons scoped to the viewer's
+  // role in the referral.
+  if (REFERRAL_SYSTEM_TYPES.has(message.type)) {
+    return (
+      <ReferralSystemMessage
+        type={message.type}
+        metadata={(message.metadata ?? {}) as ReferralSystemMessageMetadata}
+        content={message.content}
+        currentUserId={currentUserId}
       />
     )
   }
