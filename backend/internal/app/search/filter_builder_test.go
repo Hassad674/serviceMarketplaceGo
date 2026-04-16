@@ -66,9 +66,9 @@ func TestBuildFilterBy_City(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"simple", "Paris", "city:=`Paris`"},
-		{"with space", "New York", "city:=`New York`"},
-		{"trimmed", "  Paris  ", "city:=`Paris`"},
+		{"simple", "Paris", "city:`Paris`"},
+		{"with space", "New York", "city:`New York`"},
+		{"trimmed", "  Paris  ", "city:`Paris`"},
 		{"empty", "", ""},
 		{"whitespace only", "   ", ""},
 	}
@@ -86,8 +86,8 @@ func TestBuildFilterBy_CountryCode(t *testing.T) {
 		in   string
 		want string
 	}{
-		{"lowercase", "fr", "country_code:=fr"},
-		{"uppercase normalised", "FR", "country_code:=fr"},
+		{"lowercase preserved", "fr", "country_code:fr"},
+		{"uppercase preserved", "FR", "country_code:FR"},
 		{"empty", "", ""},
 	}
 	for _, tt := range tests {
@@ -200,8 +200,8 @@ func TestBuildFilterBy_CombinedFilters(t *testing.T) {
 
 	want := "availability_status:[available_now]" +
 		" && pricing_min_amount:>=40000 && pricing_min_amount:<=120000" +
-		" && city:=`Paris`" +
-		" && country_code:=fr" +
+		" && city:`Paris`" +
+		" && country_code:FR" +
 		" && languages_professional:[fr,en]" +
 		" && skills:[react]" +
 		" && rating_average:>=4" +

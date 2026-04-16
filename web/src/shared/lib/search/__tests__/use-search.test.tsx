@@ -122,7 +122,6 @@ describe("useSearch", () => {
           persona: "freelance",
           query: "alice",
           filters: { skills: ["go"] },
-          page: 1,
           perPage: 20,
         }),
       { wrapper },
@@ -132,6 +131,8 @@ describe("useSearch", () => {
     expect(result.current.highlights[0]?.["display_name"]).toBe("<mark>Alice</mark>")
     expect(result.current.facetCounts.skills?.go).toBe(12)
     expect(result.current.facetCounts.skills?.react).toBe(8)
+    // found (1) <= perPage * page (20 * 1) so no further pages.
+    expect(result.current.hasMore).toBe(false)
   })
 
   it("does not fire fetch when persona is null", async () => {
@@ -141,7 +142,6 @@ describe("useSearch", () => {
           persona: null,
           query: "",
           filters: {},
-          page: 1,
         }),
       { wrapper },
     )
@@ -158,7 +158,6 @@ describe("useSearch", () => {
           persona: "freelance",
           query: "*",
           filters: { skills: ["go"], languages: ["fr"] },
-          page: 1,
         }),
       { wrapper },
     )

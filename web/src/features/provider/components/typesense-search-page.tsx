@@ -2,7 +2,10 @@
 
 import { useState } from "react"
 import { useTranslations } from "next-intl"
-import { SearchPageLayout } from "@/shared/components/search/search-page-layout"
+import {
+  SearchPageLayout,
+  type SortKey,
+} from "@/shared/components/search/search-page-layout"
 import { DidYouMeanBanner } from "@/shared/components/search/did-you-mean-banner"
 import {
   EMPTY_SEARCH_FILTERS,
@@ -52,14 +55,15 @@ interface TypesenseSearchPageProps {
 export function TypesenseSearchPage({ type }: TypesenseSearchPageProps) {
   const t = useTranslations("search")
   const [query, setQuery] = useState("")
-  const [filters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
+  const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
+  const [sort, setSort] = useState<SortKey>("relevance")
   const persona = TYPE_TO_PERSONA[type]
 
   const result = useSearch({
     persona,
     query,
     filters: filtersToInput(filters),
-    page: 1,
+    sortBy: sortKeyToTypesense(sort),
     perPage: 20,
   })
 
@@ -85,17 +89,39 @@ export function TypesenseSearchPage({ type }: TypesenseSearchPageProps) {
         persona={persona}
         preMappedDocuments={documents}
         status={status}
-        hasMore={false}
-        isLoadingMore={false}
-        onLoadMore={() => {
-          /* pagination wired in a follow-up — phase 2 ships with first-page only */
-        }}
+        hasMore={result.hasMore}
+        isLoadingMore={result.isFetchingMore}
+        onLoadMore={result.loadMore}
         onRetry={result.refetch}
         query={query}
         onQueryChange={setQuery}
+        filters={filters}
+        onFiltersChange={setFilters}
+        sort={sort}
+        onSortChange={setSort}
+        totalFound={result.found}
       />
     </div>
   )
+}
+
+// sortKeyToTypesense maps the UI's SortKey enum to a Typesense
+// `sort_by` string. We cap at three fields because Typesense 28.0
+// rejects longer sort chains at query time.
+function sortKeyToTypesense(key: SortKey): string {
+  switch (key) {
+    case "rating":
+      return "rating_score:desc,rating_count:desc,_text_match(buckets:10):desc"
+    case "priceAsc":
+      return "pricing_min_amount:asc,_text_match(buckets:10):desc,rating_score:desc"
+    case "priceDesc":
+      return "pricing_min_amount:desc,_text_match(buckets:10):desc,rating_score:desc"
+    case "recent":
+      return "last_active_at:desc,_text_match(buckets:10):desc,rating_score:desc"
+    case "relevance":
+    default:
+      return "_text_match(buckets:10):desc,availability_priority:desc,rating_score:desc"
+  }
 }
 
 /**

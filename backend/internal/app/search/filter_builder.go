@@ -168,28 +168,27 @@ func buildPricingClause(minAmt, maxAmt *int64) string {
 	return strings.Join(parts, " && ")
 }
 
-// buildCityClause emits `city:=City Name`. Trimmed to drop
-// whitespace-only inputs.
+// buildCityClause emits `city:` with backticks around the value.
+// Uses `:` rather than `:=` so matching is case-insensitive — the
+// user typing "amsterdam" still matches the indexed "Amsterdam".
+// Backticks escape multi-word cities like "New York".
 func buildCityClause(city string) string {
 	trimmed := strings.TrimSpace(city)
 	if trimmed == "" {
 		return ""
 	}
-	// Wrap in backticks because city names commonly contain
-	// spaces and Typesense uses backticks as the literal-string
-	// delimiter inside filter_by.
-	return fmt.Sprintf("city:=`%s`", trimmed)
+	return fmt.Sprintf("city:`%s`", trimmed)
 }
 
-// buildCountryClause emits `country_code:=fr`. ISO codes are
-// uppercase by convention but the Typesense field is stored in
-// lowercase, so we lowercase here.
+// buildCountryClause emits `country_code:<value>` preserving the
+// user's casing. The `:` operator is case-insensitive so either
+// "FR" or "fr" matches the indexed ISO-2 code.
 func buildCountryClause(code string) string {
 	trimmed := strings.TrimSpace(code)
 	if trimmed == "" {
 		return ""
 	}
-	return fmt.Sprintf("country_code:=%s", strings.ToLower(trimmed))
+	return fmt.Sprintf("country_code:%s", trimmed)
 }
 
 // buildGeoClause emits `location:(lat,lng,N km)`. All three

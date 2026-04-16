@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo, useState } from "react"
 import { Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
@@ -347,16 +348,43 @@ function SkillsSection({
   onChange: (next: string[]) => void
 }) {
   const t = useTranslations("search.filters")
+  const [search, setSearch] = useState("")
+
+  // Filter the static list as the user types, and always include
+  // already-selected skills even when they would be filtered out —
+  // otherwise un-checking them becomes impossible.
+  const visible = useMemo<string[]>(() => {
+    const needle = search.trim().toLowerCase()
+    const selectedSet = new Set(selected)
+    const source: string[] =
+      needle.length === 0
+        ? [...TOP_SKILLS]
+        : TOP_SKILLS.filter((s) => s.toLowerCase().includes(needle))
+    for (const s of selected) {
+      if (!source.some((m) => m.toLowerCase() === s.toLowerCase())) {
+        source.push(s)
+      }
+    }
+    return source.sort((a: string, b: string) => {
+      const aSel = selectedSet.has(a) ? 0 : 1
+      const bSel = selectedSet.has(b) ? 0 : 1
+      if (aSel !== bSel) return aSel - bSel
+      return a.localeCompare(b)
+    })
+  }, [search, selected])
+
   return (
     <SectionShell title={t("skills")}>
       <input
         type="search"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
         placeholder={t("skillsSearchPlaceholder")}
         aria-label={t("skillsSearchPlaceholder")}
         className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
       />
       <ul className="flex flex-col gap-1">
-        {TOP_SKILLS.map((skill) => (
+        {visible.map((skill) => (
           <li key={skill}>
             <CheckboxRow
               checked={selected.includes(skill)}
