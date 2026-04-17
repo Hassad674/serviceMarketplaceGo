@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { useTranslations } from "next-intl"
 import {
   SearchPageLayout,
@@ -15,6 +15,8 @@ import type {
   SearchDocumentPersona,
 } from "@/shared/lib/search/search-document"
 import { useSearch } from "@/shared/lib/search/use-search"
+import { useDebouncedValue } from "@/shared/lib/search/use-debounced-value"
+import { trackSearchClick } from "@/shared/lib/search/track-click"
 import { fromTypesenseDocument } from "@/shared/lib/search/typesense-document-adapter"
 import type { SearchType } from "../api/search-api"
 
@@ -59,13 +61,27 @@ export function TypesenseSearchPage({ type }: TypesenseSearchPageProps) {
   const [sort, setSort] = useState<SortKey>("relevance")
   const persona = TYPE_TO_PERSONA[type]
 
+  // Debounce the query by 250ms so search-as-you-type does not hammer
+  // the backend on every keystroke. The empty string bypass means the
+  // listing page (q="*") renders instantly — no debounce noise on the
+  // initial page load.
+  const debouncedQuery = useDebouncedValue(query, query.trim() === "" ? 0 : 250)
+
   const result = useSearch({
     persona,
-    query,
+    query: debouncedQuery,
     filters: filtersToInput(filters),
     sortBy: sortKeyToTypesense(sort),
     perPage: 20,
   })
+
+  const handleSelect = useCallback(
+    (docID: string, position: number) => {
+      if (!result.searchId) return
+      trackSearchClick(result.searchId, docID, position)
+    },
+    [result.searchId],
+  )
 
   const status: "loading" | "error" | "idle" = result.isLoading
     ? "loading"
@@ -100,6 +116,7 @@ export function TypesenseSearchPage({ type }: TypesenseSearchPageProps) {
         sort={sort}
         onSortChange={setSort}
         totalFound={result.found}
+        onSelect={handleSelect}
       />
     </div>
   )
@@ -120,6 +137,9 @@ function sortKeyToTypesense(key: SortKey): string {
       return "last_active_at:desc,_text_match(buckets:10):desc,rating_score:desc"
     case "relevance":
     default:
+      // Backend swaps availability_priority for _vector_distance when
+      // hybrid search is active (user typed something). We emit the
+      // BM25-friendly variant here so the backend can override safely.
       return "_text_match(buckets:10):desc,availability_priority:desc,rating_score:desc"
   }
 }

@@ -303,6 +303,9 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.NoCache)
 				r.Get("/search/key", deps.Search.ScopedKey)
 				r.Get("/search", deps.Search.Search)
+				// Click-through tracking. GET used instead of POST so
+				// the browser beacon API can fire even on unload.
+				r.Get("/search/track", deps.Search.Track)
 			})
 		}
 		if deps.ProjectHistory != nil {

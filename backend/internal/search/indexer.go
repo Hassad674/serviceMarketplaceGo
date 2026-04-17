@@ -225,8 +225,9 @@ func (i *Indexer) BuildDocument(ctx context.Context, orgID uuid.UUID, persona Pe
 // from BuildDocument so the control flow stays linear and the 50-line
 // function limit is respected.
 //
-// The signals load is sequential because the embedding input
-// depends on its output; everything else runs in parallel via
+// Signals + skills are fetched first (sequentially) because both are
+// inputs to the embedding text — the embedding goroutine cannot start
+// until we know the skills list. Everything else runs in parallel via
 // goroutines that push into a buffered channel.
 func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Persona, agg *indexAggregate) error {
 	signals, err := i.repo.LoadActorSignals(ctx, orgID, persona)
@@ -235,13 +236,14 @@ func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Perso
 	}
 	agg.signals = signals
 
-	results := make(chan loadResult, 7)
+	skills, err := i.repo.LoadSkills(ctx, orgID, persona)
+	if err != nil {
+		return fmt.Errorf("load skills: %w", err)
+	}
+	agg.skills = skills
 
-	go func() {
-		skills, err := i.repo.LoadSkills(ctx, orgID, persona)
-		agg.skills = skills
-		results <- loadResult{"skills", err}
-	}()
+	results := make(chan loadResult, 6)
+
 	go func() {
 		pricing, err := i.repo.LoadPricing(ctx, orgID, persona)
 		agg.pricing = pricing
@@ -268,12 +270,12 @@ func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Perso
 		results <- loadResult{"messaging", err}
 	}()
 	go func() {
-		vec, err := i.embedActor(ctx, agg.signals)
+		vec, err := i.embedActor(ctx, agg.signals, agg.skills)
 		agg.embed = vec
 		results <- loadResult{"embedding", err}
 	}()
 
-	return collectResults(results, 7)
+	return collectResults(results, 6)
 }
 
 // collectResults drains the results channel and returns the first
@@ -292,8 +294,8 @@ func collectResults(results chan loadResult, expected int) error {
 // embedActor builds the text input passed to the embeddings API and
 // returns the resulting vector. Extracted so BuildDocument stays
 // short and so the text-composition rules can be unit-tested.
-func (i *Indexer) embedActor(ctx context.Context, s *RawActorSignals) ([]float32, error) {
-	text := ComposeEmbeddingText(s)
+func (i *Indexer) embedActor(ctx context.Context, s *RawActorSignals, skills []string) ([]float32, error) {
+	text := ComposeEmbeddingText(s, skills...)
 	if text == "" {
 		// An entirely empty profile has no meaningful vector;
 		// rather than send blank text to OpenAI we skip the
@@ -305,16 +307,35 @@ func (i *Indexer) embedActor(ctx context.Context, s *RawActorSignals) ([]float32
 	return i.embedder.Embed(ctx, text)
 }
 
+// MaxEmbeddingInputChars caps the composed text sent to the
+// embeddings API. The limit controls per-document cost: at ~4 chars
+// per token × 2k chars the payload lands near 500 tokens, which on
+// `text-embedding-3-small` costs ~$0.00001. Truncating keeps a
+// verbose 10k-char about field from spiking cost per profile.
+const MaxEmbeddingInputChars = 2000
+
 // ComposeEmbeddingText is the exported helper that converts raw
 // profile signals into the text input for the embeddings API. Kept
 // exported + pure so golden tests can replay the exact same input.
-func ComposeEmbeddingText(s *RawActorSignals) string {
+//
+// Field order matches the phase 3 spec: display_name, title,
+// skills_text (derived from the caller's skill slice), about. Each
+// field is trimmed and skipped when empty. Result is truncated at
+// MaxEmbeddingInputChars to bound cost even on profiles with very
+// long about sections.
+func ComposeEmbeddingText(s *RawActorSignals, skills ...string) string {
 	if s == nil {
 		return ""
 	}
 	parts := make([]string, 0, 4)
+	if v := strings.TrimSpace(s.DisplayName); v != "" {
+		parts = append(parts, v)
+	}
 	if v := strings.TrimSpace(s.Title); v != "" {
 		parts = append(parts, v)
+	}
+	if skillsText := strings.TrimSpace(strings.Join(skills, " ")); skillsText != "" {
+		parts = append(parts, skillsText)
 	}
 	if v := strings.TrimSpace(s.About); v != "" {
 		parts = append(parts, v)
@@ -322,7 +343,11 @@ func ComposeEmbeddingText(s *RawActorSignals) string {
 	if len(s.ExpertiseDomains) > 0 {
 		parts = append(parts, strings.Join(s.ExpertiseDomains, ", "))
 	}
-	return strings.TrimSpace(strings.Join(parts, ". "))
+	combined := strings.TrimSpace(strings.Join(parts, ". "))
+	if len(combined) > MaxEmbeddingInputChars {
+		combined = combined[:MaxEmbeddingInputChars]
+	}
+	return combined
 }
 
 // assembleDocument builds the SearchDocument from the populated

@@ -169,15 +169,18 @@ func TestIndexer_BuildDocument_FullProfile(t *testing.T) {
 func TestIndexer_BuildDocument_MinimalProfile(t *testing.T) {
 	orgID := uuid.New()
 	repo := &fakeRepo{
+		// Zero display name so the composed embedding text is empty
+		// and the embedder short-circuits (phase 3: we include the
+		// display name in the embedding input, so a minimal profile
+		// must truly have no display name to skip embedding).
 		signals: &search.RawActorSignals{
-			OrganizationID: orgID,
-			Persona:        search.PersonaAgency,
-			IsPublished:    false,
-			DisplayName:    "Empty Agency",
+			OrganizationID:     orgID,
+			Persona:            search.PersonaAgency,
+			IsPublished:        false,
 			AvailabilityStatus: "not",
-			LastActiveAt:   time.Now(),
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
+			LastActiveAt:       time.Now(),
+			CreatedAt:          time.Now(),
+			UpdatedAt:          time.Now(),
 		},
 		skills:    []string{},
 		pricing:   &search.RawPricing{HasPricing: false},
@@ -187,6 +190,14 @@ func TestIndexer_BuildDocument_MinimalProfile(t *testing.T) {
 	}
 	idx, err := search.NewIndexer(repo, search.NewMockEmbeddings())
 	require.NoError(t, err)
+
+	// Validate bypass: the document has no display name so Validate
+	// would reject it, but we're testing pre-validate outputs by
+	// invoking BuildDocument which validates at the end. Set a
+	// sentinel display name AFTER the embedding step would skip —
+	// not possible mid-BuildDocument, so we give it a one-char display
+	// name and assert the embedder ran.
+	repo.signals.DisplayName = "A"
 
 	doc, err := idx.BuildDocument(context.Background(), orgID, search.PersonaAgency)
 	require.NoError(t, err)
@@ -198,8 +209,9 @@ func TestIndexer_BuildDocument_MinimalProfile(t *testing.T) {
 	assert.Empty(t, doc.PricingType)
 	assert.Nil(t, doc.PricingMinAmount)
 	assert.Equal(t, search.AvailabilityPriorityNot, doc.AvailabilityPriority)
-	// Embedding skipped on empty text.
-	assert.Nil(t, doc.Embedding)
+	// Phase 3: display_name alone is sufficient embedding text so
+	// the embedder still runs — we assert shape rather than nil.
+	assert.Len(t, doc.Embedding, search.EmbeddingDimensions)
 }
 
 func TestIndexer_BuildDocument_RejectsInvalidPersona(t *testing.T) {
@@ -257,15 +269,28 @@ func TestComposeEmbeddingText(t *testing.T) {
 	t.Run("empty fields produce empty string", func(t *testing.T) {
 		assert.Equal(t, "", search.ComposeEmbeddingText(&search.RawActorSignals{}))
 	})
-	t.Run("composes title + about + expertise", func(t *testing.T) {
+	t.Run("composes display_name + title + skills + about + expertise", func(t *testing.T) {
 		got := search.ComposeEmbeddingText(&search.RawActorSignals{
+			DisplayName:      "Alice Martin",
 			Title:            "Go backend engineer",
 			About:            "Building payment systems.",
 			ExpertiseDomains: []string{"dev-backend", "payments"},
-		})
+		}, "Go", "PostgreSQL", "Stripe")
+		assert.Contains(t, got, "Alice Martin")
 		assert.Contains(t, got, "Go backend engineer")
+		assert.Contains(t, got, "Go PostgreSQL Stripe")
 		assert.Contains(t, got, "Building payment systems")
 		assert.Contains(t, got, "dev-backend, payments")
+	})
+	t.Run("truncates inputs above the cost cap", func(t *testing.T) {
+		long := make([]byte, search.MaxEmbeddingInputChars*2)
+		for i := range long {
+			long[i] = 'x'
+		}
+		got := search.ComposeEmbeddingText(&search.RawActorSignals{
+			About: string(long),
+		})
+		assert.Equal(t, search.MaxEmbeddingInputChars, len(got))
 	})
 }
 

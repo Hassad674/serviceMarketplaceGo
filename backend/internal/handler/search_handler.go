@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	appsearch "marketplace-backend/internal/app/search"
+	"marketplace-backend/internal/app/searchanalytics"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/search"
 	"marketplace-backend/pkg/response"
 )
@@ -47,6 +50,15 @@ type SearchHandlerDeps struct {
 	Client        *search.Client // master-key client used for scoped key generation
 	TypesenseHost string         // returned to the frontend so it knows which host to hit
 	APIKey        string         // master key, used as the HMAC parent
+	// ClickTracker is optional — when nil the /search/track endpoint
+	// returns 503 so the frontend knows to stop emitting beacons.
+	ClickTracker ClickTracker
+}
+
+// ClickTracker is the narrow port /search/track calls. Implemented
+// by internal/app/searchanalytics.Service.
+type ClickTracker interface {
+	RecordClick(ctx context.Context, searchID, docID string, position int) error
 }
 
 // SearchHandler implements the public search routes.
@@ -116,13 +128,21 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var userIDStr string
+	if userID, ok := middleware.GetUserID(r.Context()); ok {
+		userIDStr = userID.String()
+	}
+
 	input := appsearch.QueryInput{
-		Persona: persona,
-		Query:   r.URL.Query().Get("q"),
-		SortBy:  r.URL.Query().Get("sort_by"),
-		Page:    parseIntDefault(r.URL.Query().Get("page"), 0),
-		PerPage: parseIntDefault(r.URL.Query().Get("per_page"), 0),
-		Filters: parseFilterInput(r),
+		Persona:   persona,
+		Query:     r.URL.Query().Get("q"),
+		SortBy:    r.URL.Query().Get("sort_by"),
+		Page:      parseIntDefault(r.URL.Query().Get("page"), 0),
+		PerPage:   parseIntDefault(r.URL.Query().Get("per_page"), 0),
+		Cursor:    r.URL.Query().Get("cursor"),
+		UserID:    userIDStr,
+		SessionID: r.URL.Query().Get("session_id"),
+		Filters:   parseFilterInput(r),
 	}
 
 	result, err := h.deps.Service.Query(r.Context(), input)
@@ -132,12 +152,52 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 				"search engine is not configured for the requested persona")
 			return
 		}
+		if errors.Is(err, appsearch.ErrCursorInvalid) {
+			response.Error(w, http.StatusBadRequest, "invalid_cursor",
+				"cursor is invalid or expired")
+			return
+		}
 		response.Error(w, http.StatusInternalServerError, "search_failed",
 			"failed to execute search")
 		return
 	}
 
 	response.JSON(w, http.StatusOK, result)
+}
+
+// Track handles GET /api/v1/search/track?search_id=…&doc_id=…&position=N.
+//
+// Fire-and-forget from the frontend (via navigator.sendBeacon or a
+// fetch). We respond 204 on success, 400 on malformed input, 404
+// when the search_id has already rotated out of the table, and 503
+// when click tracking is not wired.
+func (h *SearchHandler) Track(w http.ResponseWriter, r *http.Request) {
+	if h.deps.ClickTracker == nil {
+		response.Error(w, http.StatusServiceUnavailable, "tracker_unavailable",
+			"click tracking is not configured")
+		return
+	}
+	q := r.URL.Query()
+	searchID := strings.TrimSpace(q.Get("search_id"))
+	docID := strings.TrimSpace(q.Get("doc_id"))
+	position := parseIntDefault(q.Get("position"), -1)
+	if searchID == "" || docID == "" || position < 0 {
+		response.Error(w, http.StatusBadRequest, "invalid_track_params",
+			"search_id, doc_id, and position are required")
+		return
+	}
+	err := h.deps.ClickTracker.RecordClick(r.Context(), searchID, docID, position)
+	if err != nil {
+		if errors.Is(err, searchanalytics.ErrNotFound) {
+			response.Error(w, http.StatusNotFound, "search_not_found",
+				"the search you clicked on is no longer tracked")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "track_failed",
+			"failed to record click")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // parsePersona normalises and validates the `persona` query param.

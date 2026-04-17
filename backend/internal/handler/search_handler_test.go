@@ -65,13 +65,15 @@ func TestSearchHandler_ScopedKey_HappyPath(t *testing.T) {
 	assert.Greater(t, body.ExpiresAt, int64(0))
 
 	// Sanity-check the embedded params: decode the key and look
-	// for the persona filter inside.
+	// for the persona filter inside. The layout is
+	//   base64(digest + prefix + embedded_json)
+	// with the digest being a 44-character base64 string and the
+	// prefix 4 characters, so embedded_json starts at offset 48.
+	// We scan the whole decoded blob instead of slicing because
+	// the digest's padding varies in length depending on content.
 	raw, err := base64.StdEncoding.DecodeString(body.Key)
 	require.NoError(t, err)
-	// Layout: 64-char digest + 4-char prefix + JSON
-	require.Greater(t, len(raw), 68)
-	embedded := string(raw[68:])
-	assert.Contains(t, embedded, `"filter_by":"persona:freelance && is_published:true"`)
+	require.Contains(t, string(raw), `"filter_by":"persona:freelance && is_published:true"`)
 }
 
 func TestSearchHandler_ScopedKey_UnknownPersona(t *testing.T) {

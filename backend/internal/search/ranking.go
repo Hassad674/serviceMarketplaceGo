@@ -193,30 +193,42 @@ func clampScore(score int) int {
 // DefaultSortBy returns the canonical sort_by string used by the
 // query path when no user-specified sort is provided.
 //
-// Typesense 28.0 caps sort_by at THREE fields, so the formula picks
-// the three highest-impact signals and lets the other quality
-// signals (verified, top_rated, completion_score, last_active_at)
-// influence ranking through the bayesian rating_score plus the
-// underlying _text_match scoring:
+// Typesense 28.0 caps sort_by at THREE fields AND rejects
+// `_vector_distance` when no vector query is active — we return the
+// BM25 default here. Use DefaultSortByHybrid() when the request
+// includes a vector_query (phase 3's hybrid mode).
 //
-//  1. _text_match(buckets:10):desc — group visually-similar matches
-//     into 10 buckets so business signals break the ties inside
-//     each bucket.
+//  1. _text_match(buckets:10):desc — bucketed keyword relevance so
+//     close matches cluster together and let the other slots break
+//     ties inside each bucket.
 //  2. availability_priority:desc — actors available NOW float to
 //     the top of every bucket.
-//  3. rating_score:desc — Bayesian-weighted rating score acts as
-//     the universal quality tiebreaker.
+//  3. rating_score:desc — Bayesian-weighted rating acts as the
+//     quality tiebreaker across buckets.
 //
 // Changing the order here MUST be followed by a full bulk reindex —
 // even though the formula lives on the query side, reviewers need to
 // re-tune the weights after any change.
-//
-// Phase 3 will swap _text_match for the hybrid (_text_match + vector)
-// variant once the embedding field is populated.
 func DefaultSortBy() string {
 	return strings.Join([]string{
 		"_text_match(buckets:10):desc",
 		"availability_priority:desc",
+		"rating_score:desc",
+	}, ",")
+}
+
+// DefaultSortByHybrid returns the sort_by used when the request
+// includes a `vector_query`. It swaps `availability_priority` for
+// `_vector_distance:asc` so semantic similarity breaks ties inside
+// each text-match bucket.
+//
+// Typesense rejects `_vector_distance` in sort_by when no vector
+// query is present, which is why the hybrid variant is separate
+// from DefaultSortBy. The app layer picks the right one.
+func DefaultSortByHybrid() string {
+	return strings.Join([]string{
+		"_text_match(buckets:10):desc",
+		"_vector_distance:asc",
 		"rating_score:desc",
 	}, ",")
 }

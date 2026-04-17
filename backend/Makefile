@@ -61,3 +61,17 @@ dev: run
 reindex-bulk:
 	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/reindex/main.go $(ARGS)
 
+# Search engine — trigger a Typesense snapshot and upload it to MinIO.
+# Intended to run from a systemd timer / k8s CronJob. Idempotent: re-
+# running on the same day overwrites the archive in place.
+#   make snapshot-typesense
+snapshot-typesense:
+	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/typesense-snapshot/main.go $(ARGS)
+
+# Search engine — compare Postgres vs Typesense per-persona counts
+# and log a WARN when drift exceeds 0.5%. Returns exit code 2 on
+# alert so it can be piped into monitoring.
+#   make drift-check
+drift-check:
+	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/drift-check/main.go $(ARGS)
+

@@ -38,6 +38,7 @@ import (
 	"marketplace-backend/internal/adapter/worker"
 	"marketplace-backend/internal/adapter/worker/handlers"
 	appsearch "marketplace-backend/internal/app/search"
+	"marketplace-backend/internal/app/searchanalytics"
 	"marketplace-backend/internal/app/searchindex"
 	"marketplace-backend/internal/domain/pendingevent"
 	"marketplace-backend/internal/search"
@@ -533,16 +534,23 @@ func main() {
 		}
 		slog.Info("search: search-only parent key bootstrapped")
 
+		// Phase 3: when OPENAI_API_KEY is set, live embeddings become
+		// MANDATORY — a transient 5xx or 429 no longer silently falls
+		// back to the mock (which would ship near-duplicate vectors
+		// and destroy semantic ranking). Wrap the live client in
+		// RetryingEmbeddingsClient so transient failures retry with
+		// exponential backoff (500ms / 1s / 2s, matching the spec).
 		var embedder search.EmbeddingsClient
 		if cfg.OpenAIAPIKey != "" {
 			openaiClient, openaiErr := search.NewOpenAIEmbeddings(cfg.OpenAIAPIKey, cfg.OpenAIEmbeddingsModel)
 			if openaiErr != nil {
-				slog.Warn("search: openai client unavailable, falling back to mock embeddings",
+				slog.Error("search: OPENAI_API_KEY set but client invalid — aborting to surface config error",
 					"error", openaiErr)
-				embedder = search.NewMockEmbeddings()
-			} else {
-				embedder = openaiClient
+				os.Exit(1)
 			}
+			embedder = search.NewRetryingEmbeddings(openaiClient)
+			slog.Info("search: live OpenAI embeddings enabled (with retry)",
+				"model", cfg.OpenAIEmbeddingsModel)
 		} else {
 			slog.Warn("search: OPENAI_API_KEY not set, using mock embeddings — search quality will be degraded")
 			embedder = search.NewMockEmbeddings()
@@ -579,11 +587,46 @@ func main() {
 	// vice versa.
 	var searchQuerySvc *appsearch.Service
 	var searchHandler *handler.SearchHandler
+	var searchAnalyticsSvc *searchanalytics.Service
 	if typesenseClient != nil {
+		// Phase 3: wire the analytics service so every search is
+		// captured and the /search/track endpoint has somewhere to
+		// persist clicks. Nil-safe — if the repo fails to build
+		// search keeps working without analytics.
+		analyticsRepo := postgres.NewSearchAnalyticsRepository(db)
+		analyticsSvc, analyticsErr := searchanalytics.NewService(searchanalytics.Config{
+			Repository: analyticsRepo,
+			Logger:     slog.Default(),
+		})
+		if analyticsErr != nil {
+			slog.Error("search: analytics service disabled", "error", analyticsErr)
+		} else {
+			searchAnalyticsSvc = analyticsSvc
+		}
+
+		// Phase 3: hybrid search needs a live embedder on the query
+		// path. Reuse the same OpenAI client (with retry wrapper)
+		// we built for indexing — the rate limits live on the API
+		// key, so sharing the client matters.
+		var queryEmbedder search.EmbeddingsClient
+		if cfg.OpenAIAPIKey != "" {
+			openaiClient, openaiErr := search.NewOpenAIEmbeddings(cfg.OpenAIAPIKey, cfg.OpenAIEmbeddingsModel)
+			if openaiErr == nil {
+				queryEmbedder = search.NewRetryingEmbeddings(openaiClient)
+			} else {
+				slog.Warn("search: query-time embedder disabled",
+					"error", openaiErr)
+			}
+		}
+
+		analyticsAdapter := newSearchAnalyticsRecorder(searchAnalyticsSvc)
 		searchQuerySvc = appsearch.NewService(appsearch.ServiceDeps{
 			Freelance: search.NewFreelanceClient(typesenseClient),
 			Agency:    search.NewAgencyClient(typesenseClient),
 			Referrer:  search.NewReferrerClient(typesenseClient),
+			Embedder:  queryEmbedder,
+			Analytics: analyticsAdapter,
+			Logger:    slog.Default(),
 		})
 		searchHandler = handler.NewSearchHandler(handler.SearchHandlerDeps{
 			Service:       searchQuerySvc,
@@ -592,11 +635,14 @@ func main() {
 			// Use the bootstrapped search-only key as the HMAC parent
 			// for scoped key generation. Typesense rejects scoped keys
 			// derived from the master admin key.
-			APIKey: typesenseClient.SearchAPIKey(),
+			APIKey:       typesenseClient.SearchAPIKey(),
+			ClickTracker: searchAnalyticsSvc,
 		})
 		slog.Info("search: query service wired",
 			"search_engine", cfg.SearchEngine,
-			"is_typesense", cfg.SearchEngineIsTypesense())
+			"is_typesense", cfg.SearchEngineIsTypesense(),
+			"hybrid_enabled", queryEmbedder != nil,
+			"analytics_enabled", searchAnalyticsSvc != nil)
 	}
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
