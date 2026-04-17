@@ -1,31 +1,43 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { useTranslations } from "next-intl"
-import { SearchPageLayout } from "@/shared/components/search/search-page-layout"
-import { isTypesenseEnabled } from "@/shared/lib/search/feature-flag"
+import {
+  SearchPageLayout,
+  type SortKey,
+} from "@/shared/components/search/search-page-layout"
+import { DidYouMeanBanner } from "@/shared/components/search/did-you-mean-banner"
+import {
+  EMPTY_SEARCH_FILTERS,
+  type SearchFilters,
+} from "@/shared/components/search/search-filters"
 import type {
   SearchDocumentPersona,
 } from "@/shared/lib/search/search-document"
-import type { RawSearchDocumentLike } from "@/shared/lib/search/search-document-adapter"
-import { useSearchProfiles } from "../hooks/use-search"
+import { useSearch } from "@/shared/lib/search/use-search"
+import { useDebouncedValue } from "@/shared/lib/search/use-debounced-value"
+import { trackSearchClick } from "@/shared/lib/search/track-click"
+import { fromTypesenseDocument } from "@/shared/lib/search/typesense-document-adapter"
 import type { SearchType } from "../api/search-api"
-import { TypesenseSearchPage } from "./typesense-search-page"
 
-// SearchPage is the thin provider-feature adapter that wires the
-// existing TanStack Query hook into the shared SearchPageLayout. The
-// layout itself lives in shared/ so all three public listings
-// (freelancers / agencies / referrers) can compose it identically —
-// this component only exists because the app/search route still
-// fetches profiles via the provider feature's hook.
-//
-// The persona prop on the layout controls both the detail-page path
-// the cards link to and which pricing kind is pulled onto the card.
+/**
+ * SearchPage is the public listings root for freelancers, agencies,
+ * and referrers. It wires the shared SearchPageLayout to the
+ * Typesense-backed useSearch hook — there is no longer a SQL
+ * fallback (the 30-day grace period ended with phase 4).
+ *
+ * Behaviour:
+ *  - debounced 250 ms search input (bypassed on empty query)
+ *  - filter sidebar maps into the Typesense filter_by builder
+ *  - did-you-mean banner over the results grid when Typesense
+ *    returns a `corrected_query`
+ *  - click tracking beacon fired on card select for CTR analytics
+ */
 
 const TYPE_TITLES: Record<SearchType, string> = {
   freelancer: "findFreelancers",
   agency: "findAgencies",
-  enterprise: "findEnterprises",
+  enterprise: "findFreelancers", // unused — defensive fallback
   referrer: "findReferrers",
 }
 
@@ -33,10 +45,9 @@ const TYPE_TO_PERSONA: Record<SearchType, SearchDocumentPersona> = {
   freelancer: "freelance",
   agency: "agency",
   referrer: "referrer",
-  // Enterprise is not a discoverable persona in the redesign — it
-  // still maps to freelance at the contract level so the SearchDocument
-  // adapter has a fallback; the feature never actually serves an
-  // enterprise listing through this component.
+  // Enterprise is not a discoverable persona in the redesign — mapping
+  // to freelance keeps the SearchDocument adapter happy; the feature
+  // never actually serves an enterprise listing through this component.
   enterprise: "freelance",
 }
 
@@ -45,50 +56,117 @@ interface SearchPageProps {
 }
 
 export function SearchPage({ type }: SearchPageProps) {
-  // Phase 2 feature flag: when NEXT_PUBLIC_SEARCH_ENGINE=typesense
-  // the listing page hits Typesense directly via the scoped key
-  // hook. Default ("sql") falls through to the legacy SQL adapter
-  // wired in this component below.
-  if (isTypesenseEnabled()) {
-    return <TypesenseSearchPage type={type} />
-  }
-  return <LegacySearchPage type={type} />
-}
-
-function LegacySearchPage({ type }: SearchPageProps) {
   const t = useTranslations("search")
   const [query, setQuery] = useState("")
-  const {
-    data,
-    isLoading,
-    error,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    refetch,
-  } = useSearchProfiles(type)
+  const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
+  const [sort, setSort] = useState<SortKey>("relevance")
+  const persona = TYPE_TO_PERSONA[type]
 
-  const documents: RawSearchDocumentLike[] =
-    data?.pages.flatMap((page) => page.data as RawSearchDocumentLike[]) ?? []
+  // Debounce by 250ms so search-as-you-type does not hammer the
+  // backend on every keystroke. Empty query bypasses the debounce
+  // so the listing page (q="*") renders instantly on initial load.
+  const debouncedQuery = useDebouncedValue(query, query.trim() === "" ? 0 : 250)
 
-  const status: "loading" | "error" | "idle" = isLoading
+  const result = useSearch({
+    persona,
+    query: debouncedQuery,
+    filters: filtersToInput(filters),
+    sortBy: sortKeyToTypesense(sort),
+    perPage: 20,
+  })
+
+  const handleSelect = useCallback(
+    (docID: string, position: number) => {
+      if (!result.searchId) return
+      trackSearchClick(result.searchId, docID, position)
+    },
+    [result.searchId],
+  )
+
+  const status: "loading" | "error" | "idle" = result.isLoading
     ? "loading"
-    : error
+    : result.error
       ? "error"
       : "idle"
 
+  // Strip the embedding vector + adapt to the frozen card contract.
+  const documents = result.documents.map((doc) => fromTypesenseDocument(doc))
+
   return (
-    <SearchPageLayout
-      title={t(TYPE_TITLES[type])}
-      persona={TYPE_TO_PERSONA[type]}
-      documents={documents}
-      status={status}
-      hasMore={Boolean(hasNextPage)}
-      isLoadingMore={isFetchingNextPage}
-      onLoadMore={() => fetchNextPage()}
-      onRetry={() => refetch()}
-      query={query}
-      onQueryChange={setQuery}
-    />
+    <div className="flex flex-col gap-4">
+      {result.correctedQuery ? (
+        <DidYouMeanBanner
+          correctedQuery={result.correctedQuery}
+          onApply={(corrected) => setQuery(corrected)}
+        />
+      ) : null}
+      <SearchPageLayout
+        title={t(TYPE_TITLES[type])}
+        persona={persona}
+        preMappedDocuments={documents}
+        status={status}
+        hasMore={result.hasMore}
+        isLoadingMore={result.isFetchingMore}
+        onLoadMore={result.loadMore}
+        onRetry={result.refetch}
+        query={query}
+        onQueryChange={setQuery}
+        filters={filters}
+        onFiltersChange={setFilters}
+        sort={sort}
+        onSortChange={setSort}
+        totalFound={result.found}
+        onSelect={handleSelect}
+      />
+    </div>
   )
+}
+
+// sortKeyToTypesense maps the UI's SortKey enum to a Typesense
+// `sort_by` string. Capped at three fields because Typesense 28.0
+// rejects longer sort chains at query time.
+function sortKeyToTypesense(key: SortKey): string {
+  switch (key) {
+    case "rating":
+      return "rating_score:desc,rating_count:desc,_text_match(buckets:10):desc"
+    case "priceAsc":
+      return "pricing_min_amount:asc,_text_match(buckets:10):desc,rating_score:desc"
+    case "priceDesc":
+      return "pricing_min_amount:desc,_text_match(buckets:10):desc,rating_score:desc"
+    case "recent":
+      return "last_active_at:desc,_text_match(buckets:10):desc,rating_score:desc"
+    case "relevance":
+    default:
+      // Backend swaps availability_priority for _vector_distance when
+      // hybrid search is active (user typed something). We emit the
+      // BM25-friendly variant here so the backend can override safely.
+      return "_text_match(buckets:10):desc,availability_priority:desc,rating_score:desc"
+  }
+}
+
+/**
+ * filtersToInput projects the SearchFilters state owned by the
+ * sidebar into the Typesense FilterInput shape consumed by
+ * `buildFilterBy`. Keep in parity with the backend's typed
+ * FilterInput in internal/app/search/filter_builder.go.
+ */
+function filtersToInput(filters: SearchFilters) {
+  const availabilityStatus =
+    filters.availability === "all"
+      ? undefined
+      : filters.availability === "now"
+        ? ["available_now"]
+        : ["available_soon"]
+  return {
+    availabilityStatus,
+    pricingMin: filters.priceMin,
+    pricingMax: filters.priceMax,
+    city: filters.city,
+    countryCode: filters.countryCode,
+    languages: filters.languages,
+    expertiseDomains: filters.expertise as string[],
+    skills: filters.skills,
+    ratingMin: filters.minRating > 0 ? filters.minRating : undefined,
+    workMode: filters.workModes,
+  }
 }

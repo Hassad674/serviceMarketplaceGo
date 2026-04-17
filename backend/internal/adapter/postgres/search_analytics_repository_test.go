@@ -81,3 +81,72 @@ func TestSearchAnalyticsRepository_InsertAndRecordClick(t *testing.T) {
 	err = repo.RecordClick(ctx, "does-not-exist", "11111111-1111-1111-1111-111111111111", 0, clickAt)
 	assert.ErrorIs(t, err, searchanalytics.ErrNotFound)
 }
+
+// TestSearchAnalyticsRepository_Stats exercises Totals + TopQueries +
+// ZeroResultQueries against a real Postgres. Uses a deterministic
+// seed so the aggregation numbers can be asserted exactly.
+func TestSearchAnalyticsRepository_Stats(t *testing.T) {
+	db := analyticsTestDB(t)
+	defer db.Close()
+	repo := postgres.NewSearchAnalyticsRepository(db)
+	ctx := context.Background()
+
+	base := time.Now().UTC().Add(-1 * time.Hour).Truncate(time.Second)
+	rows := []*searchanalytics.SearchRow{
+		{SearchID: "s1", Query: "react", Persona: "freelance", ResultsCount: 10, LatencyMs: 40, CreatedAt: base},
+		{SearchID: "s2", Query: "React", Persona: "freelance", ResultsCount: 12, LatencyMs: 60, CreatedAt: base.Add(1 * time.Minute)},
+		{SearchID: "s3", Query: "golang", Persona: "freelance", ResultsCount: 0, LatencyMs: 30, CreatedAt: base.Add(2 * time.Minute)},
+		{SearchID: "s4", Query: "golang", Persona: "agency", ResultsCount: 0, LatencyMs: 90, CreatedAt: base.Add(3 * time.Minute)},
+		{SearchID: "s5", Query: "python", Persona: "freelance", ResultsCount: 0, LatencyMs: 200, CreatedAt: base.Add(4 * time.Minute)},
+	}
+	for _, row := range rows {
+		require.NoError(t, repo.InsertSearch(ctx, row))
+	}
+
+	// Click on s1 so TopQueries reports a non-zero CTR for "react".
+	require.NoError(t, repo.RecordClick(ctx, "s1", "11111111-1111-1111-1111-111111111111", 0, base.Add(5*time.Minute)))
+
+	window := searchanalytics.StatsFilter{From: base.Add(-time.Hour), To: base.Add(time.Hour)}
+
+	totals, err := repo.Totals(ctx, window)
+	require.NoError(t, err)
+	assert.Equal(t, 5, totals.TotalSearches)
+	assert.Equal(t, 3, totals.ZeroResults) // s3, s4, s5
+	assert.InDelta(t, 0.6, totals.ZeroResultRate, 1e-9)
+	assert.InDelta(t, 84.0, totals.AvgLatencyMs, 1.0) // (40+60+30+90+200)/5 = 84
+	assert.Greater(t, totals.P95LatencyMs, 100.0)
+
+	// With persona filter, only freelance rows count (s1,s2,s3,s5).
+	freelance, err := repo.Totals(ctx, searchanalytics.StatsFilter{
+		From: window.From, To: window.To, Persona: "freelance",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 4, freelance.TotalSearches)
+
+	top, err := repo.TopQueries(ctx, window, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, top)
+	// "golang" has count=2 (s3+s4), "react" has count=2 (s1+s2 case-folded),
+	// "python" has count=1. Tie broken by query ASC -> golang,react,python.
+	assert.Equal(t, "golang", top[0].Query)
+	assert.Equal(t, 2, top[0].Count)
+	// "react" with one click out of two → CTR 0.5.
+	for _, row := range top {
+		if row.Query == "react" {
+			assert.InDelta(t, 0.5, row.CTR, 1e-9)
+			assert.InDelta(t, 11.0, row.AvgResults, 1e-9)
+		}
+	}
+
+	zero, err := repo.ZeroResultQueries(ctx, window, 10)
+	require.NoError(t, err)
+	require.NotEmpty(t, zero)
+	// Only golang (count=2) + python (count=1) should appear; react has no zero rows.
+	for _, row := range zero {
+		if row.Query == "react" {
+			t.Errorf("react must not appear in zero-result list, got %+v", row)
+		}
+	}
+	assert.Equal(t, "golang", zero[0].Query)
+	assert.Equal(t, 2, zero[0].Count)
+}

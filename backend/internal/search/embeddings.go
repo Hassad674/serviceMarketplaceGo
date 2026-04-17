@@ -16,10 +16,10 @@ import (
 // mock for tests. The mock is the default in every unit + integration
 // test (95% of the suite) so test runs cost $0.
 //
-// The live OpenAI client is only instantiated in `cmd/api/main.go`
-// when SEARCH_ENGINE=typesense AND in the bulk reindex CLI. Golden
-// semantic tests gated by OPENAI_EMBEDDINGS_LIVE=true also build one
-// directly (phase 3).
+// The live OpenAI client is instantiated in `cmd/api/main.go`
+// whenever TYPESENSE_* is configured (mandatory since phase 4) and
+// in the bulk reindex CLI. Golden semantic tests gated by
+// OPENAI_EMBEDDINGS_LIVE=true build one directly (phase 3).
 
 // EmbeddingsClient is the port the indexer depends on. Small and
 // focused — one method, one responsibility. If a consumer needs

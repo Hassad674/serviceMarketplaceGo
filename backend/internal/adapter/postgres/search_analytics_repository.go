@@ -119,5 +119,133 @@ UPDATE search_queries
 	return nil
 }
 
-// Compile-time assertion that the repository implements the port.
-var _ searchanalytics.Repository = (*SearchAnalyticsRepository)(nil)
+// Totals returns the scalar aggregates for the stats dashboard: total
+// searches, zero-result count, zero-result rate, average latency, and
+// p95 latency. Single SQL round-trip using PERCENTILE_CONT + conditional
+// counts so we avoid N+1 trips for the trivial fields.
+//
+// NULLs: an empty result window returns zero in every field (divide-by-
+// zero is guarded on the Go side so the JSON response always ships sane
+// numbers).
+func (r *SearchAnalyticsRepository) Totals(ctx context.Context, filter searchanalytics.StatsFilter) (searchanalytics.Totals, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const query = `
+SELECT
+    COUNT(*)                                                       AS total,
+    COALESCE(SUM(CASE WHEN results_count = 0 THEN 1 ELSE 0 END),0) AS zero_results,
+    COALESCE(AVG(latency_ms)::float8, 0)                           AS avg_latency,
+    COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms)::float8, 0) AS p95_latency
+FROM search_queries
+WHERE created_at >= $1 AND created_at < $2
+  AND ($3 = '' OR persona = $3)`
+
+	var t searchanalytics.Totals
+	err := r.db.QueryRowContext(ctx, query, filter.From, filter.To, filter.Persona).
+		Scan(&t.TotalSearches, &t.ZeroResults, &t.AvgLatencyMs, &t.P95LatencyMs)
+	if err != nil {
+		return searchanalytics.Totals{}, fmt.Errorf("search analytics: totals: %w", err)
+	}
+	if t.TotalSearches > 0 {
+		t.ZeroResultRate = float64(t.ZeroResults) / float64(t.TotalSearches)
+	}
+	return t, nil
+}
+
+// TopQueries returns the `limit` most-searched queries over the
+// window, ordered by count DESC. Each row also carries the mean
+// result count and the CTR (clicks / count).
+//
+// Case-insensitive grouping via lower(query) so "React" and "react"
+// collapse. We surface the lower-cased text — slightly lossy but
+// vastly more useful for analytics.
+func (r *SearchAnalyticsRepository) TopQueries(ctx context.Context, filter searchanalytics.StatsFilter, limit int) ([]searchanalytics.TopQuery, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const query = `
+SELECT
+    lower(query)                      AS q,
+    COUNT(*)                          AS count,
+    COALESCE(AVG(results_count)::float8, 0) AS avg_results,
+    CASE WHEN COUNT(*) = 0 THEN 0
+         ELSE COUNT(clicked_result_id)::float8 / COUNT(*)::float8
+    END                               AS ctr
+FROM search_queries
+WHERE created_at >= $1 AND created_at < $2
+  AND ($3 = '' OR persona = $3)
+  AND query <> ''
+GROUP BY lower(query)
+ORDER BY count DESC, q ASC
+LIMIT $4`
+
+	rows, err := r.db.QueryContext(ctx, query, filter.From, filter.To, filter.Persona, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search analytics: top queries: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]searchanalytics.TopQuery, 0, limit)
+	for rows.Next() {
+		var row searchanalytics.TopQuery
+		if err := rows.Scan(&row.Query, &row.Count, &row.AvgResults, &row.CTR); err != nil {
+			return nil, fmt.Errorf("search analytics: top queries scan: %w", err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("search analytics: top queries rows: %w", err)
+	}
+	return out, nil
+}
+
+// ZeroResultQueries returns the `limit` most-frequent queries that
+// produced zero results, ordered by count DESC. Same case-folding as
+// TopQueries.
+//
+// Uses the existing partial index `idx_search_queries_zero_results`
+// for the WHERE results_count = 0 predicate — the planner picks it
+// up automatically when the filter is inlined.
+func (r *SearchAnalyticsRepository) ZeroResultQueries(ctx context.Context, filter searchanalytics.StatsFilter, limit int) ([]searchanalytics.ZeroResultQuery, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	const query = `
+SELECT
+    lower(query) AS q,
+    COUNT(*)     AS count
+FROM search_queries
+WHERE results_count = 0
+  AND created_at >= $1 AND created_at < $2
+  AND ($3 = '' OR persona = $3)
+  AND query <> ''
+GROUP BY lower(query)
+ORDER BY count DESC, q ASC
+LIMIT $4`
+
+	rows, err := r.db.QueryContext(ctx, query, filter.From, filter.To, filter.Persona, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search analytics: zero-result queries: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]searchanalytics.ZeroResultQuery, 0, limit)
+	for rows.Next() {
+		var row searchanalytics.ZeroResultQuery
+		if err := rows.Scan(&row.Query, &row.Count); err != nil {
+			return nil, fmt.Errorf("search analytics: zero-result queries scan: %w", err)
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("search analytics: zero-result queries rows: %w", err)
+	}
+	return out, nil
+}
+
+// Compile-time assertion that the repository implements both ports.
+var (
+	_ searchanalytics.Repository      = (*SearchAnalyticsRepository)(nil)
+	_ searchanalytics.StatsRepository = (*SearchAnalyticsRepository)(nil)
+)

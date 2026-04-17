@@ -11,15 +11,16 @@ import (
 )
 
 // SearchPinger is the narrow contract the health handler needs
-// from the Typesense client. A nil implementation disables the
-// Typesense check (useful when SEARCH_ENGINE=sql).
+// from the Typesense client. Nil disables the check — useful for
+// unit tests and the rare worktree that boots without a Typesense
+// dependency.
 type SearchPinger interface {
 	Ping(ctx context.Context) error
 }
 
 type HealthHandler struct {
-	db            *sql.DB
-	searchPinger  SearchPinger
+	db             *sql.DB
+	searchPinger   SearchPinger
 	searchRequired bool
 }
 
@@ -28,14 +29,11 @@ func NewHealthHandler(db *sql.DB) *HealthHandler {
 }
 
 // WithSearchPinger attaches a Typesense client to the health
-// check. The `required` flag controls whether a failed Typesense
-// ping is treated as fatal (503) or as a best-effort signal:
-//   - required=true when SEARCH_ENGINE=typesense — the query
-//     path depends on Typesense being healthy, so a failure is
-//     an outage.
-//   - required=false when SEARCH_ENGINE=sql — the query path
-//     falls back to Postgres, so Typesense can be flaky without
-//     taking the whole backend out of rotation.
+// check. Since phase 4 the query path has no SQL fallback, so any
+// production deployment MUST pass `required=true` — a failed ping
+// takes /ready red so load balancers rotate the instance out.
+// The argument is still exposed so tests (and worktrees that
+// intentionally boot without Typesense) can opt into a soft check.
 func (h *HealthHandler) WithSearchPinger(pinger SearchPinger, required bool) *HealthHandler {
 	h.searchPinger = pinger
 	h.searchRequired = required

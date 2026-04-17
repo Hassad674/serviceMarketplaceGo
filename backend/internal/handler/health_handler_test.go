@@ -75,18 +75,20 @@ func TestHealthHandler_Ready_DatabaseDown(t *testing.T) {
 }
 
 func TestHealthHandler_Ready_SearchNotRequired(t *testing.T) {
-	// SEARCH_ENGINE=sql: Typesense failure must not take /ready red.
+	// Soft-mode path exercised by tests that want to boot without
+	// Typesense. Production always wires required=true since phase 4.
 	db := newReadyTestDB(t, nil)
 	h := NewHealthHandler(db).WithSearchPinger(&fakeSearchPinger{err: errors.New("ts down")}, false)
 
 	rec := httptest.NewRecorder()
 	h.Ready(rec, httptest.NewRequest(http.MethodGet, "/ready", nil))
 
-	assert.Equal(t, http.StatusOK, rec.Code, "typesense optional: ts failure is non-fatal")
+	assert.Equal(t, http.StatusOK, rec.Code, "soft-mode: ts failure is non-fatal")
 }
 
 func TestHealthHandler_Ready_SearchRequired(t *testing.T) {
-	// SEARCH_ENGINE=typesense: Typesense failure = 503.
+	// Phase 4: Typesense is mandatory — a failed ping MUST 503 so
+	// load balancers rotate the instance out.
 	db := newReadyTestDB(t, nil)
 	h := NewHealthHandler(db).WithSearchPinger(&fakeSearchPinger{err: errors.New("ts down")}, true)
 
