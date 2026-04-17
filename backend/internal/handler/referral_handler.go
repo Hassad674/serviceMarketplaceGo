@@ -250,6 +250,102 @@ func (h *ReferralHandler) ListNegotiations(w http.ResponseWriter, r *http.Reques
 	res.JSON(w, http.StatusOK, response.NewNegotiationList(rows))
 }
 
+// ListAttributions handles GET /api/v1/referrals/{id}/attributions.
+// Returns the proposals attributed during the exclusivity window with
+// the proposal title + status and commission aggregates. Commission
+// amounts are stripped from the client's DTO (Modèle A).
+func (h *ReferralHandler) ListAttributions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	referralID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "invalid referral id")
+		return
+	}
+
+	// Resolve parties for the client-viewer check used by the DTO.
+	parent, err := h.svc.GetByID(r.Context(), referralID, userID)
+	if err != nil {
+		handleReferralError(w, err)
+		return
+	}
+
+	rows, err := h.svc.ListAttributionsWithStats(r.Context(), referralID, userID)
+	if err != nil {
+		handleReferralError(w, err)
+		return
+	}
+
+	// Map the app-level struct onto the handler-level shape (same
+	// field names / types — compile-time safe via the shared alias).
+	mapped := make([]struct {
+		Attribution            *referral.Attribution
+		ProposalTitle          string
+		ProposalStatus         string
+		TotalCommissionCents   int64
+		PendingCommissionCents int64
+		MilestonesPaid         int
+		MilestonesPending      int
+	}, 0, len(rows))
+	for _, a := range rows {
+		mapped = append(mapped, struct {
+			Attribution            *referral.Attribution
+			ProposalTitle          string
+			ProposalStatus         string
+			TotalCommissionCents   int64
+			PendingCommissionCents int64
+			MilestonesPaid         int
+			MilestonesPending      int
+		}{
+			Attribution:            a.Attribution,
+			ProposalTitle:          a.ProposalTitle,
+			ProposalStatus:         a.ProposalStatus,
+			TotalCommissionCents:   a.TotalCommissionCents,
+			PendingCommissionCents: a.PendingCommissionCents,
+			MilestonesPaid:         a.MilestonesPaid,
+			MilestonesPending:      a.MilestonesPending,
+		})
+	}
+	res.JSON(w, http.StatusOK, response.NewAttributionListFromStats(mapped, userID, parent.ClientID))
+}
+
+// ListCommissions handles GET /api/v1/referrals/{id}/commissions.
+// Reserved for the apporteur and the provider party — the client is
+// blocked with 403 so there is no way (even via the URL) to peek at
+// commission amounts.
+func (h *ReferralHandler) ListCommissions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+	referralID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_id", "invalid referral id")
+		return
+	}
+
+	parent, err := h.svc.GetByID(r.Context(), referralID, userID)
+	if err != nil {
+		handleReferralError(w, err)
+		return
+	}
+	if userID == parent.ClientID {
+		res.Error(w, http.StatusForbidden, "forbidden", "clients cannot read commissions")
+		return
+	}
+
+	rows, err := h.svc.ListCommissionsByReferral(r.Context(), referralID, userID)
+	if err != nil {
+		handleReferralError(w, err)
+		return
+	}
+	res.JSON(w, http.StatusOK, response.NewCommissionList(rows))
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 func filterFromQuery(r *http.Request) repository.ReferralListFilter {

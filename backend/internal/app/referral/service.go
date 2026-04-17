@@ -38,6 +38,7 @@ type ServiceDeps struct {
 	SnapshotProfiles SnapshotProfileLoader
 	StripeAccounts   StripeAccountResolver
 	OrgMembers       OrgMemberResolver
+	ProposalSummaries ProposalSummaryResolver
 }
 
 // Service is the referral feature's application service. It implements the
@@ -53,6 +54,7 @@ type Service struct {
 	snapshotProfiles SnapshotProfileLoader
 	stripeAccounts   StripeAccountResolver
 	orgMembers       OrgMemberResolver
+	proposalSummaries ProposalSummaryResolver
 }
 
 // Compile-time assertions that the Service satisfies the four exposed ports.
@@ -75,5 +77,6 @@ func NewService(deps ServiceDeps) *Service {
 		snapshotProfiles: deps.SnapshotProfiles,
 		stripeAccounts:   deps.StripeAccounts,
 		orgMembers:       deps.OrgMembers,
+		proposalSummaries: deps.ProposalSummaries,
 	}
 }

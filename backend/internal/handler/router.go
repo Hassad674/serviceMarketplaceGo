@@ -615,6 +615,8 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Get("/{id}", deps.Referral.Get)
 				r.Post("/{id}/respond", deps.Referral.Respond)
 				r.Get("/{id}/negotiations", deps.Referral.ListNegotiations)
+				r.Get("/{id}/attributions", deps.Referral.ListAttributions)
+				r.Get("/{id}/commissions", deps.Referral.ListCommissions)
 			})
 		}
 
