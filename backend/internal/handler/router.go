@@ -598,7 +598,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
 				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
-				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/transfers/{proposal_id}/retry", deps.Wallet.RetryFailedTransfer)
+				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/transfers/{record_id}/retry", deps.Wallet.RetryFailedTransfer)
 			})
 		}
 

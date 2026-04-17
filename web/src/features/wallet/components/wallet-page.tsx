@@ -363,14 +363,14 @@ function RecordRow({ record }: { record: WalletRecord }) {
   const isInEscrow =
     record.transfer_status === "pending" || record.transfer_status === ""
   const pendingForThisRow =
-    retryMutation.isPending && retryMutation.variables === record.proposal_id
+    retryMutation.isPending && retryMutation.variables === record.id
   const errorForThisRow =
-    retryMutation.isError && retryMutation.variables === record.proposal_id
+    retryMutation.isError && retryMutation.variables === record.id
       ? retryMutation.error
       : null
 
   function handleRetry() {
-    retryMutation.mutate(record.proposal_id)
+    retryMutation.mutate(record.id)
   }
 
   // Escrow rows get a muted amber left border to make "still in escrow"

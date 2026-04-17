@@ -24,13 +24,15 @@ export function useRequestPayout() {
 
 /**
  * Mutation for the per-record "Retry" action shown on failed transfers.
- * Takes the proposal_id from the clicked row and invalidates the wallet
- * cache on success so the badge flips to Transféré without a refresh.
+ * Takes the record.id from the clicked row (NOT proposal_id — a proposal
+ * can have multiple records, one per milestone, so proposal_id is
+ * ambiguous for retry targeting) and invalidates the wallet cache on
+ * success so the badge flips to Transféré without a refresh.
  */
 export function useRetryTransfer() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (proposalId: string) => retryFailedTransfer(proposalId),
+    mutationFn: (recordId: string) => retryFailedTransfer(recordId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: WALLET_KEY })
     },
