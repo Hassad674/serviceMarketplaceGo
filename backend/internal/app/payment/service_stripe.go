@@ -333,7 +333,13 @@ type WalletOverview struct {
 }
 
 type WalletRecord struct {
+	// ID is the payment_record row id — unique per (proposal, milestone)
+	// pair. Exposed so the UI can use a stable React/Flutter key: a
+	// proposal with N milestones produces N records that share the same
+	// proposal_id, so proposal_id alone is NOT a valid key.
+	ID             string `json:"id"`
 	ProposalID     string `json:"proposal_id"`
+	MilestoneID    string `json:"milestone_id,omitempty"`
 	ProposalAmount int64  `json:"proposal_amount"`
 	PlatformFee    int64  `json:"platform_fee"`
 	ProviderPayout int64  `json:"provider_payout"`
@@ -397,7 +403,8 @@ func (s *Service) GetWalletOverview(ctx context.Context, userID, orgID uuid.UUID
 	}
 
 	for _, r := range records {
-		wallet.Records = append(wallet.Records, WalletRecord{
+		rec := WalletRecord{
+			ID:             r.ID.String(),
 			ProposalID:     r.ProposalID.String(),
 			ProposalAmount: r.ProposalAmount,
 			PlatformFee:    r.PlatformFeeAmount,
@@ -405,7 +412,11 @@ func (s *Service) GetWalletOverview(ctx context.Context, userID, orgID uuid.UUID
 			PaymentStatus:  string(r.Status),
 			TransferStatus: string(r.TransferStatus),
 			CreatedAt:      r.CreatedAt.Format("2006-01-02T15:04:05Z"),
-		})
+		}
+		if r.MilestoneID != uuid.Nil {
+			rec.MilestoneID = r.MilestoneID.String()
+		}
+		wallet.Records = append(wallet.Records, rec)
 
 		switch {
 		case r.TransferStatus == domain.TransferCompleted:
