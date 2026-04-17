@@ -29,6 +29,13 @@ type Service struct {
 	referralDistributor service.ReferralCommissionDistributor
 	referralClawback    service.ReferralClawback
 	referralWallet      service.ReferralWalletReader
+
+	// proposalStatuses gates payout transfers on mission completion.
+	// Wired post-construction because payment is built before proposal
+	// in main.go (proposal depends on payment's PaymentProcessor). When
+	// nil, RequestPayout logs a warning and falls back to the legacy
+	// behaviour so the payment feature stays bootable without proposal.
+	proposalStatuses service.ProposalStatusReader
 }
 
 // ServiceDeps groups all dependencies for the payment service.
@@ -80,4 +87,16 @@ func (s *Service) SetReferralClawback(c service.ReferralClawback) {
 // Passing nil disables the commission section of the wallet DTO.
 func (s *Service) SetReferralWalletReader(r service.ReferralWalletReader) {
 	s.referralWallet = r
+}
+
+// SetProposalStatusReader plugs the proposal status lookup used by
+// RequestPayout to keep escrow funds from being transferred before the
+// mission is marked completed. Setter pattern because the proposal
+// service is constructed AFTER payment in main.go (proposal depends on
+// payment's PaymentProcessor). Passing nil leaves RequestPayout in a
+// degraded mode that logs a warning and falls back to the pre-fix
+// behaviour rather than erroring out — the feature must keep working
+// in unusual wirings (tests, migrations, one-off binaries).
+func (s *Service) SetProposalStatusReader(r service.ProposalStatusReader) {
+	s.proposalStatuses = r
 }

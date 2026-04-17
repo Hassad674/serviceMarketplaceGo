@@ -486,6 +486,12 @@ func main() {
 		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
 	})
 
+	// Wire proposal → payment status lookup so RequestPayout only
+	// releases escrow funds for missions whose proposal has reached
+	// "completed". Setter pattern because the dependency runs the wrong
+	// way for constructor injection (payment is built before proposal).
+	paymentInfoSvc.SetProposalStatusReader(newProposalStatusAdapter(proposalSvc))
+
 	// Phase 6: pending_events worker. Runs in a background goroutine
 	// alongside the API server, ticks every 30 seconds, and drives the
 	// auto-approval, fund-reminder, and auto-close timers. Multiple
