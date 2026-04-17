@@ -18,7 +18,12 @@ import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useWallet, useRequestPayout } from "../hooks/use-wallet"
-import type { WalletRecord } from "../api/wallet-api"
+import type {
+  WalletRecord,
+  CommissionWallet,
+  WalletCommissionRecord,
+} from "../api/wallet-api"
+import { Sparkles, TrendingUp, UserCheck, Undo2 } from "lucide-react"
 
 function formatEur(centimes: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(centimes / 100)
@@ -151,6 +156,14 @@ export function WalletPage() {
         )}
       </div>
 
+      {/* Apporteur commissions — rendered only when the viewer has
+          commission activity. Apporteurs that are also providers see
+          BOTH this section and the provider-side section below. */}
+      <CommissionSection
+        summary={wallet.commissions}
+        records={wallet.commission_records ?? []}
+      />
+
       {/* Payment Records */}
       <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
         <div className="p-5 border-b border-slate-100 dark:border-slate-700">
@@ -266,6 +279,148 @@ function TransferBadge({ status }: { status: string }) {
     return <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-400">Échec</span>
   }
   return <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">En attente</span>
+}
+
+// CommissionSection renders the apporteur's commission wallet — three
+// summary cards + a history list. Hidden when the viewer has no
+// commission activity so provider-only users keep the same compact UI.
+function CommissionSection({
+  summary,
+  records,
+}: {
+  summary: CommissionWallet
+  records: WalletCommissionRecord[]
+}) {
+  const totalActivity =
+    summary.pending_cents +
+    summary.pending_kyc_cents +
+    summary.paid_cents +
+    summary.clawed_back_cents
+  if (totalActivity === 0 && records.length === 0) {
+    return null
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-rose-500" aria-hidden="true" />
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+          Commissions d&apos;apport
+        </h2>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <BalanceCard
+          icon={Clock}
+          label="En attente"
+          amount={summary.pending_cents + summary.pending_kyc_cents}
+          description={
+            summary.pending_kyc_cents > 0
+              ? "Dont KYC à compléter — complétez votre KYC pour les recevoir"
+              : "Commissions en file d'attente de virement"
+          }
+          color="amber"
+        />
+        <BalanceCard
+          icon={UserCheck}
+          label="Reçues"
+          amount={summary.paid_cents}
+          description="Déjà versées sur votre compte Stripe Connect"
+          color="green"
+        />
+        <BalanceCard
+          icon={Undo2}
+          label="Reprises"
+          amount={summary.clawed_back_cents}
+          description="Reversées suite à un remboursement client"
+          color="blue"
+        />
+      </div>
+
+      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-rose-500" aria-hidden="true" />
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+            Historique des commissions
+          </h3>
+        </div>
+        {records.length === 0 ? (
+          <div className="p-6 text-center text-xs text-slate-500">
+            Aucune commission pour le moment.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+            {records.map((r) => (
+              <CommissionRow key={r.id} record={r} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CommissionRow({ record }: { record: WalletCommissionRecord }) {
+  const status = commissionStatusLabel(record.status)
+  return (
+    <div className="flex items-center gap-4 px-5 py-3">
+      <CommissionStatusIcon status={record.status} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+          Milestone {record.milestone_id ? record.milestone_id.slice(0, 8) + "…" : "—"}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs text-slate-500">
+            {new Date(record.created_at).toLocaleDateString("fr-FR")}
+          </span>
+          {record.referral_id && (
+            <Link
+              href={`/referrals/${record.referral_id}`}
+              className="text-[11px] font-medium text-rose-600 hover:underline"
+            >
+              Voir la mise en relation
+            </Link>
+          )}
+        </div>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          {formatEur(record.commission_cents)}
+        </p>
+        <p className="text-xs text-slate-500">
+          sur {formatEur(record.gross_amount_cents)}
+        </p>
+      </div>
+      <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium", status.cls)}>
+        {status.label}
+      </span>
+    </div>
+  )
+}
+
+function commissionStatusLabel(status: string): { label: string; cls: string } {
+  switch (status) {
+    case "paid":
+      return { label: "Reçue", cls: "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400" }
+    case "pending":
+      return { label: "En attente", cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400" }
+    case "pending_kyc":
+      return { label: "KYC requis", cls: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400" }
+    case "clawed_back":
+      return { label: "Reprise", cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400" }
+    case "failed":
+      return { label: "Échec", cls: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400" }
+    case "cancelled":
+      return { label: "Annulée", cls: "bg-slate-100 text-slate-600" }
+    default:
+      return { label: status, cls: "bg-slate-100 text-slate-600" }
+  }
+}
+
+function CommissionStatusIcon({ status }: { status: string }) {
+  if (status === "paid") return <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+  if (status === "failed") return <XCircle className="h-5 w-5 text-red-500 shrink-0" />
+  if (status === "clawed_back") return <Undo2 className="h-5 w-5 text-blue-500 shrink-0" />
+  return <Clock className="h-5 w-5 text-amber-500 shrink-0" />
 }
 
 function WalletSkeleton() {

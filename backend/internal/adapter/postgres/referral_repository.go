@@ -367,6 +367,21 @@ func (r *ReferralRepository) ListCommissionsByReferral(ctx context.Context, refe
 	return scanCommissionRows(rows)
 }
 
+func (r *ReferralRepository) ListRecentCommissionsByReferrer(ctx context.Context, referrerID uuid.UUID, limit int) ([]*referral.Commission, error) {
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := r.db.QueryContext(ctx, queryListRecentCommissionsByReferrer, referrerID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list recent commissions by referrer: %w", err)
+	}
+	defer rows.Close()
+	return scanCommissionRows(rows)
+}
+
 func (r *ReferralRepository) ListPendingKYCByReferrer(ctx context.Context, referrerID uuid.UUID) ([]*referral.Commission, error) {
 	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
 	defer cancel()

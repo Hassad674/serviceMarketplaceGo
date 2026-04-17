@@ -115,6 +115,13 @@ type ReferralRepository interface {
 	// referral.kyc_listener.OnStripeAccountReady.
 	ListPendingKYCByReferrer(ctx context.Context, referrerID uuid.UUID) ([]*referral.Commission, error)
 
+	// ListRecentCommissionsByReferrer returns the most recent N
+	// commissions belonging to the referrer (across all their referrals
+	// and all statuses). Ordered by created_at DESC. Used by the
+	// /wallet history section to show the apporteur's recent income
+	// events alongside their provider-side payouts.
+	ListRecentCommissionsByReferrer(ctx context.Context, referrerID uuid.UUID, limit int) ([]*referral.Commission, error)
+
 	// ─── Cron support ─────────────────────────────────────────────────────
 
 	// ListExpiringIntros returns referrals in a pending state with

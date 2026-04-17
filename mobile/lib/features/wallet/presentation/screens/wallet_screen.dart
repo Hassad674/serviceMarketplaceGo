@@ -132,6 +132,17 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               ),
             const SizedBox(height: 24),
 
+            // Apporteur commissions — rendered only when there is
+            // activity. Providers who are also business referrers see
+            // BOTH this section and the payouts history below.
+            if (!wallet.commissions.isEmpty || wallet.commissionRecords.isNotEmpty) ...[
+              _CommissionSection(
+                summary: wallet.commissions,
+                records: wallet.commissionRecords,
+              ),
+              const SizedBox(height: 24),
+            ],
+
             // Transaction history
             _TransactionHistory(
               records: wallet.records,
@@ -141,6 +152,225 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         ),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Commission section (apporteur d'affaires)
+// ---------------------------------------------------------------------------
+
+class _CommissionSection extends StatelessWidget {
+  const _CommissionSection({required this.summary, required this.records});
+
+  final CommissionWallet summary;
+  final List<CommissionRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: const [
+            Icon(Icons.auto_awesome, size: 16, color: Color(0xFFF43F5E)),
+            SizedBox(width: 6),
+            Text(
+              "Commissions d'apport",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _CommissionCard(
+                icon: Icons.schedule,
+                label: 'En attente',
+                amount:
+                    summary.pendingCents + summary.pendingKycCents,
+                color: const Color(0xFFF59E0B),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CommissionCard(
+                icon: Icons.verified_outlined,
+                label: 'Reçues',
+                amount: summary.paidCents,
+                color: const Color(0xFF10B981),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _CommissionCard(
+                icon: Icons.undo,
+                label: 'Reprises',
+                amount: summary.clawedBackCents,
+                color: const Color(0xFF3B82F6),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (records.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              'Historique des commissions',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ...records.map((r) => _CommissionRow(record: r)),
+        ],
+      ],
+    );
+  }
+}
+
+class _CommissionCard extends StatelessWidget {
+  const _CommissionCard({
+    required this.icon,
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final int amount;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            WalletOverview.formatCents(amount),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommissionRow extends StatelessWidget {
+  const _CommissionRow({required this.record});
+
+  final CommissionRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = _commissionChip(record.status);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  record.milestoneId.isNotEmpty
+                      ? 'Milestone ${record.milestoneId.substring(0, record.milestoneId.length < 8 ? record.milestoneId.length : 8)}…'
+                      : 'Milestone',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${record.createdAt.day.toString().padLeft(2, '0')}/'
+                  '${record.createdAt.month.toString().padLeft(2, '0')}/'
+                  '${record.createdAt.year}',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                WalletOverview.formatCents(record.commissionCents),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: chip.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  chip.label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: chip.color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  ({String label, Color color}) _commissionChip(String status) {
+    switch (status) {
+      case 'paid':
+        return (label: 'Reçue', color: const Color(0xFF10B981));
+      case 'pending':
+        return (label: 'En attente', color: const Color(0xFFF59E0B));
+      case 'pending_kyc':
+        return (label: 'KYC requis', color: const Color(0xFFEA580C));
+      case 'clawed_back':
+        return (label: 'Reprise', color: const Color(0xFF3B82F6));
+      case 'failed':
+        return (label: 'Échec', color: const Color(0xFFEF4444));
+      case 'cancelled':
+        return (label: 'Annulée', color: const Color(0xFF64748B));
+      default:
+        return (label: status, color: const Color(0xFF64748B));
+    }
   }
 }
 

@@ -253,6 +253,26 @@ func (f *fakeReferralRepo) ListCommissionsByReferral(ctx context.Context, referr
 	return out, nil
 }
 
+func (f *fakeReferralRepo) ListRecentCommissionsByReferrer(ctx context.Context, referrerID uuid.UUID, limit int) ([]*referral.Commission, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []*referral.Commission
+	for _, c := range f.commissions {
+		a, ok := f.attributionsByID[c.AttributionID]
+		if !ok {
+			continue
+		}
+		if r, ok := f.rows[a.ReferralID]; ok && r.ReferrerID == referrerID {
+			cp := *c
+			out = append(out, &cp)
+		}
+	}
+	if limit > 0 && len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
 func (f *fakeReferralRepo) ListPendingKYCByReferrer(ctx context.Context, referrerID uuid.UUID) ([]*referral.Commission, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

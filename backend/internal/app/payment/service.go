@@ -28,6 +28,7 @@ type Service struct {
 	// feature is not active; all call sites guard for nil before invoking.
 	referralDistributor service.ReferralCommissionDistributor
 	referralClawback    service.ReferralClawback
+	referralWallet      service.ReferralWalletReader
 }
 
 // ServiceDeps groups all dependencies for the payment service.
@@ -71,4 +72,12 @@ func (s *Service) SetReferralDistributor(d service.ReferralCommissionDistributor
 // (partially) refunded.
 func (s *Service) SetReferralClawback(c service.ReferralClawback) {
 	s.referralClawback = c
+}
+
+// SetReferralWalletReader plugs the apporteur commission read path into
+// the wallet overview. Wire AFTER both services exist so the wallet
+// endpoint can return commission totals + history for referrers.
+// Passing nil disables the commission section of the wallet DTO.
+func (s *Service) SetReferralWalletReader(r service.ReferralWalletReader) {
+	s.referralWallet = r
 }
