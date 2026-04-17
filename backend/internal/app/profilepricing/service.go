@@ -99,6 +99,18 @@ func (s *Service) Upsert(ctx context.Context, input UpsertInput) (*domainpricing
 	if !domainpricing.IsTypeAllowedForOrg(orgType, referrerEnabled, input.Kind, input.Type) {
 		return nil, domainpricing.ErrTypeNotAllowedForOrg
 	}
+	// V1 pricing simplification: agency orgs on the direct kind may
+	// only declare `project_from` ("à partir de"). The legacy
+	// project_range path is frozen for existing rows but rejected on
+	// writes so the agency listing page stays price-comparable.
+	// Non-agency writes fall through unchanged (provider_personal
+	// direct pricing lives in freelancepricing, which does not route
+	// through this service; referral pricing lives in referrerpricing).
+	if orgType == domainpricing.OrgTypeAgency &&
+		input.Kind == domainpricing.KindDirect &&
+		input.Type != domainpricing.TypeProjectFrom {
+		return nil, domainpricing.ErrPricingTypeNotAllowed
+	}
 
 	p, err := domainpricing.NewPricing(domainpricing.NewPricingInput{
 		OrganizationID: input.OrganizationID,

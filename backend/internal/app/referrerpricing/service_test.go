@@ -65,16 +65,50 @@ func TestService_Upsert_HappyPath(t *testing.T) {
 	}
 	svc := appreferrer.NewService(repo)
 
+	// V1 pricing simplification: `commission_pct` is the single
+	// allowed type for the referrer persona. Happy path writes it
+	// with the required "pct" currency and basis-point amounts.
 	got, err := svc.Upsert(context.Background(), appreferrer.UpsertInput{
 		ProfileID:  profileID,
-		Type:       domainreferrer.TypeCommissionFlat,
-		MinAmount:  50000,
-		Currency:   "EUR",
+		Type:       domainreferrer.TypeCommissionPct,
+		MinAmount:  500,
+		MaxAmount:  intp(1500),
+		Currency:   "pct",
 		Negotiable: true,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, persisted, got)
-	assert.Equal(t, domainreferrer.TypeCommissionFlat, got.Type)
+	assert.Equal(t, domainreferrer.TypeCommissionPct, got.Type)
+}
+
+// TestService_Upsert_RejectsDeprecatedTypes asserts the V1 whitelist:
+// only `commission_pct` is accepted on writes. The legacy
+// `commission_flat` must fail fast without touching the repository.
+func TestService_Upsert_RejectsDeprecatedTypes(t *testing.T) {
+	deprecated := []domainreferrer.PricingType{
+		domainreferrer.TypeCommissionFlat,
+	}
+	for _, tp := range deprecated {
+		t.Run(string(tp), func(t *testing.T) {
+			persistCalled := false
+			repo := &mockReferrerPricingRepo{
+				upsert: func(ctx context.Context, p *domainreferrer.Pricing) error {
+					persistCalled = true
+					return nil
+				},
+			}
+			svc := appreferrer.NewService(repo)
+
+			_, err := svc.Upsert(context.Background(), appreferrer.UpsertInput{
+				ProfileID: uuid.New(),
+				Type:      tp,
+				MinAmount: 50000,
+				Currency:  "EUR",
+			})
+			assert.ErrorIs(t, err, domainreferrer.ErrPricingTypeNotAllowed)
+			assert.False(t, persistCalled, "deprecated type must never reach the repository")
+		})
+	}
 }
 
 func TestService_Get_PassesThroughAndNotFound(t *testing.T) {

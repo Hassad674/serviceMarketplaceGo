@@ -141,6 +141,8 @@ func handlePricingError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusNotFound, "pricing_not_found", err.Error())
 	case errors.Is(err, domainpricing.ErrKindNotAllowedForRole):
 		res.Error(w, http.StatusForbidden, "forbidden", err.Error())
+	case errors.Is(err, domainpricing.ErrPricingTypeNotAllowed):
+		res.Error(w, http.StatusBadRequest, "pricing_type_not_allowed", err.Error())
 	case errors.Is(err, domainpricing.ErrInvalidKind),
 		errors.Is(err, domainpricing.ErrInvalidType),
 		errors.Is(err, domainpricing.ErrTypeNotAllowedForKind),
