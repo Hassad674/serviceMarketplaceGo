@@ -271,7 +271,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: flutter test (scoped: search + profile)
+      - name: "flutter test (scoped: search + profile)"
         # Full repo tests include flaky legacy paths (video upload
         # simulation, etc.) that a dedicated stabilisation PR will
         # green. Search + profile tests must stay 100% green.
