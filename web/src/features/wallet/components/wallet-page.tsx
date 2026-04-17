@@ -298,7 +298,7 @@ function MissionsSection({
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {records.map((record) => (
-              <RecordRow key={record.proposal_id} record={record} />
+              <RecordRow key={record.id} record={record} />
             ))}
           </div>
         )}

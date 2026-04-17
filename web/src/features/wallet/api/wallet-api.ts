@@ -1,7 +1,9 @@
 import { apiClient } from "@/shared/lib/api-client"
 
 export type WalletRecord = {
+  id: string
   proposal_id: string
+  milestone_id?: string
   proposal_amount: number
   platform_fee: number
   provider_payout: number
