@@ -57,7 +57,11 @@ func newFreelanceStub(payload string) *fakeClient {
 	return &fakeClient{persona: search.PersonaFreelance, respPayload: payload}
 }
 
-func TestService_Query_HybridIncludesEmbeddingField(t *testing.T) {
+func TestService_Query_HybridPassesVectorQueryNotQueryBy(t *testing.T) {
+	// On Typesense 28.0, the `embedding` field is a MANUAL vector
+	// (not auto-embedding). Including it in `query_by` triggers a
+	// 400 with the cryptic "not an auto-embedding field" error.
+	// Hybrid blending is controlled exclusively by vector_query.
 	stub := newFreelanceStub(`{"found":0,"hits":[]}`)
 	embedder := &stubEmbedder{vec: []float32{0.1, 0.2, 0.3}}
 	svc := NewService(ServiceDeps{Freelance: stub, Embedder: embedder})
@@ -68,10 +72,11 @@ func TestService_Query_HybridIncludesEmbeddingField(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, 1, embedder.call)
-	assert.Contains(t, stub.gotParams.QueryBy, "embedding")
+	assert.NotContains(t, stub.gotParams.QueryBy, "embedding",
+		"embedding must NOT be in query_by (Typesense 28.0 manual-vector constraint)")
 	assert.True(t, strings.HasPrefix(stub.gotParams.VectorQuery, "embedding:(["))
 	assert.Contains(t, stub.gotParams.VectorQuery, "k:20)")
-	// num_typos must gain a trailing 0 to match the extra query_by field.
+	// num_typos stays aligned with the text-only query_by fields.
 	assert.Equal(t, strings.Count(stub.gotParams.QueryBy, ","), strings.Count(stub.gotParams.NumTypos, ","))
 }
 
@@ -85,10 +90,10 @@ func TestService_Query_MatchAllSkipsEmbedding(t *testing.T) {
 		Query:   "",
 	})
 	require.NoError(t, err)
-	// Match-all: no embedding call, no embedding in query_by, no
-	// vector_query param.
+	// Match-all: no embedding call, no vector_query param. query_by
+	// is text-only in every path (see the hybrid test above), so we
+	// only assert the vector + embedder side.
 	assert.Equal(t, 0, embedder.call)
-	assert.NotContains(t, stub.gotParams.QueryBy, "embedding")
 	assert.Empty(t, stub.gotParams.VectorQuery)
 }
 
