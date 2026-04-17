@@ -14,6 +14,11 @@ import {
   ShieldCheck,
   Send,
   RefreshCw,
+  Briefcase,
+  Sparkles,
+  ChevronRight,
+  UserCheck,
+  Undo2,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
@@ -24,10 +29,17 @@ import type {
   CommissionWallet,
   WalletCommissionRecord,
 } from "../api/wallet-api"
-import { Sparkles, TrendingUp, UserCheck, Undo2 } from "lucide-react"
 
 function formatEur(centimes: number): string {
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(centimes / 100)
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  })
 }
 
 export function WalletPage() {
@@ -46,6 +58,8 @@ export function WalletPage() {
   }
 
   const records = wallet.records ?? []
+  const commissionRecords = wallet.commission_records ?? []
+  const totalEarned = wallet.transferred_amount + wallet.commissions.paid_cents
 
   function handlePayout() {
     payoutMutation.mutate(undefined, {
@@ -54,124 +68,233 @@ export function WalletPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
-          <Wallet className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Wallet (Test)</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Page de test — Stripe Connect Custom</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-4xl px-4 py-8 space-y-8">
+      {/* Hero — total earned + Stripe status + withdraw CTA */}
+      <WalletHero
+        wallet={wallet}
+        totalEarned={totalEarned}
+        canWithdraw={canWithdraw}
+        payoutPending={payoutMutation.isPending}
+        payoutMessage={payoutMessage}
+        payoutError={payoutMutation.isError ? (payoutMutation.error as Error) : null}
+        onPayout={handlePayout}
+      />
 
-      {/* Stripe Account Status */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400 mb-3">Compte Stripe Connect</h2>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            {wallet.stripe_account_id ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            ) : (
-              <XCircle className="h-4 w-4 text-red-500" />
-            )}
-            <span className="text-sm text-slate-700 dark:text-slate-300">
-              {wallet.stripe_account_id || "Non créé"}
-            </span>
+      {/* Missions — escrow / available / transferred + history */}
+      <MissionsSection
+        escrow={wallet.escrow_amount}
+        available={wallet.available_amount}
+        transferred={wallet.transferred_amount}
+        records={records}
+      />
+
+      {/* Commissions — apporteur section, hidden when no activity */}
+      <CommissionSection
+        summary={wallet.commissions}
+        records={commissionRecords}
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Hero: title + total earned + compact Stripe status + withdraw CTA
+// ---------------------------------------------------------------------------
+function WalletHero({
+  wallet,
+  totalEarned,
+  canWithdraw,
+  payoutPending,
+  payoutMessage,
+  payoutError,
+  onPayout,
+}: {
+  wallet: {
+    stripe_account_id: string
+    charges_enabled: boolean
+    payouts_enabled: boolean
+    available_amount: number
+  }
+  totalEarned: number
+  canWithdraw: boolean
+  payoutPending: boolean
+  payoutMessage: string
+  payoutError: Error | null
+  onPayout: () => void
+}) {
+  const hasAccount = Boolean(wallet.stripe_account_id)
+  const canClick = canWithdraw && wallet.available_amount > 0
+
+  return (
+    <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
+            <Wallet className="h-5 w-5 text-rose-600 dark:text-rose-400" />
           </div>
-          <StatusBadge label="Charges" enabled={wallet.charges_enabled} />
-          <StatusBadge label="Payouts" enabled={wallet.payouts_enabled} />
-        </div>
-      </div>
-
-      {/* Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <BalanceCard
-          icon={ShieldCheck}
-          label="En escrow"
-          amount={wallet.escrow_amount}
-          description="Missions payées, en attente de complétion ou transfert"
-          color="amber"
-        />
-        <BalanceCard
-          icon={DollarSign}
-          label="Disponible"
-          amount={wallet.available_amount}
-          description="Prêt à être transféré sur votre compte bancaire"
-          color="green"
-        />
-        <BalanceCard
-          icon={Send}
-          label="Transféré"
-          amount={wallet.transferred_amount}
-          description="Total versé sur votre compte bancaire"
-          color="blue"
-        />
-      </div>
-
-      {/* Payout Button */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
-        <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Retrait</h2>
-            <p className="text-xs text-slate-500">Transférer les fonds disponibles vers votre compte bancaire</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Portefeuille</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Vos revenus issus des missions et commissions d&apos;apport
+            </p>
           </div>
+        </div>
+      </div>
+
+      {/* Total earned — hero number */}
+      <div className="mt-6">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          Revenus totaux
+        </p>
+        <p className="mt-1 font-mono text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          {formatEur(totalEarned)}
+        </p>
+      </div>
+
+      {/* Stripe status line + withdraw CTA row */}
+      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-sm">
+          {hasAccount && wallet.payouts_enabled ? (
+            <>
+              <CheckCircle2 className="h-4 w-4 text-green-500" aria-hidden="true" />
+              <span className="text-slate-700 dark:text-slate-300">
+                Compte Stripe prêt — virements activés
+              </span>
+            </>
+          ) : hasAccount ? (
+            <>
+              <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden="true" />
+              <span className="text-slate-700 dark:text-slate-300">
+                Compte Stripe en cours de vérification
+              </span>
+              <Link
+                href="/payment-info"
+                className="text-rose-600 hover:underline dark:text-rose-400"
+              >
+                Finaliser
+              </Link>
+            </>
+          ) : (
+            <>
+              <XCircle className="h-4 w-4 text-red-500" aria-hidden="true" />
+              <span className="text-slate-700 dark:text-slate-300">
+                Compte Stripe non configuré
+              </span>
+              <Link
+                href="/payment-info"
+                className="text-rose-600 hover:underline dark:text-rose-400"
+              >
+                Configurer
+              </Link>
+            </>
+          )}
+        </div>
+
+        <div className="flex flex-col items-stretch gap-1 sm:items-end">
           <button
             type="button"
-            onClick={handlePayout}
-            disabled={payoutMutation.isPending || wallet.available_amount === 0 || !canWithdraw}
-            title={!canWithdraw ? "Seul le propri\u00e9taire peut demander un retrait" : undefined}
+            onClick={onPayout}
+            disabled={payoutPending || !canClick}
+            title={!canWithdraw ? "Seul le propriétaire peut demander un retrait" : undefined}
             className={cn(
-              "flex items-center gap-2 rounded-xl px-5 py-2.5",
+              "inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5",
               "text-sm font-semibold text-white transition-all duration-200",
               "gradient-primary hover:shadow-glow active:scale-[0.98]",
               "disabled:opacity-50 disabled:cursor-not-allowed",
             )}
           >
-            {payoutMutation.isPending ? (
+            {payoutPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <ArrowDownToLine className="h-4 w-4" />
             )}
             Retirer {formatEur(wallet.available_amount)}
           </button>
+          {wallet.available_amount === 0 && (
+            <span className="text-xs text-slate-400 dark:text-slate-500 sm:text-right">
+              Aucun fonds disponible
+            </span>
+          )}
         </div>
-        {payoutMessage && (
-          <p className="mt-3 text-sm text-green-600 dark:text-green-400">{payoutMessage}</p>
-        )}
-        {payoutMutation.isError && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-500/20 dark:bg-red-500/10">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-            {payoutMutation.error instanceof ApiError && payoutMutation.error.code === "stripe_account_missing" ? (
-              <p className="text-sm text-red-700 dark:text-red-400">
-                Vous devez d&apos;abord configurer vos informations de paiement pour effectuer un retrait.{" "}
-                <Link href="/payment-info" className="font-semibold underline hover:text-red-900 dark:hover:text-red-300">
-                  Configurer maintenant
-                </Link>
-              </p>
-            ) : (
-              <p className="text-sm text-red-700 dark:text-red-400">Erreur lors du retrait</p>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Apporteur commissions — rendered only when the viewer has
-          commission activity. Apporteurs that are also providers see
-          BOTH this section and the provider-side section below. */}
-      <CommissionSection
-        summary={wallet.commissions}
-        records={wallet.commission_records ?? []}
-      />
+      {payoutMessage && (
+        <p className="mt-3 text-sm text-green-600 dark:text-green-400">{payoutMessage}</p>
+      )}
+      {payoutError && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-500/20 dark:bg-red-500/10">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          {payoutError instanceof ApiError && payoutError.code === "stripe_account_missing" ? (
+            <p className="text-sm text-red-700 dark:text-red-400">
+              Vous devez d&apos;abord configurer vos informations de paiement pour effectuer un retrait.{" "}
+              <Link href="/payment-info" className="font-semibold underline hover:text-red-900 dark:hover:text-red-300">
+                Configurer maintenant
+              </Link>
+            </p>
+          ) : (
+            <p className="text-sm text-red-700 dark:text-red-400">Erreur lors du retrait</p>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
 
-      {/* Payment Records */}
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-700">
-          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Historique des paiements</h2>
+// ---------------------------------------------------------------------------
+// Missions section — 3 balance cards + history
+// ---------------------------------------------------------------------------
+function MissionsSection({
+  escrow,
+  available,
+  transferred,
+  records,
+}: {
+  escrow: number
+  available: number
+  transferred: number
+  records: WalletRecord[]
+}) {
+  return (
+    <section className="space-y-4">
+      <SectionHeader icon={Briefcase} title="Mes missions" />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <BalanceCard
+          icon={ShieldCheck}
+          label="En séquestre"
+          amount={escrow}
+          description="Missions payées, en attente de complétion"
+          color="amber"
+        />
+        <BalanceCard
+          icon={DollarSign}
+          label="Disponible"
+          amount={available}
+          description="Prêt à être retiré sur votre compte bancaire"
+          color="green"
+        />
+        <BalanceCard
+          icon={Send}
+          label="Transféré"
+          amount={transferred}
+          description="Total déjà versé sur votre compte bancaire"
+          color="blue"
+        />
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+            Historique des missions
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Toutes vos missions — du séquestre au transfert
+          </p>
         </div>
         {records.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-500">Aucun paiement</div>
+          <div className="p-8 text-center text-sm text-slate-500">
+            Aucune mission pour le moment
+          </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {records.map((record) => (
@@ -180,25 +303,26 @@ export function WalletPage() {
           </div>
         )}
       </div>
+    </section>
+  )
+}
+
+function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Icon className="h-4 w-4 text-rose-500" aria-hidden="true" />
+      <h2 className="text-base font-semibold text-slate-900 dark:text-white">{title}</h2>
     </div>
   )
 }
 
-function StatusBadge({ label, enabled }: { label: string; enabled: boolean }) {
-  return (
-    <span className={cn(
-      "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
-      enabled
-        ? "bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400"
-        : "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400"
-    )}>
-      {enabled ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-      {label}
-    </span>
-  )
-}
-
-function BalanceCard({ icon: Icon, label, amount, description, color }: {
+function BalanceCard({
+  icon: Icon,
+  label,
+  amount,
+  description,
+  color,
+}: {
   icon: React.ElementType
   label: string
   amount: number
@@ -213,24 +337,31 @@ function BalanceCard({ icon: Icon, label, amount, description, color }: {
   const c = colorMap[color]
 
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-800">
+      <div className="mb-2 flex items-center gap-3">
         <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg", c.bg)}>
           <Icon className={cn("h-4 w-4", c.icon)} />
         </div>
         <span className="text-xs text-slate-500 dark:text-slate-400">{label}</span>
       </div>
-      <p className="text-xl font-bold text-slate-900 dark:text-white">{formatEur(amount)}</p>
+      <p className="font-mono text-xl font-bold text-slate-900 dark:text-white">
+        {formatEur(amount)}
+      </p>
       <p className="mt-1 text-xs text-slate-400">{description}</p>
     </div>
   )
 }
 
+// ---------------------------------------------------------------------------
+// Mission record row — distinct visual treatment for escrow (pending transfer)
+// ---------------------------------------------------------------------------
 function RecordRow({ record }: { record: WalletRecord }) {
   const retryMutation = useRetryTransfer()
   const canWithdraw = useHasPermission("wallet.withdraw")
 
   const isFailed = record.transfer_status === "failed"
+  const isInEscrow =
+    record.transfer_status === "pending" || record.transfer_status === ""
   const pendingForThisRow =
     retryMutation.isPending && retryMutation.variables === record.proposal_id
   const errorForThisRow =
@@ -242,23 +373,33 @@ function RecordRow({ record }: { record: WalletRecord }) {
     retryMutation.mutate(record.proposal_id)
   }
 
+  // Escrow rows get a muted amber left border to make "still in escrow"
+  // visually obvious without relying on the status badge alone.
+  const leftAccent = isFailed
+    ? "border-l-4 border-l-red-400 dark:border-l-red-500/60"
+    : isInEscrow
+      ? "border-l-4 border-l-amber-400 dark:border-l-amber-500/60"
+      : "border-l-4 border-l-transparent"
+
   return (
-    <div className="px-5 py-3">
+    <div className={cn("px-5 py-3", leftAccent)}>
       <div className="flex items-center gap-4">
         <PaymentStatusIcon status={record.payment_status} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-            Proposition {record.proposal_id.slice(0, 8)}...
+          <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+            Mission du {formatDate(record.created_at)}
           </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-xs text-slate-500">
-              {new Date(record.created_at).toLocaleDateString("fr-FR")}
-            </span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            {isInEscrow && !isFailed && (
+              <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                En séquestre — mission en cours
+              </span>
+            )}
             <MissionBadge status={record.mission_status} />
           </div>
         </div>
         <div className="text-right">
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          <p className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
             {formatEur(record.provider_payout)}
           </p>
           <p className="text-xs text-slate-500">
@@ -277,11 +418,11 @@ function RecordRow({ record }: { record: WalletRecord }) {
             }
             aria-label="Relancer le transfert"
             className={cn(
-              "shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5",
+              "inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5",
               "text-xs font-medium transition-colors duration-200",
               "bg-red-50 text-red-700 hover:bg-red-100",
               "dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20",
-              "disabled:opacity-60 disabled:cursor-not-allowed",
+              "disabled:cursor-not-allowed disabled:opacity-60",
             )}
           >
             {pendingForThisRow ? (
@@ -326,24 +467,36 @@ function MissionBadge({ status }: { status: string }) {
 }
 
 function PaymentStatusIcon({ status }: { status: string }) {
-  if (status === "succeeded") return <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-  if (status === "failed") return <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-  return <Clock className="h-5 w-5 text-amber-500 shrink-0" />
+  if (status === "succeeded") return <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+  if (status === "failed") return <XCircle className="h-5 w-5 shrink-0 text-red-500" />
+  return <Clock className="h-5 w-5 shrink-0 text-amber-500" />
 }
 
 function TransferBadge({ status }: { status: string }) {
   if (status === "completed") {
-    return <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">Transféré</span>
+    return (
+      <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+        Transféré
+      </span>
+    )
   }
   if (status === "failed") {
-    return <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-400">Échec</span>
+    return (
+      <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-500/10 dark:text-red-400">
+        Échec
+      </span>
+    )
   }
-  return <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">En attente</span>
+  return (
+    <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+      En séquestre
+    </span>
+  )
 }
 
-// CommissionSection renders the apporteur's commission wallet — three
-// summary cards + a history list. Hidden when the viewer has no
-// commission activity so provider-only users keep the same compact UI.
+// ---------------------------------------------------------------------------
+// Commissions section — apporteur d'affaires
+// ---------------------------------------------------------------------------
 function CommissionSection({
   summary,
   records,
@@ -359,16 +512,12 @@ function CommissionSection({
   if (totalActivity === 0 && records.length === 0) {
     return null
   }
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-4 w-4 text-rose-500" aria-hidden="true" />
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-          Commissions d&apos;apport
-        </h2>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  return (
+    <section className="space-y-4">
+      <SectionHeader icon={Sparkles} title="Mes commissions d'apport" />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <BalanceCard
           icon={Clock}
           label="En attente"
@@ -396,16 +545,18 @@ function CommissionSection({
         />
       </div>
 
-      <div className="rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-rose-500" aria-hidden="true" />
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="border-b border-slate-100 px-5 py-3 dark:border-slate-700">
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             Historique des commissions
           </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Chaque mise en relation que vous avez facilitée
+          </p>
         </div>
         {records.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-500">
-            Aucune commission pour le moment.
+            Aucune commission pour le moment
           </div>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -415,46 +566,65 @@ function CommissionSection({
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }
 
 function CommissionRow({ record }: { record: WalletCommissionRecord }) {
   const status = commissionStatusLabel(record.status)
-  return (
-    <div className="flex items-center gap-4 px-5 py-3">
+  const isPending =
+    record.status === "pending" || record.status === "pending_kyc"
+
+  const leftAccent = isPending
+    ? "border-l-4 border-l-amber-400 dark:border-l-amber-500/60"
+    : record.status === "clawed_back"
+      ? "border-l-4 border-l-blue-400 dark:border-l-blue-500/60"
+      : "border-l-4 border-l-transparent"
+
+  const rowContent = (
+    <div className={cn("flex items-center gap-4 px-5 py-3", leftAccent)}>
       <CommissionStatusIcon status={record.status} />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-          Milestone {record.milestone_id ? record.milestone_id.slice(0, 8) + "…" : "—"}
+        <p className="truncate text-sm font-medium text-slate-900 dark:text-white">
+          Commission du {formatDate(record.created_at)}
         </p>
-        <div className="flex items-center gap-2 mt-0.5">
+        <div className="mt-0.5 flex items-center gap-2">
           <span className="text-xs text-slate-500">
-            {new Date(record.created_at).toLocaleDateString("fr-FR")}
+            sur {formatEur(record.gross_amount_cents)} de mission
           </span>
-          {record.referral_id && (
-            <Link
-              href={`/referrals/${record.referral_id}`}
-              className="text-[11px] font-medium text-rose-600 hover:underline"
-            >
-              Voir la mise en relation
-            </Link>
-          )}
         </div>
       </div>
       <div className="text-right">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+        <p className="font-mono text-sm font-semibold text-slate-900 dark:text-white">
           {formatEur(record.commission_cents)}
         </p>
-        <p className="text-xs text-slate-500">
-          sur {formatEur(record.gross_amount_cents)}
-        </p>
+        <span className={cn("mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium", status.cls)}>
+          {status.label}
+        </span>
       </div>
-      <span className={cn("shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium", status.cls)}>
-        {status.label}
-      </span>
+      {record.referral_id ? (
+        <ChevronRight
+          className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-rose-500"
+          aria-hidden="true"
+        />
+      ) : (
+        <div className="w-4 shrink-0" aria-hidden="true" />
+      )}
     </div>
   )
+
+  if (record.referral_id) {
+    return (
+      <Link
+        href={`/referrals/${record.referral_id}`}
+        aria-label="Voir la mise en relation"
+        className="group block transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+      >
+        {rowContent}
+      </Link>
+    )
+  }
+  return rowContent
 }
 
 function commissionStatusLabel(status: string): { label: string; cls: string } {
@@ -477,21 +647,22 @@ function commissionStatusLabel(status: string): { label: string; cls: string } {
 }
 
 function CommissionStatusIcon({ status }: { status: string }) {
-  if (status === "paid") return <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-  if (status === "failed") return <XCircle className="h-5 w-5 text-red-500 shrink-0" />
-  if (status === "clawed_back") return <Undo2 className="h-5 w-5 text-blue-500 shrink-0" />
-  return <Clock className="h-5 w-5 text-amber-500 shrink-0" />
+  if (status === "paid") return <CheckCircle2 className="h-5 w-5 shrink-0 text-green-500" />
+  if (status === "failed") return <XCircle className="h-5 w-5 shrink-0 text-red-500" />
+  if (status === "clawed_back") return <Undo2 className="h-5 w-5 shrink-0 text-blue-500" />
+  return <Clock className="h-5 w-5 shrink-0 text-amber-500" />
 }
 
 function WalletSkeleton() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 space-y-6">
-      <div className="h-8 w-48 animate-shimmer rounded bg-slate-200 dark:bg-slate-700" />
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+      <div className="h-32 animate-shimmer rounded-2xl bg-slate-200 dark:bg-slate-700" />
       <div className="grid grid-cols-3 gap-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-28 animate-shimmer rounded-xl bg-slate-200 dark:bg-slate-700" />
         ))}
       </div>
+      <div className="h-64 animate-shimmer rounded-2xl bg-slate-200 dark:bg-slate-700" />
     </div>
   )
 }
