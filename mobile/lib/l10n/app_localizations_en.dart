@@ -391,13 +391,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchFiltersAll => 'All';
 
   @override
-  String get searchFiltersPrice => 'Daily rate';
+  String get searchFiltersPrice => 'Price';
 
   @override
   String get searchFiltersPriceMin => 'Min';
 
   @override
   String get searchFiltersPriceMax => 'Max';
+
+  @override
+  String get searchFiltersFreelancePrice => 'Daily rate (TJM)';
+
+  @override
+  String get searchFiltersFreelancePriceMin => 'TJM min';
+
+  @override
+  String get searchFiltersFreelancePriceMax => 'TJM max';
+
+  @override
+  String get searchFiltersAgencyPrice => 'Minimum project budget';
+
+  @override
+  String get searchFiltersAgencyPriceMin => 'Budget min';
+
+  @override
+  String get searchFiltersAgencyPriceMax => 'Budget max';
+
+  @override
+  String get searchFiltersReferrerPrice => 'Commission';
+
+  @override
+  String get searchFiltersReferrerPriceMin => 'Min';
+
+  @override
+  String get searchFiltersReferrerPriceMax => 'Max';
 
   @override
   String get searchFiltersLocation => 'Location';
@@ -2729,6 +2756,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tier1PricingEnableReferralRow => 'Add a business-referrer row';
+
+  @override
+  String get tier1PricingFreelanceDailyLabel => 'Daily rate (TJM)';
+
+  @override
+  String get tier1PricingFreelanceDailyHint =>
+      'Your standard daily rate, in euros.';
+
+  @override
+  String get tier1PricingReferrerCommissionLabel => 'Commission (%)';
+
+  @override
+  String get tier1PricingReferrerCommissionHint =>
+      'The cut you take on deals you bring in.';
 
   @override
   String get tier1Save => 'Save';

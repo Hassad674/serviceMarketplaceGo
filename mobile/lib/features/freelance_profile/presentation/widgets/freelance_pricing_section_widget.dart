@@ -8,9 +8,13 @@ import '../../domain/entities/freelance_pricing.dart';
 import '../providers/freelance_profile_providers.dart';
 
 /// Pricing card rendered on the freelance edit screen. Surfaces the
-/// current row (or an empty hint) and opens a bottom sheet editor
-/// that speaks only the four freelance-legal types (daily, hourly,
-/// project_from, project_range).
+/// current row (or an empty hint) and opens a bottom sheet editor.
+///
+/// V1 pricing simplification: the freelance persona is narrowed to
+/// `daily` (TJM) in EUR only. The editor is a single amount field
+/// — no type dropdown, no currency picker. Legacy rows (hourly /
+/// project_*) still render correctly on the public card via
+/// _formatPricing below; only the editor is constrained.
 class FreelancePricingSectionWidget extends ConsumerWidget {
   const FreelancePricingSectionWidget({
     super.key,
@@ -202,36 +206,29 @@ class _FreelancePricingEditor extends StatefulWidget {
 }
 
 class _FreelancePricingEditorState extends State<_FreelancePricingEditor> {
-  late FreelancePricingType _type;
-  late TextEditingController _minController;
-  late TextEditingController _maxController;
+  // V1 narrows the editor to a single TJM field. Type and currency
+  // are no longer user-editable — always daily + EUR.
+  late TextEditingController _amountController;
   late TextEditingController _noteController;
-  late String _currency;
   late bool _negotiable;
 
-  static const List<String> _currencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'];
+  static const _v1Type = FreelancePricingType.daily;
+  static const _v1Currency = 'EUR';
 
   @override
   void initState() {
     super.initState();
     final init = widget.initial;
-    _type = init?.type ?? FreelancePricingType.daily;
-    _minController = TextEditingController(
+    _amountController = TextEditingController(
       text: init != null ? _centimesToText(init.minAmount) : '',
     );
-    _maxController = TextEditingController(
-      text:
-          init?.maxAmount != null ? _centimesToText(init!.maxAmount!) : '',
-    );
     _noteController = TextEditingController(text: init?.note ?? '');
-    _currency = init?.currency ?? 'EUR';
     _negotiable = init?.negotiable ?? false;
   }
 
   @override
   void dispose() {
-    _minController.dispose();
-    _maxController.dispose();
+    _amountController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -270,68 +267,20 @@ class _FreelancePricingEditorState extends State<_FreelancePricingEditor> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<FreelancePricingType>(
-              initialValue: _type,
-              decoration: InputDecoration(
-                labelText: l10n.tier1PricingKindDirect,
-                border: const OutlineInputBorder(),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: FreelancePricingType.daily,
-                  child: Text(l10n.tier1PricingTypeDaily),
-                ),
-                DropdownMenuItem(
-                  value: FreelancePricingType.hourly,
-                  child: Text(l10n.tier1PricingTypeHourly),
-                ),
-                DropdownMenuItem(
-                  value: FreelancePricingType.projectFrom,
-                  child: Text(l10n.tier1PricingTypeProjectFrom),
-                ),
-                DropdownMenuItem(
-                  value: FreelancePricingType.projectRange,
-                  child: Text(l10n.tier1PricingTypeProjectRange),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _type = value);
-              },
-            ),
-            const SizedBox(height: 12),
+            // V1: single TJM amount field (€/j). The type dropdown
+            // and currency picker are removed — we always persist
+            // daily + EUR.
             TextField(
-              controller: _minController,
-              keyboardType: TextInputType.number,
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
-                labelText: l10n.tier1PricingMinLabel,
+                labelText: l10n.tier1PricingFreelanceDailyLabel,
+                helperText: l10n.tier1PricingFreelanceDailyHint,
+                suffixText: '€/j',
                 border: const OutlineInputBorder(),
               ),
-            ),
-            if (_type.supportsMax) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _maxController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: l10n.tier1PricingMaxLabel,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ],
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _currency,
-              decoration: InputDecoration(
-                labelText: l10n.tier1PricingCurrencyLabel,
-                border: const OutlineInputBorder(),
-              ),
-              items: [
-                for (final c in _currencies)
-                  DropdownMenuItem(value: c, child: Text(c)),
-              ],
-              onChanged: (value) {
-                if (value != null) setState(() => _currency = value);
-              },
             ),
             const SizedBox(height: 12),
             TextField(
@@ -374,15 +323,15 @@ class _FreelancePricingEditorState extends State<_FreelancePricingEditor> {
   }
 
   void _submit() {
-    final minAmount = _parseToCentimes(_minController.text);
-    final maxAmount = _type.supportsMax && _maxController.text.isNotEmpty
-        ? _parseToCentimes(_maxController.text)
-        : null;
+    // V1: always daily + EUR, no max amount. Currency / type are
+    // not user-editable — the backend whitelist would reject any
+    // other combination anyway.
+    final amount = _parseToCentimes(_amountController.text);
     final pricing = FreelancePricing(
-      type: _type,
-      minAmount: minAmount,
-      maxAmount: maxAmount,
-      currency: _currency,
+      type: _v1Type,
+      minAmount: amount,
+      maxAmount: null,
+      currency: _v1Currency,
       note: _noteController.text.trim(),
       negotiable: _negotiable,
     );

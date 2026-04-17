@@ -92,6 +92,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final next = await showSearchFilterBottomSheet(
       context,
       initial: notifier.filters,
+      persona: _persona,
     );
     if (next != null && mounted) notifier.applyFilters(next);
   }

@@ -13,6 +13,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/search/search_document.dart';
 import '../../../../shared/search/search_filters.dart';
 import 'filter_sections/expertise_section.dart';
 import 'filter_sections/filter_primitives.dart';
@@ -28,9 +29,13 @@ const MobileSearchFilters kEmptyMobileFilters = kEmptyMobileSearchFilters;
 
 /// Shows the filter bottom sheet and returns the latest filters
 /// state when the user taps apply. Returns null when dismissed.
+///
+/// V1 pricing simplification: [persona] drives the price section's
+/// labels (TJM / Budget / Commission) and unit suffix (€ / %).
 Future<MobileSearchFilters?> showSearchFilterBottomSheet(
   BuildContext context, {
   required MobileSearchFilters initial,
+  SearchDocumentPersona? persona,
 }) {
   return showModalBottomSheet<MobileSearchFilters>(
     context: context,
@@ -40,16 +45,21 @@ Future<MobileSearchFilters?> showSearchFilterBottomSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => SearchFilterSheet(initial: initial),
+    builder: (_) => SearchFilterSheet(initial: initial, persona: persona),
   );
 }
 
 /// SearchFilterSheet — the public stateful widget so widget tests
 /// can pump it directly without needing a modal route.
 class SearchFilterSheet extends StatefulWidget {
-  const SearchFilterSheet({super.key, required this.initial});
+  const SearchFilterSheet({
+    super.key,
+    required this.initial,
+    this.persona,
+  });
 
   final MobileSearchFilters initial;
+  final SearchDocumentPersona? persona;
 
   @override
   State<SearchFilterSheet> createState() => _SearchFilterSheetState();
@@ -89,6 +99,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                   filters: _filters,
                   onChanged: _update,
                   l10n: l10n,
+                  persona: widget.persona,
                 ),
               ),
               _SheetFooter(
@@ -114,14 +125,17 @@ class _FilterBody extends StatelessWidget {
     required this.filters,
     required this.onChanged,
     required this.l10n,
+    this.persona,
   });
 
   final MobileSearchFilters filters;
   final ValueChanged<MobileSearchFilters> onChanged;
   final AppLocalizations l10n;
+  final SearchDocumentPersona? persona;
 
   @override
   Widget build(BuildContext context) {
+    final priceLabels = _buildPriceLabels(l10n, persona);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -134,9 +148,9 @@ class _FilterBody extends StatelessWidget {
             l10n: l10n,
           ),
           PriceRangeSection(
-            sectionTitle: l10n.searchFiltersPrice,
-            minLabel: l10n.searchFiltersPriceMin,
-            maxLabel: l10n.searchFiltersPriceMax,
+            sectionTitle: priceLabels.title,
+            minLabel: priceLabels.minPlaceholder,
+            maxLabel: priceLabels.maxPlaceholder,
             priceMin: filters.priceMin,
             priceMax: filters.priceMax,
             onPriceMinChanged: (v) =>
@@ -438,5 +452,58 @@ class _RatingSection extends StatelessWidget {
         }),
       ),
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Persona-aware price labels (V1 pricing simplification)
+// ---------------------------------------------------------------------------
+
+class _PriceLabels {
+  const _PriceLabels({
+    required this.title,
+    required this.minPlaceholder,
+    required this.maxPlaceholder,
+  });
+
+  final String title;
+  final String minPlaceholder;
+  final String maxPlaceholder;
+}
+
+// _buildPriceLabels returns the persona-specific title / placeholders
+// for the mobile price filter. Undefined persona falls back to the
+// generic price labels so legacy callers keep working without touching
+// every test. Mirrors the web sidebar's buildPriceLabels so the two
+// filter UIs stay symmetrical.
+_PriceLabels _buildPriceLabels(
+  AppLocalizations l10n,
+  SearchDocumentPersona? persona,
+) {
+  switch (persona) {
+    case SearchDocumentPersona.freelance:
+      return _PriceLabels(
+        title: l10n.searchFiltersFreelancePrice,
+        minPlaceholder: l10n.searchFiltersFreelancePriceMin,
+        maxPlaceholder: l10n.searchFiltersFreelancePriceMax,
+      );
+    case SearchDocumentPersona.agency:
+      return _PriceLabels(
+        title: l10n.searchFiltersAgencyPrice,
+        minPlaceholder: l10n.searchFiltersAgencyPriceMin,
+        maxPlaceholder: l10n.searchFiltersAgencyPriceMax,
+      );
+    case SearchDocumentPersona.referrer:
+      return _PriceLabels(
+        title: l10n.searchFiltersReferrerPrice,
+        minPlaceholder: l10n.searchFiltersReferrerPriceMin,
+        maxPlaceholder: l10n.searchFiltersReferrerPriceMax,
+      );
+    case null:
+      return _PriceLabels(
+        title: l10n.searchFiltersPrice,
+        minPlaceholder: l10n.searchFiltersPriceMin,
+        maxPlaceholder: l10n.searchFiltersPriceMax,
+      );
   }
 }

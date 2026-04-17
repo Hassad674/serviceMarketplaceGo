@@ -83,27 +83,23 @@ class _PricingEditorBottomSheetState
     return PricingDraft.empty(kind: kind);
   }
 
-  // computeAllowedTypes mirrors the backend AllowedTypesForOrg:
-  // agencies on the direct kind only see outcome-based pricing.
+  // _computeAllowedTypes mirrors the backend V1 whitelist: every
+  // (kind, org) triplet narrows to the single allowed type.
+  //   - referral -> commission_pct only
+  //   - agency direct -> project_from only
+  //   - provider direct -> project_from only (provider_personal
+  //     direct pricing actually goes through freelancepricing /
+  //     daily; this screen is used by agencies + legacy callers)
+  //
+  // The PricingType enum keeps every value so legacy rows
+  // deserialise — but the editor only lets users create the one V1
+  // type per persona. When the persisted type is no longer allowed,
+  // initState() falls back to _allowedTypes.first.
   List<PricingType> _computeAllowedTypes() {
     if (widget.variant == PricingKind.referral) {
-      return const <PricingType>[
-        PricingType.commissionPct,
-        PricingType.commissionFlat,
-      ];
+      return const <PricingType>[PricingType.commissionPct];
     }
-    if (widget.orgType == 'agency') {
-      return const <PricingType>[
-        PricingType.projectFrom,
-        PricingType.projectRange,
-      ];
-    }
-    return const <PricingType>[
-      PricingType.daily,
-      PricingType.hourly,
-      PricingType.projectFrom,
-      PricingType.projectRange,
-    ];
+    return const <PricingType>[PricingType.projectFrom];
   }
 
   Future<void> _save() async {
