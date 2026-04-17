@@ -157,6 +157,26 @@ func seedAgency(ctx context.Context, db *sql.DB, index int, r *rand.Rand) error 
 		}
 	}
 
+	// V1 pricing: agencies declare `project_from` on the direct
+	// kind — the "à partir de" starting budget shape (5 000 € to
+	// 50 000 € in cents). The backend write boundary rejects any
+	// other type for agencies, so seeding anything else would make
+	// a re-index + re-upsert round-trip inconsistent.
+	minBudget := int64(500000 + r.Intn(4500001))
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO profile_pricing
+		   (organization_id, pricing_kind, pricing_type, min_amount, max_amount, currency, negotiable)
+		 VALUES ($1, 'direct', 'project_from', $2, NULL, 'EUR', $3)
+		 ON CONFLICT (organization_id, pricing_kind) DO UPDATE
+		 SET pricing_type = EXCLUDED.pricing_type,
+		     min_amount   = EXCLUDED.min_amount,
+		     max_amount   = EXCLUDED.max_amount,
+		     currency     = EXCLUDED.currency,
+		     negotiable   = EXCLUDED.negotiable`,
+		orgID, minBudget, r.Intn(100) < 40); err != nil {
+		return fmt.Errorf("insert agency profile_pricing: %w", err)
+	}
+
 	return nil
 }
 
@@ -195,6 +215,26 @@ func seedReferrer(ctx context.Context, db *sql.DB, index int, r *rand.Rand) erro
 		     availability_status = EXCLUDED.availability_status`,
 		profileID, orgID, title, about, pq.Array(expertise), availability); err != nil {
 		return fmt.Errorf("insert referrer_profile: %w", err)
+	}
+
+	// V1 pricing: referrers declare `commission_pct` only — one
+	// headline rate between 3 % and 20 %, echoed to both min and max
+	// so the backend range validator accepts the payload AND the
+	// formatter collapses the display to "N % de commission".
+	// Amounts are basis points: 3 % -> 300, 20 % -> 2000.
+	pct := int64(300 + r.Intn(1701))
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO referrer_pricing
+		   (profile_id, pricing_type, min_amount, max_amount, currency, negotiable)
+		 VALUES ($1, 'commission_pct', $2, $2, 'pct', $3)
+		 ON CONFLICT (profile_id) DO UPDATE
+		 SET pricing_type = EXCLUDED.pricing_type,
+		     min_amount   = EXCLUDED.min_amount,
+		     max_amount   = EXCLUDED.max_amount,
+		     currency     = EXCLUDED.currency,
+		     negotiable   = EXCLUDED.negotiable`,
+		profileID, pct, r.Intn(100) < 40); err != nil {
+		return fmt.Errorf("insert referrer_pricing: %w", err)
 	}
 
 	return nil
