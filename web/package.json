@@ -13,7 +13,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:search": "vitest run src/shared/components/search src/shared/lib/search src/features/provider",
+    "test:e2e:search": "playwright test e2e/search",
+    "cover:search": "vitest run src/shared/components/search src/shared/lib/search --coverage"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
