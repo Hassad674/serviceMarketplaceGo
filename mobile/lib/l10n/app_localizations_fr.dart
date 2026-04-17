@@ -2821,6 +2821,53 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun deal apporté enregistré pour l\'instant';
 
   @override
+  String get reputationSectionTitle => 'Projets apportés';
+
+  @override
+  String get reputationSectionSubtitle =>
+      'Avis des clients sur les prestataires recommandés';
+
+  @override
+  String get reputationRatingLabel => 'Note de recommandation';
+
+  @override
+  String get reputationNoReviewBadge => 'Pas encore d\'avis';
+
+  @override
+  String get reputationEmptyTitle => 'Aucun projet apporté pour le moment';
+
+  @override
+  String get reputationEmptyDescription =>
+      'Les projets issus de vos recommandations apparaîtront ici.';
+
+  @override
+  String get reputationLoadError =>
+      'Impossible de charger les projets apportés';
+
+  @override
+  String get reputationLoadMore => 'Voir plus';
+
+  @override
+  String get reputationViewFreelanceProfile => 'Voir le profil freelance';
+
+  @override
+  String get reputationStatusCompleted => 'Terminé';
+
+  @override
+  String get reputationStatusDisputed => 'En litige';
+
+  @override
+  String get reputationStatusActive => 'En cours';
+
+  @override
+  String get reputationStatusPending => 'En attente';
+
+  @override
+  String reputationStatusOther(String status) {
+    return 'Statut : $status';
+  }
+
+  @override
   String get socialLinks => 'Réseaux sociaux';
 
   @override

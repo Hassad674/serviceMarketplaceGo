@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
@@ -118,6 +119,32 @@ func (r *ProposalRepository) GetByID(ctx context.Context, id uuid.UUID) (*propos
 	}
 
 	return p, nil
+}
+
+// GetByIDs batch-loads proposals for the given ids in a single query.
+// Unknown ids are silently dropped — the primary caller (apporteur
+// reputation) joins this against a referrer-scoped attribution list,
+// so a missing proposal simply means the row was archived or deleted
+// after the attribution was recorded.
+func (r *ProposalRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*proposal.Proposal, error) {
+	if len(ids) == 0 {
+		return []*proposal.Proposal{}, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	idStrings := make([]string, len(ids))
+	for i, id := range ids {
+		idStrings[i] = id.String()
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryGetProposalsByIDs, pq.Array(idStrings))
+	if err != nil {
+		return nil, fmt.Errorf("get proposals by ids: %w", err)
+	}
+	defer rows.Close()
+
+	return scanProposalList(rows)
 }
 
 func (r *ProposalRepository) Update(ctx context.Context, p *proposal.Proposal) error {

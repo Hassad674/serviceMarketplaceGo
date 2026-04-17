@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-        delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-      ];
+    delegate,
+    GlobalMaterialLocalizations.delegate,
+    GlobalCupertinoLocalizations.delegate,
+    GlobalWidgetsLocalizations.delegate,
+  ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr'),
+    Locale('fr')
   ];
 
   /// No description provided for @appTitle.
@@ -5264,6 +5264,90 @@ abstract class AppLocalizations {
   /// **'No deals referred yet'**
   String get referrerProjectHistoryEmpty;
 
+  /// No description provided for @reputationSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Referred projects'**
+  String get reputationSectionTitle;
+
+  /// No description provided for @reputationSectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Client reviews of the providers you recommended'**
+  String get reputationSectionSubtitle;
+
+  /// No description provided for @reputationRatingLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommendation rating'**
+  String get reputationRatingLabel;
+
+  /// No description provided for @reputationNoReviewBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'No review yet'**
+  String get reputationNoReviewBadge;
+
+  /// No description provided for @reputationEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No referred project yet'**
+  String get reputationEmptyTitle;
+
+  /// No description provided for @reputationEmptyDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Projects coming from your recommendations will appear here.'**
+  String get reputationEmptyDescription;
+
+  /// No description provided for @reputationLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load referred projects'**
+  String get reputationLoadError;
+
+  /// No description provided for @reputationLoadMore.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more'**
+  String get reputationLoadMore;
+
+  /// No description provided for @reputationViewFreelanceProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'View freelance profile'**
+  String get reputationViewFreelanceProfile;
+
+  /// No description provided for @reputationStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get reputationStatusCompleted;
+
+  /// No description provided for @reputationStatusDisputed.
+  ///
+  /// In en, this message translates to:
+  /// **'In dispute'**
+  String get reputationStatusDisputed;
+
+  /// No description provided for @reputationStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'In progress'**
+  String get reputationStatusActive;
+
+  /// No description provided for @reputationStatusPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get reputationStatusPending;
+
+  /// No description provided for @reputationStatusOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Status: {status}'**
+  String reputationStatusOther(String status);
+
   /// No description provided for @socialLinks.
   ///
   /// In en, this message translates to:
@@ -5364,9 +5448,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-    'an issue with the localizations generation tool. Please file an issue '
-    'on GitHub with a reproducible sample app and the gen-l10n configuration '
-    'that was used.',
-  );
+      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+      'an issue with the localizations generation tool. Please file an issue '
+      'on GitHub with a reproducible sample app and the gen-l10n configuration '
+      'that was used.');
 }

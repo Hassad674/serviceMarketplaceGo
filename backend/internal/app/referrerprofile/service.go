@@ -37,6 +37,15 @@ type SearchIndexPublisher interface {
 type Service struct {
 	profiles    repository.ReferrerProfileRepository
 	searchIndex SearchIndexPublisher
+
+	// Reputation aggregate deps — optional. Wired via
+	// WithReputationDeps, consumed by GetReferrerReputation. Nil is
+	// an accepted state: the reputation endpoint returns an empty
+	// aggregate in that case, keeping the profile feature removable.
+	referrals repository.ReferralRepository
+	proposals repository.ProposalRepository
+	reviews   repository.ReviewRepository
+	users     repository.UserBatchReader
 }
 
 // NewService wires the referrer profile service with its single

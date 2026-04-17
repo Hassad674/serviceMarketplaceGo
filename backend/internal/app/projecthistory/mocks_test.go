@@ -27,6 +27,9 @@ func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(context.Context, *pr
 func (m *mockProposalRepo) GetByID(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
 	return nil, nil
 }
+func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposaldomain.Proposal, error) {
+	return nil, nil
+}
 func (m *mockProposalRepo) Update(context.Context, *proposaldomain.Proposal) error { return nil }
 func (m *mockProposalRepo) GetLatestVersion(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
 	return nil, nil

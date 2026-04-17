@@ -3,7 +3,7 @@
 import { ArrowLeft } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
-import { useProfileRating } from "@/shared/hooks/profile/use-profile-rating"
+import { useReferrerReputation } from "../hooks/use-referrer-reputation"
 import { usePublicReferrerProfile } from "../hooks/use-referrer-profile"
 import { ReferrerPublicProfile } from "./referrer-public-profile"
 import { PublicReferrerSocialLinks } from "./referrer-social-links-section"
@@ -12,16 +12,21 @@ interface ReferrerPublicProfileLoaderProps {
   orgId: string
 }
 
-// ReferrerPublicProfileLoader mirrors the freelance loader and only
-// differs by the persona API endpoint + the "referrer" namespace for
-// error copy.
+// ReferrerPublicProfileLoader wires the referrer profile read path to
+// the dedicated apporteur reputation aggregate (not the freelance
+// rating) — the apporteur profile has its OWN rating, computed from
+// client reviews on the providers introduced through this user's
+// referrals. Using useProfileRating here would leak the user's
+// freelance rating into the apporteur profile, which is the exact
+// bug this feature fixes.
 export function ReferrerPublicProfileLoader({
   orgId,
 }: ReferrerPublicProfileLoaderProps) {
   const t = useTranslations("profile.referrer")
   const router = useRouter()
   const { data: profile, isLoading, error } = usePublicReferrerProfile(orgId)
-  const { data: rating } = useProfileRating(orgId)
+  const reputation = useReferrerReputation(orgId)
+  const firstPage = reputation.data?.pages[0]
 
   if (isLoading) return <LoadingShell />
 
@@ -46,15 +51,19 @@ export function ReferrerPublicProfileLoader({
   }
 
   const displayName = profile.title || profile.organization_id
+  // The header rating uses the apporteur reputation, not the freelance
+  // rating. Undefined until the reputation query settles so the
+  // ProfileIdentityHeader hides the rating block during loading.
+  const headerRating = firstPage
+    ? { average: firstPage.rating_avg, count: firstPage.review_count }
+    : undefined
 
   return (
     <div className="space-y-6">
       <ReferrerPublicProfile
         profile={profile}
         displayName={displayName}
-        rating={
-          rating ? { average: rating.average, count: rating.count } : undefined
-        }
+        rating={headerRating}
       />
       <PublicReferrerSocialLinks orgId={orgId} />
     </div>

@@ -61,9 +61,12 @@ import (
 	"marketplace-backend/internal/domain/pendingevent"
 	profiledomain "marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/search"
 	"marketplace-backend/pkg/crypto"
+
+	"github.com/google/uuid"
 )
 
 func main() {
@@ -944,9 +947,21 @@ func main() {
 	referralScheduler := referralapp.NewScheduler(referralSvc, 0)
 	go referralScheduler.Run(pendingEventsCtx)
 	slog.Info("referral scheduler started")
+
+	// Apporteur reputation aggregate — wired after the referral repo
+	// exists. Kept as a fluent setter so the persona service stays
+	// independent at the type level and the reputation surface can
+	// be disabled by omitting this line.
+	referrerProfileSvc = referrerProfileSvc.WithReputationDeps(referrerprofileapp.ReputationDeps{
+		Referrals: referralRepo,
+		Proposals: proposalRepo,
+		Reviews:   reviewRepo,
+		Users:     userRepo,
+	})
 	referrerProfileHandler := handler.
 		NewReferrerProfileHandler(referrerProfileSvc).
-		WithPricingReader(referrerPricingSvc)
+		WithPricingReader(referrerPricingSvc).
+		WithOrgOwnerLookup(&orgOwnerLookupAdapter{orgs: organizationRepo})
 	referrerPricingHandler := handler.NewReferrerPricingHandler(referrerPricingSvc, referrerProfileSvc)
 	if searchPublisher != nil {
 		referrerPricingHandler = referrerPricingHandler.WithSearchIndexPublisher(searchPublisher)
@@ -1164,6 +1179,22 @@ func paymentProcessor(svc *paymentapp.Service, cfg *config.Config) service.Payme
 		return svc
 	}
 	return nil
+}
+
+// orgOwnerLookupAdapter implements handler.OrgOwnerLookup on top of
+// the existing OrganizationRepository. Lives in main.go because it is
+// a one-line wiring detail that should not bloat the handler package
+// nor the organization domain.
+type orgOwnerLookupAdapter struct {
+	orgs repository.OrganizationRepository
+}
+
+func (a *orgOwnerLookupAdapter) OwnerUserIDForOrg(ctx context.Context, orgID uuid.UUID) (uuid.UUID, error) {
+	org, err := a.orgs.FindByID(ctx, orgID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return org.OwnerUserID, nil
 }
 
 func wsOriginPatterns(origins []string) []string {

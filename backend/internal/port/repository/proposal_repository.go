@@ -19,6 +19,12 @@ type ProposalRepository interface {
 	// milestone since phase 4).
 	CreateWithDocumentsAndMilestones(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument, milestones []*milestone.Milestone) error
 	GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error)
+	// GetByIDs batch-loads proposals for a set of ids in a single query.
+	// Returns the slice in no particular order — callers must map by id
+	// if they need a specific ordering. Missing ids are silently dropped
+	// from the result; the primary caller (apporteur reputation) joins
+	// this against its own ordered attribution list.
+	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*proposal.Proposal, error)
 	Update(ctx context.Context, p *proposal.Proposal) error
 	GetLatestVersion(ctx context.Context, rootProposalID uuid.UUID) (*proposal.Proposal, error)
 	ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]*proposal.Proposal, error)

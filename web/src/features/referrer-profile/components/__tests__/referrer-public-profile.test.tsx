@@ -23,6 +23,16 @@ vi.mock("@/shared/hooks/use-current-user-id", () => ({
 vi.mock("../../hooks/use-referrer-pricing", () => ({
   useReferrerPricing: () => ({ data: null }),
 }))
+vi.mock("../../hooks/use-referrer-reputation", () => ({
+  useReferrerReputation: () => ({
+    data: { pages: [{ rating_avg: 0, review_count: 0, history: [], next_cursor: "", has_more: false }] },
+    isLoading: false,
+    isError: false,
+    hasNextPage: false,
+    isFetchingNextPage: false,
+    fetchNextPage: () => {},
+  }),
+}))
 
 function buildProfile(
   overrides: Partial<ReferrerProfile> = {},
@@ -97,8 +107,11 @@ describe("ReferrerPublicProfile", () => {
 
   it("surfaces the referrer-specific empty-history state", () => {
     renderProfile(buildProfile())
+    // The new apporteur reputation surface renders its own empty copy
+    // — the previous "No referred deals yet" placeholder was replaced
+    // by the reputation-aware "No referred project yet" heading.
     expect(
-      screen.getByText(/No referred deals yet/i),
+      screen.getByText(/No referred project yet/i),
     ).toBeInTheDocument()
   })
 })

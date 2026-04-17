@@ -65,6 +65,10 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.P
 	return nil, domain.ErrProposalNotFound
 }
 
+func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*domain.Proposal, error) {
+	return nil, nil
+}
+
 func (m *mockProposalRepo) Update(ctx context.Context, p *domain.Proposal) error {
 	if m.updateFn != nil {
 		return m.updateFn(ctx, p)

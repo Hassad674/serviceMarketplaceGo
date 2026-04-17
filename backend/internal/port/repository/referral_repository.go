@@ -92,6 +92,13 @@ type ReferralRepository interface {
 	// referral, for the dashboard timeline.
 	ListAttributionsByReferral(ctx context.Context, referralID uuid.UUID) ([]*referral.Attribution, error)
 
+	// ListAttributionsByReferralIDs batch-loads attributions for a set of
+	// referral ids in a single query. Ordered by attributed_at DESC so
+	// the caller can feed the slice straight into a timeline sort. Used
+	// by the apporteur reputation aggregate to avoid an N+1 across the
+	// referrer's referrals.
+	ListAttributionsByReferralIDs(ctx context.Context, referralIDs []uuid.UUID) ([]*referral.Attribution, error)
+
 	// ─── Commission ──────────────────────────────────────────────────────
 
 	// CreateCommission inserts a commission row. Returns ErrCommissionAlreadyExists

@@ -2802,6 +2802,52 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referrerProjectHistoryEmpty => 'No deals referred yet';
 
   @override
+  String get reputationSectionTitle => 'Referred projects';
+
+  @override
+  String get reputationSectionSubtitle =>
+      'Client reviews of the providers you recommended';
+
+  @override
+  String get reputationRatingLabel => 'Recommendation rating';
+
+  @override
+  String get reputationNoReviewBadge => 'No review yet';
+
+  @override
+  String get reputationEmptyTitle => 'No referred project yet';
+
+  @override
+  String get reputationEmptyDescription =>
+      'Projects coming from your recommendations will appear here.';
+
+  @override
+  String get reputationLoadError => 'Could not load referred projects';
+
+  @override
+  String get reputationLoadMore => 'Show more';
+
+  @override
+  String get reputationViewFreelanceProfile => 'View freelance profile';
+
+  @override
+  String get reputationStatusCompleted => 'Completed';
+
+  @override
+  String get reputationStatusDisputed => 'In dispute';
+
+  @override
+  String get reputationStatusActive => 'In progress';
+
+  @override
+  String get reputationStatusPending => 'Pending';
+
+  @override
+  String reputationStatusOther(String status) {
+    return 'Status: $status';
+  }
+
+  @override
   String get socialLinks => 'Social networks';
 
   @override

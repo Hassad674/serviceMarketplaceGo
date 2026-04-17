@@ -35,6 +35,19 @@ const queryGetProposalByID = `
 	FROM proposals
 	WHERE id = $1`
 
+// queryGetProposalsByIDs — batch loader used by the apporteur
+// reputation aggregate to avoid an N+1 across attributions.
+const queryGetProposalsByIDs = `
+	SELECT id, conversation_id, sender_id, recipient_id,
+		title, description, amount, deadline,
+		status, parent_id, version,
+		client_id, provider_id, metadata,
+		active_dispute_id, last_dispute_id,
+		accepted_at, declined_at, paid_at, completed_at,
+		created_at, updated_at
+	FROM proposals
+	WHERE id = ANY($1)`
+
 const queryUpdateProposal = `
 	UPDATE proposals
 	SET status = $2,

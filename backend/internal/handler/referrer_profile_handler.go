@@ -38,6 +38,7 @@ type ReferrerPricingReader interface {
 type ReferrerProfileHandler struct {
 	svc           *referrerprofileapp.Service
 	pricingReader ReferrerPricingReader
+	orgOwner      OrgOwnerLookup
 }
 
 // NewReferrerProfileHandler constructs the handler with the
@@ -150,6 +151,67 @@ func (h *ReferrerProfileHandler) UpdateMyExpertise(w http.ResponseWriter, r *htt
 	}
 
 	h.writeViewResponse(w, r, view)
+}
+
+// OrgOwnerLookup is the narrow contract the handler uses to resolve
+// the apporteur's user_id from the organization id. A provider_personal
+// org has exactly one owner — the referrer is that owner — and
+// referrals reference users, so we translate here at the edge so the
+// public URL stays keyed on the stable orgID that the rest of the
+// profile surface already uses.
+type OrgOwnerLookup interface {
+	OwnerUserIDForOrg(ctx context.Context, orgID uuid.UUID) (uuid.UUID, error)
+}
+
+// WithOrgOwnerLookup wires the org→owner lookup used by the reputation
+// endpoint. Nil is a no-op — the endpoint will return 404 for any
+// orgID until the lookup is wired.
+func (h *ReferrerProfileHandler) WithOrgOwnerLookup(lookup OrgOwnerLookup) *ReferrerProfileHandler {
+	if lookup != nil {
+		h.orgOwner = lookup
+	}
+	return h
+}
+
+// GetReputation returns the apporteur reputation aggregate for the
+// given organization — a dedicated rating (distinct from the user's
+// freelance rating) and a cursor-paginated history of attributed
+// missions.
+//
+// Public endpoint — no auth required, same pattern as other public
+// profile reads. Keyed on orgID for URL symmetry with
+// /referrer-profiles/{orgID}; internally the handler translates to
+// the owner user_id because referrals reference users.
+func (h *ReferrerProfileHandler) GetReputation(w http.ResponseWriter, r *http.Request) {
+	orgIDParam := chi.URLParam(r, "orgID")
+	orgID, err := uuid.Parse(orgIDParam)
+	if err != nil {
+		res.Error(w, http.StatusBadRequest, "invalid_org_id", "organization ID must be a valid UUID")
+		return
+	}
+
+	if h.orgOwner == nil {
+		// Lookup is optional at wire time — surface an empty aggregate
+		// rather than 500 so the feature is fully removable.
+		res.JSON(w, http.StatusOK, response.NewReferrerReputationResponse(referrerprofileapp.ReferrerReputation{}))
+		return
+	}
+	userID, err := h.orgOwner.OwnerUserIDForOrg(r.Context(), orgID)
+	if err != nil {
+		res.Error(w, http.StatusNotFound, "referrer_profile_not_found", "no referrer profile for this organization")
+		return
+	}
+
+	cursor := r.URL.Query().Get("cursor")
+	limit := parseLimit(r.URL.Query().Get("limit"), 20)
+
+	rep, err := h.svc.GetReferrerReputation(r.Context(), userID, cursor, limit)
+	if err != nil {
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to load reputation")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, response.NewReferrerReputationResponse(rep))
 }
 
 // GetPublic returns any organization's referrer profile. Route

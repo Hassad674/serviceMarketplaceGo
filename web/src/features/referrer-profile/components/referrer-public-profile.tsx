@@ -3,7 +3,6 @@
 import { useTranslations } from "next-intl"
 import { ProfileAboutCard } from "@/shared/components/profile/profile-about-card"
 import { ProfileVideoCard } from "@/shared/components/profile/profile-video-card"
-import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
 import { ExpertiseDisplay } from "@/shared/components/profile/expertise-display"
 import { LocationDisplayCard } from "@/shared/components/profile/location-display-card"
 import { LanguagesDisplayCard } from "@/shared/components/profile/languages-display-card"
@@ -16,6 +15,7 @@ import { ExpertiseEditor } from "@/features/provider/components/expertise-editor
 import type { ReferrerProfile } from "../api/referrer-profile-api"
 import { ReferrerProfileHeader } from "./referrer-profile-header"
 import { ReferrerPricingSection } from "./referrer-pricing-section"
+import { ReferrerProjectHistorySection } from "./referrer-project-history-section"
 
 export interface ReferrerPublicProfileProps {
   profile: ReferrerProfile
@@ -48,13 +48,12 @@ export interface EditableWiring {
 
 // ReferrerPublicProfile mirrors the freelance counterpart structurally
 // but drops the skills section (skills live with the freelance
-// persona) and hands the history card a persona-specific empty state
-// — the real "referral deals" history will replace this placeholder
-// when a dedicated referral_deals feature ships.
+// persona) and uses the dedicated apporteur reputation history — the
+// rating reflects client reviews on the providers introduced through
+// this user's referrals, NOT the user's own freelance rating.
 export function ReferrerPublicProfile(props: ReferrerPublicProfileProps) {
   const { profile, displayName, rating, editable } = props
   const t = useTranslations("profile")
-  const tReferrer = useTranslations("profile.referrer")
   const readOnly = !editable
 
   return (
@@ -147,20 +146,12 @@ export function ReferrerPublicProfile(props: ReferrerPublicProfileProps) {
         />
       ) : null}
 
-      {/* History is always empty on referrer profiles — we force the
-          empty state so the section reads "no deals yet" instead of
-          leaking the freelance project history (both personas share
-          the same organization_id). A dedicated referral_deals feed
-          will replace this placeholder when that feature ships. */}
-      <ProjectHistorySection
-        orgId={profile.organization_id}
-        readOnly={readOnly}
-        forceEmpty
-        emptyOverride={{
-          title: tReferrer("historyEmptyTitle"),
-          description: tReferrer("historyEmptyDescription"),
-        }}
-      />
+      {/* Apporteur reputation surface — rating + "projets apportés"
+          history. Scope: missions attributed to this user's referrals
+          during the exclusivity window. Client identity is never
+          exposed; only the provider name and the client's review of
+          the provider appear here. */}
+      <ReferrerProjectHistorySection orgId={profile.organization_id} />
     </div>
   )
 }

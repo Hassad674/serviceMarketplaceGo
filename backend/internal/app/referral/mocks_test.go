@@ -204,6 +204,23 @@ func (f *fakeReferralRepo) ListAttributionsByReferral(ctx context.Context, refer
 	return out, nil
 }
 
+func (f *fakeReferralRepo) ListAttributionsByReferralIDs(ctx context.Context, ids []uuid.UUID) ([]*referral.Attribution, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	want := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		want[id] = struct{}{}
+	}
+	var out []*referral.Attribution
+	for _, a := range f.attributions {
+		if _, ok := want[a.ReferralID]; ok {
+			cp := *a
+			out = append(out, &cp)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeReferralRepo) CreateCommission(ctx context.Context, c *referral.Commission) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()

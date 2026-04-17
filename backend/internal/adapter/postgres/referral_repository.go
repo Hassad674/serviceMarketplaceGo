@@ -298,6 +298,38 @@ func (r *ReferralRepository) ListAttributionsByReferral(ctx context.Context, ref
 	return out, rows.Err()
 }
 
+// ListAttributionsByReferralIDs batch-loads attributions for the given
+// referral ids. Empty input returns an empty slice without hitting the
+// DB.
+func (r *ReferralRepository) ListAttributionsByReferralIDs(ctx context.Context, referralIDs []uuid.UUID) ([]*referral.Attribution, error) {
+	if len(referralIDs) == 0 {
+		return []*referral.Attribution{}, nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, dbTimeout)
+	defer cancel()
+
+	ids := make([]string, len(referralIDs))
+	for i, id := range referralIDs {
+		ids[i] = id.String()
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryListAttributionsByReferralIDs, pq.Array(ids))
+	if err != nil {
+		return nil, fmt.Errorf("list attributions by referral ids: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]*referral.Attribution, 0)
+	for rows.Next() {
+		a := &referral.Attribution{}
+		if err := rows.Scan(&a.ID, &a.ReferralID, &a.ProposalID, &a.ProviderID, &a.ClientID, &a.RatePctSnapshot, &a.AttributedAt); err != nil {
+			return nil, fmt.Errorf("scan attribution: %w", err)
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // ─── Commissions ───────────────────────────────────────────────────────────
 
 func (r *ReferralRepository) CreateCommission(ctx context.Context, c *referral.Commission) error {

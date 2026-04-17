@@ -9,6 +9,7 @@ import '../../../../shared/widgets/pricing_display_card.dart';
 import '../../../../shared/widgets/profile_display_card_shell.dart';
 import '../../../../shared/widgets/video_player_widget.dart';
 import '../../../expertise/presentation/widgets/expertise_display_widget.dart';
+import '../../../referrer_reputation/presentation/widgets/referrer_reputation_widget.dart';
 import '../../domain/entities/referrer_pricing.dart';
 import '../../domain/entities/referrer_profile.dart';
 import '../providers/referrer_profile_providers.dart';
@@ -145,18 +146,10 @@ class _Body extends StatelessWidget {
             ExpertiseDisplayWidget(domains: profile.expertiseDomains),
             const SizedBox(height: 16),
           ],
-          ProfileDisplayCardShell(
-            title: l10n.projectHistory,
-            icon: Icons.history_edu_outlined,
-            child: Text(
-              l10n.referrerProjectHistoryEmpty,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.4,
-              ),
-            ),
-          ),
-          // TODO: wire referral_deals feature when backend ships
+          // Apporteur reputation surface — rating + projets apportés.
+          // Client identity is never exposed; only the provider name
+          // and the client's review of the provider appear here.
+          ReferrerReputationWidget(orgId: profile.organizationId),
           if (profile.organizationId.isNotEmpty) ...[
             const SizedBox(height: 16),
             PublicReferrerSocialLinksWidget(

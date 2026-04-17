@@ -103,6 +103,16 @@ const queryListAttributionsByReferral = `
 	WHERE referral_id = $1
 	ORDER BY attributed_at DESC`
 
+// queryListAttributionsByReferralIDs — batch loader used by the
+// apporteur reputation aggregate to avoid an N+1 across the
+// referrer's referrals. Ordering matches the single-referral query
+// so consumers don't have to re-sort.
+const queryListAttributionsByReferralIDs = `
+	SELECT id, referral_id, proposal_id, provider_id, client_id, rate_pct_snapshot, attributed_at
+	FROM referral_attributions
+	WHERE referral_id = ANY($1)
+	ORDER BY attributed_at DESC`
+
 const queryInsertCommission = `
 	INSERT INTO referral_commissions (
 		id, attribution_id, milestone_id,

@@ -336,6 +336,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 		}
 		if deps.ReferrerProfile != nil {
 			r.Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
+			// Apporteur reputation surface — keyed on orgID for URL
+			// symmetry with the rest of the referrer-profile read
+			// surface. The handler translates internally to the
+			// owner user_id because referrals reference users.
+			r.Get("/referrer-profiles/{orgID}/reputation", deps.ReferrerProfile.GetReputation)
 		}
 
 		// Messaging routes (authenticated, permission-gated)

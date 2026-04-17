@@ -1,6 +1,9 @@
 package response
 
 import (
+	"time"
+
+	appreferrer "marketplace-backend/internal/app/referrerprofile"
 	"marketplace-backend/internal/domain/profile"
 	domainpricing "marketplace-backend/internal/domain/referrerpricing"
 	"marketplace-backend/internal/domain/referrerprofile"
@@ -101,6 +104,75 @@ func NewReferrerProfileResponse(
 		CreatedAt:               p.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:               p.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+}
+
+// ReferrerReputationResponse is the JSON shape returned by
+// GET /api/v1/referrer-profile/{user_id}/reputation.
+//
+// rating_avg and review_count are summary stats computed once across
+// every reviewed, completed attribution — they are NOT repaginated
+// across history pages. history[] rotates as the caller walks through
+// next_cursor.
+type ReferrerReputationResponse struct {
+	RatingAvg   float64                        `json:"rating_avg"`
+	ReviewCount int                            `json:"review_count"`
+	History     []ProjectHistoryEntryResponse  `json:"history"`
+	NextCursor  string                         `json:"next_cursor"`
+	HasMore     bool                           `json:"has_more"`
+}
+
+// ProjectHistoryEntryResponse is one attributed mission. Client
+// identity is intentionally absent — B2B working relationships stay
+// confidential on the apporteur surface.
+type ProjectHistoryEntryResponse struct {
+	ProposalID     string  `json:"proposal_id"`
+	ProposalTitle  string  `json:"proposal_title"`
+	ProposalStatus string  `json:"proposal_status"`
+	ProviderID     string  `json:"provider_id"`
+	ProviderName   string  `json:"provider_name"`
+	Rating         *int    `json:"rating"`
+	Comment        string  `json:"comment"`
+	ReviewedAt     *string `json:"reviewed_at"`
+	CompletedAt    *string `json:"completed_at"`
+	AttributedAt   string  `json:"attributed_at"`
+}
+
+// NewReferrerReputationResponse maps the service aggregate to the DTO.
+func NewReferrerReputationResponse(rep appreferrer.ReferrerReputation) ReferrerReputationResponse {
+	history := make([]ProjectHistoryEntryResponse, 0, len(rep.History))
+	for _, e := range rep.History {
+		history = append(history, newProjectHistoryEntryResponse(e))
+	}
+	return ReferrerReputationResponse{
+		RatingAvg:   rep.RatingAvg,
+		ReviewCount: rep.ReviewCount,
+		History:     history,
+		NextCursor:  rep.NextCursor,
+		HasMore:     rep.NextCursor != "",
+	}
+}
+
+func newProjectHistoryEntryResponse(e appreferrer.ProjectHistoryEntry) ProjectHistoryEntryResponse {
+	return ProjectHistoryEntryResponse{
+		ProposalID:     e.ProposalID.String(),
+		ProposalTitle:  e.ProposalTitle,
+		ProposalStatus: e.ProposalStatus,
+		ProviderID:     e.ProviderID.String(),
+		ProviderName:   e.ProviderName,
+		Rating:         e.Rating,
+		Comment:        e.Comment,
+		ReviewedAt:     formatOptionalTime(e.ReviewedAt),
+		CompletedAt:    formatOptionalTime(e.CompletedAt),
+		AttributedAt:   e.AttributedAt.Format(time.RFC3339),
+	}
+}
+
+func formatOptionalTime(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	formatted := t.Format(time.RFC3339)
+	return &formatted
 }
 
 // Compile-time check.
