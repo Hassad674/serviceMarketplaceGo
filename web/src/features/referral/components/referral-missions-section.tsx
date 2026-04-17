@@ -1,13 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import {
-  Briefcase,
-  CheckCircle2,
-  CircleDot,
-  Hourglass,
-  ShieldAlert,
-} from "lucide-react"
+import { Briefcase, ChevronRight } from "lucide-react"
 
 import { cn } from "@/shared/lib/utils"
 import { useReferralAttributions } from "../hooks/use-referrals"
@@ -17,8 +11,7 @@ interface ReferralMissionsSectionProps {
   referralId: string
   // viewerIsClient disables the hook's auto-fetch of commission
   // amounts — the backend strips them from the DTO too, but hiding the
-  // pending / paid columns on the client side avoids rendering empty
-  // cells for the client viewer.
+  // commission column on the client side avoids rendering empty cells.
   viewerIsClient: boolean
 }
 
@@ -28,6 +21,11 @@ interface ReferralMissionsSectionProps {
 // happening in the contract they set up — which missions the
 // provider has won with the client, how far each one has progressed,
 // and how much commission has accrued.
+//
+// Layout is a dense, scannable list (one row ≈ 64px) instead of fat
+// cards — with 5+ attributions the old layout required too much
+// scrolling. The commission column is the visual anchor on the right;
+// milestone progress is inline with a micro progress bar.
 //
 // Empty state: hidden entirely when there are zero attributions so
 // the detail page stays uncluttered until something actually happens.
@@ -39,9 +37,22 @@ export function ReferralMissionsSection({
 
   if (isLoading) {
     return (
-      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+      <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
         <SectionHeader />
-        <div className="mt-3 h-16 animate-shimmer rounded-lg bg-slate-100 dark:bg-slate-700" />
+        <ul className="mt-3 divide-y divide-slate-100 dark:divide-slate-700/60">
+          {[0, 1, 2].map((i) => (
+            <li key={i} className="py-3">
+              <div className="flex items-center gap-3">
+                <div className="h-2 w-2 rounded-full bg-slate-200 dark:bg-slate-700" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-2/3 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+                  <div className="h-2.5 w-1/2 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+                </div>
+                <div className="h-5 w-16 animate-shimmer rounded bg-slate-100 dark:bg-slate-700" />
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
     )
   }
@@ -56,12 +67,12 @@ export function ReferralMissionsSection({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
+    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
       <SectionHeader count={attributions.length} />
-      <ul className="mt-4 space-y-3">
+      <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-700/60">
         {attributions.map((a) => (
           <li key={a.id}>
-            <AttributionCard
+            <AttributionRow
               attribution={a}
               viewerIsClient={viewerIsClient}
             />
@@ -75,22 +86,21 @@ export function ReferralMissionsSection({
 function SectionHeader({ count }: { count?: number }) {
   return (
     <header className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400">
           <Briefcase className="h-4 w-4" aria-hidden="true" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
             Missions pendant cette mise en relation
           </h2>
-          <p className="text-xs text-slate-500">
-            Propositions signées entre les deux parties pendant la fenêtre
-            d&apos;exclusivité.
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Propositions signées pendant la fenêtre d&apos;exclusivité.
           </p>
         </div>
       </div>
       {count !== undefined && (
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+        <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:bg-slate-700 dark:text-slate-300">
           {count}
         </span>
       )}
@@ -98,162 +108,174 @@ function SectionHeader({ count }: { count?: number }) {
   )
 }
 
-function AttributionCard({
+function AttributionRow({
   attribution,
   viewerIsClient,
 }: {
   attribution: ReferralAttribution
   viewerIsClient: boolean
 }) {
-  const status = proposalStatusBadge(attribution.proposal_status)
+  const status = proposalStatus(attribution.proposal_status)
   const rate = attribution.rate_pct_snapshot
   const paid = attribution.total_commission_cents ?? 0
   const pending = attribution.pending_commission_cents ?? 0
+  const mDone = attribution.milestones_paid
+  const mPending = attribution.milestones_pending
+  const mTotal = mDone + mPending
+  const progress = mTotal > 0 ? Math.round((mDone / mTotal) * 100) : 0
+  const title =
+    attribution.proposal_title ||
+    `Proposition ${attribution.proposal_id.slice(0, 8)}…`
+  const attributedOn = new Date(attribution.attributed_at).toLocaleDateString(
+    "fr-FR",
+    { day: "2-digit", month: "short", year: "numeric" },
+  )
 
   return (
-    <article className="rounded-xl border border-slate-100 p-4 transition hover:border-rose-200 hover:bg-rose-50/30 dark:border-slate-700 dark:hover:border-rose-500/40">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/projects/${attribution.proposal_id}`}
-            className="text-sm font-semibold text-slate-900 hover:underline dark:text-white"
-          >
-            {attribution.proposal_title ||
-              `Proposition ${attribution.proposal_id.slice(0, 8)}…`}
-          </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                status.cls,
-              )}
-            >
-              <status.icon className="h-3 w-3" aria-hidden="true" />
-              {status.label}
-            </span>
-            <span className="text-[11px] text-slate-500">
-              Attribuée le{" "}
-              {new Date(attribution.attributed_at).toLocaleDateString("fr-FR")}
-            </span>
-            {rate !== undefined && (
-              <span className="text-[11px] text-slate-500">
-                · Taux {rate.toFixed(rate % 1 === 0 ? 0 : 1)} %
-              </span>
+    <Link
+      href={`/projects/${attribution.proposal_id}`}
+      className="group flex items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none dark:hover:bg-slate-700/40 dark:focus-visible:bg-slate-700/40"
+      aria-label={`${title} — ouvrir la mission`}
+    >
+      {/* Status dot — tiny, high contrast, left gutter */}
+      <span
+        className={cn(
+          "mt-1.5 h-2 w-2 shrink-0 self-start rounded-full",
+          status.dotCls,
+        )}
+        aria-hidden="true"
+      />
+
+      {/* Main content: title + meta lines */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-sm font-semibold text-slate-900 group-hover:text-rose-600 dark:text-white dark:group-hover:text-rose-400">
+            {title}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+              status.pillCls,
             )}
+          >
+            {status.label}
+          </span>
+        </div>
+
+        {/* Milestone progress line */}
+        <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+          <span className="tabular-nums">
+            {mDone}/{mTotal} jalons
+          </span>
+          {mTotal > 0 && (
+            <span
+              className="relative h-1 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"
+              role="progressbar"
+              aria-valuenow={progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Progression ${progress}%`}
+            >
+              <span
+                className="absolute inset-y-0 left-0 rounded-full bg-rose-500 transition-all dark:bg-rose-400"
+                style={{ width: `${progress}%` }}
+              />
+            </span>
+          )}
+          {!viewerIsClient && pending > 0 && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="text-amber-600 dark:text-amber-400">
+                {formatEurCents(pending)} en attente
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Attribution date + rate — tertiary info */}
+        <div className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+          Attribuée le {attributedOn}
+          {rate !== undefined && (
+            <>
+              {" · "}
+              Taux {rate.toFixed(rate % 1 === 0 ? 0 : 1)} %
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Commission (right column) — primary value for apporteur */}
+      {!viewerIsClient && (
+        <div className="shrink-0 text-right">
+          <div className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">
+            {formatEurCents(paid)}
+          </div>
+          <div className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Commission
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-        <Stat
-          label="Jalons payés"
-          value={String(attribution.milestones_paid)}
-        />
-        <Stat
-          label="Jalons en cours"
-          value={String(attribution.milestones_pending)}
-        />
-        {!viewerIsClient && (
-          <Stat
-            label="Commission"
-            value={formatEurCents(paid)}
-            subtitle={
-              pending > 0 ? `+ ${formatEurCents(pending)} en attente` : undefined
-            }
-            accent
-          />
-        )}
-      </div>
-    </article>
+      <ChevronRight
+        className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-rose-500 dark:text-slate-600 dark:group-hover:text-rose-400"
+        aria-hidden="true"
+      />
+    </Link>
   )
 }
 
-function Stat({
-  label,
-  value,
-  subtitle,
-  accent,
-}: {
+type StatusMeta = {
   label: string
-  value: string
-  subtitle?: string
-  accent?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40",
-        accent &&
-          "border-rose-100 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10",
-      )}
-    >
-      <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-0.5 text-sm font-semibold text-slate-900 dark:text-white",
-          accent && "text-rose-700 dark:text-rose-400",
-        )}
-      >
-        {value}
-      </div>
-      {subtitle && (
-        <div className="mt-0.5 text-[10px] text-rose-600/80 dark:text-rose-300/80">
-          {subtitle}
-        </div>
-      )}
-    </div>
-  )
+  dotCls: string
+  pillCls: string
 }
 
-type ProposalBadge = {
-  label: string
-  cls: string
-  icon: typeof CheckCircle2
-}
-
-function proposalStatusBadge(status: string | undefined): ProposalBadge {
+function proposalStatus(status: string | undefined): StatusMeta {
   switch (status) {
     case "paid":
     case "active":
     case "completion_requested":
       return {
         label: labelFor(status),
-        cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
-        icon: CircleDot,
+        dotCls: "bg-emerald-500 ring-2 ring-emerald-500/20",
+        pillCls:
+          "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
       }
     case "completed":
       return {
         label: "Terminée",
-        cls: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
-        icon: CheckCircle2,
+        dotCls: "bg-blue-500 ring-2 ring-blue-500/20",
+        pillCls:
+          "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400",
       }
     case "pending":
     case "accepted":
       return {
         label: labelFor(status),
-        cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
-        icon: Hourglass,
+        dotCls: "bg-amber-500 ring-2 ring-amber-500/20",
+        pillCls:
+          "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
       }
     case "disputed":
       return {
         label: "En litige",
-        cls: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
-        icon: ShieldAlert,
+        dotCls: "bg-red-500 ring-2 ring-red-500/20",
+        pillCls: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400",
       }
     case "declined":
     case "withdrawn":
       return {
         label: labelFor(status),
-        cls: "bg-slate-100 text-slate-600",
-        icon: Hourglass,
+        dotCls: "bg-slate-400 ring-2 ring-slate-400/20",
+        pillCls:
+          "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
       }
     default:
       return {
         label: status ?? "—",
-        cls: "bg-slate-100 text-slate-600",
-        icon: CircleDot,
+        dotCls: "bg-slate-400 ring-2 ring-slate-400/20",
+        pillCls:
+          "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
       }
   }
 }
@@ -285,5 +307,6 @@ function formatEurCents(cents: number): string {
   return new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
+    maximumFractionDigits: 0,
   }).format(cents / 100)
 }
