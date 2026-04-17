@@ -235,6 +235,18 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 	if p.Status == domain.StatusCompleted {
 		s.runEndOfProjectEffects(ctx, p)
 	} else {
+		// Mid-project auto-approve: transfer the just-released milestone's
+		// escrow to the provider. Uses TransferMilestone(m.ID) so multi-
+		// milestone proposals release the correct record — the legacy
+		// TransferToProvider(proposal_id) picked the newest record which
+		// was almost always the wrong one for mid-project releases.
+		if s.payments != nil {
+			if err := s.payments.TransferMilestone(ctx, m.ID); err != nil {
+				slog.Error("auto-approve: failed to transfer milestone",
+					"proposal_id", p.ID, "milestone_id", m.ID, "error", err)
+			}
+		}
+
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, uuid.Nil, "milestone_auto_approved", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_auto_approved", "Milestone auto-approved",

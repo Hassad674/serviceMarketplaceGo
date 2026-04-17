@@ -13,8 +13,21 @@ type PaymentProcessor interface {
 	// Returns the client secret for Stripe Elements on the frontend.
 	CreatePaymentIntent(ctx context.Context, input PaymentIntentInput) (*PaymentIntentOutput, error)
 
-	// TransferToProvider transfers funds to the provider's connected account.
+	// TransferToProvider transfers funds to the provider's connected account
+	// for every pending milestone of the proposal. Used at macro completion
+	// and by the outbox worker where no specific milestone is known. For
+	// milestone-scoped releases (mid-project approve / auto-approve) callers
+	// MUST use TransferMilestone instead — TransferToProvider iterates all
+	// pending records of the proposal.
 	TransferToProvider(ctx context.Context, proposalID uuid.UUID) error
+
+	// TransferMilestone transfers funds for a single milestone record.
+	// This is the primary release path for multi-milestone proposals —
+	// the per-milestone release events (CompleteProposal mid-project,
+	// AutoApproveMilestone) must call this so only the just-released
+	// record is transferred and the referral commission hook fires
+	// against the correct milestone.
+	TransferMilestone(ctx context.Context, milestoneID uuid.UUID) error
 
 	// HandlePaymentSucceeded processes a successful payment webhook.
 	// Returns the proposal ID so the caller can transition the proposal.

@@ -96,6 +96,51 @@ func (r *PaymentRecordRepository) GetByProposalID(ctx context.Context, proposalI
 		LIMIT 1`, proposalID))
 }
 
+// ListByProposalID returns every payment record for a proposal, ordered
+// by created_at ascending (oldest first). Used by the macro-completion
+// transfer path which must release ALL pending milestones — picking the
+// most recent row (the old GetByProposalID behaviour) missed jalons 1..N-1
+// on multi-milestone proposals and left them stuck in escrow.
+func (r *PaymentRecordRepository) ListByProposalID(ctx context.Context, proposalID uuid.UUID) ([]*payment.PaymentRecord, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, proposal_id, milestone_id, client_id, provider_id,
+			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
+			proposal_amount, stripe_fee_amount, platform_fee_amount,
+			client_total_amount, provider_payout,
+			currency, status, transfer_status,
+			paid_at, transferred_at, created_at, updated_at
+		FROM payment_records
+		WHERE proposal_id = $1
+		ORDER BY created_at ASC`, proposalID)
+	if err != nil {
+		return nil, fmt.Errorf("list payment records by proposal: %w", err)
+	}
+	defer rows.Close()
+
+	var records []*payment.PaymentRecord
+	for rows.Next() {
+		var rec payment.PaymentRecord
+		var status, transferStatus string
+		if err := rows.Scan(
+			&rec.ID, &rec.ProposalID, &rec.MilestoneID, &rec.ClientID, &rec.ProviderID,
+			&rec.StripePaymentIntentID, &rec.StripeTransferID,
+			&rec.ProposalAmount, &rec.StripeFeeAmount, &rec.PlatformFeeAmount,
+			&rec.ClientTotalAmount, &rec.ProviderPayout,
+			&rec.Currency, &status, &transferStatus,
+			&rec.PaidAt, &rec.TransferredAt, &rec.CreatedAt, &rec.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan payment record: %w", err)
+		}
+		rec.Status = payment.PaymentRecordStatus(status)
+		rec.TransferStatus = payment.TransferStatus(transferStatus)
+		records = append(records, &rec)
+	}
+	return records, nil
+}
+
 // GetByMilestoneID returns the single payment record for a milestone.
 // Used by CreatePaymentIntent as the idempotency key so a retry on the
 // same milestone reuses the existing Stripe PaymentIntent instead of

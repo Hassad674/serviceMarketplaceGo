@@ -47,6 +47,10 @@ func (m *mockPaymentProcessor) TransferToProvider(ctx context.Context, proposalI
 	return nil
 }
 
+func (m *mockPaymentProcessor) TransferMilestone(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
+
 func (m *mockPaymentProcessor) HandlePaymentSucceeded(ctx context.Context, piID string) (uuid.UUID, error) {
 	if m.handlePaymentFn != nil {
 		return m.handlePaymentFn(ctx, piID)

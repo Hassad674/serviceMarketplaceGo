@@ -16,6 +16,12 @@ type PaymentRecordRepository interface {
 	// (one per milestone) and only returns the most recent.
 	GetByID(ctx context.Context, id uuid.UUID) (*payment.PaymentRecord, error)
 	GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*payment.PaymentRecord, error)
+	// ListByProposalID returns every payment record owned by the proposal,
+	// ordered by created_at ascending (oldest milestone first). Used by
+	// TransferToProvider's iterator path so a macro-completion transfer
+	// releases EVERY pending milestone of the proposal, not just the
+	// most recently created one (which is what GetByProposalID returns).
+	ListByProposalID(ctx context.Context, proposalID uuid.UUID) ([]*payment.PaymentRecord, error)
 	// GetByMilestoneID is the phase-4 idempotency key for
 	// CreatePaymentIntent — every payment is scoped to one milestone.
 	GetByMilestoneID(ctx context.Context, milestoneID uuid.UUID) (*payment.PaymentRecord, error)

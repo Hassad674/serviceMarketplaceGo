@@ -298,7 +298,17 @@ function MissionsSection({
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700">
             {records.map((record) => (
-              <RecordRow key={record.id} record={record} />
+              // Defensive key: id is the canonical source (payment_record PK,
+              // added to the backend DTO so every row is unique), but if an
+              // older backend omits it we fall back to milestone_id (also
+              // unique per proposal) and then to a composite of proposal_id
+              // and created_at. Keeping the fallback guards against future
+              // regressions — React's duplicate-key warning costs us nothing
+              // here and the triple-lookup is O(1).
+              <RecordRow
+                key={record.id || record.milestone_id || `${record.proposal_id}-${record.created_at}`}
+                record={record}
+              />
             ))}
           </div>
         )}

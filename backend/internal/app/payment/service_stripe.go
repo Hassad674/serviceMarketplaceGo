@@ -136,10 +136,84 @@ func (s *Service) HandlePaymentSucceeded(ctx context.Context, paymentIntentID st
 	return record.ProposalID, nil
 }
 
-// TransferToProvider creates a Stripe transfer from the platform balance
-// to the provider's connected account for a succeeded payment.
+// TransferToProvider releases EVERY pending payment record of a proposal
+// to the provider's connected account. Used at macro completion and by
+// the outbox worker where no specific milestone id is known.
+//
+// Iterates ListByProposalID (ordered oldest first) and delegates to
+// TransferMilestone for each record that is still
+// succeeded+TransferPending. Records in any other state are skipped
+// silently so a repeat call after partial success is idempotent.
+//
+// For milestone-scoped releases (mid-project approve or auto-approve)
+// callers MUST use TransferMilestone directly — calling this with a
+// multi-milestone proposal where only ONE milestone is released would
+// incorrectly double-transfer already-released jalons (they are skipped
+// via the gate, but intent-wise the caller should be explicit).
 func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) error {
-	record, err := s.records.GetByProposalID(ctx, proposalID)
+	records, err := s.records.ListByProposalID(ctx, proposalID)
+	if err != nil {
+		return fmt.Errorf("list payment records: %w", err)
+	}
+	if len(records) == 0 {
+		return domain.ErrPaymentRecordNotFound
+	}
+
+	var firstErr error
+	var releasedAny bool
+	for _, r := range records {
+		// Skip anything not held in escrow. This makes the call
+		// idempotent: replaying after a partial success re-hits
+		// only the records still TransferPending.
+		if r.Status != domain.RecordStatusSucceeded || r.TransferStatus != domain.TransferPending {
+			continue
+		}
+		if r.MilestoneID == uuid.Nil {
+			// Defensive: the phase-4 migration forbids a zero
+			// milestone_id, but if we somehow find one skip it
+			// rather than crash. Log and move on.
+			slog.Warn("transfer: skipping record with zero milestone_id",
+				"record_id", r.ID, "proposal_id", proposalID)
+			continue
+		}
+		if err := s.TransferMilestone(ctx, r.MilestoneID); err != nil {
+			// Collect the first error but keep going so one stuck
+			// milestone doesn't block the others (each milestone
+			// is independent — partial success is better than none).
+			if firstErr == nil {
+				firstErr = err
+			}
+			slog.Warn("transfer: milestone release failed",
+				"milestone_id", r.MilestoneID, "proposal_id", proposalID, "error", err)
+			continue
+		}
+		releasedAny = true
+	}
+
+	if firstErr != nil {
+		return firstErr
+	}
+	if !releasedAny {
+		// Nothing to transfer — every record was already released or
+		// not-yet-succeeded. Preserve the pre-refactor "transfer already
+		// done" sentinel so callers that rely on it keep working.
+		return domain.ErrTransferAlreadyDone
+	}
+	return nil
+}
+
+// TransferMilestone releases a single milestone's payment record to the
+// provider's connected account. This is the primary release path for
+// multi-milestone proposals — per-milestone releases (CompleteProposal
+// mid-project, AutoApproveMilestone) MUST use this so the correct
+// record is transferred and the referral commission hook fires against
+// the just-released milestone.
+//
+// Returns ErrPaymentNotSucceeded if the record is not held in escrow,
+// ErrTransferAlreadyDone if it was already transferred, and
+// ErrStripeAccountNotFound if the provider has not completed KYC.
+func (s *Service) TransferMilestone(ctx context.Context, milestoneID uuid.UUID) error {
+	record, err := s.records.GetByMilestoneID(ctx, milestoneID)
 	if err != nil {
 		return fmt.Errorf("find payment record: %w", err)
 	}
@@ -160,7 +234,7 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 		Amount:             record.ProviderPayout,
 		Currency:           record.Currency,
 		DestinationAccount: stripeAccountID,
-		TransferGroup:      proposalID.String(),
+		TransferGroup:      record.ProposalID.String(),
 		// Idempotency scoped to the record id so multi-milestone proposals
 		// don't collide on the same key (proposal-only key was buggy).
 		IdempotencyKey: fmt.Sprintf("transfer_%s_%s", record.ID, stripeAccountID),

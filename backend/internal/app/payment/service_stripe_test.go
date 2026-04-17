@@ -265,6 +265,106 @@ func TestRequestPayout_NoStatusReader_FallsBackToLegacyBehaviour(t *testing.T) {
 	assert.Len(t, stripe.transferCalls, 1, "fallback mode: transfer still happens")
 }
 
+// milestoneRecords lets us drive TransferMilestone + TransferToProvider
+// iteration paths independently. It looks up records by milestone_id
+// (primary path) and by proposal_id (iterator path). Update writes are
+// collected in order so the test can assert which records were touched.
+type milestoneRecords struct {
+	repository.PaymentRecordRepository
+	byMilestone map[uuid.UUID]*domain.PaymentRecord
+	byProposal  map[uuid.UUID][]*domain.PaymentRecord
+	updated     []*domain.PaymentRecord
+}
+
+func (m *milestoneRecords) GetByMilestoneID(_ context.Context, id uuid.UUID) (*domain.PaymentRecord, error) {
+	r, ok := m.byMilestone[id]
+	if !ok {
+		return nil, domain.ErrPaymentRecordNotFound
+	}
+	cp := *r
+	return &cp, nil
+}
+
+func (m *milestoneRecords) ListByProposalID(_ context.Context, id uuid.UUID) ([]*domain.PaymentRecord, error) {
+	out := make([]*domain.PaymentRecord, 0, len(m.byProposal[id]))
+	for _, r := range m.byProposal[id] {
+		cp := *r
+		out = append(out, &cp)
+	}
+	return out, nil
+}
+
+func (m *milestoneRecords) Update(_ context.Context, r *domain.PaymentRecord) error {
+	m.updated = append(m.updated, r)
+	// Mirror the update into the source maps so a follow-up call sees
+	// the new state — models the real DB behaviour.
+	if existing, ok := m.byMilestone[r.MilestoneID]; ok {
+		*existing = *r
+	}
+	return nil
+}
+
+// Bug A: TransferToProvider(proposalID) used GetByProposalID which returns
+// the most recent record by created_at. On a multi-milestone proposal that
+// means the wrong record was always released. TransferMilestone targets the
+// correct record by milestone_id; this test proves the fix.
+func TestTransferMilestone_ReleasesSpecificRecord(t *testing.T) {
+	providerID := uuid.New()
+	proposalID := uuid.New()
+
+	// Jalon 1: succeeded + pending (the one we want to release).
+	rec1 := baseRecord()
+	rec1.ProposalID = proposalID
+	rec1.MilestoneID = uuid.New()
+	rec1.ProviderID = providerID
+	rec1.ProposalAmount = 1000
+	rec1.ProviderPayout = 950
+
+	// Jalon 2: also succeeded + pending but CREATED LATER — the legacy
+	// GetByProposalID would pick this one and leave jalon 1 stuck in
+	// escrow. The explicit milestone-scoped call must ignore it.
+	rec2 := baseRecord()
+	rec2.ProposalID = proposalID
+	rec2.MilestoneID = uuid.New()
+	rec2.ProviderID = providerID
+	rec2.ProposalAmount = 2000
+	rec2.ProviderPayout = 1900
+
+	records := &milestoneRecords{
+		byMilestone: map[uuid.UUID]*domain.PaymentRecord{
+			rec1.MilestoneID: rec1,
+			rec2.MilestoneID: rec2,
+		},
+		byProposal: map[uuid.UUID][]*domain.PaymentRecord{
+			proposalID: {rec1, rec2},
+		},
+	}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_123"}
+	stripe := &fakeStripe{}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+
+	err := svc.TransferMilestone(context.Background(), rec1.MilestoneID)
+	assert.NoError(t, err)
+
+	// Exactly ONE Stripe transfer for jalon 1's amount — never jalon 2.
+	assert.Len(t, stripe.transferCalls, 1, "exactly one transfer for the targeted milestone")
+	assert.Equal(t, rec1.ProviderPayout, stripe.transferCalls[0].Amount,
+		"amount must match the targeted milestone, not the most recent record")
+	assert.Equal(t, proposalID.String(), stripe.transferCalls[0].TransferGroup)
+
+	// Record 1 got persisted, record 2 must be untouched so the client
+	// can still release it via its own milestone_id call.
+	assert.Len(t, records.updated, 1, "only the targeted record is updated")
+	assert.Equal(t, rec1.MilestoneID, records.updated[0].MilestoneID,
+		"the persisted record must be jalon 1, proving we didn't fall back to the newest record")
+	assert.Equal(t, domain.TransferCompleted, records.updated[0].TransferStatus)
+}
+
 // Not-succeeded records must be rejected — this preserves the invariant
 // that you cannot distribute funds that are not held in escrow.
 func TestTransferPartialToProvider_RecordNotSucceeded_Rejected(t *testing.T) {

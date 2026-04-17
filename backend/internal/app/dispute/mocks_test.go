@@ -291,6 +291,10 @@ func (m *mockPaymentProcessor) TransferToProvider(_ context.Context, _ uuid.UUID
 	m.transferCalled = true
 	return nil
 }
+func (m *mockPaymentProcessor) TransferMilestone(_ context.Context, _ uuid.UUID) error {
+	m.transferCalled = true
+	return nil
+}
 func (m *mockPaymentProcessor) HandlePaymentSucceeded(context.Context, string) (uuid.UUID, error) {
 	return uuid.Nil, nil
 }
