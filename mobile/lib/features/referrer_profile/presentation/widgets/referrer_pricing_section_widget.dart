@@ -7,9 +7,14 @@ import '../../../../shared/profile/money_format.dart';
 import '../../domain/entities/referrer_pricing.dart';
 import '../providers/referrer_profile_providers.dart';
 
-/// Pricing card rendered on the referrer edit screen. The editor
-/// only offers the two referrer-legal types (commission_pct,
-/// commission_flat) — the backend rejects anything else.
+/// Pricing card rendered on the referrer edit screen.
+///
+/// V1 pricing simplification: the referrer persona is narrowed to
+/// `commission_pct` only. The editor asks for ONE percentage in
+/// [0..100] and persists a range-shaped row with min == max (the
+/// backend validator requires both bounds). Legacy commission_flat
+/// rows still render correctly on public cards via _formatReferrer;
+/// only the editor is constrained.
 class ReferrerPricingSectionWidget extends ConsumerWidget {
   const ReferrerPricingSectionWidget({super.key, required this.canEdit});
 
@@ -165,11 +170,15 @@ class _PricingBody extends StatelessWidget {
     switch (p.type) {
       case ReferrerPricingType.commissionPct:
         final min = formatBasisPoints(p.minAmount, isFrench: isFrench);
-        if (p.maxAmount != null) {
+        // V1 headline shape: collapse "N – N %" into a single clean
+        // "N % de commission" when min equals max (the shape the
+        // editor now produces). Legacy multi-bound rows still render
+        // as a range.
+        if (p.maxAmount != null && p.maxAmount != p.minAmount) {
           final max = formatBasisPoints(p.maxAmount!, isFrench: isFrench);
           return '$min – $max';
         }
-        return min;
+        return isFrench ? '$min de commission' : '$min commission';
       case ReferrerPricingType.commissionFlat:
         final amount = formatMoney(p.minAmount, p.currency, locale);
         return isFrench ? '$amount / deal' : '$amount per deal';
@@ -192,61 +201,61 @@ class _ReferrerPricingEditor extends StatefulWidget {
 }
 
 class _ReferrerPricingEditorState extends State<_ReferrerPricingEditor> {
-  late ReferrerPricingType _type;
-  late TextEditingController _minController;
-  late TextEditingController _maxController;
+  // V1: the referrer editor collapses to a single commission percent
+  // input. Type is locked to commission_pct, currency is locked to
+  // "pct" (backend convention). Legacy commission_flat rows are
+  // coerced on re-edit — the flat amount is discarded and the user
+  // types a fresh percentage.
+  late TextEditingController _pctController;
   late TextEditingController _noteController;
-  late String _currency;
   late bool _negotiable;
 
-  static const List<String> _currencies = ['EUR', 'USD', 'GBP', 'CAD', 'AUD'];
+  static const _v1Type = ReferrerPricingType.commissionPct;
+  static const _v1Currency = 'pct';
+  static const _pctMax = 100;
 
   @override
   void initState() {
     super.initState();
     final init = widget.initial;
-    _type = init?.type ?? ReferrerPricingType.commissionPct;
-    _minController = TextEditingController(
-      text: init != null ? _amountToText(init.minAmount, init.type) : '',
-    );
-    _maxController = TextEditingController(
-      text: init?.maxAmount != null
-          ? _amountToText(init!.maxAmount!, init.type)
-          : '',
-    );
+    _pctController = TextEditingController(text: _initialPctText(init));
     _noteController = TextEditingController(text: init?.note ?? '');
-    _currency =
-        init?.currency ?? (_type.isMonetary ? 'EUR' : 'pct');
     _negotiable = init?.negotiable ?? false;
   }
 
   @override
   void dispose() {
-    _minController.dispose();
-    _maxController.dispose();
+    _pctController.dispose();
     _noteController.dispose();
     super.dispose();
   }
 
-  String _amountToText(int rawAmount, ReferrerPricingType type) {
-    // Commission percent: basis points -> percent float.
-    // Commission flat: centimes -> currency float.
-    final value = rawAmount / 100.0;
+  // _initialPctText chooses the best single-percent seed to display.
+  // We prefer the max_amount of a commission_pct row (the user's
+  // headline rate); legacy commission_flat rows have no percent, so
+  // we fall back to empty and let the user type fresh.
+  String _initialPctText(ReferrerPricing? init) {
+    if (init == null || init.type != ReferrerPricingType.commissionPct) {
+      return '';
+    }
+    final basisPoints = init.maxAmount ?? init.minAmount;
+    final value = basisPoints / 100.0;
     if (value == value.roundToDouble()) return value.toInt().toString();
     return value.toStringAsFixed(2);
   }
 
-  int _parseAmount(String raw) {
+  // _parsePctToBasisPoints clamps [0..100] and converts to the backend
+  // basis-point representation (5.5 % -> 550).
+  int _parsePctToBasisPoints(String raw) {
     final cleaned = raw.replaceAll(',', '.').trim();
     if (cleaned.isEmpty) return 0;
-    final value = double.tryParse(cleaned) ?? 0.0;
+    final value = (double.tryParse(cleaned) ?? 0.0).clamp(0.0, _pctMax.toDouble());
     return (value * 100).round();
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isPct = _type == ReferrerPricingType.commissionPct;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -263,67 +272,21 @@ class _ReferrerPricingEditorState extends State<_ReferrerPricingEditor> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            DropdownButtonFormField<ReferrerPricingType>(
-              initialValue: _type,
-              decoration: InputDecoration(
-                labelText: l10n.tier1PricingKindReferral,
-                border: const OutlineInputBorder(),
-              ),
-              items: [
-                DropdownMenuItem(
-                  value: ReferrerPricingType.commissionPct,
-                  child: Text(l10n.tier1PricingTypeCommissionPct),
-                ),
-                DropdownMenuItem(
-                  value: ReferrerPricingType.commissionFlat,
-                  child: Text(l10n.tier1PricingTypeCommissionFlat),
-                ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _type = value;
-                  _currency = value.isMonetary ? 'EUR' : 'pct';
-                });
-              },
-            ),
-            const SizedBox(height: 12),
+            // V1: single commission percentage field. Type is locked
+            // to commission_pct and currency is locked to "pct" — no
+            // dropdown, no max-amount bound.
             TextField(
-              controller: _minController,
-              keyboardType: TextInputType.number,
+              controller: _pctController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: InputDecoration(
-                labelText: l10n.tier1PricingMinLabel,
+                labelText: l10n.tier1PricingReferrerCommissionLabel,
+                helperText: l10n.tier1PricingReferrerCommissionHint,
+                suffixText: '%',
                 border: const OutlineInputBorder(),
               ),
             ),
-            if (isPct) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _maxController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: l10n.tier1PricingMaxLabel,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ],
-            if (!isPct) ...[
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _currency,
-                decoration: InputDecoration(
-                  labelText: l10n.tier1PricingCurrencyLabel,
-                  border: const OutlineInputBorder(),
-                ),
-                items: [
-                  for (final c in _currencies)
-                    DropdownMenuItem(value: c, child: Text(c)),
-                ],
-                onChanged: (value) {
-                  if (value != null) setState(() => _currency = value);
-                },
-              ),
-            ],
             const SizedBox(height: 12),
             TextField(
               controller: _noteController,
@@ -365,16 +328,16 @@ class _ReferrerPricingEditorState extends State<_ReferrerPricingEditor> {
   }
 
   void _submit() {
-    final minAmount = _parseAmount(_minController.text);
-    final maxAmount = _type == ReferrerPricingType.commissionPct &&
-            _maxController.text.isNotEmpty
-        ? _parseAmount(_maxController.text)
-        : null;
+    // V1: echo the single percentage to BOTH min and max so the
+    // backend validator (range required) accepts the payload, and
+    // the formatter collapses it to a single "N % commission" on
+    // the card.
+    final basisPoints = _parsePctToBasisPoints(_pctController.text);
     final pricing = ReferrerPricing(
-      type: _type,
-      minAmount: minAmount,
-      maxAmount: maxAmount,
-      currency: _currency,
+      type: _v1Type,
+      minAmount: basisPoints,
+      maxAmount: basisPoints,
+      currency: _v1Currency,
       note: _noteController.text.trim(),
       negotiable: _negotiable,
     );

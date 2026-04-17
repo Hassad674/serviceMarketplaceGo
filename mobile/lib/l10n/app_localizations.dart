@@ -63,7 +63,7 @@ import 'app_localizations_fr.dart';
 /// property.
 abstract class AppLocalizations {
   AppLocalizations(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -86,16 +86,16 @@ abstract class AppLocalizations {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('fr')
+    Locale('fr'),
   ];
 
   /// No description provided for @appTitle.
@@ -815,7 +815,7 @@ abstract class AppLocalizations {
   /// No description provided for @searchFiltersPrice.
   ///
   /// In en, this message translates to:
-  /// **'Daily rate'**
+  /// **'Price'**
   String get searchFiltersPrice;
 
   /// No description provided for @searchFiltersPriceMin.
@@ -829,6 +829,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Max'**
   String get searchFiltersPriceMax;
+
+  /// No description provided for @searchFiltersFreelancePrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily rate (TJM)'**
+  String get searchFiltersFreelancePrice;
+
+  /// No description provided for @searchFiltersFreelancePriceMin.
+  ///
+  /// In en, this message translates to:
+  /// **'TJM min'**
+  String get searchFiltersFreelancePriceMin;
+
+  /// No description provided for @searchFiltersFreelancePriceMax.
+  ///
+  /// In en, this message translates to:
+  /// **'TJM max'**
+  String get searchFiltersFreelancePriceMax;
+
+  /// No description provided for @searchFiltersAgencyPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum project budget'**
+  String get searchFiltersAgencyPrice;
+
+  /// No description provided for @searchFiltersAgencyPriceMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget min'**
+  String get searchFiltersAgencyPriceMin;
+
+  /// No description provided for @searchFiltersAgencyPriceMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Budget max'**
+  String get searchFiltersAgencyPriceMax;
+
+  /// No description provided for @searchFiltersReferrerPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission'**
+  String get searchFiltersReferrerPrice;
+
+  /// No description provided for @searchFiltersReferrerPriceMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Min'**
+  String get searchFiltersReferrerPriceMin;
+
+  /// No description provided for @searchFiltersReferrerPriceMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Max'**
+  String get searchFiltersReferrerPriceMax;
 
   /// No description provided for @searchFiltersLocation.
   ///
@@ -5126,6 +5180,30 @@ abstract class AppLocalizations {
   /// **'Add a business-referrer row'**
   String get tier1PricingEnableReferralRow;
 
+  /// No description provided for @tier1PricingFreelanceDailyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily rate (TJM)'**
+  String get tier1PricingFreelanceDailyLabel;
+
+  /// No description provided for @tier1PricingFreelanceDailyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your standard daily rate, in euros.'**
+  String get tier1PricingFreelanceDailyHint;
+
+  /// No description provided for @tier1PricingReferrerCommissionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission (%)'**
+  String get tier1PricingReferrerCommissionLabel;
+
+  /// No description provided for @tier1PricingReferrerCommissionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The cut you take on deals you bring in.'**
+  String get tier1PricingReferrerCommissionHint;
+
   /// No description provided for @tier1Save.
   ///
   /// In en, this message translates to:
@@ -5286,8 +5364,9 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
   }
 
   throw FlutterError(
-      'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }
