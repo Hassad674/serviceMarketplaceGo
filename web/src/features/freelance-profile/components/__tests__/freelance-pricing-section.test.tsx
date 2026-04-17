@@ -40,7 +40,7 @@ function renderSection() {
   )
 }
 
-describe("FreelancePricingSection", () => {
+describe("FreelancePricingSection (V1 single-field form)", () => {
   beforeEach(() => {
     upsertMutateAsync.mockReset()
     deleteMutateAsync.mockReset()
@@ -53,30 +53,32 @@ describe("FreelancePricingSection", () => {
     ).toBeInTheDocument()
   })
 
-  it("opens the inline editor when the edit button is clicked", () => {
+  it("opens the inline editor without the legacy type dropdown", () => {
     renderSection()
     fireEvent.click(
       screen.getByRole("button", { name: messages.profile.pricing.editButton }),
     )
+    // V1: the editor MUST NOT surface the pricing-type radio group —
+    // the freelance persona is locked to `daily` (TJM).
     expect(
-      screen.getByRole("radiogroup", {
+      screen.queryByRole("radiogroup", {
         name: messages.profile.pricing.typeGroupLabel,
       }),
+    ).not.toBeInTheDocument()
+    // The single amount input is labelled with the V1 TJM label.
+    expect(
+      screen.getByLabelText(messages.profile.pricing.freelanceDailyLabel),
     ).toBeInTheDocument()
   })
 
-  it("calls the upsert mutation with converted cents on save", async () => {
+  it("calls the upsert mutation with daily + EUR + cents on save", async () => {
     upsertMutateAsync.mockResolvedValue({})
     renderSection()
     fireEvent.click(
       screen.getByRole("button", { name: messages.profile.pricing.editButton }),
     )
-    // Select TJM (daily) and type a valid amount
-    fireEvent.click(
-      screen.getByRole("radio", { name: messages.profile.pricing.typeDaily }),
-    )
     fireEvent.change(
-      screen.getByLabelText(messages.profile.pricing.minAmountLabel),
+      screen.getByLabelText(messages.profile.pricing.freelanceDailyLabel),
       { target: { value: "500" } },
     )
     fireEvent.click(screen.getByTestId("freelance-pricing-save"))
@@ -84,6 +86,7 @@ describe("FreelancePricingSection", () => {
     const payload = upsertMutateAsync.mock.calls[0][0]
     expect(payload.type).toBe("daily")
     expect(payload.min_amount).toBe(50000)
+    expect(payload.max_amount).toBeNull()
     expect(payload.currency).toBe("EUR")
   })
 })

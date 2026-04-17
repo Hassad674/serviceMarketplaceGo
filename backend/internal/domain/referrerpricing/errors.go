@@ -40,4 +40,11 @@ var (
 	// ErrPricingNotFound — the repository layer returns this when a
 	// lookup by profile_id misses. HTTP 404.
 	ErrPricingNotFound = errors.New("referrer pricing not found")
+
+	// ErrPricingTypeNotAllowed — V1 pricing simplification: referrer
+	// profiles may only declare a `commission_pct` row. The legacy
+	// `commission_flat` path is frozen for existing rows but rejected
+	// on Create / Update at the app layer so the referrer listing
+	// page stays price-comparable. HTTP 400.
+	ErrPricingTypeNotAllowed = errors.New("referrer pricing must use type=commission_pct in V1")
 )

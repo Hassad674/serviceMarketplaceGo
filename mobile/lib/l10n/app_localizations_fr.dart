@@ -393,13 +393,40 @@ class AppLocalizationsFr extends AppLocalizations {
   String get searchFiltersAll => 'Tout';
 
   @override
-  String get searchFiltersPrice => 'Tarif / jour';
+  String get searchFiltersPrice => 'Tarif';
 
   @override
   String get searchFiltersPriceMin => 'Min';
 
   @override
   String get searchFiltersPriceMax => 'Max';
+
+  @override
+  String get searchFiltersFreelancePrice => 'TJM';
+
+  @override
+  String get searchFiltersFreelancePriceMin => 'TJM min';
+
+  @override
+  String get searchFiltersFreelancePriceMax => 'TJM max';
+
+  @override
+  String get searchFiltersAgencyPrice => 'Budget projet minimum';
+
+  @override
+  String get searchFiltersAgencyPriceMin => 'Budget min';
+
+  @override
+  String get searchFiltersAgencyPriceMax => 'Budget max';
+
+  @override
+  String get searchFiltersReferrerPrice => 'Commission';
+
+  @override
+  String get searchFiltersReferrerPriceMin => 'Min';
+
+  @override
+  String get searchFiltersReferrerPriceMax => 'Max';
 
   @override
   String get searchFiltersLocation => 'Localisation';
@@ -2748,6 +2775,19 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get tier1PricingEnableReferralRow =>
       'Ajouter une ligne apport d\'affaires';
+
+  @override
+  String get tier1PricingFreelanceDailyLabel => 'Taux journalier (TJM)';
+
+  @override
+  String get tier1PricingFreelanceDailyHint => 'Ton TJM standard, en euros.';
+
+  @override
+  String get tier1PricingReferrerCommissionLabel => 'Commission (%)';
+
+  @override
+  String get tier1PricingReferrerCommissionHint =>
+      'La part que tu prends sur les deals que tu apportes.';
 
   @override
   String get tier1Save => 'Enregistrer';

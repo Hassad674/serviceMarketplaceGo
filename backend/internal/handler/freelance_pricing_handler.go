@@ -153,6 +153,8 @@ func handleFreelancePricingError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domainpricing.ErrPricingNotFound):
 		res.Error(w, http.StatusNotFound, "freelance_pricing_not_found", err.Error())
+	case errors.Is(err, domainpricing.ErrPricingTypeNotAllowed):
+		res.Error(w, http.StatusBadRequest, "pricing_type_not_allowed", err.Error())
 	case errors.Is(err, domainpricing.ErrInvalidType),
 		errors.Is(err, domainpricing.ErrNegativeAmount),
 		errors.Is(err, domainpricing.ErrMaxLessThanMin),

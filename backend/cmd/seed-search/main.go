@@ -176,7 +176,9 @@ func wipePreviousSeed(ctx context.Context, db *sql.DB) error {
 		`DELETE FROM profile_skills WHERE organization_id = ANY($1)`,
 		`DELETE FROM freelance_pricing WHERE profile_id IN (SELECT id FROM freelance_profiles WHERE organization_id = ANY($1))`,
 		`DELETE FROM freelance_profiles WHERE organization_id = ANY($1)`,
+		`DELETE FROM referrer_pricing WHERE profile_id IN (SELECT id FROM referrer_profiles WHERE organization_id = ANY($1))`,
 		`DELETE FROM referrer_profiles WHERE organization_id = ANY($1)`,
+		`DELETE FROM profile_pricing WHERE organization_id = ANY($1)`,
 		`DELETE FROM profiles WHERE organization_id = ANY($1)`,
 	}
 	for _, q := range cleanups {

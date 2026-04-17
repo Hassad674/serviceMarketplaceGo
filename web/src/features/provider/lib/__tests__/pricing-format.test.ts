@@ -108,6 +108,40 @@ describe("formatPricing", () => {
     expect(result).not.toContain("–")
   })
 
+  // V1 pricing simplification: the referrer editor stores the single
+  // user-entered percentage in BOTH min and max. formatPricing must
+  // collapse the range when the two bounds are equal so the card
+  // surfaces "10 % de commission" instead of "10 – 10 %".
+  it("collapses commission_pct to a single headline when min equals max (V1)", () => {
+    const resultFR = formatPricing(
+      row({
+        type: "commission_pct",
+        min_amount: 1000,
+        max_amount: 1000,
+        currency: "pct",
+      }),
+      "fr",
+    )
+    expect(resultFR).toContain("10")
+    expect(resultFR).toContain("%")
+    expect(resultFR).toContain("commission")
+    expect(resultFR).not.toContain("–")
+
+    const resultEN = formatPricing(
+      row({
+        type: "commission_pct",
+        min_amount: 1000,
+        max_amount: 1000,
+        currency: "pct",
+      }),
+      "en",
+    )
+    expect(resultEN).toContain("10")
+    expect(resultEN).toContain("%")
+    expect(resultEN).toContain("commission")
+    expect(resultEN).not.toContain("–")
+  })
+
   it("formats commission_flat EUR with 'per deal' suffix in English", () => {
     const result = formatPricing(
       row({
