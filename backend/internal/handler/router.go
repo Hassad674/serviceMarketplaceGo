@@ -58,7 +58,8 @@ type RouterDeps struct {
 	AdminDispute   *AdminDisputeHandler
 	Skill          *SkillHandler
 	Referral       *ReferralHandler
-	Search         *SearchHandler // optional — nil when Typesense is disabled
+	Search            *SearchHandler            // optional — nil when Typesense is disabled
+	AdminSearchStats  *AdminSearchStatsHandler  // optional — nil when Typesense is disabled
 	WSHandler      http.HandlerFunc
 	Config         *config.Config
 	TokenService   service.TokenService
@@ -738,6 +739,13 @@ func NewRouter(deps RouterDeps) chi.Router {
 					r.Get("/credits/bonus-log/pending", deps.Proposal.AdminListPendingBonusLog)
 					r.Post("/credits/bonus-log/{id}/approve", deps.Proposal.AdminApproveBonusEntry)
 					r.Post("/credits/bonus-log/{id}/reject", deps.Proposal.AdminRejectBonusEntry)
+				}
+
+				// Search analytics dashboard — admin-only aggregates over
+				// the search_queries table. Gated by the outer RequireAdmin
+				// middleware; the handler re-checks defensively.
+				if deps.AdminSearchStats != nil {
+					r.Get("/search/stats", deps.AdminSearchStats.GetStats)
 				}
 			})
 		}
