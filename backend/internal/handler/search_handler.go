@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,6 +54,9 @@ type SearchHandlerDeps struct {
 	// ClickTracker is optional — when nil the /search/track endpoint
 	// returns 503 so the frontend knows to stop emitting beacons.
 	ClickTracker ClickTracker
+	// Logger receives one structured log line per successful search
+	// request. Nil-safe: defaults to slog.Default() at dispatch time.
+	Logger *slog.Logger
 }
 
 // ClickTracker is the narrow port /search/track calls. Implemented
@@ -121,7 +125,14 @@ func (h *SearchHandler) ScopedKey(w http.ResponseWriter, r *http.Request) {
 // Server-side proxy that runs a single query against Typesense and
 // returns the typed QueryResult. Used by SSR pages that cannot wait
 // for the frontend to fetch a scoped key.
+//
+// Emits exactly one `search.query` structured log line per
+// successful request (see search_log.go). Failures land in the
+// standard error path and do not produce a search.query log — the
+// log is "the user saw results" evidence, not a generic access log.
 func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	persona, err := parsePersona(r.URL.Query().Get("persona"))
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid_persona", err.Error())
@@ -162,7 +173,38 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.logSearch(r, input, result, time.Since(start))
+
 	response.JSON(w, http.StatusOK, result)
+}
+
+// logSearch emits the structured `search.query` log line. Extracted
+// from Search so it can be unit-tested independently with a
+// buffer-backed logger. Never returns an error — the log is
+// best-effort and must not fail the request.
+func (h *SearchHandler) logSearch(r *http.Request, input appsearch.QueryInput, result *appsearch.QueryResult, latency time.Duration) {
+	query, truncated := truncateQueryForLog(input.Query)
+	filterBy := appsearch.BuildFilterBy(input.Filters)
+	// cursor_active is true when the client paginated into a page
+	// beyond the first — that's either input.Cursor non-empty OR an
+	// explicit page > 1 param. We also infer "the service bumped us
+	// past page 1" from the response to keep the log honest when a
+	// scripted client sends page=0 and expects Typesense to default.
+	cursorActive := input.Cursor != "" || input.Page > 1 || result.Page > 1
+	payload := SearchLog{
+		RequestID:    middleware.GetRequestID(r.Context()),
+		UserID:       input.UserID,
+		Persona:      string(input.Persona),
+		Query:        query,
+		FilterBy:     filterBy,
+		SortBy:       strings.TrimSpace(input.SortBy),
+		ResultsCount: result.Found,
+		LatencyMs:    int(latency.Milliseconds()),
+		Hybrid:       result.Hybrid,
+		CursorActive: cursorActive,
+		Truncated:    truncated,
+	}
+	emitSearchLog(h.deps.Logger, payload)
 }
 
 // Track handles GET /api/v1/search/track?search_id=…&doc_id=…&position=N.
