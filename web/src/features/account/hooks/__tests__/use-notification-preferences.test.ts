@@ -34,28 +34,31 @@ describe("useNotificationPreferences", () => {
       { type: "new_message", in_app: true, push: true, email: false },
       { type: "proposal", in_app: true, push: false, email: true },
     ]
-    mockApiClient.mockResolvedValue({ data: prefs })
+    // Hook returns the full envelope (consumers read both `data` and
+    // `email_notifications_enabled` — see notification-settings.tsx).
+    mockApiClient.mockResolvedValue({ data: prefs, email_notifications_enabled: true })
 
     const { result } = renderHook(() => useNotificationPreferences(), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual(prefs)
+    expect(result.current.data?.data).toEqual(prefs)
+    expect(result.current.data?.email_notifications_enabled).toBe(true)
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/notifications/preferences",
     )
   })
 
   it("returns empty array when no preferences", async () => {
-    mockApiClient.mockResolvedValue({ data: [] })
+    mockApiClient.mockResolvedValue({ data: [], email_notifications_enabled: false })
 
     const { result } = renderHook(() => useNotificationPreferences(), {
       wrapper: createWrapper(),
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(result.current.data).toEqual([])
+    expect(result.current.data?.data).toEqual([])
   })
 
   it("handles fetch error", async () => {

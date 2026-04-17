@@ -1,6 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render as baseRender, screen, fireEvent } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import type { ReactElement } from "react"
 import { CreateProposalPage } from "../create-proposal-page"
+
+// Grant every permission by default so the submit flow is exercisable
+// in isolation. Tests that care about permission denial can override
+// with `vi.mocked(useHasPermission).mockReturnValueOnce(false)`.
+vi.mock("@/shared/hooks/use-permissions", () => ({
+  useHasPermission: () => true,
+}))
+
+// CreateProposalPage reads `useHasPermission` → `useOrganization` →
+// `useQuery` from the org-permissions system. Every render must sit
+// inside a TanStack QueryClientProvider so the hook graph resolves.
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
+  return baseRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  )
+}
 
 // Mock next-intl
 vi.mock("next-intl", () => ({

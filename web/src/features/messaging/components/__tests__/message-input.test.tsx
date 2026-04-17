@@ -1,6 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, screen, fireEvent } from "@testing-library/react"
+import { render as baseRender, screen, fireEvent } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import type { ReactElement } from "react"
 import { MessageInput } from "../message-input"
+
+// MessageInput reads `useHasPermission` → `useOrganization` → `useQuery`
+// from the org-permissions system, so every render must sit inside a
+// TanStack QueryClientProvider. The helper keeps the tests below
+// unchanged structurally.
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  })
+  return baseRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  )
+}
 
 // Mock next-intl
 vi.mock("next-intl", () => ({

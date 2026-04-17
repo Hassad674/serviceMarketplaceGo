@@ -146,17 +146,24 @@ func runGoldenQuery(t *testing.T, ctx context.Context, env *liveEnv, q GoldenQue
 	require.NoError(t, err, "embed query")
 
 	raw, err := env.Typesense.Query(ctx, env.Collection, search.SearchParams{
-		Q:       q.Query,
-		QueryBy: "display_name,title,skills_text,city,embedding",
+		Q:        q.Query,
+		QueryBy:  "display_name,title,skills_text,city",
 		FilterBy: fmt.Sprintf("persona:%s && is_published:true", q.Persona),
 		// DefaultSortByHybrid includes _vector_distance, which
 		// Typesense 28.0 accepts ONLY when a vector_query is set.
 		// The plain DefaultSortBy would 400 here.
+		//
+		// IMPORTANT: `embedding` MUST NOT appear in `query_by` on
+		// Typesense 28.0 — it is a manual-embedding (not
+		// auto-embedding) field, so we pass the pre-computed vector
+		// via `vector_query` instead. Mixing the two surfaces as a
+		// 400 with "Vector field `embedding` is not an auto-embedding
+		// field, do not use `query_by` with it".
 		SortBy:        search.DefaultSortByHybrid(),
 		Page:          1,
 		PerPage:       10,
 		ExcludeFields: "embedding",
-		NumTypos:      "2,2,1,1,0",
+		NumTypos:      "2,2,1,1",
 		VectorQuery:   search.FormatVectorQuery(vec, 20),
 	})
 	require.NoError(t, err, "typesense query")

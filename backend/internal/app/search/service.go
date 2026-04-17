@@ -321,19 +321,15 @@ func (s *Service) buildSearchParams(input QueryInput, page int, hybridActive boo
 		}
 	}
 
-	// Hybrid query_by: when hybrid is active we include the embedding
-	// field so Typesense blends BM25 + vector cosine natively. On
-	// match-all (q=*) or when no embedder is wired, we skip it —
-	// vector ranking with no text to embed is noise.
+	// Hybrid blending on Typesense 28.0: the vector side is controlled
+	// exclusively by the `vector_query` parameter. `embedding` is a
+	// manual (not auto-) vector field, so including it in `query_by`
+	// triggers a 400 — Typesense reserves query_by for auto-embedding
+	// fields only. The pre-computed vector flows in via VectorQuery
+	// (`maybeVectorQuery` above) and Typesense blends BM25 + cosine
+	// natively. query_by stays text-only regardless of hybrid state.
 	queryBy := defaultQueryBy
 	numTypos := defaultNumTypos
-	if hybridActive {
-		queryBy = defaultQueryBy + ",embedding"
-		// embedding is a vector field — num_typos must match query_by
-		// length. A vector field ignores the value; we append "0" for
-		// Typesense to accept the command.
-		numTypos = defaultNumTypos + ",0"
-	}
 
 	return search.SearchParams{
 		Q:                   q,
