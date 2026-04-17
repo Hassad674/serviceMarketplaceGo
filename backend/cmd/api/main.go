@@ -24,45 +24,45 @@ import (
 	"marketplace-backend/internal/adapter/s3transit"
 	sqsadapter "marketplace-backend/internal/adapter/sqs"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
+	"marketplace-backend/internal/adapter/worker"
+	"marketplace-backend/internal/adapter/worker/handlers"
 	"marketplace-backend/internal/adapter/ws"
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	disputeapp "marketplace-backend/internal/app/dispute"
 	embeddedapp "marketplace-backend/internal/app/embedded"
+	freelancepricingapp "marketplace-backend/internal/app/freelancepricing"
+	freelanceprofileapp "marketplace-backend/internal/app/freelanceprofile"
 	jobapp "marketplace-backend/internal/app/job"
 	kycapp "marketplace-backend/internal/app/kyc"
 	mediaapp "marketplace-backend/internal/app/media"
 	"marketplace-backend/internal/app/messaging"
 	milestoneapp "marketplace-backend/internal/app/milestone"
-	"marketplace-backend/internal/adapter/worker"
-	"marketplace-backend/internal/adapter/worker/handlers"
-	appsearch "marketplace-backend/internal/app/search"
-	"marketplace-backend/internal/app/searchanalytics"
-	"marketplace-backend/internal/app/searchindex"
-	"marketplace-backend/internal/domain/pendingevent"
-	"marketplace-backend/internal/search"
 	notifapp "marketplace-backend/internal/app/notification"
 	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
-	freelancepricingapp "marketplace-backend/internal/app/freelancepricing"
-	freelanceprofileapp "marketplace-backend/internal/app/freelanceprofile"
 	profileapp "marketplace-backend/internal/app/profile"
 	profilepricingapp "marketplace-backend/internal/app/profilepricing"
+	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
+	proposalapp "marketplace-backend/internal/app/proposal"
 	referralapp "marketplace-backend/internal/app/referral"
 	referrerpricingapp "marketplace-backend/internal/app/referrerpricing"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
-	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
-	proposalapp "marketplace-backend/internal/app/proposal"
 	reportapp "marketplace-backend/internal/app/report"
 	reviewapp "marketplace-backend/internal/app/review"
+	appsearch "marketplace-backend/internal/app/search"
+	"marketplace-backend/internal/app/searchanalytics"
+	"marketplace-backend/internal/app/searchindex"
 	skillapp "marketplace-backend/internal/app/skill"
 	"marketplace-backend/internal/config"
 	jobdomain "marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/domain/pendingevent"
 	profiledomain "marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/search"
 	"marketplace-backend/pkg/crypto"
 )
 
@@ -485,7 +485,6 @@ func main() {
 		// Phase 6 timer defaults (override via env in production):
 		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
 	})
-
 
 	// Phase 6: pending_events worker. Runs in a background goroutine
 	// alongside the API server, ticks every 30 seconds, and drives the
@@ -1055,6 +1054,11 @@ func main() {
 		AllowedWSOrigins: wsOriginPatterns(cfg.AllowedOrigins),
 	})
 
+	// Prometheus metrics registry. Exposed at GET /metrics by the
+	// router. Instrumentation points (search handler, reindex CLI,
+	// drift-check) receive this pointer via constructor injection.
+	metrics := handler.NewMetrics()
+
 	// Setup router
 	r := handler.NewRouter(handler.RouterDeps{
 		Auth:           authHandler,
@@ -1073,36 +1077,37 @@ func main() {
 		ReferrerProfileVideo:  referrerProfileVideoHandler,
 		OrganizationShared:    organizationSharedHandler,
 
-		Upload:         uploadHandler,
-		Health:         healthHandler,
-		Messaging:      messagingHandler,
-		Proposal:       proposalHandler,
-		Job:            jobHandler,
-		JobApplication: jobAppHandler,
-		Review:         reviewHandler,
-		Report:         reportHandler,
-		Call:           callHandler,
+		Upload:              uploadHandler,
+		Health:              healthHandler,
+		Messaging:           messagingHandler,
+		Proposal:            proposalHandler,
+		Job:                 jobHandler,
+		JobApplication:      jobAppHandler,
+		Review:              reviewHandler,
+		Report:              reportHandler,
+		Call:                callHandler,
 		SocialLink:          socialLinkHandler,
 		FreelanceSocialLink: freelanceSocialLinkHandler,
 		ReferrerSocialLink:  referrerSocialLinkHandler,
-		Embedded:       handler.NewEmbeddedHandler(organizationRepo, cfg.FrontendURL),
-		Notification:   notifHandler,
-		Stripe:         stripeHandler,
-		Wallet:         walletHandler,
-		Admin:          adminHandler,
-		Portfolio:      portfolioHandler,
-		ProjectHistory: projectHistoryHandler,
-		Dispute:        disputeHandler,
-		AdminDispute:   adminDisputeHandler,
-		Skill:          skillHandler,
-		Referral:       referralHandler,
-		Search:            searchHandler,
-		AdminSearchStats:  adminSearchStatsHandler,
-		WSHandler:      wsHandler,
-		Config:         cfg,
-		TokenService:   tokenSvc,
-		SessionService: sessionSvc,
-		UserRepo:       userRepo,
+		Embedded:            handler.NewEmbeddedHandler(organizationRepo, cfg.FrontendURL),
+		Notification:        notifHandler,
+		Stripe:              stripeHandler,
+		Wallet:              walletHandler,
+		Admin:               adminHandler,
+		Portfolio:           portfolioHandler,
+		ProjectHistory:      projectHistoryHandler,
+		Dispute:             disputeHandler,
+		AdminDispute:        adminDisputeHandler,
+		Skill:               skillHandler,
+		Referral:            referralHandler,
+		Search:              searchHandler,
+		AdminSearchStats:    adminSearchStatsHandler,
+		WSHandler:           wsHandler,
+		Config:              cfg,
+		TokenService:        tokenSvc,
+		SessionService:      sessionSvc,
+		UserRepo:            userRepo,
+		Metrics:             metrics,
 	})
 
 	// Create HTTP server

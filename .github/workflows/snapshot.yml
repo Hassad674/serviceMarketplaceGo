@@ -1,0 +1,47 @@
+# Daily Typesense snapshot cadence hint.
+#
+# The actual production snapshot runs in the production orchestrator
+# (systemd timer / k8s CronJob). This workflow exists to:
+#   1. Document the expected cadence in-repo so it cannot drift
+#      silently from the orchestrator configuration
+#   2. Optionally trigger a remote snapshot via an SSH job when staging
+#      is not wired to a CronJob yet (commented out below)
+#
+# See docs/ops.md for the restore playbook.
+name: Snapshot
+
+on:
+  schedule:
+    # Daily at 03:00 UTC — matches the cadence hint in
+    # cmd/typesense-snapshot/main.go header.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: snapshot-${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions: read-all
+
+jobs:
+  snapshot:
+    name: snapshot / placeholder
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: document cadence
+        run: |
+          echo "Daily snapshot runs at 03:00 UTC via production orchestrator."
+          echo "This workflow is a documentation artefact — see docs/ops.md#snapshots"
+      # Uncomment and wire STAGING_SSH_HOST / STAGING_SSH_USER / STAGING_SSH_KEY
+      # when ready to trigger the staging snapshot from GitHub Actions.
+      #
+      # - name: remote snapshot
+      #   uses: appleboy/ssh-action@v1.0.3
+      #   with:
+      #     host: ${{ secrets.STAGING_SSH_HOST }}
+      #     username: ${{ secrets.STAGING_SSH_USER }}
+      #     key: ${{ secrets.STAGING_SSH_KEY }}
+      #     script: |
+      #       cd /opt/marketplace/backend
+      #       make snapshot-typesense
