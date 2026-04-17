@@ -928,6 +928,7 @@ func main() {
 	proposalSvc.SetReferralAttributor(referralSvc)
 	paymentInfoSvc.SetReferralDistributor(referralSvc)
 	paymentInfoSvc.SetReferralClawback(referralSvc)
+	paymentInfoSvc.SetReferralWalletReader(referralSvc)
 	referralHandler := handler.NewReferralHandler(referralSvc)
 
 	// Referral scheduler — hourly tick running ExpireStaleIntros (14 days

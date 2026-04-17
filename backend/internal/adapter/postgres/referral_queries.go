@@ -145,6 +145,18 @@ const queryListCommissionsByReferral = `
 	WHERE a.referral_id = $1
 	ORDER BY c.created_at DESC`
 
+const queryListRecentCommissionsByReferrer = `
+	SELECT c.id, c.attribution_id, c.milestone_id,
+	       c.gross_amount_cents, c.commission_cents, c.currency,
+	       c.status, c.stripe_transfer_id, c.stripe_reversal_id, c.failure_reason,
+	       c.paid_at, c.clawed_back_at, c.created_at, c.updated_at
+	FROM referral_commissions c
+	JOIN referral_attributions a ON a.id = c.attribution_id
+	JOIN referrals r ON r.id = a.referral_id
+	WHERE r.referrer_id = $1
+	ORDER BY c.created_at DESC
+	LIMIT $2`
+
 const queryListPendingKYCByReferrer = `
 	SELECT c.id, c.attribution_id, c.milestone_id,
 	       c.gross_amount_cents, c.commission_cents, c.currency,

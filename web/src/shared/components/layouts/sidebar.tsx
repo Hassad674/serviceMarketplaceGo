@@ -62,6 +62,11 @@ const REFERRER_NAV: NavItem[] = [
   // referrer profile editor below — both labels are intentionally close.
   { labelKey: "referralDeals", href: "/referrals", icon: Sparkles, roles: ["provider"] },
   { labelKey: "referrerProfile", href: "/referral", icon: UserCircle, roles: ["provider"] },
+  // Wallet is where apporteurs see their commission income. Without
+  // this entry they'd have to switch back to freelance mode to check
+  // how much they've earned — which is the bug this line fixes.
+  { labelKey: "paymentInfo", href: "/payment-info", icon: CreditCard, roles: ["provider"] },
+  { labelKey: "wallet", href: "/wallet", icon: Wallet, roles: ["provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["provider"] },
   { labelKey: "accountSettings", href: "/account", icon: Settings, roles: ["provider"] },
 ]

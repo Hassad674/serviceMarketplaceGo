@@ -312,7 +312,11 @@ func (s *Service) RefundToClient(ctx context.Context, proposalID uuid.UUID, amou
 	return s.records.Update(ctx, record)
 }
 
-// WalletOverview holds the provider's wallet state.
+// WalletOverview holds the provider's wallet state plus the apporteur's
+// commission state when the viewer is a referrer. The two sides are
+// independent — a user can have both a provider role (their own
+// payouts) and be an apporteur (commissions on referrals they made).
+// Frontend renders two sections when both are non-empty.
 type WalletOverview struct {
 	StripeAccountID   string         `json:"stripe_account_id"`
 	ChargesEnabled    bool           `json:"charges_enabled"`
@@ -321,6 +325,11 @@ type WalletOverview struct {
 	AvailableAmount   int64          `json:"available_amount"`
 	TransferredAmount int64          `json:"transferred_amount"`
 	Records           []WalletRecord `json:"records"`
+	// Referral commission side — populated only when the viewer is an
+	// apporteur with commissions. Zero-valued otherwise (UI hides the
+	// section when pending+paid+clawed_back == 0).
+	Commissions       CommissionWallet          `json:"commissions"`
+	CommissionRecords []WalletCommissionRecord  `json:"commission_records"`
 }
 
 type WalletRecord struct {
@@ -332,6 +341,37 @@ type WalletRecord struct {
 	TransferStatus string `json:"transfer_status"`
 	MissionStatus  string `json:"mission_status"` // populated by wallet handler
 	CreatedAt      string `json:"created_at"`
+}
+
+// CommissionWallet is the aggregate apporteur view: totals grouped by
+// commission status. Mirrors the grammar of the provider-side cards
+// (escrow / available / transferred) so the UI can reuse the same
+// layout for both.
+type CommissionWallet struct {
+	PendingCents    int64  `json:"pending_cents"`
+	PendingKYCCents int64  `json:"pending_kyc_cents"`
+	PaidCents       int64  `json:"paid_cents"`
+	ClawedBackCents int64  `json:"clawed_back_cents"`
+	Currency        string `json:"currency"`
+}
+
+// WalletCommissionRecord is one row of the apporteur's commission
+// history, ordered newest first by the service layer. Carries enough
+// context (referral_id, proposal_id) for the UI to deep-link to the
+// relevant referral / project.
+type WalletCommissionRecord struct {
+	ID               string `json:"id"`
+	ReferralID       string `json:"referral_id,omitempty"`
+	ProposalID       string `json:"proposal_id,omitempty"`
+	MilestoneID      string `json:"milestone_id,omitempty"`
+	GrossAmountCents int64  `json:"gross_amount_cents"`
+	CommissionCents  int64  `json:"commission_cents"`
+	Currency         string `json:"currency"`
+	Status           string `json:"status"`
+	StripeTransferID string `json:"stripe_transfer_id,omitempty"`
+	PaidAt           string `json:"paid_at,omitempty"`
+	ClawedBackAt     string `json:"clawed_back_at,omitempty"`
+	CreatedAt        string `json:"created_at"`
 }
 
 // GetWalletOverview returns the organization's wallet state. Every
@@ -376,6 +416,53 @@ func (s *Service) GetWalletOverview(ctx context.Context, userID, orgID uuid.UUID
 	}
 
 	wallet.AvailableAmount = wallet.EscrowAmount
+
+	// Commission side — populated only when a referral wallet reader
+	// is wired (the referral feature might not be active in every
+	// deployment). Failures are swallowed so a broken referral read
+	// never takes down the provider-side wallet.
+	if s.referralWallet != nil {
+		if sum, err := s.referralWallet.GetReferrerSummary(ctx, userID); err == nil {
+			wallet.Commissions = CommissionWallet{
+				PendingCents:    sum.PendingCents,
+				PendingKYCCents: sum.PendingKYCCents,
+				PaidCents:       sum.PaidCents,
+				ClawedBackCents: sum.ClawedBackCents,
+				Currency:        sum.Currency,
+			}
+		}
+		if recent, err := s.referralWallet.RecentCommissions(ctx, userID, 50); err == nil {
+			wallet.CommissionRecords = make([]WalletCommissionRecord, 0, len(recent))
+			for _, r := range recent {
+				rec := WalletCommissionRecord{
+					ID:               r.ID.String(),
+					GrossAmountCents: r.GrossAmountCents,
+					CommissionCents:  r.CommissionCents,
+					Currency:         r.Currency,
+					Status:           r.Status,
+					StripeTransferID: r.StripeTransferID,
+					CreatedAt:        r.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				}
+				if r.ReferralID != uuid.Nil {
+					rec.ReferralID = r.ReferralID.String()
+				}
+				if r.ProposalID != uuid.Nil {
+					rec.ProposalID = r.ProposalID.String()
+				}
+				if r.MilestoneID != uuid.Nil {
+					rec.MilestoneID = r.MilestoneID.String()
+				}
+				if r.PaidAt != nil {
+					rec.PaidAt = r.PaidAt.Format("2006-01-02T15:04:05Z")
+				}
+				if r.ClawedBackAt != nil {
+					rec.ClawedBackAt = r.ClawedBackAt.Format("2006-01-02T15:04:05Z")
+				}
+				wallet.CommissionRecords = append(wallet.CommissionRecords, rec)
+			}
+		}
+	}
+
 	return wallet, nil
 }
 

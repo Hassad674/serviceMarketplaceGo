@@ -57,12 +57,13 @@ type Service struct {
 	proposalSummaries ProposalSummaryResolver
 }
 
-// Compile-time assertions that the Service satisfies the four exposed ports.
+// Compile-time assertions that the Service satisfies the five exposed ports.
 var (
 	_ service.ReferralAttributor             = (*Service)(nil)
 	_ service.ReferralCommissionDistributor  = (*Service)(nil)
 	_ service.ReferralClawback               = (*Service)(nil)
 	_ service.ReferralKYCListener            = (*Service)(nil)
+	_ service.ReferralWalletReader           = (*Service)(nil)
 )
 
 // NewService wires the referral service from its dependency bag.
