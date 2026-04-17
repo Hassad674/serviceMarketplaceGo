@@ -146,10 +146,13 @@ func runGoldenQuery(t *testing.T, ctx context.Context, env *liveEnv, q GoldenQue
 	require.NoError(t, err, "embed query")
 
 	raw, err := env.Typesense.Query(ctx, env.Collection, search.SearchParams{
-		Q:             q.Query,
-		QueryBy:       "display_name,title,skills_text,city,embedding",
-		FilterBy:      fmt.Sprintf("persona:%s && is_published:true", q.Persona),
-		SortBy:        search.DefaultSortBy(),
+		Q:       q.Query,
+		QueryBy: "display_name,title,skills_text,city,embedding",
+		FilterBy: fmt.Sprintf("persona:%s && is_published:true", q.Persona),
+		// DefaultSortByHybrid includes _vector_distance, which
+		// Typesense 28.0 accepts ONLY when a vector_query is set.
+		// The plain DefaultSortBy would 400 here.
+		SortBy:        search.DefaultSortByHybrid(),
 		Page:          1,
 		PerPage:       10,
 		ExcludeFields: "embedding",

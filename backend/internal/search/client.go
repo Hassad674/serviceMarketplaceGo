@@ -412,14 +412,61 @@ func (c *Client) Query(ctx context.Context, collection string, params SearchPara
 		q.Set("vector_query", params.VectorQuery)
 	}
 
-	path := fmt.Sprintf("/collections/%s/documents/search?%s",
-		url.PathEscape(collection), q.Encode())
+	encoded := q.Encode()
+	// Typesense caps GET query strings at 4000 chars. Hybrid queries
+	// with a 1536-dim embedding encode to ~10k chars, well past the
+	// cap. When we cross the safe threshold we fall back to the
+	// `/multi_search` POST endpoint, which accepts the same params in
+	// a JSON body. We use a conservative 3500 char trigger so we stay
+	// inside the 4000 limit even with a 500-char URL prefix.
+	const maxGetQueryStringLen = 3500
+	if len(encoded) <= maxGetQueryStringLen {
+		path := fmt.Sprintf("/collections/%s/documents/search?%s",
+			url.PathEscape(collection), encoded)
+		var raw json.RawMessage
+		if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+			return nil, err
+		}
+		return raw, nil
+	}
+	return c.queryViaMultiSearch(ctx, collection, q)
+}
 
-	var raw json.RawMessage
-	if err := c.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+// queryViaMultiSearch posts the same search params to the
+// /multi_search endpoint. Typesense wraps single-search results
+// under `results[0]`, so we unwrap back to the expected shape
+// before returning. Used only when the GET URL would exceed the
+// 4000-char cap (hybrid queries with full embeddings).
+func (c *Client) queryViaMultiSearch(ctx context.Context, collection string, q url.Values) (json.RawMessage, error) {
+	body := map[string]any{"searches": []map[string]any{buildMultiSearchEntry(collection, q)}}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("typesense multi_search: marshal: %w", err)
+	}
+	var wrapper struct {
+		Results []json.RawMessage `json:"results"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/multi_search", bytes.NewReader(payload), &wrapper); err != nil {
 		return nil, err
 	}
-	return raw, nil
+	if len(wrapper.Results) == 0 {
+		return nil, fmt.Errorf("typesense multi_search: empty results array")
+	}
+	return wrapper.Results[0], nil
+}
+
+// buildMultiSearchEntry converts the flat url.Values from Query into
+// the JSON object shape /multi_search expects. Keys are the same,
+// values stay strings — Typesense parses them server-side.
+func buildMultiSearchEntry(collection string, q url.Values) map[string]any {
+	entry := map[string]any{"collection": collection}
+	for key, vals := range q {
+		if len(vals) == 0 {
+			continue
+		}
+		entry[key] = vals[0]
+	}
+	return entry
 }
 
 // do is the JSON-in-JSON-out helper. body is nil for GET/DELETE.
