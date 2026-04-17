@@ -45,14 +45,12 @@ type Config struct {
 	ComprehendEnabled               bool
 	AnthropicAPIKey                 string
 
-	// Search engine (Typesense) — phase 1 infrastructure.
-	// SearchEngine selects the query backend for the public
-	// listings page. Values: "sql" (legacy, default) or
-	// "typesense" (hybrid Typesense path). The outbox
-	// publishers and bulk reindex CLI still run regardless
-	// of this flag so Typesense can be populated and verified
-	// before flipping the query path over.
-	SearchEngine          string
+	// Search engine (Typesense) — MANDATORY since phase 4. The
+	// legacy SQL path was retired after the 30-day grace period
+	// ended in April 2026. TypesenseConfigured must return true for
+	// the app to boot; /ready fails 503 when the cluster is
+	// unreachable so load balancers rotate misconfigured instances
+	// out instead of silently returning empty search results.
 	TypesenseHost         string
 	TypesenseAPIKey       string
 	OpenAIAPIKey          string
@@ -98,8 +96,7 @@ func Load() *Config {
 		ComprehendEnabled:              getEnv("COMPREHEND_ENABLED", "false") == "true",
 		AnthropicAPIKey:                getEnv("ANTHROPIC_API_KEY", ""),
 
-		// Search engine
-		SearchEngine:          getEnv("SEARCH_ENGINE", "sql"),
+		// Search engine — Typesense is mandatory since phase 4.
 		TypesenseHost:         getEnv("TYPESENSE_HOST", "http://localhost:8108"),
 		TypesenseAPIKey:       getEnv("TYPESENSE_API_KEY", ""),
 		OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
@@ -110,18 +107,11 @@ func Load() *Config {
 // TypesenseConfigured reports whether the backend has enough
 // configuration to talk to a Typesense cluster at all. Used by
 // the startup wiring to decide whether to instantiate the search
-// client + indexer.
+// client + indexer. Since phase 4 Typesense is mandatory — the
+// app boots without search ONLY in isolated test contexts that
+// omit the env vars; production deployments MUST set them.
 func (c *Config) TypesenseConfigured() bool {
 	return c.TypesenseHost != "" && c.TypesenseAPIKey != ""
-}
-
-// SearchEngineIsTypesense reports whether the query path should
-// route through Typesense. Separate from TypesenseConfigured so
-// a misconfigured prod (flag flipped without the env vars)
-// surfaces a clear boot error instead of silently falling back
-// to SQL.
-func (c *Config) SearchEngineIsTypesense() bool {
-	return strings.EqualFold(c.SearchEngine, "typesense")
 }
 
 func (c *Config) IsDevelopment() bool {
