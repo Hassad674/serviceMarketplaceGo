@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/repository"
 )
@@ -82,27 +83,43 @@ func (r *OrgStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, u
 // ─── ProposalSummaryResolver adapters ─────────────────────────────────────
 
 // ProposalRepoSummaryResolver reads proposal summaries directly from
-// the ProposalRepository. The referral feature never imports the
-// proposal feature — only the cross-feature-agnostic repository port.
+// the ProposalRepository + MilestoneRepository. The referral feature
+// never imports the proposal or milestone features — only the
+// cross-feature-agnostic repository ports.
 //
-// V1 iterates GetByID per id (a typical exclusivity window has 1-5
-// attributions so the overhead is negligible). If this ever becomes
-// hot, add ProposalRepository.GetByIDs for a batch query.
+// V1 iterates per id (a typical exclusivity window has 1-5
+// attributions so the overhead is negligible). Milestone counts are
+// fetched in a single batch call via ListByProposals to keep the
+// query count O(1) regardless of attribution count. If the proposal
+// query ever becomes hot, add ProposalRepository.GetByIDs for a
+// batch query.
 type ProposalRepoSummaryResolver struct {
-	proposals repository.ProposalRepository
+	proposals  repository.ProposalRepository
+	milestones repository.MilestoneRepository
 }
 
 // NewProposalRepoSummaryResolver wires the resolver. Safe with nil
-// proposals (returns empty map with no error).
-func NewProposalRepoSummaryResolver(proposals repository.ProposalRepository) *ProposalRepoSummaryResolver {
-	return &ProposalRepoSummaryResolver{proposals: proposals}
+// proposals / milestones (returns empty map or partial data with no
+// error — the UI degrades to missing fields rather than crashing).
+func NewProposalRepoSummaryResolver(
+	proposals repository.ProposalRepository,
+	milestones repository.MilestoneRepository,
+) *ProposalRepoSummaryResolver {
+	return &ProposalRepoSummaryResolver{proposals: proposals, milestones: milestones}
 }
 
-// ResolveProposalSummaries loads title+status for each proposal id,
-// returning a map keyed by id. Missing rows (e.g. a proposal that was
-// later hard-deleted, or a test fixture that never created one) are
-// silently skipped so the UI degrades gracefully rather than 500-ing
-// on a single missing row.
+// ResolveProposalSummaries loads title+status and milestone aggregates
+// for each proposal id, returning a map keyed by id. Missing rows
+// (e.g. a proposal that was later hard-deleted, or a test fixture that
+// never created one) are silently skipped so the UI degrades
+// gracefully rather than 500-ing on a single missing row.
+//
+// "Funded in escrow" is the bucket of milestones where the client has
+// already paid the escrow but the provider has not yet had the money
+// released: {funded, submitted, approved, disputed}. Released and
+// refunded milestones are NOT counted — those moved out of escrow.
+// Pending-funding and cancelled milestones are NOT counted — no
+// escrow to speak of.
 func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error) {
 	out := make(map[uuid.UUID]*ProposalSummary, len(ids))
 	if r.proposals == nil || len(ids) == 0 {
@@ -117,6 +134,32 @@ func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Conte
 			ID:     p.ID,
 			Title:  p.Title,
 			Status: string(p.Status),
+		}
+	}
+	if r.milestones == nil || len(out) == 0 {
+		return out, nil
+	}
+	milestonesByProposal, err := r.milestones.ListByProposals(ctx, ids)
+	if err != nil {
+		// Soft failure — return what we have. Milestone counts will be
+		// zero and the UI shows "—" rather than crashing the page.
+		return out, nil
+	}
+	for proposalID, list := range milestonesByProposal {
+		summary, ok := out[proposalID]
+		if !ok {
+			continue
+		}
+		summary.MilestonesTotal = len(list)
+		for _, m := range list {
+			switch m.Status {
+			case milestone.StatusFunded,
+				milestone.StatusSubmitted,
+				milestone.StatusApproved,
+				milestone.StatusDisputed:
+				summary.MilestonesFunded++
+				summary.FundedAmountCents += m.Amount
+			}
 		}
 	}
 	return out, nil

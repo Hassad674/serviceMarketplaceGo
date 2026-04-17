@@ -99,8 +99,22 @@ export type ReferralNegotiation = {
 }
 
 // ReferralAttribution mirrors the backend DTO for GET /referrals/{id}/attributions.
-// rate_pct_snapshot and commission totals are OMITTED for client viewers
-// (backend strips them) — components handle undefined gracefully.
+// rate_pct_snapshot and ALL commission totals (paid, pending, escrow,
+// clawed-back) are OMITTED for client viewers — the backend strips
+// them (Modèle A). Components must handle undefined gracefully.
+//
+// milestones_total is the authoritative count (≥ 1 by domain rule);
+// the UI renders "{paid}/{total}" from it. milestones_pending is kept
+// for backwards compat but reflects only commissions already created —
+// it is NOT total - paid.
+//
+// escrow_commission_cents previews the apporteur's share of funds
+// currently held in escrow on funded-but-not-released milestones.
+// Non-zero for in-progress missions before any Stripe transfer has
+// fired; shown as "+ X € en séquestre" under the paid amount.
+//
+// clawed_back_commission_cents sums commissions that were paid then
+// reversed after a dispute. Shown as "- X € reprises" when > 0.
 export type ReferralAttribution = {
   id: string
   proposal_id: string
@@ -110,8 +124,11 @@ export type ReferralAttribution = {
   attributed_at: string
   total_commission_cents?: number
   pending_commission_cents?: number
+  escrow_commission_cents?: number
+  clawed_back_commission_cents?: number
   milestones_paid: number
   milestones_pending: number
+  milestones_total: number
 }
 
 // ReferralCommission mirrors GET /referrals/{id}/commissions. Blocked

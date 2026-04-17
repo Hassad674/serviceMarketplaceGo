@@ -282,31 +282,40 @@ func (h *ReferralHandler) ListAttributions(w http.ResponseWriter, r *http.Reques
 	// Map the app-level struct onto the handler-level shape (same
 	// field names / types — compile-time safe via the shared alias).
 	mapped := make([]struct {
-		Attribution            *referral.Attribution
-		ProposalTitle          string
-		ProposalStatus         string
-		TotalCommissionCents   int64
-		PendingCommissionCents int64
-		MilestonesPaid         int
-		MilestonesPending      int
+		Attribution               *referral.Attribution
+		ProposalTitle             string
+		ProposalStatus            string
+		TotalCommissionCents      int64
+		PendingCommissionCents    int64
+		ClawedBackCommissionCents int64
+		EscrowCommissionCents     int64
+		MilestonesPaid            int
+		MilestonesPending         int
+		MilestonesTotal           int
 	}, 0, len(rows))
 	for _, a := range rows {
 		mapped = append(mapped, struct {
-			Attribution            *referral.Attribution
-			ProposalTitle          string
-			ProposalStatus         string
-			TotalCommissionCents   int64
-			PendingCommissionCents int64
-			MilestonesPaid         int
-			MilestonesPending      int
+			Attribution               *referral.Attribution
+			ProposalTitle             string
+			ProposalStatus            string
+			TotalCommissionCents      int64
+			PendingCommissionCents    int64
+			ClawedBackCommissionCents int64
+			EscrowCommissionCents     int64
+			MilestonesPaid            int
+			MilestonesPending         int
+			MilestonesTotal           int
 		}{
-			Attribution:            a.Attribution,
-			ProposalTitle:          a.ProposalTitle,
-			ProposalStatus:         a.ProposalStatus,
-			TotalCommissionCents:   a.TotalCommissionCents,
-			PendingCommissionCents: a.PendingCommissionCents,
-			MilestonesPaid:         a.MilestonesPaid,
-			MilestonesPending:      a.MilestonesPending,
+			Attribution:               a.Attribution,
+			ProposalTitle:             a.ProposalTitle,
+			ProposalStatus:            a.ProposalStatus,
+			TotalCommissionCents:      a.TotalCommissionCents,
+			PendingCommissionCents:    a.PendingCommissionCents,
+			ClawedBackCommissionCents: a.ClawedBackCommissionCents,
+			EscrowCommissionCents:     a.EscrowCommissionCents,
+			MilestonesPaid:            a.MilestonesPaid,
+			MilestonesPending:         a.MilestonesPending,
+			MilestonesTotal:           a.MilestonesTotal,
 		})
 	}
 	res.JSON(w, http.StatusOK, response.NewAttributionListFromStats(mapped, userID, parent.ClientID))

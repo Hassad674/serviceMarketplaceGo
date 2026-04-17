@@ -255,9 +255,21 @@ class ReferralNegotiation {
 /// during its exclusivity window, enriched with the proposal title +
 /// status and commission aggregates.
 ///
-/// rate_pct_snapshot and the commission totals are null when the
-/// viewer is the client — the backend strips them before encoding
-/// (Modèle A confidentiality).
+/// rate_pct_snapshot and ALL commission totals (paid, pending,
+/// escrow, clawed-back) are null when the viewer is the client —
+/// the backend strips them before encoding (Modèle A
+/// confidentiality).
+///
+/// [milestonesTotal] is the authoritative count of milestones on the
+/// proposal (>= 1 by domain rule). The UI renders
+/// "{milestonesPaid}/{milestonesTotal} jalons" — the legacy
+/// milestonesPending field is kept only for backwards compat.
+///
+/// [escrowCommissionCents] previews the apporteur's share of funds
+/// currently held in escrow on funded-but-not-released milestones —
+/// shown as "+ X € en séquestre" under the paid amount on in-progress
+/// missions. [clawedBackCommissionCents] sums commissions reversed
+/// after a dispute — shown as "- X € reprises" when > 0.
 class ReferralAttribution {
   const ReferralAttribution({
     required this.id,
@@ -268,8 +280,11 @@ class ReferralAttribution {
     required this.attributedAt,
     this.totalCommissionCents,
     this.pendingCommissionCents,
+    this.escrowCommissionCents,
+    this.clawedBackCommissionCents,
     this.milestonesPaid = 0,
     this.milestonesPending = 0,
+    this.milestonesTotal = 0,
   });
 
   final String id;
@@ -280,8 +295,11 @@ class ReferralAttribution {
   final String attributedAt;
   final int? totalCommissionCents;
   final int? pendingCommissionCents;
+  final int? escrowCommissionCents;
+  final int? clawedBackCommissionCents;
   final int milestonesPaid;
   final int milestonesPending;
+  final int milestonesTotal;
 
   factory ReferralAttribution.fromJson(Map<String, dynamic> json) {
     return ReferralAttribution(
@@ -293,8 +311,11 @@ class ReferralAttribution {
       attributedAt: json['attributed_at'] as String,
       totalCommissionCents: json['total_commission_cents'] as int?,
       pendingCommissionCents: json['pending_commission_cents'] as int?,
+      escrowCommissionCents: json['escrow_commission_cents'] as int?,
+      clawedBackCommissionCents: json['clawed_back_commission_cents'] as int?,
       milestonesPaid: (json['milestones_paid'] as int?) ?? 0,
       milestonesPending: (json['milestones_pending'] as int?) ?? 0,
+      milestonesTotal: (json['milestones_total'] as int?) ?? 0,
     );
   }
 }

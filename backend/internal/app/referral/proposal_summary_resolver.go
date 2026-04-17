@@ -6,19 +6,31 @@ import (
 	"github.com/google/uuid"
 )
 
-// ProposalSummary is a tiny projection of a proposal carrying only the
-// fields the referral UI needs to render an "attributed missions" section:
-// the apporteur sees the title + status of every proposal that landed
-// during the exclusivity window.
+// ProposalSummary is a tiny projection of a proposal carrying the
+// fields the referral UI needs to render an "attributed missions"
+// section: the apporteur sees the title + status of every proposal
+// that landed during the exclusivity window, plus the authoritative
+// milestone count so the UI can render "{paid}/{total} jalons"
+// instead of inferring the total from heterogeneous commission rows.
 //
-// Kept in this package (not domain/proposal) because the referral feature
-// must NOT import the proposal package — cross-feature modularity rule.
-// The adapter in wiring_adapters.go maps from proposal.Proposal to this
-// shape.
+// FundedAmountCents is the gross amount (in cents) of milestones the
+// client has already funded but the provider has not yet had released
+// — i.e. money currently held in escrow for the provider. Feeding this
+// to the apporteur lets the UI show an "en séquestre" commission line
+// for in-progress missions even before a single Stripe transfer has
+// gone out.
+//
+// Kept in this package (not domain/proposal) because the referral
+// feature must NOT import the proposal package — cross-feature
+// modularity rule. The adapter in wiring_adapters.go maps from
+// proposal.Proposal + milestone.Milestone to this shape.
 type ProposalSummary struct {
-	ID     uuid.UUID
-	Title  string
-	Status string
+	ID                uuid.UUID
+	Title             string
+	Status            string
+	MilestonesTotal   int
+	MilestonesFunded  int   // informational — milestones currently in escrow-ish states
+	FundedAmountCents int64 // sum of Amount for milestones in non-released escrow states
 }
 
 // ProposalSummaryResolver batches proposal summaries by id for the

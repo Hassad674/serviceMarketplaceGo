@@ -197,201 +197,154 @@ class _AttributionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _proposalStatus(attribution.proposalStatus);
     final paid = attribution.totalCommissionCents ?? 0;
-    final pending = attribution.pendingCommissionCents ?? 0;
+    final escrow = attribution.escrowCommissionCents ?? 0;
+    final clawedBack = attribution.clawedBackCommissionCents ?? 0;
     final rate = attribution.ratePctSnapshot;
     final mDone = attribution.milestonesPaid;
-    final mPending = attribution.milestonesPending;
-    final mTotal = mDone + mPending;
+    // milestonesTotal is the authoritative count (>= 1 by domain
+    // rule). Falls back to paid+pending only if an older API responds
+    // without the field.
+    final mTotal = attribution.milestonesTotal > 0
+        ? attribution.milestonesTotal
+        : mDone + attribution.milestonesPending;
     final progress = mTotal > 0 ? (mDone / mTotal).clamp(0.0, 1.0) : 0.0;
+    final isTerminated = attribution.proposalStatus == 'completed';
     final title = attribution.proposalTitle.isNotEmpty
         ? attribution.proposalTitle
         : 'Proposition ${attribution.proposalId.substring(0, attribution.proposalId.length < 8 ? attribution.proposalId.length : 8)}…';
 
-    return InkWell(
-      onTap: () {
-        // Row is a nav target — /projects/{proposal_id}. Handled by
-        // parent navigator if wired; for now tap is visual-only on
-        // mobile until project route is added.
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Status dot
-            Container(
-              margin: const EdgeInsets.only(top: 5),
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: status.color,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: status.color.withValues(alpha: 0.25),
-                    blurRadius: 0,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
+    // The apporteur is NOT a party to the underlying project (Modèle
+    // A keeps the working conversation strictly client-provider), so
+    // the row is intentionally a plain informational card: no tap,
+    // no chevron, no route. The apporteur reads status + milestone
+    // progress for context, nothing more.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status dot
+          Container(
+            margin: const EdgeInsets.only(top: 5),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: status.color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: status.color.withValues(alpha: 0.25),
+                  blurRadius: 0,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
+          ),
+          const SizedBox(width: 12),
 
-            // Main content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title + status pill
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+          // Main content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title + status pill
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: status.color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          status.label,
-                          style: TextStyle(
-                            fontSize: 9,
-                            color: status.color,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-
-                  // Milestone progress line
-                  Row(
-                    children: [
-                      Text(
-                        '$mDone/$mTotal jalons',
+                      decoration: BoxDecoration(
+                        color: status.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        status.label,
                         style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                          fontSize: 9,
+                          color: status.color,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (mTotal > 0) ...[
-                        const SizedBox(width: 8),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
-                          child: Container(
-                            width: 56,
-                            height: 3,
-                            color: Colors.grey.shade200,
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: progress,
-                              child: Container(
-                                color: const Color(0xFFF43F5E),
-                              ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+
+                // Milestone progress line — {paid}/{total}
+                Row(
+                  children: [
+                    Text(
+                      '$mDone/$mTotal jalons',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    if (mTotal > 0) ...[
+                      const SizedBox(width: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: Container(
+                          width: 56,
+                          height: 3,
+                          color: Colors.grey.shade200,
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: progress,
+                            child: Container(
+                              color: const Color(0xFFF43F5E),
                             ),
                           ),
                         ),
-                      ],
-                      if (!viewerIsClient && pending > 0) ...[
-                        const SizedBox(width: 8),
-                        Text(
-                          '·',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            '${_formatEur(pending)} en attente',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFFD97706),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 2),
+                  ],
+                ),
+                const SizedBox(height: 2),
 
-                  // Tertiary: attribution date + rate
-                  Text(
-                    rate != null
-                        ? 'Attribuée le ${_formatDate(attribution.attributedAt)} · Taux ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)} %'
-                        : 'Attribuée le ${_formatDate(attribution.attributedAt)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey.shade500,
-                    ),
+                // Tertiary: attribution date + rate
+                Text(
+                  rate != null
+                      ? 'Attribuée le ${_formatDate(attribution.attributedAt)} · Taux ${rate.toStringAsFixed(rate % 1 == 0 ? 0 : 1)} %'
+                      : 'Attribuée le ${_formatDate(attribution.attributedAt)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey.shade500,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
 
-            // Commission (right column)
-            if (!viewerIsClient) ...[
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _formatEur(paid),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFF43F5E),
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    'COMMISSION',
-                    style: TextStyle(
-                      fontSize: 8,
-                      color: Colors.grey.shade500,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-
-            const SizedBox(width: 4),
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Icon(
-                Icons.chevron_right,
-                size: 16,
-                color: Colors.grey.shade400,
-              ),
+          // Commission column — paid as primary, escrow + clawback
+          // stacked underneath. Client viewer gets no column at all.
+          if (!viewerIsClient) ...[
+            const SizedBox(width: 8),
+            _CommissionColumn(
+              paid: paid,
+              escrow: escrow,
+              clawedBack: clawedBack,
+              isTerminated: isTerminated,
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -464,6 +417,102 @@ class _AttributionRow extends StatelessWidget {
     } catch (_) {
       return iso;
     }
+  }
+}
+
+/// Renders the right-side commission stack for the apporteur. The
+/// state matrix:
+///   paid > 0                              -> primary rose number
+///   paid == 0 && escrow > 0               -> muted "0 €" + escrow line
+///   paid == 0 && escrow == 0 && live      -> "0 €" + "En attente du financement"
+///   paid == 0 && escrow == 0 && terminated -> "0 €" + "Aucun jalon libéré"
+/// Clawback line is always stacked last when > 0.
+class _CommissionColumn extends StatelessWidget {
+  const _CommissionColumn({
+    required this.paid,
+    required this.escrow,
+    required this.clawedBack,
+    required this.isTerminated,
+  });
+
+  final int paid;
+  final int escrow;
+  final int clawedBack;
+  final bool isTerminated;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPaid = paid > 0;
+    final hasEscrow = escrow > 0;
+    final hasClawback = clawedBack > 0;
+
+    final primaryColor = hasPaid
+        ? const Color(0xFFF43F5E)
+        : Colors.grey.shade400;
+
+    String? caption;
+    if (!hasPaid && !hasEscrow) {
+      caption =
+          isTerminated ? 'Aucun jalon libéré' : 'En attente du financement';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          _formatEur(paid),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: primaryColor,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        if (hasEscrow) ...[
+          const SizedBox(height: 2),
+          Text(
+            '+ ${_formatEur(escrow)} en séquestre',
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFFD97706),
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+        if (hasClawback) ...[
+          const SizedBox(height: 2),
+          Text(
+            '- ${_formatEur(clawedBack)} reprises',
+            style: const TextStyle(
+              fontSize: 10,
+              color: Color(0xFFDC2626),
+              fontWeight: FontWeight.w600,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+        const SizedBox(height: 1),
+        if (caption != null)
+          Text(
+            caption,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey.shade500,
+            ),
+          )
+        else
+          Text(
+            'COMMISSION',
+            style: TextStyle(
+              fontSize: 8,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+      ],
+    );
   }
 
   static String _formatEur(int cents) {

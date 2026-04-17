@@ -130,20 +130,30 @@ func NewNegotiationList(rows []*referral.Negotiation) []ReferralNegotiationRespo
 // AttributionResponse is the projection of one attribution for the
 // referral detail page's "Missions pendant cette mise en relation"
 // section. Includes the parent proposal's title + status and the
-// aggregate commission stats. Commission amounts are stripped when the
-// viewer is the client (Modèle A — the client never sees a rate or a
-// commission number).
+// aggregate commission stats. Commission amounts (paid, pending,
+// escrow, clawed-back) are all stripped when the viewer is the client
+// (Modèle A — the client never sees a rate or any commission number).
+//
+// milestones_total is the authoritative count of milestones the
+// proposal has (≥ 1 by domain invariant). The legacy
+// milestones_pending field is kept for backward compatibility but
+// the UI now renders {paid}/{total} instead of {paid}/{paid+pending}
+// because pending milestones that have not generated a commission
+// row yet were invisible to the old math.
 type AttributionResponse struct {
-	ID                     uuid.UUID `json:"id"`
-	ProposalID             uuid.UUID `json:"proposal_id"`
-	ProposalTitle          string    `json:"proposal_title,omitempty"`
-	ProposalStatus         string    `json:"proposal_status,omitempty"`
-	RatePctSnapshot        *float64  `json:"rate_pct_snapshot,omitempty"`
-	AttributedAt           time.Time `json:"attributed_at"`
-	TotalCommissionCents   *int64    `json:"total_commission_cents,omitempty"`
-	PendingCommissionCents *int64    `json:"pending_commission_cents,omitempty"`
-	MilestonesPaid         int       `json:"milestones_paid"`
-	MilestonesPending      int       `json:"milestones_pending"`
+	ID                        uuid.UUID `json:"id"`
+	ProposalID                uuid.UUID `json:"proposal_id"`
+	ProposalTitle             string    `json:"proposal_title,omitempty"`
+	ProposalStatus            string    `json:"proposal_status,omitempty"`
+	RatePctSnapshot           *float64  `json:"rate_pct_snapshot,omitempty"`
+	AttributedAt              time.Time `json:"attributed_at"`
+	TotalCommissionCents      *int64    `json:"total_commission_cents,omitempty"`
+	PendingCommissionCents    *int64    `json:"pending_commission_cents,omitempty"`
+	EscrowCommissionCents     *int64    `json:"escrow_commission_cents,omitempty"`
+	ClawedBackCommissionCents *int64    `json:"clawed_back_commission_cents,omitempty"`
+	MilestonesPaid            int       `json:"milestones_paid"`
+	MilestonesPending         int       `json:"milestones_pending"`
+	MilestonesTotal           int       `json:"milestones_total"`
 }
 
 // NewAttributionListFromStats formats a slice of attribution+stats for
@@ -162,14 +172,19 @@ func NewAttributionListFromStats(rows []attributionWithStats, viewerID uuid.UUID
 			AttributedAt:      r.Attribution.AttributedAt,
 			MilestonesPaid:    r.MilestonesPaid,
 			MilestonesPending: r.MilestonesPending,
+			MilestonesTotal:   r.MilestonesTotal,
 		}
 		if !isClient {
 			rate := r.Attribution.RatePctSnapshot
 			row.RatePctSnapshot = &rate
 			paid := r.TotalCommissionCents
 			pending := r.PendingCommissionCents
+			escrow := r.EscrowCommissionCents
+			clawed := r.ClawedBackCommissionCents
 			row.TotalCommissionCents = &paid
 			row.PendingCommissionCents = &pending
+			row.EscrowCommissionCents = &escrow
+			row.ClawedBackCommissionCents = &clawed
 		}
 		out = append(out, row)
 	}
@@ -181,13 +196,16 @@ func NewAttributionListFromStats(rows []attributionWithStats, viewerID uuid.UUID
 // without pulling in the app package — the handler layer just maps
 // field-by-field.
 type attributionWithStats = struct {
-	Attribution            *referral.Attribution
-	ProposalTitle          string
-	ProposalStatus         string
-	TotalCommissionCents   int64
-	PendingCommissionCents int64
-	MilestonesPaid         int
-	MilestonesPending      int
+	Attribution               *referral.Attribution
+	ProposalTitle             string
+	ProposalStatus            string
+	TotalCommissionCents      int64
+	PendingCommissionCents    int64
+	ClawedBackCommissionCents int64
+	EscrowCommissionCents     int64
+	MilestonesPaid            int
+	MilestonesPending         int
+	MilestonesTotal           int
 }
 
 // CommissionResponse is one commission row for the /commissions

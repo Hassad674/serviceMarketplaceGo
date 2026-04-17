@@ -1,7 +1,6 @@
 "use client"
 
-import Link from "next/link"
-import { Briefcase, ChevronRight } from "lucide-react"
+import { Briefcase } from "lucide-react"
 
 import { cn } from "@/shared/lib/utils"
 import { useReferralAttributions } from "../hooks/use-referrals"
@@ -118,11 +117,18 @@ function AttributionRow({
   const status = proposalStatus(attribution.proposal_status)
   const rate = attribution.rate_pct_snapshot
   const paid = attribution.total_commission_cents ?? 0
-  const pending = attribution.pending_commission_cents ?? 0
+  const escrow = attribution.escrow_commission_cents ?? 0
+  const clawedBack = attribution.clawed_back_commission_cents ?? 0
   const mDone = attribution.milestones_paid
-  const mPending = attribution.milestones_pending
-  const mTotal = mDone + mPending
+  // milestones_total is the authoritative count from the proposal
+  // (every proposal has >= 1 milestone by domain invariant). Falls
+  // back to paid+pending only in case an older API is responding.
+  const mTotal =
+    attribution.milestones_total > 0
+      ? attribution.milestones_total
+      : mDone + attribution.milestones_pending
   const progress = mTotal > 0 ? Math.round((mDone / mTotal) * 100) : 0
+  const isTerminated = attribution.proposal_status === "completed"
   const title =
     attribution.proposal_title ||
     `Proposition ${attribution.proposal_id.slice(0, 8)}…`
@@ -131,11 +137,16 @@ function AttributionRow({
     { day: "2-digit", month: "short", year: "numeric" },
   )
 
+  // The apporteur is NOT a party to the underlying project (Modèle A
+  // keeps the working conversation strictly between client and
+  // provider), so this row is intentionally a plain informational
+  // card: no Link wrapper, no chevron, no cursor change. The
+  // apporteur sees proposal status + milestone progress for context,
+  // nothing more.
   return (
-    <Link
-      href={`/projects/${attribution.proposal_id}`}
-      className="group flex items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50 focus-visible:outline-none dark:hover:bg-slate-700/40 dark:focus-visible:bg-slate-700/40"
-      aria-label={`${title} — ouvrir la mission`}
+    <div
+      className="flex items-start gap-3 rounded-lg px-2 py-3"
+      aria-label={`${title} — ${status.label}`}
     >
       {/* Status dot — tiny, high contrast, left gutter */}
       <span
@@ -149,7 +160,7 @@ function AttributionRow({
       {/* Main content: title + meta lines */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-slate-900 group-hover:text-rose-600 dark:text-white dark:group-hover:text-rose-400">
+          <span className="truncate text-sm font-semibold text-slate-900 dark:text-white">
             {title}
           </span>
           <span
@@ -162,7 +173,7 @@ function AttributionRow({
           </span>
         </div>
 
-        {/* Milestone progress line */}
+        {/* Milestone progress line — {paid}/{total} drives the bar */}
         <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
           <span className="tabular-nums">
             {mDone}/{mTotal} jalons
@@ -182,14 +193,6 @@ function AttributionRow({
               />
             </span>
           )}
-          {!viewerIsClient && pending > 0 && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className="text-amber-600 dark:text-amber-400">
-                {formatEurCents(pending)} en attente
-              </span>
-            </>
-          )}
         </div>
 
         {/* Attribution date + rate — tertiary info */}
@@ -204,23 +207,84 @@ function AttributionRow({
         </div>
       </div>
 
-      {/* Commission (right column) — primary value for apporteur */}
+      {/* Commission (right column) — primary value for apporteur.
+          Shows the paid amount first; stacks escrow and clawback
+          sub-lines so a mission in progress does not read "0 €" when
+          money is held but not yet released. Client viewer sees no
+          commission column at all (Modèle A). */}
       {!viewerIsClient && (
-        <div className="shrink-0 text-right">
-          <div className="text-sm font-bold tabular-nums text-rose-600 dark:text-rose-400">
-            {formatEurCents(paid)}
-          </div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
-            Commission
-          </div>
+        <CommissionColumn
+          paid={paid}
+          escrow={escrow}
+          clawedBack={clawedBack}
+          isTerminated={isTerminated}
+        />
+      )}
+    </div>
+  )
+}
+
+// CommissionColumn renders the right-side money stack for the
+// apporteur. The state matrix:
+//   paid > 0                              -> primary rose number
+//   paid == 0 && escrow > 0               -> primary muted "0 €" + escrow line
+//   paid == 0 && escrow == 0 && !terminated -> "0 €" + "En attente du financement"
+//   paid == 0 && escrow == 0 && terminated  -> "0 €" + "Aucun jalon libéré"
+// Clawback line is always stacked last when > 0.
+function CommissionColumn({
+  paid,
+  escrow,
+  clawedBack,
+  isTerminated,
+}: {
+  paid: number
+  escrow: number
+  clawedBack: number
+  isTerminated: boolean
+}) {
+  const hasPaid = paid > 0
+  const hasEscrow = escrow > 0
+  const hasClawback = clawedBack > 0
+
+  const primaryCls = hasPaid
+    ? "text-rose-600 dark:text-rose-400"
+    : "text-slate-400 dark:text-slate-500"
+
+  let caption: string | null = null
+  if (!hasPaid && !hasEscrow) {
+    caption = isTerminated ? "Aucun jalon libéré" : "En attente du financement"
+  }
+
+  return (
+    <div className="shrink-0 text-right">
+      <div
+        className={cn(
+          "text-sm font-bold tabular-nums",
+          primaryCls,
+        )}
+      >
+        {formatEurCents(paid)}
+      </div>
+      {hasEscrow && (
+        <div className="mt-0.5 text-[10px] font-medium tabular-nums text-amber-600 dark:text-amber-400">
+          + {formatEurCents(escrow)} en séquestre
         </div>
       )}
-
-      <ChevronRight
-        className="h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-rose-500 dark:text-slate-600 dark:group-hover:text-rose-400"
-        aria-hidden="true"
-      />
-    </Link>
+      {hasClawback && (
+        <div className="mt-0.5 text-[10px] font-medium tabular-nums text-red-600 dark:text-red-400">
+          − {formatEurCents(clawedBack)} reprises
+        </div>
+      )}
+      {caption ? (
+        <div className="mt-0.5 text-[10px] text-slate-400 dark:text-slate-500">
+          {caption}
+        </div>
+      ) : (
+        <div className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Commission
+        </div>
+      )}
+    </div>
   )
 }
 

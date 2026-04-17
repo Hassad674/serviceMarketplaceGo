@@ -928,7 +928,7 @@ func main() {
 		SnapshotProfiles: referralapp.NewThinSnapshotLoader(freelanceProfileRepo),
 		StripeAccounts:    referralapp.NewOrgStripeAccountResolver(organizationRepo),
 		OrgMembers:        referralapp.NewOrgDirectoryMemberResolver(organizationRepo, organizationMemberRepo),
-		ProposalSummaries: referralapp.NewProposalRepoSummaryResolver(proposalRepo),
+		ProposalSummaries: referralapp.NewProposalRepoSummaryResolver(proposalRepo, milestoneRepo),
 	})
 	// Setter-based wiring to avoid import cycles between proposal/payment/embedded.
 	proposalSvc.SetReferralAttributor(referralSvc)
