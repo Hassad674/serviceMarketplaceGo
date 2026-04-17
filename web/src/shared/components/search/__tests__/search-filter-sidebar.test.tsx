@@ -2,14 +2,23 @@ import { describe, expect, it, vi } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import messages from "@/../messages/en.json"
+import type { SearchDocumentPersona } from "@/shared/lib/search/search-document"
 import { SearchFilterSidebar } from "../search-filter-sidebar"
 import {
   EMPTY_SEARCH_FILTERS,
   type SearchFilters,
 } from "../search-filters"
 
-function renderSidebar(overrides: Partial<SearchFilters> = {}) {
-  const filters: SearchFilters = { ...EMPTY_SEARCH_FILTERS, ...overrides }
+interface RenderOptions {
+  filters?: Partial<SearchFilters>
+  persona?: SearchDocumentPersona
+}
+
+function renderSidebar(options: RenderOptions = {}) {
+  const filters: SearchFilters = {
+    ...EMPTY_SEARCH_FILTERS,
+    ...(options.filters ?? {}),
+  }
   const onChange = vi.fn()
   const onApply = vi.fn()
   render(
@@ -19,6 +28,7 @@ function renderSidebar(overrides: Partial<SearchFilters> = {}) {
         onChange={onChange}
         onApply={onApply}
         resultsCount={42}
+        persona={options.persona}
       />
     </NextIntlClientProvider>,
   )
@@ -90,7 +100,7 @@ describe("SearchFilterSidebar", () => {
   })
 
   it("shows the reset button when any filter is set", () => {
-    renderSidebar({ availability: "now" })
+    renderSidebar({ filters: { availability: "now" } })
     expect(
       screen.getByRole("button", { name: messages.search.filters.reset }),
     ).toBeInTheDocument()
@@ -98,9 +108,11 @@ describe("SearchFilterSidebar", () => {
 
   it("resets every filter when the reset button is clicked", () => {
     const { onChange } = renderSidebar({
-      availability: "now",
-      languages: ["fr", "en"],
-      minRating: 4,
+      filters: {
+        availability: "now",
+        languages: ["fr", "en"],
+        minRating: 4,
+      },
     })
     fireEvent.click(
       screen.getByRole("button", { name: messages.search.filters.reset }),
@@ -115,4 +127,55 @@ describe("SearchFilterSidebar", () => {
     )
     expect(onApply).toHaveBeenCalledTimes(1)
   })
+
+  // V1 pricing simplification: the price section must relabel itself
+  // per persona so the filter matches the primary pricing shape shown
+  // on the cards (TJM / Budget / Commission). Table-driven to stay
+  // green across all three personas and the undefined fallback.
+  it.each<{
+    name: string
+    persona: SearchDocumentPersona | undefined
+    expectedTitle: string
+    expectedMin: string
+    expectedMax: string
+  }>([
+    {
+      name: "freelance",
+      persona: "freelance",
+      expectedTitle: messages.search.filters.freelancePrice,
+      expectedMin: messages.search.filters.freelancePriceMin,
+      expectedMax: messages.search.filters.freelancePriceMax,
+    },
+    {
+      name: "agency",
+      persona: "agency",
+      expectedTitle: messages.search.filters.agencyPrice,
+      expectedMin: messages.search.filters.agencyPriceMin,
+      expectedMax: messages.search.filters.agencyPriceMax,
+    },
+    {
+      name: "referrer",
+      persona: "referrer",
+      expectedTitle: messages.search.filters.referrerPrice,
+      expectedMin: messages.search.filters.referrerPriceMin,
+      expectedMax: messages.search.filters.referrerPriceMax,
+    },
+    {
+      name: "undefined fallback",
+      persona: undefined,
+      expectedTitle: messages.search.filters.price,
+      expectedMin: messages.search.filters.priceMin,
+      expectedMax: messages.search.filters.priceMax,
+    },
+  ])(
+    "uses persona-aware price labels: $name",
+    ({ persona, expectedTitle, expectedMin, expectedMax }) => {
+      renderSidebar({ persona })
+      expect(
+        screen.getByRole("heading", { name: expectedTitle }),
+      ).toBeInTheDocument()
+      expect(screen.getByLabelText(expectedMin)).toBeInTheDocument()
+      expect(screen.getByLabelText(expectedMax)).toBeInTheDocument()
+    },
+  )
 })

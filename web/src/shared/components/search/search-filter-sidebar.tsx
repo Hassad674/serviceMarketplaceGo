@@ -5,6 +5,7 @@ import { Star, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { EXPERTISE_DOMAIN_KEYS } from "@/shared/lib/profile/expertise"
+import type { SearchDocumentPersona } from "@/shared/lib/search/search-document"
 import {
   EMPTY_SEARCH_FILTERS,
   isEmptyFilters,
@@ -28,6 +29,19 @@ interface SearchFilterSidebarProps {
   onApply?: () => void
   resultsCount?: number
   className?: string
+  /**
+   * persona drives the price section's labels and unit suffix:
+   *   - freelance -> "TJM min / max",  suffix "€"
+   *   - agency    -> "Budget min / max", suffix "€"
+   *   - referrer  -> "Commission min / max", suffix "%"
+   *
+   * Undefined falls back to the generic "Price min / max" labels —
+   * this keeps the sidebar usable in contexts that never picked a
+   * persona (e.g. stories / legacy callers). The min / max input
+   * values are still raw numbers; the backend filter builder maps
+   * them to the correct Typesense clause per persona.
+   */
+  persona?: SearchDocumentPersona
 }
 
 // POPULAR_SKILLS is rendered as quick-add chips below the free-text
@@ -68,6 +82,7 @@ export function SearchFilterSidebar({
   onApply,
   resultsCount,
   className,
+  persona,
 }: SearchFilterSidebarProps) {
   const t = useTranslations("search.filters")
   const tSearch = useTranslations("search")
@@ -102,6 +117,7 @@ export function SearchFilterSidebar({
         onChange={(v) => update("availability", v)}
       />
       <PriceSection
+        persona={persona}
         min={filters.priceMin}
         max={filters.priceMax}
         onMinChange={(v) => update("priceMin", v)}
@@ -213,37 +229,95 @@ function AvailabilitySection({
   )
 }
 
+// PriceSection renders the min / max bounds that the parent pipes
+// into the Typesense filter_by builder. The labels and the unit
+// suffix are persona-aware (see buildPriceLabels) so the UX matches
+// the primary pricing shape for the persona being searched. The
+// input values stay raw numbers — the persona only affects how the
+// bounds are labelled for the user, not how they are persisted or
+// sent to the backend.
 function PriceSection({
+  persona,
   min,
   max,
   onMinChange,
   onMaxChange,
 }: {
+  persona: SearchDocumentPersona | undefined
   min: number | null
   max: number | null
   onMinChange: (next: number | null) => void
   onMaxChange: (next: number | null) => void
 }) {
   const t = useTranslations("search.filters")
+  const labels = buildPriceLabels(t, persona)
   return (
-    <SectionShell title={t("price")}>
+    <SectionShell title={labels.title}>
       <div className="flex items-center gap-2">
-        <NumberInput
-          placeholder={t("priceMin")}
+        <NumberInputWithSuffix
+          placeholder={labels.minPlaceholder}
+          ariaLabel={labels.minPlaceholder}
+          suffix={labels.unit}
           value={min}
           onChange={onMinChange}
-          ariaLabel={t("priceMin")}
         />
         <span className="text-xs text-muted-foreground">–</span>
-        <NumberInput
-          placeholder={t("priceMax")}
+        <NumberInputWithSuffix
+          placeholder={labels.maxPlaceholder}
+          ariaLabel={labels.maxPlaceholder}
+          suffix={labels.unit}
           value={max}
           onChange={onMaxChange}
-          ariaLabel={t("priceMax")}
         />
       </div>
     </SectionShell>
   )
+}
+
+interface PriceLabels {
+  title: string
+  minPlaceholder: string
+  maxPlaceholder: string
+  unit: string
+}
+
+// buildPriceLabels returns the persona-specific title / placeholders /
+// unit suffix for the PriceSection. Undefined persona falls back to
+// the generic price labels so legacy callers keep working.
+function buildPriceLabels(
+  t: ReturnType<typeof useTranslations>,
+  persona: SearchDocumentPersona | undefined,
+): PriceLabels {
+  switch (persona) {
+    case "freelance":
+      return {
+        title: t("freelancePrice"),
+        minPlaceholder: t("freelancePriceMin"),
+        maxPlaceholder: t("freelancePriceMax"),
+        unit: "€",
+      }
+    case "agency":
+      return {
+        title: t("agencyPrice"),
+        minPlaceholder: t("agencyPriceMin"),
+        maxPlaceholder: t("agencyPriceMax"),
+        unit: "€",
+      }
+    case "referrer":
+      return {
+        title: t("referrerPrice"),
+        minPlaceholder: t("referrerPriceMin"),
+        maxPlaceholder: t("referrerPriceMax"),
+        unit: "%",
+      }
+    default:
+      return {
+        title: t("price"),
+        minPlaceholder: t("priceMin"),
+        maxPlaceholder: t("priceMax"),
+        unit: "",
+      }
+  }
 }
 
 function LocationSection({
@@ -583,6 +657,59 @@ function NumberInput({
       }}
       className="h-10 w-full min-w-0 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
     />
+  )
+}
+
+// NumberInputWithSuffix is a NumberInput decorated with a trailing
+// unit suffix (€ or %). Kept in-file because the suffix is purely
+// cosmetic to the price section — the rest of the sidebar does not
+// need it. When suffix is empty we fall back to the plain input so
+// we do not reserve padding for nothing.
+function NumberInputWithSuffix({
+  value,
+  onChange,
+  placeholder,
+  ariaLabel,
+  suffix,
+}: {
+  value: number | null
+  onChange: (next: number | null) => void
+  placeholder: string
+  ariaLabel: string
+  suffix: string
+}) {
+  if (suffix === "") {
+    return (
+      <NumberInput
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        ariaLabel={ariaLabel}
+      />
+    )
+  }
+  return (
+    <div className="relative w-full min-w-0">
+      <input
+        type="number"
+        min={0}
+        inputMode="numeric"
+        value={value ?? ""}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        onChange={(e) => {
+          const raw = e.target.value.trim()
+          onChange(raw === "" ? null : Math.max(0, Number(raw) || 0))
+        }}
+        className="h-10 w-full min-w-0 rounded-lg border border-border bg-background pl-3 pr-8 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+      >
+        {suffix}
+      </span>
+    </div>
   )
 }
 

@@ -21,6 +21,22 @@ export type SearchDocumentAvailability =
   | "available_soon"
   | "not_available"
 
+// SearchDocumentPricingType keeps all six historical values so legacy
+// rows (created before the V1 pricing simplification) still deserialise
+// cleanly into the card.
+//
+// Active types in V1 (one per persona — see docs/search-engine.md):
+//   - "daily"          — freelance profiles   (TJM)
+//   - "project_from"   — agency profiles      ("à partir de" budget)
+//   - "commission_pct" — referrer profiles    (% commission)
+//
+// Legacy types retained for backwards compatibility with existing
+// documents — they still render through formatPricing's fallback
+// branches, but the editor no longer lets users create new rows with
+// these shapes:
+//   - "hourly"          — legacy freelance
+//   - "project_range"   — legacy agency
+//   - "commission_flat" — legacy referrer
 export type SearchDocumentPricingType =
   | "daily"
   | "hourly"
