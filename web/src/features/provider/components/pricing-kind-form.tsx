@@ -250,26 +250,25 @@ export function PricingKindForm(props: PricingKindFormProps) {
 
 // ----- Sub-components ---------------------------------------------------
 
-const DIRECT_TYPES: readonly PricingType[] = [
-  "daily",
-  "hourly",
-  "project_from",
-  "project_range",
-] as const
+// V1 pricing simplification: every persona is narrowed to a single
+// allowed type, so each bucket below is now length 1. The type radio
+// hides itself when only one option is present (see TypeRadioRow),
+// turning the form into a single-field experience.
+//
+// The six-value PricingType union is retained — legacy rows still
+// round-trip through this form as-is, and we never want the editor
+// to crash on a persona/kind combination we decommissioned.
+const DIRECT_TYPES: readonly PricingType[] = ["project_from"] as const
 
-const AGENCY_DIRECT_TYPES: readonly PricingType[] = [
-  "project_from",
-  "project_range",
-] as const
+const AGENCY_DIRECT_TYPES: readonly PricingType[] = ["project_from"] as const
 
-const REFERRAL_TYPES: readonly PricingType[] = [
-  "commission_pct",
-  "commission_flat",
-] as const
+const REFERRAL_TYPES: readonly PricingType[] = ["commission_pct"] as const
 
-// computeAllowedTypes mirrors the backend AllowedTypesForOrg
-// function: agency orgs on the direct kind only see outcome-based
-// pricing (no TJM / taux horaire).
+// computeAllowedTypes mirrors the backend V1 whitelist: each
+// (kind, org) triplet narrows to the single allowed type. The
+// pricing-kind-form is shared across agency + provider_personal
+// (for the direct kind) and any org with referrer_enabled (for the
+// referral kind), so the single-type rule applies uniformly.
 function computeAllowedTypes(
   kind: PricingKind,
   orgType: string | undefined,
@@ -299,6 +298,11 @@ interface TypeRadioRowProps {
 
 function TypeRadioRow({ allowedTypes, value, onChange }: TypeRadioRowProps) {
   const t = useTranslations("profile.pricing")
+  // V1: when only one type is allowed, the radio is pure noise — hide
+  // it and let the single-field form speak for itself. The parent
+  // already initialises `value` to the single allowed type, so
+  // skipping the picker does not change the submitted payload.
+  if (allowedTypes.length <= 1) return null
   return (
     <div
       role="radiogroup"

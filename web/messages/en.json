@@ -570,7 +570,14 @@
       "delete": "Delete",
       "previewHeading": "How it will show on your card",
       "errorGeneric": "Something went wrong. Please try again.",
-      "errorKindNotAllowed": "This pricing type is not available for your account."
+      "errorKindNotAllowed": "This pricing type is not available for your account.",
+      "errorTypeNotAllowed": "This pricing type is not supported in the current version.",
+      "freelanceDailyLabel": "Daily rate (TJM)",
+      "freelanceDailyHint": "Your standard daily rate, in euros.",
+      "agencyProjectFromLabel": "Minimum project budget",
+      "agencyProjectFromHint": "The lowest budget you accept for a new project.",
+      "referrerCommissionLabel": "Commission (%)",
+      "referrerCommissionHint": "The cut you take on deals you bring in. Integers and halves accepted."
     },
     "freelance": {
       "publicTitleSuffix": "Freelancer",
