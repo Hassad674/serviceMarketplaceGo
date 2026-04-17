@@ -38,4 +38,13 @@ var (
 	// ErrPricingNotFound — the repository layer returns this when a
 	// lookup by profile_id misses. HTTP 404.
 	ErrPricingNotFound = errors.New("freelance pricing not found")
+
+	// ErrPricingTypeNotAllowed — V1 pricing simplification: the
+	// freelance persona may only declare a `daily` (TJM) pricing row.
+	// Any other domain-valid type (hourly, project_from, project_range)
+	// is rejected at the app service write boundary to keep price
+	// comparability across the freelance listing page. Legacy rows
+	// created before V1 remain readable — this error only fires on
+	// Create / Update. HTTP 400.
+	ErrPricingTypeNotAllowed = errors.New("freelance pricing must use type=daily in V1")
 )

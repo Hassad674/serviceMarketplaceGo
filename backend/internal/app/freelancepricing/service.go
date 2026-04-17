@@ -47,7 +47,19 @@ type UpsertInput struct {
 // Upsert validates via the domain constructor then persists the
 // row. Returns the persisted value — useful for the handler to
 // echo back the canonical result including defaults.
+//
+// V1 pricing simplification: the write boundary narrows the four
+// domain-valid freelance types down to a single allowed type —
+// `daily` (TJM, the French market standard at ~95 %). Any other
+// type returns ErrPricingTypeNotAllowed BEFORE the domain
+// constructor runs so the handler can map it cleanly to a 400
+// without piping through the richer validation errors. Legacy
+// rows (hourly / project_*) remain readable through Get; only
+// writes are constrained.
 func (s *Service) Upsert(ctx context.Context, input UpsertInput) (*freelancepricing.Pricing, error) {
+	if input.Type != freelancepricing.TypeDaily {
+		return nil, freelancepricing.ErrPricingTypeNotAllowed
+	}
 	p, err := freelancepricing.NewPricing(freelancepricing.NewPricingInput{
 		ProfileID:  input.ProfileID,
 		Type:       input.Type,
