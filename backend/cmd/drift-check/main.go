@@ -104,21 +104,23 @@ func run(cfg *config.Config, threshold float64) (int, error) {
 	return 0, nil
 }
 
-// countPostgresPerPersona counts `is_published=true` rows per
-// persona table. Freelance + agency + referrer each live in their
-// own table — we aggregate with a single UNION ALL to keep the DB
+// countPostgresPerPersona counts rows per persona table. Every row
+// in a persona table is treated as `is_published: true` by the
+// indexer (phase 1 rationale: personas are opt-in so no hidden
+// state). Freelance + agency + referrer each live in their own
+// table — we aggregate with a single UNION ALL to keep the DB
 // round-trip count at 1.
 func countPostgresPerPersona(ctx context.Context, db *sql.DB) ([]search.PersonaCount, error) {
 	const query = `
 SELECT persona, count(*)::bigint FROM (
     SELECT 'freelance'::text AS persona
-      FROM freelance_profiles WHERE is_published = true
+      FROM freelance_profiles
     UNION ALL
     SELECT 'agency'::text AS persona
-      FROM profiles WHERE is_published = true
+      FROM profiles
     UNION ALL
     SELECT 'referrer'::text AS persona
-      FROM referrer_profiles WHERE is_published = true
+      FROM referrer_profiles
 ) t GROUP BY persona`
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
