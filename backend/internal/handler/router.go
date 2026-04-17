@@ -294,10 +294,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
 		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
 
-		// Typesense-backed search routes (phase 2). Both endpoints
-		// require an authenticated user — anonymous browsing of
-		// the listing pages still goes through the legacy
-		// /profiles/search SQL path until phase 4 retires it.
+		// Typesense-backed search routes. Both endpoints require an
+		// authenticated user. The legacy /profiles/search SQL path
+		// was retired in phase 4 (30-day grace ended April 2026) —
+		// the only remaining consumer is the referral provider
+		// picker, which uses it as a simple directory read.
 		if deps.Search != nil {
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))

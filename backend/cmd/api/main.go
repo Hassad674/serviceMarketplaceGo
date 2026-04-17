@@ -575,16 +575,15 @@ func main() {
 		pendingEventsWorker.Register(pendingevent.TypeSearchReindex, handlers.NewSearchReindexHandler(searchIndexSvc))
 		pendingEventsWorker.Register(pendingevent.TypeSearchDelete, handlers.NewSearchDeleteHandler(searchIndexSvc))
 		typesenseClient = tsClient
-		slog.Info("search: typesense indexer wired", "engine_mode", cfg.SearchEngine)
+		slog.Info("search: typesense indexer wired")
 	} else {
-		slog.Info("search: typesense not configured, outbox events for search.* will be dropped")
+		slog.Warn("search: typesense not configured — the listing pages will return 503 until TYPESENSE_* env vars are set")
 	}
 
-	// Search query service (phase 2). Wired only when Typesense is
-	// configured AND the SEARCH_ENGINE flag flips to typesense.
-	// Lives outside the previous block because the indexer + the
-	// query path are independent — we can index without serving and
-	// vice versa.
+	// Search query service (phase 2+). Wired only when Typesense is
+	// configured. Lives outside the previous block because the
+	// indexer + the query path are independent — we can index
+	// without serving and vice versa.
 	var searchQuerySvc *appsearch.Service
 	var searchHandler *handler.SearchHandler
 	var adminSearchStatsHandler *handler.AdminSearchStatsHandler
@@ -655,10 +654,9 @@ func main() {
 			Logger:       slog.Default(),
 		})
 		slog.Info("search: query service wired",
-			"search_engine", cfg.SearchEngine,
-			"is_typesense", cfg.SearchEngineIsTypesense(),
 			"hybrid_enabled", queryEmbedder != nil,
-			"analytics_enabled", searchAnalyticsSvc != nil)
+			"analytics_enabled", searchAnalyticsSvc != nil,
+			"admin_stats_enabled", adminSearchStatsHandler != nil)
 	}
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
@@ -967,10 +965,10 @@ func main() {
 	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
 	if typesenseClient != nil {
-		// Treat Typesense as required only when SEARCH_ENGINE=typesense
-		// flips over — otherwise the query path falls back to SQL
-		// and a flaky Typesense should not take /ready red.
-		healthHandler = healthHandler.WithSearchPinger(typesenseClient, cfg.SearchEngineIsTypesense())
+		// Typesense is MANDATORY since phase 4 — the listing pages
+		// have no SQL fallback. A failed ping takes /ready red so
+		// load balancers rotate the misbehaving instance out.
+		healthHandler = healthHandler.WithSearchPinger(typesenseClient, true)
 	}
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)

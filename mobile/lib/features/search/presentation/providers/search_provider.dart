@@ -116,18 +116,15 @@ final searchProvider = StateNotifierProvider.autoDispose
 });
 
 // ---------------------------------------------------------------------------
-// Phase 2 — Typesense path (gated by --dart-define=SEARCH_ENGINE=typesense).
+// Typesense path providers.
+//
+// Phase 4 retired the SEARCH_ENGINE=sql|typesense compile-time flag
+// (the 30-day grace period ended in April 2026). The directory /
+// profile-picker screens still consume the legacy /profiles/search
+// endpoint because it now serves the referral picker's directory
+// reads — keeping it makes the endpoint feature-justified, not a
+// SQL-fallback for the main search.
 // ---------------------------------------------------------------------------
-
-/// kSearchEngine is the compile-time flag that selects the search
-/// backend. Default "sql" keeps the legacy path active. Pass
-/// `--dart-define=SEARCH_ENGINE=typesense` at build time to switch
-/// to the Typesense path end-to-end.
-const kSearchEngine =
-    String.fromEnvironment('SEARCH_ENGINE', defaultValue: 'sql');
-
-/// isTypesenseEnabled is the convenience boolean for screens.
-bool get isTypesenseEnabled => kSearchEngine == 'typesense';
 
 /// searchKeyRepositoryProvider exposes a singleton SearchKeyRepository
 /// for the whole app. The repo holds an in-memory cache keyed on

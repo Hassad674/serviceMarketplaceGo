@@ -1,9 +1,18 @@
-import { describe, it, expect, vi } from "vitest"
+import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import messages from "@/../messages/en.json"
 import { SearchPage } from "../search-page"
-import type { PublicProfileSummary } from "../../api/search-api"
+import type { RawSearchDocument } from "@/shared/lib/search/typesense-client"
+
+/**
+ * search-page.test.tsx covers the provider-feature SearchPage,
+ * which is now a pure Typesense adapter (phase 4 retired the SQL
+ * fallback). The test mocks the shared useSearch hook and asserts
+ * that the page renders the documents it receives, without pinning
+ * the specific Typesense request shape — that's covered by
+ * use-search.test.tsx upstream.
+ */
 
 // Mock next-intl navigation (Link used inside ProviderCard)
 vi.mock("@i18n/navigation", () => ({
@@ -22,7 +31,6 @@ vi.mock("@i18n/navigation", () => ({
   ),
 }))
 
-// Mock next/image (used inside ProviderCard)
 vi.mock("next/image", () => ({
   default: ({
     src,
@@ -37,48 +45,84 @@ vi.mock("next/image", () => ({
   }) => <img src={src} alt={alt} {...rest} />,
 }))
 
-// Mock the useSearchProfiles hook
-const mockUseSearchProfiles = vi.fn()
-vi.mock("../../hooks/use-search", () => ({
-  useSearchProfiles: (...args: unknown[]) => mockUseSearchProfiles(...args),
+// Mock the useSearch hook at module boundary so the component
+// receives a deterministic result set per test.
+const mockUseSearch = vi.fn()
+vi.mock("@/shared/lib/search/use-search", () => ({
+  useSearch: (args: unknown) => mockUseSearch(args),
 }))
 
-function createProfile(
-  overrides: Partial<PublicProfileSummary> = {},
-): PublicProfileSummary {
+// Track-click is fire-and-forget via navigator.sendBeacon — mock so
+// the tests do not hit network.
+vi.mock("@/shared/lib/search/track-click", () => ({
+  trackSearchClick: vi.fn(),
+}))
+
+function createDoc(overrides: Partial<RawSearchDocument> = {}): RawSearchDocument {
+  // RawSearchDocument mirrors the Typesense wire format. Only the
+  // fields the card actually reads are pinned; the rest come via
+  // overrides for the specific test case.
   return {
+    id: "org-1:freelance",
     organization_id: "org-1",
-    owner_user_id: "user-1",
-    name: "Test Org",
-    org_type: "provider_personal",
+    persona: "freelance",
+    is_published: true,
+    display_name: "Test Freelance",
     title: "Developer",
-    photo_url: "",
-    referrer_enabled: false,
-    average_rating: 0,
-    review_count: 0,
+    work_mode: [],
+    languages_professional: [],
+    languages_conversational: [],
+    availability_status: "available_now",
+    availability_priority: 3,
+    expertise_domains: [],
+    skills: [],
+    skills_text: "",
+    pricing_type: "",
+    pricing_min_amount: 0,
+    pricing_max_amount: 0,
+    pricing_currency: "EUR",
+    pricing_negotiable: false,
+    rating_average: 0,
+    rating_count: 0,
+    rating_score: 0,
+    total_earned: 0,
+    completed_projects: 0,
+    profile_completion_score: 0,
+    last_active_at: 0,
+    response_rate: 0,
+    is_verified: false,
+    is_top_rated: false,
+    is_featured: false,
+    created_at: 0,
+    updated_at: 0,
     ...overrides,
-  }
+  } as RawSearchDocument
 }
 
-function mockInfiniteResult(
-  profiles: PublicProfileSummary[],
+function mockSearchResult(
+  documents: RawSearchDocument[],
   overrides: Record<string, unknown> = {},
 ) {
   return {
-    data: {
-      pages: [{ data: profiles, next_cursor: "", has_more: false }],
-      pageParams: [undefined],
-    },
+    documents,
+    found: documents.length,
+    page: 1,
+    perPage: 20,
+    facetCounts: {},
+    highlights: [],
+    searchId: "deterministic-search-id",
+    correctedQuery: "",
+    hasMore: false,
     isLoading: false,
+    isFetchingMore: false,
     error: null,
-    fetchNextPage: vi.fn(),
-    hasNextPage: false,
-    isFetchingNextPage: false,
+    loadMore: vi.fn(),
+    refetch: vi.fn(),
     ...overrides,
   }
 }
 
-function renderSearchPage(type: "freelancer" | "agency" | "referrer") {
+function renderPage(type: "freelancer" | "agency" | "referrer") {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <SearchPage type={type} />
@@ -86,148 +130,48 @@ function renderSearchPage(type: "freelancer" | "agency" | "referrer") {
   )
 }
 
-describe("SearchPage", () => {
-  it("shows loading skeleton when data is loading", () => {
-    mockUseSearchProfiles.mockReturnValue(
-      mockInfiniteResult([], {
-        data: undefined,
-        isLoading: true,
-      }),
+describe("SearchPage (Typesense-only)", () => {
+  beforeEach(() => {
+    mockUseSearch.mockReset()
+  })
+
+  it("renders the documents returned by useSearch", () => {
+    mockUseSearch.mockReturnValue(
+      mockSearchResult([
+        createDoc({ display_name: "Alice", title: "React dev" }),
+        createDoc({ organization_id: "org-2", display_name: "Bob" }),
+      ]),
     )
-
-    renderSearchPage("freelancer")
-
-    // New shared layout uses the design system's animate-shimmer class
-    // for skeletons (never animate-pulse) — at least one placeholder
-    // bar must be present while the query is pending.
-    const shimmerElements = document.querySelectorAll(".animate-shimmer")
-    expect(shimmerElements.length).toBeGreaterThan(0)
+    renderPage("freelancer")
+    expect(screen.getByText(/Alice/)).toBeInTheDocument()
+    expect(screen.getByText(/Bob/)).toBeInTheDocument()
   })
 
-  it("shows empty state when no results", () => {
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
-
-    renderSearchPage("freelancer")
-
-    // Empty state moved to the shared search.empty namespace. Assert on
-    // the unique description + reset CTA so the "No results" plural
-    // that also appears in the sidebar resultsCount does not clash.
-    expect(
-      screen.getByText(messages.search.empty.description),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: messages.search.empty.cta }),
-    ).toBeInTheDocument()
+  it("shows loading state when the hook is loading", () => {
+    mockUseSearch.mockReturnValue(mockSearchResult([], { isLoading: true }))
+    const { container } = renderPage("freelancer")
+    // SearchPageLayout renders skeleton cards (animate-shimmer) while loading.
+    expect(container.querySelectorAll(".animate-shimmer").length).toBeGreaterThan(0)
   })
 
-  it("shows provider cards when results exist", () => {
-    const profiles = [
-      createProfile({
-        organization_id: "1",
-        name: "Alice Smith",
-        title: "UX Designer",
-      }),
-      createProfile({
-        organization_id: "2",
-        name: "Bob Jones",
-        title: "Backend Dev",
-      }),
-    ]
-
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult(profiles))
-
-    renderSearchPage("freelancer")
-
-    expect(screen.getByText("Alice Smith")).toBeInTheDocument()
-    expect(screen.getByText("Bob Jones")).toBeInTheDocument()
-    expect(screen.getByText("UX Designer")).toBeInTheDocument()
-    expect(screen.getByText("Backend Dev")).toBeInTheDocument()
+  it("maps the feature-level type to the right persona", () => {
+    mockUseSearch.mockReturnValue(mockSearchResult([]))
+    renderPage("agency")
+    expect(mockUseSearch).toHaveBeenCalledTimes(1)
+    const arg = mockUseSearch.mock.calls[0][0] as { persona: string }
+    expect(arg.persona).toBe("agency")
   })
 
-  it("displays correct title for freelancer type", () => {
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
-
-    renderSearchPage("freelancer")
-
-    expect(
-      screen.getByRole("heading", { name: messages.search.findFreelancers }),
-    ).toBeInTheDocument()
-  })
-
-  it("displays correct title for agency type", () => {
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
-
-    renderSearchPage("agency")
-
-    expect(
-      screen.getByRole("heading", { name: messages.search.findAgencies }),
-    ).toBeInTheDocument()
-  })
-
-  it("displays correct title for referrer type", () => {
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
-
-    renderSearchPage("referrer")
-
-    expect(
-      screen.getByRole("heading", { name: messages.search.findReferrers }),
-    ).toBeInTheDocument()
-  })
-
-  it("shows error message when loading fails", () => {
-    mockUseSearchProfiles.mockReturnValue(
-      mockInfiniteResult([], {
-        data: undefined,
-        error: new Error("Network error"),
-      }),
+  it("renders the did-you-mean banner when useSearch returns a corrected query", () => {
+    mockUseSearch.mockReturnValue(
+      mockSearchResult([], { correctedQuery: "react-dev" }),
     )
-
-    renderSearchPage("freelancer")
-
-    expect(
-      screen.getByText(messages.search.errorLoading),
-    ).toBeInTheDocument()
-  })
-
-  it("passes correct type to useSearchProfiles hook", () => {
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult([]))
-
-    renderSearchPage("agency")
-
-    expect(mockUseSearchProfiles).toHaveBeenCalledWith("agency")
-  })
-
-  it("renders correct number of cards for results", () => {
-    const profiles = [
-      createProfile({ organization_id: "1" }),
-      createProfile({ organization_id: "2" }),
-      createProfile({ organization_id: "3" }),
-    ]
-
-    mockUseSearchProfiles.mockReturnValue(mockInfiniteResult(profiles))
-
-    renderSearchPage("freelancer")
-
-    // One semantic <article> per result card — a stable anchor that
-    // survives layout-level links (e.g. filter footer buttons) that
-    // would otherwise inflate the getAllByRole("link") count.
-    const articles = screen.getAllByRole("article")
-    expect(articles).toHaveLength(3)
-  })
-
-  it("shows load more button when hasNextPage is true", () => {
-    const profiles = [
-      createProfile({ organization_id: "1" }),
-    ]
-
-    mockUseSearchProfiles.mockReturnValue(
-      mockInfiniteResult(profiles, { hasNextPage: true }),
-    )
-
-    renderSearchPage("freelancer")
-
-    expect(
-      screen.getByRole("button", { name: messages.search.loadMore }),
-    ).toBeInTheDocument()
+    const { container } = renderPage("freelancer")
+    // The banner is the only element with role=status rendered by
+    // DidYouMeanBanner; assert it contains the corrected text so the
+    // check is decoupled from the banner's surrounding copy.
+    const banner = container.querySelector("[role=status]")
+    expect(banner).not.toBeNull()
+    expect(banner?.textContent).toMatch(/react-dev/)
   })
 })

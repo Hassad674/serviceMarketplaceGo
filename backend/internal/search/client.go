@@ -175,7 +175,7 @@ func (c *Client) EnsureSearchAPIKey(ctx context.Context) error {
 }
 
 // Ping calls GET /health and returns nil on a 200 response. Used by
-// the /ready health endpoint when SEARCH_ENGINE=typesense.
+// the /ready health endpoint (required path since phase 4).
 func (c *Client) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultRequestTimeout)
 	defer cancel()
