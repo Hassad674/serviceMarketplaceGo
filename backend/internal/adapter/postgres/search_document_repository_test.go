@@ -209,7 +209,12 @@ func TestSearchDocumentRepository_BuildDocumentEndToEnd(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, doc.Validate())
 
-	assert.Equal(t, orgID.String(), doc.ID)
+	// Phase 3 onwards, the document ID is composite `{orgID}:{persona}`
+	// so a single org can carry both a freelance and a referrer doc
+	// without collision. OrganizationID (string) is exposed separately
+	// so delete-by-org filters can match both docs at once.
+	assert.Equal(t, orgID.String()+":freelance", doc.ID)
+	assert.Equal(t, orgID.String(), doc.OrganizationID)
 	assert.Equal(t, "Alice Freelance", doc.DisplayName)
 	assert.True(t, doc.IsVerified)
 	assert.Equal(t, "Paris", doc.City)
