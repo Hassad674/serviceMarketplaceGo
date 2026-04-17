@@ -9,11 +9,11 @@ import '../../domain/entities/wallet_entity.dart';
 import '../providers/wallet_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Wallet screen
+// Wallet screen — mirrors the web redesign: hero (total + stripe + payout),
+// missions section (3 cards + history), commissions section (3 cards +
+// history). Escrow rows are visually distinct with an amber left accent.
 // ---------------------------------------------------------------------------
 
-/// Wallet page showing Stripe account status, balance cards,
-/// payout button, and transaction history.
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});
 
@@ -23,9 +23,6 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _payingOut = false;
-  // proposal_id currently being retried, or null when idle. One retry at
-  // a time: the button shows a spinner for that row and stays enabled
-  // for the others. Mirrors the web behaviour.
   String? _retryingProposalId;
 
   Future<void> _requestPayout() async {
@@ -119,6 +116,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     final canWithdraw = ref.watch(
       hasPermissionProvider(OrgPermission.walletWithdraw),
     );
+    final totalEarned =
+        wallet.transferredAmount + wallet.commissions.paidCents;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -126,56 +125,32 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Stripe account status
-            _AccountStatusRow(wallet: wallet, l10n: l10n),
-            const SizedBox(height: 16),
-
-            // Balance cards
-            _BalanceCards(wallet: wallet, l10n: l10n),
-            const SizedBox(height: 16),
-
-            // Payout button — hidden when user lacks wallet.withdraw permission
-            if (wallet.payoutsEnabled &&
-                wallet.availableAmount > 0 &&
-                canWithdraw)
-              _PayoutButton(
-                amount: wallet.availableAmount,
-                loading: _payingOut,
-                onPressed: _requestPayout,
-              )
-            else if (wallet.payoutsEnabled &&
-                wallet.availableAmount > 0 &&
-                !canWithdraw)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  l10n.permissionDeniedWithdraw,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+            // Hero — total earned + stripe status + payout CTA
+            _WalletHero(
+              wallet: wallet,
+              totalEarned: totalEarned,
+              canWithdraw: canWithdraw,
+              payingOut: _payingOut,
+              onPayout: _requestPayout,
+            ),
             const SizedBox(height: 24),
 
-            // Apporteur commissions — rendered only when there is
-            // activity. Providers who are also business referrers see
-            // BOTH this section and the payouts history below.
-            if (!wallet.commissions.isEmpty || wallet.commissionRecords.isNotEmpty) ...[
+            // Missions section — 3 cards + history
+            _MissionsSection(
+              wallet: wallet,
+              retryingProposalId: _retryingProposalId,
+              onRetry: _retryTransfer,
+            ),
+
+            // Commissions section — hidden when zero activity
+            if (!wallet.commissions.isEmpty ||
+                wallet.commissionRecords.isNotEmpty) ...[
+              const SizedBox(height: 24),
               _CommissionSection(
                 summary: wallet.commissions,
                 records: wallet.commissionRecords,
               ),
-              const SizedBox(height: 24),
             ],
-
-            // Transaction history
-            _TransactionHistory(
-              records: wallet.records,
-              l10n: l10n,
-              retryingProposalId: _retryingProposalId,
-              onRetry: _retryTransfer,
-            ),
           ],
         ),
       ),
@@ -184,7 +159,300 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Commission section (apporteur d'affaires)
+// Hero — title, total earned, compact stripe status, payout CTA
+// ---------------------------------------------------------------------------
+
+class _WalletHero extends StatelessWidget {
+  const _WalletHero({
+    required this.wallet,
+    required this.totalEarned,
+    required this.canWithdraw,
+    required this.payingOut,
+    required this.onPayout,
+  });
+
+  final WalletOverview wallet;
+  final int totalEarned;
+  final bool canWithdraw;
+  final bool payingOut;
+  final VoidCallback onPayout;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasAccount = wallet.stripeAccountId.isNotEmpty;
+    final canClick = canWithdraw && wallet.availableAmount > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.5),
+        ),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title row
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF43F5E).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_outlined,
+                  color: Color(0xFFF43F5E),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.walletTitle,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Your mission and referral earnings',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Total earned
+          Text(
+            'TOTAL EARNINGS',
+            style: theme.textTheme.labelSmall?.copyWith(
+              letterSpacing: 0.8,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            WalletOverview.formatCents(totalEarned),
+            style: theme.textTheme.displaySmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Stripe status line
+          _StripeStatusLine(
+            hasAccount: hasAccount,
+            payoutsEnabled: wallet.payoutsEnabled,
+          ),
+          const SizedBox(height: 16),
+
+          // Payout CTA
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: (payingOut || !canClick) ? null : onPayout,
+              icon: payingOut
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.arrow_downward, size: 20),
+              label: Text(
+                '${AppLocalizations.of(context)!.walletRequestPayout} '
+                '${WalletOverview.formatCents(wallet.availableAmount)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF43F5E),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFF43F5E)
+                    .withValues(alpha: 0.4),
+                disabledForegroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppTheme.radiusLg),
+                ),
+              ),
+            ),
+          ),
+          if (wallet.availableAmount == 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'No funds available to withdraw',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface
+                      .withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          if (wallet.availableAmount > 0 && !canWithdraw)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                AppLocalizations.of(context)!.permissionDeniedWithdraw,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripeStatusLine extends StatelessWidget {
+  const _StripeStatusLine({
+    required this.hasAccount,
+    required this.payoutsEnabled,
+  });
+
+  final bool hasAccount;
+  final bool payoutsEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final IconData icon;
+    final Color color;
+    final String label;
+    if (hasAccount && payoutsEnabled) {
+      icon = Icons.check_circle;
+      color = const Color(0xFF22C55E);
+      label = 'Stripe account ready — payouts enabled';
+    } else if (hasAccount) {
+      icon = Icons.warning_amber_rounded;
+      color = const Color(0xFFF59E0B);
+      label = 'Stripe account verifying';
+    } else {
+      icon = Icons.cancel;
+      color = const Color(0xFFEF4444);
+      label = 'Stripe account not configured';
+    }
+
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Missions section — 3 balance cards + history
+// ---------------------------------------------------------------------------
+
+class _MissionsSection extends StatelessWidget {
+  const _MissionsSection({
+    required this.wallet,
+    required this.retryingProposalId,
+    required this.onRetry,
+  });
+
+  final WalletOverview wallet;
+  final String? retryingProposalId;
+  final Future<void> Function(String proposalId) onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader(
+          icon: Icons.work_outline,
+          title: 'My missions',
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _BalanceCard(
+                icon: Icons.lock_outline,
+                label: 'Escrow',
+                amount: wallet.escrowAmount,
+                color: const Color(0xFFF59E0B),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _BalanceCard(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Available',
+                amount: wallet.availableAmount,
+                color: const Color(0xFF22C55E),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _BalanceCard(
+                icon: Icons.send_outlined,
+                label: 'Transferred',
+                amount: wallet.transferredAmount,
+                color: const Color(0xFF2563EB),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _HistoryCard(
+          title: 'Mission history',
+          subtitle: 'All your missions — from escrow to transfer',
+          emptyLabel: 'No missions yet',
+          isEmpty: wallet.records.isEmpty,
+          children: [
+            for (final r in wallet.records)
+              _MissionTile(
+                record: r,
+                retrying: retryingProposalId == r.proposalId,
+                onRetry: () => onRetry(r.proposalId),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Commission section — mirror of missions for apporteur earnings
 // ---------------------------------------------------------------------------
 
 class _CommissionSection extends StatelessWidget {
@@ -198,23 +466,17 @@ class _CommissionSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: const [
-            Icon(Icons.auto_awesome, size: 16, color: Color(0xFFF43F5E)),
-            SizedBox(width: 6),
-            Text(
-              "Commissions d'apport",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-            ),
-          ],
+        const _SectionHeader(
+          icon: Icons.auto_awesome,
+          title: 'My referral commissions',
         ),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: _CommissionCard(
+              child: _BalanceCard(
                 icon: Icons.schedule,
-                label: 'En attente',
+                label: 'Pending',
                 amount:
                     summary.pendingCents + summary.pendingKycCents,
                 color: const Color(0xFFF59E0B),
@@ -222,317 +484,59 @@ class _CommissionSection extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _CommissionCard(
+              child: _BalanceCard(
                 icon: Icons.verified_outlined,
-                label: 'Reçues',
+                label: 'Received',
                 amount: summary.paidCents,
-                color: const Color(0xFF10B981),
+                color: const Color(0xFF22C55E),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _CommissionCard(
+              child: _BalanceCard(
                 icon: Icons.undo,
-                label: 'Reprises',
+                label: 'Clawed back',
                 amount: summary.clawedBackCents,
-                color: const Color(0xFF3B82F6),
+                color: const Color(0xFF2563EB),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        if (records.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Historique des commissions',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ),
-          ...records.map((r) => _CommissionRow(record: r)),
-        ],
+        const SizedBox(height: 12),
+        _HistoryCard(
+          title: 'Commission history',
+          subtitle: 'Every referral you have facilitated',
+          emptyLabel: 'No commissions yet',
+          isEmpty: records.isEmpty,
+          children: [
+            for (final r in records) _CommissionTile(record: r),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _CommissionCard extends StatelessWidget {
-  const _CommissionCard({
-    required this.icon,
-    required this.label,
-    required this.amount,
-    required this.color,
-  });
+// ---------------------------------------------------------------------------
+// Reusable primitives
+// ---------------------------------------------------------------------------
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.icon, required this.title});
 
   final IconData icon;
-  final String label;
-  final int amount;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            WalletOverview.formatCents(amount),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CommissionRow extends StatelessWidget {
-  const _CommissionRow({required this.record});
-
-  final CommissionRecord record;
-
-  @override
-  Widget build(BuildContext context) {
-    final chip = _commissionChip(record.status);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.milestoneId.isNotEmpty
-                      ? 'Milestone ${record.milestoneId.substring(0, record.milestoneId.length < 8 ? record.milestoneId.length : 8)}…'
-                      : 'Milestone',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${record.createdAt.day.toString().padLeft(2, '0')}/'
-                  '${record.createdAt.month.toString().padLeft(2, '0')}/'
-                  '${record.createdAt.year}',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                WalletOverview.formatCents(record.commissionCents),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: chip.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  chip.label,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: chip.color,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  ({String label, Color color}) _commissionChip(String status) {
-    switch (status) {
-      case 'paid':
-        return (label: 'Reçue', color: const Color(0xFF10B981));
-      case 'pending':
-        return (label: 'En attente', color: const Color(0xFFF59E0B));
-      case 'pending_kyc':
-        return (label: 'KYC requis', color: const Color(0xFFEA580C));
-      case 'clawed_back':
-        return (label: 'Reprise', color: const Color(0xFF3B82F6));
-      case 'failed':
-        return (label: 'Échec', color: const Color(0xFFEF4444));
-      case 'cancelled':
-        return (label: 'Annulée', color: const Color(0xFF64748B));
-      default:
-        return (label: status, color: const Color(0xFF64748B));
-    }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Account status row
-// ---------------------------------------------------------------------------
-
-class _AccountStatusRow extends StatelessWidget {
-  const _AccountStatusRow({
-    required this.wallet,
-    required this.l10n,
-  });
-
-  final WalletOverview wallet;
-  final AppLocalizations l10n;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
-        ),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.account_balance_outlined,
-            size: 20,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            l10n.walletStripeAccount,
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w500),
-          ),
-          const Spacer(),
-          _StatusChip(
-            enabled: wallet.chargesEnabled,
-            label: l10n.walletCharges,
-          ),
-          const SizedBox(width: 6),
-          _StatusChip(
-            enabled: wallet.payoutsEnabled,
-            label: l10n.walletPayouts,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({
-    required this.enabled,
-    required this.label,
-  });
-
-  final bool enabled;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final bg =
-        enabled ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2);
-    final fg =
-        enabled ? const Color(0xFF15803D) : const Color(0xFFDC2626);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: fg,
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Balance cards
-// ---------------------------------------------------------------------------
-
-class _BalanceCards extends StatelessWidget {
-  const _BalanceCards({
-    required this.wallet,
-    required this.l10n,
-  });
-
-  final WalletOverview wallet;
-  final AppLocalizations l10n;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(
-          child: _BalanceCard(
-            label: l10n.walletEscrow,
-            amount: wallet.escrowAmount,
-            color: const Color(0xFFF59E0B),
-            icon: Icons.lock_outline,
-          ),
-        ),
+        Icon(icon, size: 18, color: const Color(0xFFF43F5E)),
         const SizedBox(width: 8),
-        Expanded(
-          child: _BalanceCard(
-            label: l10n.walletAvailable,
-            amount: wallet.availableAmount,
-            color: const Color(0xFF22C55E),
-            icon: Icons.account_balance_wallet_outlined,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _BalanceCard(
-            label: l10n.walletTransferred,
-            amount: wallet.transferredAmount,
-            color: const Color(0xFF2563EB),
-            icon: Icons.send_outlined,
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -542,16 +546,16 @@ class _BalanceCards extends StatelessWidget {
 
 class _BalanceCard extends StatelessWidget {
   const _BalanceCard({
+    required this.icon,
     required this.label,
     required this.amount,
     required this.color,
-    required this.icon,
   });
 
+  final IconData icon;
   final String label;
   final int amount;
   final Color color;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -568,33 +572,35 @@ class _BalanceCard extends StatelessWidget {
         boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
             ),
-            child: Icon(icon, color: color, size: 18),
+            child: Icon(icon, color: color, size: 16),
           ),
           const SizedBox(height: 8),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color:
+                  theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
           Text(
             WalletOverview.formatCents(amount),
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               fontFamily: 'monospace',
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color:
-                  theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-            textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -604,119 +610,86 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Payout button
-// ---------------------------------------------------------------------------
-
-class _PayoutButton extends StatelessWidget {
-  const _PayoutButton({
-    required this.amount,
-    required this.loading,
-    required this.onPressed,
+class _HistoryCard extends StatelessWidget {
+  const _HistoryCard({
+    required this.title,
+    required this.subtitle,
+    required this.emptyLabel,
+    required this.isEmpty,
+    required this.children,
   });
 
-  final int amount;
-  final bool loading;
-  final VoidCallback onPressed;
+  final String title;
+  final String subtitle;
+  final String emptyLabel;
+  final bool isEmpty;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: ElevatedButton.icon(
-        onPressed: loading ? null : onPressed,
-        icon: loading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor:
-                      AlwaysStoppedAnimation<Color>(Colors.white),
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(
+          color: theme.dividerColor.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              )
-            : const Icon(Icons.arrow_upward, size: 20),
-        label: Text(
-          '${l10n.walletRequestPayout} '
-          '${WalletOverview.formatCents(amount)}',
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF43F5E),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-          ),
-        ),
+          const Divider(height: 1),
+          if (isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  emptyLabel,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            )
+          else
+            ...children,
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Transaction history
+// Mission tile — with amber left accent when in escrow
 // ---------------------------------------------------------------------------
 
-class _TransactionHistory extends StatelessWidget {
-  const _TransactionHistory({
-    required this.records,
-    required this.l10n,
-    required this.retryingProposalId,
-    required this.onRetry,
-  });
-
-  final List<WalletRecord> records;
-  final AppLocalizations l10n;
-  final String? retryingProposalId;
-  final Future<void> Function(String proposalId) onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.walletTransactionHistory,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (records.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                l10n.walletNoTransactions,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface
-                      .withValues(alpha: 0.5),
-                ),
-              ),
-            ),
-          )
-        else
-          for (final r in records)
-            _TransactionTile(
-              record: r,
-              retrying: retryingProposalId == r.proposalId,
-              onRetry: () => onRetry(r.proposalId),
-            ),
-      ],
-    );
-  }
-}
-
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({
+class _MissionTile extends StatelessWidget {
+  const _MissionTile({
     required this.record,
     required this.retrying,
     required this.onRetry,
@@ -729,27 +702,30 @@ class _TransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title =
-        record.proposalTitle.isNotEmpty
-            ? record.proposalTitle
-            : record.proposalId.substring(
-                0,
-                record.proposalId.length > 8
-                    ? 8
-                    : record.proposalId.length,
-              );
     final isFailed = record.transferStatus == 'failed';
+    final isCompleted = record.transferStatus == 'completed';
+    final isInEscrow = !isFailed && !isCompleted;
+
+    final Color accentColor = isFailed
+        ? const Color(0xFFEF4444)
+        : isInEscrow
+            ? const Color(0xFFF59E0B)
+            : Colors.transparent;
+
+    final title = record.proposalTitle.isNotEmpty
+        ? record.proposalTitle
+        : 'Mission ${_formatDate(record.createdAt)}';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
+        border: Border(
+          left: BorderSide(color: accentColor, width: 4),
+          bottom: BorderSide(
+            color: theme.dividerColor.withValues(alpha: 0.3),
+          ),
         ),
       ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
       child: Row(
         children: [
           Expanded(
@@ -759,34 +735,47 @@ class _TransactionTile extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w500),
+                      ?.copyWith(fontWeight: FontWeight.w600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  record.transferStatus,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: isFailed
-                        ? const Color(0xFFDC2626)
-                        : theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5),
-                    fontWeight:
-                        isFailed ? FontWeight.w600 : FontWeight.normal,
+                if (isInEscrow)
+                  Text(
+                    'In escrow — mission in progress',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFFB45309),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  )
+                else if (isFailed)
+                  Text(
+                    'Transfer failed',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFFDC2626),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                else
+                  Text(
+                    'Transferred',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF15803D),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
+          const SizedBox(width: 8),
           Text(
             WalletOverview.formatCents(record.netAmount),
             style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               fontFamily: 'monospace',
             ),
           ),
           if (isFailed) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             IconButton(
               tooltip: 'Retry transfer',
               onPressed: retrying ? null : onRetry,
@@ -808,4 +797,133 @@ class _TransactionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Commission tile — with amber left accent when pending, date-based label
+// ---------------------------------------------------------------------------
+
+class _CommissionTile extends StatelessWidget {
+  const _CommissionTile({required this.record});
+
+  final CommissionRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final chip = _commissionChip(record.status);
+
+    final bool isPending =
+        record.status == 'pending' || record.status == 'pending_kyc';
+    final bool isClawed = record.status == 'clawed_back';
+
+    final Color accentColor = isPending
+        ? const Color(0xFFF59E0B)
+        : isClawed
+            ? const Color(0xFF2563EB)
+            : Colors.transparent;
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: accentColor, width: 4),
+          bottom: BorderSide(
+            color: theme.dividerColor.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Commission ${_formatDate(record.createdAt)}',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'on ${WalletOverview.formatCents(record.grossAmountCents)} of mission',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                WalletOverview.formatCents(record.commissionCents),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: chip.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  chip.label,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: chip.color,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (record.referralId.isNotEmpty) ...[
+            const SizedBox(width: 4),
+            Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  ({String label, Color color}) _commissionChip(String status) {
+    switch (status) {
+      case 'paid':
+        return (label: 'Received', color: const Color(0xFF10B981));
+      case 'pending':
+        return (label: 'Pending', color: const Color(0xFFF59E0B));
+      case 'pending_kyc':
+        return (label: 'KYC required', color: const Color(0xFFEA580C));
+      case 'clawed_back':
+        return (label: 'Clawed back', color: const Color(0xFF3B82F6));
+      case 'failed':
+        return (label: 'Failed', color: const Color(0xFFEF4444));
+      case 'cancelled':
+        return (label: 'Cancelled', color: const Color(0xFF64748B));
+      default:
+        return (label: status, color: const Color(0xFF64748B));
+    }
+  }
+}
+
+String _formatDate(DateTime d) {
+  final dd = d.day.toString().padLeft(2, '0');
+  final mm = d.month.toString().padLeft(2, '0');
+  final yy = d.year.toString();
+  return '$dd/$mm/$yy';
 }
