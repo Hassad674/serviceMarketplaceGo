@@ -39,6 +39,12 @@ import type {
 
 interface SearchResultCardProps {
   document: SearchDocument
+  /**
+   * onSelect fires when the user clicks the card — phase 3 wires a
+   * click-tracking beacon through this hook. Undefined on legacy
+   * paths that don't need tracking (e.g. SQL fallback).
+   */
+  onSelect?: () => void
 }
 
 const PERSONA_TO_PATH: Record<SearchDocumentPersona, string> = {
@@ -47,7 +53,7 @@ const PERSONA_TO_PATH: Record<SearchDocumentPersona, string> = {
   referrer: "/referrers",
 }
 
-export function SearchResultCard({ document }: SearchResultCardProps) {
+export function SearchResultCard({ document, onSelect }: SearchResultCardProps) {
   const locale: FormatLocale = useLocale() === "fr" ? "fr" : "en"
   const t = useTranslations("search")
   const headingId = `search-card-${document.id}`
@@ -57,6 +63,7 @@ export function SearchResultCard({ document }: SearchResultCardProps) {
     <article aria-labelledby={headingId} className="h-full">
       <Link
         href={href}
+        onClick={onSelect}
         className={cn(
           "group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-card",
           "shadow-sm transition-all duration-200 ease-out",

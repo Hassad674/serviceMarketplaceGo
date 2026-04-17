@@ -82,6 +82,12 @@ export interface SearchPageLayoutProps {
    * document slice. Falls back to the local document count.
    */
   totalFound?: number
+  /**
+   * Optional click handler — invoked when the user clicks on a
+   * result card. Phase 3 passes a click-tracking beacon here; SQL
+   * path leaves it undefined so the cards behave as pre-3 links.
+   */
+  onSelect?: (docID: string, position: number) => void
 }
 
 export function SearchPageLayout(props: SearchPageLayoutProps) {
@@ -157,6 +163,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
             onResetFilters={() => setFilters(EMPTY_SEARCH_FILTERS)}
             loadMoreLabel={t("loadMore")}
             loadingLabel={t("loading")}
+            onSelect={props.onSelect}
           />
         </div>
       </div>
@@ -266,6 +273,7 @@ interface ResultsSectionProps {
   onResetFilters: () => void
   loadMoreLabel: string
   loadingLabel: string
+  onSelect?: (docID: string, position: number) => void
 }
 
 function ResultsSection(props: ResultsSectionProps) {
@@ -288,8 +296,16 @@ function ResultsSection(props: ResultsSectionProps) {
   return (
     <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {props.documents.map((doc) => (
-          <SearchResultCard key={doc.id} document={doc} />
+        {props.documents.map((doc, index) => (
+          <SearchResultCard
+            key={doc.id}
+            document={doc}
+            onSelect={
+              props.onSelect
+                ? () => props.onSelect?.(doc.id, index)
+                : undefined
+            }
+          />
         ))}
       </div>
       {props.hasMore ? (

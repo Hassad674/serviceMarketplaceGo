@@ -86,6 +86,14 @@ export interface TypesenseSearchParams {
   highlight_full_fields?: string
   num_typos?: string
   max_facet_values?: number
+  /**
+   * vector_query activates Typesense hybrid search. Format:
+   *   embedding:([0.12, 0.34, …], k:20)
+   * Produced server-side by the backend proxy; the frontend never
+   * computes this directly because the embedding model key is
+   * server-only.
+   */
+  vector_query?: string
 }
 
 /** TypesenseHit is one document + its highlights. */
@@ -197,6 +205,9 @@ export class TypesenseSearchClient {
     if (params.num_typos) search.set("num_typos", params.num_typos)
     if (typeof params.max_facet_values === "number") {
       search.set("max_facet_values", String(params.max_facet_values))
+    }
+    if (params.vector_query) {
+      search.set("vector_query", params.vector_query)
     }
     return search.toString()
   }

@@ -14,10 +14,11 @@ type RequestOptions = {
   method?: string
   body?: unknown
   headers?: Record<string, string>
+  signal?: AbortSignal
 }
 
 export async function apiClient<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, headers = {} } = options
+  const { method = "GET", body, headers = {}, signal } = options
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -26,6 +27,7 @@ export async function apiClient<T>(path: string, options: RequestOptions = {}): 
       "Content-Type": "application/json",
       ...headers,
     },
+    signal,
     ...(body ? { body: JSON.stringify(body) } : {}),
   })
 
