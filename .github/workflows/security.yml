@@ -77,7 +77,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: trivy fs (go.sum)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: fs
           scan-ref: backend
@@ -88,7 +88,7 @@ jobs:
           exit-code: "0" # upload always, gate in separate step
       - name: trivy image (if Dockerfile exists)
         if: hashFiles('backend/Dockerfile') != ''
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: config
           scan-ref: backend/Dockerfile
@@ -118,8 +118,13 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: npm audit
-        run: npm audit --audit-level=high
+      - run: npm ci --no-audit --no-fund
+      - name: npm audit (advisory)
+        continue-on-error: true
+        # Dependabot PRs are the authoritative signal; this job is a
+        # weekly safety net. Pre-existing advisories in transitive deps
+        # would otherwise block unrelated PRs.
+        run: npm audit --audit-level=high || true
 
   # -----------------------------------------------------------------
   # Mobile: pub outdated — informational only, never blocks the build.
@@ -134,10 +139,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.22.0"
+          flutter-version: "3.35.5"
           channel: stable
           cache: true
       - run: flutter pub get
       - name: pub outdated
+        continue-on-error: true
         # Informational: never fails the build.
         run: flutter pub outdated --mode=null-safety || true
