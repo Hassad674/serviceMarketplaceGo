@@ -1,0 +1,97 @@
+# Core Web Vitals gate on Vercel preview deploys.
+#
+# Trigger: Vercel posts a preview URL as a deployment status —
+# `deployment_status.state == success`. We run Lighthouse CI against
+# three representative pages and post a summary comment on the PR.
+#
+# Gate thresholds match CLAUDE.md performance standards:
+#   LCP < 2.5s, FID < 100ms, CLS < 0.1,
+#   A11y > 95, SEO > 95, Best Practices > 90.
+name: Lighthouse
+
+on:
+  deployment_status:
+
+concurrency:
+  group: lighthouse-${{ github.event.deployment.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: read
+
+jobs:
+  lighthouse:
+    name: lighthouse / core web vitals
+    if: github.event.deployment_status.state == 'success' && startsWith(github.event.deployment.environment, 'Preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: install lhci
+        run: npm install -g @lhci/cli@0.14.x
+      - name: run lighthouse
+        env:
+          PREVIEW_URL: ${{ github.event.deployment_status.target_url }}
+        run: |
+          mkdir -p lhci-reports
+          urls=(
+            "$PREVIEW_URL/fr/"
+            "$PREVIEW_URL/fr/freelancers"
+            "$PREVIEW_URL/fr/agencies"
+          )
+          exit_code=0
+          for url in "${urls[@]}"; do
+            echo "::group::lighthouse $url"
+            lhci autorun \
+              --collect.url="$url" \
+              --collect.numberOfRuns=3 \
+              --assert.preset=lighthouse:recommended \
+              --assert.assertions.categories:performance=">=0.8" \
+              --assert.assertions.categories:accessibility=">=0.95" \
+              --assert.assertions.categories:seo=">=0.95" \
+              --assert.assertions.categories:best-practices=">=0.9" \
+              --assert.assertions.largest-contentful-paint=">=2500" \
+              --assert.assertions.cumulative-layout-shift=">=0.1" \
+              --assert.assertions.total-blocking-time=">=300" \
+              --upload.target=temporary-public-storage \
+              --output=json \
+              --output-path=lhci-reports/$(basename "$url" | tr -c '[:alnum:]' '_').json || exit_code=$?
+            echo "::endgroup::"
+          done
+          exit $exit_code
+      - name: post PR comment
+        if: always() && github.event.deployment.payload.pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'lhci-reports';
+            if (!fs.existsSync(path)) return;
+            const reports = fs.readdirSync(path).filter(f => f.endsWith('.json'));
+            let body = "## Lighthouse results\n\n";
+            body += "| Page | Perf | A11y | SEO | Best | LCP (ms) | CLS |\n";
+            body += "|------|------|------|-----|------|---------:|----:|\n";
+            for (const r of reports) {
+              try {
+                const data = JSON.parse(fs.readFileSync(`${path}/${r}`, 'utf8'));
+                const cat = data.categories || {};
+                const audits = data.audits || {};
+                const pct = (v) => v == null ? "-" : Math.round(v * 100);
+                const aud = (k) => audits[k] && audits[k].numericValue != null ? Math.round(audits[k].numericValue) : "-";
+                body += `| ${r.replace('.json','')} | ${pct(cat.performance && cat.performance.score)} | ${pct(cat.accessibility && cat.accessibility.score)} | ${pct(cat.seo && cat.seo.score)} | ${pct(cat['best-practices'] && cat['best-practices'].score)} | ${aud('largest-contentful-paint')} | ${aud('cumulative-layout-shift')} |\n`;
+              } catch (e) { /* skip unreadable */ }
+            }
+            const pr = context.payload.deployment.payload && context.payload.deployment.payload.pr;
+            if (pr) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr,
+                body,
+              });
+            }
