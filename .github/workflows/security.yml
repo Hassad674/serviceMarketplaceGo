@@ -63,7 +63,12 @@ jobs:
         run: |
           gosec -no-fail -fmt sarif -out gosec.sarif -exclude=G304,G404 ./... || true
       - uses: github/codeql-action/upload-sarif@v3
+        # Uploading to Code Scanning requires GitHub Advanced Security
+        # on private repos. Soft-fail here so the scan still runs and
+        # surfaces issues in the log; turn this on hard once GHAS is
+        # enabled on the repo.
         if: always()
+        continue-on-error: true
         with:
           sarif_file: backend/gosec.sarif
           category: gosec
@@ -97,7 +102,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "0"
       - uses: github/codeql-action/upload-sarif@v3
+        # Same GitHub Advanced Security gate as the gosec step — soft
+        # fail so the trivy scan surfaces in logs even when the upload
+        # API is blocked by plan limits.
         if: always() && hashFiles('trivy-fs.sarif') != ''
+        continue-on-error: true
         with:
           sarif_file: trivy-fs.sarif
           category: trivy-fs

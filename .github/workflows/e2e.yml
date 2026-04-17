@@ -55,23 +55,12 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6380:6379
-      typesense:
-        image: typesense/typesense:28.0
-        ports:
-          - 8108:8108
-        env:
-          TYPESENSE_API_KEY: xyz-dev-master-key-change-in-production
-          TYPESENSE_DATA_DIR: /data
-          TYPESENSE_ENABLE_CORS: "true"
-        # Service containers run with a read-only overlay. Typesense
-        # needs a writable /data dir on boot — a tmpfs mount is the
-        # simplest fix. Volatile is fine: every CI run reindexes.
-        options: >-
-          --tmpfs /data:rw,size=512m
-          --health-cmd "curl -fs http://localhost:8108/health || exit 1"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
+      # NOTE: Typesense is NOT declared here as a GitHub Actions
+      # service. The service container abstraction runs with limited
+      # control over filesystem perms, and typesense 28.0 fails to
+      # bootstrap its raft state on the read-only overlay. We spin
+      # it up as an explicit docker step below (just before "start
+      # backend") using a named volume we fully control.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -83,6 +72,30 @@ jobs:
         with:
           go-version: "1.25"
           cache-dependency-path: backend/go.sum
+      - name: start typesense
+        # Spinning typesense up as a bare docker step (not a service
+        # container) because 28.0's raft bootstrap writes to
+        # /data/state/ on first boot, which the service abstraction's
+        # read-only overlay rejects. A named docker volume gives us
+        # full control over the perms and survives the boot sequence.
+        run: |
+          docker volume create typesense-data
+          docker run -d --name typesense \
+            -p 8108:8108 \
+            -v typesense-data:/data \
+            -e TYPESENSE_API_KEY=xyz-dev-master-key-change-in-production \
+            -e TYPESENSE_DATA_DIR=/data \
+            -e TYPESENSE_ENABLE_CORS=true \
+            typesense/typesense:28.0
+          # Wait for typesense to be ready (max 30s).
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8108/health >/dev/null 2>&1; then
+              echo "typesense ready"
+              break
+            fi
+            sleep 1
+          done
+          curl -fs http://localhost:8108/health || { docker logs typesense; exit 1; }
       - name: start backend
         working-directory: backend
         env:
@@ -148,29 +161,38 @@ jobs:
         image: redis:7-alpine
         ports:
           - 6380:6379
-      typesense:
-        image: typesense/typesense:28.0
-        ports:
-          - 8108:8108
-        env:
-          TYPESENSE_API_KEY: xyz-dev-master-key-change-in-production
-          TYPESENSE_DATA_DIR: /data
-          TYPESENSE_ENABLE_CORS: "true"
-        # Service containers run with a read-only overlay. Typesense
-        # needs a writable /data dir on boot — a tmpfs mount is the
-        # simplest fix. Volatile is fine: every CI run reindexes.
-        options: >-
-          --tmpfs /data:rw,size=512m
-          --health-cmd "curl -fs http://localhost:8108/health || exit 1"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 20
+      # NOTE: Typesense is NOT declared here as a GitHub Actions
+      # service. The service container abstraction runs with limited
+      # control over filesystem perms, and typesense 28.0 fails to
+      # bootstrap its raft state on the read-only overlay. We spin
+      # it up as an explicit docker step below (just before "start
+      # backend") using a named volume we fully control.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
           cache-dependency-path: backend/go.sum
+      - name: start typesense
+        # Same rationale as the web-e2e job — the service container
+        # abstraction breaks typesense's raft bootstrap.
+        run: |
+          docker volume create typesense-data
+          docker run -d --name typesense \
+            -p 8108:8108 \
+            -v typesense-data:/data \
+            -e TYPESENSE_API_KEY=xyz-dev-master-key-change-in-production \
+            -e TYPESENSE_DATA_DIR=/data \
+            -e TYPESENSE_ENABLE_CORS=true \
+            typesense/typesense:28.0
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8108/health >/dev/null 2>&1; then
+              echo "typesense ready"
+              break
+            fi
+            sleep 1
+          done
+          curl -fs http://localhost:8108/health || { docker logs typesense; exit 1; }
       - name: apply migrations
         working-directory: backend
         env:
