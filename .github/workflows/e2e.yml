@@ -33,7 +33,11 @@ jobs:
       github.event_name == 'push' ||
       contains(github.event.pull_request.labels.*.name, 'run-e2e')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Playwright suite (50+ scenarios with --retries=2) regularly
+    # runs 18-25m on GitHub runners. 30m gives headroom for the rare
+    # slow CI boot (typesense + backend + browser install) without
+    # masking real hangs.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: web
