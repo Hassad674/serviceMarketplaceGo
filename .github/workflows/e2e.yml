@@ -1,0 +1,163 @@
+# End-to-end + backend integration workflow.
+#
+# Heavy to run, so gated to:
+#   - PRs labelled with `run-e2e` (reviewer opt-in)
+#   - every push to main
+#   - manual dispatch
+#
+# Do NOT add this workflow to the default PR pipeline — it would push the
+# feedback loop above 15 minutes.
+name: E2E
+
+on:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions: read-all
+
+jobs:
+  # Run the full Playwright suite from phase 5B.
+  web-e2e:
+    name: web / playwright E2E
+    # Trigger only when the label is present, or on main, or dispatched.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'run-e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: marketplace_go
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+      typesense:
+        image: typesense/typesense:28.0
+        ports:
+          - 8108:8108
+        env:
+          TYPESENSE_API_KEY: xyz-dev-master-key-change-in-production
+          TYPESENSE_DATA_DIR: /data
+          TYPESENSE_ENABLE_CORS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend/go.sum
+      - name: start backend
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5435/marketplace_go?sslmode=disable
+          REDIS_URL: redis://localhost:6380
+          TYPESENSE_HOST: http://localhost:8108
+          TYPESENSE_API_KEY: xyz-dev-master-key-change-in-production
+          JWT_SECRET: ci-jwt-secret-at-least-32-characters-long
+          PORT: "8080"
+        run: |
+          go run cmd/migrate/main.go up
+          go run cmd/seed/main.go || true
+          go run cmd/api/main.go &
+          for i in $(seq 1 30); do
+            if curl -fs http://localhost:8080/health >/dev/null; then
+              echo "backend ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "backend did not become ready"
+          exit 1
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: playwright test
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+        run: npx playwright test --retries=2 --workers=4
+      - name: upload traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 14
+
+  # Tag-gated integration suite: real Typesense + Postgres + Redis.
+  backend-integration:
+    name: backend / integration (-tags=integration)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      contains(github.event.pull_request.labels.*.name, 'run-e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: marketplace_go
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+      typesense:
+        image: typesense/typesense:28.0
+        ports:
+          - 8108:8108
+        env:
+          TYPESENSE_API_KEY: xyz-dev-master-key-change-in-production
+          TYPESENSE_DATA_DIR: /data
+          TYPESENSE_ENABLE_CORS: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend/go.sum
+      - name: integration tests
+        working-directory: backend
+        env:
+          MARKETPLACE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5435/marketplace_go?sslmode=disable
+          TYPESENSE_INTEGRATION_URL: http://localhost:8108
+          TYPESENSE_INTEGRATION_API_KEY: xyz-dev-master-key-change-in-production
+        run: |
+          go test -tags=integration ./... -count=1 -timeout=10m
