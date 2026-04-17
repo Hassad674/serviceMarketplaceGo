@@ -555,6 +555,98 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 	}, nil
 }
 
+// RetryFailedTransfer re-issues the Stripe transfer for a single
+// payment record stuck in TransferFailed. This is the recovery path
+// for records where a previous RequestPayout hit a Stripe error
+// (destination account state, network blip, etc.) — without it, the
+// provider is stuck with no way to recover the funds.
+//
+// Preconditions (else ErrTransferNotRetriable):
+//   - the record exists and belongs to an org the user is a member of;
+//   - record.Status == RecordStatusSucceeded (funds are held in escrow);
+//   - record.TransferStatus == TransferFailed;
+//   - the proposal is in "completed" status (same rule as RequestPayout —
+//     no side-channel around escrow).
+//
+// Also requires the provider to have a Stripe connected account
+// (ErrStripeAccountNotFound). The idempotency key matches the one
+// RequestPayout uses, so if the original transfer actually succeeded
+// silently (Stripe accepted but we marked failed on a timeout) Stripe
+// returns the existing transfer ID and the record resolves cleanly.
+func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, proposalID uuid.UUID) (*PayoutResult, error) {
+	record, err := s.records.GetByProposalID(ctx, proposalID)
+	if err != nil {
+		return nil, fmt.Errorf("find payment record: %w", err)
+	}
+
+	// Auth: the record's ProviderID must belong to the caller's org.
+	// Admin-override is handled at the handler level via RequireRole.
+	providerOrg, err := s.orgs.FindByUserID(ctx, record.ProviderID)
+	if err != nil || providerOrg == nil {
+		return nil, domain.ErrTransferNotRetriable
+	}
+	if providerOrg.ID != orgID {
+		return nil, domain.ErrTransferNotRetriable
+	}
+	_ = userID // audit hook — user is already authenticated via middleware
+
+	if record.Status != domain.RecordStatusSucceeded || record.TransferStatus != domain.TransferFailed {
+		return nil, domain.ErrTransferNotRetriable
+	}
+
+	// Same gate as RequestPayout — never open a side-channel that
+	// releases escrow funds for an active / disputed mission.
+	if s.proposalStatuses != nil {
+		status, sErr := s.proposalStatuses.GetProposalStatus(ctx, proposalID)
+		if sErr != nil {
+			return nil, fmt.Errorf("lookup proposal status: %w", sErr)
+		}
+		if status != "completed" {
+			return nil, domain.ErrTransferNotRetriable
+		}
+	}
+
+	stripeAccountID, _, accErr := s.orgs.GetStripeAccountByUserID(ctx, record.ProviderID)
+	if accErr != nil || stripeAccountID == "" {
+		return nil, domain.ErrStripeAccountNotFound
+	}
+
+	// Reset status to Pending BEFORE the Stripe call so concurrent
+	// reads of the wallet can't see the row stuck as failed. If the
+	// retry itself fails, we re-mark Failed below.
+	record.TransferStatus = domain.TransferPending
+	record.UpdatedAt = time.Now()
+	if uErr := s.records.Update(ctx, record); uErr != nil {
+		return nil, fmt.Errorf("reset transfer status: %w", uErr)
+	}
+
+	transferID, tErr := s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
+		Amount:             record.ProviderPayout,
+		Currency:           record.Currency,
+		DestinationAccount: stripeAccountID,
+		TransferGroup:      proposalID.String(),
+		IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", proposalID, stripeAccountID),
+	})
+	if tErr != nil {
+		slog.Error("retry transfer failed", "proposal_id", proposalID, "error", tErr)
+		record.MarkTransferFailed()
+		_ = s.records.Update(ctx, record)
+		return nil, fmt.Errorf("retry stripe transfer: %w", tErr)
+	}
+
+	if mErr := record.MarkTransferred(transferID); mErr != nil {
+		return nil, fmt.Errorf("mark transferred: %w", mErr)
+	}
+	if uErr := s.records.Update(ctx, record); uErr != nil {
+		return nil, fmt.Errorf("persist retried transfer: %w", uErr)
+	}
+
+	return &PayoutResult{
+		Status:  "transferred",
+		Message: fmt.Sprintf("Transferred %d centimes to your account", record.ProviderPayout),
+	}, nil
+}
+
 // VerifyWebhook delegates webhook signature verification to the Stripe adapter.
 func (s *Service) VerifyWebhook(payload []byte, signature string) (*portservice.StripeWebhookEvent, error) {
 	if s.stripe == nil {
