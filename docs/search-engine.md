@@ -137,7 +137,7 @@ collections would cost.
 | Languages       | `languages_professional[]`, `languages_conversational[]`                                       | Facet                                                   |
 | Availability    | `availability_status`, `availability_priority`                                                 | 3 = now, 2 = soon, 1 = not available                    |
 | Expertise       | `expertise_domains[]`, `skills[]`, `skills_text`                                               | BM25 boost via separate `skills_text` field             |
-| Pricing         | `pricing_type`, `pricing_min_amount`, `pricing_max_amount`, `pricing_currency`, `pricing_negotiable` | Single pricing row, smallest currency unit              |
+| Pricing         | `pricing_type`, `pricing_min_amount`, `pricing_max_amount`, `pricing_currency`, `pricing_negotiable` | Single pricing row, smallest currency unit. **V1 narrows `pricing_type` to ONE value per persona — see "V1 pricing simplification" below.** |
 | Quality signals | `rating_average`, `rating_count`, `rating_score`, `total_earned`, `completed_projects`, `profile_completion_score`, `last_active_at`, `response_rate`, `is_verified`, `is_top_rated`, `is_featured` | Ranking |
 | Semantic        | `embedding` (float[1536])                                                                     | OpenAI `text-embedding-3-small`, excluded from API responses |
 | Timestamps      | `created_at`, `updated_at`                                                                    |                                                         |
@@ -151,6 +151,69 @@ independently; the row identity in Typesense has to reflect that. Using
 `search.delete` events can match all docs for a user with a single
 `filter_by: organization_id:X`. That operation has to work atomically —
 RGPD demands a <3s propagation on account deletion.
+
+---
+
+## V1 pricing simplification
+
+UX research concluded that offering 6 pricing types across 3 personas
+created too many degrees of freedom in the filters + forms and broke
+price comparability on the directory pages. The V1 policy narrows the
+catalog to **one allowed type per persona**:
+
+| Persona    | Allowed pricing type | Display                  | Rationale                                                        |
+| ---------- | -------------------- | ------------------------ | ---------------------------------------------------------------- |
+| `freelance`| `daily`              | `850 €/j`                | TJM — the French market standard at ~95 %                        |
+| `agency`   | `project_from`       | `À partir de 10 000 €`   | "à partir de" budget minimum, matches Clutch / Sortlist          |
+| `referrer` | `commission_pct`     | `10 % de commission`     | % commission, matches B2B referral convention                    |
+
+### What changed
+
+- **Backend write boundary**: each persona's pricing service now
+  whitelists exactly one `pricing_type`. Any other value returns
+  `ErrPricingTypeNotAllowed` → HTTP 400 with code
+  `pricing_type_not_allowed`.
+- **Web + mobile forms**: the type radio, currency picker, and max-
+  amount field were removed on the freelance and referrer editors.
+  The agency editor keeps the same chrome but `_computeAllowedTypes`
+  collapses to a single entry, which the `TypeRadioRow` hides
+  automatically when the list has length ≤ 1.
+- **Search sidebar**: the generic "Price min/max" is now persona-
+  aware — TJM min/max (€) / Budget min/max (€) / Commission min/max
+  (%). Web and mobile both receive a `persona` prop that drives the
+  labels + unit suffix.
+- **Card formatter**: `commission_pct` collapses `N – N %` into a
+  single clean `N % de commission` when min equals max (the V1
+  editor shape). Legacy multi-bound rows still render as a range.
+- **Seeder**: `cmd/seed-search` now produces freelance rows with
+  `daily`, agency rows with `project_from`, referrer rows with
+  `commission_pct`. No other types are generated.
+
+### Backwards compatibility
+
+- The domain `PricingType` enum keeps all 6 values. Legacy DB rows
+  (`hourly`, `project_range`, `commission_flat`) continue to
+  unmarshal, format, and render correctly on public cards.
+- The `SearchDocumentPricingType` TypeScript union and the Dart
+  `SearchDocumentPricingType` enum both retain all 6 values. Each
+  type has a doc comment classifying it as active (3) or legacy (3).
+- The Typesense `pricing_type` field still accepts all 6 strings so
+  no reindex is required on rollout.
+- Only writes are constrained. A user editing a legacy row sees the
+  V1 form; on save, the row is normalized to the persona's allowed
+  type. The legacy value is discarded — the user types a fresh value
+  matching the V1 shape.
+
+### Decision log
+
+- Decided: 2026-04-17.
+- Tradeoff: we lose the ability to express "5-15 % commission" or
+  "5 000 – 50 000 € project range" on the editor. UX research said
+  users pick a single headline anyway; the range caused analysis
+  paralysis and broke sort-by-price.
+- Future: if real users ask for ranges, we reopen the UX door without
+  touching the DB — the shape is still there, only the editor is
+  constrained.
 
 ---
 
