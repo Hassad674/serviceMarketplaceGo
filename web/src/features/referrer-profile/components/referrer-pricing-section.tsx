@@ -7,30 +7,33 @@ import { ApiError } from "@/shared/lib/api-client"
 import { cn } from "@/shared/lib/utils"
 import {
   formatPricing,
-  SUPPORTED_FIAT_CURRENCIES,
   type PricingLocale,
 } from "@/shared/lib/profile/pricing-format"
-import type {
-  ReferrerPricing,
-  ReferrerPricingType,
-} from "../api/referrer-profile-api"
+import type { ReferrerPricing } from "../api/referrer-profile-api"
 import { useReferrerPricing } from "../hooks/use-referrer-pricing"
 import { useUpsertReferrerPricing } from "../hooks/use-upsert-referrer-pricing"
 import { useDeleteReferrerPricing } from "../hooks/use-delete-referrer-pricing"
 
-const ALLOWED_TYPES: readonly ReferrerPricingType[] = [
-  "commission_pct",
-  "commission_flat",
-] as const
+// V1 pricing simplification: the referrer persona is narrowed down to
+// a single allowed type — `commission_pct` (the B2B referral
+// convention). The form now asks for ONE percentage in [0..100];
+// internally we still persist a range-shaped row (the backend
+// validator requires it) by echoing the same value to min and max.
+//
+// Legacy commission_flat rows remain readable; only writes are
+// constrained.
+const V1_PRICING_TYPE = "commission_pct" as const
+const V1_PRICING_CURRENCY = "pct" as const
+const COMMISSION_PCT_MAX = 100
 
 interface ReferrerPricingSectionProps {
   readOnly?: boolean
 }
 
 // ReferrerPricingSection owns the commission pricing card on
-// /referral. Commission-only — the type union excludes daily/hourly
-// and the UI reflects that by forcing the "%" suffix on commission_pct
-// and swapping the currency dropdown accordingly.
+// /referral. Commission-only — the form asks for ONE percentage and
+// the backend persists a commission_pct row with the same value on
+// both min and max (validator requires a range).
 export function ReferrerPricingSection({
   readOnly = false,
 }: ReferrerPricingSectionProps) {
@@ -178,47 +181,20 @@ function PricingForm({ persisted, locale, onClose }: PricingFormProps) {
     }
   }, [onClose, remove, t])
 
-  const showMax = draft.type === "commission_pct"
-  const isPct = draft.type === "commission_pct"
-
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       {preview ? (
         <PricingPreviewStrip row={preview} locale={locale} />
       ) : null}
 
-      <PricingTypeRadio
-        value={draft.type}
-        onChange={(next) => draft.setType(next)}
+      <CommissionInput
+        label={t("referrerCommissionLabel")}
+        hint={t("referrerCommissionHint")}
+        value={draft.pctDisplay}
+        onChange={draft.setPctDisplay}
       />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <AmountInput
-          id="referrer-pricing-min"
-          label={t("minAmountLabel")}
-          value={draft.minDisplay}
-          onChange={(next) => draft.setMinDisplay(next)}
-          suffix={isPct ? "%" : undefined}
-        />
-        {showMax ? (
-          <AmountInput
-            id="referrer-pricing-max"
-            label={t("maxAmountLabel")}
-            value={draft.maxDisplay}
-            onChange={(next) => draft.setMaxDisplay(next)}
-            suffix="%"
-          />
-        ) : null}
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CurrencyField
-          value={draft.currency}
-          disabled={isPct}
-          onChange={draft.setCurrency}
-        />
-        <NoteField value={draft.note} onChange={draft.setNote} />
-      </div>
+      <NoteField value={draft.note} onChange={draft.setNote} />
 
       <NegotiableRow value={draft.negotiable} onChange={draft.setNegotiable} />
 
@@ -262,59 +238,21 @@ function PricingPreviewStrip({ row, locale }: PricingPreviewStripProps) {
   )
 }
 
-interface PricingTypeRadioProps {
-  value: ReferrerPricingType
-  onChange: (next: ReferrerPricingType) => void
-}
-
-function PricingTypeRadio({ value, onChange }: PricingTypeRadioProps) {
-  const t = useTranslations("profile.pricing")
-  return (
-    <div
-      role="radiogroup"
-      aria-label={t("typeGroupLabel")}
-      className="flex flex-wrap gap-2"
-    >
-      {ALLOWED_TYPES.map((type) => {
-        const isSelected = type === value
-        return (
-          <button
-            key={type}
-            type="button"
-            role="radio"
-            aria-checked={isSelected}
-            onClick={() => onChange(type)}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150",
-              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
-              isSelected
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-foreground border-border hover:border-primary/60 hover:bg-muted",
-            )}
-          >
-            {t(typeLabelKey(type))}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-interface AmountInputProps {
-  id: string
+interface CommissionInputProps {
   label: string
+  hint: string
   value: string
-  suffix?: string
   onChange: (next: string) => void
 }
 
-function AmountInput({
-  id,
+function CommissionInput({
   label,
+  hint,
   value,
-  suffix,
   onChange,
-}: AmountInputProps) {
+}: CommissionInputProps) {
+  const id = "referrer-pricing-pct"
+  const hintId = `${id}-hint`
   return (
     <div>
       <label
@@ -329,59 +267,37 @@ function AmountInput({
           type="number"
           inputMode="decimal"
           min={0}
-          step={0.01}
+          max={COMMISSION_PCT_MAX}
+          step={0.5}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full h-9 rounded-lg border border-border bg-background px-3 pr-8 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
+          onChange={(e) => onChange(clampPctInput(e.target.value))}
+          aria-describedby={hintId}
+          className="w-full h-10 rounded-lg border border-border bg-background pl-3 pr-10 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
         />
-        {suffix ? (
-          <span
-            aria-hidden="true"
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground"
-          >
-            {suffix}
-          </span>
-        ) : null}
+        <span
+          aria-hidden="true"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+        >
+          %
+        </span>
       </div>
+      <p id={hintId} className="mt-1 text-xs text-muted-foreground">
+        {hint}
+      </p>
     </div>
   )
 }
 
-interface CurrencyFieldProps {
-  value: string
-  disabled: boolean
-  onChange: (next: string) => void
-}
-
-function CurrencyField({ value, disabled, onChange }: CurrencyFieldProps) {
-  const t = useTranslations("profile.pricing")
-  return (
-    <div>
-      <label
-        htmlFor="referrer-pricing-currency"
-        className="block text-xs font-medium text-foreground mb-1"
-      >
-        {t("currencyLabel")}
-      </label>
-      <select
-        id="referrer-pricing-currency"
-        value={disabled ? "pct" : value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none disabled:opacity-60"
-      >
-        {disabled ? (
-          <option value="pct">%</option>
-        ) : (
-          SUPPORTED_FIAT_CURRENCIES.map((code) => (
-            <option key={code} value={code}>
-              {code}
-            </option>
-          ))
-        )}
-      </select>
-    </div>
-  )
+// clampPctInput constrains the free-form input to [0..100]. We do this
+// on change rather than on blur so the preview strip tracks the final
+// value without needing a separate "sanitize" pass.
+function clampPctInput(raw: string): string {
+  if (raw === "") return ""
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return ""
+  if (n < 0) return "0"
+  if (n > COMMISSION_PCT_MAX) return String(COMMISSION_PCT_MAX)
+  return raw
 }
 
 interface NoteFieldProps {
@@ -392,7 +308,7 @@ interface NoteFieldProps {
 function NoteField({ value, onChange }: NoteFieldProps) {
   const t = useTranslations("profile.pricing")
   return (
-    <div>
+    <div className="mt-3">
       <label
         htmlFor="referrer-pricing-note"
         className="block text-xs font-medium text-foreground mb-1"
@@ -406,7 +322,7 @@ function NoteField({ value, onChange }: NoteFieldProps) {
         onChange={(e) => onChange(e.target.value)}
         placeholder={t("notePlaceholder")}
         maxLength={120}
-        className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
+        className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
       />
     </div>
   )
@@ -516,99 +432,70 @@ function FormActions(props: FormActionsProps) {
 // ----- Draft hook ------------------------------------------------------
 
 interface PricingDraft {
-  type: ReferrerPricingType
-  minDisplay: string
-  maxDisplay: string
-  currency: string
+  pctDisplay: string
   note: string
   negotiable: boolean
-  setType: (next: ReferrerPricingType) => void
-  setMinDisplay: (next: string) => void
-  setMaxDisplay: (next: string) => void
-  setCurrency: (next: string) => void
+  setPctDisplay: (next: string) => void
   setNote: (next: string) => void
   setNegotiable: (next: boolean) => void
   toRow: () => ReferrerPricing | null
 }
 
 function usePricingDraft(persisted: ReferrerPricing | null): PricingDraft {
-  const [type, setType] = useState<ReferrerPricingType>(
-    (persisted?.type as ReferrerPricingType) ?? "commission_pct",
-  )
-  const [minDisplay, setMinDisplay] = useState(
-    persisted ? displayFromStored(persisted.min_amount) : "",
-  )
-  const [maxDisplay, setMaxDisplay] = useState(
-    persisted && persisted.max_amount !== null
-      ? displayFromStored(persisted.max_amount)
-      : "",
-  )
-  const defaultCurrency = persisted?.currency ?? defaultCurrencyForType(type)
-  const [currencyRaw, setCurrencyRaw] = useState(defaultCurrency)
-  const currency = type === "commission_pct" ? "pct" : currencyRaw === "pct" ? "EUR" : currencyRaw
+  // V1 collapses the former type+currency picker into a single
+  // commission percentage. Legacy commission_flat rows are coerced
+  // into commission_pct on re-edit — the user enters a fresh
+  // percentage, the flat-fee value is discarded. The backend
+  // whitelist persists the normalized row.
+  const [pctDisplay, setPctDisplay] = useState(initialPctDisplay(persisted))
   const [note, setNote] = useState(persisted?.note ?? "")
   const [negotiable, setNegotiable] = useState(persisted?.negotiable ?? false)
 
   const toRow = useMemo(
     () => (): ReferrerPricing | null => {
-      const minNumber = Number(minDisplay)
-      if (!Number.isFinite(minNumber) || minNumber < 0) return null
-      const hasRange = type === "commission_pct"
-      const maxNumber = maxDisplay.trim() === "" ? null : Number(maxDisplay)
-      if (hasRange && (maxNumber === null || !Number.isFinite(maxNumber))) {
+      const pct = Number(pctDisplay)
+      if (!Number.isFinite(pct) || pct < 0 || pct > COMMISSION_PCT_MAX) {
         return null
       }
+      // basis points = percent * 100 (5.5 % -> 550)
+      const basisPoints = Math.round(pct * 100)
       return {
-        type,
-        min_amount: storedFromDisplay(minNumber),
-        max_amount:
-          hasRange && maxNumber !== null ? storedFromDisplay(maxNumber) : null,
-        currency,
+        type: V1_PRICING_TYPE,
+        // The commission_pct row shape is a range (min..max) even when
+        // the user submits a single value — we echo the value to both
+        // bounds so the backend validator accepts the payload and the
+        // formatter renders a single "N %" instead of "N – N %".
+        min_amount: basisPoints,
+        max_amount: basisPoints,
+        currency: V1_PRICING_CURRENCY,
         note: note.trim(),
         negotiable,
       }
     },
-    [currency, maxDisplay, minDisplay, note, negotiable, type],
+    [pctDisplay, note, negotiable],
   )
 
   return {
-    type,
-    minDisplay,
-    maxDisplay,
-    currency,
+    pctDisplay,
     note,
     negotiable,
-    setType,
-    setMinDisplay,
-    setMaxDisplay,
-    setCurrency: setCurrencyRaw,
+    setPctDisplay,
     setNote,
     setNegotiable,
     toRow,
   }
 }
 
-// ----- helpers ---------------------------------------------------------
-
-function typeLabelKey(type: ReferrerPricingType): string {
-  switch (type) {
-    case "commission_pct":
-      return "typeCommissionPct"
-    case "commission_flat":
-      return "typeCommissionFlat"
-  }
-}
-
-function defaultCurrencyForType(type: ReferrerPricingType): string {
-  return type === "commission_pct" ? "pct" : "EUR"
-}
-
-function storedFromDisplay(display: number): number {
-  return Math.round(display * 100)
-}
-
-function displayFromStored(stored: number): string {
-  return String(stored / 100)
+// initialPctDisplay chooses the best single-percent default to surface
+// in the input. commission_pct rows use min_amount for the lower
+// bound, so we prefer max_amount (the user's "headline" rate) when
+// available; legacy commission_flat rows have no percent, so we fall
+// back to an empty field and let the user type a fresh value.
+function initialPctDisplay(persisted: ReferrerPricing | null): string {
+  if (!persisted) return ""
+  if (persisted.type !== "commission_pct") return ""
+  const basisPoints = persisted.max_amount ?? persisted.min_amount
+  return String(basisPoints / 100)
 }
 
 function mapErrorMessage(
@@ -616,6 +503,7 @@ function mapErrorMessage(
   t: ReturnType<typeof useTranslations>,
 ): string {
   if (err instanceof ApiError) {
+    if (err.code === "pricing_type_not_allowed") return t("errorTypeNotAllowed")
     if (err.code === "forbidden") return t("errorKindNotAllowed")
     if (err.code === "validation_error") return t("errorKindNotAllowed")
   }

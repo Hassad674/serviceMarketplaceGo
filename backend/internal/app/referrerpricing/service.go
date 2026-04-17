@@ -35,7 +35,16 @@ type UpsertInput struct {
 }
 
 // Upsert validates via the domain constructor then persists.
+//
+// V1 pricing simplification: the write boundary narrows the two
+// domain-valid referrer types down to a single allowed type —
+// `commission_pct` (the B2B referral convention). `commission_flat`
+// remains readable through Get for legacy rows but is rejected on
+// writes so the referrer listing page stays price-comparable.
 func (s *Service) Upsert(ctx context.Context, input UpsertInput) (*referrerpricing.Pricing, error) {
+	if input.Type != referrerpricing.TypeCommissionPct {
+		return nil, referrerpricing.ErrPricingTypeNotAllowed
+	}
 	p, err := referrerpricing.NewPricing(referrerpricing.NewPricingInput{
 		ProfileID:  input.ProfileID,
 		Type:       input.Type,

@@ -64,4 +64,12 @@ var (
 	// ErrPricingNotFound — the repository layer returns this when a
 	// lookup by (org_id, kind) misses. HTTP 404.
 	ErrPricingNotFound = errors.New("profile pricing not found")
+
+	// ErrPricingTypeNotAllowed — V1 pricing simplification: agency
+	// organizations may only declare a `project_from` ("à partir de")
+	// pricing row on the direct kind. The legacy `project_range` path
+	// is frozen for existing rows but rejected on Create / Update at
+	// the app layer so the agency listing page stays price-comparable.
+	// HTTP 400.
+	ErrPricingTypeNotAllowed = errors.New("agency pricing must use type=project_from in V1")
 )

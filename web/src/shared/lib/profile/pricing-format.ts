@@ -107,14 +107,18 @@ function prefixForType(
 // Formats a pricing row into its canonical user-facing string.
 //
 // Examples (fr locale):
-//   daily            500 €/j
-//   hourly           75 €/h
-//   project_from     À partir de 10 000 €
-//   project_range    15 000 – 50 000 €
-//   commission_pct   5 – 15 %
-//   commission_flat  3 000 € / deal
+//   daily            850 €/j                 (V1 freelance headline shape)
+//   hourly           75 €/h                  (legacy)
+//   project_from     À partir de 10 000 €    (V1 agency headline shape)
+//   project_range    15 000 – 50 000 €       (legacy)
+//   commission_pct   10 % de commission      (V1 referrer headline — collapsed min==max)
+//   commission_pct   5 – 15 %                (legacy bracket)
+//   commission_flat  3 000 € / deal          (legacy)
 //
 // The pct type gets a trailing " %" suffix instead of a currency code.
+// When min_amount == max_amount on a commission_pct row (the V1 shape)
+// the range collapses to a single "N % de commission" string — the
+// card surfaces the headline rate rather than a degenerate "N – N %".
 // When max_amount is null on a range type we degrade gracefully by
 // showing only the minimum — the backend validator should reject this
 // combination but we stay defensive.
@@ -131,8 +135,17 @@ export function formatPricing(
   const suffix = suffixForType(row.type, locale)
 
   if (row.type === "commission_pct") {
-    const body = hasMax ? `${min} – ${max}` : min
-    return `${body} %`
+    // V1 headline shape: the editor stores the single percentage
+    // in BOTH min and max, so collapse the range when bounds are
+    // equal. Legacy multi-bound rows still render as "N – M %".
+    const collapsed =
+      !hasMax || row.max_amount === row.min_amount
+    if (collapsed) {
+      return locale === "fr"
+        ? `${min} % de commission`
+        : `${min}% commission`
+    }
+    return `${min} – ${max} %`
   }
 
   if (row.type === "project_range" && hasMax) {

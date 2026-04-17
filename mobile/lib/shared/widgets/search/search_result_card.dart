@@ -484,6 +484,13 @@ String _availabilityLabel(
   }
 }
 
+// _formatPricing renders the single pricing row on a search result
+// card. V1 pricing simplification: the three active types (daily,
+// project_from, commission_pct) each map to a persona-specific
+// headline. The commission_pct branch collapses "N – N %" to a
+// single "N % commission" when min == max (the V1 editor shape).
+// Legacy types (hourly, project_range, commission_flat) still render
+// correctly so existing public profiles keep rendering.
 String _formatPricing(SearchDocumentPricing pricing, String locale) {
   final isFr = locale == 'fr';
   switch (pricing.type) {
@@ -502,10 +509,13 @@ String _formatPricing(SearchDocumentPricing pricing, String locale) {
       return '$min – $max';
     case SearchDocumentPricingType.commissionPct:
       final minPct = formatBasisPoints(pricing.minAmount, isFrench: isFr);
-      final maxPct = pricing.maxAmount != null
-          ? formatBasisPoints(pricing.maxAmount!, isFrench: isFr)
-          : null;
-      return maxPct == null ? minPct : '$minPct – $maxPct';
+      final maxAmount = pricing.maxAmount;
+      // V1 headline: collapse the range when min == max.
+      if (maxAmount == null || maxAmount == pricing.minAmount) {
+        return isFr ? '$minPct de commission' : '$minPct commission';
+      }
+      final maxPct = formatBasisPoints(maxAmount, isFrench: isFr);
+      return '$minPct – $maxPct';
     case SearchDocumentPricingType.commissionFlat:
       final amount = formatMoney(pricing.minAmount, pricing.currency, locale);
       return '$amount${isFr ? ' / deal' : ' per deal'}';

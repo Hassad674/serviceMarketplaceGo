@@ -150,6 +150,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
             onChange={setFilters}
             onApply={handleApply}
             resultsCount={props.totalFound ?? mappedDocuments.length}
+            persona={props.persona}
           />
         </div>
         <div className="flex flex-col gap-6">
@@ -173,6 +174,7 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
           onChange={setFilters}
           onApply={handleApply}
           resultsCount={props.totalFound ?? mappedDocuments.length}
+          persona={props.persona}
           className="border-0 shadow-none"
         />
       </FilterDrawer>

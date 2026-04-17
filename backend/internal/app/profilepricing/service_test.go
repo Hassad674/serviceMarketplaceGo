@@ -115,6 +115,57 @@ func TestService_Upsert_Agency_ProjectFromAccepted(t *testing.T) {
 	assert.Equal(t, domainpricing.TypeProjectFrom, p.Type)
 }
 
+// TestService_Upsert_Agency_V1RejectsDeprecatedDirectTypes asserts
+// the V1 pricing simplification: agency orgs on the direct kind may
+// only declare project_from. project_range (previously legal) must
+// fail fast with ErrPricingTypeNotAllowed and MUST NOT reach the
+// repository. The other direct types (daily/hourly) are already
+// rejected upstream by the kind-level whitelist, so they do not
+// need an additional V1 case here.
+func TestService_Upsert_Agency_V1RejectsDeprecatedDirectTypes(t *testing.T) {
+	cases := []struct {
+		name  string
+		input UpsertInput
+	}{
+		{
+			name: "project_range",
+			input: UpsertInput{
+				Kind:      domainpricing.KindDirect,
+				Type:      domainpricing.TypeProjectRange,
+				MinAmount: 1000000,
+				MaxAmount: ptrInt64(5000000),
+				Currency:  "EUR",
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			upsertCalled := false
+			repo := &mockPricingRepo{
+				UpsertFn: func(_ context.Context, _ *domainpricing.Pricing) error {
+					upsertCalled = true
+					return nil
+				},
+			}
+			resolver := &mockOrgInfoResolver{
+				GetOrgInfoFn: func(_ context.Context, _ uuid.UUID) (string, bool, error) {
+					return domainpricing.OrgTypeAgency, false, nil
+				},
+			}
+			svc := NewService(repo, resolver)
+
+			tc.input.OrganizationID = uuid.New()
+			_, err := svc.Upsert(context.Background(), tc.input)
+			assert.ErrorIs(t, err, domainpricing.ErrPricingTypeNotAllowed)
+			assert.False(t, upsertCalled, "deprecated agency type must never reach the repository")
+		})
+	}
+}
+
+// ptrInt64 is a tiny helper shared by the V1 tests — kept here so
+// we do not leak a package-level helper just for a single call site.
+func ptrInt64(v int64) *int64 { return &v }
+
 func TestService_Upsert_HappyPath_ReferralCommissionPct(t *testing.T) {
 	repo := &mockPricingRepo{
 		UpsertFn: func(_ context.Context, _ *domainpricing.Pricing) error { return nil },

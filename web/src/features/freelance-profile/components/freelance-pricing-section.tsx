@@ -7,23 +7,23 @@ import { ApiError } from "@/shared/lib/api-client"
 import { cn } from "@/shared/lib/utils"
 import {
   formatPricing,
-  SUPPORTED_FIAT_CURRENCIES,
   type PricingLocale,
 } from "@/shared/lib/profile/pricing-format"
-import type {
-  FreelancePricing,
-  FreelancePricingType,
-} from "../api/freelance-profile-api"
+import type { FreelancePricing } from "../api/freelance-profile-api"
 import { useFreelancePricing } from "../hooks/use-freelance-pricing"
 import { useUpsertFreelancePricing } from "../hooks/use-upsert-freelance-pricing"
 import { useDeleteFreelancePricing } from "../hooks/use-delete-freelance-pricing"
 
-const ALLOWED_TYPES: readonly FreelancePricingType[] = [
-  "daily",
-  "hourly",
-  "project_from",
-  "project_range",
-] as const
+// V1 pricing simplification: the freelance persona is narrowed down
+// to a single allowed type — `daily` (TJM, the French market standard
+// at ~95 %). The form no longer exposes a type dropdown or a currency
+// picker; every freelance row is persisted as `daily` in EUR.
+//
+// Legacy rows (hourly / project_*) created before V1 remain readable
+// through formatPricing so existing public profiles keep rendering
+// correctly — only the editor is constrained.
+const V1_PRICING_TYPE = "daily" as const
+const V1_PRICING_CURRENCY = "EUR" as const
 
 interface FreelancePricingSectionProps {
   readOnly?: boolean
@@ -178,7 +178,6 @@ function PricingForm({ persisted, locale, onClose }: PricingFormProps) {
     }
   }, [onClose, remove, t])
 
-  const showMax = draft.type === "project_range"
   const preview = draft.toRow()
 
   return (
@@ -187,32 +186,15 @@ function PricingForm({ persisted, locale, onClose }: PricingFormProps) {
         <PricingPreviewStrip row={preview} locale={locale} />
       ) : null}
 
-      <PricingTypeRadio
-        value={draft.type}
-        onChange={(next) => draft.setType(next)}
+      <AmountInput
+        id="freelance-pricing-amount"
+        label={t("freelanceDailyLabel")}
+        hint={t("freelanceDailyHint")}
+        value={draft.amountDisplay}
+        onChange={draft.setAmountDisplay}
       />
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <AmountInput
-          id="freelance-pricing-min"
-          label={t("minAmountLabel")}
-          value={draft.minDisplay}
-          onChange={(next) => draft.setMinDisplay(next)}
-        />
-        {showMax ? (
-          <AmountInput
-            id="freelance-pricing-max"
-            label={t("maxAmountLabel")}
-            value={draft.maxDisplay}
-            onChange={(next) => draft.setMaxDisplay(next)}
-          />
-        ) : null}
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <CurrencyField value={draft.currency} onChange={draft.setCurrency} />
-        <NoteField value={draft.note} onChange={draft.setNote} />
-      </div>
+      <NoteField value={draft.note} onChange={draft.setNote} />
 
       <NegotiableRow value={draft.negotiable} onChange={draft.setNegotiable} />
 
@@ -256,52 +238,16 @@ function PricingPreviewStrip({ row, locale }: PricingPreviewStripProps) {
   )
 }
 
-interface PricingTypeRadioProps {
-  value: FreelancePricingType
-  onChange: (next: FreelancePricingType) => void
-}
-
-function PricingTypeRadio({ value, onChange }: PricingTypeRadioProps) {
-  const t = useTranslations("profile.pricing")
-  return (
-    <div
-      role="radiogroup"
-      aria-label={t("typeGroupLabel")}
-      className="flex flex-wrap gap-2"
-    >
-      {ALLOWED_TYPES.map((type) => {
-        const isSelected = type === value
-        return (
-          <button
-            key={type}
-            type="button"
-            role="radio"
-            aria-checked={isSelected}
-            onClick={() => onChange(type)}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150",
-              "focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
-              isSelected
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-foreground border-border hover:border-primary/60 hover:bg-muted",
-            )}
-          >
-            {t(typeLabelKey(type))}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 interface AmountInputProps {
   id: string
   label: string
+  hint: string
   value: string
   onChange: (next: string) => void
 }
 
-function AmountInput({ id, label, value, onChange }: AmountInputProps) {
+function AmountInput({ id, label, hint, value, onChange }: AmountInputProps) {
+  const hintId = `${id}-hint`
   return (
     <div>
       <label
@@ -310,47 +256,28 @@ function AmountInput({ id, label, value, onChange }: AmountInputProps) {
       >
         {label}
       </label>
-      <input
-        id={id}
-        type="number"
-        inputMode="decimal"
-        min={0}
-        step={0.01}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
-      />
-    </div>
-  )
-}
-
-interface CurrencyFieldProps {
-  value: string
-  onChange: (next: string) => void
-}
-
-function CurrencyField({ value, onChange }: CurrencyFieldProps) {
-  const t = useTranslations("profile.pricing")
-  return (
-    <div>
-      <label
-        htmlFor="freelance-pricing-currency"
-        className="block text-xs font-medium text-foreground mb-1"
-      >
-        {t("currencyLabel")}
-      </label>
-      <select
-        id="freelance-pricing-currency"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
-      >
-        {SUPPORTED_FIAT_CURRENCIES.map((code) => (
-          <option key={code} value={code}>
-            {code}
-          </option>
-        ))}
-      </select>
+      <div className="relative">
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step={10}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-describedby={hintId}
+          className="w-full h-10 rounded-lg border border-border bg-background pl-3 pr-12 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
+        />
+        <span
+          aria-hidden="true"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+        >
+          €/j
+        </span>
+      </div>
+      <p id={hintId} className="mt-1 text-xs text-muted-foreground">
+        {hint}
+      </p>
     </div>
   )
 }
@@ -363,7 +290,7 @@ interface NoteFieldProps {
 function NoteField({ value, onChange }: NoteFieldProps) {
   const t = useTranslations("profile.pricing")
   return (
-    <div>
+    <div className="mt-3">
       <label
         htmlFor="freelance-pricing-note"
         className="block text-xs font-medium text-foreground mb-1"
@@ -377,7 +304,7 @@ function NoteField({ value, onChange }: NoteFieldProps) {
         onChange={(e) => onChange(e.target.value)}
         placeholder={t("notePlaceholder")}
         maxLength={120}
-        className="w-full h-9 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
+        className="w-full h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-primary focus:ring-4 focus:ring-primary/10 focus:outline-none"
       />
     </div>
   )
@@ -487,70 +414,47 @@ function FormActions(props: FormActionsProps) {
 // ----- Draft hook -------------------------------------------------------
 
 interface PricingDraft {
-  type: FreelancePricingType
-  minDisplay: string
-  maxDisplay: string
-  currency: string
+  amountDisplay: string
   note: string
   negotiable: boolean
-  setType: (next: FreelancePricingType) => void
-  setMinDisplay: (next: string) => void
-  setMaxDisplay: (next: string) => void
-  setCurrency: (next: string) => void
+  setAmountDisplay: (next: string) => void
   setNote: (next: string) => void
   setNegotiable: (next: boolean) => void
   toRow: () => FreelancePricing | null
 }
 
 function usePricingDraft(persisted: FreelancePricing | null): PricingDraft {
-  const [type, setType] = useState<FreelancePricingType>(
-    (persisted?.type as FreelancePricingType) ?? "daily",
-  )
-  const [minDisplay, setMinDisplay] = useState(
+  // V1 collapses the former type+currency picker into a single
+  // required amount field. Legacy rows (hourly / project_*) are
+  // silently coerced into the daily shape when the user re-edits —
+  // the backend whitelist then persists the normalized row.
+  const [amountDisplay, setAmountDisplay] = useState(
     persisted ? displayFromStored(persisted.min_amount) : "",
   )
-  const [maxDisplay, setMaxDisplay] = useState(
-    persisted && persisted.max_amount !== null
-      ? displayFromStored(persisted.max_amount)
-      : "",
-  )
-  const [currency, setCurrency] = useState(persisted?.currency ?? "EUR")
   const [note, setNote] = useState(persisted?.note ?? "")
   const [negotiable, setNegotiable] = useState(persisted?.negotiable ?? false)
 
   const toRow = useMemo(
     () => (): FreelancePricing | null => {
-      const minNumber = Number(minDisplay)
-      if (!Number.isFinite(minNumber) || minNumber < 0) return null
-      const hasRange = type === "project_range"
-      const maxNumber = maxDisplay.trim() === "" ? null : Number(maxDisplay)
-      if (hasRange && (maxNumber === null || !Number.isFinite(maxNumber))) {
-        return null
-      }
+      const amountNumber = Number(amountDisplay)
+      if (!Number.isFinite(amountNumber) || amountNumber < 0) return null
       return {
-        type,
-        min_amount: storedFromDisplay(minNumber),
-        max_amount:
-          hasRange && maxNumber !== null ? storedFromDisplay(maxNumber) : null,
-        currency,
+        type: V1_PRICING_TYPE,
+        min_amount: storedFromDisplay(amountNumber),
+        max_amount: null,
+        currency: V1_PRICING_CURRENCY,
         note: note.trim(),
         negotiable,
       }
     },
-    [currency, maxDisplay, minDisplay, note, negotiable, type],
+    [amountDisplay, note, negotiable],
   )
 
   return {
-    type,
-    minDisplay,
-    maxDisplay,
-    currency,
+    amountDisplay,
     note,
     negotiable,
-    setType,
-    setMinDisplay,
-    setMaxDisplay,
-    setCurrency,
+    setAmountDisplay,
     setNote,
     setNegotiable,
     toRow,
@@ -558,19 +462,6 @@ function usePricingDraft(persisted: FreelancePricing | null): PricingDraft {
 }
 
 // ----- helpers ----------------------------------------------------------
-
-function typeLabelKey(type: FreelancePricingType): string {
-  switch (type) {
-    case "daily":
-      return "typeDaily"
-    case "hourly":
-      return "typeHourly"
-    case "project_from":
-      return "typeProjectFrom"
-    case "project_range":
-      return "typeProjectRange"
-  }
-}
 
 function storedFromDisplay(display: number): number {
   return Math.round(display * 100)
@@ -585,6 +476,7 @@ function mapErrorMessage(
   t: ReturnType<typeof useTranslations>,
 ): string {
   if (err instanceof ApiError) {
+    if (err.code === "pricing_type_not_allowed") return t("errorTypeNotAllowed")
     if (err.code === "forbidden") return t("errorKindNotAllowed")
     if (err.code === "validation_error") return t("errorKindNotAllowed")
   }
