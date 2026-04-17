@@ -1,18 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../shared/search/build_filter_by.dart';
+import '../../../../shared/search/search_filters.dart';
 import '../../../../shared/search/search_key_repository.dart';
 import '../../data/typesense_search_repository.dart';
 
-/// State for the paginated search results.
+/// SearchState — per-persona search list state. Now carries the
+/// current filter payload, query string, and the optional
+/// server-issued `correctedQuery` + `searchId` fields so the screen
+/// can render a "did you mean" banner and fire click-tracking beacons.
 class SearchState {
-  final List<Map<String, dynamic>> profiles;
-  final bool isLoading;
-  final bool isLoadingMore;
-  final bool hasMore;
-  final String? nextCursor;
-  final String? error;
-
   const SearchState({
     this.profiles = const [],
     this.isLoading = false,
@@ -20,123 +18,206 @@ class SearchState {
     this.hasMore = true,
     this.nextCursor,
     this.error,
+    this.correctedQuery,
+    this.searchId,
+    this.found = 0,
   });
+
+  final List<Map<String, dynamic>> profiles;
+  final bool isLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final String? nextCursor;
+  final String? error;
+  final String? correctedQuery;
+  final String? searchId;
+  final int found;
 
   SearchState copyWith({
     List<Map<String, dynamic>>? profiles,
     bool? isLoading,
     bool? isLoadingMore,
     bool? hasMore,
-    String? nextCursor,
-    String? error,
+    Object? nextCursor = _kSentinel,
+    Object? error = _kSentinel,
+    Object? correctedQuery = _kSentinel,
+    Object? searchId = _kSentinel,
+    int? found,
   }) {
     return SearchState(
       profiles: profiles ?? this.profiles,
       isLoading: isLoading ?? this.isLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
-      nextCursor: nextCursor ?? this.nextCursor,
-      error: error,
+      nextCursor: identical(nextCursor, _kSentinel)
+          ? this.nextCursor
+          : nextCursor as String?,
+      error: identical(error, _kSentinel) ? this.error : error as String?,
+      correctedQuery: identical(correctedQuery, _kSentinel)
+          ? this.correctedQuery
+          : correctedQuery as String?,
+      searchId: identical(searchId, _kSentinel)
+          ? this.searchId
+          : searchId as String?,
+      found: found ?? this.found,
     );
   }
 }
 
-/// Notifier managing paginated profile search.
+const Object _kSentinel = Object();
+
+/// SearchNotifier manages the paginated search list for one persona.
+/// Accepts a typed [MobileSearchFilters] payload and a free-text
+/// query; rebuilds filter_by via the shared [buildFilterBy] function
+/// so the wire format stays parity-safe with web + backend.
 class SearchNotifier extends StateNotifier<SearchState> {
-  final ApiClient _api;
-  final String _type;
+  SearchNotifier(this._repository, this._persona)
+      : super(const SearchState());
 
-  SearchNotifier(this._api, this._type) : super(const SearchState());
+  final TypesenseSearchRepository _repository;
+  final String _persona;
 
-  /// Load the first page.
+  /// Current filter + query snapshot. Mutated via [applyFilters] +
+  /// [setQuery], not the [SearchState] itself.
+  MobileSearchFilters _filters = kEmptyMobileSearchFilters;
+  String _query = '';
+
+  MobileSearchFilters get filters => _filters;
+  String get query => _query;
+
   Future<void> load() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(
+      isLoading: true,
+      error: null,
+      correctedQuery: null,
+    );
     try {
-      final response = await _api.get(
-        '/api/v1/profiles/search',
-        queryParameters: {'type': _type, 'limit': '20'},
-      );
-      final data = response.data as Map<String, dynamic>? ?? {};
-      final rawList = (data['data'] as List<dynamic>?) ?? [];
-      final profiles = rawList.cast<Map<String, dynamic>>();
-      final nextCursor = data['next_cursor'] as String? ?? '';
-      final hasMore = data['has_more'] as bool? ?? false;
-
+      final res = await _repository.search(_buildInput());
       state = SearchState(
-        profiles: profiles,
+        profiles: _stripEmbeddings(res.documents),
         isLoading: false,
-        hasMore: hasMore,
-        nextCursor: nextCursor.isNotEmpty ? nextCursor : null,
+        hasMore: res.hasMore,
+        nextCursor: res.nextCursor,
+        correctedQuery: res.correctedQuery,
+        searchId: res.searchId.isEmpty ? null : res.searchId,
+        found: res.found,
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
     }
   }
 
-  /// Load the next page (append to existing results).
   Future<void> loadMore() async {
-    if (!state.hasMore || state.isLoadingMore || state.nextCursor == null) return;
-
+    if (!state.hasMore || state.isLoadingMore) return;
+    if (state.nextCursor == null) return;
     state = state.copyWith(isLoadingMore: true);
     try {
-      final response = await _api.get(
-        '/api/v1/profiles/search',
-        queryParameters: {
-          'type': _type,
-          'limit': '20',
-          'cursor': state.nextCursor!,
-        },
+      final res = await _repository.search(
+        _buildInput(cursor: state.nextCursor),
       );
-      final data = response.data as Map<String, dynamic>? ?? {};
-      final rawList = (data['data'] as List<dynamic>?) ?? [];
-      final newProfiles = rawList.cast<Map<String, dynamic>>();
-      final nextCursor = data['next_cursor'] as String? ?? '';
-      final hasMore = data['has_more'] as bool? ?? false;
-
       state = state.copyWith(
-        profiles: [...state.profiles, ...newProfiles],
+        profiles: [...state.profiles, ..._stripEmbeddings(res.documents)],
         isLoadingMore: false,
-        hasMore: hasMore,
-        nextCursor: nextCursor.isNotEmpty ? nextCursor : null,
+        hasMore: res.hasMore,
+        nextCursor: res.nextCursor,
       );
     } catch (e) {
       state = state.copyWith(isLoadingMore: false, error: e.toString());
     }
   }
+
+  void applyFilters(MobileSearchFilters next) {
+    if (next == _filters) return;
+    _filters = next;
+    load();
+  }
+
+  void setQuery(String next) {
+    if (next == _query) return;
+    _query = next;
+    load();
+  }
+
+  void reset() {
+    _filters = kEmptyMobileSearchFilters;
+    _query = '';
+    load();
+  }
+
+  void trackClick(String docId, int position) {
+    final id = state.searchId;
+    if (id == null) return;
+    // Fire-and-forget.
+    _repository.trackClick(
+      searchId: id,
+      docId: docId,
+      position: position,
+    );
+  }
+
+  TypesenseSearchInput _buildInput({String? cursor}) {
+    final filterInput = SearchFilterInput.fromMap(filtersToInput(_filters));
+    final filterBy = buildFilterBy(filterInput);
+    return TypesenseSearchInput(
+      persona: _persona,
+      query: _query,
+      filterBy: filterBy.isEmpty ? null : filterBy,
+      cursor: cursor,
+    );
+  }
+
+  List<Map<String, dynamic>> _stripEmbeddings(
+    List<Map<String, dynamic>> docs,
+  ) {
+    return docs.map((d) {
+      final clean = Map<String, dynamic>.from(d);
+      clean.remove('embedding');
+      return clean;
+    }).toList(growable: false);
+  }
 }
 
-/// Paginated search provider — one per type (freelancer, agency, referrer).
+/// searchProvider exposes one [SearchNotifier] per persona key.
+/// Auto-disposes so memory/requests are cleaned up when the user
+/// navigates away from the directory screen.
 final searchProvider = StateNotifierProvider.autoDispose
     .family<SearchNotifier, SearchState, String>((ref, type) {
-  final api = ref.watch(apiClientProvider);
-  final notifier = SearchNotifier(api, type);
-  // Auto-load first page
+  final repo = ref.watch(typesenseSearchRepositoryProvider);
+  final notifier = SearchNotifier(repo, _personaFromType(type));
   Future.microtask(() => notifier.load());
   return notifier;
 });
 
+String _personaFromType(String type) {
+  switch (type) {
+    case 'agency':
+      return 'agency';
+    case 'referrer':
+      return 'referrer';
+    case 'freelancer':
+    default:
+      return 'freelance';
+  }
+}
+
 // ---------------------------------------------------------------------------
-// Typesense path providers.
-//
-// Phase 4 retired the SEARCH_ENGINE=sql|typesense compile-time flag
-// (the 30-day grace period ended in April 2026). The directory /
-// profile-picker screens still consume the legacy /profiles/search
-// endpoint because it now serves the referral picker's directory
-// reads — keeping it makes the endpoint feature-justified, not a
-// SQL-fallback for the main search.
+// Infra — kept for dependency wiring. Phase 4 removed the search
+// engine feature flag; Typesense is mandatory.
 // ---------------------------------------------------------------------------
 
-/// searchKeyRepositoryProvider exposes a singleton SearchKeyRepository
-/// for the whole app. The repo holds an in-memory cache keyed on
-/// persona, so a single instance keeps the cache hot across screens.
+/// searchKeyRepositoryProvider — singleton scoped-key cache. Kept
+/// alive even though the repo now calls the backend proxy — may
+/// come back into scope for offline / degraded-mode flows.
 final searchKeyRepositoryProvider = Provider<SearchKeyRepository>((ref) {
   return SearchKeyRepository(ref.watch(apiClientProvider));
 });
 
-/// typesenseSearchRepositoryProvider exposes the data-layer
-/// repository for the Typesense path. Phase 3: the repo routes
-/// through the backend proxy (/api/v1/search) so we inject the
-/// ApiClient rather than the Typesense scoped key fetcher.
+/// typesenseSearchRepositoryProvider — the data-layer repository
+/// used by the search screen. Routes through the backend proxy
+/// (`/api/v1/search`).
 final typesenseSearchRepositoryProvider =
     Provider<TypesenseSearchRepository>((ref) {
   return TypesenseSearchRepository(
@@ -145,13 +226,11 @@ final typesenseSearchRepositoryProvider =
   );
 });
 
-/// typesenseSearchProvider runs a single search against the
-/// Typesense cluster for the given persona. Returns a typed result
-/// in an AsyncValue so the screen can render loading/error/data
-/// uniformly. The family parameter is `(persona, query)` so cache
-/// invalidation tracks both.
-final typesenseSearchProvider = FutureProvider.autoDispose.family<
-    TypesenseSearchResult, ({String persona, String query})>((ref, args) async {
+/// typesenseSearchProvider — kept for the existing unit tests that
+/// exercise the repository layer directly. Not used by the screen.
+final typesenseSearchProvider = FutureProvider.autoDispose
+    .family<TypesenseSearchResult, ({String persona, String query})>(
+        (ref, args) async {
   final repo = ref.watch(typesenseSearchRepositoryProvider);
   return repo.search(
     TypesenseSearchInput(
