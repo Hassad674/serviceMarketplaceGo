@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:marketplace_mobile/features/search/presentation/widgets/search_filter_bottom_sheet.dart';
 import 'package:marketplace_mobile/l10n/app_localizations.dart';
-import 'package:marketplace_mobile/shared/search/search_filters.dart';
 
 Widget _wrap(Widget child, {Locale locale = const Locale('en')}) {
   return MaterialApp(
