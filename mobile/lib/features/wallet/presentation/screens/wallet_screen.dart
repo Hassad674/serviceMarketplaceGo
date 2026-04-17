@@ -23,6 +23,10 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _payingOut = false;
+  // proposal_id currently being retried, or null when idle. One retry at
+  // a time: the button shows a spinner for that row and stays enabled
+  // for the others. Mirrors the web behaviour.
+  String? _retryingProposalId;
 
   Future<void> _requestPayout() async {
     setState(() => _payingOut = true);
@@ -47,6 +51,28 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       }
     } finally {
       if (mounted) setState(() => _payingOut = false);
+    }
+  }
+
+  Future<void> _retryTransfer(String proposalId) async {
+    setState(() => _retryingProposalId = proposalId);
+    try {
+      final repo = ref.read(walletRepositoryProvider);
+      await repo.retryFailedTransfer(proposalId);
+      ref.invalidate(walletProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transfer retried')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Retry failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _retryingProposalId = null);
     }
   }
 
@@ -147,6 +173,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             _TransactionHistory(
               records: wallet.records,
               l10n: l10n,
+              retryingProposalId: _retryingProposalId,
+              onRetry: _retryTransfer,
             ),
           ],
         ),
@@ -639,10 +667,14 @@ class _TransactionHistory extends StatelessWidget {
   const _TransactionHistory({
     required this.records,
     required this.l10n,
+    required this.retryingProposalId,
+    required this.onRetry,
   });
 
   final List<WalletRecord> records;
   final AppLocalizations l10n;
+  final String? retryingProposalId;
+  final Future<void> Function(String proposalId) onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -672,16 +704,27 @@ class _TransactionHistory extends StatelessWidget {
             ),
           )
         else
-          for (final r in records) _TransactionTile(record: r),
+          for (final r in records)
+            _TransactionTile(
+              record: r,
+              retrying: retryingProposalId == r.proposalId,
+              onRetry: () => onRetry(r.proposalId),
+            ),
       ],
     );
   }
 }
 
 class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.record});
+  const _TransactionTile({
+    required this.record,
+    required this.retrying,
+    required this.onRetry,
+  });
 
   final WalletRecord record;
+  final bool retrying;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -695,6 +738,7 @@ class _TransactionTile extends StatelessWidget {
                     ? 8
                     : record.proposalId.length,
               );
+    final isFailed = record.transferStatus == 'failed';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -723,8 +767,12 @@ class _TransactionTile extends StatelessWidget {
                 Text(
                   record.transferStatus,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface
-                        .withValues(alpha: 0.5),
+                    color: isFailed
+                        ? const Color(0xFFDC2626)
+                        : theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5),
+                    fontWeight:
+                        isFailed ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -737,6 +785,25 @@ class _TransactionTile extends StatelessWidget {
               fontFamily: 'monospace',
             ),
           ),
+          if (isFailed) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Retry transfer',
+              onPressed: retrying ? null : onRetry,
+              icon: retrying
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.refresh,
+                      size: 20,
+                      color: Color(0xFFDC2626),
+                    ),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
         ],
       ),
     );

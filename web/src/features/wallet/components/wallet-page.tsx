@@ -13,11 +13,12 @@ import {
   DollarSign,
   ShieldCheck,
   Send,
+  RefreshCw,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import { useWallet, useRequestPayout } from "../hooks/use-wallet"
+import { useWallet, useRequestPayout, useRetryTransfer } from "../hooks/use-wallet"
 import type {
   WalletRecord,
   CommissionWallet,
@@ -226,29 +227,88 @@ function BalanceCard({ icon: Icon, label, amount, description, color }: {
 }
 
 function RecordRow({ record }: { record: WalletRecord }) {
+  const retryMutation = useRetryTransfer()
+  const canWithdraw = useHasPermission("wallet.withdraw")
+
+  const isFailed = record.transfer_status === "failed"
+  const pendingForThisRow =
+    retryMutation.isPending && retryMutation.variables === record.proposal_id
+  const errorForThisRow =
+    retryMutation.isError && retryMutation.variables === record.proposal_id
+      ? retryMutation.error
+      : null
+
+  function handleRetry() {
+    retryMutation.mutate(record.proposal_id)
+  }
+
   return (
-    <div className="flex items-center gap-4 px-5 py-3">
-      <PaymentStatusIcon status={record.payment_status} />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-          Proposition {record.proposal_id.slice(0, 8)}...
-        </p>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-slate-500">
-            {new Date(record.created_at).toLocaleDateString("fr-FR")}
-          </span>
-          <MissionBadge status={record.mission_status} />
+    <div className="px-5 py-3">
+      <div className="flex items-center gap-4">
+        <PaymentStatusIcon status={record.payment_status} />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+            Proposition {record.proposal_id.slice(0, 8)}...
+          </p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-slate-500">
+              {new Date(record.created_at).toLocaleDateString("fr-FR")}
+            </span>
+            <MissionBadge status={record.mission_status} />
+          </div>
         </div>
+        <div className="text-right">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white">
+            {formatEur(record.provider_payout)}
+          </p>
+          <p className="text-xs text-slate-500">
+            -{formatEur(record.platform_fee)} commission
+          </p>
+        </div>
+        {isFailed ? (
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={pendingForThisRow || !canWithdraw}
+            title={
+              !canWithdraw
+                ? "Seul le propriétaire peut relancer un transfert"
+                : "Relancer le transfert"
+            }
+            aria-label="Relancer le transfert"
+            className={cn(
+              "shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5",
+              "text-xs font-medium transition-colors duration-200",
+              "bg-red-50 text-red-700 hover:bg-red-100",
+              "dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20",
+              "disabled:opacity-60 disabled:cursor-not-allowed",
+            )}
+          >
+            {pendingForThisRow ? (
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-3 w-3" aria-hidden="true" />
+            )}
+            Échec — Réessayer
+          </button>
+        ) : (
+          <TransferBadge status={record.transfer_status} />
+        )}
       </div>
-      <div className="text-right">
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-          {formatEur(record.provider_payout)}
+      {errorForThisRow && (
+        <p
+          role="alert"
+          className="mt-2 pl-9 text-xs text-red-700 dark:text-red-400"
+        >
+          {errorForThisRow instanceof ApiError &&
+          errorForThisRow.code === "transfer_not_retriable"
+            ? "Ce transfert ne peut plus être relancé — la mission doit être terminée et le précédent transfert en échec."
+            : errorForThisRow instanceof ApiError &&
+                errorForThisRow.code === "stripe_account_missing"
+              ? "Complétez votre configuration Stripe avant de relancer ce transfert."
+              : "Erreur lors de la nouvelle tentative"}
         </p>
-        <p className="text-xs text-slate-500">
-          -{formatEur(record.platform_fee)} commission
-        </p>
-      </div>
-      <TransferBadge status={record.transfer_status} />
+      )}
     </div>
   )
 }

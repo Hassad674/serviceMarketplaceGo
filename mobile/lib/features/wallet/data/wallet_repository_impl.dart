@@ -22,4 +22,9 @@ class WalletRepositoryImpl implements WalletRepository {
   Future<void> requestPayout() async {
     await _api.post('/api/v1/wallet/payout');
   }
+
+  @override
+  Future<void> retryFailedTransfer(String proposalId) async {
+    await _api.post('/api/v1/wallet/transfers/$proposalId/retry');
+  }
 }

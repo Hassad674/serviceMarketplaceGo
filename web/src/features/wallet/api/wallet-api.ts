@@ -58,3 +58,16 @@ export function getWallet(): Promise<WalletOverview> {
 export function requestPayout(): Promise<PayoutResult> {
   return apiClient<PayoutResult>("/api/v1/wallet/payout", { method: "POST" })
 }
+
+/**
+ * Re-issues the Stripe transfer for a single record stuck in
+ * transfer_status="failed". The backend enforces the same guards as the
+ * global payout (mission completed, Stripe account present) and returns
+ * 409 when the row is no longer retriable (e.g. someone else retried it).
+ */
+export function retryFailedTransfer(proposalId: string): Promise<PayoutResult> {
+  return apiClient<PayoutResult>(
+    `/api/v1/wallet/transfers/${proposalId}/retry`,
+    { method: "POST" },
+  )
+}

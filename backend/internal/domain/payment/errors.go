@@ -22,6 +22,7 @@ var (
 	ErrPaymentNotPending        = errors.New("payment is not in pending state")
 	ErrPaymentNotSucceeded      = errors.New("payment has not succeeded")
 	ErrTransferAlreadyDone      = errors.New("transfer already completed")
+	ErrTransferNotRetriable     = errors.New("transfer not retriable")
 	ErrStripeAccountNotFound    = errors.New("provider has no Stripe connected account")
 	ErrStripeAccountNotVerified = errors.New("provider Stripe account is not verified")
 
