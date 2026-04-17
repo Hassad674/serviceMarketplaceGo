@@ -144,6 +144,11 @@ type QueryInput struct {
 // JSON) to the frontend SSR fallback. It is a strict subset of the
 // raw Typesense response — the embedding vectors are stripped to
 // keep the payload small and the field is omitted entirely.
+//
+// Hybrid reports whether the query blended BM25 + vector cosine on
+// this call. Handlers use it for structured logging; the frontend
+// ignores the field. Deliberately NOT json-serialised so no public
+// consumer couples to it.
 type QueryResult struct {
 	SearchID       string                    `json:"search_id"`
 	Documents      []search.SearchDocument   `json:"documents"`
@@ -157,6 +162,7 @@ type QueryResult struct {
 	Highlights     []map[string]string       `json:"highlights"`
 	NextCursor     string                    `json:"next_cursor,omitempty"`
 	HasMore        bool                      `json:"has_more"`
+	Hybrid         bool                      `json:"-"`
 }
 
 // Default page sizing constants. PerPage is capped at MaxPerPage so
@@ -205,6 +211,7 @@ func (s *Service) Query(ctx context.Context, input QueryInput) (*QueryResult, er
 		return nil, err
 	}
 
+	result.Hybrid = vectorQuery != ""
 	s.decorateResult(result, input, params)
 	s.captureAnalytics(ctx, input, result, params, latency)
 	return result, nil

@@ -587,6 +587,7 @@ func main() {
 	// vice versa.
 	var searchQuerySvc *appsearch.Service
 	var searchHandler *handler.SearchHandler
+	var adminSearchStatsHandler *handler.AdminSearchStatsHandler
 	var searchAnalyticsSvc *searchanalytics.Service
 	if typesenseClient != nil {
 		// Phase 3: wire the analytics service so every search is
@@ -602,6 +603,20 @@ func main() {
 			slog.Error("search: analytics service disabled", "error", analyticsErr)
 		} else {
 			searchAnalyticsSvc = analyticsSvc
+		}
+
+		// Phase 4: admin stats dashboard. Reuses the same repository
+		// (which now implements both Repository and StatsRepository)
+		// so there's no extra dependency. The handler is gated by
+		// RequireAdmin at the router level.
+		statsSvc, statsErr := searchanalytics.NewStatsService(searchanalytics.StatsServiceConfig{
+			Repository: analyticsRepo,
+			Logger:     slog.Default(),
+		})
+		if statsErr != nil {
+			slog.Error("search: stats service disabled", "error", statsErr)
+		} else {
+			adminSearchStatsHandler = handler.NewAdminSearchStatsHandler(statsSvc)
 		}
 
 		// Phase 3: hybrid search needs a live embedder on the query
@@ -637,6 +652,7 @@ func main() {
 			// derived from the master admin key.
 			APIKey:       typesenseClient.SearchAPIKey(),
 			ClickTracker: searchAnalyticsSvc,
+			Logger:       slog.Default(),
 		})
 		slog.Info("search: query service wired",
 			"search_engine", cfg.SearchEngine,
@@ -1082,7 +1098,8 @@ func main() {
 		AdminDispute:   adminDisputeHandler,
 		Skill:          skillHandler,
 		Referral:       referralHandler,
-		Search:         searchHandler,
+		Search:            searchHandler,
+		AdminSearchStats:  adminSearchStatsHandler,
 		WSHandler:      wsHandler,
 		Config:         cfg,
 		TokenService:   tokenSvc,
