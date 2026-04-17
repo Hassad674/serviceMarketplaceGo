@@ -58,6 +58,22 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 	return nil
 }
 
+// GetByID returns a single record by its primary key.
+func (r *PaymentRecordRepository) GetByID(ctx context.Context, id uuid.UUID) (*payment.PaymentRecord, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return r.scanRecord(r.db.QueryRowContext(ctx, `
+		SELECT id, proposal_id, milestone_id, client_id, provider_id,
+			COALESCE(stripe_payment_intent_id, ''), COALESCE(stripe_transfer_id, ''),
+			proposal_amount, stripe_fee_amount, platform_fee_amount,
+			client_total_amount, provider_payout,
+			currency, status, transfer_status,
+			paid_at, transferred_at, created_at, updated_at
+		FROM payment_records
+		WHERE id = $1`, id))
+}
+
 // GetByProposalID returns the MOST RECENT payment record for a proposal.
 // Phase 4: a proposal can now own multiple records (one per milestone),
 // so this lookup is kept for legacy callers but returns the newest row

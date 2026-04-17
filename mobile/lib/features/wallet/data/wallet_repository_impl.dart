@@ -24,7 +24,10 @@ class WalletRepositoryImpl implements WalletRepository {
   }
 
   @override
-  Future<void> retryFailedTransfer(String proposalId) async {
-    await _api.post('/api/v1/wallet/transfers/$proposalId/retry');
+  Future<void> retryFailedTransfer(String recordId) async {
+    // Takes the payment record id — NOT the proposal id. A proposal
+    // can own multiple records (one per milestone); the record id is
+    // the only unambiguous identifier for retry targeting.
+    await _api.post('/api/v1/wallet/transfers/$recordId/retry');
   }
 }

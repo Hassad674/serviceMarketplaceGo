@@ -143,7 +143,13 @@ class CommissionRecord {
 }
 
 /// A single wallet transaction record.
+///
+/// `id` is the payment_record primary key — unique per (proposal,
+/// milestone) pair. Required by the retry-transfer flow which targets
+/// one failed milestone at a time (proposal id is ambiguous when a
+/// proposal owns multiple records).
 class WalletRecord {
+  final String id;
   final String proposalId;
   final String proposalTitle;
   final int grossAmount;
@@ -154,6 +160,7 @@ class WalletRecord {
   final DateTime createdAt;
 
   const WalletRecord({
+    required this.id,
     required this.proposalId,
     this.proposalTitle = '',
     this.grossAmount = 0,
@@ -166,6 +173,7 @@ class WalletRecord {
 
   factory WalletRecord.fromJson(Map<String, dynamic> json) {
     return WalletRecord(
+      id: json['id'] as String? ?? '',
       proposalId: json['proposal_id'] as String? ?? '',
       proposalTitle: json['proposal_title'] as String? ?? '',
       grossAmount: json['gross_amount'] as int? ?? 0,

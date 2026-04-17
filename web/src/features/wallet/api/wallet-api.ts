@@ -63,13 +63,16 @@ export function requestPayout(): Promise<PayoutResult> {
 
 /**
  * Re-issues the Stripe transfer for a single record stuck in
- * transfer_status="failed". The backend enforces the same guards as the
- * global payout (mission completed, Stripe account present) and returns
- * 409 when the row is no longer retriable (e.g. someone else retried it).
+ * transfer_status="failed". Takes the payment record id — NOT the
+ * proposal id — because a proposal can own N records (one per
+ * milestone) and only the record id is unambiguous. The backend
+ * enforces the same guards as the global payout (mission completed,
+ * Stripe account present) and returns 409 when the row is no longer
+ * retriable (e.g. someone else retried it).
  */
-export function retryFailedTransfer(proposalId: string): Promise<PayoutResult> {
+export function retryFailedTransfer(recordId: string): Promise<PayoutResult> {
   return apiClient<PayoutResult>(
-    `/api/v1/wallet/transfers/${proposalId}/retry`,
+    `/api/v1/wallet/transfers/${recordId}/retry`,
     { method: "POST" },
   )
 }

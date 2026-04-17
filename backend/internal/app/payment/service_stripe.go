@@ -161,7 +161,9 @@ func (s *Service) TransferToProvider(ctx context.Context, proposalID uuid.UUID) 
 		Currency:           record.Currency,
 		DestinationAccount: stripeAccountID,
 		TransferGroup:      proposalID.String(),
-		IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", proposalID, stripeAccountID),
+		// Idempotency scoped to the record id so multi-milestone proposals
+		// don't collide on the same key (proposal-only key was buggy).
+		IdempotencyKey: fmt.Sprintf("transfer_%s_%s", record.ID, stripeAccountID),
 	})
 	if err != nil {
 		record.MarkTransferFailed()
@@ -539,7 +541,9 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 			Currency:           r.Currency,
 			DestinationAccount: stripeAccountID,
 			TransferGroup:      r.ProposalID.String(),
-			IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", r.ProposalID, stripeAccountID),
+			// Idempotency scoped to the record id so multi-milestone
+			// proposals don't collide on the same key.
+			IdempotencyKey: fmt.Sprintf("transfer_%s_%s", r.ID, stripeAccountID),
 		})
 		if tErr != nil {
 			slog.Error("payout transfer failed", "proposal_id", r.ProposalID, "error", tErr)
@@ -572,6 +576,11 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 // (destination account state, network blip, etc.) — without it, the
 // provider is stuck with no way to recover the funds.
 //
+// Takes the payment record id (NOT the proposal id) because a proposal
+// can own N records — one per milestone — so only the stable record id
+// uniquely identifies which failed transfer to retry. The UI passes
+// record.id from the wallet DTO.
+//
 // Preconditions (else ErrTransferNotRetriable):
 //   - the record exists and belongs to an org the user is a member of;
 //   - record.Status == RecordStatusSucceeded (funds are held in escrow);
@@ -580,12 +589,13 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 //     no side-channel around escrow).
 //
 // Also requires the provider to have a Stripe connected account
-// (ErrStripeAccountNotFound). The idempotency key matches the one
-// RequestPayout uses, so if the original transfer actually succeeded
-// silently (Stripe accepted but we marked failed on a timeout) Stripe
-// returns the existing transfer ID and the record resolves cleanly.
-func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, proposalID uuid.UUID) (*PayoutResult, error) {
-	record, err := s.records.GetByProposalID(ctx, proposalID)
+// (ErrStripeAccountNotFound). The idempotency key is derived from the
+// record id (unique per milestone), so if the original transfer
+// actually succeeded silently (Stripe accepted but we marked failed on
+// a timeout) Stripe returns the existing transfer ID and the record
+// resolves cleanly.
+func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, recordID uuid.UUID) (*PayoutResult, error) {
+	record, err := s.records.GetByID(ctx, recordID)
 	if err != nil {
 		return nil, fmt.Errorf("find payment record: %w", err)
 	}
@@ -608,7 +618,7 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, propos
 	// Same gate as RequestPayout — never open a side-channel that
 	// releases escrow funds for an active / disputed mission.
 	if s.proposalStatuses != nil {
-		status, sErr := s.proposalStatuses.GetProposalStatus(ctx, proposalID)
+		status, sErr := s.proposalStatuses.GetProposalStatus(ctx, record.ProposalID)
 		if sErr != nil {
 			return nil, fmt.Errorf("lookup proposal status: %w", sErr)
 		}
@@ -635,11 +645,11 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, propos
 		Amount:             record.ProviderPayout,
 		Currency:           record.Currency,
 		DestinationAccount: stripeAccountID,
-		TransferGroup:      proposalID.String(),
-		IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", proposalID, stripeAccountID),
+		TransferGroup:      record.ProposalID.String(),
+		IdempotencyKey:     fmt.Sprintf("transfer_%s_%s", record.ID, stripeAccountID),
 	})
 	if tErr != nil {
-		slog.Error("retry transfer failed", "proposal_id", proposalID, "error", tErr)
+		slog.Error("retry transfer failed", "record_id", record.ID, "proposal_id", record.ProposalID, "error", tErr)
 		record.MarkTransferFailed()
 		_ = s.records.Update(ctx, record)
 		return nil, fmt.Errorf("retry stripe transfer: %w", tErr)

@@ -23,7 +23,11 @@ class WalletScreen extends ConsumerStatefulWidget {
 
 class _WalletScreenState extends ConsumerState<WalletScreen> {
   bool _payingOut = false;
-  String? _retryingProposalId;
+  // Tracks the record id currently being retried (one at a time) so
+  // the UI can show an inline spinner on the correct row. Holds a
+  // payment-record id, NOT a proposal id — proposals can have N
+  // records (one per milestone) so proposal ids are ambiguous.
+  String? _retryingRecordId;
 
   Future<void> _requestPayout() async {
     setState(() => _payingOut = true);
@@ -51,11 +55,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     }
   }
 
-  Future<void> _retryTransfer(String proposalId) async {
-    setState(() => _retryingProposalId = proposalId);
+  Future<void> _retryTransfer(String recordId) async {
+    setState(() => _retryingRecordId = recordId);
     try {
       final repo = ref.read(walletRepositoryProvider);
-      await repo.retryFailedTransfer(proposalId);
+      await repo.retryFailedTransfer(recordId);
       ref.invalidate(walletProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -69,7 +73,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _retryingProposalId = null);
+      if (mounted) setState(() => _retryingRecordId = null);
     }
   }
 
@@ -138,7 +142,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             // Missions section — 3 cards + history
             _MissionsSection(
               wallet: wallet,
-              retryingProposalId: _retryingProposalId,
+              retryingRecordId: _retryingRecordId,
               onRetry: _retryTransfer,
             ),
 
@@ -383,13 +387,13 @@ class _StripeStatusLine extends StatelessWidget {
 class _MissionsSection extends StatelessWidget {
   const _MissionsSection({
     required this.wallet,
-    required this.retryingProposalId,
+    required this.retryingRecordId,
     required this.onRetry,
   });
 
   final WalletOverview wallet;
-  final String? retryingProposalId;
-  final Future<void> Function(String proposalId) onRetry;
+  final String? retryingRecordId;
+  final Future<void> Function(String recordId) onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -441,8 +445,8 @@ class _MissionsSection extends StatelessWidget {
             for (final r in wallet.records)
               _MissionTile(
                 record: r,
-                retrying: retryingProposalId == r.proposalId,
-                onRetry: () => onRetry(r.proposalId),
+                retrying: retryingRecordId == r.id,
+                onRetry: () => onRetry(r.id),
               ),
           ],
         ),

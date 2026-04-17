@@ -96,8 +96,12 @@ func (h *WalletHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 
 // RetryFailedTransfer re-issues a Stripe transfer for a single payment
 // record stuck in TransferFailed. Bound to
-// POST /api/v1/wallet/transfers/{proposal_id}/retry under the same auth
+// POST /api/v1/wallet/transfers/{record_id}/retry under the same auth
 // + wallet.withdraw permission as /wallet/payout.
+//
+// Takes the payment record id (NOT the proposal id) because a proposal
+// can own multiple records (one per milestone) and only the record id
+// is unambiguous.
 func (h *WalletHandler) RetryFailedTransfer(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -110,14 +114,14 @@ func (h *WalletHandler) RetryFailedTransfer(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	proposalIDRaw := chi.URLParam(r, "proposal_id")
-	proposalID, parseErr := uuid.Parse(proposalIDRaw)
+	recordIDRaw := chi.URLParam(r, "record_id")
+	recordID, parseErr := uuid.Parse(recordIDRaw)
 	if parseErr != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "proposal id must be a valid UUID")
+		res.Error(w, http.StatusBadRequest, "invalid_record_id", "record id must be a valid UUID")
 		return
 	}
 
-	result, err := h.paymentSvc.RetryFailedTransfer(r.Context(), userID, orgID, proposalID)
+	result, err := h.paymentSvc.RetryFailedTransfer(r.Context(), userID, orgID, recordID)
 	if err != nil {
 		switch {
 		case errors.Is(err, paymentdomain.ErrTransferNotRetriable):
@@ -127,7 +131,7 @@ func (h *WalletHandler) RetryFailedTransfer(w http.ResponseWriter, r *http.Reque
 			res.Error(w, http.StatusForbidden, "stripe_account_missing", "You must complete your payment setup before retrying a transfer.")
 			return
 		}
-		slog.Error("wallet retry transfer failed", "proposal_id", proposalID, "user_id", userID, "error", err)
+		slog.Error("wallet retry transfer failed", "record_id", recordID, "user_id", userID, "error", err)
 		res.Error(w, http.StatusInternalServerError, "retry_error", "Could not retry transfer")
 		return
 	}
