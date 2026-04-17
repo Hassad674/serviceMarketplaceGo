@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // FilterInput is the typed payload posted by the frontend (or
@@ -174,7 +175,7 @@ func buildPricingClause(minAmt, maxAmt *int64) string {
 // Backticks escape multi-word cities like "New York".
 func buildCityClause(city string) string {
 	trimmed := strings.TrimSpace(city)
-	if trimmed == "" {
+	if trimmed == "" || !utf8.ValidString(trimmed) {
 		return ""
 	}
 	return fmt.Sprintf("city:`%s`", trimmed)
@@ -185,7 +186,7 @@ func buildCityClause(city string) string {
 // "FR" or "fr" matches the indexed ISO-2 code.
 func buildCountryClause(code string) string {
 	trimmed := strings.TrimSpace(code)
-	if trimmed == "" {
+	if trimmed == "" || !utf8.ValidString(trimmed) {
 		return ""
 	}
 	return fmt.Sprintf("country_code:%s", trimmed)
@@ -245,6 +246,14 @@ func dedupeStrings(in []string) []string {
 	for _, v := range in {
 		trimmed := strings.TrimSpace(v)
 		if trimmed == "" {
+			continue
+		}
+		// Typesense rejects filter_by values that contain invalid
+		// UTF-8. Drop any entry that is not clean UTF-8 instead of
+		// letting it propagate to the wire — the handler layer's
+		// input validation is the primary defence, this is a
+		// depth-in-defence guard discovered by FuzzBuildFilterBy.
+		if !utf8.ValidString(trimmed) {
 			continue
 		}
 		if _, ok := seen[trimmed]; ok {

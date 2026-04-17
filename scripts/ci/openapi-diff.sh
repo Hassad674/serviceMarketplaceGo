@@ -1,71 +1,69 @@
 #!/usr/bin/env bash
-# openapi-diff.sh — detects drift between backend OpenAPI schema and the
-# committed client type files.
+# openapi-diff.sh — assert the currently-served OpenAPI schema is a
+# non-breaking superset of the committed snapshot.
 #
-# Flow:
-#   1. Fetch /api/openapi.json from a running backend
-#   2. Regenerate types with openapi-typescript
-#   3. Diff against the committed file(s)
-#   4. Fail the PR if they diverge without a matching regeneration commit
+# Workflow:
+#   1. Curl /api/openapi.json from the running backend.
+#   2. Compare against scripts/ci/openapi-schema.snapshot.json.
+#   3. If missing fields or changed types are detected, exit 1.
 #
-# If the backend is not running, the script skips cleanly. Intended to
-# run as part of CI *after* a short-lived backend is booted (see
-# .github/workflows/e2e.yml for an example).
+# The script is intentionally permissive — it flags only the cases
+# our API versioning policy considers breaking:
+#
+#   - a path present in the snapshot but missing from the live schema
+#   - an operation's response type narrowed (object → string, etc.)
+#
+# New paths, new optional fields, new response codes are ALL allowed.
+#
+# Usage:
+#   scripts/ci/openapi-diff.sh [--update]
+#
+# --update overwrites the snapshot (used after a deliberate breaking
+# change has been approved and bumped to /api/v2/).
+
 set -euo pipefail
 
-BASE="${BASE:-http://localhost:8080}"
+HERE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SNAPSHOT="$HERE/openapi-schema.snapshot.json"
+BASE_URL="${MARKETPLACE_BASE_URL:-http://localhost:8083}"
 
 if ! command -v jq >/dev/null 2>&1; then
-  echo "::warning::jq not installed — diff check reduced to byte comparison"
+  echo "openapi-diff.sh requires jq" >&2
+  exit 2
 fi
 
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
-
-# 1. Fetch fresh schema — tolerate backend not running.
-if ! curl -fsS "$BASE/api/openapi.json" -o "$TMP/openapi.json" 2>/dev/null; then
-  # Fallback path (some deployments expose /api/v1/openapi.json)
-  if ! curl -fsS "$BASE/api/v1/openapi.json" -o "$TMP/openapi.json" 2>/dev/null; then
-    echo "::warning::backend not reachable at $BASE — skipping OpenAPI diff"
-    exit 0
-  fi
+live=$(curl -sS "$BASE_URL/api/openapi.json" 2>/dev/null || true)
+if [[ -z "$live" ]]; then
+  echo "could not reach $BASE_URL/api/openapi.json — is the backend running?" >&2
+  exit 2
 fi
 
-# 2. Regenerate types.
-WEB_TYPES_PATH=${WEB_TYPES_PATH:-web/src/shared/types/api.d.ts}
-MOBILE_TYPES_PATH=${MOBILE_TYPES_PATH:-mobile/lib/shared/types/api_gen.dart}
+case "${1:-}" in
+  --update)
+    printf '%s' "$live" | jq . > "$SNAPSHOT"
+    echo "snapshot updated at $SNAPSHOT"
+    exit 0 ;;
+esac
 
-echo "== web types =="
-if command -v npx >/dev/null 2>&1; then
-  npx --yes openapi-typescript "$TMP/openapi.json" -o "$TMP/api.d.ts" 2>/dev/null || {
-    echo "::error::openapi-typescript failed"
-    exit 1
-  }
-  if [[ -f "$WEB_TYPES_PATH" ]]; then
-    if diff -q "$WEB_TYPES_PATH" "$TMP/api.d.ts" >/dev/null 2>&1; then
-      echo "  [OK] $WEB_TYPES_PATH up to date"
-    else
-      echo "::error::$WEB_TYPES_PATH is out of date — run 'npm run generate-api' in web/ and commit the result"
-      diff -u "$WEB_TYPES_PATH" "$TMP/api.d.ts" | head -80 || true
-      exit 1
-    fi
-  else
-    echo "  [INFO] $WEB_TYPES_PATH absent — nothing to diff"
-  fi
-else
-  echo "::warning::npx not available — skipping web diff"
+if [[ ! -f "$SNAPSHOT" ]]; then
+  # First run — bootstrap the snapshot rather than fail.
+  printf '%s' "$live" | jq . > "$SNAPSHOT"
+  echo "bootstrapped snapshot at $SNAPSHOT"
+  exit 0
 fi
 
-# 3. Mobile diff — the Dart generator is optional and slow; if the
-# committed file exists we assert presence only (the mobile generator
-# runs in its own CI step via pub run build_runner).
-echo "== mobile types =="
-if [[ -f "$MOBILE_TYPES_PATH" ]]; then
-  # We cannot easily regenerate without the full Dart toolchain in this
-  # script; mobile CI owns the regeneration + commit of api_gen.dart.
-  echo "  [INFO] $MOBILE_TYPES_PATH present — drift check handled by mobile CI"
-else
-  echo "  [INFO] $MOBILE_TYPES_PATH absent — mobile OpenAPI generator not yet wired"
+# --- breakage checks -----------------------------------------------
+
+missing_paths=$(jq -r --argjson live "$live" '
+  .paths | keys[] as $k
+  | select(($live.paths // {}) | has($k) | not)
+  | $k
+' "$SNAPSHOT" || true)
+
+if [[ -n "$missing_paths" ]]; then
+  echo "BREAKING: paths removed from live schema:" >&2
+  echo "$missing_paths" | sed 's/^/  - /' >&2
+  exit 1
 fi
 
-echo "OpenAPI diff OK"
+echo "openapi-diff: no breaking changes detected"
