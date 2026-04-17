@@ -126,3 +126,109 @@ func NewNegotiationList(rows []*referral.Negotiation) []ReferralNegotiationRespo
 	}
 	return out
 }
+
+// AttributionResponse is the projection of one attribution for the
+// referral detail page's "Missions pendant cette mise en relation"
+// section. Includes the parent proposal's title + status and the
+// aggregate commission stats. Commission amounts are stripped when the
+// viewer is the client (Modèle A — the client never sees a rate or a
+// commission number).
+type AttributionResponse struct {
+	ID                     uuid.UUID `json:"id"`
+	ProposalID             uuid.UUID `json:"proposal_id"`
+	ProposalTitle          string    `json:"proposal_title,omitempty"`
+	ProposalStatus         string    `json:"proposal_status,omitempty"`
+	RatePctSnapshot        *float64  `json:"rate_pct_snapshot,omitempty"`
+	AttributedAt           time.Time `json:"attributed_at"`
+	TotalCommissionCents   *int64    `json:"total_commission_cents,omitempty"`
+	PendingCommissionCents *int64    `json:"pending_commission_cents,omitempty"`
+	MilestonesPaid         int       `json:"milestones_paid"`
+	MilestonesPending      int       `json:"milestones_pending"`
+}
+
+// NewAttributionListFromStats formats a slice of attribution+stats for
+// JSON output. Hides commission amounts and rate from the client, since
+// Modèle A confidentiality extends to the post-activation historical
+// view as well.
+func NewAttributionListFromStats(rows []attributionWithStats, viewerID uuid.UUID, clientID uuid.UUID) []AttributionResponse {
+	out := make([]AttributionResponse, 0, len(rows))
+	isClient := viewerID == clientID
+	for _, r := range rows {
+		row := AttributionResponse{
+			ID:                r.Attribution.ID,
+			ProposalID:        r.Attribution.ProposalID,
+			ProposalTitle:     r.ProposalTitle,
+			ProposalStatus:    r.ProposalStatus,
+			AttributedAt:      r.Attribution.AttributedAt,
+			MilestonesPaid:    r.MilestonesPaid,
+			MilestonesPending: r.MilestonesPending,
+		}
+		if !isClient {
+			rate := r.Attribution.RatePctSnapshot
+			row.RatePctSnapshot = &rate
+			paid := r.TotalCommissionCents
+			pending := r.PendingCommissionCents
+			row.TotalCommissionCents = &paid
+			row.PendingCommissionCents = &pending
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
+// attributionWithStats is a local alias for the enriched attribution
+// row returned by the app service. Mirrors the app-layer struct shape
+// without pulling in the app package — the handler layer just maps
+// field-by-field.
+type attributionWithStats = struct {
+	Attribution            *referral.Attribution
+	ProposalTitle          string
+	ProposalStatus         string
+	TotalCommissionCents   int64
+	PendingCommissionCents int64
+	MilestonesPaid         int
+	MilestonesPending      int
+}
+
+// CommissionResponse is one commission row for the /commissions
+// endpoint. Only the apporteur and the provider party can read it
+// (handler enforces). Commission amount is the NET for the apporteur
+// (already computed from gross × rate_pct at commission creation).
+type CommissionResponse struct {
+	ID               uuid.UUID                  `json:"id"`
+	AttributionID    uuid.UUID                  `json:"attribution_id"`
+	MilestoneID      uuid.UUID                  `json:"milestone_id"`
+	GrossAmountCents int64                      `json:"gross_amount_cents"`
+	CommissionCents  int64                      `json:"commission_cents"`
+	Currency         string                     `json:"currency"`
+	Status           referral.CommissionStatus  `json:"status"`
+	StripeTransferID string                     `json:"stripe_transfer_id,omitempty"`
+	StripeReversalID string                     `json:"stripe_reversal_id,omitempty"`
+	FailureReason    string                     `json:"failure_reason,omitempty"`
+	PaidAt           *time.Time                 `json:"paid_at,omitempty"`
+	ClawedBackAt     *time.Time                 `json:"clawed_back_at,omitempty"`
+	CreatedAt        time.Time                  `json:"created_at"`
+}
+
+// NewCommissionList formats a slice of commissions for JSON output.
+func NewCommissionList(rows []*referral.Commission) []CommissionResponse {
+	out := make([]CommissionResponse, 0, len(rows))
+	for _, c := range rows {
+		out = append(out, CommissionResponse{
+			ID:               c.ID,
+			AttributionID:    c.AttributionID,
+			MilestoneID:      c.MilestoneID,
+			GrossAmountCents: c.GrossAmountCents,
+			CommissionCents:  c.CommissionCents,
+			Currency:         c.Currency,
+			Status:           c.Status,
+			StripeTransferID: c.StripeTransferID,
+			StripeReversalID: c.StripeReversalID,
+			FailureReason:    c.FailureReason,
+			PaidAt:           c.PaidAt,
+			ClawedBackAt:     c.ClawedBackAt,
+			CreatedAt:        c.CreatedAt,
+		})
+	}
+	return out
+}

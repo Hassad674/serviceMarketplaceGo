@@ -34,3 +34,107 @@ func (s *Service) ListIncomingForClient(ctx context.Context, clientID uuid.UUID,
 func (s *Service) ListNegotiations(ctx context.Context, referralID uuid.UUID) ([]*referral.Negotiation, error) {
 	return s.referrals.ListNegotiations(ctx, referralID)
 }
+
+// AttributionWithStats is a projection of one attribution enriched with
+// the parent proposal's title + status and the aggregate commission
+// stats (how much has been paid to the apporteur so far, how many
+// milestones are still in flight). Used by the referral detail page's
+// "Missions attribuées pendant cette intro" section.
+type AttributionWithStats struct {
+	Attribution            *referral.Attribution
+	ProposalTitle          string
+	ProposalStatus         string
+	TotalCommissionCents   int64 // sum of commissions in status=paid
+	PendingCommissionCents int64 // sum of commissions in status=pending or pending_kyc
+	MilestonesPaid         int
+	MilestonesPending      int
+}
+
+// ListAttributionsWithStats returns the attributions of a referral
+// enriched with proposal summary + commission aggregates. Only the
+// three parties (referrer, provider, client) may read. The client's
+// DTO is trimmed upstream (handler layer) to strip commission amounts
+// — Modèle A confidentiality.
+func (s *Service) ListAttributionsWithStats(ctx context.Context, referralID, viewerID uuid.UUID) ([]*AttributionWithStats, error) {
+	// Ownership check — reuse GetByID so the service stays the single
+	// gate keeping these reads scoped to the three parties.
+	if _, err := s.GetByID(ctx, referralID, viewerID); err != nil {
+		return nil, err
+	}
+
+	atts, err := s.referrals.ListAttributionsByReferral(ctx, referralID)
+	if err != nil {
+		return nil, err
+	}
+	if len(atts) == 0 {
+		return nil, nil
+	}
+
+	// Resolve proposal summaries in one pass.
+	ids := make([]uuid.UUID, 0, len(atts))
+	for _, a := range atts {
+		ids = append(ids, a.ProposalID)
+	}
+	summaries := map[uuid.UUID]*ProposalSummary{}
+	if s.proposalSummaries != nil {
+		summaries, _ = s.proposalSummaries.ResolveProposalSummaries(ctx, ids)
+	}
+
+	// Aggregate commission stats per attribution.
+	allCommissions, err := s.referrals.ListCommissionsByReferral(ctx, referralID)
+	if err != nil {
+		return nil, err
+	}
+	type agg struct {
+		paid    int64
+		pending int64
+		countP  int
+		countQ  int
+	}
+	byAtt := make(map[uuid.UUID]*agg, len(atts))
+	for _, c := range allCommissions {
+		a, ok := byAtt[c.AttributionID]
+		if !ok {
+			a = &agg{}
+			byAtt[c.AttributionID] = a
+		}
+		switch c.Status {
+		case referral.CommissionPaid:
+			a.paid += c.CommissionCents
+			a.countP++
+		case referral.CommissionPending, referral.CommissionPendingKYC:
+			a.pending += c.CommissionCents
+			a.countQ++
+		}
+	}
+
+	out := make([]*AttributionWithStats, 0, len(atts))
+	for _, att := range atts {
+		row := &AttributionWithStats{Attribution: att}
+		if sum, ok := summaries[att.ProposalID]; ok {
+			row.ProposalTitle = sum.Title
+			row.ProposalStatus = sum.Status
+		}
+		if a, ok := byAtt[att.ID]; ok {
+			row.TotalCommissionCents = a.paid
+			row.PendingCommissionCents = a.pending
+			row.MilestonesPaid = a.countP
+			row.MilestonesPending = a.countQ
+		}
+		out = append(out, row)
+	}
+	return out, nil
+}
+
+// ListCommissionsByReferral returns every commission row attached to a
+// referral, across all its attributions. Reserved for the apporteur and
+// the provider party — the client never sees individual commission
+// amounts (Modèle A). The handler enforces that scope via the DTO
+// tailoring step; the service authorises any of the three parties so
+// downstream tooling (admin, tests) can read without duplication.
+func (s *Service) ListCommissionsByReferral(ctx context.Context, referralID, viewerID uuid.UUID) ([]*referral.Commission, error) {
+	if _, err := s.GetByID(ctx, referralID, viewerID); err != nil {
+		return nil, err
+	}
+	return s.referrals.ListCommissionsByReferral(ctx, referralID)
+}

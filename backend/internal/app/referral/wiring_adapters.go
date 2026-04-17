@@ -79,6 +79,49 @@ func (r *OrgStripeAccountResolver) ResolveStripeAccountID(ctx context.Context, u
 	return accountID, nil
 }
 
+// ─── ProposalSummaryResolver adapters ─────────────────────────────────────
+
+// ProposalRepoSummaryResolver reads proposal summaries directly from
+// the ProposalRepository. The referral feature never imports the
+// proposal feature — only the cross-feature-agnostic repository port.
+//
+// V1 iterates GetByID per id (a typical exclusivity window has 1-5
+// attributions so the overhead is negligible). If this ever becomes
+// hot, add ProposalRepository.GetByIDs for a batch query.
+type ProposalRepoSummaryResolver struct {
+	proposals repository.ProposalRepository
+}
+
+// NewProposalRepoSummaryResolver wires the resolver. Safe with nil
+// proposals (returns empty map with no error).
+func NewProposalRepoSummaryResolver(proposals repository.ProposalRepository) *ProposalRepoSummaryResolver {
+	return &ProposalRepoSummaryResolver{proposals: proposals}
+}
+
+// ResolveProposalSummaries loads title+status for each proposal id,
+// returning a map keyed by id. Missing rows (e.g. a proposal that was
+// later hard-deleted, or a test fixture that never created one) are
+// silently skipped so the UI degrades gracefully rather than 500-ing
+// on a single missing row.
+func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error) {
+	out := make(map[uuid.UUID]*ProposalSummary, len(ids))
+	if r.proposals == nil || len(ids) == 0 {
+		return out, nil
+	}
+	for _, id := range ids {
+		p, err := r.proposals.GetByID(ctx, id)
+		if err != nil || p == nil {
+			continue
+		}
+		out[id] = &ProposalSummary{
+			ID:     p.ID,
+			Title:  p.Title,
+			Status: string(p.Status),
+		}
+	}
+	return out, nil
+}
+
 // ─── OrgMemberResolver adapters ───────────────────────────────────────────
 
 // OrgDirectoryMemberResolver resolves the list of user ids that share an
