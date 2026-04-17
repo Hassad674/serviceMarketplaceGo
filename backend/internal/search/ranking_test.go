@@ -180,9 +180,12 @@ func TestDefaultSortBy(t *testing.T) {
 	// formula picks the three highest-impact signals and lets the
 	// remaining quality signals (verified, top_rated, completion
 	// score) influence ranking through the bayesian rating_score.
+	// Phase 3 restored the vector-distance slot by swapping
+	// availability_priority out of the default sort (availability
+	// still surfaces via the facet filter).
 	fragments := []string{
 		"_text_match(buckets:10):desc",
-		"availability_priority:desc",
+		"_vector_distance:asc",
 		"rating_score:desc",
 	}
 

@@ -193,30 +193,28 @@ func clampScore(score int) int {
 // DefaultSortBy returns the canonical sort_by string used by the
 // query path when no user-specified sort is provided.
 //
-// Typesense 28.0 caps sort_by at THREE fields, so the formula picks
-// the three highest-impact signals and lets the other quality
-// signals (verified, top_rated, completion_score, last_active_at)
-// influence ranking through the bayesian rating_score plus the
-// underlying _text_match scoring:
+// Typesense 28.0 caps sort_by at THREE fields. Phase 3 restores the
+// vector-distance slot by dropping `availability_priority` from the
+// default sort — availability still influences ranking via the
+// Bayesian rating score tier + facet filters the user can toggle.
 //
-//  1. _text_match(buckets:10):desc — group visually-similar matches
-//     into 10 buckets so business signals break the ties inside
-//     each bucket.
-//  2. availability_priority:desc — actors available NOW float to
-//     the top of every bucket.
-//  3. rating_score:desc — Bayesian-weighted rating score acts as
-//     the universal quality tiebreaker.
+//  1. _text_match(buckets:10):desc — bucketed keyword relevance so
+//     close matches cluster together and let the other slots break
+//     ties inside each bucket.
+//  2. _vector_distance:asc — semantic similarity (smaller cosine
+//     distance = closer meaning). Active only when the query sends a
+//     `vector_query` param; ignored otherwise so empty-query listing
+//     pages are not penalised.
+//  3. rating_score:desc — Bayesian-weighted rating acts as the
+//     quality tiebreaker across buckets.
 //
 // Changing the order here MUST be followed by a full bulk reindex —
 // even though the formula lives on the query side, reviewers need to
 // re-tune the weights after any change.
-//
-// Phase 3 will swap _text_match for the hybrid (_text_match + vector)
-// variant once the embedding field is populated.
 func DefaultSortBy() string {
 	return strings.Join([]string{
 		"_text_match(buckets:10):desc",
-		"availability_priority:desc",
+		"_vector_distance:asc",
 		"rating_score:desc",
 	}, ",")
 }

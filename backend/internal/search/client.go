@@ -343,7 +343,8 @@ func (c *Client) bulkUpsertBatch(ctx context.Context, collection string, batch [
 }
 
 // SearchParams is the query-side struct posted to /collections/:name/documents/search.
-// Exposed for phase 2 which implements the query path.
+// Exposed for phase 2 which implements the query path; phase 3 adds
+// VectorQuery for hybrid semantic search.
 type SearchParams struct {
 	Q                  string `json:"q"`
 	QueryBy            string `json:"query_by"`
@@ -358,6 +359,13 @@ type SearchParams struct {
 	HighlightFullFields string `json:"highlight_full_fields,omitempty"`
 	NumTypos           string `json:"num_typos,omitempty"`
 	MaxFacetValues     int    `json:"max_facet_values,omitempty"`
+
+	// VectorQuery activates Typesense hybrid search. Format:
+	//   embedding:([0.12,0.34,...], k:20)
+	// Only set when the caller has a text query to embed — the
+	// listing-page fallback (q=*) should leave it empty so the vector
+	// distance does not dominate the ranking of millions of profiles.
+	VectorQuery string `json:"vector_query,omitempty"`
 }
 
 // Query calls the collection's /documents/search endpoint and
@@ -399,6 +407,9 @@ func (c *Client) Query(ctx context.Context, collection string, params SearchPara
 	}
 	if params.MaxFacetValues > 0 {
 		q.Set("max_facet_values", fmt.Sprintf("%d", params.MaxFacetValues))
+	}
+	if params.VectorQuery != "" {
+		q.Set("vector_query", params.VectorQuery)
 	}
 
 	path := fmt.Sprintf("/collections/%s/documents/search?%s",
