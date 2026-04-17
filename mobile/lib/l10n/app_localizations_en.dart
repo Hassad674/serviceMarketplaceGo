@@ -355,6 +355,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchEmptyCta => 'Reset filters';
 
   @override
+  String get searchFiltersRadius => 'Radius (km)';
+
+  @override
+  String get searchFiltersSkillsHint => 'Type a skill and press Enter';
+
+  @override
+  String get searchDidYouMean => 'Did you mean';
+
+  @override
+  String searchResultsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+      zero: 'No results',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get searchFiltersTitle => 'Filters';
 
   @override

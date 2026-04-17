@@ -131,6 +131,15 @@
   "searchEmptyTitle": "No results",
   "searchEmptyDescription": "Try broadening your filters.",
   "searchEmptyCta": "Reset filters",
+  "searchFiltersRadius": "Radius (km)",
+  "searchFiltersSkillsHint": "Type a skill and press Enter",
+  "searchDidYouMean": "Did you mean",
+  "searchResultsCount": "{count, plural, =0{No results} =1{1 result} other{{count} results}}",
+  "@searchResultsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "searchFiltersTitle": "Filters",
   "searchFiltersAvailability": "Availability",
   "searchFiltersAvailableNow": "Now",

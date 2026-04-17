@@ -1,46 +1,33 @@
+/// search_filter_bottom_sheet.dart — the full-screen modal sheet
+/// that lets users refine their search. Mirrors
+/// `web/src/shared/components/search/search-filter-sidebar.tsx`
+/// section-for-section, dropping only the layout difference
+/// (vertical stack vs left rail).
+///
+/// Phase 5A — 2026-04-17: extended from 4 filters to the full 10+
+/// web-parity set. The original `MobileSearchFilters` class was
+/// replaced by the one in `shared/search/search_filters.dart`; this
+/// file re-exports it for call-site convenience.
+library;
+
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/search/search_filters.dart';
+import 'filter_sections/expertise_section.dart';
+import 'filter_sections/filter_primitives.dart';
+import 'filter_sections/location_section.dart';
+import 'filter_sections/price_range_section.dart';
+import 'filter_sections/skills_chip_input.dart';
 
-/// Minimal filter state surfaced by the mobile search drawer. Mirrors
-/// the web SearchFilters shape but intentionally smaller — mobile
-/// filters only surface the most common dimensions on phones (extra
-/// sections would require scrolling past the fold, reducing tap
-/// conversion). When Typesense lands, extend this shape to match the
-/// web contract field for field.
-class MobileSearchFilters {
-  const MobileSearchFilters({
-    this.availability = 'all',
-    this.workModes = const <String>{},
-    this.languages = const <String>{},
-    this.minRating = 0,
-  });
+export '../../../../shared/search/search_filters.dart';
 
-  final String availability;
-  final Set<String> workModes;
-  final Set<String> languages;
-  final int minRating;
+/// Back-compat alias for the old `kEmptyMobileFilters` symbol. Lets
+/// callers migrate without touching every import on day one.
+const MobileSearchFilters kEmptyMobileFilters = kEmptyMobileSearchFilters;
 
-  MobileSearchFilters copyWith({
-    String? availability,
-    Set<String>? workModes,
-    Set<String>? languages,
-    int? minRating,
-  }) {
-    return MobileSearchFilters(
-      availability: availability ?? this.availability,
-      workModes: workModes ?? this.workModes,
-      languages: languages ?? this.languages,
-      minRating: minRating ?? this.minRating,
-    );
-  }
-}
-
-const MobileSearchFilters kEmptyMobileFilters = MobileSearchFilters();
-
-/// Shows the filter bottom sheet and returns the latest filters state
-/// when the user taps apply. Returns null if the sheet is dismissed.
+/// Shows the filter bottom sheet and returns the latest filters
+/// state when the user taps apply. Returns null when dismissed.
 Future<MobileSearchFilters?> showSearchFilterBottomSheet(
   BuildContext context, {
   required MobileSearchFilters initial,
@@ -48,24 +35,27 @@ Future<MobileSearchFilters?> showSearchFilterBottomSheet(
   return showModalBottomSheet<MobileSearchFilters>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Theme.of(context).colorScheme.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (_) => _SearchFilterSheet(initial: initial),
+    builder: (_) => SearchFilterSheet(initial: initial),
   );
 }
 
-class _SearchFilterSheet extends StatefulWidget {
-  const _SearchFilterSheet({required this.initial});
+/// SearchFilterSheet — the public stateful widget so widget tests
+/// can pump it directly without needing a modal route.
+class SearchFilterSheet extends StatefulWidget {
+  const SearchFilterSheet({super.key, required this.initial});
 
   final MobileSearchFilters initial;
 
   @override
-  State<_SearchFilterSheet> createState() => _SearchFilterSheetState();
+  State<SearchFilterSheet> createState() => _SearchFilterSheetState();
 }
 
-class _SearchFilterSheetState extends State<_SearchFilterSheet> {
+class _SearchFilterSheetState extends State<SearchFilterSheet> {
   late MobileSearchFilters _filters;
 
   @override
@@ -76,75 +66,139 @@ class _SearchFilterSheetState extends State<_SearchFilterSheet> {
 
   void _update(MobileSearchFilters next) => setState(() => _filters = next);
 
+  void _reset() => _update(kEmptyMobileSearchFilters);
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mq = MediaQuery.of(context);
-    return FractionallySizedBox(
-      heightFactor: 0.9,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _Header(title: l10n.searchFiltersTitle),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _AvailabilitySection(
-                      value: _filters.availability,
-                      onChanged: (v) =>
-                          _update(_filters.copyWith(availability: v)),
-                    ),
-                    const SizedBox(height: 20),
-                    _WorkModeSection(
-                      selected: _filters.workModes,
-                      onToggle: (v) => _update(
-                        _filters.copyWith(workModes: _toggle(_filters.workModes, v)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _LanguagesSection(
-                      selected: _filters.languages,
-                      onToggle: (v) => _update(
-                        _filters.copyWith(languages: _toggle(_filters.languages, v)),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    _RatingSection(
-                      value: _filters.minRating,
-                      onChanged: (v) => _update(_filters.copyWith(minRating: v)),
-                    ),
-                  ],
+    return GestureDetector(
+      // Keyboard dismissal on tap outside any focused text field.
+      onTap: () => FocusScope.of(context).unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: FractionallySizedBox(
+        heightFactor: 0.95,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _SheetHeader(title: l10n.searchFiltersTitle),
+              Expanded(
+                child: _FilterBody(
+                  filters: _filters,
+                  onChanged: _update,
+                  l10n: l10n,
                 ),
               ),
-            ),
-            _Footer(
-              onApply: () => Navigator.of(context).pop(_filters),
-              onReset: () => _update(kEmptyMobileFilters),
-            ),
-          ],
+              _SheetFooter(
+                showReset: !_filters.isEmpty,
+                onApply: () => Navigator.of(context).pop(_filters),
+                onReset: _reset,
+                applyLabel: l10n.searchFiltersApply,
+                resetLabel: l10n.searchFiltersReset,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Set<String> _toggle(Set<String> source, String value) {
-    final next = Set<String>.from(source);
-    if (!next.add(value)) next.remove(value);
-    return next;
+/// _FilterBody holds the scrollable stack of section widgets. Split
+/// from _SearchFilterSheetState to keep each method under the 50-
+/// line limit.
+class _FilterBody extends StatelessWidget {
+  const _FilterBody({
+    required this.filters,
+    required this.onChanged,
+    required this.l10n,
+  });
+
+  final MobileSearchFilters filters;
+  final ValueChanged<MobileSearchFilters> onChanged;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _AvailabilitySection(
+            value: filters.availability,
+            onChanged: (v) =>
+                onChanged(filters.copyWith(availability: v)),
+            l10n: l10n,
+          ),
+          PriceRangeSection(
+            sectionTitle: l10n.searchFiltersPrice,
+            minLabel: l10n.searchFiltersPriceMin,
+            maxLabel: l10n.searchFiltersPriceMax,
+            priceMin: filters.priceMin,
+            priceMax: filters.priceMax,
+            onPriceMinChanged: (v) =>
+                onChanged(filters.copyWith(priceMin: v)),
+            onPriceMaxChanged: (v) =>
+                onChanged(filters.copyWith(priceMax: v)),
+          ),
+          LocationSection(
+            sectionTitle: l10n.searchFiltersLocation,
+            cityLabel: l10n.searchFiltersLocationCity,
+            countryLabel: l10n.searchFiltersLocationCountry,
+            radiusLabel: l10n.searchFiltersRadius,
+            city: filters.city,
+            countryCode: filters.countryCode,
+            radiusKm: filters.radiusKm,
+            onCityChanged: (v) => onChanged(filters.copyWith(city: v)),
+            onCountryChanged: (v) =>
+                onChanged(filters.copyWith(countryCode: v)),
+            onRadiusChanged: (v) =>
+                onChanged(filters.copyWith(radiusKm: v)),
+          ),
+          _LanguagesSection(
+            selected: filters.languages,
+            onChanged: (v) => onChanged(filters.copyWith(languages: v)),
+            title: l10n.searchFiltersLanguages,
+          ),
+          ExpertiseSection(
+            title: l10n.searchFiltersExpertise,
+            selected: filters.expertise,
+            onChanged: (v) => onChanged(filters.copyWith(expertise: v)),
+          ),
+          FilterSectionShell(
+            title: l10n.searchFiltersSkills,
+            child: SkillsChipInput(
+              selected: filters.skills,
+              onChanged: (v) => onChanged(filters.copyWith(skills: v)),
+              placeholder: l10n.searchFiltersSkillsHint,
+              semanticsPlaceholder: l10n.searchFiltersSkills,
+            ),
+          ),
+          _RatingSection(
+            value: filters.minRating,
+            onChanged: (v) => onChanged(filters.copyWith(minRating: v)),
+            title: l10n.searchFiltersRating,
+          ),
+          _WorkModeSection(
+            selected: filters.workModes,
+            onChanged: (v) => onChanged(filters.copyWith(workModes: v)),
+            l10n: l10n,
+          ),
+        ],
+      ),
+    );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Sub-sections
+// Header + footer
 // ---------------------------------------------------------------------------
 
-class _Header extends StatelessWidget {
-  const _Header({required this.title});
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader({required this.title});
 
   final String title;
 
@@ -164,6 +218,7 @@ class _Header extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.close),
+            tooltip: 'Close',
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -172,15 +227,23 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Footer extends StatelessWidget {
-  const _Footer({required this.onApply, required this.onReset});
+class _SheetFooter extends StatelessWidget {
+  const _SheetFooter({
+    required this.showReset,
+    required this.onApply,
+    required this.onReset,
+    required this.applyLabel,
+    required this.resetLabel,
+  });
 
+  final bool showReset;
   final VoidCallback onApply;
   final VoidCallback onReset;
+  final String applyLabel;
+  final String resetLabel;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -188,26 +251,29 @@ class _Footer extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Expanded(
-            child: OutlinedButton(
-              onPressed: onReset,
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 48),
+          if (showReset)
+            Expanded(
+              child: OutlinedButton(
+                key: const ValueKey('filter-reset'),
+                onPressed: onReset,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(0, 48),
+                ),
+                child: Text(resetLabel),
               ),
-              child: Text(l10n.searchFiltersReset),
             ),
-          ),
-          const SizedBox(width: 12),
+          if (showReset) const SizedBox(width: 12),
           Expanded(
-            flex: 2,
+            flex: showReset ? 2 : 1,
             child: ElevatedButton(
+              key: const ValueKey('filter-apply'),
               onPressed: onApply,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF43F5E),
+                backgroundColor: kFilterRose500,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 48),
               ),
-              child: Text(l10n.searchFiltersApply),
+              child: Text(applyLabel),
             ),
           ),
         ],
@@ -216,207 +282,160 @@ class _Footer extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final appColors = Theme.of(context).extension<AppColors>();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.4,
-          color: appColors?.mutedForeground,
-        ),
-      ),
-    );
-  }
-}
+// ---------------------------------------------------------------------------
+// In-file sections (availability / languages / work mode / rating)
+// ---------------------------------------------------------------------------
 
 class _AvailabilitySection extends StatelessWidget {
-  const _AvailabilitySection({required this.value, required this.onChanged});
+  const _AvailabilitySection({
+    required this.value,
+    required this.onChanged,
+    required this.l10n,
+  });
 
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final labels = <String, String>{
-      'now': l10n.searchFiltersAvailableNow,
-      'soon': l10n.searchFiltersAvailableSoon,
-      'all': l10n.searchFiltersAll,
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: l10n.searchFiltersAvailability),
-        Wrap(
-          spacing: 8,
-          children: labels.entries
-              .map(
-                (entry) => _PillButton(
-                  label: entry.value,
-                  selected: value == entry.key,
-                  onPressed: () => onChanged(entry.key),
-                ),
-              )
-              .toList(growable: false),
-        ),
-      ],
-    );
-  }
-}
-
-class _WorkModeSection extends StatelessWidget {
-  const _WorkModeSection({required this.selected, required this.onToggle});
-
-  final Set<String> selected;
-  final ValueChanged<String> onToggle;
+  final MobileAvailabilityFilter value;
+  final ValueChanged<MobileAvailabilityFilter> onChanged;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final options = <String, String>{
-      'remote': l10n.searchFiltersRemote,
-      'on_site': l10n.searchFiltersOnSite,
-      'hybrid': l10n.searchFiltersHybrid,
+    final options = <MobileAvailabilityFilter, String>{
+      MobileAvailabilityFilter.now: l10n.searchFiltersAvailableNow,
+      MobileAvailabilityFilter.soon: l10n.searchFiltersAvailableSoon,
+      MobileAvailabilityFilter.all: l10n.searchFiltersAll,
     };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: l10n.searchFiltersWorkMode),
-        Wrap(
-          spacing: 8,
-          children: options.entries
-              .map(
-                (entry) => _PillButton(
-                  label: entry.value,
-                  selected: selected.contains(entry.key),
-                  onPressed: () => onToggle(entry.key),
-                ),
-              )
-              .toList(growable: false),
-        ),
-      ],
+    return FilterSectionShell(
+      title: l10n.searchFiltersAvailability,
+      child: Wrap(
+        spacing: 8,
+        children: options.entries
+            .map(
+              (entry) => FilterPillButton(
+                key: ValueKey('availability-${entry.key.name}'),
+                label: entry.value,
+                selected: value == entry.key,
+                onPressed: () => onChanged(entry.key),
+              ),
+            )
+            .toList(growable: false),
+      ),
     );
   }
 }
 
 class _LanguagesSection extends StatelessWidget {
-  const _LanguagesSection({required this.selected, required this.onToggle});
+  const _LanguagesSection({
+    required this.selected,
+    required this.onChanged,
+    required this.title,
+  });
 
   final Set<String> selected;
-  final ValueChanged<String> onToggle;
+  final ValueChanged<Set<String>> onChanged;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    const codes = <String>['fr', 'en', 'es', 'de', 'it', 'pt'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: l10n.searchFiltersLanguages),
-        Wrap(
-          spacing: 8,
-          runSpacing: 6,
-          children: codes
-              .map(
-                (code) => _PillButton(
-                  label: code.toUpperCase(),
-                  selected: selected.contains(code),
-                  onPressed: () => onToggle(code),
-                ),
-              )
-              .toList(growable: false),
-        ),
-      ],
+    return FilterSectionShell(
+      title: title,
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: kMobileCommonLanguages
+            .map(
+              (code) => FilterPillButton(
+                key: ValueKey('lang-$code'),
+                label: code.toUpperCase(),
+                selected: selected.contains(code),
+                onPressed: () => _toggle(code),
+              ),
+            )
+            .toList(growable: false),
+      ),
     );
+  }
+
+  void _toggle(String code) {
+    final next = Set<String>.from(selected);
+    if (!next.add(code)) next.remove(code);
+    onChanged(next);
+  }
+}
+
+class _WorkModeSection extends StatelessWidget {
+  const _WorkModeSection({
+    required this.selected,
+    required this.onChanged,
+    required this.l10n,
+  });
+
+  final Set<MobileWorkMode> selected;
+  final ValueChanged<Set<MobileWorkMode>> onChanged;
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = <MobileWorkMode, String>{
+      MobileWorkMode.remote: l10n.searchFiltersRemote,
+      MobileWorkMode.onSite: l10n.searchFiltersOnSite,
+      MobileWorkMode.hybrid: l10n.searchFiltersHybrid,
+    };
+    return FilterSectionShell(
+      title: l10n.searchFiltersWorkMode,
+      child: Wrap(
+        spacing: 8,
+        children: options.entries
+            .map(
+              (entry) => FilterPillButton(
+                key: ValueKey('workmode-${entry.key.name}'),
+                label: entry.value,
+                selected: selected.contains(entry.key),
+                onPressed: () => _toggle(entry.key),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  void _toggle(MobileWorkMode mode) {
+    final next = Set<MobileWorkMode>.from(selected);
+    if (!next.add(mode)) next.remove(mode);
+    onChanged(next);
   }
 }
 
 class _RatingSection extends StatelessWidget {
-  const _RatingSection({required this.value, required this.onChanged});
+  const _RatingSection({
+    required this.value,
+    required this.onChanged,
+    required this.title,
+  });
 
   final int value;
   final ValueChanged<int> onChanged;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: l10n.searchFiltersRating),
-        Row(
-          children: List.generate(5, (i) {
-            final star = i + 1;
-            final selected = star <= value;
-            return IconButton(
-              onPressed: () => onChanged(value == star ? 0 : star),
-              icon: Icon(
-                selected ? Icons.star : Icons.star_border,
-                color: selected
-                    ? const Color(0xFFFBBF24)
-                    : Theme.of(context).disabledColor,
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-}
-
-class _PillButton extends StatelessWidget {
-  const _PillButton({
-    required this.label,
-    required this.selected,
-    required this.onPressed,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-    return Material(
-      color: selected
-          ? const Color(0xFFFFE4E6)
-          : theme.colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: selected
-              ? const Color(0xFFF43F5E)
-              : appColors?.border ?? theme.dividerColor,
-        ),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+    return FilterSectionShell(
+      title: title,
+      child: Row(
+        children: List.generate(5, (i) {
+          final star = i + 1;
+          final selected = star <= value;
+          return IconButton(
+            key: ValueKey('rating-star-$star'),
+            onPressed: () => onChanged(value == star ? 0 : star),
+            tooltip: '$star',
+            icon: Icon(
+              selected ? Icons.star : Icons.star_border,
               color: selected
-                  ? const Color(0xFFBE123C)
-                  : theme.colorScheme.onSurface,
+                  ? const Color(0xFFFBBF24)
+                  : Theme.of(context).disabledColor,
             ),
-          ),
-        ),
+          );
+        }),
       ),
     );
   }

@@ -124,6 +124,15 @@
   "searchEmptyTitle": "Aucun résultat",
   "searchEmptyDescription": "Essaie d'élargir tes filtres.",
   "searchEmptyCta": "Réinitialiser les filtres",
+  "searchFiltersRadius": "Rayon (km)",
+  "searchFiltersSkillsHint": "Tape une compétence puis Entrée",
+  "searchDidYouMean": "Vouliez-vous dire",
+  "searchResultsCount": "{count, plural, =0{Aucun résultat} =1{1 résultat} other{{count} résultats}}",
+  "@searchResultsCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "searchFiltersTitle": "Filtres",
   "searchFiltersAvailability": "Disponibilité",
   "searchFiltersAvailableNow": "Maintenant",
