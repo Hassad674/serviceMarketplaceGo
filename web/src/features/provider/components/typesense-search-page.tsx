@@ -137,6 +137,9 @@ function sortKeyToTypesense(key: SortKey): string {
       return "last_active_at:desc,_text_match(buckets:10):desc,rating_score:desc"
     case "relevance":
     default:
+      // Backend swaps availability_priority for _vector_distance when
+      // hybrid search is active (user typed something). We emit the
+      // BM25-friendly variant here so the backend can override safely.
       return "_text_match(buckets:10):desc,availability_priority:desc,rating_score:desc"
   }
 }

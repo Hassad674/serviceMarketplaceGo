@@ -55,10 +55,11 @@ const String kDefaultQueryBy = 'display_name,title,skills_text,city';
 const String kDefaultNumTypos = '2,2,1,1';
 
 /// DEFAULT_SORT_BY mirrors the backend's three-field sort_by.
-/// Phase 3 restored `_vector_distance:asc` so the mobile + web +
-/// backend constants stay in parity.
+/// Typesense 28.0 rejects `_vector_distance` in sort_by unless a
+/// `vector_query` is active, so the mobile default keeps
+/// `availability_priority`. Hybrid sort is produced server-side.
 const String kDefaultSortBy =
-    '_text_match(buckets:10):desc,_vector_distance:asc,rating_score:desc';
+    '_text_match(buckets:10):desc,availability_priority:desc,rating_score:desc';
 const String kDefaultFacetBy =
     'availability_status,city,country_code,languages_professional,'
     'expertise_domains,skills,work_mode,is_verified,is_top_rated,pricing_currency';
