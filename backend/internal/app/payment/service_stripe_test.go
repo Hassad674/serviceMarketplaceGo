@@ -149,6 +149,122 @@ func TestTransferPartialToProvider_KYCReady_TransfersAndMarksCompleted(t *testin
 	assert.Equal(t, "acct_test_123", stripe.transferCalls[0].DestinationAccount)
 }
 
+// fakeProposalStatuses stubs ProposalStatusReader. The map keys are the
+// proposal IDs; missing entries return "" with nil error (the contract's
+// "unknown — do not transfer" sentinel).
+type fakeProposalStatuses struct {
+	statuses map[uuid.UUID]string
+	calls    []uuid.UUID
+}
+
+func (f *fakeProposalStatuses) GetProposalStatus(_ context.Context, id uuid.UUID) (string, error) {
+	f.calls = append(f.calls, id)
+	return f.statuses[id], nil
+}
+
+// listingRecords exercises ListByOrganization for RequestPayout tests.
+// Embedded PaymentRecordRepository keeps the unused methods panic-free.
+type listingRecords struct {
+	repository.PaymentRecordRepository
+	records  []*domain.PaymentRecord
+	updated  []*domain.PaymentRecord
+}
+
+func (l *listingRecords) ListByOrganization(_ context.Context, _ uuid.UUID) ([]*domain.PaymentRecord, error) {
+	out := make([]*domain.PaymentRecord, 0, len(l.records))
+	for _, r := range l.records {
+		copy := *r
+		out = append(out, &copy)
+	}
+	return out, nil
+}
+
+func (l *listingRecords) Update(_ context.Context, r *domain.PaymentRecord) error {
+	l.updated = append(l.updated, r)
+	return nil
+}
+
+// The bug: RequestPayout filtered on Status=succeeded + TransferStatus=pending
+// but did NOT check the proposal's mission_status. The UI correctly hid
+// escrow funds (missions still active) from AvailableAmount, but a button
+// click still pulled everything. The fix gates transfers on
+// mission_status=="completed" via a ProposalStatusReader port.
+func TestRequestPayout_SkipsEscrowWhenMissionNotCompleted(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+	activeProposal := uuid.New()
+	completedProposal := uuid.New()
+
+	rec1 := baseRecord()
+	rec1.ProposalID = activeProposal
+	rec1.ProviderPayout = 400
+
+	rec2 := baseRecord()
+	rec2.ProposalID = completedProposal
+	rec2.ProviderPayout = 600
+
+	records := &listingRecords{records: []*domain.PaymentRecord{rec1, rec2}}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_123"}
+	stripe := &fakeStripe{}
+	statuses := &fakeProposalStatuses{statuses: map[uuid.UUID]string{
+		activeProposal:    "active",
+		completedProposal: "completed",
+	}}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+	svc.SetProposalStatusReader(statuses)
+
+	result, err := svc.RequestPayout(context.Background(), userID, orgID)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Only the completed proposal must hit Stripe. The active one stays
+	// in escrow even though its payment record is succeeded+pending.
+	assert.Len(t, stripe.transferCalls, 1, "exactly one transfer for the completed mission")
+	assert.Equal(t, int64(600), stripe.transferCalls[0].Amount)
+	assert.Equal(t, completedProposal.String(), stripe.transferCalls[0].TransferGroup)
+
+	// Both records are looked up for their status, only the completed one is updated.
+	assert.Contains(t, statuses.calls, activeProposal)
+	assert.Contains(t, statuses.calls, completedProposal)
+	assert.Len(t, records.updated, 1, "only the transferred record is persisted")
+	assert.Equal(t, completedProposal, records.updated[0].ProposalID)
+	assert.Equal(t, domain.TransferCompleted, records.updated[0].TransferStatus)
+}
+
+// When the ProposalStatusReader is not wired (legacy / test bootstraps),
+// the service falls back to the pre-fix behaviour: transfer everything
+// succeeded+pending. This keeps the feature bootable without proposal
+// but MUST log a warning so the degraded mode is never silent in prod.
+func TestRequestPayout_NoStatusReader_FallsBackToLegacyBehaviour(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+
+	rec := baseRecord()
+	rec.ProviderPayout = 500
+
+	records := &listingRecords{records: []*domain.PaymentRecord{rec}}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_123"}
+	stripe := &fakeStripe{}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+	// NOTE: no SetProposalStatusReader — the service must not crash
+	// and must preserve the legacy behaviour so existing tests keep
+	// passing until every caller wires the reader.
+
+	_, err := svc.RequestPayout(context.Background(), userID, orgID)
+	assert.NoError(t, err)
+	assert.Len(t, stripe.transferCalls, 1, "fallback mode: transfer still happens")
+}
+
 // Not-succeeded records must be rejected — this preserves the invariant
 // that you cannot distribute funds that are not held in escrow.
 func TestTransferPartialToProvider_RecordNotSucceeded_Rejected(t *testing.T) {

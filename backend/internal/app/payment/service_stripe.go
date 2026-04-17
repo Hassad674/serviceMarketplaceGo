@@ -474,6 +474,11 @@ type PayoutResult struct {
 
 // RequestPayout triggers manual transfers for all pending payments
 // belonging to the caller's organization.
+//
+// Only records whose proposal has reached "completed" are transferred —
+// the wallet handler's AvailableAmount already gates the UI on the same
+// rule, this enforces it server-side so clicking Retirer cannot pull
+// funds still in escrow for an active / disputed mission.
 func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*PayoutResult, error) {
 	_ = userID // audit hook
 	stripeAccountID, _, err := s.orgs.GetStripeAccount(ctx, orgID)
@@ -489,10 +494,33 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 		return nil, fmt.Errorf("list records: %w", err)
 	}
 
+	// Log the degraded-mode warning once per call (not per record) so
+	// production logs a single line per payout instead of a flood.
+	statusesWired := s.proposalStatuses != nil
+	if !statusesWired {
+		slog.Warn("payment: RequestPayout falling back to legacy behaviour — ProposalStatusReader not wired; escrow funds may be released before mission completion",
+			"org_id", orgID)
+	}
+
 	var transferred int64
 	for _, r := range records {
 		if r.Status != domain.RecordStatusSucceeded || r.TransferStatus != domain.TransferPending {
 			continue
+		}
+
+		// Gate on mission status. Skip anything that isn't completed.
+		// Empty string (proposal missing) is treated as "not completed"
+		// — defensive, never over-pay on a stale / orphan record.
+		if statusesWired {
+			status, sErr := s.proposalStatuses.GetProposalStatus(ctx, r.ProposalID)
+			if sErr != nil {
+				slog.Error("payout: proposal status lookup failed, skipping",
+					"proposal_id", r.ProposalID, "error", sErr)
+				continue
+			}
+			if status != "completed" {
+				continue
+			}
 		}
 
 		transferID, tErr := s.stripe.CreateTransfer(ctx, portservice.CreateTransferInput{
