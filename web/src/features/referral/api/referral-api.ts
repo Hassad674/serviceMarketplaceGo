@@ -3,6 +3,8 @@ import { apiClient } from "@/shared/lib/api-client"
 import type {
   CreateReferralInput,
   Referral,
+  ReferralAttribution,
+  ReferralCommission,
   ReferralListResponse,
   ReferralNegotiation,
   ReferralStatus,
@@ -68,4 +70,19 @@ export async function respondToReferral(
 
 export async function listNegotiations(id: string): Promise<ReferralNegotiation[]> {
   return apiClient<ReferralNegotiation[]>(`${BASE}/${id}/negotiations`)
+}
+
+// listAttributions returns the proposals attributed during the
+// exclusivity window, enriched with proposal title + status + aggregate
+// commission stats. Commission amounts are absent for client viewers —
+// Modèle A confidentiality.
+export async function listAttributions(id: string): Promise<ReferralAttribution[]> {
+  return apiClient<ReferralAttribution[]>(`${BASE}/${id}/attributions`)
+}
+
+// listCommissions returns every commission row for a referral across
+// all attributions. Reserved for apporteur + provider parties — the
+// client receives 403 from this endpoint.
+export async function listCommissions(id: string): Promise<ReferralCommission[]> {
+  return apiClient<ReferralCommission[]>(`${BASE}/${id}/commissions`)
 }

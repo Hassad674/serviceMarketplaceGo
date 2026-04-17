@@ -42,4 +42,15 @@ abstract class ReferralRepository {
 
   /// Returns the negotiation audit trail for a referral, oldest first.
   Future<List<ReferralNegotiation>> listNegotiations(String id);
+
+  /// Returns the proposals attributed to the referral during its
+  /// exclusivity window, each enriched with title + status + commission
+  /// aggregates. Commission totals are absent when the viewer is the
+  /// client (backend strips them — Modèle A).
+  Future<List<ReferralAttribution>> listAttributions(String id);
+
+  /// Returns every commission row attached to the referral, across all
+  /// its attributions. Reserved for apporteur + provider — the backend
+  /// returns 403 when called by a client.
+  Future<List<ReferralCommission>> listCommissions(String id);
 }

@@ -11,6 +11,7 @@ import { AnonymizedClientCard } from "./anonymized-client-card"
 import { AnonymizedProviderCard } from "./anonymized-provider-card"
 import { NegotiationTimeline } from "./negotiation-timeline"
 import { ReferralActions } from "./referral-actions"
+import { ReferralMissionsSection } from "./referral-missions-section"
 import { ReferralStatusBadge } from "./referral-status-badge"
 
 interface ReferralDetailViewProps {
@@ -84,6 +85,16 @@ export function ReferralDetailView({ referralId }: ReferralDetailViewProps) {
         </header>
         <ReferralActions referral={referral} viewerRole={viewerRole} />
       </section>
+
+      {/* Attributed proposals — visible to all three parties once the
+          intro is active. The client sees the list without commission
+          amounts; apporteur and provider see the full picture. */}
+      {referral.status === "active" && (
+        <ReferralMissionsSection
+          referralId={referral.id}
+          viewerIsClient={viewerRole === "client"}
+        />
+      )}
 
       {/* Negotiation timeline is hidden from the client until activation
           to avoid leaking historical rate values (Modèle A). */}

@@ -39,6 +39,21 @@ final referralNegotiationsProvider =
   return repo.listNegotiations(id);
 });
 
+/// Fetches the attributed proposals of a referral.
+final referralAttributionsProvider =
+    FutureProvider.family<List<ReferralAttribution>, String>((ref, id) async {
+  final repo = ref.watch(referralRepositoryProvider);
+  return repo.listAttributions(id);
+});
+
+/// Fetches the commission rows of a referral. Reserved for apporteur +
+/// provider viewers — the backend blocks clients with 403.
+final referralCommissionsProvider =
+    FutureProvider.family<List<ReferralCommission>, String>((ref, id) async {
+  final repo = ref.watch(referralRepositoryProvider);
+  return repo.listCommissions(id);
+});
+
 // ─── Action helpers ────────────────────────────────────────────────────────
 //
 // These top-level functions are called from screen onTap handlers and

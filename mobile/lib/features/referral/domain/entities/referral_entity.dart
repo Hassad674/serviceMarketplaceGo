@@ -250,3 +250,107 @@ class ReferralNegotiation {
     );
   }
 }
+
+/// ReferralAttribution is one proposal attributed to the referral
+/// during its exclusivity window, enriched with the proposal title +
+/// status and commission aggregates.
+///
+/// rate_pct_snapshot and the commission totals are null when the
+/// viewer is the client — the backend strips them before encoding
+/// (Modèle A confidentiality).
+class ReferralAttribution {
+  const ReferralAttribution({
+    required this.id,
+    required this.proposalId,
+    this.proposalTitle = '',
+    this.proposalStatus = '',
+    this.ratePctSnapshot,
+    required this.attributedAt,
+    this.totalCommissionCents,
+    this.pendingCommissionCents,
+    this.milestonesPaid = 0,
+    this.milestonesPending = 0,
+  });
+
+  final String id;
+  final String proposalId;
+  final String proposalTitle;
+  final String proposalStatus;
+  final double? ratePctSnapshot;
+  final String attributedAt;
+  final int? totalCommissionCents;
+  final int? pendingCommissionCents;
+  final int milestonesPaid;
+  final int milestonesPending;
+
+  factory ReferralAttribution.fromJson(Map<String, dynamic> json) {
+    return ReferralAttribution(
+      id: json['id'] as String,
+      proposalId: json['proposal_id'] as String,
+      proposalTitle: (json['proposal_title'] as String?) ?? '',
+      proposalStatus: (json['proposal_status'] as String?) ?? '',
+      ratePctSnapshot: (json['rate_pct_snapshot'] as num?)?.toDouble(),
+      attributedAt: json['attributed_at'] as String,
+      totalCommissionCents: json['total_commission_cents'] as int?,
+      pendingCommissionCents: json['pending_commission_cents'] as int?,
+      milestonesPaid: (json['milestones_paid'] as int?) ?? 0,
+      milestonesPending: (json['milestones_pending'] as int?) ?? 0,
+    );
+  }
+}
+
+/// ReferralCommission is one commission row attached to a milestone of
+/// an attributed proposal. Only the apporteur and the provider party
+/// can fetch the list — the backend blocks the client with 403.
+class ReferralCommission {
+  const ReferralCommission({
+    required this.id,
+    required this.attributionId,
+    required this.milestoneId,
+    required this.grossAmountCents,
+    required this.commissionCents,
+    this.currency = 'EUR',
+    required this.status,
+    this.stripeTransferId = '',
+    this.stripeReversalId = '',
+    this.failureReason = '',
+    this.paidAt,
+    this.clawedBackAt,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String attributionId;
+  final String milestoneId;
+  final int grossAmountCents;
+  final int commissionCents;
+  final String currency;
+
+  /// One of: pending, pending_kyc, paid, failed, cancelled, clawed_back.
+  final String status;
+
+  final String stripeTransferId;
+  final String stripeReversalId;
+  final String failureReason;
+  final String? paidAt;
+  final String? clawedBackAt;
+  final String createdAt;
+
+  factory ReferralCommission.fromJson(Map<String, dynamic> json) {
+    return ReferralCommission(
+      id: json['id'] as String,
+      attributionId: json['attribution_id'] as String,
+      milestoneId: json['milestone_id'] as String,
+      grossAmountCents: (json['gross_amount_cents'] as num).toInt(),
+      commissionCents: (json['commission_cents'] as num).toInt(),
+      currency: (json['currency'] as String?) ?? 'EUR',
+      status: json['status'] as String,
+      stripeTransferId: (json['stripe_transfer_id'] as String?) ?? '',
+      stripeReversalId: (json['stripe_reversal_id'] as String?) ?? '',
+      failureReason: (json['failure_reason'] as String?) ?? '',
+      paidAt: json['paid_at'] as String?,
+      clawedBackAt: json['clawed_back_at'] as String?,
+      createdAt: json['created_at'] as String,
+    );
+  }
+}

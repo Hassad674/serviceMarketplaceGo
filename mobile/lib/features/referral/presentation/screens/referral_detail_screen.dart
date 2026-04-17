@@ -7,6 +7,7 @@ import '../providers/referral_provider.dart';
 import '../widgets/anonymized_client_card.dart';
 import '../widgets/anonymized_provider_card.dart';
 import '../widgets/negotiation_timeline_widget.dart';
+import '../widgets/referral_missions_section.dart';
 import '../widgets/referral_status_chip.dart';
 
 /// ReferralDetailScreen — smart container for a single referral. Resolves
@@ -115,6 +116,14 @@ class _Body extends ConsumerWidget {
         ],
         const SizedBox(height: 16),
         _ActionPanel(referral: referral, viewerRole: viewerRole),
+        // Attributed proposals — visible once the intro is active.
+        // Apporteur + provider see the commission amounts; the client
+        // sees only proposal/milestone status (Modèle A).
+        if (referral.status == 'active')
+          ReferralMissionsSection(
+            referralId: referral.id,
+            viewerIsClient: viewerRole == 'client',
+          ),
         if (showRate) ...[
           const SizedBox(height: 24),
           Text(

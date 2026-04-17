@@ -5,6 +5,8 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query"
 import {
   createReferral,
   getReferral,
+  listAttributions,
+  listCommissions,
   listIncomingReferrals,
   listMyReferrals,
   listNegotiations,
@@ -14,6 +16,8 @@ import {
 import type {
   CreateReferralInput,
   Referral,
+  ReferralAttribution,
+  ReferralCommission,
   ReferralListResponse,
   ReferralNegotiation,
   RespondReferralInput,
@@ -30,6 +34,10 @@ export const referralKeys = {
   detail: (id: string) => [...referralKeys.all, "detail", id] as const,
   negotiations: (id: string) =>
     [...referralKeys.all, "negotiations", id] as const,
+  attributions: (id: string) =>
+    [...referralKeys.all, "attributions", id] as const,
+  commissions: (id: string) =>
+    [...referralKeys.all, "commissions", id] as const,
 }
 
 // useMyReferrals fetches the apporteur dashboard list. Stale-while-revalidate
@@ -78,6 +86,42 @@ export function useReferralNegotiations(id: string | undefined) {
       : ["referrals", "negotiations", "noop"],
     queryFn: () => listNegotiations(id!),
     enabled: Boolean(id),
+    staleTime: 30 * 1000,
+  })
+}
+
+// useReferralAttributions fetches the attributed proposals for a
+// referral. Auto-refetched every 30 s while the referral is active so
+// new milestone payments surface without a manual refresh.
+export function useReferralAttributions(
+  id: string | undefined,
+  opts: { enabled?: boolean } = {},
+) {
+  const enabled = Boolean(id) && (opts.enabled ?? true)
+  return useQuery<ReferralAttribution[]>({
+    queryKey: id
+      ? referralKeys.attributions(id)
+      : ["referrals", "attributions", "noop"],
+    queryFn: () => listAttributions(id!),
+    enabled,
+    staleTime: 30 * 1000,
+  })
+}
+
+// useReferralCommissions fetches the per-milestone commission rows.
+// Reserved for apporteur + provider; the backend returns 403 to the
+// client, so components must not mount this hook for client viewers.
+export function useReferralCommissions(
+  id: string | undefined,
+  opts: { enabled?: boolean } = {},
+) {
+  const enabled = Boolean(id) && (opts.enabled ?? true)
+  return useQuery<ReferralCommission[]>({
+    queryKey: id
+      ? referralKeys.commissions(id)
+      : ["referrals", "commissions", "noop"],
+    queryFn: () => listCommissions(id!),
+    enabled,
     staleTime: 30 * 1000,
   })
 }

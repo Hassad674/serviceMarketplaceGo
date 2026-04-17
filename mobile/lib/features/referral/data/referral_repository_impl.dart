@@ -88,6 +88,32 @@ class ReferralRepositoryImpl implements ReferralRepository {
     return const [];
   }
 
+  @override
+  Future<List<ReferralAttribution>> listAttributions(String id) async {
+    final response =
+        await _apiClient.get('/api/v1/referrals/$id/attributions');
+    final raw = response.data;
+    if (raw is List) {
+      return raw
+          .map((e) => ReferralAttribution.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return const [];
+  }
+
+  @override
+  Future<List<ReferralCommission>> listCommissions(String id) async {
+    final response =
+        await _apiClient.get('/api/v1/referrals/$id/commissions');
+    final raw = response.data;
+    if (raw is List) {
+      return raw
+          .map((e) => ReferralCommission.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return const [];
+  }
+
   /// _parseList accepts both the list-envelope shape `{items, next_cursor}`
   /// and a bare array, because the handler may evolve and we want the
   /// repository to stay tolerant.

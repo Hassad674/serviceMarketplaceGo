@@ -98,6 +98,47 @@ export type ReferralNegotiation = {
   created_at: string
 }
 
+// ReferralAttribution mirrors the backend DTO for GET /referrals/{id}/attributions.
+// rate_pct_snapshot and commission totals are OMITTED for client viewers
+// (backend strips them) — components handle undefined gracefully.
+export type ReferralAttribution = {
+  id: string
+  proposal_id: string
+  proposal_title?: string
+  proposal_status?: string
+  rate_pct_snapshot?: number
+  attributed_at: string
+  total_commission_cents?: number
+  pending_commission_cents?: number
+  milestones_paid: number
+  milestones_pending: number
+}
+
+// ReferralCommission mirrors GET /referrals/{id}/commissions. Blocked
+// for the client (403) so this type is only consumed by apporteur /
+// provider views.
+export type ReferralCommission = {
+  id: string
+  attribution_id: string
+  milestone_id: string
+  gross_amount_cents: number
+  commission_cents: number
+  currency: string
+  status:
+    | "pending"
+    | "pending_kyc"
+    | "paid"
+    | "failed"
+    | "cancelled"
+    | "clawed_back"
+  stripe_transfer_id?: string
+  stripe_reversal_id?: string
+  failure_reason?: string
+  paid_at?: string
+  clawed_back_at?: string
+  created_at: string
+}
+
 // ─── Mutation payloads ────────────────────────────────────────────────────
 
 export type SnapshotToggles = {
