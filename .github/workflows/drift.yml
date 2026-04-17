@@ -1,0 +1,83 @@
+# Hourly drift detector for the search engine.
+#
+# Compares Postgres org counts vs Typesense doc counts per persona.
+# Threshold 0.5% — above that, the drift-check CLI exits 2, which we
+# translate into a GitHub issue (reuse an open one to avoid noise).
+#
+# STAGING ONLY. Runs against the staging Typesense + Postgres using a
+# secret-provided connection string. Production drift alerts live in
+# the production orchestrator (PagerDuty / Grafana) — GitHub issues are
+# for developer-visible breakage.
+name: Drift
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly at HH:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: drift-${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift-check:
+    name: drift / staging
+    if: github.event_name == 'workflow_dispatch' || vars.DRIFT_CHECK_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: backend/go.sum
+      - name: drift-check against staging
+        id: drift
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          TYPESENSE_HOST: ${{ secrets.STAGING_TYPESENSE_HOST }}
+          TYPESENSE_API_KEY: ${{ secrets.STAGING_TYPESENSE_API_KEY }}
+        run: |
+          set +e
+          go run cmd/drift-check/main.go --threshold=0.005 2>&1 | tee /tmp/drift.log
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+      - name: open or reuse issue on drift
+        if: steps.drift.outputs.exitcode == '2'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.existsSync('/tmp/drift.log') ? fs.readFileSync('/tmp/drift.log', 'utf8') : '(empty)';
+            const title = 'Search drift exceeded 0.5% on staging';
+            const opened = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'drift,search',
+            });
+            const existing = opened.data.find(i => i.title === title);
+            const body = `Drift check exit=2 at ${new Date().toISOString()}.\n\n<details><summary>log</summary>\n\n\`\`\`\n${log.slice(0, 8000)}\n\`\`\`\n\n</details>\n\nRunbook: docs/ops.md#drift-alerts`;
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['drift', 'search', 'alert'],
+              });
+            }
+      - name: fail the job if drift critical
+        if: steps.drift.outputs.exitcode == '2'
+        run: exit 2
