@@ -27,44 +27,49 @@ type RouterDeps struct {
 	// optional so a worktree without the split wiring can still
 	// boot — only the corresponding routes are registered when the
 	// pointer is non-nil.
-	FreelanceProfile        *FreelanceProfileHandler
-	FreelancePricing        *FreelancePricingHandler
-	FreelanceProfileVideo   *FreelanceProfileVideoHandler
-	ReferrerProfile         *ReferrerProfileHandler
-	ReferrerPricing         *ReferrerPricingHandler
-	ReferrerProfileVideo    *ReferrerProfileVideoHandler
-	OrganizationShared      *OrganizationSharedProfileHandler
+	FreelanceProfile      *FreelanceProfileHandler
+	FreelancePricing      *FreelancePricingHandler
+	FreelanceProfileVideo *FreelanceProfileVideoHandler
+	ReferrerProfile       *ReferrerProfileHandler
+	ReferrerPricing       *ReferrerPricingHandler
+	ReferrerProfileVideo  *ReferrerProfileVideoHandler
+	OrganizationShared    *OrganizationSharedProfileHandler
 
-	Upload         *UploadHandler
-	Health         *HealthHandler
-	Messaging      *MessagingHandler
-	Proposal       *ProposalHandler
-	Job            *JobHandler
-	JobApplication *JobApplicationHandler
-	Review         *ReviewHandler
-	Call           *CallHandler
+	Upload              *UploadHandler
+	Health              *HealthHandler
+	Messaging           *MessagingHandler
+	Proposal            *ProposalHandler
+	Job                 *JobHandler
+	JobApplication      *JobApplicationHandler
+	Review              *ReviewHandler
+	Call                *CallHandler
 	SocialLink          *SocialLinkHandler // legacy agency-scoped handler
 	FreelanceSocialLink *SocialLinkHandler // persona=freelance handler
 	ReferrerSocialLink  *SocialLinkHandler // persona=referrer handler
-	Embedded       *EmbeddedHandler
-	Notification   *NotificationHandler
-	Stripe         *StripeHandler
-	Report         *ReportHandler
-	Wallet         *WalletHandler
-	Admin          *AdminHandler
-	Portfolio      *PortfolioHandler
-	ProjectHistory *ProjectHistoryHandler
-	Dispute        *DisputeHandler
-	AdminDispute   *AdminDisputeHandler
-	Skill          *SkillHandler
-	Referral       *ReferralHandler
-	Search            *SearchHandler            // optional — nil when Typesense is disabled
-	AdminSearchStats  *AdminSearchStatsHandler  // optional — nil when Typesense is disabled
-	WSHandler      http.HandlerFunc
-	Config         *config.Config
-	TokenService   service.TokenService
-	SessionService service.SessionService
-	UserRepo       repository.UserRepository // for KYC middleware
+	Embedded            *EmbeddedHandler
+	Notification        *NotificationHandler
+	Stripe              *StripeHandler
+	Report              *ReportHandler
+	Wallet              *WalletHandler
+	Admin               *AdminHandler
+	Portfolio           *PortfolioHandler
+	ProjectHistory      *ProjectHistoryHandler
+	Dispute             *DisputeHandler
+	AdminDispute        *AdminDisputeHandler
+	Skill               *SkillHandler
+	Referral            *ReferralHandler
+	Search              *SearchHandler           // optional — nil when Typesense is disabled
+	AdminSearchStats    *AdminSearchStatsHandler // optional — nil when Typesense is disabled
+	WSHandler           http.HandlerFunc
+	Config              *config.Config
+	TokenService        service.TokenService
+	SessionService      service.SessionService
+	UserRepo            repository.UserRepository // for KYC middleware
+
+	// Metrics is optional. When non-nil, a Prometheus-format scrape
+	// endpoint is exposed at GET /metrics (public, unauthenticated —
+	// bind this port to an internal-only network in production).
+	Metrics *Metrics
 }
 
 func NewRouter(deps RouterDeps) chi.Router {
@@ -81,6 +86,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 	// Health routes
 	r.Get("/health", deps.Health.Health)
 	r.Get("/ready", deps.Health.Ready)
+
+	// Prometheus metrics — public endpoint by design so a scrape
+	// target (Prometheus, Grafana Agent, etc.) does not need
+	// credentials. Bind the backend port to an internal network in
+	// production OR front this path with a reverse-proxy ACL.
+	if deps.Metrics != nil {
+		r.Get("/metrics", deps.Metrics.Handler())
+	}
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
