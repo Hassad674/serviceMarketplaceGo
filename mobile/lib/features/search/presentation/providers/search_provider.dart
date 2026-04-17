@@ -137,10 +137,13 @@ final searchKeyRepositoryProvider = Provider<SearchKeyRepository>((ref) {
 });
 
 /// typesenseSearchRepositoryProvider exposes the data-layer
-/// repository for the Typesense path.
+/// repository for the Typesense path. Phase 3: the repo routes
+/// through the backend proxy (/api/v1/search) so we inject the
+/// ApiClient rather than the Typesense scoped key fetcher.
 final typesenseSearchRepositoryProvider =
     Provider<TypesenseSearchRepository>((ref) {
   return TypesenseSearchRepository(
+    api: ref.watch(apiClientProvider).asSearchGateway(),
     keys: ref.watch(searchKeyRepositoryProvider),
   );
 });
