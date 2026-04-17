@@ -46,11 +46,15 @@ export const DEFAULT_QUERY_BY = "display_name,title,skills_text,city"
 export const DEFAULT_NUM_TYPOS = "2,2,1,1"
 
 /**
- * DEFAULT_SORT_BY matches the backend's three-field sort_by. Phase 3
- * restored `_vector_distance:asc` by dropping `availability_priority`.
+ * DEFAULT_SORT_BY matches the backend's three-field sort_by.
+ * Typesense 28.0 rejects `_vector_distance` in sort_by unless a
+ * `vector_query` is active, so the default variant keeps
+ * `availability_priority`. The hybrid variant (with vector
+ * distance) is emitted server-side — the backend picks the right
+ * one based on whether the query was embedded.
  */
 export const DEFAULT_SORT_BY =
-  "_text_match(buckets:10):desc,_vector_distance:asc,rating_score:desc"
+  "_text_match(buckets:10):desc,availability_priority:desc,rating_score:desc"
 
 /** DEFAULT_FACET_BY mirrors the fields the sidebar exposes counts for. */
 export const DEFAULT_FACET_BY =

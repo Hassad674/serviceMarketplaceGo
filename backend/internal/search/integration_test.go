@@ -144,19 +144,22 @@ func TestIntegration_BulkUpsertAndQuery(t *testing.T) {
 	var decoded struct {
 		Hits []struct {
 			Document struct {
-				ID      string         `json:"id"`
-				Persona search.Persona `json:"persona"`
+				ID             string         `json:"id"`
+				OrganizationID string         `json:"organization_id"`
+				Persona        search.Persona `json:"persona"`
 			} `json:"document"`
 		} `json:"hits"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &decoded))
 
-	// Only the freelance doc must come back.
+	// Only the freelance doc must come back. The composite ID scheme
+	// is `{orgID}:{persona}`, so we match on OrganizationID to stay
+	// agnostic to the ID format.
 	foundOrgA := false
 	for _, hit := range decoded.Hits {
 		assert.Equal(t, search.PersonaFreelance, hit.Document.Persona,
 			"scoped freelance client must never return agency/referrer docs")
-		if hit.Document.ID == orgA.String() {
+		if hit.Document.OrganizationID == orgA.String() {
 			foundOrgA = true
 		}
 	}

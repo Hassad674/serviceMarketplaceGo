@@ -190,8 +190,9 @@ func (s *Service) Query(ctx context.Context, input QueryInput) (*QueryResult, er
 	if err != nil {
 		return nil, fmt.Errorf("search query: %w", err)
 	}
-	params := s.buildSearchParams(input, page)
-	params.VectorQuery = s.maybeVectorQuery(ctx, input)
+	vectorQuery := s.maybeVectorQuery(ctx, input)
+	params := s.buildSearchParams(input, page, vectorQuery != "")
+	params.VectorQuery = vectorQuery
 
 	start := time.Now()
 	raw, err := client.Query(ctx, params)
@@ -286,7 +287,12 @@ const HybridK = 20
 // buildSearchParams assembles the Typesense query parameters from
 // the input + sane defaults. Extracted so tests can pin the exact
 // wire format the service produces.
-func (s *Service) buildSearchParams(input QueryInput, page int) search.SearchParams {
+//
+// `hybridActive` toggles the hybrid-specific wire format: embedding
+// in query_by + _vector_distance in sort_by. Must match whether the
+// caller is going to set params.VectorQuery — mismatching the two
+// tripwires Typesense's validation and returns 400.
+func (s *Service) buildSearchParams(input QueryInput, page int, hybridActive bool) search.SearchParams {
 	q := strings.TrimSpace(input.Query)
 	if q == "" {
 		q = "*"
@@ -298,18 +304,23 @@ func (s *Service) buildSearchParams(input QueryInput, page int) search.SearchPar
 	if perPage > MaxPerPage {
 		perPage = MaxPerPage
 	}
+
 	sortBy := strings.TrimSpace(input.SortBy)
 	if sortBy == "" {
-		sortBy = search.DefaultSortBy()
+		if hybridActive {
+			sortBy = search.DefaultSortByHybrid()
+		} else {
+			sortBy = search.DefaultSortBy()
+		}
 	}
 
-	// Hybrid query_by: when the user has a real query we include the
-	// embedding field so Typesense blends BM25 + vector cosine natively.
-	// On match-all (q=*) we skip the embedding field — vector ranking
-	// on 500+ million documents with no text to embed is noise.
+	// Hybrid query_by: when hybrid is active we include the embedding
+	// field so Typesense blends BM25 + vector cosine natively. On
+	// match-all (q=*) or when no embedder is wired, we skip it —
+	// vector ranking with no text to embed is noise.
 	queryBy := defaultQueryBy
 	numTypos := defaultNumTypos
-	if s.embedder != nil && q != "*" {
+	if hybridActive {
 		queryBy = defaultQueryBy + ",embedding"
 		// embedding is a vector field — num_typos must match query_by
 		// length. A vector field ignores the value; we append "0" for

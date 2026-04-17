@@ -193,18 +193,16 @@ func clampScore(score int) int {
 // DefaultSortBy returns the canonical sort_by string used by the
 // query path when no user-specified sort is provided.
 //
-// Typesense 28.0 caps sort_by at THREE fields. Phase 3 restores the
-// vector-distance slot by dropping `availability_priority` from the
-// default sort — availability still influences ranking via the
-// Bayesian rating score tier + facet filters the user can toggle.
+// Typesense 28.0 caps sort_by at THREE fields AND rejects
+// `_vector_distance` when no vector query is active — we return the
+// BM25 default here. Use DefaultSortByHybrid() when the request
+// includes a vector_query (phase 3's hybrid mode).
 //
 //  1. _text_match(buckets:10):desc — bucketed keyword relevance so
 //     close matches cluster together and let the other slots break
 //     ties inside each bucket.
-//  2. _vector_distance:asc — semantic similarity (smaller cosine
-//     distance = closer meaning). Active only when the query sends a
-//     `vector_query` param; ignored otherwise so empty-query listing
-//     pages are not penalised.
+//  2. availability_priority:desc — actors available NOW float to
+//     the top of every bucket.
 //  3. rating_score:desc — Bayesian-weighted rating acts as the
 //     quality tiebreaker across buckets.
 //
@@ -212,6 +210,22 @@ func clampScore(score int) int {
 // even though the formula lives on the query side, reviewers need to
 // re-tune the weights after any change.
 func DefaultSortBy() string {
+	return strings.Join([]string{
+		"_text_match(buckets:10):desc",
+		"availability_priority:desc",
+		"rating_score:desc",
+	}, ",")
+}
+
+// DefaultSortByHybrid returns the sort_by used when the request
+// includes a `vector_query`. It swaps `availability_priority` for
+// `_vector_distance:asc` so semantic similarity breaks ties inside
+// each text-match bucket.
+//
+// Typesense rejects `_vector_distance` in sort_by when no vector
+// query is present, which is why the hybrid variant is separate
+// from DefaultSortBy. The app layer picks the right one.
+func DefaultSortByHybrid() string {
 	return strings.Join([]string{
 		"_text_match(buckets:10):desc",
 		"_vector_distance:asc",

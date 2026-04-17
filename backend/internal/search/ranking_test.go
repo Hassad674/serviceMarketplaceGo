@@ -180,12 +180,13 @@ func TestDefaultSortBy(t *testing.T) {
 	// formula picks the three highest-impact signals and lets the
 	// remaining quality signals (verified, top_rated, completion
 	// score) influence ranking through the bayesian rating_score.
-	// Phase 3 restored the vector-distance slot by swapping
-	// availability_priority out of the default sort (availability
-	// still surfaces via the facet filter).
+	// Phase 3: DefaultSortBy keeps availability_priority (Typesense
+	// rejects _vector_distance in sort_by without a vector_query).
+	// The hybrid variant lives in DefaultSortByHybrid — validated
+	// separately below.
 	fragments := []string{
 		"_text_match(buckets:10):desc",
-		"_vector_distance:asc",
+		"availability_priority:desc",
 		"rating_score:desc",
 	}
 
@@ -201,4 +202,23 @@ func TestDefaultSortBy(t *testing.T) {
 	// reject any larger set with a 400.
 	require.Equal(t, 3, strings.Count(sortBy, ",")+1,
 		"sort_by must contain exactly 3 sort fields (Typesense 28.0 cap)")
+}
+
+func TestDefaultSortByHybrid(t *testing.T) {
+	sortBy := search.DefaultSortByHybrid()
+
+	// Hybrid mode swaps availability_priority for _vector_distance.
+	fragments := []string{
+		"_text_match(buckets:10):desc",
+		"_vector_distance:asc",
+		"rating_score:desc",
+	}
+	last := -1
+	for _, f := range fragments {
+		idx := strings.Index(sortBy, f)
+		assert.GreaterOrEqual(t, idx, 0, "missing fragment %q in hybrid sort_by", f)
+		assert.Greater(t, idx, last, "fragment %q out of order in hybrid sort_by", f)
+		last = idx
+	}
+	require.Equal(t, 3, strings.Count(sortBy, ",")+1)
 }
