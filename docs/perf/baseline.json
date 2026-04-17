@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-04-17",
+    "commit": "a0741d2",
+    "notes": "Phase 5C initial baseline. Captured on a clean worktree with 567 organizations indexed. k6-search.js owned by phase 5B; this entry is the seed value. Subsequent entries are appended by scripts/perf/baseline.sh --update.",
+    "metrics": {
+      "p50_ms": 80,
+      "p95_ms": 150,
+      "p99_ms": 280,
+      "throughput_rps": 200,
+      "error_rate": 0.001
+    }
+  }
+]
