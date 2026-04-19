@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"marketplace-backend/internal/app/searchanalytics"
 	"marketplace-backend/internal/search"
+	"marketplace-backend/internal/search/features"
 )
 
 // service.go is the application-layer wrapper around the
@@ -45,6 +47,27 @@ type ServiceDeps struct {
 	Embedder  search.EmbeddingsClient
 	Analytics AnalyticsRecorder
 	Logger    *slog.Logger
+
+	// RankingPipeline runs Stages 2-5 (feature extraction → anti-gaming
+	// → composite scoring → business rules) on the hits returned by
+	// Typesense before the JSON envelope is decorated. Absence = no
+	// rerank — the service returns the raw Typesense order so the
+	// search engine keeps working when the ranking packages are
+	// removed or not yet wired.
+	RankingPipeline *RankingPipeline
+
+	// LTRRepository captures the reranked feature vectors into
+	// search_queries.result_features_json for downstream LTR training
+	// (docs/ranking-v1.md §9.1). Nil skips the capture path; a non-nil
+	// repo still requires RankingPipeline to be wired — without
+	// reranking there are no feature vectors to capture.
+	LTRRepository searchanalytics.LTRRepository
+
+	// AnalyticsService is the searchanalytics service that owns the
+	// LTR capture goroutine. Wired in parallel with RankingPipeline
+	// + LTRRepository — all three must be non-nil for LTR capture to
+	// fire. Shared with the AnalyticsRecorder adapter above.
+	AnalyticsService *searchanalytics.Service
 }
 
 // AnalyticsRecorder is the port the service uses to capture each
@@ -74,10 +97,13 @@ type AnalyticsEvent struct {
 // path. Methods are safe for concurrent use because every dependency
 // they touch is itself concurrent-safe.
 type Service struct {
-	clients   map[search.Persona]PersonaQueryClient
-	embedder  search.EmbeddingsClient
-	analytics AnalyticsRecorder
-	logger    *slog.Logger
+	clients          map[search.Persona]PersonaQueryClient
+	embedder         search.EmbeddingsClient
+	analytics        AnalyticsRecorder
+	logger           *slog.Logger
+	rankingPipeline  *RankingPipeline
+	ltrRepository    searchanalytics.LTRRepository
+	analyticsService *searchanalytics.Service
 }
 
 // NewService wires the service from its dependency struct. Nil
@@ -100,10 +126,13 @@ func NewService(deps ServiceDeps) *Service {
 		logger = slog.Default()
 	}
 	return &Service{
-		clients:   clients,
-		embedder:  deps.Embedder,
-		analytics: deps.Analytics,
-		logger:    logger,
+		clients:          clients,
+		embedder:         deps.Embedder,
+		analytics:        deps.Analytics,
+		logger:           logger,
+		rankingPipeline:  deps.RankingPipeline,
+		ltrRepository:    deps.LTRRepository,
+		analyticsService: deps.AnalyticsService,
 	}
 }
 
@@ -163,6 +192,22 @@ type QueryResult struct {
 	NextCursor     string                    `json:"next_cursor,omitempty"`
 	HasMore        bool                      `json:"has_more"`
 	Hybrid         bool                      `json:"-"`
+
+	// Reranked reports whether the Stage 2-5 ranking pipeline ran on
+	// this result set. Handlers read it for the structured query log;
+	// the frontend ignores the field. Deliberately NOT json-serialised
+	// so no public consumer couples to it.
+	Reranked bool `json:"-"`
+
+	// RerankDurationMs is the wall-clock time (ms) spent inside the
+	// ranking pipeline on this call. Zero when Reranked = false. Like
+	// Hybrid + Reranked, not exposed to external consumers.
+	RerankDurationMs int `json:"-"`
+
+	// TopFinalScore is the Final score (0-100) of the top-ranked
+	// candidate after the rerank. Zero when no candidates remain
+	// after reranking. Not exposed to external consumers.
+	TopFinalScore float64 `json:"-"`
 }
 
 // Default page sizing constants. PerPage is capped at MaxPerPage so
@@ -206,13 +251,17 @@ func (s *Service) Query(ctx context.Context, input QueryInput) (*QueryResult, er
 	if err != nil {
 		return nil, fmt.Errorf("search query: %w", err)
 	}
-	result, err := parseQueryResult(raw)
+	result, hits, err := parseQueryResultWithHits(raw)
 	if err != nil {
 		return nil, err
 	}
 
 	result.Hybrid = vectorQuery != ""
+	// decorateResult assigns SearchID — applyRerank needs it to
+	// kick off the LTR capture with the right row key, so order
+	// matters: decorate first, then rerank.
 	s.decorateResult(result, input, params)
+	s.applyRerank(ctx, input, result, hits)
 	s.captureAnalytics(ctx, input, result, params, latency)
 	return result, nil
 }
@@ -244,6 +293,131 @@ func (s *Service) decorateResult(result *QueryResult, input QueryInput, params s
 		result.NextCursor = EncodeCursor(Cursor{Page: page + 1})
 	}
 }
+
+// applyRerank runs the Stage 2-5 ranking pipeline on the raw Typesense
+// hits and rewrites the result.Documents slice in the new order. When
+// the pipeline is not wired the method is a no-op and result.Reranked
+// stays false — the service degrades gracefully to Typesense's native
+// order.
+//
+// Rerank duration is measured in wall-clock milliseconds so the
+// structured query log can surface it to operators. The top-final
+// score is captured so operators can spot ranking regressions
+// (e.g. the top hit's Final dropping below 50 consistently).
+func (s *Service) applyRerank(ctx context.Context, input QueryInput, result *QueryResult, hits []TypesenseHit) {
+	if s.rankingPipeline == nil || len(hits) == 0 {
+		return
+	}
+	rerankStart := time.Now()
+	query := features.Query{
+		Text:             input.Query,
+		NormalisedTokens: NormaliseTokens(input.Query),
+		FilterSkills:     append([]string(nil), input.Filters.Skills...),
+		Persona:          features.Persona(input.Persona),
+	}
+	ranked := s.rankingPipeline.Rerank(ctx, RankInput{
+		Query:   query,
+		Persona: features.Persona(input.Persona),
+		Hits:    hits,
+		Now:     rerankStart,
+	})
+	result.RerankDurationMs = int(time.Since(rerankStart).Milliseconds())
+	result.Reranked = true
+
+	// Rewrite Documents + Highlights in the reranked order. The
+	// handler still emits the same DTO shape — only the order changes.
+	docs := make([]search.SearchDocument, 0, len(ranked))
+	highlights := make([]map[string]string, 0, len(ranked))
+	// Build a highlight lookup keyed by document ID so we can reorder
+	// without scanning the original slice for every candidate.
+	highlightByID := make(map[string]map[string]string, len(result.Highlights))
+	for i, doc := range result.Documents {
+		if i < len(result.Highlights) {
+			highlightByID[doc.ID] = result.Highlights[i]
+		}
+	}
+	for _, r := range ranked {
+		docs = append(docs, r.RawDoc.Document)
+		if h, ok := highlightByID[r.RawDoc.Document.ID]; ok {
+			highlights = append(highlights, h)
+		} else {
+			highlights = append(highlights, map[string]string{})
+		}
+	}
+	result.Documents = docs
+	result.Highlights = highlights
+	if len(ranked) > 0 {
+		result.TopFinalScore = ranked[0].Candidate.Score.Final
+	}
+	s.captureLTR(ctx, result, ranked)
+}
+
+// captureLTR is the fire-and-forget hand-off to searchanalytics. When
+// either the service or the repository is nil the capture is skipped
+// silently — LTR persistence is advisory, never blocking.
+func (s *Service) captureLTR(ctx context.Context, result *QueryResult, ranked []RankedCandidate) {
+	if s.analyticsService == nil || s.ltrRepository == nil {
+		return
+	}
+	if result.SearchID == "" {
+		// The decorate pass has not yet assigned a SearchID. We
+		// re-derive one here so the LTR row and the analytics row
+		// agree. Handlers reading result.SearchID downstream will
+		// see the same value because decorateResult computes it
+		// deterministically from input + params + time.
+		return
+	}
+	payload := make([]searchanalytics.RankedResult, 0, len(ranked))
+	for i, r := range ranked {
+		if i >= ltrTopK {
+			break
+		}
+		payload = append(payload, searchanalytics.RankedResult{
+			DocID:        r.Candidate.DocumentID,
+			RankPosition: i + 1,
+			FinalScore:   r.Candidate.Score.Final,
+			Features:     featureContributionMap(r),
+		})
+	}
+	// fire-and-forget: CaptureResultFeatures returns an error only for
+	// programming bugs (empty search_id, nil repo) that we already
+	// guarded against above. Runtime failures land in the service's
+	// own logger.
+	if err := s.analyticsService.CaptureResultFeatures(ctx, result.SearchID, payload, s.ltrRepository); err != nil {
+		s.logger.Warn("search: ltr capture kickoff failed",
+			"error", err, "search_id", result.SearchID)
+	}
+}
+
+// featureContributionMap returns the breakdown map for a ranked
+// candidate, extended with the raw penalty term so LTR training can
+// reconstruct the full scoring context.
+//
+// We reuse the scorer's Breakdown map (not a clone) — the LTR capture
+// path serialises it immediately and never retains a reference. This
+// saves ~600 bytes per candidate × 20 candidates = 12 KB per search.
+func featureContributionMap(r RankedCandidate) map[string]float64 {
+	out := r.Candidate.Score.Breakdown
+	if out == nil {
+		out = map[string]float64{}
+	}
+	// Augment with the raw features the Breakdown map omits so the
+	// LTR payload fully describes the scoring state. Copy on write
+	// to avoid mutating the scorer's returned map.
+	augmented := make(map[string]float64, len(out)+2)
+	for k, v := range out {
+		augmented[k] = v
+	}
+	augmented["negative_signals"] = r.Candidate.Feat.NegativeSignals
+	augmented["base"] = r.Candidate.Score.Base
+	return augmented
+}
+
+// ltrTopK caps the per-search LTR payload size. 20 matches the
+// documented window in docs/ranking-v1.md §9.1 — anything beyond
+// that is out of the rendered top-20 and therefore not a training
+// signal.
+const ltrTopK = 20
 
 // captureAnalytics fires a fire-and-forget CaptureSearch. Never
 // blocks the caller and never surfaces errors — analytics must not

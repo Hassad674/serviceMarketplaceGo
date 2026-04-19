@@ -69,17 +69,20 @@ func TestTruncateQueryForLog(t *testing.T) {
 // so the log shape cannot drift silently.
 func TestSearchLog_LogAttrs(t *testing.T) {
 	payload := SearchLog{
-		RequestID:    "req-123",
-		UserID:       "user-456",
-		Persona:      "freelance",
-		Query:        "react paris",
-		FilterBy:     "persona:freelance",
-		SortBy:       "",
-		ResultsCount: 42,
-		LatencyMs:    87,
-		Hybrid:       true,
-		CursorActive: false,
-		Truncated:    false,
+		RequestID:        "req-123",
+		UserID:           "user-456",
+		Persona:          "freelance",
+		Query:            "react paris",
+		FilterBy:         "persona:freelance",
+		SortBy:           "",
+		ResultsCount:     42,
+		LatencyMs:        87,
+		Hybrid:           true,
+		CursorActive:     false,
+		Truncated:        false,
+		Reranked:         true,
+		RerankDurationMs: 3,
+		TopFinalScore:    78.42,
 	}
 	attrs := payload.LogAttrs()
 
@@ -87,6 +90,7 @@ func TestSearchLog_LogAttrs(t *testing.T) {
 		"event", "request_id", "user_id", "persona", "query",
 		"truncated", "filter_by", "sort_by", "results_count",
 		"latency_ms", "hybrid", "cursor_active",
+		"reranked", "rerank_duration_ms", "top_final_score",
 	}
 	if len(attrs) != len(wantKeys) {
 		t.Fatalf("expected %d attributes, got %d", len(wantKeys), len(attrs))
@@ -108,17 +112,20 @@ func TestEmitSearchLog_JSONShape(t *testing.T) {
 	logger := slog.New(handler)
 
 	payload := SearchLog{
-		RequestID:    "req-abc",
-		UserID:       "user-xyz",
-		Persona:      "agency",
-		Query:        "devops kubernetes",
-		FilterBy:     "persona:agency && is_published:true",
-		SortBy:       "rating_score:desc",
-		ResultsCount: 7,
-		LatencyMs:    123,
-		Hybrid:       true,
-		CursorActive: true,
-		Truncated:    false,
+		RequestID:        "req-abc",
+		UserID:           "user-xyz",
+		Persona:          "agency",
+		Query:            "devops kubernetes",
+		FilterBy:         "persona:agency && is_published:true",
+		SortBy:           "rating_score:desc",
+		ResultsCount:     7,
+		LatencyMs:        123,
+		Hybrid:           true,
+		CursorActive:     true,
+		Truncated:        false,
+		Reranked:         true,
+		RerankDurationMs: 2,
+		TopFinalScore:    64.5,
 	}
 	emitSearchLog(logger, payload)
 
@@ -133,18 +140,21 @@ func TestEmitSearchLog_JSONShape(t *testing.T) {
 	}
 
 	wantValues := map[string]any{
-		"event":         "search.query",
-		"request_id":    "req-abc",
-		"user_id":       "user-xyz",
-		"persona":       "agency",
-		"query":         "devops kubernetes",
-		"truncated":     false,
-		"filter_by":     "persona:agency && is_published:true",
-		"sort_by":       "rating_score:desc",
-		"results_count": float64(7), // json.Unmarshal gives numbers as float64
-		"latency_ms":    float64(123),
-		"hybrid":        true,
-		"cursor_active": true,
+		"event":              "search.query",
+		"request_id":         "req-abc",
+		"user_id":            "user-xyz",
+		"persona":            "agency",
+		"query":              "devops kubernetes",
+		"truncated":          false,
+		"filter_by":          "persona:agency && is_published:true",
+		"sort_by":            "rating_score:desc",
+		"results_count":      float64(7), // json.Unmarshal gives numbers as float64
+		"latency_ms":         float64(123),
+		"hybrid":             true,
+		"cursor_active":      true,
+		"reranked":           true,
+		"rerank_duration_ms": float64(2),
+		"top_final_score":    float64(64.5),
 	}
 	for k, want := range wantValues {
 		got, ok := parsed[k]
