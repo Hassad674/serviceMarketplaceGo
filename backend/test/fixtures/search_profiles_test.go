@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"marketplace-backend/internal/adapter/postgres"
 	"marketplace-backend/internal/search"
 	"marketplace-backend/test/fixtures"
 )
@@ -101,4 +102,62 @@ func TestSeedSearchProfiles_UsableByIndexer(t *testing.T) {
 	// Anchor a sentinel constant so the compiler keeps the search
 	// package import even if an idle linter ever wants to strip it.
 	_ = search.PersonaFreelance
+}
+
+// TestSeedSearchProfiles_RankingV1Signals asserts the 7 phase 6B
+// signals actually flow from the fixture rows into a built document
+// when the real postgres repository + indexer are wired together.
+// With Freelance=12 the fixture distribution hits every anchor:
+//   - idx 0 → 10-day account age (not mature)
+//   - idx 1 → 400-day account age (mature)
+//   - idx 3, 6, 9 → released projects with repeat client on the
+//     second hop (idx%3==0 plus clientA == clientB when pool wraps)
+//   - idx 0, 5, 10 → 2 reviews from 1 reviewer (max share 1.0)
+//   - idx 0, 7 → 2 reviews from 2 reviewers
+//   - idx 0, 11 → 1 full_refund dispute
+//
+// We pick idx=0 as our anchor because every distribution rule
+// above hits idx 0 (it's divisible by 3, 5, 7, 11 only for small
+// factors but idx%n==0 for idx=0), so the 7 signals all land
+// non-zero on the fixture at position 0.
+func TestSeedSearchProfiles_RankingV1Signals(t *testing.T) {
+	db := fixtureTestDB(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	counts := fixtures.SearchFixtureCounts{Freelance: 12, Agency: 4, Referrer: 2}
+	seeded, err := fixtures.SeedSearchProfiles(ctx, db, counts)
+	require.NoError(t, err)
+	defer func() {
+		_ = fixtures.CleanupSearchProfiles(ctx, db, seeded)
+	}()
+
+	repo := postgres.NewSearchDocumentRepository(db)
+	idx, err := search.NewIndexer(repo, search.NewMockEmbeddings())
+	require.NoError(t, err)
+
+	// Freelance 0 receives every distribution anchor, so it is a
+	// good single-profile assertion target.
+	doc0, err := idx.BuildDocument(ctx, seeded.Freelance[0], search.PersonaFreelance)
+	require.NoError(t, err)
+
+	assert.Greater(t, doc0.UniqueClientsCount, int32(0),
+		"idx 0 has released projects with 2 distinct clients")
+	assert.Greater(t, doc0.UniqueReviewersCount, int32(0),
+		"idx 0 has at least one reviewer from %%5==0 branch")
+	assert.Greater(t, doc0.ReviewRecencyFactor, 0.0,
+		"fixture reviews anchor >0 recency")
+	assert.GreaterOrEqual(t, doc0.MaxReviewerShare, 0.5,
+		"single reviewer branch pushes share above 0.5")
+	assert.Equal(t, int32(1), doc0.LostDisputesCount,
+		"idx 0 has exactly one full_refund dispute (%%11==0 branch)")
+	// applyFixtureAccountAge uses ages[0]=10, so idx 0 → ~10 days.
+	assert.InDelta(t, int32(10), doc0.AccountAgeDays, 1,
+		"fixture sets idx 0 created_at to 10 days ago")
+
+	// Freelance 1 should have account age of 400 days
+	doc1, err := idx.BuildDocument(ctx, seeded.Freelance[1], search.PersonaFreelance)
+	require.NoError(t, err)
+	assert.InDelta(t, int32(400), doc1.AccountAgeDays, 1,
+		"fixture sets idx 1 created_at to 400 days ago — mature")
 }
