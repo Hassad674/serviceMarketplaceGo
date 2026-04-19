@@ -166,6 +166,45 @@ type SearchDocument struct {
 	IsTopRated             bool    `json:"is_top_rated"`
 	IsFeatured             bool    `json:"is_featured"`
 
+	// -------- Ranking V1 signals (phase 6B) --------
+	// The 7 fields below feed the ranking V1 composite scoring.
+	// Every field is always populated at index time (zero for
+	// orgs with no data) so downstream extractors never have to
+	// handle NULL/undefined. See docs/ranking-v1.md §3.
+	//
+	// UniqueClientsCount — distinct client orgs with ≥1 released
+	// milestone against this provider. Drives proven_work_score §3.2-4.
+	UniqueClientsCount int32 `json:"unique_clients_count"`
+
+	// RepeatClientRate — share of clients that returned for ≥2
+	// released projects. Drives proven_work_score §3.2-4.
+	RepeatClientRate float64 `json:"repeat_client_rate"`
+
+	// UniqueReviewersCount — distinct reviewer users (not reviews).
+	// Drives the diversity factor in rating_score_diverse §3.2-3.
+	UniqueReviewersCount int32 `json:"unique_reviewers_count"`
+
+	// MaxReviewerShare — max(count per reviewer) / total_reviews.
+	// Kills "3 friends leave 10 reviews" — see rating_score_diverse
+	// §3.2-3 step 2.
+	MaxReviewerShare float64 `json:"max_reviewer_share"`
+
+	// ReviewRecencyFactor — mean of exp(-age_days / 365) over all
+	// reviews. Recent reviews weigh more — see rating_score_diverse
+	// §3.2-3 step 3. Pre-computed at index time so the query path
+	// never scans the reviews table.
+	ReviewRecencyFactor float64 `json:"review_recency_factor"`
+
+	// LostDisputesCount — disputes where outcome was a refund
+	// (full or partial) and this org was the respondent. Feeds
+	// the negative_signals multiplier §5.3.
+	LostDisputesCount int32 `json:"lost_disputes_count"`
+
+	// AccountAgeDays — integer days since the owner user's
+	// `created_at`. Drives is_verified_mature §3.2-6 and
+	// account_age_bonus §3.2-9.
+	AccountAgeDays int32 `json:"account_age_days"`
+
 	// -------- Semantic --------
 	Embedding []float32 `json:"embedding,omitempty"`
 
@@ -314,6 +353,20 @@ func CollectionSchemaDefinition() CollectionSchema {
 		{Name: "is_verified", Type: "bool", Facet: true},
 		{Name: "is_top_rated", Type: "bool", Facet: true},
 		{Name: "is_featured", Type: "bool", Facet: true},
+
+		// Ranking V1 signals — added in phase 6B.
+		// All marked optional so the alias-swap of an existing
+		// collection stays non-breaking (legacy docs without these
+		// fields simply return the Typesense default zero-value
+		// when queried). Writes from the indexer always populate
+		// every field.
+		{Name: "unique_clients_count", Type: "int32", Sort: true, Optional: true},
+		{Name: "repeat_client_rate", Type: "float", Sort: true, Optional: true},
+		{Name: "unique_reviewers_count", Type: "int32", Sort: true, Optional: true},
+		{Name: "max_reviewer_share", Type: "float", Sort: true, Optional: true},
+		{Name: "review_recency_factor", Type: "float", Sort: true, Optional: true},
+		{Name: "lost_disputes_count", Type: "int32", Sort: true, Optional: true},
+		{Name: "account_age_days", Type: "int32", Sort: true, Optional: true},
 
 		// Semantic
 		{Name: "embedding", Type: "float[]", NumDim: EmbeddingDimensions, Optional: true},
