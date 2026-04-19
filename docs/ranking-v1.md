@@ -885,6 +885,111 @@ Would rank around position 5–8 out of 20 after all candidates are ranked and t
 
 ---
 
+## 13a. Evolution roadmap
+
+Every item that exists at Malt / Upwork / Contra V5 and is *not* in our V1 scope is listed here with its **architectural affordance** — the V1 interface or struct that makes the future addition non-breaking. The principle : V1 is cold-start complete, but nothing in V1 will need to be rewritten when we add the V2/V3/V4 items below.
+
+### 13a.1 Near-term (3-6 months post-launch)
+
+#### **LTR model (V2)** — the swap path
+- **Where it lives** : replace `WeightedScorer` with `LTRScorer` in `internal/search/scorer/`.
+- **What to build** : a Go wrapper around a trained LightGBM model exported to ONNX or native binary.
+- **Prerequisites** : 3-6 months of real-user `(query, features, outcome)` tuples from `search_queries.result_features_json` (§9). Minimum useful signal ≈ 10k queries × 20 docs = 200k samples.
+- **Impact on V1 code** : 1 line change in `cmd/api/main.go`. The `Reranker` interface is unchanged.
+- **Training pipeline** : one-off `cmd/search-ltr-export` → Jupyter → LightGBM → export → checkout into the repo. Hot-reloaded from disk at startup.
+
+#### **Review sentiment feature**
+- **Where it lives** : new feature `review_sentiment_score` in `Features` struct; new extractor function in `features/sentiment.go`.
+- **What to build** : batch job (daily cron) that runs reviews through an OpenAI embedding + sentiment classifier; stores `sentiment_score` on the `reviews` table; indexer picks it up into `SearchDocument.review_sentiment_avg`.
+- **Impact on V1** : purely additive — add a field to `Features`, add a weight key `RANKING_WEIGHTS_*_SENTIMENT` in env, re-index once.
+
+#### **Query intent classifier**
+- **Where it lives** : new field `QueryIntent` in the `Query` struct (`intent: "senior" | "junior" | "urgent" | "affordable" | "generic"`); `WeightedScorer` can look up alternate weight tables by intent.
+- **What to build** : either rule-based (regex on query) for V1.5, or small classifier trained on captured queries for V2.
+- **Impact on V1** : the `Query` struct is already used as a parameter to `Reranker.Score` — adding a field is non-breaking. Scorer implementations can ignore the field until they choose to use it.
+
+### 13a.2 Medium-term (6-12 months)
+
+#### **Personalisation** (user history, affinity)
+- **Where it lives** : new `UserContext` struct passed through the search flow.
+- **Signature extension** :
+  ```go
+  type Query struct {
+      Text       string
+      Filters    FilterInput
+      Persona    Persona
+      Intent     QueryIntent       // added V1.5
+      UserCtx    *UserContext      // added V2 — nil for anonymous / logged-out
+  }
+
+  type UserContext struct {
+      UserID           uuid.UUID
+      RecentClickedIDs []uuid.UUID  // last 30 days
+      HiredPersonas    []Persona    // historical preference
+      ClickEmbedding   []float32    // aggregated embedding of profiles they engage with
+  }
+  ```
+- **What to build** : extractor functions that transform `UserContext` into additional features (e.g. `affinity_score = cosine(userClickEmbedding, profileEmbedding)`). Add weight entries per persona.
+- **Impact on V1** : the `Reranker.Score` signature accepts a `Query` already — adding an optional `UserCtx` field is non-breaking. Anonymous / logged-out users get the same ranking as today.
+
+#### **A/B testing framework**
+- **Where it lives** : middleware between the handler and the query service.
+- **Architecture** :
+  ```
+  request → bucketing_middleware → query_service → scorer (variant A or B)
+  ```
+- **What to build** : a `VariantRouter` that hashes `user_id % 100` to assign users to experiment buckets; a `BucketedReranker` that delegates to the chosen `Reranker` impl. Log the variant in `search_queries.ab_variant`.
+- **Impact on V1** : the `Reranker` is already an interface — running two implementations side by side is a router concern, not a ranking-logic concern. Zero change to the core ranking pipeline.
+
+#### **Real-time feature updates**
+- **Where it lives** : extend the outbox publisher (phase 1 design) to emit `search.features_updated` events on signal-changing writes (new review, mission completed, dispute resolved).
+- **What to build** : a worker that processes these events and pushes partial document updates to Typesense via the `PATCH /collections/*/documents/:id` endpoint rather than full reindex.
+- **Impact on V1** : the outbox pipeline is already in place; only new event types to register. The `SearchDocument` schema doesn't change.
+
+### 13a.3 Long-term (12+ months, or when data volume justifies)
+
+#### **Query expansion** (learned synonyms)
+- **Where** : pre-processing layer before Typesense retrieval.
+- **Build** : mine `search_queries` for queries that led to similar clicked results → learned synonym pairs. Push into the Typesense synonyms API (already in use for the 30 FR/EN seed pairs).
+
+#### **Multi-locale ranking boost**
+- **Where** : additional feature `locale_match` in `Features` struct.
+- **Build** : compare `user.preferred_locale` (from UserContext) with `profile.languages_professional`; weight by persona.
+- **Impact** : additive feature, no refactor.
+
+#### **Recurring revenue signal**
+- **Where** : new indexed field `recurring_revenue_ratio` on `SearchDocument`.
+- **Build** : compute `sum(invoice_amount for recurring contracts) / sum(invoice_amount for one-off contracts)` in the indexer CTE. Rewards profiles whose clients return for multiple missions with long commitments.
+
+#### **Multi-modal ranking** (visual portfolio)
+- **Where** : new feature `portfolio_visual_quality` via CLIP embeddings of portfolio screenshots.
+- **Build** : batch job that embeds portfolio images with CLIP, computes aggregate visual-coherence score, stores on `SearchDocument`.
+- **Impact** : additive feature + batch infra. Not yet justified cost-wise.
+
+#### **Social proof layer** (endorsements)
+- **Where** : new `peer_endorsements_count` field + edge table `profile_endorsements (profile_id, endorser_id, skill, created_at)`.
+- **Build** : UI for mutual endorsements between pros; anti-gaming via network-connectedness check.
+
+### 13a.4 Architectural checklist — can V1 absorb each future ?
+
+| Future addition | V1 affordance | Breaking change ? |
+| --- | --- | :---: |
+| LTR model (V2) | `Reranker` interface | No |
+| New features | `Features` struct + config keys | No |
+| Query intent | `Query` struct field | No |
+| Personalisation | `Query.UserCtx` optional field | No |
+| A/B testing | `Reranker` interface swap via middleware | No |
+| Real-time updates | Outbox publisher + partial updates | No |
+| Query expansion | Pre-retrieval layer + Typesense synonyms | No |
+| Multi-locale boost | Additive feature | No |
+| Recurring revenue | Additive `SearchDocument` field + indexer CTE | Additive only |
+| Multi-modal / CLIP | Additive feature + batch infra | No |
+| Social proof | New edge table + additive feature | Additive only |
+
+**Zero breaking changes projected** between V1 and the full Malt V5 feature set. The V1 architecture is what they converged to after years of iteration; we design it right from the start.
+
+---
+
 ## 13. Known deferrals (scope for V2 and beyond)
 
 - **Referral conversion score** — requires attribution tracking infrastructure (which apporteur brought which client, did it convert). Deferred until an attribution system is designed.
