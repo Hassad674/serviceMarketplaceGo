@@ -221,6 +221,33 @@ func (c *Client) GetCollection(ctx context.Context, name string) (*CollectionSch
 	return &out, nil
 }
 
+// AddFields applies a purely-additive schema update to an existing
+// collection via `PATCH /collections/:name`. Typesense 28.0
+// supports adding fields in-place without reindexing; the fields
+// return a zero/default value until each document is re-upserted.
+//
+// Used by EnsureSchema when it detects additive drift (the live
+// schema is a strict subset of the expected schema — no renames,
+// no type changes). Any non-additive drift still requires the
+// manual `_vN` alias-swap flow because PATCH cannot drop or retype
+// a field.
+func (c *Client) AddFields(ctx context.Context, name string, fields []SchemaField) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	payload := struct {
+		Fields []SchemaField `json:"fields"`
+	}{Fields: fields}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("typesense add fields: marshal: %w", err)
+	}
+	return c.doRaw(ctx, http.MethodPatch,
+		"/collections/"+url.PathEscape(name),
+		bytes.NewReader(body),
+		"application/json", nil)
+}
+
 // aliasPayload is the wire format for POST /aliases/:alias.
 type aliasPayload struct {
 	CollectionName string `json:"collection_name"`

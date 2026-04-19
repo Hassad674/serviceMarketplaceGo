@@ -102,10 +102,19 @@ func bootstrapFreshCollection(ctx context.Context, client *Client, logger *slog.
 }
 
 // inspectExistingAlias compares the alias's current target schema
-// against the expected definition and logs a warning if they
-// diverge. Auto-migration is deliberately NOT implemented here —
-// a divergence is usually the sign of an in-progress v1 → v2
-// migration that an operator is driving manually.
+// against the expected definition. When the drift is purely
+// additive (every live field exists in the expected schema with
+// the same type, and the expected schema has N more fields) we
+// auto-apply the delta via PATCH /collections/:name. Non-additive
+// drift (removals, renames, type changes) still requires the
+// manual `_vN` alias-swap flow because PATCH cannot express those
+// changes.
+//
+// Rationale: every ranking phase ships a handful of new numeric
+// signals. Without auto-patching, each phase would require a
+// manual Typesense migration before deploy. Additive changes are
+// safe (legacy docs return default zero values for missing fields
+// on query) so automating them removes an operator chokepoint.
 func inspectExistingAlias(ctx context.Context, client *Client, logger *slog.Logger, target string) error {
 	logger.Info("search: alias already exists", "alias", AliasName, "target", target)
 
@@ -114,12 +123,75 @@ func inspectExistingAlias(ctx context.Context, client *Client, logger *slog.Logg
 		return fmt.Errorf("search inspect: get collection %q: %w", target, err)
 	}
 	expected := CollectionSchemaDefinition()
-	if len(live.Fields) != len(expected.Fields) {
-		logger.Warn("search: schema drift detected — manual migration required",
+	if len(live.Fields) == len(expected.Fields) {
+		return nil
+	}
+
+	missing, mismatch := diffSchemaFields(live.Fields, expected.Fields)
+	if len(mismatch) > 0 {
+		logger.Warn("search: non-additive schema drift detected — manual migration required",
 			"target", target,
 			"live_field_count", len(live.Fields),
 			"expected_field_count", len(expected.Fields),
+			"mismatch_fields", mismatchNames(mismatch),
 			"hint", "build a new `_vN` collection, bulk reindex, then swap the alias")
+		return nil
+	}
+	if len(missing) == 0 {
+		// Live has extra fields we didn't declare — operator has
+		// ongoing work we should leave alone.
+		logger.Warn("search: live collection has unexpected extra fields — leaving as-is",
+			"target", target,
+			"live_field_count", len(live.Fields),
+			"expected_field_count", len(expected.Fields))
+		return nil
+	}
+	logger.Info("search: applying additive schema drift",
+		"target", target,
+		"missing_fields", missingNames(missing))
+	if err := client.AddFields(ctx, target, missing); err != nil {
+		logger.Warn("search: additive schema patch failed — falling back to warning",
+			"target", target, "error", err,
+			"hint", "run the manual `_vN` alias-swap flow before deploying code that depends on the new fields")
 	}
 	return nil
+}
+
+// diffSchemaFields compares two SchemaField slices by name. Returns:
+//   - missing: fields present in `expected` but absent from `live`
+//   - mismatch: fields present in both but with a differing type
+//
+// Fields present in `live` but missing from `expected` are ignored —
+// operator drift (extra debugging fields) should not trip automation.
+func diffSchemaFields(live, expected []SchemaField) (missing, mismatch []SchemaField) {
+	liveByName := make(map[string]SchemaField, len(live))
+	for _, f := range live {
+		liveByName[f.Name] = f
+	}
+	for _, exp := range expected {
+		got, ok := liveByName[exp.Name]
+		if !ok {
+			missing = append(missing, exp)
+			continue
+		}
+		if got.Type != exp.Type {
+			mismatch = append(mismatch, exp)
+		}
+	}
+	return missing, mismatch
+}
+
+// missingNames projects a slice of SchemaField to its names — used
+// only for log attribute formatting.
+func missingNames(fields []SchemaField) []string {
+	out := make([]string, len(fields))
+	for i, f := range fields {
+		out[i] = f.Name
+	}
+	return out
+}
+
+// mismatchNames is the twin of missingNames for non-additive drift.
+func mismatchNames(fields []SchemaField) []string {
+	return missingNames(fields)
 }
