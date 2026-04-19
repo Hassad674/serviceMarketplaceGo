@@ -113,9 +113,10 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 
 	require.Equal(t, search.CollectionName, schema.Name)
 	require.Equal(t, "rating_score", schema.DefaultSortingField)
-	// 36 explicit fields + the implicit `id` Typesense auto-creates
-	// = 37 total on the server side.
-	require.Len(t, schema.Fields, 36,
+	// 43 explicit fields (36 original + 7 ranking V1 signals added in
+	// phase 6B) + the implicit `id` Typesense auto-creates = 44 total
+	// on the server side.
+	require.Len(t, schema.Fields, 43,
 		"schema must keep its canonical field count; update both schema and test deliberately")
 
 	byName := make(map[string]search.SchemaField, len(schema.Fields))
@@ -139,6 +140,23 @@ func TestCollectionSchemaDefinition(t *testing.T) {
 	assert.Equal(t, "geopoint", byName["location"].Type)
 	assert.Equal(t, "float[]", byName["embedding"].Type)
 	assert.Equal(t, search.EmbeddingDimensions, byName["embedding"].NumDim)
+
+	// Ranking V1 signals (phase 6B) — sortable so future scorers can
+	// reference them, optional so alias-swap on an existing collection
+	// does not require backfilling legacy docs.
+	for _, name := range []string{
+		"unique_clients_count", "repeat_client_rate", "unique_reviewers_count",
+		"max_reviewer_share", "review_recency_factor", "lost_disputes_count",
+		"account_age_days",
+	} {
+		t.Run("ranking_v1_signal/"+name, func(t *testing.T) {
+			f, ok := byName[name]
+			require.True(t, ok, "%s must be declared in the schema", name)
+			assert.True(t, f.Sort, "%s must be sortable", name)
+			assert.True(t, f.Optional, "%s must be optional (alias-swap safe)", name)
+			assert.False(t, f.Facet, "%s must not be a facet (numeric signal)", name)
+		})
+	}
 
 	// Optional fields on the SQL side must be optional on the
 	// Typesense side too — otherwise Typesense rejects documents
