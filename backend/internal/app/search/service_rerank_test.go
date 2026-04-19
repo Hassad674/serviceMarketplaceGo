@@ -275,6 +275,43 @@ func TestService_Query_RerankWithEmptyQuery(t *testing.T) {
 	assert.Greater(t, res.TopFinalScore, 0.0)
 }
 
+func TestService_CaptureLTR_EmptySearchIDSkipsWrite(t *testing.T) {
+	// Set up service with a pipeline wired but hijack the flow so
+	// decorate runs but SearchID somehow stays empty — a
+	// pathological input the runtime guard must handle.
+	repo := &recordingLTRRepo{}
+	svc, _ := newServiceWithRerank(t, fakeHitsPayload(t, 3), repo)
+
+	// Directly invoke captureLTR with an empty-SearchID result.
+	svc.captureLTR(context.Background(), &QueryResult{SearchID: ""}, []RankedCandidate{})
+
+	// Nothing should have been recorded.
+	time.Sleep(50 * time.Millisecond)
+	calls, _, _ := repo.snapshot()
+	assert.Equal(t, 0, calls, "captureLTR must skip when search_id is empty")
+}
+
+func TestService_CaptureLTR_NilServiceSkips(t *testing.T) {
+	svc := NewService(ServiceDeps{
+		Freelance:        &fakeClient{persona: search.PersonaFreelance, respPayload: "{}"},
+		Logger:           slog.Default(),
+		LTRRepository:    &recordingLTRRepo{},
+		AnalyticsService: nil, // critical: no service
+	})
+	// Must not panic + must not write.
+	svc.captureLTR(context.Background(), &QueryResult{SearchID: "id"}, []RankedCandidate{})
+}
+
+func TestService_CaptureLTR_NilRepoSkips(t *testing.T) {
+	svc := NewService(ServiceDeps{
+		Freelance:        &fakeClient{persona: search.PersonaFreelance, respPayload: "{}"},
+		Logger:           slog.Default(),
+		LTRRepository:    nil, // critical: no repo
+		AnalyticsService: nil,
+	})
+	svc.captureLTR(context.Background(), &QueryResult{SearchID: "id"}, []RankedCandidate{})
+}
+
 func TestFeatureContributionMap_CarriesBaseAndNegativeSignals(t *testing.T) {
 	// Encoding contract: the map carries the 9 scorer breakdowns +
 	// `base` + `negative_signals` so the LTR trainer can reconstruct

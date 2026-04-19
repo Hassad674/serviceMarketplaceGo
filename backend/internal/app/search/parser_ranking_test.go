@@ -100,6 +100,21 @@ func TestResolveTextMatchRaw_InvalidScoreFallsBackToInt(t *testing.T) {
 	assert.InDelta(t, 77.0, got, 1e-9)
 }
 
+func TestParseQueryResultWithHits_InvalidJSONReturnsError(t *testing.T) {
+	_, _, err := parseQueryResultWithHits(json.RawMessage(`not a json`))
+	assert.Error(t, err)
+}
+
+func TestParseQueryResult_BackwardCompatible(t *testing.T) {
+	// parseQueryResult still works — the two-value wrapper above must
+	// not break the legacy single-value entry point.
+	raw := json.RawMessage(`{"found":1,"hits":[{"document":{"id":"a","organization_id":"o","persona":"freelance","is_published":true,"display_name":"A"}}]}`)
+	r, err := parseQueryResult(raw)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	assert.Equal(t, 1, r.Found)
+}
+
 func TestParseQueryResultWithHits_KeepsDocumentEmbeddingStripped(t *testing.T) {
 	// Regression guard — the ranking path must not re-introduce
 	// the embedding vector into either the QueryResult.Documents
