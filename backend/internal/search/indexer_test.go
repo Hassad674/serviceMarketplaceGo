@@ -32,6 +32,14 @@ type fakeRepo struct {
 	kycErr    error
 	messaging *search.RawMessagingSignals
 	messagingErr error
+
+	// Ranking V1 aggregates (phase 6B).
+	clientHistory       *search.RawClientHistory
+	clientHistoryErr    error
+	reviewDiversity     *search.RawReviewDiversity
+	reviewDiversityErr  error
+	accountAge          *search.RawAccountAge
+	accountAgeErr       error
 }
 
 func (f *fakeRepo) LoadActorSignals(_ context.Context, _ uuid.UUID, _ search.Persona) (*search.RawActorSignals, error) {
@@ -54,6 +62,15 @@ func (f *fakeRepo) LoadVerificationStatus(_ context.Context, _ uuid.UUID) (bool,
 }
 func (f *fakeRepo) LoadMessagingSignals(_ context.Context, _ uuid.UUID) (*search.RawMessagingSignals, error) {
 	return f.messaging, f.messagingErr
+}
+func (f *fakeRepo) LoadClientHistory(_ context.Context, _ uuid.UUID) (*search.RawClientHistory, error) {
+	return f.clientHistory, f.clientHistoryErr
+}
+func (f *fakeRepo) LoadReviewDiversity(_ context.Context, _ uuid.UUID) (*search.RawReviewDiversity, error) {
+	return f.reviewDiversity, f.reviewDiversityErr
+}
+func (f *fakeRepo) LoadAccountAge(_ context.Context, _ uuid.UUID) (*search.RawAccountAge, error) {
+	return f.accountAge, f.accountAgeErr
 }
 
 func fullRepo() *fakeRepo {
@@ -99,6 +116,19 @@ func fullRepo() *fakeRepo {
 		earnings:  &search.RawEarningsAggregate{TotalAmount: 7_500_000, CompletedProjects: 18},
 		kyc:       true,
 		messaging: &search.RawMessagingSignals{ResponseRate: 0.97},
+		clientHistory: &search.RawClientHistory{
+			UniqueClients:    11,
+			RepeatClientRate: 0.36,
+		},
+		reviewDiversity: &search.RawReviewDiversity{
+			UniqueReviewers:     18,
+			MaxReviewerShare:    0.22,
+			ReviewRecencyFactor: 0.82,
+		},
+		accountAge: &search.RawAccountAge{
+			LostDisputes:   0,
+			AccountAgeDays: 420,
+		},
 	}
 }
 
@@ -161,6 +191,16 @@ func TestIndexer_BuildDocument_FullProfile(t *testing.T) {
 	// Embedding is populated by the mock.
 	assert.Len(t, doc.Embedding, search.EmbeddingDimensions)
 
+	// Ranking V1 signals (phase 6B) — populated from the fullRepo
+	// fixture values above.
+	assert.Equal(t, int32(11), doc.UniqueClientsCount)
+	assert.InDelta(t, 0.36, doc.RepeatClientRate, 0.0001)
+	assert.Equal(t, int32(18), doc.UniqueReviewersCount)
+	assert.InDelta(t, 0.22, doc.MaxReviewerShare, 0.0001)
+	assert.InDelta(t, 0.82, doc.ReviewRecencyFactor, 0.0001)
+	assert.Equal(t, int32(0), doc.LostDisputesCount)
+	assert.Equal(t, int32(420), doc.AccountAgeDays)
+
 	// Timestamps are Unix seconds.
 	assert.Equal(t, repo.signals.CreatedAt.Unix(), doc.CreatedAt)
 	assert.Equal(t, repo.signals.UpdatedAt.Unix(), doc.UpdatedAt)
@@ -182,11 +222,14 @@ func TestIndexer_BuildDocument_MinimalProfile(t *testing.T) {
 			CreatedAt:          time.Now(),
 			UpdatedAt:          time.Now(),
 		},
-		skills:    []string{},
-		pricing:   &search.RawPricing{HasPricing: false},
-		rating:    &search.RawRatingAggregate{},
-		earnings:  &search.RawEarningsAggregate{},
-		messaging: &search.RawMessagingSignals{},
+		skills:          []string{},
+		pricing:         &search.RawPricing{HasPricing: false},
+		rating:          &search.RawRatingAggregate{},
+		earnings:        &search.RawEarningsAggregate{},
+		messaging:       &search.RawMessagingSignals{},
+		clientHistory:   &search.RawClientHistory{},
+		reviewDiversity: &search.RawReviewDiversity{},
+		accountAge:      &search.RawAccountAge{},
 	}
 	idx, err := search.NewIndexer(repo, search.NewMockEmbeddings())
 	require.NoError(t, err)
@@ -212,6 +255,174 @@ func TestIndexer_BuildDocument_MinimalProfile(t *testing.T) {
 	// Phase 3: display_name alone is sufficient embedding text so
 	// the embedder still runs — we assert shape rather than nil.
 	assert.Len(t, doc.Embedding, search.EmbeddingDimensions)
+
+	// Ranking V1 signals (phase 6B) — zero-value aggregates map to
+	// zero on the document. Downstream extractors interpret zero as
+	// "cold start territory" and apply the documented floors.
+	assert.Equal(t, int32(0), doc.UniqueClientsCount)
+	assert.Equal(t, 0.0, doc.RepeatClientRate)
+	assert.Equal(t, int32(0), doc.UniqueReviewersCount)
+	assert.Equal(t, 0.0, doc.MaxReviewerShare)
+	assert.Equal(t, 0.0, doc.ReviewRecencyFactor)
+	assert.Equal(t, int32(0), doc.LostDisputesCount)
+	assert.Equal(t, int32(0), doc.AccountAgeDays)
+}
+
+// TestIndexer_BuildDocument_RankingV1Signals is a dedicated test for
+// the 7 signals introduced in phase 6B. It covers 4 representative
+// cases per signal (cold start, one review, typical, extreme) driven
+// by table-driven data so every branch of applyClientHistory /
+// applyReviewDiversity / applyAccountAge is exercised.
+func TestIndexer_BuildDocument_RankingV1Signals(t *testing.T) {
+	cases := []struct {
+		name                 string
+		history              *search.RawClientHistory
+		diversity            *search.RawReviewDiversity
+		age                  *search.RawAccountAge
+		wantUniqueClients    int32
+		wantRepeatClientRate float64
+		wantUniqueReviewers  int32
+		wantMaxReviewerShare float64
+		wantRecencyFactor    float64
+		wantLostDisputes     int32
+		wantAccountAgeDays   int32
+	}{
+		{
+			name:      "cold start — nil aggregates map to zeros",
+			history:   nil,
+			diversity: nil,
+			age:       nil,
+		},
+		{
+			name:                 "zero aggregates stay at zero",
+			history:              &search.RawClientHistory{},
+			diversity:            &search.RawReviewDiversity{},
+			age:                  &search.RawAccountAge{},
+			wantUniqueClients:    0,
+			wantRepeatClientRate: 0,
+			wantUniqueReviewers:  0,
+			wantMaxReviewerShare: 0,
+			wantRecencyFactor:    0,
+			wantLostDisputes:     0,
+			wantAccountAgeDays:   0,
+		},
+		{
+			name: "typical senior — 11 clients, 36% repeat, 18 reviewers, mature account",
+			history: &search.RawClientHistory{
+				UniqueClients:    11,
+				RepeatClientRate: 0.36,
+			},
+			diversity: &search.RawReviewDiversity{
+				UniqueReviewers:     18,
+				MaxReviewerShare:    0.22,
+				ReviewRecencyFactor: 0.82,
+			},
+			age: &search.RawAccountAge{
+				LostDisputes:   0,
+				AccountAgeDays: 420,
+			},
+			wantUniqueClients:    11,
+			wantRepeatClientRate: 0.36,
+			wantUniqueReviewers:  18,
+			wantMaxReviewerShare: 0.22,
+			wantRecencyFactor:    0.82,
+			wantLostDisputes:     0,
+			wantAccountAgeDays:   420,
+		},
+		{
+			name: "extreme — reviewer concentration + 2 lost disputes + fresh account",
+			history: &search.RawClientHistory{
+				UniqueClients:    2,
+				RepeatClientRate: 1.0,
+			},
+			diversity: &search.RawReviewDiversity{
+				UniqueReviewers:     2,
+				MaxReviewerShare:    0.9,
+				ReviewRecencyFactor: 0.05,
+			},
+			age: &search.RawAccountAge{
+				LostDisputes:   2,
+				AccountAgeDays: 3,
+			},
+			wantUniqueClients:    2,
+			wantRepeatClientRate: 1.0,
+			wantUniqueReviewers:  2,
+			wantMaxReviewerShare: 0.9,
+			wantRecencyFactor:    0.05,
+			wantLostDisputes:     2,
+			wantAccountAgeDays:   3,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := fullRepo()
+			repo.clientHistory = tc.history
+			repo.reviewDiversity = tc.diversity
+			repo.accountAge = tc.age
+
+			idx, err := search.NewIndexer(repo, search.NewMockEmbeddings())
+			require.NoError(t, err)
+
+			doc, err := idx.BuildDocument(context.Background(), repo.signals.OrganizationID, search.PersonaFreelance)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantUniqueClients, doc.UniqueClientsCount)
+			assert.InDelta(t, tc.wantRepeatClientRate, doc.RepeatClientRate, 0.0001)
+			assert.Equal(t, tc.wantUniqueReviewers, doc.UniqueReviewersCount)
+			assert.InDelta(t, tc.wantMaxReviewerShare, doc.MaxReviewerShare, 0.0001)
+			assert.InDelta(t, tc.wantRecencyFactor, doc.ReviewRecencyFactor, 0.0001)
+			assert.Equal(t, tc.wantLostDisputes, doc.LostDisputesCount)
+			assert.Equal(t, tc.wantAccountAgeDays, doc.AccountAgeDays)
+		})
+	}
+}
+
+// TestIndexer_BuildDocument_RankingV1Signal_Errors verifies that a
+// failure in any of the 3 new aggregate loads propagates out of
+// BuildDocument with the step name in the error chain so alerts can
+// quickly locate the failing query.
+func TestIndexer_BuildDocument_RankingV1Signal_Errors(t *testing.T) {
+	cases := []struct {
+		name    string
+		inject  func(*fakeRepo)
+		wantMsg string
+	}{
+		{
+			name: "client history failure",
+			inject: func(r *fakeRepo) {
+				r.clientHistoryErr = errors.New("milestones unavailable")
+			},
+			wantMsg: "client_history",
+		},
+		{
+			name: "review diversity failure",
+			inject: func(r *fakeRepo) {
+				r.reviewDiversityErr = errors.New("reviews unavailable")
+			},
+			wantMsg: "review_diversity",
+		},
+		{
+			name: "account age failure",
+			inject: func(r *fakeRepo) {
+				r.accountAgeErr = errors.New("users unavailable")
+			},
+			wantMsg: "account_age",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := fullRepo()
+			tc.inject(repo)
+
+			idx, err := search.NewIndexer(repo, search.NewMockEmbeddings())
+			require.NoError(t, err)
+
+			_, err = idx.BuildDocument(context.Background(), repo.signals.OrganizationID, search.PersonaFreelance)
+			require.Error(t, err)
+			assert.ErrorContains(t, err, tc.wantMsg)
+		})
+	}
 }
 
 func TestIndexer_BuildDocument_RejectsInvalidPersona(t *testing.T) {

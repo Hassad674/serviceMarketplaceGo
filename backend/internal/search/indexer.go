@@ -96,6 +96,53 @@ type RawMessagingSignals struct {
 	ResponseRate float64
 }
 
+// RawClientHistory captures the proven-work signals derived from
+// released proposal milestones (phase 6B). Populated by the adapter
+// via a single CTE query per actor. See docs/ranking-v1.md §3.2-4.
+//
+//   - UniqueClients counts distinct client organisations with ≥1
+//     released milestone against the actor. Zero for actors that
+//     have never been paid.
+//   - RepeatClientRate is the share of unique_clients that returned
+//     for ≥2 released projects. Always in [0, 1]. Zero when there
+//     are no clients yet (guarded against division-by-zero at the
+//     SQL layer).
+type RawClientHistory struct {
+	UniqueClients    int
+	RepeatClientRate float64
+}
+
+// RawReviewDiversity captures the three reviewer-diversity signals
+// extracted from the reviews table (phase 6B). See
+// docs/ranking-v1.md §3.2-3.
+//
+//   - UniqueReviewers counts distinct reviewer users (not reviews).
+//   - MaxReviewerShare is max(count per reviewer) / total_reviews.
+//     Zero when there are no reviews; [0, 1] otherwise.
+//   - ReviewRecencyFactor is the mean of exp(-age_days / 365) across
+//     every review. Recent reviews dominate; 2-year-old reviews barely
+//     contribute. Pre-computed at index time so the query hot path
+//     never scans the full reviews table.
+type RawReviewDiversity struct {
+	UniqueReviewers     int
+	MaxReviewerShare    float64
+	ReviewRecencyFactor float64
+}
+
+// RawAccountAge captures the two "how mature is this account"
+// signals (phase 6B):
+//
+//   - LostDisputes counts disputes resolved with a refund
+//     (full or partial) where this organisation was the respondent.
+//     Feeds negative_signals §5.3.
+//   - AccountAgeDays is the integer number of days since the owner
+//     user's users.created_at. Drives is_verified_mature §3.2-6
+//     and account_age_bonus §3.2-9. Zero for a brand-new account.
+type RawAccountAge struct {
+	LostDisputes   int
+	AccountAgeDays int
+}
+
 // SearchDataRepository is the one and only port the indexer depends
 // on. It is intentionally coarse: one method per "shape of data"
 // rather than one per column, so the Postgres adapter can implement
@@ -130,6 +177,23 @@ type SearchDataRepository interface {
 	// indicators. Phase 1 only populates ResponseRate; future
 	// phases may expand the struct without breaking callers.
 	LoadMessagingSignals(ctx context.Context, orgID uuid.UUID) (*RawMessagingSignals, error)
+
+	// LoadClientHistory computes unique_clients + repeat_client_rate
+	// from released proposal milestones (phase 6B, docs/ranking-v1.md
+	// §3.2-4). Returns zero values for actors with no history.
+	LoadClientHistory(ctx context.Context, orgID uuid.UUID) (*RawClientHistory, error)
+
+	// LoadReviewDiversity computes unique_reviewers + max_reviewer_share
+	// + review_recency_factor from the reviews table (phase 6B,
+	// docs/ranking-v1.md §3.2-3). Returns zero values for actors with
+	// no reviews.
+	LoadReviewDiversity(ctx context.Context, orgID uuid.UUID) (*RawReviewDiversity, error)
+
+	// LoadAccountAge computes lost_disputes_count + account_age_days
+	// for one organisation (phase 6B, docs/ranking-v1.md §3.2-6,
+	// §3.2-9, §5.3). Zero disputes + zero age for orgs without a
+	// traceable owner user (should not happen outside test fixtures).
+	LoadAccountAge(ctx context.Context, orgID uuid.UUID) (*RawAccountAge, error)
 }
 
 // Indexer converts raw signals into a SearchDocument. Separate from
@@ -191,6 +255,11 @@ type indexAggregate struct {
 	kyc       bool
 	messaging *RawMessagingSignals
 	embed     []float32
+
+	// Ranking V1 aggregates (phase 6B).
+	clientHistory   *RawClientHistory
+	reviewDiversity *RawReviewDiversity
+	accountAge      *RawAccountAge
 }
 
 // loadResult is the channel message type used by the fan-in. Named
@@ -242,7 +311,9 @@ func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Perso
 	}
 	agg.skills = skills
 
-	results := make(chan loadResult, 6)
+	// 9 concurrent reads: 6 legacy + 3 ranking V1 aggregates.
+	const parallelReads = 9
+	results := make(chan loadResult, parallelReads)
 
 	go func() {
 		pricing, err := i.repo.LoadPricing(ctx, orgID, persona)
@@ -274,8 +345,23 @@ func (i *Indexer) fanOutLoad(ctx context.Context, orgID uuid.UUID, persona Perso
 		agg.embed = vec
 		results <- loadResult{"embedding", err}
 	}()
+	go func() {
+		history, err := i.repo.LoadClientHistory(ctx, orgID)
+		agg.clientHistory = history
+		results <- loadResult{"client_history", err}
+	}()
+	go func() {
+		diversity, err := i.repo.LoadReviewDiversity(ctx, orgID)
+		agg.reviewDiversity = diversity
+		results <- loadResult{"review_diversity", err}
+	}()
+	go func() {
+		age, err := i.repo.LoadAccountAge(ctx, orgID)
+		agg.accountAge = age
+		results <- loadResult{"account_age", err}
+	}()
 
-	return collectResults(results, 6)
+	return collectResults(results, parallelReads)
 }
 
 // collectResults drains the results channel and returns the first
@@ -404,6 +490,9 @@ func (i *Indexer) assembleDocument(agg *indexAggregate, persona Persona) (*Searc
 	applyRating(doc, agg.rating)
 	applyEarnings(doc, agg.earnings)
 	applyMessaging(doc, agg.messaging)
+	applyClientHistory(doc, agg.clientHistory)
+	applyReviewDiversity(doc, agg.reviewDiversity)
+	applyAccountAge(doc, agg.accountAge)
 	doc.IsVerified = agg.kyc
 
 	if agg.embed != nil {
@@ -469,6 +558,43 @@ func applyMessaging(doc *SearchDocument, m *RawMessagingSignals) {
 		return
 	}
 	doc.ResponseRate = m.ResponseRate
+}
+
+// applyClientHistory copies the proven-work signals onto the document.
+// Nil is treated as "no history" — the document's fields stay at zero
+// which is the contract callers in the ranking pipeline rely on
+// (see docs/ranking-v1.md §3.2-4).
+func applyClientHistory(doc *SearchDocument, h *RawClientHistory) {
+	if h == nil {
+		return
+	}
+	doc.UniqueClientsCount = int32(h.UniqueClients)
+	doc.RepeatClientRate = h.RepeatClientRate
+}
+
+// applyReviewDiversity copies the reviewer-diversity signals onto the
+// document. Nil means no reviews yet, which surfaces as zeros —
+// downstream code interprets that as "cold-start floor" territory
+// (see docs/ranking-v1.md §3.2-3 step 4).
+func applyReviewDiversity(doc *SearchDocument, d *RawReviewDiversity) {
+	if d == nil {
+		return
+	}
+	doc.UniqueReviewersCount = int32(d.UniqueReviewers)
+	doc.MaxReviewerShare = d.MaxReviewerShare
+	doc.ReviewRecencyFactor = d.ReviewRecencyFactor
+}
+
+// applyAccountAge copies the dispute + age signals onto the document.
+// Nil means "no traceable owner user" (test fixtures where the owner
+// was never wired); zeros are a safe default that make the downstream
+// is_verified_mature check fail and the account_age_bonus drop to 0.
+func applyAccountAge(doc *SearchDocument, a *RawAccountAge) {
+	if a == nil {
+		return
+	}
+	doc.LostDisputesCount = int32(a.LostDisputes)
+	doc.AccountAgeDays = int32(a.AccountAgeDays)
 }
 
 // nilToEmpty turns a nil slice into an empty slice so the serialised
