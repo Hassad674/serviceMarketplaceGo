@@ -30,57 +30,34 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
+	"marketplace-backend/internal/search/features"
+	"marketplace-backend/internal/search/scorer"
 )
 
-// Persona is the user-facing marketplace role. Mirrors the string
-// type exported by internal/search/features (R2-F). Kept as a local
-// type so the rules package stays independently compilable; the
-// wiring layer adapts between the two at call-time.
-type Persona string
+// Persona re-exports the features.Persona type so callers can use a
+// single canonical identifier across the pipeline. Added here as a
+// type alias — keeps the rules package's public signatures readable
+// without forcing callers to switch imports.
+type Persona = features.Persona
 
+// Re-exported persona constants for convenience. Values are
+// byte-identical to features.Persona* by contract (single source of
+// truth lives in the features package).
 const (
-	PersonaFreelance Persona = "freelance"
-	PersonaAgency    Persona = "agency"
-	PersonaReferrer  Persona = "referrer"
+	PersonaFreelance = features.PersonaFreelance
+	PersonaAgency    = features.PersonaAgency
+	PersonaReferrer  = features.PersonaReferrer
 )
 
-// Features mirrors the normalized feature vector produced by the
-// features extractor (internal/search/features.Features). We embed a
-// value type so rules can reason about the cold-start floor, skill
-// overlap, etc. without a cross-package import. The wiring layer
-// copies fields 1-for-1 from the real struct into this one.
-//
-// All fields are in [0, 1] except the raw counts used by rising
-// talent and diversity.
-type Features struct {
-	TextMatchScore      float64
-	SkillsOverlapRatio  float64
-	RatingScoreDiverse  float64
-	ProvenWorkScore     float64
-	ResponseRate        float64
-	IsVerifiedMature    float64
-	ProfileCompletion   float64
-	LastActiveDaysScore float64
-	AccountAgeBonus     float64
+// Features is a type alias for features.Features. The rules layer
+// consumes the exact vector the extractor produces — no conversion
+// layer, no field drift.
+type Features = features.Features
 
-	// Raw signals surfaced for rules + anti-gaming. Not composed
-	// into the score directly.
-	LostDisputesCount int
-	UniqueReviewers   int
-	MaxReviewerShare  float64
-	AccountAgeDays    int
-}
-
-// Score mirrors scorer.RankedScore (R2-S). Captured as a local value
-// type so the rules layer never imports the scorer package directly.
-// Breakdown is surfaced so explainability (§5 of ranking-v1.md) keeps
-// flowing through the pipeline.
-type Score struct {
-	Base      float64            // positive composite, before negatives.
-	Adjusted  float64            // after negative_signals multiplication.
-	Final     float64            // final display score ∈ [0, 100].
-	Breakdown map[string]float64 // per-feature contributions.
-}
+// Score is a type alias for scorer.RankedScore. Kept as an alias so
+// callers can pass the scorer's direct output without an adapter.
+type Score = scorer.RankedScore
 
 // Candidate is the unit the business rules operate on. It bundles
 // the feature vector + composite score + the raw SearchDocument
