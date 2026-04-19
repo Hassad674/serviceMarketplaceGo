@@ -270,8 +270,105 @@ Typesense top-200 (hybrid BM25 + vector)
 | 1 | 6B | New indexed signals + CTE queries + reindex (complete). |
 | 2A | 6A + 6C | Feature extractors + anti-gaming (complete). |
 | 2B | 6D | `Reranker` interface + `WeightedScorer` + weights (complete). |
-| 2C | 6E + 6G + 6I | Business rules + LTR logging + docs (this section). |
-| 3 | 6F + 6H | Wiring into query service + golden validation (next). |
+| 2C | 6E + 6G + 6I | Business rules + LTR logging + docs (complete). |
+| 3 | 6F + 6H | Wiring into query service + golden validation (complete). |
+
+### Wiring (phase 6F)
+
+The ranking pipeline is composed in `cmd/api/main.go` via the
+`buildRankingPipeline()` helper, then injected into
+`appsearch.Service` through `ServiceDeps.RankingPipeline`.
+Absence of the dep IS the feature flag — no env var gate — so
+removing the ranking packages removes reranking without any
+config change.
+
+```go
+// cmd/api/main.go
+rankingPipeline := buildRankingPipeline()
+var ltrRepo searchanalytics.LTRRepository = analyticsRepo
+
+searchQuerySvc = appsearch.NewService(appsearch.ServiceDeps{
+    Freelance:        search.NewFreelanceClient(typesenseClient),
+    // ...
+    RankingPipeline:  rankingPipeline,
+    LTRRepository:    ltrRepo,
+    AnalyticsService: searchAnalyticsSvc,
+})
+```
+
+`buildRankingPipeline` loads every `RANKING_*` env var,
+constructs the four stage packages (`features.DefaultExtractor`,
+`antigaming.Pipeline`, `scorer.WeightedScorer`,
+`rules.BusinessRules`) and stitches them through
+`appsearch.NewRankingPipeline`. Malformed config on the scorer or
+rules side raises `slog.Error` + `os.Exit(1)` at boot — a typo in
+a weight must never land a silent-zero ranking in prod.
+
+### Query flow — with rerank
+
+```
+handler.Search → app/search.Service.Query
+                      │
+                      ├─ maybeVectorQuery   (OpenAI embed)
+                      ├─ Typesense /documents/search   ← top-200 hits
+                      ├─ parseQueryResultWithHits      ← + bucketed _text_match
+                      ├─ decorateResult                ← SearchID
+                      ├─ applyRerank                   ← RankingPipeline.Rerank
+                      │     ├─ Stage 2 features.Extract
+                      │     ├─ Stage 3 antigaming.Apply
+                      │     ├─ Stage 4 scorer.Score
+                      │     └─ Stage 5 rules.Apply
+                      ├─ captureLTR (fire-and-forget)
+                      └─ captureAnalytics (fire-and-forget)
+```
+
+After `applyRerank`, `QueryResult.Documents` is rewritten in the
+reranked order; the SearchDocument DTO stays unchanged so web and
+mobile frontends receive the same JSON shape with the new
+ordering.
+
+Three new fields land on the `search.query` structured log line:
+
+- `reranked`: bool — whether the pipeline ran on this call.
+- `rerank_duration_ms`: int — wall-clock ms spent inside
+  `RankingPipeline.Rerank`.
+- `top_final_score`: float64 — `Final` score of the top-ranked
+  candidate (0 when the hits slice was empty).
+
+### Text-match bucket derivation
+
+`docs/ranking-v1.md` §3.2-1 defines
+`text_match_score = bucket / 10`. Typesense returns `_text_match`
+as a raw BM25 integer (and `text_match_info.score` as a
+stringified float) — the bucket is computed by the retrieval
+layer via per-query normalisation:
+
+- `bucket_i = round(10 × score_i / max_score)`.
+- Empty-query path (`q=*`): every bucket lands at 0, the scorer
+  redistributes the text-match weight across the other features
+  per §5.2.
+- Ties produce identical buckets so the rerank is stable on
+  homogeneous cohorts.
+
+### Golden suite (phase 6H)
+
+`internal/search/golden_test.go` grew from 14 to 40 curated
+queries split across the three personas (15 freelance / 14
+agency / 12 referrer). Each case asserts keyword containment in
+the top-3 hits so the suite survives dataset rotation — no
+profile IDs are pinned.
+
+A parallel `TestGolden_FullPipeline`
+(`internal/app/search/golden_full_pipeline_test.go`) runs the
+end-to-end retrieval + rerank path. Each case asserts:
+
+1. The reranked top-3 still contains the expected keyword.
+2. The top-ranked profile has `NegativeSignals == 0` —
+   disputed profiles never reach rank 1 silently.
+
+Both suites gate on `OPENAI_EMBEDDINGS_LIVE=true` + live
+Typesense + live OpenAI. Running cost per full-suite run stays
+below $0.01.
 
 ### Tuning the pipeline
 
