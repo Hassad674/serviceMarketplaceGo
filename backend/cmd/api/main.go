@@ -1044,6 +1044,12 @@ func main() {
 	// Wallet handler
 	walletHandler := handler.NewWalletHandler(paymentInfoSvc, proposalSvc)
 
+	// Billing handler — read-only fee preview endpoint for the proposal
+	// creation flow. Shares the payment service (no new dependencies) so
+	// the fee schedule stays the single source of truth across CreatePaymentIntent
+	// and the client-facing simulator.
+	billingHandler := handler.NewBillingHandler(paymentInfoSvc)
+
 	// Dispute feature
 	disputeRepo := postgres.NewDisputeRepository(db)
 	var aiAnalyzer service.AIAnalyzer
@@ -1138,6 +1144,7 @@ func main() {
 		Notification:        notifHandler,
 		Stripe:              stripeHandler,
 		Wallet:              walletHandler,
+		Billing:             billingHandler,
 		Admin:               adminHandler,
 		Portfolio:           portfolioHandler,
 		ProjectHistory:      projectHistoryHandler,

@@ -16,6 +16,7 @@ import { MilestoneEditor } from "./milestone-editor"
 import { useCreateProposal, useModifyProposal } from "../hooks/use-proposals"
 import { getProposal, getUploadURL } from "../api/proposal-api"
 import type { CreateProposalData, MilestoneInputData } from "../api/proposal-api"
+import { FeePreview } from "@/features/billing/components/fee-preview"
 
 const TITLE_MAX_LENGTH = 100
 
@@ -367,6 +368,13 @@ export function CreateProposalPage() {
               />
             )}
 
+            {/* Platform fee preview — prestataire-only, never shown on the
+                proposal detail/view page (that is the client side). */}
+            <FeePreview
+              mode={formData.paymentMode}
+              milestones={buildFeePreviewMilestones(formData)}
+            />
+
             {/* Deadline */}
             <div className="space-y-2">
               <label
@@ -469,6 +477,34 @@ function buildCreatePayload(form: ProposalFormData): {
   }))
   const amount = milestones.reduce((sum, m) => sum + m.amount, 0)
   return { amount, milestones }
+}
+
+// buildFeePreviewMilestones maps the current form state to the shape
+// expected by <FeePreview>. In one-time mode we emit a single synthetic
+// entry labelled "Paiement unique" so the component's milestone-agnostic
+// one-time summary fires; in milestone mode each editable item is
+// forwarded with its display label.
+function buildFeePreviewMilestones(
+  form: ProposalFormData,
+): { key: string; label: string; amountCents: number }[] {
+  if (form.paymentMode === "one_time") {
+    const amountCents = Math.round(Number(form.amount) * 100)
+    return [
+      {
+        key: "one-time",
+        label: "Paiement unique",
+        amountCents: Number.isFinite(amountCents) ? amountCents : 0,
+      },
+    ]
+  }
+  return form.milestones.map((m, idx) => {
+    const parsed = Math.round(Number(m.amount) * 100)
+    return {
+      key: `milestone-${idx}`,
+      label: m.title.trim() || `Jalon ${idx + 1}`,
+      amountCents: Number.isFinite(parsed) ? parsed : 0,
+    }
+  })
 }
 
 function RecipientField({ name }: { name: string }) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/billing"
 	domain "marketplace-backend/internal/domain/payment"
 	portservice "marketplace-backend/internal/port/service"
 )
@@ -30,9 +31,19 @@ func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.Pay
 	}
 
 	stripeFee := domain.EstimateStripeFee(input.ProposalAmount)
+
+	// Platform fee is computed from the billing schedule using the provider's
+	// role (agency pays the agency grid, everyone else pays the freelance
+	// grid). The fee is frozen into the payment_record row at creation time —
+	// future schedule changes never retro-modify historical records.
+	platformFee, err := s.computePlatformFee(ctx, input.ProviderID, input.ProposalAmount)
+	if err != nil {
+		return nil, fmt.Errorf("compute platform fee: %w", err)
+	}
+
 	record := domain.NewPaymentRecord(
 		input.ProposalID, input.MilestoneID, input.ClientID, input.ProviderID,
-		input.ProposalAmount, stripeFee,
+		input.ProposalAmount, stripeFee, platformFee,
 	)
 
 	pi, err := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
@@ -753,5 +764,34 @@ func (s *Service) VerifyWebhook(payload []byte, signature string) (*portservice.
 // GetPaymentRecord returns the payment record for a proposal.
 func (s *Service) GetPaymentRecord(ctx context.Context, proposalID uuid.UUID) (*domain.PaymentRecord, error) {
 	return s.records.GetByProposalID(ctx, proposalID)
+}
+
+// computePlatformFee looks up the provider's role and returns the flat fee
+// from the billing schedule. Returns an error if the provider cannot be
+// resolved — creating a payment record without knowing which grid applies
+// would skew either the platform (under-charge) or the provider
+// (over-charge), so we fail fast.
+func (s *Service) computePlatformFee(ctx context.Context, providerID uuid.UUID, amountCents int64) (int64, error) {
+	u, err := s.users.GetByID(ctx, providerID)
+	if err != nil {
+		return 0, fmt.Errorf("fetch provider: %w", err)
+	}
+	billingRole := billing.RoleFromUser(string(u.Role))
+	return billing.Calculate(billingRole, amountCents).FeeCents, nil
+}
+
+// PreviewFee returns the full fee schedule for the authenticated user
+// alongside the specific fee that would apply to a milestone of the given
+// amount. Used by the web/mobile proposal creation flow to render the live
+// simulator — the grid is returned from the backend so the client never has
+// to mirror the schedule constants.
+func (s *Service) PreviewFee(ctx context.Context, userID uuid.UUID, amountCents int64) (*billing.Result, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch user: %w", err)
+	}
+	billingRole := billing.RoleFromUser(string(u.Role))
+	result := billing.Calculate(billingRole, amountCents)
+	return &result, nil
 }
 

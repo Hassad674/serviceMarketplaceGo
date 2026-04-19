@@ -413,7 +413,7 @@ function RecordRow({ record }: { record: WalletRecord }) {
             {formatEur(record.provider_payout)}
           </p>
           <p className="text-xs text-slate-500">
-            -{formatEur(record.platform_fee)} commission
+            -{formatEur(record.platform_fee)} Frais plateforme
           </p>
         </div>
         {isFailed ? (
