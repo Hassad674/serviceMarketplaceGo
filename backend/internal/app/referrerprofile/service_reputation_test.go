@@ -186,9 +186,14 @@ func (f *fakeProposalRepo) CountAll(context.Context) (int, int, error) { return 
 
 var _ repository.ProposalRepository = (*fakeProposalRepo)(nil)
 
+// fakeReviewRepo keeps an explicit slice of reviews (NOT a map keyed
+// by proposal_id) because proposals carry two rows in the double-blind
+// model — one per side. Keying by proposal_id would collide and silently
+// drop one side, which is exactly the regression the tests must guard
+// against.
 type fakeReviewRepo struct {
 	counters *callCounters
-	byID     map[uuid.UUID]*reviewdomain.Review
+	reviews  []*reviewdomain.Review
 }
 
 func (f *fakeReviewRepo) Create(context.Context, *reviewdomain.Review) error { return nil }
@@ -207,15 +212,31 @@ func (f *fakeReviewRepo) GetAverageRatingByOrganization(context.Context, uuid.UU
 func (f *fakeReviewRepo) HasReviewed(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return false, nil
 }
-func (f *fakeReviewRepo) GetByProposalIDs(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]*reviewdomain.Review, error) {
+func (f *fakeReviewRepo) GetByProposalIDs(_ context.Context, ids []uuid.UUID, side string) (map[uuid.UUID]*reviewdomain.Review, error) {
 	if f.counters != nil {
 		f.counters.getReviewsByProposalIDs.Add(1)
 	}
-	out := make(map[uuid.UUID]*reviewdomain.Review, len(ids))
+	want := make(map[uuid.UUID]struct{}, len(ids))
 	for _, id := range ids {
-		if rv, ok := f.byID[id]; ok {
-			out[id] = rv
+		want[id] = struct{}{}
+	}
+	out := make(map[uuid.UUID]*reviewdomain.Review, len(ids))
+	for _, rv := range f.reviews {
+		if rv == nil {
+			continue
 		}
+		if _, ok := want[rv.ProposalID]; !ok {
+			continue
+		}
+		// Honour the SQL-level side filter in the fake so callers that
+		// set the wrong side (or no side at all) are caught by tests.
+		if side != "" && rv.Side != side {
+			continue
+		}
+		// Stable last-write-wins for callers that pass side="" on a
+		// proposal with both sides — this intentionally reproduces the
+		// pre-fix non-deterministic behaviour so regressions surface.
+		out[rv.ProposalID] = rv
 	}
 	return out, nil
 }
@@ -262,18 +283,27 @@ type setupInput struct {
 	referrals  []*referraldomain.Referral
 	attribs    []*referraldomain.Attribution
 	proposals  []*proposaldomain.Proposal
-	reviews    map[uuid.UUID]*reviewdomain.Review
-	users      map[uuid.UUID]*userdomain.User
+	// reviews is flattened by proposal_id → single review; convenient for
+	// the majority of tests that only need one side per proposal. Tests
+	// exercising the double-blind collision use reviewList instead.
+	reviews     map[uuid.UUID]*reviewdomain.Review
+	reviewList  []*reviewdomain.Review
+	users       map[uuid.UUID]*userdomain.User
 }
 
 func newServiceForReputation(t *testing.T, in setupInput) (*appreferrer.Service, *callCounters) {
 	t.Helper()
 	counters := &callCounters{}
+	allReviews := make([]*reviewdomain.Review, 0, len(in.reviews)+len(in.reviewList))
+	for _, rv := range in.reviews {
+		allReviews = append(allReviews, rv)
+	}
+	allReviews = append(allReviews, in.reviewList...)
 	svc := appreferrer.NewService(&mockReferrerProfileRepo{}).WithReputationDeps(
 		appreferrer.ReputationDeps{
 			Referrals: &fakeReferralRepo{counters: counters, referrals: in.referrals, attribs: in.attribs},
 			Proposals: &fakeProposalRepo{counters: counters, proposals: in.proposals},
-			Reviews:   &fakeReviewRepo{counters: counters, byID: in.reviews},
+			Reviews:   &fakeReviewRepo{counters: counters, reviews: allReviews},
 			Users:     &fakeUserBatchReader{counters: counters, users: in.users},
 		},
 	)
@@ -418,19 +448,20 @@ func TestGetReferrerReputation_OneCompletedReviewed_AveragesToTheReviewRating(t 
 	entry := rep.History[0]
 	assert.Equal(t, "Build a landing page", entry.ProposalTitle)
 	assert.Equal(t, string(proposaldomain.StatusCompleted), entry.ProposalStatus)
-	assert.Equal(t, "Provider Name", entry.ProviderName)
-	require.NotNil(t, entry.Rating)
-	assert.Equal(t, 4, *entry.Rating)
-	assert.Equal(t, "Great work", entry.Comment)
+	require.NotNil(t, entry.Review)
+	assert.Equal(t, 4, entry.Review.GlobalRating)
+	assert.Equal(t, reviewdomain.SideClientToProvider, entry.Review.Side)
+	assert.Equal(t, "Great work", entry.Review.Comment)
 	assert.Empty(t, rep.NextCursor)
 
 	// Query budget: 1 list referrals, 1 list attributions, 1 proposals,
-	// 1 reviews, 1 users. Total 5.
+	// 1 reviews. User lookup is gone — the public apporteur surface no
+	// longer resolves provider names (Modèle A confidentiality).
 	assert.Equal(t, int32(1), counters.listReferrals.Load())
 	assert.Equal(t, int32(1), counters.listAttributionsByIDs.Load())
 	assert.Equal(t, int32(1), counters.getProposalsByIDs.Load())
 	assert.Equal(t, int32(1), counters.getReviewsByProposalIDs.Load())
-	assert.Equal(t, int32(1), counters.getUsersByIDs.Load())
+	assert.Equal(t, int32(0), counters.getUsersByIDs.Load(), "user batch reader must not be called anymore")
 }
 
 func TestGetReferrerReputation_DisputedMissionDoesNotContributeToRating(t *testing.T) {
@@ -471,7 +502,7 @@ func TestGetReferrerReputation_DisputedMissionDoesNotContributeToRating(t *testi
 	// Completed, reviewed proposal comes first because completed_at > null.
 	assert.Equal(t, "Completed mission", rep.History[0].ProposalTitle)
 	assert.Equal(t, string(proposaldomain.StatusDisputed), rep.History[1].ProposalStatus)
-	assert.Nil(t, rep.History[1].Rating, "disputed mission must not carry a rating on the public surface")
+	assert.Nil(t, rep.History[1].Review, "disputed mission must not carry a review on the public surface")
 }
 
 func TestGetReferrerReputation_CompletedWithoutReview_CountsInHistoryButNotInRating(t *testing.T) {
@@ -503,8 +534,7 @@ func TestGetReferrerReputation_CompletedWithoutReview_CountsInHistoryButNotInRat
 	assert.Equal(t, 0.0, rep.RatingAvg)
 	assert.Equal(t, 0, rep.ReviewCount)
 	require.Len(t, rep.History, 1)
-	assert.Nil(t, rep.History[0].Rating)
-	assert.Empty(t, rep.History[0].Comment)
+	assert.Nil(t, rep.History[0].Review)
 }
 
 func TestGetReferrerReputation_PaginationWalksAllPages(t *testing.T) {
@@ -564,6 +594,62 @@ func TestGetReferrerReputation_PaginationWalksAllPages(t *testing.T) {
 	}
 }
 
+// TestGetReferrerReputation_BothSidesSubmitted_SurfaceClientToProvider
+// is the regression guard for the double-blind collision bug: a
+// proposal carries BOTH a client→provider review (5★) AND a
+// provider→client review (3★). Pre-fix, GetByProposalIDs used a map
+// keyed on proposal_id without a side filter, so whichever side
+// scanned last silently replaced the other — the apporteur's rating
+// became non-deterministic and sub-criteria could vanish. Post-fix,
+// the service requests the client→provider side explicitly at the
+// SQL level and the aggregate stays stable at the client→provider
+// rating (5), with the embedded review pointing at that side.
+func TestGetReferrerReputation_BothSidesSubmitted_SurfaceClientToProvider(t *testing.T) {
+	referrerID := uuid.New()
+	providerID := uuid.New()
+	clientID := uuid.New()
+	referralID := uuid.New()
+	proposalID := uuid.New()
+	completedAt := time.Date(2026, 3, 1, 10, 0, 0, 0, time.UTC)
+
+	clientSide := newClientToProviderReview(proposalID, clientID, providerID, 5, "Great work on the client side", completedAt.Add(time.Hour))
+	providerSide := newProviderToClientReview(proposalID, providerID, clientID, 3, completedAt.Add(2*time.Hour))
+
+	in := setupInput{
+		referrerID: referrerID,
+		referrals:  []*referraldomain.Referral{newActiveReferralRow(referralID, referrerID, providerID, clientID)},
+		attribs: []*referraldomain.Attribution{
+			newAttribution(uuid.New(), referralID, proposalID, providerID, clientID, completedAt.Add(-48*time.Hour)),
+		},
+		proposals: []*proposaldomain.Proposal{
+			newCompletedProposal(proposalID, clientID, providerID, "Double-blind mission", completedAt),
+		},
+		// Both sides of the double-blind pair exist on the same proposal.
+		reviewList: []*reviewdomain.Review{clientSide, providerSide},
+		users: map[uuid.UUID]*userdomain.User{
+			providerID: newProviderUser(providerID, "Provider Name"),
+		},
+	}
+	svc, _ := newServiceForReputation(t, in)
+
+	rep, err := svc.GetReferrerReputation(context.Background(), referrerID, "", 20)
+	require.NoError(t, err)
+
+	// Rating aggregate must reflect the CLIENT→PROVIDER side only (5★),
+	// not the provider→client side (3★) — flaky before the fix.
+	assert.Equal(t, 5.0, rep.RatingAvg, "apporteur rating must surface the client→provider side only")
+	assert.Equal(t, 1, rep.ReviewCount)
+
+	require.Len(t, rep.History, 1)
+	entry := rep.History[0]
+	require.NotNil(t, entry.Review, "review must be embedded on the apporteur surface")
+	assert.Equal(t, reviewdomain.SideClientToProvider, entry.Review.Side, "embedded review must point at the client→provider side")
+	assert.Equal(t, 5, entry.Review.GlobalRating)
+	assert.Equal(t, "Great work on the client side", entry.Review.Comment)
+	// ID must match the client→provider review, not the provider→client one.
+	assert.Equal(t, clientSide.ID, entry.Review.ID)
+}
+
 func TestGetReferrerReputation_ProviderToClientReview_DoesNotCount(t *testing.T) {
 	referrerID := uuid.New()
 	providerID := uuid.New()
@@ -596,7 +682,7 @@ func TestGetReferrerReputation_ProviderToClientReview_DoesNotCount(t *testing.T)
 	assert.Equal(t, 0.0, rep.RatingAvg)
 	assert.Equal(t, 0, rep.ReviewCount)
 	require.Len(t, rep.History, 1)
-	assert.Nil(t, rep.History[0].Rating, "provider→client review must never be surfaced as the apporteur's score")
+	assert.Nil(t, rep.History[0].Review, "provider→client review must never be surfaced as the apporteur's score")
 }
 
 func TestGetReferrerReputation_InvalidCursor_ReturnsError(t *testing.T) {

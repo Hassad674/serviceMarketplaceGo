@@ -66,11 +66,24 @@ type ReviewRepository interface {
 	GetAverageRatingByOrganization(ctx context.Context, orgID uuid.UUID) (*review.AverageRating, error)
 	HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
 	// GetByProposalIDs returns a map of proposalID → review for the given
-	// proposal IDs. Missing entries mean the proposal was not yet reviewed.
+	// proposal IDs, filtered to the requested side. Missing entries mean
+	// the proposal was not yet reviewed on that side.
+	//
+	// side must be one of:
+	//   - "client_to_provider": return the client→provider review per proposal
+	//   - "provider_to_client": return the provider→client review per proposal
+	//   - ""                   : return ANY one review per proposal (legacy)
+	//
+	// Each proposal has up to two reviews (double-blind: one per side).
+	// The map is keyed by proposal_id, so without the side filter the two
+	// sides collide and whichever row scans last wins. New callers MUST
+	// pass an explicit side — the "any-side" mode only exists for legacy
+	// integrations and must not be used in user-facing flows.
+	//
 	// Hidden (moderation_status='hidden') and unpublished (published_at
 	// IS NULL) reviews are excluded so the project history surface never
 	// leaks blind submissions.
-	GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID]*review.Review, error)
+	GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID, side string) (map[uuid.UUID]*review.Review, error)
 	UpdateReviewModeration(ctx context.Context, reviewID uuid.UUID, status string, score float64, labelsJSON []byte) error
 
 	// Admin operations

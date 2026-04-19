@@ -2828,7 +2828,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get reputationLoadMore => 'Show more';
 
   @override
-  String get reputationViewFreelanceProfile => 'View freelance profile';
+  String get introducedProvider => 'Introduced provider';
 
   @override
   String get reputationStatusCompleted => 'Completed';

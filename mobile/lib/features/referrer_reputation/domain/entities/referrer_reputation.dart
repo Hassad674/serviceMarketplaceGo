@@ -1,16 +1,23 @@
+import '../../../../core/models/review.dart';
+
 /// One attributed mission on the apporteur's reputation surface.
 ///
-/// Client identity is intentionally absent — B2B working relationships
-/// stay confidential, the surface only exposes the provider side.
+/// BOTH the client and the provider identities are intentionally
+/// absent:
+///   - client identity: B2B working-relationship confidentiality
+///   - provider identity: the apporteur's recommendation graph is
+///     private — the public profile only shows the outcome (status +
+///     review), never who was introduced.
+///
+/// The embedded [review] (when present) carries the full double-blind
+/// client→provider feedback (sub-criteria + optional video) so the UI
+/// can render it with the shared `ReviewCardWidget` — same primitive
+/// as the freelance project history.
 class ReferrerProjectHistoryEntry {
   final String proposalId;
   final String proposalTitle;
   final String proposalStatus;
-  final String providerId;
-  final String providerName;
-  final int? rating;
-  final String comment;
-  final DateTime? reviewedAt;
+  final Review? review;
   final DateTime? completedAt;
   final DateTime attributedAt;
 
@@ -18,25 +25,20 @@ class ReferrerProjectHistoryEntry {
     required this.proposalId,
     required this.proposalTitle,
     required this.proposalStatus,
-    required this.providerId,
-    required this.providerName,
-    required this.rating,
-    required this.comment,
-    required this.reviewedAt,
+    required this.review,
     required this.completedAt,
     required this.attributedAt,
   });
 
   factory ReferrerProjectHistoryEntry.fromJson(Map<String, dynamic> json) {
+    final reviewJson = json['review'];
     return ReferrerProjectHistoryEntry(
       proposalId: json['proposal_id'] as String,
       proposalTitle: json['proposal_title'] as String? ?? '',
       proposalStatus: json['proposal_status'] as String? ?? '',
-      providerId: json['provider_id'] as String? ?? '',
-      providerName: json['provider_name'] as String? ?? '',
-      rating: json['rating'] as int?,
-      comment: json['comment'] as String? ?? '',
-      reviewedAt: _parseOptionalDate(json['reviewed_at']),
+      review: reviewJson is Map<String, dynamic>
+          ? Review.fromJson(reviewJson)
+          : null,
       completedAt: _parseOptionalDate(json['completed_at']),
       attributedAt: DateTime.parse(json['attributed_at'] as String),
     );

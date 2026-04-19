@@ -605,7 +605,7 @@
       "reputationLoadError": "Impossible de charger les projets apportés. Réessayez dans un instant.",
       "reputationLoadMore": "Voir plus",
       "reputationLoadMoreLoading": "Chargement…",
-      "reputationProviderLinkLabel": "Voir le profil freelance",
+      "introducedProvider": "Prestataire introduit",
       "reputationAttributedOn": "Attribué le {date}",
       "reputationStatusCompleted": "Terminé",
       "reputationStatusDisputed": "En litige",

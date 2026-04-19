@@ -13,14 +13,8 @@ import (
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	referraldomain "marketplace-backend/internal/domain/referral"
 	reviewdomain "marketplace-backend/internal/domain/review"
-	userdomain "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 )
-
-// userDomain is a local alias so the helpers below don't drag the
-// imported name across every signature. Kept private — the
-// public surface is the ReputationDeps struct.
-type userDomain = userdomain.User
 
 // ReferrerReputation is the aggregated apporteur reputation view:
 // a single rating stat pair computed across every reviewed attribution,
@@ -37,30 +31,38 @@ type ReferrerReputation struct {
 }
 
 // ProjectHistoryEntry is one attributed mission in the referrer's
-// history. Client identity is intentionally omitted — the B2B working
-// relationship stays confidential, the apporteur reputation surface
-// only exposes the provider side.
+// history. Both the client and the provider identities are intentionally
+// omitted — Modèle A confidentiality extends to the public apporteur
+// profile, where the apporteur's network of recommendations stays
+// private. The review (if any) is embedded so the UI can render the
+// full double-blind client→provider feedback using the shared review
+// card primitive (sub-criteria, comment, video).
 type ProjectHistoryEntry struct {
 	ProposalID     uuid.UUID
 	ProposalTitle  string
 	ProposalStatus string
-	ProviderID     uuid.UUID
-	ProviderName   string
-	Rating         *int
-	Comment        string
-	ReviewedAt     *time.Time
+	Review         *reviewdomain.Review
 	CompletedAt    *time.Time
 	AttributedAt   time.Time
 }
 
-// ReputationDeps groups the four repositories the reputation aggregate
+// ReputationDeps groups the three repositories the reputation aggregate
 // needs. All are required — a nil on any of them disables the surface
 // (GetReferrerReputation returns an empty aggregate).
+//
+// The Users reader was deliberately removed from this set: the public
+// apporteur surface no longer exposes provider identity (Modèle A
+// confidentiality), so resolving display names would be wasted work.
+// The field is kept for one release as an accepted-and-ignored value
+// to avoid breaking existing wiring in cmd/api/main.go.
 type ReputationDeps struct {
 	Referrals repository.ReferralRepository
 	Proposals repository.ProposalRepository
 	Reviews   repository.ReviewRepository
-	Users     repository.UserBatchReader
+	// Users is deprecated: the apporteur reputation surface no longer
+	// exposes provider names. The field is still accepted so existing
+	// wiring keeps compiling; it is intentionally unused.
+	Users repository.UserBatchReader
 }
 
 // WithReputationDeps attaches the reputation aggregate dependencies.
@@ -111,7 +113,7 @@ type reputationCursor struct {
 // method simply iterates whatever the attributions table already
 // contains for the referrer's referrals.
 func (s *Service) GetReferrerReputation(ctx context.Context, userID uuid.UUID, cursorStr string, limit int) (ReferrerReputation, error) {
-	if s == nil || s.referrals == nil || s.proposals == nil || s.reviews == nil || s.users == nil {
+	if s == nil || s.referrals == nil || s.proposals == nil || s.reviews == nil {
 		// Reputation deps not wired — return a defensive empty view
 		// instead of panicking, so the feature can be disabled without
 		// breaking the profile page.
@@ -147,8 +149,10 @@ func (s *Service) GetReferrerReputation(ctx context.Context, userID uuid.UUID, c
 	}, nil
 }
 
-// buildHistoryEntries runs the five batch queries and assembles the
-// full un-paginated entry list plus the summary stats.
+// buildHistoryEntries runs the four batch queries and assembles the
+// full un-paginated entry list plus the summary stats. Provider
+// identity is intentionally not resolved — the public apporteur
+// surface must not leak the recommendation graph.
 func (s *Service) buildHistoryEntries(ctx context.Context, userID uuid.UUID) ([]ProjectHistoryEntry, float64, int, error) {
 	referralIDs, err := s.collectReferralIDs(ctx, userID)
 	if err != nil {
@@ -173,14 +177,13 @@ func (s *Service) buildHistoryEntries(ctx context.Context, userID uuid.UUID) ([]
 	}
 	proposalByID := indexProposals(proposals)
 
-	providerIDs := uniqueProviderIDs(attributions)
-	users, err := s.users.GetByIDs(ctx, providerIDs)
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("reputation: get providers: %w", err)
-	}
-	providerNameByID := indexProviderNames(users)
-
-	reviewsByProposal, err := s.reviews.GetByProposalIDs(ctx, proposalIDs)
+	// Filter at the SQL level to the client→provider side only. The map
+	// is keyed by proposal_id, so without the side filter the two sides
+	// of the double-blind pair collide and whichever row scans last
+	// silently overwrites the other — the root cause of the apporteur
+	// "Pas encore d'avis" regression observed when a provider→client
+	// review happened to win the race.
+	reviewsByProposal, err := s.reviews.GetByProposalIDs(ctx, proposalIDs, reviewdomain.SideClientToProvider)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("reputation: get reviews: %w", err)
 	}
@@ -195,12 +198,11 @@ func (s *Service) buildHistoryEntries(ctx context.Context, userID uuid.UUID) ([]
 		if prop == nil {
 			continue
 		}
-		entry := buildEntry(a, prop, providerNameByID[a.ProviderID])
-		review := clientToProviderReview(reviewsByProposal, a.ProposalID)
-		if review != nil {
-			applyReview(&entry, review)
+		entry := buildEntry(a, prop)
+		if rv := reviewsByProposal[a.ProposalID]; rv != nil {
+			entry.Review = rv
 			if string(prop.Status) == string(proposaldomain.StatusCompleted) {
-				ratingSum += review.GlobalRating
+				ratingSum += rv.GlobalRating
 				ratingCount++
 			}
 		}
@@ -237,49 +239,17 @@ func (s *Service) collectReferralIDs(ctx context.Context, userID uuid.UUID) ([]u
 	}
 }
 
-// clientToProviderReview returns the one client→provider review for the
-// given proposal, or nil if absent or in the wrong direction.
-// GetByProposalIDs already filters by published+moderation but NOT by
-// side — we enforce the direction here so a provider→client review
-// cannot leak into the apporteur score.
-func clientToProviderReview(reviews map[uuid.UUID]*reviewdomain.Review, proposalID uuid.UUID) *reviewdomain.Review {
-	rv, ok := reviews[proposalID]
-	if !ok || rv == nil {
-		return nil
-	}
-	if rv.Side != reviewdomain.SideClientToProvider {
-		return nil
-	}
-	return rv
-}
-
 // buildEntry converts an attribution+proposal pair into a history entry.
-// Provider name is looked up defensively — a missing user row produces
-// an empty string rather than an error so the list stays renderable.
-func buildEntry(a *referraldomain.Attribution, prop *proposaldomain.Proposal, providerName string) ProjectHistoryEntry {
+// Provider identity is NOT projected — the public apporteur surface
+// treats the introduced provider as anonymous ("Prestataire introduit")
+// so the apporteur's recommendation graph stays confidential.
+func buildEntry(a *referraldomain.Attribution, prop *proposaldomain.Proposal) ProjectHistoryEntry {
 	return ProjectHistoryEntry{
 		ProposalID:     a.ProposalID,
 		ProposalTitle:  prop.Title,
 		ProposalStatus: string(prop.Status),
-		ProviderID:     a.ProviderID,
-		ProviderName:   providerName,
 		CompletedAt:    prop.CompletedAt,
 		AttributedAt:   a.AttributedAt,
-	}
-}
-
-// applyReview copies the review fields into the entry. Reviewed_at
-// uses PublishedAt when set, otherwise CreatedAt — the public-facing
-// timestamp is the reveal moment.
-func applyReview(entry *ProjectHistoryEntry, rv *reviewdomain.Review) {
-	rating := rv.GlobalRating
-	entry.Rating = &rating
-	entry.Comment = rv.Comment
-	if rv.PublishedAt != nil {
-		entry.ReviewedAt = rv.PublishedAt
-	} else {
-		reviewedAt := rv.CreatedAt
-		entry.ReviewedAt = &reviewedAt
 	}
 }
 
@@ -409,54 +379,10 @@ func uniqueProposalIDs(attributions []*referraldomain.Attribution) []uuid.UUID {
 	return ids
 }
 
-func uniqueProviderIDs(attributions []*referraldomain.Attribution) []uuid.UUID {
-	seen := make(map[uuid.UUID]struct{}, len(attributions))
-	ids := make([]uuid.UUID, 0, len(attributions))
-	for _, a := range attributions {
-		if _, ok := seen[a.ProviderID]; ok {
-			continue
-		}
-		seen[a.ProviderID] = struct{}{}
-		ids = append(ids, a.ProviderID)
-	}
-	return ids
-}
-
 func indexProposals(list []*proposaldomain.Proposal) map[uuid.UUID]*proposaldomain.Proposal {
 	out := make(map[uuid.UUID]*proposaldomain.Proposal, len(list))
 	for _, p := range list {
 		out[p.ID] = p
 	}
 	return out
-}
-
-// indexProviderNames picks the best human-readable name for each user.
-// Preference order: DisplayName → "FirstName LastName" → Email local
-// part. An empty result is tolerated — the UI falls back to the
-// provider's UUID when rendering.
-func indexProviderNames(users []*userDomain) map[uuid.UUID]string {
-	out := make(map[uuid.UUID]string, len(users))
-	for _, u := range users {
-		out[u.ID] = pickDisplayName(u)
-	}
-	return out
-}
-
-func pickDisplayName(u *userDomain) string {
-	if u == nil {
-		return ""
-	}
-	if u.DisplayName != "" {
-		return u.DisplayName
-	}
-	if u.FirstName != "" || u.LastName != "" {
-		if u.FirstName == "" {
-			return u.LastName
-		}
-		if u.LastName == "" {
-			return u.FirstName
-		}
-		return u.FirstName + " " + u.LastName
-	}
-	return u.Email
 }

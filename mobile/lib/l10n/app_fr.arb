@@ -1124,7 +1124,7 @@
   "reputationEmptyDescription": "Les projets issus de vos recommandations apparaîtront ici.",
   "reputationLoadError": "Impossible de charger les projets apportés",
   "reputationLoadMore": "Voir plus",
-  "reputationViewFreelanceProfile": "Voir le profil freelance",
+  "introducedProvider": "Prestataire introduit",
   "reputationStatusCompleted": "Terminé",
   "reputationStatusDisputed": "En litige",
   "reputationStatusActive": "En cours",

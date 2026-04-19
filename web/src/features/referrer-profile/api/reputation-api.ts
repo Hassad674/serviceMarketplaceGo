@@ -1,18 +1,20 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Review } from "@/shared/types/review"
 
 // ProjectHistoryEntry is one attributed mission on the apporteur's
-// reputation surface. Client identity is intentionally absent — B2B
-// working relationships stay confidential, the surface only exposes
-// the provider side.
+// reputation surface. BOTH the client and the provider identities are
+// intentionally absent:
+//   - client identity: B2B working-relationship confidentiality
+//   - provider identity: the apporteur's recommendation graph is private
+// The embedded review (when present) carries the full double-blind
+// client→provider feedback (sub-criteria + video) so the UI can render
+// it with the shared ReviewCard primitive — same shape as the
+// freelance project history.
 export type ReferrerProjectHistoryEntry = {
   proposal_id: string
   proposal_title: string
   proposal_status: string
-  provider_id: string
-  provider_name: string
-  rating: number | null
-  comment: string
-  reviewed_at: string | null
+  review: Review | null
   completed_at: string | null
   attributed_at: string
 }

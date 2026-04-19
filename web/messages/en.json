@@ -605,7 +605,7 @@
       "reputationLoadError": "Could not load referred projects. Please try again.",
       "reputationLoadMore": "Show more",
       "reputationLoadMoreLoading": "Loading…",
-      "reputationProviderLinkLabel": "View freelance profile",
+      "introducedProvider": "Introduced provider",
       "reputationAttributedOn": "Attributed on {date}",
       "reputationStatusCompleted": "Completed",
       "reputationStatusDisputed": "In dispute",
