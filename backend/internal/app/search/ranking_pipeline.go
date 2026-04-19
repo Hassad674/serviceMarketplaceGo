@@ -108,18 +108,33 @@ func (p *RankingPipeline) Rerank(ctx context.Context, in RankInput) []RankedCand
 	if len(in.Hits) == 0 {
 		return []RankedCandidate{}
 	}
+	nowUnix := p.resolveNow(in).Unix()
 
-	now := in.Now
-	if now.IsZero() {
-		now = rankingNow()
+	// Stages 2-4: feature extraction → anti-gaming → composite scoring.
+	candidates := p.scoreCandidates(ctx, in, nowUnix)
+
+	// Stage 5: business rules (tier sort, noise, diversity, rising
+	// talent, featured, truncate).
+	reranked := p.applyRules(ctx, candidates, in.Persona)
+
+	return p.zipWithRaws(reranked, in.Hits)
+}
+
+// resolveNow returns the reference instant used by the last-active
+// + account-age extractors. Falls back to rankingNow() when the
+// caller left in.Now as the zero value.
+func (p *RankingPipeline) resolveNow(in RankInput) time.Time {
+	if in.Now.IsZero() {
+		return rankingNow()
 	}
-	nowUnix := now.Unix()
+	return in.Now
+}
 
-	// Stage 2 — feature extraction per candidate.
-	// Stage 3 — anti-gaming rule pipeline mutating features in place.
-	// Stage 4 — scorer producing the RankedScore triple.
+// scoreCandidates runs Stages 2 → 3 → 4 for every hit and returns the
+// rules-ready Candidate slice. Split out of Rerank to keep the call
+// site short enough to audit in a single page.
+func (p *RankingPipeline) scoreCandidates(ctx context.Context, in RankInput, nowUnix int64) []rules.Candidate {
 	candidates := make([]rules.Candidate, 0, len(in.Hits))
-	raws := make([]TypesenseHit, 0, len(in.Hits))
 	for _, hit := range in.Hits {
 		lite := hit.ToSearchDocumentLite(nowUnix)
 		feat := p.extract(in.Query, lite)
@@ -137,21 +152,18 @@ func (p *RankingPipeline) Rerank(ctx context.Context, in RankInput) []RankedCand
 			IsFeatured:         hit.Document.IsFeatured,
 			IsVerified:         hit.Document.IsVerified,
 		})
-		raws = append(raws, hit)
 	}
+	return candidates
+}
 
-	// Stage 5 — business rules (tier sort, noise, diversity, rising
-	// talent, featured, truncate). Apply returns the reranked top-N
-	// with candidate identity preserved.
-	reranked := p.applyRules(ctx, candidates, in.Persona)
-
-	// Rebuild raw-doc lookup by ID — Apply may reorder and truncate,
-	// so a positional mapping no longer works.
+// zipWithRaws pairs each reranked Candidate back with its TypesenseHit.
+// Apply may reorder and truncate so a positional mapping no longer
+// works — we index by DocumentID instead.
+func (p *RankingPipeline) zipWithRaws(reranked []rules.Candidate, raws []TypesenseHit) []RankedCandidate {
 	rawByID := make(map[string]TypesenseHit, len(raws))
 	for _, h := range raws {
 		rawByID[h.Document.ID] = h
 	}
-
 	out := make([]RankedCandidate, 0, len(reranked))
 	for _, c := range reranked {
 		out = append(out, RankedCandidate{
