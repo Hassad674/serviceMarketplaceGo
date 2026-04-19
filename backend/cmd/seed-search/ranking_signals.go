@@ -131,8 +131,8 @@ func applyProjectHistory(ctx context.Context, db *sql.DB, providerOrgID, provide
 	if r.Intn(100) < 40 {
 		return nil
 	}
-	projectCount := 1 + r.Intn(5)      // 1-5 completed projects
-	repeatHeavy := r.Intn(100) < 25    // 25 % get a repeat client
+	projectCount := 1 + r.Intn(5)   // 1-5 completed projects
+	repeatHeavy := r.Intn(100) < 25 // 25 % get a repeat client
 	pickedClients := make([]clientRef, 0, projectCount)
 	for p := 0; p < projectCount; p++ {
 		var c clientRef

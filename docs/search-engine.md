@@ -121,7 +121,7 @@ cluster.
 
 ## Data model
 
-### `SearchDocument` — 36 fields
+### `SearchDocument` — 43 fields
 
 The collection is a single `marketplace_actors` alias pointing at the
 current version (`_v1` today). One schema, three personas separated by
@@ -129,18 +129,19 @@ the `persona` facet — not three collections. Cross-persona queries
 become trivial later; operational overhead is a third of what three
 collections would cost.
 
-| Group           | Fields                                                                                        | Purpose                                                 |
-| --------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Identity        | `id`, `organization_id`, `persona`, `is_published`                                            | Composite id `{orgID}:{persona}` so a provider_personal org can carry a freelance doc AND a referrer doc side by side |
-| Display         | `display_name`, `title`, `photo_url`                                                          | Card rendering                                          |
-| Geo             | `city`, `country_code`, `location` (geopoint), `work_mode[]`                                   | Sidebar filters + geo radius                            |
-| Languages       | `languages_professional[]`, `languages_conversational[]`                                       | Facet                                                   |
-| Availability    | `availability_status`, `availability_priority`                                                 | 3 = now, 2 = soon, 1 = not available                    |
-| Expertise       | `expertise_domains[]`, `skills[]`, `skills_text`                                               | BM25 boost via separate `skills_text` field             |
-| Pricing         | `pricing_type`, `pricing_min_amount`, `pricing_max_amount`, `pricing_currency`, `pricing_negotiable` | Single pricing row, smallest currency unit. **V1 narrows `pricing_type` to ONE value per persona — see "V1 pricing simplification" below.** |
-| Quality signals | `rating_average`, `rating_count`, `rating_score`, `total_earned`, `completed_projects`, `profile_completion_score`, `last_active_at`, `response_rate`, `is_verified`, `is_top_rated`, `is_featured` | Ranking |
-| Semantic        | `embedding` (float[1536])                                                                     | OpenAI `text-embedding-3-small`, excluded from API responses |
-| Timestamps      | `created_at`, `updated_at`                                                                    |                                                         |
+| Group                         | Fields                                                                                        | Purpose                                                 |
+| ----------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Identity                      | `id`, `organization_id`, `persona`, `is_published`                                            | Composite id `{orgID}:{persona}` so a provider_personal org can carry a freelance doc AND a referrer doc side by side |
+| Display                       | `display_name`, `title`, `photo_url`                                                          | Card rendering                                          |
+| Geo                           | `city`, `country_code`, `location` (geopoint), `work_mode[]`                                   | Sidebar filters + geo radius                            |
+| Languages                     | `languages_professional[]`, `languages_conversational[]`                                       | Facet                                                   |
+| Availability                  | `availability_status`, `availability_priority`                                                 | 3 = now, 2 = soon, 1 = not available                    |
+| Expertise                     | `expertise_domains[]`, `skills[]`, `skills_text`                                               | BM25 boost via separate `skills_text` field             |
+| Pricing                       | `pricing_type`, `pricing_min_amount`, `pricing_max_amount`, `pricing_currency`, `pricing_negotiable` | Single pricing row, smallest currency unit. **V1 narrows `pricing_type` to ONE value per persona — see "V1 pricing simplification" below.** |
+| Quality signals               | `rating_average`, `rating_count`, `rating_score`, `total_earned`, `completed_projects`, `profile_completion_score`, `last_active_at`, `response_rate`, `is_verified`, `is_top_rated`, `is_featured` | Ranking                                                 |
+| Ranking V1 signals (phase 6B) | `unique_clients_count`, `repeat_client_rate`, `unique_reviewers_count`, `max_reviewer_share`, `review_recency_factor`, `lost_disputes_count`, `account_age_days` | Feeds the 5-stage ranking pipeline — see "Ranking V1 signals" below |
+| Semantic                      | `embedding` (float[1536])                                                                     | OpenAI `text-embedding-3-small`, excluded from API responses |
+| Timestamps                    | `created_at`, `updated_at`                                                                    |                                                         |
 
 **Why the composite `id`?** A single provider_personal organisation can
 expose both a freelance and a referrer profile. We want both to surface
@@ -151,6 +152,55 @@ independently; the row identity in Typesense has to reflect that. Using
 `search.delete` events can match all docs for a user with a single
 `filter_by: organization_id:X`. That operation has to work atomically —
 RGPD demands a <3s propagation on account deletion.
+
+---
+
+## Ranking V1 signals
+
+Phase 6B added 7 indexed signals that feed the server-side ranking
+pipeline documented in [`docs/ranking-v1.md`](ranking-v1.md). Every
+field is numeric (int32 or float), `sort: true` so future scorers can
+sort by them, and `facet: false` because they are never filter
+buckets on the sidebar. All 7 are marked `optional: true` in the
+Typesense schema so alias-swap against a legacy collection stays
+non-breaking — legacy docs return default zero values until the
+next reindex populates them.
+
+| Field                    | Type   | Source                                                                                                     | Drives (ranking-v1.md)            |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `unique_clients_count`   | int32  | `proposal_milestones` where `status = 'released'`, joined through `proposals.provider_id → users.org`. Distinct client orgs. | `proven_work_score` §3.2-4        |
+| `repeat_client_rate`     | float  | Share of clients that returned for ≥2 released projects. `[0, 1]`, zero when no history.                    | `proven_work_score` §3.2-4        |
+| `unique_reviewers_count` | int32  | `reviews` where `side = 'client_to_provider'`, `published_at IS NOT NULL`, `moderation_status <> 'hidden'`. Distinct reviewer users. | `rating_score_diverse` §3.2-3     |
+| `max_reviewer_share`     | float  | `max(count per reviewer) / total_reviews`. `[0, 1]`. Anti-gaming — 3 friends leaving 10 reviews get zeroed out. | `rating_score_diverse` §3.2-3     |
+| `review_recency_factor`  | float  | Mean of `exp(-age_days / 365)` across every qualifying review. Pre-computed so the ranking query never scans the full reviews table. | `rating_score_diverse` §3.2-3     |
+| `lost_disputes_count`    | int32  | `disputes` where `respondent_organization_id = org` and `resolution_type IN ('full_refund', 'partial_refund')`. | `negative_signals` §5.3           |
+| `account_age_days`       | int32  | Days since the owner user's `users.created_at`. Computed fresh at index time. Zero for brand-new accounts.  | `is_verified_mature` §3.2-6, `account_age_bonus` §3.2-9 |
+
+**Adapter queries** live in
+`backend/internal/adapter/postgres/search_ranking_v1_repository.go`.
+Each is a single CTE-powered SELECT — zero N+1 in the fan-out path.
+The three new methods (`LoadClientHistory`, `LoadReviewDiversity`,
+`LoadAccountAge`) extend `search.SearchDataRepository` and are wired
+into `Indexer.fanOutLoad` alongside the 6 legacy aggregates.
+
+**Schema migration** is automatic for additive drift: on backend
+boot, `EnsureSchema` PATCHes the live `marketplace_actors_v1`
+collection with any fields declared in `CollectionSchemaDefinition`
+but missing upstream. Non-additive drift (type change, rename,
+removal) still warns + no-ops so a human can drive the `_vN`
+alias-swap flow. See `internal/search/migration.go` for the logic.
+
+**Edge cases** — every signal defaults to zero when the underlying
+data is absent:
+- An org with no owner user (test fixture) → `account_age_days = 0`,
+  `lost_disputes_count = 0`.
+- An org with no published reviews → `unique_reviewers_count = 0`,
+  `max_reviewer_share = 0`, `review_recency_factor = 0`.
+- An org with no released milestones → `unique_clients_count = 0`,
+  `repeat_client_rate = 0`.
+
+Zero is the contract downstream extractors rely on. Never emit
+`null` / `undefined` — Typesense treats those as schema drift.
 
 ---
 
