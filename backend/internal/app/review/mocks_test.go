@@ -70,7 +70,7 @@ func (m *mockReviewRepo) HasReviewed(ctx context.Context, proposalID, reviewerID
 	return false, nil
 }
 
-func (m *mockReviewRepo) GetByProposalIDs(_ context.Context, _ []uuid.UUID) (map[uuid.UUID]*domain.Review, error) {
+func (m *mockReviewRepo) GetByProposalIDs(_ context.Context, _ []uuid.UUID, _ string) (map[uuid.UUID]*domain.Review, error) {
 	return map[uuid.UUID]*domain.Review{}, nil
 }
 

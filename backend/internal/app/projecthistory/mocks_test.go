@@ -62,7 +62,7 @@ var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
 // --- mockReviewRepo ---
 
 type mockReviewRepo struct {
-	GetByProposalIDsFunc func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*reviewdomain.Review, error)
+	GetByProposalIDsFunc func(ctx context.Context, ids []uuid.UUID, side string) (map[uuid.UUID]*reviewdomain.Review, error)
 }
 
 func (m *mockReviewRepo) Create(context.Context, *reviewdomain.Review) error { return nil }
@@ -81,9 +81,9 @@ func (m *mockReviewRepo) GetAverageRatingByOrganization(context.Context, uuid.UU
 func (m *mockReviewRepo) HasReviewed(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
 	return false, nil
 }
-func (m *mockReviewRepo) GetByProposalIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*reviewdomain.Review, error) {
+func (m *mockReviewRepo) GetByProposalIDs(ctx context.Context, ids []uuid.UUID, side string) (map[uuid.UUID]*reviewdomain.Review, error) {
 	if m.GetByProposalIDsFunc != nil {
-		return m.GetByProposalIDsFunc(ctx, ids)
+		return m.GetByProposalIDsFunc(ctx, ids, side)
 	}
 	return map[uuid.UUID]*reviewdomain.Review{}, nil
 }

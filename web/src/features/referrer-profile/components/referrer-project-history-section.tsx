@@ -1,9 +1,9 @@
 "use client"
 
-import { Clock, ExternalLink, FileText, Star } from "lucide-react"
+import { Clock, FileText, Star } from "lucide-react"
 import { useFormatter, useTranslations } from "next-intl"
-import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
+import { ReviewCard } from "@/shared/components/ui/review-card"
 import { useReferrerReputation } from "../hooks/use-referrer-reputation"
 import type { ReferrerProjectHistoryEntry } from "../api/reputation-api"
 
@@ -17,8 +17,11 @@ interface ReferrerProjectHistorySectionProps {
 // Visual grammar mirrors the freelance project-history card so users
 // find it familiar, but the labels are unambiguous about scope —
 // "Projets apportés" / "Avis des clients sur les prestataires
-// recommandés" — and client identity is intentionally absent (B2B
-// confidentiality).
+// recommandés" — and BOTH client and provider identities are
+// intentionally absent: the apporteur's recommendation graph stays
+// confidential. Every introduced provider is surfaced as the static
+// "Prestataire introduit" label so the public profile never leaks
+// who the apporteur recommends.
 export function ReferrerProjectHistorySection(
   props: ReferrerProjectHistorySectionProps,
 ) {
@@ -162,7 +165,7 @@ interface HistoryEntryCardProps {
 function HistoryEntryCard({ entry }: HistoryEntryCardProps) {
   const t = useTranslations("profile.referrer")
   const format = useFormatter()
-  const hasReview = entry.rating !== null && entry.rating !== undefined
+  const hasReview = entry.review !== null && entry.review !== undefined
   const timelineDate = entry.completed_at
     ? new Date(entry.completed_at)
     : new Date(entry.attributed_at)
@@ -196,18 +199,21 @@ function HistoryEntryCard({ entry }: HistoryEntryCardProps) {
         </h3>
       ) : null}
 
-      <ProviderBlock
-        providerName={entry.provider_name}
-        providerId={entry.provider_id}
-      />
+      {/*
+        Static "Prestataire introduit" label — the apporteur's public
+        profile never exposes WHO was introduced (Modèle A
+        confidentiality), only the OUTCOME (status + review).
+      */}
+      <p className="mt-2 text-sm font-medium text-foreground">
+        {t("introducedProvider")}
+      </p>
 
       <div className="mt-4">
-        {hasReview ? (
-          <ReviewBlock
-            rating={entry.rating as number}
-            comment={entry.comment}
-            reviewedAt={entry.reviewed_at}
-          />
+        {hasReview && entry.review ? (
+          // DRY: reuse the shared ReviewCard primitive so the apporteur
+          // surface renders stars + sub-criteria + comment + video
+          // identically to the freelance project history.
+          <ReviewCard review={entry.review} />
         ) : (
           <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 p-3 text-sm text-muted-foreground">
             <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -216,82 +222,6 @@ function HistoryEntryCard({ entry }: HistoryEntryCardProps) {
         )}
       </div>
     </article>
-  )
-}
-
-interface ProviderBlockProps {
-  providerName: string
-  providerId: string
-}
-
-function ProviderBlock({ providerName, providerId }: ProviderBlockProps) {
-  const t = useTranslations("profile.referrer")
-  const displayName = providerName.trim() || providerId
-  return (
-    <div className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-      <span className="text-foreground font-medium">{displayName}</span>
-      <Link
-        href={`/freelancers/${providerId}`}
-        className="inline-flex items-center gap-1 text-xs text-rose-600 transition-opacity hover:opacity-80 dark:text-rose-300"
-        aria-label={t("reputationProviderLinkLabel")}
-      >
-        <ExternalLink className="h-3 w-3" aria-hidden="true" />
-        {t("reputationProviderLinkLabel")}
-      </Link>
-    </div>
-  )
-}
-
-interface ReviewBlockProps {
-  rating: number
-  comment: string
-  reviewedAt: string | null
-}
-
-function ReviewBlock({ rating, comment, reviewedAt }: ReviewBlockProps) {
-  const format = useFormatter()
-  return (
-    <div className="rounded-xl border border-border/50 p-4 transition-colors duration-200 hover:border-border">
-      <div className="flex items-center justify-between">
-        <InlineStars rating={rating} />
-        {reviewedAt ? (
-          <time
-            className="text-xs text-muted-foreground"
-            dateTime={reviewedAt}
-          >
-            {format.dateTime(new Date(reviewedAt), {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            })}
-          </time>
-        ) : null}
-      </div>
-      {comment ? (
-        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
-          {comment}
-        </p>
-      ) : null}
-    </div>
-  )
-}
-
-function InlineStars({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5" aria-label={`${rating}/5`}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star
-          key={i}
-          className={cn(
-            "h-4 w-4",
-            i <= rating
-              ? "fill-amber-400 text-amber-400"
-              : "text-muted-foreground/30",
-          )}
-          strokeWidth={1.5}
-        />
-      ))}
-    </div>
   )
 }
 

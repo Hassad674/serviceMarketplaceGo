@@ -121,20 +121,25 @@ type ReferrerReputationResponse struct {
 	HasMore     bool                           `json:"has_more"`
 }
 
-// ProjectHistoryEntryResponse is one attributed mission. Client
-// identity is intentionally absent — B2B working relationships stay
-// confidential on the apporteur surface.
+// ProjectHistoryEntryResponse is one attributed mission on the public
+// apporteur reputation surface. BOTH the client and the provider
+// identities are intentionally absent:
+//
+//   - client identity: B2B working-relationship confidentiality (Modèle A)
+//   - provider identity: the apporteur's recommendation graph is private
+//
+// The clients of this DTO render the introduced provider as a static
+// "Prestataire introduit" label. The review, when present, carries the
+// full double-blind client→provider feedback (sub-criteria + video)
+// so clients can reuse the shared ReviewCard primitive — same shape
+// as the freelance project history surface.
 type ProjectHistoryEntryResponse struct {
-	ProposalID     string  `json:"proposal_id"`
-	ProposalTitle  string  `json:"proposal_title"`
-	ProposalStatus string  `json:"proposal_status"`
-	ProviderID     string  `json:"provider_id"`
-	ProviderName   string  `json:"provider_name"`
-	Rating         *int    `json:"rating"`
-	Comment        string  `json:"comment"`
-	ReviewedAt     *string `json:"reviewed_at"`
-	CompletedAt    *string `json:"completed_at"`
-	AttributedAt   string  `json:"attributed_at"`
+	ProposalID     string          `json:"proposal_id"`
+	ProposalTitle  string          `json:"proposal_title"`
+	ProposalStatus string          `json:"proposal_status"`
+	Review         *ReviewResponse `json:"review"`
+	CompletedAt    *string         `json:"completed_at"`
+	AttributedAt   string          `json:"attributed_at"`
 }
 
 // NewReferrerReputationResponse maps the service aggregate to the DTO.
@@ -153,18 +158,18 @@ func NewReferrerReputationResponse(rep appreferrer.ReferrerReputation) ReferrerR
 }
 
 func newProjectHistoryEntryResponse(e appreferrer.ProjectHistoryEntry) ProjectHistoryEntryResponse {
-	return ProjectHistoryEntryResponse{
+	out := ProjectHistoryEntryResponse{
 		ProposalID:     e.ProposalID.String(),
 		ProposalTitle:  e.ProposalTitle,
 		ProposalStatus: e.ProposalStatus,
-		ProviderID:     e.ProviderID.String(),
-		ProviderName:   e.ProviderName,
-		Rating:         e.Rating,
-		Comment:        e.Comment,
-		ReviewedAt:     formatOptionalTime(e.ReviewedAt),
 		CompletedAt:    formatOptionalTime(e.CompletedAt),
 		AttributedAt:   e.AttributedAt.Format(time.RFC3339),
 	}
+	if e.Review != nil {
+		r := ReviewFromDomain(e.Review)
+		out.Review = &r
+	}
+	return out
 }
 
 func formatOptionalTime(t *time.Time) *string {

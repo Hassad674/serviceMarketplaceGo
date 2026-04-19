@@ -1131,7 +1131,7 @@
   "reputationEmptyDescription": "Projects coming from your recommendations will appear here.",
   "reputationLoadError": "Could not load referred projects",
   "reputationLoadMore": "Show more",
-  "reputationViewFreelanceProfile": "View freelance profile",
+  "introducedProvider": "Introduced provider",
   "reputationStatusCompleted": "Completed",
   "reputationStatusDisputed": "In dispute",
   "reputationStatusActive": "In progress",

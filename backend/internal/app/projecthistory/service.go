@@ -70,7 +70,11 @@ func (s *Service) ListByOrganization(ctx context.Context, orgID uuid.UUID, curso
 		ids[i] = p.ID
 	}
 
-	reviews, err := s.reviews.GetByProposalIDs(ctx, ids)
+	// Only the client→provider review belongs on the provider's public
+	// project history. The provider→client side is filtered out at the
+	// SQL level so the map keyed by proposal_id cannot collide on
+	// proposals that have both sides submitted.
+	reviews, err := s.reviews.GetByProposalIDs(ctx, ids, reviewdomain.SideClientToProvider)
 	if err != nil {
 		return nil, "", fmt.Errorf("get reviews by proposal ids: %w", err)
 	}

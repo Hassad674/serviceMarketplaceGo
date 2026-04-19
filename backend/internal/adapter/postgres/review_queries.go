@@ -87,8 +87,15 @@ const queryUpdateReviewModeration = `
 	WHERE id = $1`
 
 // queryReviewsByProposalIDs — batch loader used by the project history
-// service. Excludes hidden and unpublished reviews so blind submissions
-// never leak into the provider's project history view.
+// and apporteur reputation services. Excludes hidden and unpublished
+// reviews so blind submissions never leak into public surfaces.
+//
+// $2 is an optional side filter: passing 'client_to_provider' or
+// 'provider_to_client' returns only that side of the double-blind pair.
+// Passing '' (empty string) keeps the legacy behaviour of returning any
+// side — callers MUST NOT rely on that mode because the Go-side map
+// keyed by proposal_id collides when both sides are present; whichever
+// row scans last overwrites the other.
 const queryReviewsByProposalIDs = `
 	SELECT id, proposal_id, reviewer_id, reviewed_id,
 		reviewer_organization_id, reviewed_organization_id,
@@ -98,6 +105,7 @@ const queryReviewsByProposalIDs = `
 		published_at
 	FROM reviews
 	WHERE proposal_id = ANY($1)
+		AND ($2 = '' OR side = $2)
 		AND published_at IS NOT NULL
 		AND moderation_status <> 'hidden'`
 

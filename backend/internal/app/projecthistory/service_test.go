@@ -62,8 +62,9 @@ func TestListByProvider_HappyPath_MixedReviews(t *testing.T) {
 		},
 	}
 	revRepo := &mockReviewRepo{
-		GetByProposalIDsFunc: func(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]*reviewdomain.Review, error) {
+		GetByProposalIDsFunc: func(_ context.Context, ids []uuid.UUID, side string) (map[uuid.UUID]*reviewdomain.Review, error) {
 			assert.Len(t, ids, 3)
+			assert.Equal(t, reviewdomain.SideClientToProvider, side, "project history must request the client→provider side")
 			return map[uuid.UUID]*reviewdomain.Review{
 				p1ID: rev1,
 				p3ID: rev3,
@@ -133,7 +134,7 @@ func TestListByProvider_ReviewRepoError(t *testing.T) {
 		},
 	}
 	revRepo := &mockReviewRepo{
-		GetByProposalIDsFunc: func(context.Context, []uuid.UUID) (map[uuid.UUID]*reviewdomain.Review, error) {
+		GetByProposalIDsFunc: func(context.Context, []uuid.UUID, string) (map[uuid.UUID]*reviewdomain.Review, error) {
 			return nil, errors.New("reviews down")
 		},
 	}

@@ -195,10 +195,17 @@ func (r *ReviewRepository) HasReviewed(ctx context.Context, proposalID, reviewer
 }
 
 // GetByProposalIDs fetches the published, non-hidden reviews for the
-// given proposal IDs in a single query, keyed by proposal ID. Hidden
-// and unpublished reviews are filtered out — this prevents blind
-// submissions from leaking into the provider's project history view.
-func (r *ReviewRepository) GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID) (map[uuid.UUID]*review.Review, error) {
+// given proposal IDs in a single query, keyed by proposal ID and
+// filtered to the requested side.
+//
+// A proposal carries up to two reviews (double-blind: one per side).
+// Without a side filter the two rows would collide in the result map
+// keyed by proposal_id — whichever scan wins last silently overwrites
+// the other. All user-facing callers MUST pass an explicit side.
+//
+// Hidden and unpublished reviews are filtered out at the SQL layer so
+// blind submissions cannot leak into public surfaces.
+func (r *ReviewRepository) GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID, side string) (map[uuid.UUID]*review.Review, error) {
 	result := make(map[uuid.UUID]*review.Review, len(proposalIDs))
 	if len(proposalIDs) == 0 {
 		return result, nil
@@ -212,7 +219,7 @@ func (r *ReviewRepository) GetByProposalIDs(ctx context.Context, proposalIDs []u
 		ids[i] = id.String()
 	}
 
-	rows, err := r.db.QueryContext(ctx, queryReviewsByProposalIDs, pq.Array(ids))
+	rows, err := r.db.QueryContext(ctx, queryReviewsByProposalIDs, pq.Array(ids), side)
 	if err != nil {
 		return nil, fmt.Errorf("reviews by proposal ids: %w", err)
 	}

@@ -5312,11 +5312,11 @@ abstract class AppLocalizations {
   /// **'Show more'**
   String get reputationLoadMore;
 
-  /// No description provided for @reputationViewFreelanceProfile.
+  /// No description provided for @introducedProvider.
   ///
   /// In en, this message translates to:
-  /// **'View freelance profile'**
-  String get reputationViewFreelanceProfile;
+  /// **'Introduced provider'**
+  String get introducedProvider;
 
   /// No description provided for @reputationStatusCompleted.
   ///

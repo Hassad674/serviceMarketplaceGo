@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../l10n/app_localizations.dart';
 import '../../../../shared/widgets/profile_display_card_shell.dart';
+import '../../../../shared/widgets/review_card_widget.dart';
 import '../../domain/entities/referrer_reputation.dart';
 import '../providers/referrer_reputation_provider.dart';
 
@@ -219,7 +220,8 @@ class _EntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    final hasReview = entry.rating != null;
+    final review = entry.review;
+    final hasReview = review != null;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -257,21 +259,22 @@ class _EntryCard extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 4),
+          // Static "Introduced provider" label — mirrors the web
+          // surface. The apporteur's public profile must NEVER expose
+          // which provider was introduced (Modèle A confidentiality);
+          // the reader only sees the outcome (status + review).
           Text(
-            entry.providerName.isNotEmpty
-                ? entry.providerName
-                : entry.providerId,
+            l10n.introducedProvider,
             style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
           if (hasReview)
-            _ReviewBlock(
-              rating: entry.rating!,
-              comment: entry.comment,
-              reviewedAt: entry.reviewedAt,
-            )
+            // DRY: reuse the shared ReviewCardWidget so the apporteur
+            // surface renders stars + sub-criteria + comment + video
+            // identically to the freelance project history.
+            ReviewCardWidget(review: review)
           else
             Container(
               padding: const EdgeInsets.all(10),
@@ -298,64 +301,6 @@ class _EntryCard extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
-
-  String _formatDate(DateTime d) {
-    final local = d.toLocal();
-    final month = local.month.toString().padLeft(2, '0');
-    final day = local.day.toString().padLeft(2, '0');
-    return '${local.year}-$month-$day';
-  }
-}
-
-class _ReviewBlock extends StatelessWidget {
-  const _ReviewBlock({
-    required this.rating,
-    required this.comment,
-    required this.reviewedAt,
-  });
-
-  final int rating;
-  final String comment;
-  final DateTime? reviewedAt;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            for (var i = 1; i <= 5; i++)
-              Icon(
-                Icons.star_rounded,
-                size: 16,
-                color: i <= rating
-                    ? const Color(0xFFF59E0B)
-                    : theme.colorScheme.onSurfaceVariant
-                        .withValues(alpha: 0.4),
-              ),
-            if (reviewedAt != null) ...[
-              const Spacer(),
-              Text(
-                _formatDate(reviewedAt!),
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ],
-        ),
-        if (comment.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            comment,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-          ),
-        ],
-      ],
     );
   }
 
