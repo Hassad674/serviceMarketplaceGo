@@ -126,6 +126,9 @@ func run(counts personaCounts, seedVal int64, noReindex bool) error {
 		"freelance", counts.freelance, "agency", counts.agency,
 		"referrer", counts.referrer, "total", counts.total(), "seed", seedVal)
 
+	if err := wipeRankingV1Signals(ctx, db); err != nil {
+		return fmt.Errorf("wipe ranking v1 signals: %w", err)
+	}
 	if err := wipePreviousSeed(ctx, db); err != nil {
 		return fmt.Errorf("wipe previous seed: %w", err)
 	}
@@ -134,6 +137,12 @@ func run(counts personaCounts, seedVal int64, noReindex bool) error {
 	}
 	if err := seedAllPersonas(ctx, db, counts, r); err != nil {
 		return fmt.Errorf("seed profiles: %w", err)
+	}
+	// Phase 6B: downstream data that feeds the 7 ranking V1 signals.
+	// Must run AFTER seedAllPersonas — the ranking signals reference
+	// the persona orgs as both providers and clients.
+	if err := seedRankingV1Signals(ctx, db, counts, r); err != nil {
+		return fmt.Errorf("seed ranking v1 signals: %w", err)
 	}
 
 	slog.Info("seed-search complete", "total", counts.total())

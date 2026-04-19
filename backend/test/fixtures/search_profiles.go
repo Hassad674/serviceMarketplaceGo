@@ -100,6 +100,14 @@ func SeedSearchProfiles(ctx context.Context, db *sql.DB, counts SearchFixtureCou
 		}
 		out.Referrer = append(out.Referrer, id)
 	}
+
+	// Phase 6B: fold in the downstream rows that populate the 7
+	// ranking V1 signals. We always emit at least one row per
+	// signal per provider so the 200-profile fixture exercises
+	// every feature path the downstream ranking code will read.
+	if err := seedRankingSignals(ctx, db, out); err != nil {
+		return nil, fmt.Errorf("seed ranking v1 signals: %w", err)
+	}
 	return out, nil
 }
 
@@ -361,26 +369,46 @@ func CleanupSearchProfiles(ctx context.Context, db *sql.DB, seeded *SeededProfil
 	allOrgs := append([]uuid.UUID{}, seeded.Freelance...)
 	allOrgs = append(allOrgs, seeded.Agency...)
 	allOrgs = append(allOrgs, seeded.Referrer...)
+	orgArray := pq.Array(orgIDsAsStrings(allOrgs))
 
-	if _, err := db.ExecContext(ctx, `DELETE FROM profile_skills WHERE organization_id = ANY($1)`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	// Clean ranking-signal rows BEFORE the organisations they
+	// reference — they anchor via organization_id FK (nullable)
+	// but we want idempotent cleanup ordering.
+	rankingCleanups := []string{
+		`DELETE FROM disputes WHERE provider_organization_id::text = ANY($1::text[])
+		                        OR client_organization_id::text = ANY($1::text[])`,
+		`DELETE FROM reviews WHERE reviewer_organization_id::text = ANY($1::text[])
+		                        OR reviewed_organization_id::text = ANY($1::text[])`,
+		`DELETE FROM proposal_milestones WHERE proposal_id IN (
+			SELECT id FROM proposals WHERE organization_id::text = ANY($1::text[]))`,
+		`DELETE FROM proposals WHERE organization_id::text = ANY($1::text[])`,
+		`DELETE FROM conversations WHERE organization_id::text = ANY($1::text[])`,
+	}
+	for _, q := range rankingCleanups {
+		if _, err := db.ExecContext(ctx, q, orgArray); err != nil {
+			return fmt.Errorf("cleanup ranking v1 signals: %w", err)
+		}
+	}
+
+	if _, err := db.ExecContext(ctx, `DELETE FROM profile_skills WHERE organization_id = ANY($1)`, orgArray); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM freelance_pricing WHERE profile_id IN (SELECT id FROM freelance_profiles WHERE organization_id = ANY($1))`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	if _, err := db.ExecContext(ctx, `DELETE FROM freelance_pricing WHERE profile_id IN (SELECT id FROM freelance_profiles WHERE organization_id = ANY($1))`, orgArray); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM freelance_profiles WHERE organization_id = ANY($1)`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	if _, err := db.ExecContext(ctx, `DELETE FROM freelance_profiles WHERE organization_id = ANY($1)`, orgArray); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM referrer_profiles WHERE organization_id = ANY($1)`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	if _, err := db.ExecContext(ctx, `DELETE FROM referrer_profiles WHERE organization_id = ANY($1)`, orgArray); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM profiles WHERE organization_id = ANY($1)`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	if _, err := db.ExecContext(ctx, `DELETE FROM profiles WHERE organization_id = ANY($1)`, orgArray); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM users WHERE organization_id = ANY($1)`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	if _, err := db.ExecContext(ctx, `DELETE FROM users WHERE organization_id = ANY($1)`, orgArray); err != nil {
 		return err
 	}
-	if _, err := db.ExecContext(ctx, `DELETE FROM organizations WHERE id = ANY($1)`, pq.Array(orgIDsAsStrings(allOrgs))); err != nil {
+	if _, err := db.ExecContext(ctx, `DELETE FROM organizations WHERE id = ANY($1)`, orgArray); err != nil {
 		return err
 	}
 	return nil
