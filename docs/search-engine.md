@@ -204,6 +204,92 @@ Zero is the contract downstream extractors rely on. Never emit
 
 ---
 
+## Ranking V1 pipeline
+
+The indexed signals above feed a five-stage server-side ranking
+pipeline documented in full in
+[`docs/ranking-v1.md`](ranking-v1.md). This section is the
+high-level map; `ranking-v1.md` has the locked formulas, weight
+tables, anti-gaming rules, and the LTR evolution plan.
+
+```
+Typesense top-200 (hybrid BM25 + vector)
+           │
+           ▼
+┌────────────────────────────────────────────────┐
+│ 1. Feature extraction  →  10 features ∈ [0,1]  │  internal/search/features/
+│ 2. Anti-gaming penalties                       │  internal/search/antigaming/
+│ 3. Composite scoring   →  Base / Adjusted /    │  internal/search/scorer/
+│                            Final ∈ [0, 100]    │
+│ 4. Business rules      →  tier sort, noise,    │  internal/search/rules/
+│                            diversity, rising   │
+│                            talent, featured    │
+│ 5. LTR-ready logging   →  search_queries       │  internal/app/searchanalytics/
+│                            .result_features_json│
+└────────────────────────────────────────────────┘
+           │
+           ▼
+      Top-20 rendered
+```
+
+### Package layout
+
+| Package | Role | Spec section |
+| --- | --- | --- |
+| `internal/search/features/` | Pure per-(query, doc) feature extractors. No I/O. | §3 |
+| `internal/search/antigaming/` | 5 detection rules, multiplicative caps, silent penalties. | §7 |
+| `internal/search/scorer/` | `Reranker` interface, `WeightedScorer` V1 impl. | §4, §5 |
+| `internal/search/rules/` | Tier sort, randomisation, diversity, rising talent, featured override. | §6, §8 |
+| `internal/app/searchanalytics/` | Persists feature vectors + click-through outcomes for LTR training. | §9 |
+
+### Design principles (from ranking-v1.md §1)
+
+- **Hard signals first** — features costly to fake (real projects,
+  KYC, real conversations) outweigh those editable from a profile
+  form.
+- **Algorithm public, weights private** — every tuning knob lives in
+  `RANKING_*` env vars. See [`docs/ranking-tuning.md`](ranking-tuning.md)
+  for the operator guide.
+- **LTR-ready** — every ranked result is logged with its full feature
+  vector (migration 113 adds `result_features_json` +
+  `result_vector_sha`) so LambdaMART V2 swaps in without
+  re-architecture.
+- **Explainable** — scores are a weighted sum, not opaque ML. The
+  breakdown map surfaces per-feature contributions for debugging.
+- **Cold-start protected** — newcomers get a 0.15 floor on
+  `rating_score_diverse` + a Rising Talent slot every 5 positions so
+  brand-new profiles are not buried under veterans forever.
+- **Anti-gaming from day 1** — 5 silent rules (keyword stuffing,
+  review velocity, linked reviewers, unique reviewer floor, new-
+  account cap).
+
+### What ships in each round
+
+| Round | Phases | Agent scope |
+| --- | --- | --- |
+| 1 | 6B | New indexed signals + CTE queries + reindex (complete). |
+| 2A | 6A + 6C | Feature extractors + anti-gaming (complete). |
+| 2B | 6D | `Reranker` interface + `WeightedScorer` + weights (complete). |
+| 2C | 6E + 6G + 6I | Business rules + LTR logging + docs (this section). |
+| 3 | 6F + 6H | Wiring into query service + golden validation (next). |
+
+### Tuning the pipeline
+
+Every knob is an env var. Defaults are published in
+`docs/ranking-v1.md` §11 and in `docs/ranking-tuning.md` (internal).
+Changing a weight in prod is a one-line env edit — no code change, no
+redeploy if the runtime watches config.
+
+### Swap path to V2 (LTR)
+
+V2 replaces `WeightedScorer` with an `LTRScorer` that wraps a trained
+LightGBM model. The swap is a single line in `cmd/api/main.go` — the
+`Reranker` interface is unchanged, the feature vector is unchanged,
+the business rules layer is unchanged. See `ranking-v1.md` §9.3 for
+the swap contract and §13a.1 for the training-data prerequisites.
+
+---
+
 ## V1 pricing simplification
 
 UX research concluded that offering 6 pricing types across 3 personas
