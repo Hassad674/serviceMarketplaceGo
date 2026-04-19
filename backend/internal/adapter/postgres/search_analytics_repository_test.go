@@ -150,3 +150,76 @@ func TestSearchAnalyticsRepository_Stats(t *testing.T) {
 	assert.Equal(t, "golang", zero[0].Query)
 	assert.Equal(t, 2, zero[0].Count)
 }
+
+// TestSearchAnalyticsRepository_AttachResultFeatures exercises the
+// LTR feature-vector persistence added in migration 113. Requires the
+// 113 schema to be present (gated on MARKETPLACE_TEST_DATABASE_URL).
+func TestSearchAnalyticsRepository_AttachResultFeatures(t *testing.T) {
+	db := analyticsTestDB(t)
+	defer db.Close()
+	repo := postgres.NewSearchAnalyticsRepository(db)
+	ctx := context.Background()
+
+	base := time.Now().UTC().Truncate(time.Second)
+	row := &searchanalytics.SearchRow{
+		SearchID:     "ltr-test-1",
+		SessionID:    "sess-1",
+		Query:        "react paris",
+		Persona:      "freelance",
+		ResultsCount: 2,
+		LatencyMs:    32,
+		CreatedAt:    base,
+	}
+	require.NoError(t, repo.InsertSearch(ctx, row))
+
+	// Craft a canonical payload identical to what the service-layer
+	// encoder produces.
+	results := []searchanalytics.RankedResult{
+		{DocID: "doc-1", RankPosition: 1, FinalScore: 87.3,
+			Features: map[string]float64{"text_match": 0.82, "rating": 0.69}},
+		{DocID: "doc-2", RankPosition: 2, FinalScore: 85.0,
+			Features: map[string]float64{"text_match": 0.78, "rating": 0.90}},
+	}
+	payload, sha, err := searchanalytics.EncodeResultPayload(results)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.AttachResultFeatures(ctx, "ltr-test-1", payload, sha))
+
+	// Read back and verify the payload parses as a valid JSON array.
+	var gotPayload, gotSHA string
+	err = db.QueryRow(
+		"SELECT result_features_json::text, result_vector_sha FROM search_queries WHERE search_id = $1",
+		"ltr-test-1",
+	).Scan(&gotPayload, &gotSHA)
+	require.NoError(t, err)
+	assert.Equal(t, sha, gotSHA)
+	assert.Contains(t, gotPayload, `"doc_id": "doc-1"`)
+	assert.Contains(t, gotPayload, `"rank_position": 1`)
+
+	// Re-attach same payload → idempotent (no error, no rows touched by SHA guard).
+	require.NoError(t, repo.AttachResultFeatures(ctx, "ltr-test-1", payload, sha))
+
+	// Attach a DIFFERENT payload (new SHA) → overwrite.
+	resultsV2 := append([]searchanalytics.RankedResult(nil), results...)
+	resultsV2[0].FinalScore = 99.0
+	payload2, sha2, err := searchanalytics.EncodeResultPayload(resultsV2)
+	require.NoError(t, err)
+	assert.NotEqual(t, sha, sha2)
+	require.NoError(t, repo.AttachResultFeatures(ctx, "ltr-test-1", payload2, sha2))
+
+	err = db.QueryRow(
+		"SELECT result_vector_sha FROM search_queries WHERE search_id = $1",
+		"ltr-test-1",
+	).Scan(&gotSHA)
+	require.NoError(t, err)
+	assert.Equal(t, sha2, gotSHA, "latest attach wins when the SHA differs")
+
+	// Unknown search_id → ErrNotFound.
+	err = repo.AttachResultFeatures(ctx, "does-not-exist", payload2, sha2)
+	assert.ErrorIs(t, err, searchanalytics.LTRErrNotFound)
+
+	// Empty search_id → synchronous validation error.
+	err = repo.AttachResultFeatures(ctx, "", payload2, sha2)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "empty search_id")
+}

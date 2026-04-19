@@ -244,8 +244,67 @@ LIMIT $4`
 	return out, nil
 }
 
-// Compile-time assertion that the repository implements both ports.
+// AttachResultFeatures persists the LTR feature-vector payload on
+// the search_queries row identified by searchID. Added in phase 6G
+// (docs/ranking-v1.md §9.1) to enable offline training of the V2
+// LambdaMART model.
+//
+// Idempotency: the UPDATE is keyed on search_id, and the caller
+// computes result_vector_sha from a canonicalised payload. Writing
+// the same payload twice for the same search_id is a no-op — the
+// WHERE clause checks the sha to avoid a spurious touch on rows
+// that already carry the same fingerprint.
+//
+// Returns searchanalytics.LTRErrNotFound when no row matches the
+// given search_id. Callers in the fire-and-forget path treat that
+// as a warn, not an error.
+func (r *SearchAnalyticsRepository) AttachResultFeatures(ctx context.Context, searchID, payloadJSON, sha string) error {
+	if searchID == "" {
+		return fmt.Errorf("search analytics: attach features: empty search_id")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	const query = `
+UPDATE search_queries
+   SET result_features_json = $2::jsonb,
+       result_vector_sha    = $3
+ WHERE search_id = $1
+   AND (result_vector_sha IS NULL OR result_vector_sha <> $3)`
+
+	res, err := r.db.ExecContext(ctx, query, searchID, payloadJSON, sha)
+	if err != nil {
+		return fmt.Errorf("search analytics: attach features: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("search analytics: attach features rows affected: %w", err)
+	}
+	if rows == 0 {
+		// Two possibilities: (a) the row does not exist; (b) the row
+		// already carries the same sha (idempotent write). We issue a
+		// cheap SELECT to differentiate so the caller gets a useful
+		// signal.
+		var exists bool
+		err := r.db.QueryRowContext(ctx,
+			`SELECT EXISTS(SELECT 1 FROM search_queries WHERE search_id = $1)`,
+			searchID,
+		).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("search analytics: attach features probe: %w", err)
+		}
+		if !exists {
+			return searchanalytics.LTRErrNotFound
+		}
+		// Row exists with same sha → idempotent no-op, swallow.
+	}
+	return nil
+}
+
+// Compile-time assertion that the repository implements all ports.
 var (
 	_ searchanalytics.Repository      = (*SearchAnalyticsRepository)(nil)
 	_ searchanalytics.StatsRepository = (*SearchAnalyticsRepository)(nil)
+	_ searchanalytics.LTRRepository   = (*SearchAnalyticsRepository)(nil)
 )
