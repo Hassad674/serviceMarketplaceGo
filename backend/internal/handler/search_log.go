@@ -47,11 +47,31 @@ type SearchLog struct {
 	Hybrid       bool
 	CursorActive bool
 	Truncated    bool
+
+	// Reranked is true when the Stage 2-5 ranking pipeline ran on
+	// this request. False when no pipeline is wired (legacy path)
+	// or when Typesense returned zero hits (nothing to rerank).
+	Reranked bool
+
+	// RerankDurationMs is the wall-clock time spent in the ranking
+	// pipeline in milliseconds. Zero when Reranked = false.
+	RerankDurationMs int
+
+	// TopFinalScore is the Final score (0-100) of the top-ranked
+	// candidate. Zero when no candidates were returned or the
+	// pipeline did not run.
+	TopFinalScore float64
 }
 
 // LogAttrs assembles the structured-log attribute list in a stable
 // order. Factored out of emit so unit tests can pin the shape byte-
 // for-byte via a bytes.Buffer handler.
+//
+// The three trailing ranking-* fields were added in phase 6F. They
+// always appear so operators can filter "reranked=false" requests
+// separately from legacy queries — every search.query line now
+// carries the ranking signal shape regardless of whether the
+// pipeline ran.
 func (l SearchLog) LogAttrs() []slog.Attr {
 	return []slog.Attr{
 		slog.String("event", "search.query"),
@@ -66,6 +86,9 @@ func (l SearchLog) LogAttrs() []slog.Attr {
 		slog.Int("latency_ms", l.LatencyMs),
 		slog.Bool("hybrid", l.Hybrid),
 		slog.Bool("cursor_active", l.CursorActive),
+		slog.Bool("reranked", l.Reranked),
+		slog.Int("rerank_duration_ms", l.RerankDurationMs),
+		slog.Float64("top_final_score", l.TopFinalScore),
 	}
 }
 

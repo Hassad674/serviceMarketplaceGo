@@ -105,24 +105,71 @@ type GoldenQuery struct {
 	SkipEmpty bool // when true, passing also means "zero results" is OK (useful on sparse DBs)
 }
 
-// goldenQueries are the 12+ curated queries required by the phase 3
+// goldenQueries are the 40+ curated queries required by the phase 6H
 // exit criteria. Mix of French + English phrases so multi-lingual
-// support is exercised by the suite.
+// support is exercised, with coverage per persona:
+//
+//   - freelance : 15 queries (tech stacks, soft-skill keywords,
+//     location terms, pricing-band terms, role titles)
+//   - agency    : 14 queries (B2B phrasing, project-style,
+//     "équipe"/"studio", sector keywords)
+//   - referrer  : 12 queries (business-development phrasing,
+//     commission hints, intro asks)
+//
+// Assertion is keyword containment in top-3 so the suite survives
+// dataset rotation. Skip-empty is reserved for sparse personas /
+// queries where zero hits is acceptable.
 var goldenQueries = []GoldenQuery{
+	// ---- FREELANCE: technology stacks ----
 	{Name: "react_dev_paris", Query: "développeur React Paris", Persona: search.PersonaFreelance, Keywords: []string{"react", "javascript", "frontend", "front-end", "paris", "développeur"}},
 	{Name: "full_stack_engineer", Query: "full stack engineer javascript", Persona: search.PersonaFreelance, Keywords: []string{"full", "stack", "javascript", "typescript", "engineer"}},
 	{Name: "golang_backend", Query: "golang backend microservices", Persona: search.PersonaFreelance, Keywords: []string{"go", "golang", "backend", "microservices"}},
 	{Name: "python_data_scientist", Query: "python data scientist machine learning", Persona: search.PersonaFreelance, Keywords: []string{"python", "data", "machine", "ml", "ai"}},
-	{Name: "ui_ux_designer", Query: "designer UX mobile app", Persona: search.PersonaFreelance, Keywords: []string{"ux", "ui", "design", "mobile", "figma"}},
-	{Name: "devops_kubernetes", Query: "devops kubernetes aws", Persona: search.PersonaFreelance, Keywords: []string{"devops", "kubernetes", "aws", "cloud", "sre"}},
 	{Name: "ai_engineer_llm", Query: "AI engineer LLM langchain", Persona: search.PersonaFreelance, Keywords: []string{"ai", "llm", "langchain", "machine", "python"}},
-	{Name: "business_referrer_saas", Query: "apporteur d'affaire saas b2b", Persona: search.PersonaReferrer, Keywords: []string{"saas", "b2b", "apporteur", "business"}, SkipEmpty: true},
+	{Name: "devops_kubernetes", Query: "devops kubernetes aws", Persona: search.PersonaFreelance, Keywords: []string{"devops", "kubernetes", "aws", "cloud", "sre"}},
+	{Name: "mobile_flutter_dev", Query: "Flutter mobile app developer", Persona: search.PersonaFreelance, Keywords: []string{"flutter", "mobile", "dart", "ios", "android"}},
+	{Name: "nextjs_expert", Query: "Next.js expert server components", Persona: search.PersonaFreelance, Keywords: []string{"next", "nextjs", "react", "typescript", "frontend"}},
+	{Name: "rust_systems_engineer", Query: "Rust systems engineer low latency", Persona: search.PersonaFreelance, Keywords: []string{"rust", "systems", "engineer", "backend", "low"}, SkipEmpty: true},
+	{Name: "swift_ios_developer", Query: "développeur iOS Swift SwiftUI", Persona: search.PersonaFreelance, Keywords: []string{"ios", "swift", "mobile", "apple", "swiftui"}, SkipEmpty: true},
+
+	// ---- FREELANCE: design + UX ----
+	{Name: "ui_ux_designer", Query: "designer UX mobile app", Persona: search.PersonaFreelance, Keywords: []string{"ux", "ui", "design", "mobile", "figma"}},
+	{Name: "product_designer_figma", Query: "product designer Figma design system", Persona: search.PersonaFreelance, Keywords: []string{"product", "design", "figma", "ui", "ux"}, SkipEmpty: true},
+
+	// ---- FREELANCE: soft-skill / role queries ----
+	{Name: "product_manager", Query: "senior product manager", Persona: search.PersonaFreelance, Keywords: []string{"product", "manager", "pm", "management"}, SkipEmpty: true},
+	{Name: "growth_hacker", Query: "growth hacker SaaS", Persona: search.PersonaFreelance, Keywords: []string{"growth", "marketing", "saas", "acquisition"}, SkipEmpty: true},
+	{Name: "freelance_tech_lead", Query: "freelance tech lead équipe senior", Persona: search.PersonaFreelance, Keywords: []string{"tech", "lead", "senior", "équipe", "team"}, SkipEmpty: true},
+
+	// ---- AGENCY: B2B phrasing + project style ----
 	{Name: "marketing_agency", Query: "agence marketing digitale", Persona: search.PersonaAgency, Keywords: []string{"marketing", "digital", "agence", "communication"}, SkipEmpty: true},
 	{Name: "web_agency_wordpress", Query: "agency web development wordpress", Persona: search.PersonaAgency, Keywords: []string{"web", "wordpress", "development", "agency"}, SkipEmpty: true},
-	{Name: "mobile_flutter_dev", Query: "Flutter mobile app developer", Persona: search.PersonaFreelance, Keywords: []string{"flutter", "mobile", "dart", "ios", "android"}},
-	{Name: "growth_hacker", Query: "growth hacker SaaS", Persona: search.PersonaFreelance, Keywords: []string{"growth", "marketing", "saas", "acquisition"}, SkipEmpty: true},
-	{Name: "nextjs_expert", Query: "Next.js expert server components", Persona: search.PersonaFreelance, Keywords: []string{"next", "nextjs", "react", "typescript", "frontend"}},
-	{Name: "product_manager", Query: "senior product manager", Persona: search.PersonaFreelance, Keywords: []string{"product", "manager", "pm", "management"}, SkipEmpty: true},
+	{Name: "agency_saas_development", Query: "agency SaaS product development", Persona: search.PersonaAgency, Keywords: []string{"saas", "agency", "development", "product", "software"}, SkipEmpty: true},
+	{Name: "studio_mobile_development", Query: "studio mobile iOS Android", Persona: search.PersonaAgency, Keywords: []string{"mobile", "studio", "ios", "android", "app"}, SkipEmpty: true},
+	{Name: "agence_design_branding", Query: "agence design branding identité", Persona: search.PersonaAgency, Keywords: []string{"design", "branding", "identité", "agence", "communication"}, SkipEmpty: true},
+	{Name: "ecommerce_agency", Query: "agence e-commerce Shopify", Persona: search.PersonaAgency, Keywords: []string{"ecommerce", "e-commerce", "shopify", "commerce", "agence"}, SkipEmpty: true},
+	{Name: "agency_ai_consulting", Query: "AI consulting agency data strategy", Persona: search.PersonaAgency, Keywords: []string{"ai", "consulting", "data", "agency", "strategy"}, SkipEmpty: true},
+	{Name: "agency_webflow_site", Query: "agence Webflow site vitrine", Persona: search.PersonaAgency, Keywords: []string{"webflow", "site", "vitrine", "web", "agence"}, SkipEmpty: true},
+	{Name: "devops_consulting_studio", Query: "DevOps consulting studio cloud migration", Persona: search.PersonaAgency, Keywords: []string{"devops", "consulting", "cloud", "studio", "migration"}, SkipEmpty: true},
+	{Name: "équipe_tech_startup", Query: "équipe tech startup MVP", Persona: search.PersonaAgency, Keywords: []string{"tech", "startup", "mvp", "équipe", "product"}, SkipEmpty: true},
+	{Name: "agency_react_native", Query: "React Native agency mobile", Persona: search.PersonaAgency, Keywords: []string{"react", "native", "mobile", "agency", "app"}, SkipEmpty: true},
+	{Name: "studio_data_engineering", Query: "studio data engineering analytics", Persona: search.PersonaAgency, Keywords: []string{"data", "engineering", "analytics", "studio", "etl"}, SkipEmpty: true},
+	{Name: "agency_video_content", Query: "agence vidéo content creation", Persona: search.PersonaAgency, Keywords: []string{"vidéo", "video", "content", "agence", "production"}, SkipEmpty: true},
+	{Name: "agency_performance_marketing", Query: "agency performance marketing SEA SEO", Persona: search.PersonaAgency, Keywords: []string{"marketing", "performance", "sea", "seo", "agency"}, SkipEmpty: true},
+
+	// ---- REFERRER: business development phrasing ----
+	{Name: "business_referrer_saas", Query: "apporteur d'affaire saas b2b", Persona: search.PersonaReferrer, Keywords: []string{"saas", "b2b", "apporteur", "business"}, SkipEmpty: true},
+	{Name: "referrer_enterprise_intro", Query: "apporteur business entreprise grande compte", Persona: search.PersonaReferrer, Keywords: []string{"apporteur", "business", "entreprise", "compte", "b2b"}, SkipEmpty: true},
+	{Name: "referrer_commission_tech", Query: "referrer commission tech startup", Persona: search.PersonaReferrer, Keywords: []string{"referrer", "commission", "tech", "startup", "apporteur"}, SkipEmpty: true},
+	{Name: "referrer_fintech_network", Query: "apporteur d'affaire fintech réseau", Persona: search.PersonaReferrer, Keywords: []string{"fintech", "apporteur", "réseau", "network", "finance"}, SkipEmpty: true},
+	{Name: "referrer_cpo_intro", Query: "introduction CPO VP Engineering", Persona: search.PersonaReferrer, Keywords: []string{"cpo", "vp", "engineering", "introduction", "executive"}, SkipEmpty: true},
+	{Name: "referrer_ecommerce_dealflow", Query: "apporteur e-commerce deal flow Shopify", Persona: search.PersonaReferrer, Keywords: []string{"ecommerce", "e-commerce", "apporteur", "shopify", "deal"}, SkipEmpty: true},
+	{Name: "referrer_healthcare_b2b", Query: "business referrer healthcare B2B", Persona: search.PersonaReferrer, Keywords: []string{"healthcare", "health", "b2b", "referrer", "business"}, SkipEmpty: true},
+	{Name: "referrer_digital_transformation", Query: "apporteur transformation digitale secteur public", Persona: search.PersonaReferrer, Keywords: []string{"transformation", "digital", "public", "apporteur", "secteur"}, SkipEmpty: true},
+	{Name: "referrer_pharma_network", Query: "referrer pharmaceutique sciences vie", Persona: search.PersonaReferrer, Keywords: []string{"pharma", "pharmaceutique", "sciences", "referrer", "health"}, SkipEmpty: true},
+	{Name: "referrer_tech_procurement", Query: "apporteur achats tech procurement", Persona: search.PersonaReferrer, Keywords: []string{"achats", "procurement", "tech", "apporteur", "purchasing"}, SkipEmpty: true},
+	{Name: "referrer_banking_cto", Query: "apporteur banking CTO CIO", Persona: search.PersonaReferrer, Keywords: []string{"banking", "bank", "cto", "cio", "apporteur"}, SkipEmpty: true},
+	{Name: "referrer_retail_intro", Query: "apporteur retail grande distribution", Persona: search.PersonaReferrer, Keywords: []string{"retail", "distribution", "apporteur", "commerce", "grande"}, SkipEmpty: true},
 }
 
 func TestGolden_SemanticSuite(t *testing.T) {
@@ -256,3 +303,20 @@ func topPreview(hits []map[string]any, n int) string {
 // suite. Keeps the import line future-proof.
 var _ = url.QueryEscape
 var _ = http.MethodGet
+
+// persona IDs count as "no keyword match". Helper returns true when
+// any keyword appears in the concatenation of searchable fields.
+func hitsContainKeyword(hits []map[string]any, keywords []string, topN int) bool {
+	if topN > len(hits) {
+		topN = len(hits)
+	}
+	for i := 0; i < topN; i++ {
+		blob := strings.ToLower(hitText(hits[i]))
+		for _, kw := range keywords {
+			if strings.Contains(blob, strings.ToLower(kw)) {
+				return true
+			}
+		}
+	}
+	return false
+}

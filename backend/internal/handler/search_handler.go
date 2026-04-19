@@ -192,17 +192,20 @@ func (h *SearchHandler) logSearch(r *http.Request, input appsearch.QueryInput, r
 	// scripted client sends page=0 and expects Typesense to default.
 	cursorActive := input.Cursor != "" || input.Page > 1 || result.Page > 1
 	payload := SearchLog{
-		RequestID:    middleware.GetRequestID(r.Context()),
-		UserID:       input.UserID,
-		Persona:      string(input.Persona),
-		Query:        query,
-		FilterBy:     filterBy,
-		SortBy:       strings.TrimSpace(input.SortBy),
-		ResultsCount: result.Found,
-		LatencyMs:    int(latency.Milliseconds()),
-		Hybrid:       result.Hybrid,
-		CursorActive: cursorActive,
-		Truncated:    truncated,
+		RequestID:        middleware.GetRequestID(r.Context()),
+		UserID:           input.UserID,
+		Persona:          string(input.Persona),
+		Query:            query,
+		FilterBy:         filterBy,
+		SortBy:           strings.TrimSpace(input.SortBy),
+		ResultsCount:     result.Found,
+		LatencyMs:        int(latency.Milliseconds()),
+		Hybrid:           result.Hybrid,
+		CursorActive:     cursorActive,
+		Truncated:        truncated,
+		Reranked:         result.Reranked,
+		RerankDurationMs: result.RerankDurationMs,
+		TopFinalScore:    result.TopFinalScore,
 	}
 	emitSearchLog(h.deps.Logger, payload)
 }
