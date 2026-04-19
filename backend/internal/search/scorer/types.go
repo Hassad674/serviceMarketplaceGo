@@ -11,63 +11,37 @@ package scorer
 
 import (
 	"context"
+
+	"marketplace-backend/internal/search/features"
 )
 
-// Persona identifies which weight table to apply. Mirrored locally
-// pending the arrival of internal/search/features (R2-F). Once the
-// features package lands, this local alias is replaced in a follow-up
-// commit by a re-export of features.Persona. Keep the string values
-// byte-identical with the features package so the swap is a no-op.
-type Persona string
+// Persona is a type alias for features.Persona. Declared here so callers
+// can keep importing scorer without also importing features, while the
+// feature package stays the single source of truth for the three
+// canonical persona identifiers used across the ranking pipeline.
+type Persona = features.Persona
 
-// Persona values mirror the three public personas defined in
-// docs/ranking-v1.md §4. The string literals are the canonical wire
-// identifiers used across the search pipeline (filter_by, logs,
-// env-var suffixes).
+// Re-exported persona constants — byte-identical to features.Persona*.
+// Keeping them here means every ranking stage can use the shortest
+// import path for its local concerns without leaking the layering.
 const (
-	PersonaFreelance Persona = "freelance"
-	PersonaAgency    Persona = "agency"
-	PersonaReferrer  Persona = "referrer"
+	PersonaFreelance = features.PersonaFreelance
+	PersonaAgency    = features.PersonaAgency
+	PersonaReferrer  = features.PersonaReferrer
 )
 
-// Query captures the ranking inputs a scorer may legitimately inspect.
-// Mirrors internal/search/features.Query. Today only Text is read — the
-// empty-query branch of §5.2 keys off it. Other fields are carried so
-// the signature matches the LTR-ready extension path in §13a.
-type Query struct {
-	Text string
-}
+// Query is a type alias for features.Query. The scorer only reads
+// Query.Text today (for the empty-query redistribution branch of §5.2);
+// the other fields (NormalisedTokens, FilterSkills, Persona) are
+// carried through unchanged so future LTR scorers can consume them
+// without a signature change.
+type Query = features.Query
 
-// Features is the 10-field feature vector produced by Stage 2 plus the
-// raw anti-gaming counters. Mirrors internal/search/features.Features
-// one-for-one so the future rename swap is mechanical. The scorer only
-// reads the normalised [0, 1] floats plus NegativeSignals; the Raw*
-// fields are untouched here (anti-gaming consumed them upstream in
-// Stage 3) and exist for downstream explainability logs.
-type Features struct {
-	// Normalised features in [0, 1] (IsVerifiedMature is {0, 1}).
-	TextMatchScore      float64
-	SkillsOverlapRatio  float64
-	RatingScoreDiverse  float64
-	ProvenWorkScore     float64
-	ResponseRate        float64
-	IsVerifiedMature    float64
-	ProfileCompletion   float64
-	LastActiveDaysScore float64
-	AccountAgeBonus     float64
-
-	// NegativeSignals is the dispute-driven penalty applied multiplicatively
-	// to the positive composite (see §5.3). Bounded to [0, 0.30].
-	NegativeSignals float64
-
-	// Raw signals — NOT read by the scorer. Present for logging and
-	// for the LTR export path. Names mirror features.Features.
-	RawTextMatchBucket  int
-	RawUniqueReviewers  int
-	RawMaxReviewerShare float64
-	RawLostDisputes     int
-	RawAccountAgeDays   int
-}
+// Features is a type alias for features.Features. The scorer reads the
+// nine normalised [0, 1] floats plus NegativeSignals. The Raw* fields
+// are passed through for downstream explainability logs — they are
+// never summed into the score.
+type Features = features.Features
 
 // RankedScore is the triple emitted per candidate. Base is the purely
 // positive composite, Adjusted is Base × (1 − NegativeSignals), Final
