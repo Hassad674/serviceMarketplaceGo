@@ -51,6 +51,7 @@ type RouterDeps struct {
 	Stripe              *StripeHandler
 	Report              *ReportHandler
 	Wallet              *WalletHandler
+	Billing             *BillingHandler
 	Admin               *AdminHandler
 	Portfolio           *PortfolioHandler
 	ProjectHistory      *ProjectHistoryHandler
@@ -595,6 +596,18 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Identity documents are now handled by Stripe Embedded Components —
 		// no custom upload/list/delete endpoints needed.
+
+		// Billing — read-only fee preview for the proposal creation flow.
+		// Auth required; the role is resolved from the JWT so a client
+		// cannot forge it via query string. No permission gate: every
+		// authenticated user can see their own applicable fee grid.
+		if deps.Billing != nil {
+			r.Route("/billing", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Get("/fee-preview", deps.Billing.GetFeePreview)
+			})
+		}
 
 		// Wallet routes (authenticated, permission-gated)
 		if deps.Wallet != nil {
