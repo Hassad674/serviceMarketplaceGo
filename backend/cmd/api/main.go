@@ -64,6 +64,10 @@ import (
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/search"
+	"marketplace-backend/internal/search/antigaming"
+	"marketplace-backend/internal/search/features"
+	"marketplace-backend/internal/search/rules"
+	"marketplace-backend/internal/search/scorer"
 	"marketplace-backend/pkg/crypto"
 
 	"github.com/google/uuid"
@@ -642,13 +646,29 @@ func main() {
 		}
 
 		analyticsAdapter := newSearchAnalyticsRecorder(searchAnalyticsSvc)
+
+		// Ranking V1 pipeline wiring (phase 6F) — composition of the
+		// four Stage 2-5 packages. Every knob lives in RANKING_*
+		// environment variables (see docs/ranking-tuning.md). Boot
+		// fails loud on malformed env: a typo in a float weight must
+		// never limp into prod with a silent zero.
+		rankingPipeline := buildRankingPipeline()
+
+		// LTR capture wiring — the repo is the same SearchAnalyticsRepository
+		// already built above. The service holds the goroutine that writes
+		// result_features_json; the repo runs the UPDATE under a 3s deadline.
+		var ltrRepo searchanalytics.LTRRepository = analyticsRepo
+
 		searchQuerySvc = appsearch.NewService(appsearch.ServiceDeps{
-			Freelance: search.NewFreelanceClient(typesenseClient),
-			Agency:    search.NewAgencyClient(typesenseClient),
-			Referrer:  search.NewReferrerClient(typesenseClient),
-			Embedder:  queryEmbedder,
-			Analytics: analyticsAdapter,
-			Logger:    slog.Default(),
+			Freelance:        search.NewFreelanceClient(typesenseClient),
+			Agency:           search.NewAgencyClient(typesenseClient),
+			Referrer:         search.NewReferrerClient(typesenseClient),
+			Embedder:         queryEmbedder,
+			Analytics:        analyticsAdapter,
+			Logger:           slog.Default(),
+			RankingPipeline:  rankingPipeline,
+			LTRRepository:    ltrRepo,
+			AnalyticsService: searchAnalyticsSvc,
 		})
 		searchHandler = handler.NewSearchHandler(handler.SearchHandlerDeps{
 			Service:       searchQuerySvc,
@@ -664,7 +684,9 @@ func main() {
 		slog.Info("search: query service wired",
 			"hybrid_enabled", queryEmbedder != nil,
 			"analytics_enabled", searchAnalyticsSvc != nil,
-			"admin_stats_enabled", adminSearchStatsHandler != nil)
+			"admin_stats_enabled", adminSearchStatsHandler != nil,
+			"ranking_enabled", rankingPipeline != nil,
+			"ltr_capture_enabled", ltrRepo != nil && searchAnalyticsSvc != nil)
 	}
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
@@ -1210,4 +1232,40 @@ func wsOriginPatterns(origins []string) []string {
 	// Always allow localhost for dev.
 	patterns = append(patterns, "localhost:*")
 	return patterns
+}
+
+// buildRankingPipeline composes the four Stage 2-5 ranking packages
+// into the RankingPipeline consumed by app/search.Service. All knobs
+// live in RANKING_* environment variables; see docs/ranking-tuning.md
+// for the operator playbook. Missing env vars fall back to the safe
+// public defaults published in docs/ranking-v1.md §11.
+//
+// Boot-time fail-loud policy : scorer + rules configs return an error
+// on malformed values so a typo in a weight raises slog.Error +
+// os.Exit(1) rather than silently zeroing the ranking.
+//
+// Extract-time configs (features + antigaming) swallow malformed
+// values by design — their individual extractors handle zero values
+// gracefully, so a mistyped threshold just falls back to the default
+// rather than taking down the search path.
+func buildRankingPipeline() *appsearch.RankingPipeline {
+	fcfg := features.LoadConfigFromEnv()
+	agCfg := antigaming.LoadConfigFromEnv()
+	scCfg, scErr := scorer.LoadConfigFromEnv()
+	if scErr != nil {
+		slog.Error("ranking: scorer config invalid", "error", scErr)
+		os.Exit(1)
+	}
+	rlCfg, rlErr := rules.LoadConfigFromEnv()
+	if rlErr != nil {
+		slog.Error("ranking: rules config invalid", "error", rlErr)
+		os.Exit(1)
+	}
+
+	ext := features.NewDefaultExtractor(fcfg)
+	ag := antigaming.NewPipeline(agCfg, antigaming.NoopLinkedReviewersDetector{}, antigaming.SlogLogger{})
+	rer := scorer.NewWeightedScorer(scCfg)
+	br := rules.NewBusinessRules(rlCfg)
+
+	return appsearch.NewRankingPipeline(ext, ag, rer, br)
 }
