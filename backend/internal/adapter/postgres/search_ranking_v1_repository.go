@@ -33,16 +33,27 @@ import (
 //
 // Definition recap:
 //   - unique_clients = distinct client orgs that have at least one
-//     released milestone against this provider org.
+//     released milestone against this provider.
 //   - repeat_client_rate = share of unique_clients that appear in ≥2
 //     distinct proposals (projects).
 //
-// The query uses a single CTE so Postgres plans the row gather once
-// and computes both aggregates in one pass. The `provider_projects`
-// CTE projects (client_org, proposal_id) pairs; the outer SELECT
-// counts distinct clients and applies the "≥2 projects" filter via
-// a nested group-by. NULLIF avoids division by zero for the repeat
-// rate when unique_clients == 0.
+// Schema notes:
+//   - `proposals.organization_id` is denormalised to the CLIENT's
+//     org (migration 062) — one-per-proposal, nullable when the
+//     client is a solo Provider without an organisation. When it
+//     is NULL we fall back to the client user's personal org via
+//     users.organization_id. Either side can be NULL; the COALESCE
+//     picks whichever is populated.
+//   - The PROVIDER side is derived from `proposals.provider_id` →
+//     `users.organization_id`, which matches the "provider org this
+//     search document represents" filter on the caller side.
+//
+// The query uses a CTE so Postgres plans the row gather once and
+// computes both aggregates in one pass. The `provider_projects` CTE
+// projects (client_org, proposal_id) pairs with NULL client orgs
+// filtered out; `per_client` collapses to (client_org, count). The
+// outer SELECT counts unique clients and divides "clients with ≥2
+// projects" by the total, with NULLIF shielding the zero case.
 //
 // See docs/ranking-v1.md §3.2-4.
 func (r *SearchDocumentRepository) LoadClientHistory(ctx context.Context, orgID uuid.UUID) (*search.RawClientHistory, error) {
@@ -51,12 +62,16 @@ func (r *SearchDocumentRepository) LoadClientHistory(ctx context.Context, orgID 
 
 	const query = `
 WITH provider_projects AS (
-    SELECT DISTINCT p.client_organization_id AS client_org, p.id AS proposal_id
+    SELECT DISTINCT
+        COALESCE(p.organization_id, cu.organization_id) AS client_org,
+        p.id AS proposal_id
     FROM proposal_milestones pm
     JOIN proposals p ON p.id = pm.proposal_id
+    JOIN users provider_user ON provider_user.id = p.provider_id
+    LEFT JOIN users cu ON cu.id = p.client_id
     WHERE pm.status = 'released'
-      AND p.organization_id = $1
-      AND p.client_organization_id IS NOT NULL
+      AND provider_user.organization_id = $1
+      AND COALESCE(p.organization_id, cu.organization_id) IS NOT NULL
 ),
 per_client AS (
     SELECT client_org, COUNT(*) AS project_count
@@ -88,11 +103,6 @@ FROM per_client`
 		RepeatClientRate: repeatRate.Float64,
 	}, nil
 }
-
-// proposals.client_organization_id was introduced by a later
-// migration on the proposals table. Older proposals may have NULL
-// values; the `IS NOT NULL` guard in the CTE skips those rows so
-// the unique_clients tally reflects genuine client organisations.
 
 // LoadReviewDiversity aggregates the reviewer-diversity signals from
 // the reviews table (phase 6B).
