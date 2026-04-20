@@ -118,10 +118,20 @@ function FeePreviewBody({
   }
   if (!query.data) return <FeePreviewEmpty />
 
+  // Amount zero = the prestataire has not typed anything yet. Show the
+  // tariff grid without an active-tier highlight + the "enter an amount"
+  // hint rather than the misleading "Tu encaisses 0 € (frais 0 €)" line.
+  const hasAmount = query.data.amount_cents > 0 || milestones.some((m) => m.amountCents > 0)
+
   return (
     <div className="space-y-4">
-      <TierGrid tiers={query.data.tiers} activeIndex={query.data.active_tier_index} />
-      {mode === "one_time" ? (
+      <TierGrid
+        tiers={query.data.tiers}
+        activeIndex={hasAmount ? query.data.active_tier_index : -1}
+      />
+      {!hasAmount ? (
+        <FeePreviewEmpty />
+      ) : mode === "one_time" ? (
         <OneTimeSummary preview={query.data} />
       ) : (
         <MilestoneBreakdown milestones={milestones} tiers={query.data.tiers} />
