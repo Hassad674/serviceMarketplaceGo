@@ -368,11 +368,15 @@ export function CreateProposalPage() {
               />
             )}
 
-            {/* Platform fee preview — prestataire-only, never shown on the
-                proposal detail/view page (that is the client side). */}
+            {/* Platform fee preview — prestataire-only. The FeePreview
+                component itself hides the section when the backend says
+                `viewer_is_provider=false` (client-side viewers), so no
+                role logic is needed here. We pass the recipient id so
+                the backend can resolve the pair's roles. */}
             <FeePreview
               mode={formData.paymentMode}
               milestones={buildFeePreviewMilestones(formData)}
+              recipientId={recipientId || undefined}
             />
 
             {/* Deadline */}

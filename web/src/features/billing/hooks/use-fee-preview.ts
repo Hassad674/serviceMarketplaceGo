@@ -17,13 +17,18 @@ const DEBOUNCE_MS = 300
  * return a zero-fee response, but showing the grid without an active
  * row is more helpful than hitting the network on every keystroke.
  */
-export function useFeePreview(amountCents: number) {
+export function useFeePreview(amountCents: number, recipientId?: string) {
   const debouncedAmount = useDebouncedValue(amountCents, DEBOUNCE_MS)
   const enabled = debouncedAmount > 0
+  // recipientId is part of the cache key so two form instances
+  // targeting different recipients never share a cached response —
+  // in particular, the `viewer_is_provider` flag depends on the
+  // pair and must not leak across recipients.
+  const recipientKey = recipientId ?? null
 
   return useQuery<FeePreview>({
-    queryKey: ["billing", "fee-preview", debouncedAmount],
-    queryFn: () => getFeePreview(debouncedAmount),
+    queryKey: ["billing", "fee-preview", debouncedAmount, recipientKey],
+    queryFn: () => getFeePreview(debouncedAmount, recipientId),
     enabled,
     staleTime: 60_000,
   })

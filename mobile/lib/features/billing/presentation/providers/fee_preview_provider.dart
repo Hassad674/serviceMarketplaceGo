@@ -11,17 +11,42 @@ final billingRepositoryProvider = Provider<BillingRepository>((ref) {
   return BillingRepositoryImpl(api);
 });
 
-/// Fetches the platform fee preview for a given milestone amount (in cents).
+/// Composite cache key for [feePreviewProvider].
 ///
-/// Family key is the amount in cents — each amount is a separate cache slot,
-/// so switching between cached amounts is instant. `autoDispose` releases
-/// the cache when no listener is active (the proposal screen unmounts).
+/// Both [amountCents] and [recipientId] shape the server's response
+/// (different recipients can resolve to different viewer roles), so they
+/// BOTH have to participate in the Riverpod family key. Without the
+/// recipient in the key, a cached provider-viewer response could leak
+/// into a later client-viewer render — exactly the bug we're patching.
+class FeePreviewKey {
+  const FeePreviewKey({required this.amountCents, this.recipientId});
+
+  final int amountCents;
+  final String? recipientId;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FeePreviewKey &&
+          runtimeType == other.runtimeType &&
+          amountCents == other.amountCents &&
+          recipientId == other.recipientId;
+
+  @override
+  int get hashCode => Object.hash(amountCents, recipientId);
+}
+
+/// Fetches the platform fee preview for a given milestone amount (in cents)
+/// and optionally a specific recipient.
+///
+/// Family key is a [FeePreviewKey] so different (amount, recipient) pairs
+/// are cached independently. `autoDispose` releases the cache when no
+/// listener is active (the proposal screen unmounts).
 ///
 /// UI consumers render via `.when(data, loading, error)` and call
-/// `ref.invalidate(feePreviewProvider(amountCents))` to retry after an
-/// error.
-final feePreviewProvider =
-    FutureProvider.autoDispose.family<FeePreview, int>((ref, amountCents) async {
+/// `ref.invalidate(feePreviewProvider(key))` to retry after an error.
+final feePreviewProvider = FutureProvider.autoDispose
+    .family<FeePreview, FeePreviewKey>((ref, key) async {
   final repo = ref.watch(billingRepositoryProvider);
-  return repo.getFeePreview(amountCents);
+  return repo.getFeePreview(key.amountCents, recipientId: key.recipientId);
 });

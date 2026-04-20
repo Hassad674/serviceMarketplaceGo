@@ -17,6 +17,7 @@ class FeePreviewResponse {
     required this.role,
     required this.activeTierIndex,
     required this.tiers,
+    required this.viewerIsProvider,
   });
 
   @JsonKey(name: 'amount_cents')
@@ -32,6 +33,14 @@ class FeePreviewResponse {
   @JsonKey(name: 'tiers')
   final List<FeeTierResponse> tiers;
 
+  /// Server-side role gate. When false, the viewer is a client-side party
+  /// (enterprise, agency-hiring, or unknown role combo) and should NOT see
+  /// any fee preview UI — the fee is paid by the provider, not the client.
+  /// Defaults to false so older backends that don't emit this field fail
+  /// closed.
+  @JsonKey(name: 'viewer_is_provider', defaultValue: false)
+  final bool viewerIsProvider;
+
   factory FeePreviewResponse.fromJson(Map<String, dynamic> json) =>
       _$FeePreviewResponseFromJson(json);
 
@@ -44,6 +53,7 @@ class FeePreviewResponse {
         role: role,
         activeTierIndex: activeTierIndex,
         tiers: tiers.map((t) => t.toDomain()).toList(growable: false),
+        viewerIsProvider: viewerIsProvider,
       );
 }
 

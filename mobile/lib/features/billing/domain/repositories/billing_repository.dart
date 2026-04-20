@@ -10,7 +10,13 @@ abstract class BillingRepository {
   /// agency) is read from the JWT server-side; the client cannot override
   /// it.
   ///
+  /// When [recipientId] is provided, the backend resolves the caller's
+  /// role RELATIVE to that recipient (agency-as-provider vs. agency-as-
+  /// client disambiguation) and returns `viewerIsProvider=false` when the
+  /// caller ends up on the client side of the pairing. Passing null keeps
+  /// the legacy behaviour (role-from-JWT only).
+  ///
   /// Throws a [DioException] on network / server errors. Presentation
   /// layer maps those to user-friendly retryable error states.
-  Future<FeePreview> getFeePreview(int amountCents);
+  Future<FeePreview> getFeePreview(int amountCents, {String? recipientId});
 }

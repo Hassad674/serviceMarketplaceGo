@@ -23,16 +23,39 @@ type FeePreviewProps = {
   milestones: Milestone[]
   /** Controls whether to render the milestone-by-milestone breakdown. */
   mode: "one_time" | "milestone"
+  /**
+   * Optional recipient UUID. When set, the backend resolves roles on
+   * the (caller, recipient) pair; the returned `viewer_is_provider`
+   * flag determines whether this component renders anything at all.
+   * When omitted, the backend assumes the caller is the provider —
+   * appropriate for the received-proposal page where isProvider is
+   * already confirmed client-side before this component mounts.
+   */
+  recipientId?: string
+  /**
+   * Overrides the heading text. Defaults to "Frais plateforme" for
+   * the create-proposal form; the received-proposal view uses a more
+   * explicit wording so the prestataire understands it's a preview
+   * of what they'll be charged if they accept.
+   */
+  heading?: string
 }
 
-export function FeePreview({ milestones, mode }: FeePreviewProps) {
+export function FeePreview({ milestones, mode, recipientId, heading }: FeePreviewProps) {
   // When any milestone is empty we still want to surface the tier grid
   // without hammering the backend. We pick the first positive amount
   // as the "reference" that drives the active-tier highlight — this
   // matches what a prestataire would expect (tier visible as soon as
   // they type any one amount).
   const referenceAmount = pickReferenceAmount(milestones)
-  const query = useFeePreview(referenceAmount)
+  const query = useFeePreview(referenceAmount, recipientId)
+
+  // Fail-closed: once the backend has answered, hide the entire
+  // section from client-side viewers (enterprise, agency paired
+  // with a provider, invalid combos). Loading / error states fire
+  // before we know the flag — callers accept that a client may
+  // briefly see a skeleton, never fee data.
+  if (query.data?.viewer_is_provider === false) return null
 
   return (
     <section
@@ -42,7 +65,7 @@ export function FeePreview({ milestones, mode }: FeePreviewProps) {
         "dark:border-slate-700 dark:bg-slate-800/80",
       )}
     >
-      <FeePreviewHeader />
+      <FeePreviewHeader heading={heading} />
       <FeePreviewBody
         query={query}
         milestones={milestones}
@@ -52,7 +75,7 @@ export function FeePreview({ milestones, mode }: FeePreviewProps) {
   )
 }
 
-function FeePreviewHeader() {
+function FeePreviewHeader({ heading }: { heading?: string }) {
   return (
     <div className="mb-4 flex items-start gap-3">
       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
@@ -63,7 +86,7 @@ function FeePreviewHeader() {
           id="fee-preview-heading"
           className="text-sm font-semibold text-slate-900 dark:text-white"
         >
-          Frais plateforme
+          {heading ?? "Frais plateforme"}
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400">
           Frais fixes par jalon, selon votre grille tarifaire

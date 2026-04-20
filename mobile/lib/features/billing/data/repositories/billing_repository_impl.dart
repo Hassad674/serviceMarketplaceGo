@@ -14,10 +14,17 @@ class BillingRepositoryImpl implements BillingRepository {
   final ApiClient _api;
 
   @override
-  Future<FeePreview> getFeePreview(int amountCents) async {
+  Future<FeePreview> getFeePreview(
+    int amountCents, {
+    String? recipientId,
+  }) async {
+    final query = <String, dynamic>{'amount': amountCents};
+    if (recipientId != null && recipientId.isNotEmpty) {
+      query['recipient_id'] = recipientId;
+    }
     final response = await _api.get<Map<String, dynamic>>(
       '/api/v1/billing/fee-preview',
-      queryParameters: <String, dynamic>{'amount': amountCents},
+      queryParameters: query,
     );
 
     final body = response.data;

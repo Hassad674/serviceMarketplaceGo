@@ -29,5 +29,6 @@ class FeePreview with _$FeePreview {
     required String role,
     required int activeTierIndex,
     required List<FeeTier> tiers,
+    required bool viewerIsProvider,
   }) = _FeePreview;
 }

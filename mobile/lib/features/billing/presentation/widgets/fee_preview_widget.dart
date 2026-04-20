@@ -29,7 +29,7 @@ class FeeMilestoneLine {
 }
 
 /// Shows the platform fee grid and the concrete earnings for the
-/// prestataire drafting a proposal.
+/// prestataire drafting (or viewing) a proposal.
 ///
 /// Two modes:
 ///   1. **Single amount** — pass a non-null [amountCents]. The widget shows
@@ -43,13 +43,17 @@ class FeeMilestoneLine {
 /// responsible for debouncing the amount input and passing the debounced
 /// value(s) — typically via a 300ms timer on the text field.
 ///
-/// Placed in the proposal CREATION screen only — never in the proposal
-/// detail / viewing screen (client-side).
+/// Role-gating is enforced INSIDE this widget — if the backend resolves
+/// the viewer to a client-side role (`viewerIsProvider == false`), the
+/// widget collapses to `SizedBox.shrink()`. Callers do not need to check
+/// the role themselves; passing a [recipientId] lets the backend
+/// disambiguate agency pairings.
 class FeePreviewWidget extends ConsumerWidget {
   const FeePreviewWidget({
     super.key,
     this.amountCents,
     this.milestones = const [],
+    this.recipientId,
   }) : assert(
           amountCents != null || milestones.length > 0,
           'Provide either amountCents or a non-empty milestones list',
@@ -61,6 +65,12 @@ class FeePreviewWidget extends ConsumerWidget {
   /// Milestone breakdown mode. Empty list falls back to single-amount.
   final List<FeeMilestoneLine> milestones;
 
+  /// Recipient of the proposal. When non-null the backend resolves the
+  /// viewer's role relative to that recipient (agency ↔ enterprise vs.
+  /// agency ↔ provider) and can flip `viewerIsProvider` to false — in
+  /// which case the widget hides itself.
+  final String? recipientId;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Zero or negative amounts are meaningless — render nothing so the
@@ -68,12 +78,14 @@ class FeePreviewWidget extends ConsumerWidget {
     if (milestones.isEmpty) {
       final amt = amountCents ?? 0;
       if (amt <= 0) return const SizedBox.shrink();
-      return _FeePreviewCard(
-        child: _SingleAmountView(amountCents: amt),
+      return _SingleAmountView(
+        amountCents: amt,
+        recipientId: recipientId,
       );
     }
-    return _FeePreviewCard(
-      child: _MilestonesView(milestones: milestones),
+    return _MilestonesView(
+      milestones: milestones,
+      recipientId: recipientId,
     );
   }
 }
@@ -126,18 +138,31 @@ class _FeePreviewCard extends StatelessWidget {
 /// Single-amount mode. Watches the provider for `amountCents` and renders
 /// loading / error / data states.
 class _SingleAmountView extends ConsumerWidget {
-  const _SingleAmountView({required this.amountCents});
+  const _SingleAmountView({required this.amountCents, this.recipientId});
 
   final int amountCents;
+  final String? recipientId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(feePreviewProvider(amountCents));
+    final key = FeePreviewKey(
+      amountCents: amountCents,
+      recipientId: recipientId,
+    );
+    final async = ref.watch(feePreviewProvider(key));
     return async.when(
-      data: (preview) => _SingleAmountData(preview: preview),
-      loading: () => const _FeePreviewSkeleton(),
-      error: (err, _) => _FeePreviewError(
-        onRetry: () => ref.invalidate(feePreviewProvider(amountCents)),
+      // Role gate: when the viewer is client-side the backend sets
+      // viewerIsProvider=false and we render nothing at all — no card,
+      // no grid, no label. This is the ONE place that enforces the
+      // billing-visibility contract for every caller.
+      data: (preview) => preview.viewerIsProvider
+          ? _FeePreviewCard(child: _SingleAmountData(preview: preview))
+          : const SizedBox.shrink(),
+      loading: () => const _FeePreviewCard(child: _FeePreviewSkeleton()),
+      error: (err, _) => _FeePreviewCard(
+        child: _FeePreviewError(
+          onRetry: () => ref.invalidate(feePreviewProvider(key)),
+        ),
       ),
     );
   }
@@ -184,9 +209,15 @@ class _SingleAmountData extends StatelessWidget {
 /// Milestone-breakdown mode. Watches one provider per unique amount so
 /// that edits to a single milestone do not retrigger the others.
 class _MilestonesView extends ConsumerWidget {
-  const _MilestonesView({required this.milestones});
+  const _MilestonesView({required this.milestones, this.recipientId});
 
   final List<FeeMilestoneLine> milestones;
+  final String? recipientId;
+
+  FeePreviewKey _keyFor(int amountCents) => FeePreviewKey(
+        amountCents: amountCents,
+        recipientId: recipientId,
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -196,7 +227,7 @@ class _MilestonesView extends ConsumerWidget {
     final previews = <int, AsyncValue<FeePreview>>{
       for (final m in milestones)
         if (m.amountCents > 0)
-          m.amountCents: ref.watch(feePreviewProvider(m.amountCents)),
+          m.amountCents: ref.watch(feePreviewProvider(_keyFor(m.amountCents))),
     };
 
     int totalGross = 0;
@@ -206,12 +237,20 @@ class _MilestonesView extends ConsumerWidget {
     int? latestActive;
     bool anyLoading = false;
     bool anyError = false;
+    // Role gate: the backend returns viewerIsProvider=false uniformly for
+    // a given viewer → if ANY resolved preview tells us the viewer is
+    // client-side, hide the whole milestones block.
+    bool viewerIsClient = false;
 
     for (final m in milestones) {
       if (m.amountCents <= 0) continue;
       final async = previews[m.amountCents]!;
       async.when(
         data: (p) {
+          if (!p.viewerIsProvider) {
+            viewerIsClient = true;
+            return;
+          }
           totalGross += p.amountCents;
           totalFees += p.feeCents;
           totalNet += p.netCents;
@@ -223,44 +262,49 @@ class _MilestonesView extends ConsumerWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final m in milestones) _MilestoneRow(line: m, state: previews[m.amountCents]),
-        const SizedBox(height: 8),
-        const Divider(height: 1),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Total', style: theme.textTheme.titleSmall),
-            Text(
-              '${_formatCents(totalNet)}'
-              '  (Fees: ${_formatCents(totalFees)} / ${_formatCents(totalGross)})',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        if (anyLoading) ...[
-          const SizedBox(height: 12),
-          const _FeePreviewSkeleton(),
-        ] else if (anyError) ...[
-          const SizedBox(height: 12),
-          _FeePreviewError(
-            onRetry: () {
-              for (final m in milestones) {
-                if (m.amountCents > 0) {
-                  ref.invalidate(feePreviewProvider(m.amountCents));
-                }
-              }
-            },
+    if (viewerIsClient) return const SizedBox.shrink();
+
+    return _FeePreviewCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final m in milestones)
+            _MilestoneRow(line: m, state: previews[m.amountCents]),
+          const SizedBox(height: 8),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total', style: theme.textTheme.titleSmall),
+              Text(
+                '${_formatCents(totalNet)}'
+                '  (Fees: ${_formatCents(totalFees)} / ${_formatCents(totalGross)})',
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
           ),
-        ] else if (latestTiers != null) ...[
-          const SizedBox(height: 12),
-          _FeeGrid(tiers: latestTiers!, activeIndex: latestActive ?? -1),
+          if (anyLoading) ...[
+            const SizedBox(height: 12),
+            const _FeePreviewSkeleton(),
+          ] else if (anyError) ...[
+            const SizedBox(height: 12),
+            _FeePreviewError(
+              onRetry: () {
+                for (final m in milestones) {
+                  if (m.amountCents > 0) {
+                    ref.invalidate(feePreviewProvider(_keyFor(m.amountCents)));
+                  }
+                }
+              },
+            ),
+          ] else if (latestTiers != null) ...[
+            const SizedBox(height: 12),
+            _FeeGrid(tiers: latestTiers!, activeIndex: latestActive ?? -1),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

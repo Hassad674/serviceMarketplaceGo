@@ -276,9 +276,17 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
               const SizedBox(height: 16),
 
               // Platform fee preview — debounced, only renders once the
-              // amount is parseable and positive.
+              // amount is parseable and positive. The FeePreviewWidget
+              // enforces its own role gate: when the backend resolves
+              // the viewer as client-side (via recipientId), it renders
+              // nothing at all. No extra check needed here.
               if (_debouncedAmountCents != null) ...[
-                FeePreviewWidget(amountCents: _debouncedAmountCents),
+                FeePreviewWidget(
+                  amountCents: _debouncedAmountCents,
+                  recipientId: widget.recipientId.isNotEmpty
+                      ? widget.recipientId
+                      : null,
+                ),
                 const SizedBox(height: 16),
               ],
 

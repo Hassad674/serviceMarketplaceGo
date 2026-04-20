@@ -30,4 +30,14 @@ export type FeePreview = {
   /** Index into `tiers` marking the bracket the amount falls into. */
   active_tier_index: number
   tiers: FeePreviewTier[]
+  /**
+   * Whether the viewer (JWT caller) is the prestataire in the
+   * (caller, recipient) pair. When `recipient_id` is omitted, the
+   * backend assumes the caller is the provider and returns `true`
+   * iff the caller's role is a provider role. When `recipient_id`
+   * is supplied the backend runs `DetermineRoles` and fails closed
+   * (`false`) on invalid combos — the UI uses that to hide the
+   * preview from clients.
+   */
+  viewer_is_provider: boolean
 }
