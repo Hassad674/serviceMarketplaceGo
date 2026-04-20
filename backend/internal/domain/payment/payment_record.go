@@ -48,18 +48,22 @@ type PaymentRecord struct {
 	UpdatedAt     time.Time
 }
 
-const platformFeePercent = 5
-
-// NewPaymentRecord creates a payment record and computes all fee amounts.
-// stripeFeeAmount is the estimated or actual Stripe processing fee.
+// NewPaymentRecord creates a payment record with explicit fee amounts.
+//
+// platformFeeAmount is computed by the caller (app layer) using the billing
+// package's fee schedule — the domain no longer hardcodes a commission rate,
+// so the fee structure is free to evolve (tiered flat fees, premium waivers,
+// etc.) without touching this constructor. The fee MUST be pre-computed by
+// the caller; passing 0 means "no platform fee" (e.g. premium subscriber).
+//
+// stripeFeeAmount is the estimated or actual Stripe processing fee, charged
+// on top of the proposal amount to the client.
 //
 // Phase 4: every payment is scoped to a specific milestone, not the
 // whole proposal. The milestone_id column in payment_records is NOT
 // NULL, so a zero milestoneID will trip the DB constraint and fail
 // loudly at insert time — that is intentional.
-func NewPaymentRecord(proposalID, milestoneID, clientID, providerID uuid.UUID, proposalAmount, stripeFeeAmount int64) *PaymentRecord {
-	platformFee := proposalAmount * platformFeePercent / 100
-
+func NewPaymentRecord(proposalID, milestoneID, clientID, providerID uuid.UUID, proposalAmount, stripeFeeAmount, platformFeeAmount int64) *PaymentRecord {
 	now := time.Now()
 	return &PaymentRecord{
 		ID:                uuid.New(),
@@ -69,9 +73,9 @@ func NewPaymentRecord(proposalID, milestoneID, clientID, providerID uuid.UUID, p
 		ProviderID:        providerID,
 		ProposalAmount:    proposalAmount,
 		StripeFeeAmount:   stripeFeeAmount,
-		PlatformFeeAmount: platformFee,
+		PlatformFeeAmount: platformFeeAmount,
 		ClientTotalAmount: proposalAmount + stripeFeeAmount,
-		ProviderPayout:    proposalAmount - platformFee,
+		ProviderPayout:    proposalAmount - platformFeeAmount,
 		Currency:          "eur",
 		Status:            RecordStatusPending,
 		TransferStatus:    TransferPending,

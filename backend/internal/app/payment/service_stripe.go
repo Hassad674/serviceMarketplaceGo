@@ -10,9 +10,22 @@ import (
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/billing"
 	domain "marketplace-backend/internal/domain/payment"
+	proposaldomain "marketplace-backend/internal/domain/proposal"
+	domainuser "marketplace-backend/internal/domain/user"
 	portservice "marketplace-backend/internal/port/service"
 )
+
+// FeePreviewResult bundles the pure fee calculation with a permission flag.
+// ViewerIsProvider answers the question "would the authenticated user pay
+// this fee on a proposal against the given recipient?" — the UI hides the
+// preview entirely when this is false so a client never sees the
+// prestataire's cost structure.
+type FeePreviewResult struct {
+	Billing          billing.Result
+	ViewerIsProvider bool
+}
 
 // CreatePaymentIntent creates a Stripe PaymentIntent for a milestone
 // payment. Phase 4: the idempotency key is the milestone id, not the
@@ -30,9 +43,19 @@ func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.Pay
 	}
 
 	stripeFee := domain.EstimateStripeFee(input.ProposalAmount)
+
+	// Platform fee is computed from the billing schedule using the provider's
+	// role (agency pays the agency grid, everyone else pays the freelance
+	// grid). The fee is frozen into the payment_record row at creation time —
+	// future schedule changes never retro-modify historical records.
+	platformFee, err := s.computePlatformFee(ctx, input.ProviderID, input.ProposalAmount)
+	if err != nil {
+		return nil, fmt.Errorf("compute platform fee: %w", err)
+	}
+
 	record := domain.NewPaymentRecord(
 		input.ProposalID, input.MilestoneID, input.ClientID, input.ProviderID,
-		input.ProposalAmount, stripeFee,
+		input.ProposalAmount, stripeFee, platformFee,
 	)
 
 	pi, err := s.stripe.CreatePaymentIntent(ctx, portservice.CreatePaymentIntentInput{
@@ -753,5 +776,77 @@ func (s *Service) VerifyWebhook(payload []byte, signature string) (*portservice.
 // GetPaymentRecord returns the payment record for a proposal.
 func (s *Service) GetPaymentRecord(ctx context.Context, proposalID uuid.UUID) (*domain.PaymentRecord, error) {
 	return s.records.GetByProposalID(ctx, proposalID)
+}
+
+// computePlatformFee looks up the provider's role and returns the flat fee
+// from the billing schedule. Returns an error if the provider cannot be
+// resolved — creating a payment record without knowing which grid applies
+// would skew either the platform (under-charge) or the provider
+// (over-charge), so we fail fast.
+func (s *Service) computePlatformFee(ctx context.Context, providerID uuid.UUID, amountCents int64) (int64, error) {
+	u, err := s.users.GetByID(ctx, providerID)
+	if err != nil {
+		return 0, fmt.Errorf("fetch provider: %w", err)
+	}
+	billingRole := billing.RoleFromUser(string(u.Role))
+	return billing.Calculate(billingRole, amountCents).FeeCents, nil
+}
+
+// PreviewFee returns the fee schedule for the authenticated user alongside
+// a permission flag that tells the UI whether the caller would actually pay
+// the fee on a hypothetical proposal against `recipientID`. Used by the
+// web/mobile proposal creation flow to render the live simulator.
+//
+// Visibility rule (single source of truth = proposal.DetermineRoles):
+//   - recipientID nil: fallback to role-based default. Enterprise is ALWAYS
+//     client so ViewerIsProvider=false. Provider is ALWAYS provider so
+//     ViewerIsProvider=true. Agency defaults to true (proposal against an
+//     enterprise is the common case); callers that need precise agency
+//     resolution MUST pass recipientID.
+//   - recipientID set: run DetermineRoles(caller, recipient) and set
+//     ViewerIsProvider from the computed provider_id. Invalid combinations
+//     (agency+agency, enterprise+enterprise) set the flag to false defensively
+//     — the UI must never show fees when the backend cannot confirm the
+//     caller is the prestataire.
+func (s *Service) PreviewFee(ctx context.Context, userID uuid.UUID, amountCents int64, recipientID *uuid.UUID) (*FeePreviewResult, error) {
+	u, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("fetch user: %w", err)
+	}
+	billingRole := billing.RoleFromUser(string(u.Role))
+	calc := billing.Calculate(billingRole, amountCents)
+
+	viewerIsProvider := defaultViewerIsProvider(u.Role)
+	if recipientID != nil {
+		recipient, rErr := s.users.GetByID(ctx, *recipientID)
+		if rErr != nil || recipient == nil {
+			// Unknown recipient — fail closed rather than leak the fee to a
+			// potentially client-side viewer. The UI hides the preview.
+			viewerIsProvider = false
+		} else {
+			_, providerID, drErr := proposaldomain.DetermineRoles(
+				userID, string(u.Role),
+				*recipientID, string(recipient.Role),
+			)
+			if drErr != nil {
+				viewerIsProvider = false
+			} else {
+				viewerIsProvider = providerID == userID
+			}
+		}
+	}
+
+	return &FeePreviewResult{
+		Billing:          calc,
+		ViewerIsProvider: viewerIsProvider,
+	}, nil
+}
+
+// defaultViewerIsProvider is the role-only fallback when no recipient is
+// known. Enterprise is ALWAYS the client; everyone else is (likely) the
+// provider. Agency defaults to true for the happy path (agency pitching an
+// enterprise); edge cases MUST be disambiguated by passing recipientID.
+func defaultViewerIsProvider(role domainuser.Role) bool {
+	return role != domainuser.RoleEnterprise
 }
 

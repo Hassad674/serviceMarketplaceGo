@@ -14,59 +14,71 @@ func TestNewPaymentRecord(t *testing.T) {
 	clientID := uuid.New()
 	providerID := uuid.New()
 
+	// The fee is no longer computed by the domain (used to be hardcoded 5%).
+	// The app layer now provides the platform fee from the billing schedule,
+	// so tests assert that the constructor faithfully records the values it
+	// receives — that's the new contract.
 	tests := []struct {
-		name           string
-		amount         int64
-		stripeFee      int64
-		wantPlatform   int64
+		name            string
+		amount          int64
+		stripeFee       int64
+		platformFee     int64
 		wantClientTotal int64
-		wantPayout     int64
+		wantPayout      int64
 	}{
 		{
-			name:           "standard 10000 centimes (100€)",
-			amount:         10000,
-			stripeFee:      175,
-			wantPlatform:   500,
-			wantClientTotal: 10175,
-			wantPayout:     9500,
+			name:            "freelance tier 1 — 150€ milestone, 9€ fee",
+			amount:          15000,
+			stripeFee:       250,
+			platformFee:     900,
+			wantClientTotal: 15250,
+			wantPayout:      14100,
 		},
 		{
-			name:           "small amount 1000 centimes (10€)",
-			amount:         1000,
-			stripeFee:      40,
-			wantPlatform:   50,
-			wantClientTotal: 1040,
-			wantPayout:     950,
+			name:            "freelance tier 2 — 500€ milestone, 15€ fee",
+			amount:          50000,
+			stripeFee:       775,
+			platformFee:     1500,
+			wantClientTotal: 50775,
+			wantPayout:      48500,
 		},
 		{
-			name:           "large amount 100000 centimes (1000€)",
-			amount:         100000,
-			stripeFee:      1525,
-			wantPlatform:   5000,
+			name:            "freelance tier 3 — 2000€ milestone, 25€ fee",
+			amount:          200000,
+			stripeFee:       3025,
+			platformFee:     2500,
+			wantClientTotal: 203025,
+			wantPayout:      197500,
+		},
+		{
+			name:            "agency tier 2 — 1000€ milestone, 39€ fee",
+			amount:          100000,
+			stripeFee:       1525,
+			platformFee:     3900,
 			wantClientTotal: 101525,
-			wantPayout:     95000,
+			wantPayout:      96100,
 		},
 		{
-			name:           "zero amount",
-			amount:         0,
-			stripeFee:      0,
-			wantPlatform:   0,
+			name:            "premium subscriber — fee waived",
+			amount:          50000,
+			stripeFee:       775,
+			platformFee:     0,
+			wantClientTotal: 50775,
+			wantPayout:      50000,
+		},
+		{
+			name:            "zero amount, zero fee",
+			amount:          0,
+			stripeFee:       0,
+			platformFee:     0,
 			wantClientTotal: 0,
-			wantPayout:     0,
-		},
-		{
-			name:           "amount not evenly divisible by 100",
-			amount:         9999,
-			stripeFee:      175,
-			wantPlatform:   499,
-			wantClientTotal: 10174,
-			wantPayout:     9500,
+			wantPayout:      0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := NewPaymentRecord(proposalID, milestoneID, clientID, providerID, tt.amount, tt.stripeFee)
+			rec := NewPaymentRecord(proposalID, milestoneID, clientID, providerID, tt.amount, tt.stripeFee, tt.platformFee)
 
 			assert.Equal(t, proposalID, rec.ProposalID)
 			assert.Equal(t, milestoneID, rec.MilestoneID)
@@ -74,7 +86,7 @@ func TestNewPaymentRecord(t *testing.T) {
 			assert.Equal(t, providerID, rec.ProviderID)
 			assert.Equal(t, tt.amount, rec.ProposalAmount)
 			assert.Equal(t, tt.stripeFee, rec.StripeFeeAmount)
-			assert.Equal(t, tt.wantPlatform, rec.PlatformFeeAmount)
+			assert.Equal(t, tt.platformFee, rec.PlatformFeeAmount)
 			assert.Equal(t, tt.wantClientTotal, rec.ClientTotalAmount)
 			assert.Equal(t, tt.wantPayout, rec.ProviderPayout)
 			assert.Equal(t, "eur", rec.Currency)
@@ -87,9 +99,15 @@ func TestNewPaymentRecord(t *testing.T) {
 	}
 }
 
+// newFixtureRecord is a compact helper for state-machine tests — the fee
+// value itself is irrelevant to status transitions.
+func newFixtureRecord() *PaymentRecord {
+	return NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175, 1500)
+}
+
 func TestPaymentRecord_MarkPaid(t *testing.T) {
 	t.Run("success from pending", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 
 		err := rec.MarkPaid()
 
@@ -99,7 +117,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 	})
 
 	t.Run("fails from succeeded", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 		_ = rec.MarkPaid()
 
 		err := rec.MarkPaid()
@@ -108,7 +126,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 	})
 
 	t.Run("fails from failed", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 		rec.MarkFailed()
 
 		err := rec.MarkPaid()
@@ -118,7 +136,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 }
 
 func TestPaymentRecord_MarkFailed(t *testing.T) {
-	rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+	rec := newFixtureRecord()
 
 	rec.MarkFailed()
 
@@ -127,7 +145,7 @@ func TestPaymentRecord_MarkFailed(t *testing.T) {
 
 func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	t.Run("success from succeeded+pending transfer", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 		_ = rec.MarkPaid()
 
 		err := rec.MarkTransferred("tr_abc123")
@@ -139,7 +157,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	})
 
 	t.Run("fails when payment not succeeded", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 
 		err := rec.MarkTransferred("tr_abc")
 
@@ -147,7 +165,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	})
 
 	t.Run("fails when transfer already done", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 		_ = rec.MarkPaid()
 		_ = rec.MarkTransferred("tr_first")
 
@@ -157,7 +175,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 	})
 
 	t.Run("fails when transfer failed then retried", func(t *testing.T) {
-		rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+		rec := newFixtureRecord()
 		_ = rec.MarkPaid()
 		rec.MarkTransferFailed()
 
@@ -168,7 +186,7 @@ func TestPaymentRecord_MarkTransferred(t *testing.T) {
 }
 
 func TestPaymentRecord_MarkTransferFailed(t *testing.T) {
-	rec := NewPaymentRecord(uuid.New(), uuid.New(), uuid.New(), uuid.New(), 10000, 175)
+	rec := newFixtureRecord()
 
 	rec.MarkTransferFailed()
 

@@ -8,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../billing/presentation/widgets/fee_preview_widget.dart';
 import '../../../dispute/presentation/providers/dispute_provider.dart';
 import '../../../dispute/presentation/widgets/dispute_banner_widget.dart';
 import '../../../dispute/presentation/widgets/dispute_resolution_card.dart';
@@ -224,6 +225,36 @@ class _ProposalDetailBody extends ConsumerWidget {
             ...proposal.documents.map(
               (doc) => _DocumentTile(document: doc),
             ),
+          ],
+
+          // Platform fees preview — shown ONLY to the provider-side
+          // viewer (the party that actually pays the fee). Enterprises
+          // and agencies-acting-as-clients never see this block. We
+          // don't pass recipientId here: the role is already established
+          // by clientId/providerId on the proposal itself, so the
+          // backend's JWT-based role resolution is sufficient and yields
+          // viewerIsProvider=true for this code path.
+          if (userRole == 'provider') ...[
+            const SizedBox(height: 24),
+            Text(
+              'Platform fees on this mission',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (proposal.milestones.isNotEmpty)
+              FeePreviewWidget(
+                milestones: [
+                  for (final m in proposal.milestones)
+                    FeeMilestoneLine(
+                      label: m.title,
+                      amountCents: m.amount,
+                    ),
+                ],
+              )
+            else
+              FeePreviewWidget(amountCents: proposal.amount),
           ],
 
           const SizedBox(height: 32),

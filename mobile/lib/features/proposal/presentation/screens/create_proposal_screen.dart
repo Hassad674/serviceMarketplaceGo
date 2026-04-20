@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../billing/presentation/widgets/fee_preview_widget.dart';
 import '../../domain/entities/proposal_entity.dart';
 import '../../domain/repositories/proposal_repository.dart';
 import '../../types/proposal.dart';
@@ -44,6 +47,11 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
   late final ProposalFormData _formData;
   bool _isSubmitting = false;
 
+  /// Debounced amount in cents used to drive the fee preview. Null when the
+  /// input is empty or non-positive so the widget renders nothing.
+  int? _debouncedAmountCents;
+  Timer? _amountDebounce;
+
   bool get _isModifyMode => widget.existingProposal != null;
 
   @override
@@ -61,20 +69,41 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
       _titleController.text = p.title;
       _descriptionController.text = p.description;
       _amountController.text = p.amountInEuros.toStringAsFixed(2);
+      _debouncedAmountCents =
+          (p.amountInEuros * 100).round().clamp(0, 1 << 31);
       if (p.deadline != null) {
         try {
           _formData.deadline = DateTime.parse(p.deadline!);
         } catch (_) {}
       }
     }
+
+    _amountController.addListener(_onAmountChanged);
   }
 
   @override
   void dispose() {
+    _amountDebounce?.cancel();
+    _amountController.removeListener(_onAmountChanged);
     _titleController.dispose();
     _descriptionController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  /// Debounces the amount field (300ms) before refreshing the fee preview.
+  /// A shorter window makes the preview flicker while typing; a longer one
+  /// feels unresponsive.
+  void _onAmountChanged() {
+    _amountDebounce?.cancel();
+    _amountDebounce = Timer(const Duration(milliseconds: 300), () {
+      final parsed = double.tryParse(_amountController.text.trim());
+      final cents =
+          parsed == null || parsed <= 0 ? null : (parsed * 100).round();
+      if (!mounted) return;
+      if (cents == _debouncedAmountCents) return;
+      setState(() => _debouncedAmountCents = cents);
+    });
   }
 
   void _onDeadlinePicked() async {
@@ -245,6 +274,21 @@ class _CreateProposalScreenState extends ConsumerState<CreateProposalScreen> {
                 },
               ),
               const SizedBox(height: 16),
+
+              // Platform fee preview — debounced, only renders once the
+              // amount is parseable and positive. The FeePreviewWidget
+              // enforces its own role gate: when the backend resolves
+              // the viewer as client-side (via recipientId), it renders
+              // nothing at all. No extra check needed here.
+              if (_debouncedAmountCents != null) ...[
+                FeePreviewWidget(
+                  amountCents: _debouncedAmountCents,
+                  recipientId: widget.recipientId.isNotEmpty
+                      ? widget.recipientId
+                      : null,
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Deadline (optional)
               _buildDeadlineField(theme, appColors, l10n),

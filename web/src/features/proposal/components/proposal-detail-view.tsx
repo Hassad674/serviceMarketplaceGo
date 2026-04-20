@@ -24,6 +24,7 @@ import { ProposalStepper } from "./proposal-stepper"
 import { ActionsPanel, type ActionsPanelProps } from "./proposal-actions-panel"
 import { MilestoneTracker } from "./milestone-tracker"
 import type { ProposalResponse } from "../types"
+import { FeePreview } from "@/features/billing/components/fee-preview"
 
 interface ProposalDetailViewProps {
   proposalId: string
@@ -142,6 +143,17 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
         {/* Left column - content */}
         <div className="flex-1 min-w-0 space-y-6">
           <ContentPanel proposal={proposal} />
+          {/* Platform fee preview — only the designated provider ever
+              sees this panel. The backend also fails closed via
+              `viewer_is_provider`, so even a stale client view cannot
+              reveal fee data to a client. */}
+          {isProvider && (
+            <FeePreview
+              mode={proposal.payment_mode}
+              milestones={buildDetailFeeMilestones(proposal)}
+              heading="Frais plateforme estimés pour ta mission"
+            />
+          )}
         </div>
 
         {/* Right column - actions (sticky on desktop) */}
@@ -202,6 +214,30 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
       />
     </div>
   )
+}
+
+// buildDetailFeeMilestones maps the received proposal into the shape
+// expected by <FeePreview>. In milestone mode each milestone is
+// forwarded with its sequence/title and amount; in one-time mode a
+// single synthetic "Paiement unique" entry is emitted with the total
+// proposal amount so the one-time summary fires.
+function buildDetailFeeMilestones(
+  proposal: ProposalResponse,
+): { key: string; label: string; amountCents: number }[] {
+  if (proposal.payment_mode === "milestone" && proposal.milestones.length > 0) {
+    return proposal.milestones.map((m) => ({
+      key: m.id,
+      label: m.title || `Jalon ${m.sequence}`,
+      amountCents: m.amount,
+    }))
+  }
+  return [
+    {
+      key: "one-time",
+      label: "Paiement unique",
+      amountCents: proposal.amount,
+    },
+  ]
 }
 
 function ContentPanel({ proposal }: { proposal: ProposalResponse }) {

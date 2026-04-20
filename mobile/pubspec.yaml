@@ -63,4 +63,5 @@ flutter:
 
 dependency_overrides:
   record_linux: ^1.0.0
+  analyzer_plugin: ^0.13.0
 
