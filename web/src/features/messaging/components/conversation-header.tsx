@@ -21,7 +21,10 @@ interface ConversationHeaderProps {
 
 export function ConversationHeader({
   conversation,
-  currentOrgType,
+  // Intentionally ignored since the profile gate was removed —
+  // kept on the prop interface so existing callers still type-check.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  currentOrgType: _currentOrgType,
   onBack,
   typingUserName,
   isConnected,
@@ -61,17 +64,25 @@ export function ConversationHeader({
     router.push(`/projects/new?to=${conversation.other_user_id}&conversation=${conversation.id}`)
   }
 
-  // Providers cannot view an enterprise's public profile — the
-  // enterprise is the client, not a marketplace listing.
-  const canViewProfile = !(
-    currentOrgType === "provider_personal" && conversation.other_org_type === "enterprise"
-  )
+  // Previously providers were blocked from enterprise profiles
+  // because the /enterprises route did not exist. With the new
+  // public client profile every enterprise org is now reachable at
+  // /clients/:id, so the gate is dropped — a provider legitimately
+  // wants to read a client's description before accepting a deal.
+  // The `currentOrgType` prop is kept on the interface for backward
+  // compatibility with existing callers (`_` prefix silences the
+  // no-unused-vars rule while preserving the public API).
+  const canViewProfile = true
 
   const profileHref = (() => {
     const orgType = conversation.other_org_type
     const id = conversation.other_org_id
     if (orgType === "agency") return `/agencies/${id}`
-    if (orgType === "enterprise") return `/enterprises/${id}`
+    // Enterprise counterparties act as the "client" side of the
+    // conversation — route them to their public client profile.
+    // The previous `/enterprises/:id` route never existed, so this
+    // also fixes a latent dead-link on avatar clicks.
+    if (orgType === "enterprise") return `/clients/${id}`
     return `/freelancers/${id}`
   })()
 

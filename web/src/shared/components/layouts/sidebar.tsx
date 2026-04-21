@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import {
   LayoutDashboard,
   UserCircle,
+  Building2,
   LogOut,
   ArrowRightLeft,
   X,
@@ -22,7 +23,7 @@ import {
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, usePathname, useRouter } from "@i18n/navigation"
-import { useUser, useLogout } from "@/shared/hooks/use-user"
+import { useUser, useLogout, useOrganization } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { cn } from "@/shared/lib/utils"
@@ -33,6 +34,12 @@ type NavItem = {
   icon: React.ElementType
   exact?: boolean
   roles: string[]
+  // Optional secondary gate on the current organization's `type`.
+  // When present the entry is visible only if `organization.type`
+  // matches one of the listed values — used for surfaces that are
+  // scoped to an org-level persona (e.g. the client profile page is
+  // hidden for `provider_personal` orgs).
+  orgTypes?: string[]
 }
 
 // Freelance mode nav
@@ -44,7 +51,15 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "opportunities", href: "/opportunities", icon: Briefcase, roles: ["provider", "agency"] },
   { labelKey: "myApplications", href: "/my-applications", icon: FileText, roles: ["provider", "agency"] },
   { labelKey: "team", href: "/team", icon: Users2, roles: ["agency", "enterprise"] },
-  { labelKey: "myProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
+  // `providerProfile` replaces the legacy "myProfile" label. Agencies
+  // now see both this entry AND the new client-profile entry below,
+  // so the label has to be unambiguous about which side of the
+  // marketplace identity it edits.
+  { labelKey: "providerProfile", href: "/profile", icon: UserCircle, roles: ["agency", "provider"] },
+  // Client profile: agencies and enterprises only. Solo providers
+  // (org.type === "provider_personal") don't have a client-facing
+  // identity and the entry must stay hidden for them.
+  { labelKey: "clientProfile", href: "/client-profile", icon: Building2, roles: ["agency", "enterprise"], orgTypes: ["agency", "enterprise"] },
   { labelKey: "paymentInfo", href: "/payment-info", icon: CreditCard, roles: ["agency", "provider"] },
   { labelKey: "wallet", href: "/wallet", icon: Wallet, roles: ["agency", "provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
@@ -85,11 +100,21 @@ const ROLE_COLORS: Record<string, string> = {
   referrer: "bg-amber-50 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400",
 }
 
-function getFilteredNav(role: string, isReferrerMode: boolean): NavItem[] {
+function getFilteredNav(
+  role: string,
+  orgType: string | undefined,
+  isReferrerMode: boolean,
+): NavItem[] {
+  const filterByOrgType = (item: NavItem) =>
+    !item.orgTypes || (orgType ? item.orgTypes.includes(orgType) : false)
   if (role === "provider" && isReferrerMode) {
-    return REFERRER_NAV.filter((item) => item.roles.includes(role))
+    return REFERRER_NAV.filter(
+      (item) => item.roles.includes(role) && filterByOrgType(item),
+    )
   }
-  return FREELANCE_NAV.filter((item) => item.roles.includes(role))
+  return FREELANCE_NAV.filter(
+    (item) => item.roles.includes(role) && filterByOrgType(item),
+  )
 }
 
 const STORAGE_KEY = "sidebar-collapsed"
@@ -105,6 +130,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
   const pathname = usePathname()
   const router = useRouter()
   const { data: user } = useUser()
+  const { data: org } = useOrganization()
   const logout = useLogout()
   const { isReferrerMode, setReferrerMode, switchToReferrer, switchToFreelance } = useWorkspace()
   const { data: unreadData } = useUnreadCount()
@@ -120,7 +146,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
-  const items = getFilteredNav(role, isReferrerMode)
+  const items = getFilteredNav(role, org?.type, isReferrerMode)
   const displayRole = isReferrerMode ? "referrer" : role
 
   async function handleLogout() {
