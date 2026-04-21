@@ -11,6 +11,46 @@ This project is meant to showcase professional-grade engineering. Every file, ev
 
 ---
 
+## Autonomous self-validation — test at every step
+
+When working autonomously (or when briefing sub-agents), **self-validate at every step** with unit tests, CLI checks, and e2e flows. Do this literally as much as possible — it is the single strongest guardrail against bugs and regressions in unsupervised work.
+
+Concrete rules:
+
+1. **Every non-trivial code change ends with a test pass.** Write the unit test alongside the code, not after. New service method → table-driven test. New component/hook → unit test. New endpoint → handler test.
+2. **CLI sanity at every save point.** After any meaningful code change, run the validation pipeline for the touched stack:
+   - Backend: `go build ./... && go vet ./... && go test ./... -count=1`
+   - Web: `npx tsc --noEmit && npx vitest run` (scope to touched files when sensible)
+   - Mobile: `flutter analyze` on touched dirs
+   - Migrations: `make migrate-up` on a local DB + verify schema with `psql \d`
+3. **E2E probe at every vertical milestone.** Once backend + frontend are wired for a slice, hit the real endpoint with `curl` or an integration test, verify DB state with a direct query, assert the response shape matches the contract.
+4. **After merging agents' work to main: full regression smoke.** Build all three apps, run all tests, spot-check the feature in a running dev stack. Do not rely on the agents' reports alone.
+5. **When briefing agents, make the validation pipeline explicit.** Include "mandatory build + test + vet green before commit, paste the output in the final report" in every agent brief — otherwise agents skip tests.
+6. **Bias strongly toward over-testing in autonomous mode.** The cost of an extra 10 tests is minutes. The cost of an undetected regression is hours of debugging and lost user trust.
+
+**Never** commit, push, or report "done" with failing tests, compile errors, or analyzer warnings on touched files.
+
+---
+
+## Scope discipline — ship exactly what is asked
+
+When a feature scope is agreed in a conversation (or captured in a recap, ticket, or brief), ship **that list and nothing else** — ni plus, ni moins.
+
+Two failure modes are equally costly, and both must be avoided:
+
+- **Less than asked** → leftover work accumulates, each feature needs a follow-up round to close the gap.
+- **More than asked** → "while I was there" polish, refactors, and nice-to-haves introduce regressions the owner then has to hunt down.
+
+Rules:
+
+1. **Implement the recap item-by-item.** Do not add polish not explicitly asked for. Do not refactor adjacent code "while you're there". Do not fix tangential bugs you notice along the way — flag them for a follow-up instead.
+2. **Do not defer required recap items to "a later phase".** If it's in the recap, it ships in the same round.
+3. **Edge cases not covered by the recap** → ask a clarification question BEFORE writing code. If that's not possible, pick the minimal sensible default and call it out explicitly in the final report so the reviewer can push back.
+4. **Forward this discipline to dispatched sub-agents.** Every agent brief must say: "implement exactly this list, nothing else. If you notice something out of scope, flag it in your report — do not silently fix it."
+5. **Tempted to add something "for free"** because the code change is tiny? Resist. File a follow-up note instead — the aggregate cost of unasked additions (review time, test surface, regression risk) always exceeds the nominal code cost.
+
+---
+
 ## Core philosophy — Modularity above all
 
 This is a marketplace with multiple user roles and complex interactions. Despite that complexity, every feature must remain independently developed, tested, and deployable. A broken billing module must never take down messaging. A new matching algorithm must never require changes in the auth system.
