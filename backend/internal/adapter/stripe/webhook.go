@@ -3,6 +3,8 @@ package stripe
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	stripe "github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/webhook"
@@ -19,7 +21,8 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 	}
 
 	result := &portservice.StripeWebhookEvent{
-		Type: string(event.Type),
+		EventID: event.ID,
+		Type:    string(event.Type),
 	}
 
 	switch event.Type {
@@ -40,9 +43,82 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 		}
 		result.AccountID = acct.ID
 		result.AccountSnapshot = buildAccountSnapshot(&acct)
+
+	case "customer.subscription.created",
+		"customer.subscription.updated",
+		"customer.subscription.deleted":
+		var sub stripe.Subscription
+		if err := json.Unmarshal(event.Data.Raw, &sub); err != nil {
+			return nil, fmt.Errorf("unmarshal subscription: %w", err)
+		}
+		snap := toSubscriptionSnapshot(&sub)
+		result.SubscriptionSnapshot = &snap
+		result.SubscriptionDeleted = event.Type == "customer.subscription.deleted"
+		if sub.Metadata != nil {
+			result.SubscriptionUserID = sub.Metadata["user_id"]
+		}
+		plan, cycle := parsePlanCycleFromSubscription(&sub)
+		result.SubscriptionPlan = plan
+		result.SubscriptionCycle = cycle
+
+	case "invoice.payment_succeeded", "invoice.payment_failed":
+		var inv stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			return nil, fmt.Errorf("unmarshal invoice: %w", err)
+		}
+		if inv.Parent != nil && inv.Parent.SubscriptionDetails != nil && inv.Parent.SubscriptionDetails.Subscription != nil {
+			result.InvoiceSubscriptionID = inv.Parent.SubscriptionDetails.Subscription.ID
+		}
+		result.InvoicePaymentFailed = event.Type == "invoice.payment_failed"
 	}
 
 	return result, nil
+}
+
+// toSubscriptionSnapshot projects the stripe.Subscription into a DTO the
+// app layer can consume without importing the Stripe SDK. Duplicated
+// here and not imported from subscription.go so the webhook adapter
+// survives deletion of the subscription feature — at worst these
+// SubscriptionSnapshot fields are zero-valued and ignored downstream.
+func toSubscriptionSnapshot(sub *stripe.Subscription) portservice.SubscriptionSnapshot {
+	snap := portservice.SubscriptionSnapshot{
+		ID:                sub.ID,
+		Status:            string(sub.Status),
+		CancelAtPeriodEnd: sub.CancelAtPeriodEnd,
+	}
+	if sub.Items != nil && len(sub.Items.Data) > 0 {
+		item := sub.Items.Data[0]
+		if item.Price != nil {
+			snap.PriceID = item.Price.ID
+		}
+		if item.CurrentPeriodStart > 0 {
+			snap.CurrentPeriodStart = time.Unix(item.CurrentPeriodStart, 0).UTC()
+		}
+		if item.CurrentPeriodEnd > 0 {
+			snap.CurrentPeriodEnd = time.Unix(item.CurrentPeriodEnd, 0).UTC()
+		}
+	}
+	return snap
+}
+
+// parsePlanCycleFromSubscription reads the subscription's first price
+// lookup_key ("premium_{plan}_{cycle}") and returns the two components.
+// Unknown keys return empty strings so the handler can decide to skip
+// rather than misclassify.
+func parsePlanCycleFromSubscription(sub *stripe.Subscription) (plan, cycle string) {
+	if sub.Items == nil || len(sub.Items.Data) == 0 {
+		return "", ""
+	}
+	item := sub.Items.Data[0]
+	if item.Price == nil || item.Price.LookupKey == "" {
+		return "", ""
+	}
+	// Expected format: premium_{plan}_{cycle}
+	parts := strings.SplitN(item.Price.LookupKey, "_", 3)
+	if len(parts) != 3 || parts[0] != "premium" {
+		return "", ""
+	}
+	return parts[1], parts[2]
 }
 
 // buildAccountSnapshot extracts a complete requirements picture from a Stripe

@@ -64,6 +64,19 @@ func (s *feeStubStripe) CreatePaymentIntent(_ context.Context, in service.Create
 	}, nil
 }
 
+// feeStubSubscriptionReader is a tiny SubscriptionReader used to exercise
+// the Premium-waiver path. Nil instances mean "no feature wired", which
+// matches the pre-Premium behaviour; explicit instances return whatever
+// `active` was set to.
+type feeStubSubscriptionReader struct {
+	active bool
+	err    error
+}
+
+func (s *feeStubSubscriptionReader) IsActive(_ context.Context, _ uuid.UUID) (bool, error) {
+	return s.active, s.err
+}
+
 func newFeeTestService(role domainuser.Role) (*Service, *feeStubRecords, *feeStubStripe) {
 	records := &feeStubRecords{}
 	stripeStub := &feeStubStripe{}
@@ -76,6 +89,22 @@ func newFeeTestService(role domainuser.Role) (*Service, *feeStubRecords, *feeStu
 		Stripe: stripeStub,
 	})
 	return svc, records, stripeStub
+}
+
+// newFeeTestServiceWithSubscription is like newFeeTestService but also
+// wires a SubscriptionReader stub. Used by the Premium waiver cases.
+func newFeeTestServiceWithSubscription(role domainuser.Role, subActive bool) (*Service, *feeStubRecords) {
+	records := &feeStubRecords{}
+	svc := NewService(ServiceDeps{
+		Records: records,
+		Users: &feeStubUserRepo{user: &domainuser.User{
+			ID:   uuid.New(),
+			Role: role,
+		}},
+		Stripe: &feeStubStripe{},
+	})
+	svc.SetSubscriptionReader(&feeStubSubscriptionReader{active: subActive})
+	return svc, records
 }
 
 // TestCreatePaymentIntent_UsesBillingSchedule exercises the Phase A surgery
@@ -179,4 +208,139 @@ func TestCreatePaymentIntent_ProviderLookupFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "compute platform fee")
 	assert.Nil(t, records.persisted, "no record must be persisted on failure")
+}
+
+// TestCreatePaymentIntent_PremiumWaiver is the Phase B contract: whenever
+// the provider has an active Premium subscription, the platform fee MUST
+// be zero on EVERY (role, amount) combination. Covers both grids
+// (freelance and agency) × every tier bracket + boundary cases so a
+// regression in computePlatformFee / billing.Calculate wiring fails
+// loudly and specifically.
+func TestCreatePaymentIntent_PremiumWaiver(t *testing.T) {
+	tests := []struct {
+		name         string
+		role         domainuser.Role
+		amountCents  int64
+		subscribed   bool
+		wantFeeCents int64
+		wantNetCents int64
+	}{
+		// Freelance — not subscribed (control): the normal grid applies.
+		{"freelance tier1 free", domainuser.RoleProvider, 15000, false, 900, 14100},
+		{"freelance tier2 free", domainuser.RoleProvider, 50000, false, 1500, 48500},
+		{"freelance tier3 free", domainuser.RoleProvider, 200000, false, 2500, 197500},
+		// Freelance — subscribed: fee waived across the whole grid.
+		{"freelance tier1 premium", domainuser.RoleProvider, 15000, true, 0, 15000},
+		{"freelance tier2 premium", domainuser.RoleProvider, 50000, true, 0, 50000},
+		{"freelance tier3 premium", domainuser.RoleProvider, 200000, true, 0, 200000},
+		// Freelance boundary 200€ exactly — not subscribed promotes tier.
+		{"freelance boundary 200€ free", domainuser.RoleProvider, 20000, false, 1500, 18500},
+		// Freelance boundary 200€ exactly — subscribed still waives.
+		{"freelance boundary 200€ premium", domainuser.RoleProvider, 20000, true, 0, 20000},
+
+		// Agency — not subscribed (control): agency grid applies.
+		{"agency tier1 free", domainuser.RoleAgency, 40000, false, 1900, 38100},
+		{"agency tier2 free", domainuser.RoleAgency, 150000, false, 3900, 146100},
+		{"agency tier3 free", domainuser.RoleAgency, 500000, false, 6900, 493100},
+		// Agency — subscribed: fee waived across the whole grid.
+		{"agency tier1 premium", domainuser.RoleAgency, 40000, true, 0, 40000},
+		{"agency tier2 premium", domainuser.RoleAgency, 150000, true, 0, 150000},
+		{"agency tier3 premium", domainuser.RoleAgency, 500000, true, 0, 500000},
+		// Agency boundary 2500€ promotes tier.
+		{"agency boundary 2500€ free", domainuser.RoleAgency, 250000, false, 6900, 243100},
+		{"agency boundary 2500€ premium", domainuser.RoleAgency, 250000, true, 0, 250000},
+
+		// Edge: large amount (10k€) — waiver still applies.
+		{"freelance 10k€ premium", domainuser.RoleProvider, 1_000_000, true, 0, 1_000_000},
+		{"agency 10k€ premium", domainuser.RoleAgency, 1_000_000, true, 0, 1_000_000},
+
+		// Edge: amount exactly equals fee tier upper bound. No matter
+		// the tier, premium = 0 fee.
+		{"freelance tier boundary premium", domainuser.RoleProvider, 100000, true, 0, 100000},
+		{"agency tier boundary premium", domainuser.RoleAgency, 50000, true, 0, 50000},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, records := newFeeTestServiceWithSubscription(tc.role, tc.subscribed)
+
+			out, err := svc.CreatePaymentIntent(context.Background(), service.PaymentIntentInput{
+				ProposalID:     uuid.New(),
+				MilestoneID:    uuid.New(),
+				ClientID:       uuid.New(),
+				ProviderID:     uuid.New(),
+				ProposalAmount: tc.amountCents,
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantFeeCents, out.PlatformFee, "fee must match waiver state")
+			assert.Equal(t, tc.wantNetCents, out.ProviderPayout, "provider payout = amount - fee")
+
+			require.NotNil(t, records.persisted)
+			assert.Equal(t, tc.wantFeeCents, records.persisted.PlatformFeeAmount)
+			assert.Equal(t, tc.wantNetCents, records.persisted.ProviderPayout)
+		})
+	}
+}
+
+// TestCreatePaymentIntent_SubscriptionReader_Absent_FullFee proves that
+// removing the subscription feature (SetSubscriptionReader never called,
+// reader stays nil) leaves the payment service in its pre-Premium state:
+// every milestone gets the full grid fee. This is the "removable
+// feature" invariant expressed as an executable test.
+func TestCreatePaymentIntent_SubscriptionReader_Absent_FullFee(t *testing.T) {
+	records := &feeStubRecords{}
+	svc := NewService(ServiceDeps{
+		Records: records,
+		Users: &feeStubUserRepo{user: &domainuser.User{
+			ID:   uuid.New(),
+			Role: domainuser.RoleProvider,
+		}},
+		Stripe: &feeStubStripe{},
+	})
+	// NOTE: SetSubscriptionReader intentionally NOT called.
+
+	_, err := svc.CreatePaymentIntent(context.Background(), service.PaymentIntentInput{
+		ProposalID:     uuid.New(),
+		MilestoneID:    uuid.New(),
+		ClientID:       uuid.New(),
+		ProviderID:     uuid.New(),
+		ProposalAmount: 50000,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, records.persisted)
+	assert.Equal(t, int64(1500), records.persisted.PlatformFeeAmount,
+		"without subscription reader, full grid fee MUST apply")
+}
+
+// TestCreatePaymentIntent_SubscriptionReaderFailure_FailsToFullFee
+// documents the conservative fallback: when the reader errors (cache
+// down, DB blip), we apply the FULL fee rather than risk granting a
+// free milestone to a potentially non-subscribed user. A genuinely
+// subscribed user affected by this will be refunded via support.
+func TestCreatePaymentIntent_SubscriptionReaderFailure_FailsToFullFee(t *testing.T) {
+	records := &feeStubRecords{}
+	svc := NewService(ServiceDeps{
+		Records: records,
+		Users: &feeStubUserRepo{user: &domainuser.User{
+			ID:   uuid.New(),
+			Role: domainuser.RoleProvider,
+		}},
+		Stripe: &feeStubStripe{},
+	})
+	svc.SetSubscriptionReader(&feeStubSubscriptionReader{
+		err: errors.New("redis down"),
+	})
+
+	_, err := svc.CreatePaymentIntent(context.Background(), service.PaymentIntentInput{
+		ProposalID:     uuid.New(),
+		MilestoneID:    uuid.New(),
+		ClientID:       uuid.New(),
+		ProviderID:     uuid.New(),
+		ProposalAmount: 50000,
+	})
+	require.NoError(t, err, "a transient subscription-reader failure must NOT block the payment")
+	require.NotNil(t, records.persisted)
+	assert.Equal(t, int64(1500), records.persisted.PlatformFeeAmount,
+		"reader failure MUST apply the full fee (fail closed)")
 }

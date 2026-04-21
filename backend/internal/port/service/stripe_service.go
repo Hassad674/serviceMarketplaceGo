@@ -75,6 +75,11 @@ type CreateTransferInput struct {
 }
 
 type StripeWebhookEvent struct {
+	// EventID is the Stripe event identifier (evt_*). Used by the
+	// handler as an idempotency key so replays (Stripe retries on 5xx)
+	// do not double-apply a state change.
+	EventID string
+
 	Type            string
 	PaymentIntentID string
 	AccountID       string
@@ -82,6 +87,17 @@ type StripeWebhookEvent struct {
 	// AccountSnapshot is populated for account.* events so downstream
 	// handlers can react on full account state without a second API call.
 	AccountSnapshot *StripeAccountSnapshot
+
+	// Subscription fields — populated for customer.subscription.* and
+	// invoice.payment_* events. The subscription app service consumes
+	// them to mirror the Stripe state into our local row.
+	SubscriptionSnapshot  *SubscriptionSnapshot
+	SubscriptionDeleted   bool
+	SubscriptionUserID    string // from session/subscription metadata
+	SubscriptionPlan      string // parsed from price lookup_key
+	SubscriptionCycle     string // parsed from price lookup_key
+	InvoiceSubscriptionID string // parent subscription id on invoice events
+	InvoicePaymentFailed  bool   // true on invoice.payment_failed
 }
 
 // StripeAccountSnapshot captures the state of a connected account at the

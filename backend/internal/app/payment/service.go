@@ -36,6 +36,12 @@ type Service struct {
 	// nil, RequestPayout logs a warning and falls back to the legacy
 	// behaviour so the payment feature stays bootable without proposal.
 	proposalStatuses service.ProposalStatusReader
+
+	// subscriptions waives the platform fee for Premium subscribers.
+	// Wired post-construction because the subscription feature is
+	// removable — when nil, computePlatformFee falls back to the grid
+	// fee for every user, matching the pre-Premium behaviour exactly.
+	subscriptions service.SubscriptionReader
 }
 
 // ServiceDeps groups all dependencies for the payment service.
@@ -99,4 +105,14 @@ func (s *Service) SetReferralWalletReader(r service.ReferralWalletReader) {
 // in unusual wirings (tests, migrations, one-off binaries).
 func (s *Service) SetProposalStatusReader(r service.ProposalStatusReader) {
 	s.proposalStatuses = r
+}
+
+// SetSubscriptionReader plugs the Premium subscription lookup. When the
+// reader reports active=true for a provider, computePlatformFee waives
+// the fee (returns 0). Setter pattern because the subscription app
+// service is constructed AFTER payment in main.go. Passing nil (or
+// never calling this) disables the feature — every milestone is billed
+// at the normal grid rate.
+func (s *Service) SetSubscriptionReader(r service.SubscriptionReader) {
+	s.subscriptions = r
 }
