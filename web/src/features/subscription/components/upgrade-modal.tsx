@@ -162,7 +162,10 @@ function ModalShell({
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className="w-full max-w-md animate-scale-in rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900"
+        // max-h + overflow guards against short viewports (laptops around
+        // 720px tall): content taller than the screen becomes internally
+        // scrollable instead of overflowing off the top or bottom.
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-md animate-scale-in flex-col overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900"
       >
         {children}
       </div>
