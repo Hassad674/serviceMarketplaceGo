@@ -152,22 +152,28 @@ function ModalShell({
   dialogRef: React.MutableRefObject<HTMLDivElement | null>
 }) {
   return (
+    // The OVERLAY is the scroll container, not the dialog. This is the
+    // pattern Headless UI / Radix use — on short viewports the user pages
+    // through the modal by scrolling the backdrop; on tall ones the modal
+    // simply centers. No content ever gets clipped at the top or bottom.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm"
       onClick={(e) => e.target === e.currentTarget && onDismiss()}
       role="presentation"
     >
       <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelledBy}
-        // max-h + overflow guards against short viewports (laptops around
-        // 720px tall): content taller than the screen becomes internally
-        // scrollable instead of overflowing off the top or bottom.
-        className="flex max-h-[calc(100vh-2rem)] w-full max-w-md animate-scale-in flex-col overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900"
+        className="flex min-h-full items-center justify-center p-4"
+        onClick={(e) => e.target === e.currentTarget && onDismiss()}
       >
-        {children}
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={labelledBy}
+          className="w-full max-w-md animate-scale-in rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900"
+        >
+          {children}
+        </div>
       </div>
     </div>
   )
