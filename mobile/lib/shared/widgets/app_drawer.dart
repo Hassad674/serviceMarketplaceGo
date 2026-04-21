@@ -22,12 +22,20 @@ class _DrawerItem {
     required this.icon,
     required this.route,
     this.roles = const ['agency', 'enterprise', 'provider'],
+    this.orgTypes,
   });
 
   final String labelKey;
   final IconData icon;
   final String route;
   final List<String> roles;
+
+  /// Optional additional gate based on `organization.type`. When set,
+  /// the item is hidden unless the authenticated user's org type is
+  /// in this list. Used to keep the Client-profile entry away from
+  /// `provider_personal` operators even though their role is
+  /// `provider` (which satisfies the role gate).
+  final List<String>? orgTypes;
 }
 
 // Primary navigation items
@@ -80,6 +88,13 @@ const _primaryItems = [
     labelKey: 'drawerProfile',
     icon: Icons.person_outline,
     route: RoutePaths.profile,
+  ),
+  _DrawerItem(
+    labelKey: 'navClientProfile',
+    icon: Icons.business_center_outlined,
+    route: RoutePaths.clientProfile,
+    roles: ['agency', 'enterprise'],
+    orgTypes: ['agency', 'enterprise'],
   ),
   _DrawerItem(
     labelKey: 'drawerPaymentInfo',
@@ -137,6 +152,7 @@ class AppDrawer extends ConsumerWidget {
     final referrerEnabled =
         authState.user?['referrer_enabled'] as bool? ?? false;
     final showWorkspaceSwitch = isProvider && referrerEnabled;
+    final orgType = authState.organization?['type'] as String?;
 
     return Drawer(
       backgroundColor: theme.colorScheme.surface,
@@ -155,6 +171,7 @@ class AppDrawer extends ConsumerWidget {
                     context,
                     items: _primaryItems,
                     role: role,
+                    orgType: orgType,
                     location: location,
                     l10n: l10n,
                   ),
@@ -172,6 +189,7 @@ class AppDrawer extends ConsumerWidget {
                     context,
                     items: _searchItems,
                     role: role,
+                    orgType: orgType,
                     location: location,
                     l10n: l10n,
                   ),
@@ -190,19 +208,39 @@ class AppDrawer extends ConsumerWidget {
     BuildContext context, {
     required List<_DrawerItem> items,
     required String role,
+    required String? orgType,
     required String location,
     required AppLocalizations l10n,
   }) {
     return items
         .where((item) => item.roles.contains(role))
+        .where(
+          (item) =>
+              item.orgTypes == null || item.orgTypes!.contains(orgType),
+        )
         .map(
           (item) => _DrawerNavTile(
             item: item,
             isActive: _isActive(location, item.route),
             l10n: l10n,
+            // For agency operators we rename "My profile" to the
+            // more specific "Provider profile" so the new
+            // "Client profile" entry is not ambiguous.
+            labelOverride: _overrideLabelFor(item, orgType, l10n),
           ),
         )
         .toList();
+  }
+
+  String? _overrideLabelFor(
+    _DrawerItem item,
+    String? orgType,
+    AppLocalizations l10n,
+  ) {
+    if (item.labelKey == 'drawerProfile' && orgType == 'agency') {
+      return l10n.navProviderProfile;
+    }
+    return null;
   }
 
   bool _isActive(String location, String route) {
@@ -354,11 +392,13 @@ class _DrawerNavTile extends StatelessWidget {
     required this.item,
     required this.isActive,
     required this.l10n,
+    this.labelOverride,
   });
 
   final _DrawerItem item;
   final bool isActive;
   final AppLocalizations l10n;
+  final String? labelOverride;
 
   @override
   Widget build(BuildContext context) {
@@ -397,7 +437,7 @@ class _DrawerNavTile extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    _resolveLabel(l10n, item.labelKey),
+                    labelOverride ?? _resolveLabel(l10n, item.labelKey),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight:
@@ -443,6 +483,10 @@ class _DrawerNavTile extends StatelessWidget {
         return l10n.drawerTeam;
       case 'drawerProfile':
         return l10n.drawerProfile;
+      case 'navClientProfile':
+        return l10n.navClientProfile;
+      case 'navProviderProfile':
+        return l10n.navProviderProfile;
       case 'drawerFindFreelancers':
         return l10n.drawerFindFreelancers;
       case 'drawerFindAgencies':

@@ -33,6 +33,7 @@ abstract final class OrgPermission {
 
   // Org profile
   static const orgProfileEdit = 'org_profile.edit';
+  static const orgClientProfileEdit = 'org_client_profile.edit';
 
   // Team
   static const teamView = 'team.view';

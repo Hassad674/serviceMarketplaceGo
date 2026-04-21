@@ -2902,4 +2902,82 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get socialLinkWebsite => 'Site web';
+
+  @override
+  String get clientProfileTitle => 'Profil client';
+
+  @override
+  String get clientProfilePublicTitle => 'Profil client';
+
+  @override
+  String get clientProfileCompanyName => 'Nom de l\'entreprise';
+
+  @override
+  String get clientProfileCompanyNameHint => 'Nom public de votre entreprise';
+
+  @override
+  String get clientProfileDescription => 'À propos de l\'entreprise';
+
+  @override
+  String get clientProfileDescriptionHint =>
+      'Présentez votre activité et votre manière de collaborer.';
+
+  @override
+  String get clientProfileDescriptionHelp =>
+      'Visible par les prestataires sur votre page publique.';
+
+  @override
+  String get clientProfileTotalSpent => 'Total dépensé';
+
+  @override
+  String get clientProfileReviewsReceived => 'Avis reçus';
+
+  @override
+  String get clientProfileAverageRating => 'Note moyenne';
+
+  @override
+  String get clientProfileProjectsCompleted => 'Projets terminés';
+
+  @override
+  String get clientProfileProjectHistoryTitle => 'Projets terminés';
+
+  @override
+  String get clientProfileProjectHistoryEmpty =>
+      'Aucun projet terminé pour le moment.';
+
+  @override
+  String get clientProfileReviewsTitle => 'Avis des prestataires';
+
+  @override
+  String get clientProfileReviewsEmpty => 'Aucun avis reçu pour le moment.';
+
+  @override
+  String get clientProfileSave => 'Enregistrer';
+
+  @override
+  String get clientProfileSaving => 'Enregistrement...';
+
+  @override
+  String get clientProfileSaveSuccess => 'Profil client mis à jour';
+
+  @override
+  String get clientProfileSaveError =>
+      'Impossible d\'enregistrer votre profil client';
+
+  @override
+  String get clientProfilePermissionDenied =>
+      'Vous n\'avez pas la permission de modifier ce profil.';
+
+  @override
+  String get clientProfileNotAvailable =>
+      'Le profil client n\'est pas disponible pour ce compte.';
+
+  @override
+  String get clientProfileNotFound => 'Ce profil client n\'existe pas.';
+
+  @override
+  String get navClientProfile => 'Profil client';
+
+  @override
+  String get navProviderProfile => 'Profil prestataire';
 }

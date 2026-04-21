@@ -16,6 +16,8 @@ import '../../features/messaging/presentation/providers/messaging_provider.dart'
 import '../../features/messaging/presentation/screens/chat_screen.dart';
 import '../../features/messaging/presentation/screens/messaging_screen.dart';
 import '../../features/messaging/presentation/screens/new_chat_screen.dart';
+import '../../features/client_profile/presentation/screens/client_profile_screen.dart';
+import '../../features/client_profile/presentation/screens/public_client_profile_screen.dart';
 import '../../features/freelance_profile/presentation/screens/freelance_profile_screen.dart';
 import '../../features/freelance_profile/presentation/screens/freelance_public_profile_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
@@ -81,6 +83,8 @@ class RoutePaths {
   static const String projectsPay = '/projects/pay';
   static const String projectsList = '/projects/list';
   static const String profile = '/profile';
+  static const String clientProfile = '/client-profile';
+  static const String clientPublic = '/clients';
   static const String referralProfile = '/referral';
 
   /// Read-only split-profile public routes introduced with the
@@ -129,6 +133,7 @@ bool _isPublicRoute(String location) {
   return location.startsWith('/profiles/') ||
       location.startsWith('/freelancers/') ||
       location.startsWith('/referrers/') ||
+      location.startsWith('/clients/') ||
       location.startsWith('/search/');
 }
 
@@ -225,6 +230,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ReferrerPublicProfileScreen(
             organizationId: state.pathParameters['id'] ?? '',
             displayName: extras?['display_name'] as String?,
+          );
+        },
+      ),
+
+      // --- Public client profile (agency / enterprise only) ---
+      // Mirrors the freelance / referrer split — the path param is
+      // an organization id. Providers may reach this route when
+      // tapping a client chip on their own past projects or from
+      // the chat header.
+      GoRoute(
+        path: '/clients/:id',
+        builder: (context, state) {
+          return PublicClientProfileScreen(
+            organizationId: state.pathParameters['id'] ?? '',
           );
         },
       ),
@@ -414,6 +433,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             // endpoint is agency-only now and the refactor is tracked
             // as a separate follow-up).
             builder: (context, state) => const _ProfileDispatcher(),
+          ),
+          GoRoute(
+            path: RoutePaths.clientProfile,
+            builder: (context, state) => const ClientProfileScreen(),
           ),
           GoRoute(
             path: RoutePaths.referralProfile,

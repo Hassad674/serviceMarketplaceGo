@@ -2882,4 +2882,80 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get socialLinkWebsite => 'Website';
+
+  @override
+  String get clientProfileTitle => 'Client profile';
+
+  @override
+  String get clientProfilePublicTitle => 'Client profile';
+
+  @override
+  String get clientProfileCompanyName => 'Company name';
+
+  @override
+  String get clientProfileCompanyNameHint => 'Your company\'s public name';
+
+  @override
+  String get clientProfileDescription => 'About the company';
+
+  @override
+  String get clientProfileDescriptionHint =>
+      'Tell providers what your company does and how you work.';
+
+  @override
+  String get clientProfileDescriptionHelp =>
+      'Shown to providers on your public client page.';
+
+  @override
+  String get clientProfileTotalSpent => 'Total spent';
+
+  @override
+  String get clientProfileReviewsReceived => 'Reviews received';
+
+  @override
+  String get clientProfileAverageRating => 'Average rating';
+
+  @override
+  String get clientProfileProjectsCompleted => 'Projects completed';
+
+  @override
+  String get clientProfileProjectHistoryTitle => 'Completed projects';
+
+  @override
+  String get clientProfileProjectHistoryEmpty => 'No completed project yet.';
+
+  @override
+  String get clientProfileReviewsTitle => 'Reviews from providers';
+
+  @override
+  String get clientProfileReviewsEmpty => 'No review received yet.';
+
+  @override
+  String get clientProfileSave => 'Save';
+
+  @override
+  String get clientProfileSaving => 'Saving...';
+
+  @override
+  String get clientProfileSaveSuccess => 'Client profile updated';
+
+  @override
+  String get clientProfileSaveError => 'Could not save your client profile';
+
+  @override
+  String get clientProfilePermissionDenied =>
+      'You do not have permission to edit this profile.';
+
+  @override
+  String get clientProfileNotAvailable =>
+      'Client profile is not available for this account.';
+
+  @override
+  String get clientProfileNotFound => 'This client profile does not exist.';
+
+  @override
+  String get navClientProfile => 'Client profile';
+
+  @override
+  String get navProviderProfile => 'Provider profile';
 }

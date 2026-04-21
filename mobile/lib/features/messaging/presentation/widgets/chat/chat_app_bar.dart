@@ -46,19 +46,33 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       subtitle = l10n.messagingOffline;
     }
 
-    // Providers cannot view an enterprise's public profile — the
-    // enterprise is the client, not a marketplace listing.
-    final canViewProfile = !(currentOrgType == 'provider_personal' &&
-        conversation?.otherOrgType == 'enterprise');
+    // The other party can be either a provider (marketplace listing,
+    // navigates to the generic public profile screen) or a client —
+    // an `enterprise` org. For clients we open the dedicated
+    // public-client-profile screen so providers see the company's
+    // spending / reviews rather than a provider marketplace card.
+    // `agency` counterparties are ambiguous (an agency can sit on
+    // either side of a proposal) so we keep the legacy `/profiles/`
+    // destination for them.
+    final otherOrgType = conversation?.otherOrgType;
+    final isClientCounterparty = otherOrgType == 'enterprise';
+    final canViewProfile = conversation?.otherOrgId != null &&
+        conversation!.otherOrgId.isNotEmpty;
 
     return AppBar(
       titleSpacing: 0,
       title: GestureDetector(
-        onTap: canViewProfile ? () {
-          final id = conversation?.otherOrgId;
-          if (id == null || id.isEmpty) return;
-          context.push('/profiles/$id');
-        } : null,
+        onTap: canViewProfile
+            ? () {
+                final id = conversation?.otherOrgId;
+                if (id == null || id.isEmpty) return;
+                if (isClientCounterparty) {
+                  context.push('/clients/$id');
+                } else {
+                  context.push('/profiles/$id');
+                }
+              }
+            : null,
         child: Row(
         children: [
           // Avatar

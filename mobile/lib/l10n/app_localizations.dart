@@ -5419,6 +5419,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Website'**
   String get socialLinkWebsite;
+
+  /// No description provided for @clientProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Client profile'**
+  String get clientProfileTitle;
+
+  /// No description provided for @clientProfilePublicTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Client profile'**
+  String get clientProfilePublicTitle;
+
+  /// No description provided for @clientProfileCompanyName.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name'**
+  String get clientProfileCompanyName;
+
+  /// No description provided for @clientProfileCompanyNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your company\'s public name'**
+  String get clientProfileCompanyNameHint;
+
+  /// No description provided for @clientProfileDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'About the company'**
+  String get clientProfileDescription;
+
+  /// No description provided for @clientProfileDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell providers what your company does and how you work.'**
+  String get clientProfileDescriptionHint;
+
+  /// No description provided for @clientProfileDescriptionHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown to providers on your public client page.'**
+  String get clientProfileDescriptionHelp;
+
+  /// No description provided for @clientProfileTotalSpent.
+  ///
+  /// In en, this message translates to:
+  /// **'Total spent'**
+  String get clientProfileTotalSpent;
+
+  /// No description provided for @clientProfileReviewsReceived.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews received'**
+  String get clientProfileReviewsReceived;
+
+  /// No description provided for @clientProfileAverageRating.
+  ///
+  /// In en, this message translates to:
+  /// **'Average rating'**
+  String get clientProfileAverageRating;
+
+  /// No description provided for @clientProfileProjectsCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Projects completed'**
+  String get clientProfileProjectsCompleted;
+
+  /// No description provided for @clientProfileProjectHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed projects'**
+  String get clientProfileProjectHistoryTitle;
+
+  /// No description provided for @clientProfileProjectHistoryEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No completed project yet.'**
+  String get clientProfileProjectHistoryEmpty;
+
+  /// No description provided for @clientProfileReviewsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reviews from providers'**
+  String get clientProfileReviewsTitle;
+
+  /// No description provided for @clientProfileReviewsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No review received yet.'**
+  String get clientProfileReviewsEmpty;
+
+  /// No description provided for @clientProfileSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get clientProfileSave;
+
+  /// No description provided for @clientProfileSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get clientProfileSaving;
+
+  /// No description provided for @clientProfileSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Client profile updated'**
+  String get clientProfileSaveSuccess;
+
+  /// No description provided for @clientProfileSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save your client profile'**
+  String get clientProfileSaveError;
+
+  /// No description provided for @clientProfilePermissionDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'You do not have permission to edit this profile.'**
+  String get clientProfilePermissionDenied;
+
+  /// No description provided for @clientProfileNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Client profile is not available for this account.'**
+  String get clientProfileNotAvailable;
+
+  /// No description provided for @clientProfileNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'This client profile does not exist.'**
+  String get clientProfileNotFound;
+
+  /// No description provided for @navClientProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Client profile'**
+  String get navClientProfile;
+
+  /// No description provided for @navProviderProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Provider profile'**
+  String get navProviderProfile;
 }
 
 class _AppLocalizationsDelegate
