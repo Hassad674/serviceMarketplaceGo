@@ -8,6 +8,10 @@ import { useUser, useLogout } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
 import { NotificationBell } from "@/features/notification/components/notification-bell"
+import { SubscriptionBadge } from "@/features/subscription/components/subscription-badge"
+import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
+import { ManageModal } from "@/features/subscription/components/manage-modal"
+import { useSubscription } from "@/features/subscription/hooks/use-subscription"
 import { cn } from "@/shared/lib/utils"
 
 const ROLE_LABEL_KEYS: Record<string, string> = {
@@ -90,6 +94,9 @@ export function Header({ onMenuToggle }: HeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
+        {/* Premium badge — provider-only (hidden for enterprise/referrer) */}
+        <SubscriptionSlot role={user?.role} />
+
         {/* Theme toggle */}
         <ThemeToggle className="rounded-lg border-0 bg-transparent shadow-none hover:shadow-none hover:bg-gray-100 dark:hover:bg-slate-700" />
 
@@ -154,5 +161,44 @@ export function Header({ onMenuToggle }: HeaderProps) {
         )}
       </div>
     </header>
+  )
+}
+
+/**
+ * Local composition that decides which subscription modal (upgrade
+ * vs manage) the badge should open. Kept in the header file so the
+ * shared layout stays the single source of truth for navbar chrome.
+ *
+ * Gating:
+ *   - provider → freelance plan, badge visible
+ *   - agency   → agency plan, badge visible
+ *   - enterprise / no user → badge hidden (returns null)
+ */
+function SubscriptionSlot({ role }: { role?: string }) {
+  const [showUpgrade, setShowUpgrade] = useState(false)
+  const [showManage, setShowManage] = useState(false)
+  const { data: subscription } = useSubscription()
+
+  if (role !== "provider" && role !== "agency") return null
+
+  const plan: "freelance" | "agency" = role === "agency" ? "agency" : "freelance"
+  const handleClick = () => {
+    if (subscription) setShowManage(true)
+    else setShowUpgrade(true)
+  }
+
+  return (
+    <>
+      <SubscriptionBadge onClick={handleClick} />
+      <UpgradeModal
+        open={showUpgrade}
+        role={plan}
+        onClose={() => setShowUpgrade(false)}
+      />
+      <ManageModal
+        open={showManage}
+        onClose={() => setShowManage(false)}
+      />
+    </>
   )
 }
