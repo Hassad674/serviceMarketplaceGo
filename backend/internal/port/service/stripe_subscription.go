@@ -66,6 +66,7 @@ type CreateCheckoutSessionInput struct {
 // here (not in the adapter) so the port is fully self-describing.
 type SubscriptionSnapshot struct {
 	ID                 string
+	CustomerID         string // Stripe customer id (e.g. cus_XXX)
 	Status             string
 	PriceID            string
 	CurrentPeriodStart time.Time

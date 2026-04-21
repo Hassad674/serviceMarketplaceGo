@@ -90,6 +90,13 @@ func toSubscriptionSnapshot(sub *stripe.Subscription) portservice.SubscriptionSn
 		Status:            string(sub.Status),
 		CancelAtPeriodEnd: sub.CancelAtPeriodEnd,
 	}
+	// The Stripe SDK models Subscription.Customer as either a bare id
+	// or an expanded *Customer object depending on the request. For
+	// webhook payloads we receive the id only, which the SDK exposes
+	// on .Customer.ID (Customer is always non-nil even when not expanded).
+	if sub.Customer != nil {
+		snap.CustomerID = sub.Customer.ID
+	}
 	if sub.Items != nil && len(sub.Items.Data) > 0 {
 		item := sub.Items.Data[0]
 		if item.Price != nil {

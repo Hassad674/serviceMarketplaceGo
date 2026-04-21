@@ -229,6 +229,9 @@ func toSnapshot(sub *stripe.Subscription) portservice.SubscriptionSnapshot {
 		Status:            string(sub.Status),
 		CancelAtPeriodEnd: sub.CancelAtPeriodEnd,
 	}
+	if sub.Customer != nil {
+		snap.CustomerID = sub.Customer.ID
+	}
 	if sub.Items != nil && len(sub.Items.Data) > 0 {
 		item := sub.Items.Data[0]
 		if item.Price != nil {
