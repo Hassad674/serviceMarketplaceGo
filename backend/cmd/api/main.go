@@ -56,6 +56,7 @@ import (
 	"marketplace-backend/internal/app/searchanalytics"
 	"marketplace-backend/internal/app/searchindex"
 	skillapp "marketplace-backend/internal/app/skill"
+	subscriptionapp "marketplace-backend/internal/app/subscription"
 	"marketplace-backend/internal/config"
 	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/domain/pendingevent"
@@ -1050,6 +1051,56 @@ func main() {
 	// and the client-facing simulator.
 	billingHandler := handler.NewBillingHandler(paymentInfoSvc)
 
+	// Subscription (Premium) feature. Wires the cached reader BEFORE the
+	// handlers because payment.SetSubscriptionReader must be called so
+	// subsequent milestone releases see the waiver. The whole block is
+	// optional: when Stripe is not configured the feature stays off and
+	// payment falls back to the full grid fee everywhere.
+	var subscriptionHandler *handler.SubscriptionHandler
+	if stripeSvc != nil {
+		stripeSubSvc := stripeadapter.NewSubscriptionService(cfg.StripeSecretKey)
+		subRepo := postgres.NewSubscriptionRepository(db)
+		amountsRepo := postgres.NewProviderMilestoneAmountsRepository(db)
+
+		subscriptionAppSvc := subscriptionapp.NewService(subscriptionapp.ServiceDeps{
+			Subscriptions: subRepo,
+			Users:         userRepo,
+			Amounts:       amountsRepo,
+			Stripe:        stripeSubSvc,
+			LookupKeys:    subscriptionapp.DefaultLookupKeys(),
+			URLs: subscriptionapp.URLs{
+				CheckoutSuccess: cfg.FrontendURL + "/billing/success?session_id={CHECKOUT_SESSION_ID}",
+				CheckoutCancel:  cfg.FrontendURL + "/billing/cancel",
+				PortalReturn:    cfg.FrontendURL + "/billing",
+			},
+		})
+
+		// The payment feature reads Premium status through the cached
+		// reader — the app service answers on cache miss, Redis serves
+		// subsequent calls within 60s, and every webhook invalidates
+		// the user's entry so state changes surface immediately.
+		subscriptionReader := redisadapter.NewCachedSubscriptionReader(
+			redisClient, subscriptionAppSvc, redisadapter.DefaultSubscriptionCacheTTL,
+		)
+		paymentInfoSvc.SetSubscriptionReader(subscriptionReader)
+
+		subscriptionHandler = handler.NewSubscriptionHandler(subscriptionAppSvc)
+
+		// Wire subscription events into the Stripe webhook dispatcher
+		// along with the Redis-backed idempotency guard that dedupes
+		// Stripe's own retry behaviour. The cache reader does double
+		// duty as the invalidator the dispatcher flushes on each state
+		// change.
+		if stripeHandler != nil {
+			idempotencyStore := redisadapter.NewWebhookIdempotencyStore(redisClient, redisadapter.DefaultWebhookIdempotencyTTL)
+			stripeHandler = stripeHandler.WithSubscription(subscriptionAppSvc, subscriptionReader, idempotencyStore)
+		}
+
+		slog.Info("subscription feature enabled (premium plan)")
+	} else {
+		slog.Info("subscription feature disabled (stripe not configured)")
+	}
+
 	// Dispute feature
 	disputeRepo := postgres.NewDisputeRepository(db)
 	var aiAnalyzer service.AIAnalyzer
@@ -1145,6 +1196,7 @@ func main() {
 		Stripe:              stripeHandler,
 		Wallet:              walletHandler,
 		Billing:             billingHandler,
+		Subscription:        subscriptionHandler,
 		Admin:               adminHandler,
 		Portfolio:           portfolioHandler,
 		ProjectHistory:      projectHistoryHandler,

@@ -38,14 +38,19 @@ type feePreviewTier struct {
 // ViewerIsProvider is the authoritative "should I render the preview?"
 // flag. The UI hides the whole component when this is false so a client
 // or enterprise user never sees the prestataire's fee structure.
+//
+// ViewerIsSubscribed tells the UI the caller currently has Premium, so
+// it can show a "Premium — 0 € of fees" variant. When true, fee_cents is
+// already zeroed by the service (no math required on the client).
 type feePreviewResponse struct {
-	AmountCents      int64            `json:"amount_cents"`
-	FeeCents         int64            `json:"fee_cents"`
-	NetCents         int64            `json:"net_cents"`
-	Role             string           `json:"role"`
-	ActiveTierIndex  int              `json:"active_tier_index"`
-	Tiers            []feePreviewTier `json:"tiers"`
-	ViewerIsProvider bool             `json:"viewer_is_provider"`
+	AmountCents        int64            `json:"amount_cents"`
+	FeeCents           int64            `json:"fee_cents"`
+	NetCents           int64            `json:"net_cents"`
+	Role               string           `json:"role"`
+	ActiveTierIndex    int              `json:"active_tier_index"`
+	Tiers              []feePreviewTier `json:"tiers"`
+	ViewerIsProvider   bool             `json:"viewer_is_provider"`
+	ViewerIsSubscribed bool             `json:"viewer_is_subscribed"`
 }
 
 // GetFeePreview returns the fee schedule for the authenticated user along
@@ -115,12 +120,13 @@ func toFeePreviewResponse(r *paymentapp.FeePreviewResult) feePreviewResponse {
 		})
 	}
 	return feePreviewResponse{
-		AmountCents:      b.AmountCents,
-		FeeCents:         b.FeeCents,
-		NetCents:         b.NetCents,
-		Role:             string(b.Role),
-		ActiveTierIndex:  b.ActiveTierIndex,
-		Tiers:            tiers,
-		ViewerIsProvider: r.ViewerIsProvider,
+		AmountCents:        b.AmountCents,
+		FeeCents:           b.FeeCents,
+		NetCents:           b.NetCents,
+		Role:               string(b.Role),
+		ActiveTierIndex:    b.ActiveTierIndex,
+		Tiers:              tiers,
+		ViewerIsProvider:   r.ViewerIsProvider,
+		ViewerIsSubscribed: r.ViewerIsSubscribed,
 	}
 }

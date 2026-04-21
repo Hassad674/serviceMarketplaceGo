@@ -17,14 +17,22 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 )
 
-// FeePreviewResult bundles the pure fee calculation with a permission flag.
-// ViewerIsProvider answers the question "would the authenticated user pay
-// this fee on a proposal against the given recipient?" — the UI hides the
-// preview entirely when this is false so a client never sees the
-// prestataire's cost structure.
+// FeePreviewResult bundles the pure fee calculation with two flags the
+// UI acts on.
+//
+// ViewerIsProvider answers "would the authenticated user pay this fee on
+// a proposal against the given recipient?" — the UI hides the preview
+// entirely when this is false so a client never sees the prestataire's
+// cost structure.
+//
+// ViewerIsSubscribed answers "does the user currently have Premium?" —
+// when true, Billing.FeeCents is already zeroed by the service so the
+// caller can render the summary as-is. The flag lets the UI show a
+// Premium badge / highlight differently without recomputing the grid.
 type FeePreviewResult struct {
-	Billing          billing.Result
-	ViewerIsProvider bool
+	Billing            billing.Result
+	ViewerIsProvider   bool
+	ViewerIsSubscribed bool
 }
 
 // CreatePaymentIntent creates a Stripe PaymentIntent for a milestone
@@ -779,23 +787,50 @@ func (s *Service) GetPaymentRecord(ctx context.Context, proposalID uuid.UUID) (*
 }
 
 // computePlatformFee looks up the provider's role and returns the flat fee
-// from the billing schedule. Returns an error if the provider cannot be
-// resolved — creating a payment record without knowing which grid applies
-// would skew either the platform (under-charge) or the provider
-// (over-charge), so we fail fast.
+// from the billing schedule, waived to zero when the provider is a
+// Premium subscriber. Returns an error if the provider cannot be resolved
+// — creating a payment record without knowing which grid applies would
+// skew either the platform (under-charge) or the provider (over-charge),
+// so we fail fast on user lookup failure.
+//
+// Subscription reader failures, by contrast, do NOT fail the payment:
+// the Redis-backed cache can degrade, the database can blip, and we must
+// not block a live checkout over a cache miss. When the reader errors we
+// log + fall back to the full grid fee (the conservative choice: the
+// platform keeps its revenue, the user sees the normal fee). A genuinely
+// subscribed user affected by this edge case will be refunded the
+// milestone fee via support.
 func (s *Service) computePlatformFee(ctx context.Context, providerID uuid.UUID, amountCents int64) (int64, error) {
 	u, err := s.users.GetByID(ctx, providerID)
 	if err != nil {
 		return 0, fmt.Errorf("fetch provider: %w", err)
 	}
 	billingRole := billing.RoleFromUser(string(u.Role))
-	return billing.Calculate(billingRole, amountCents).FeeCents, nil
+	fee := billing.Calculate(billingRole, amountCents).FeeCents
+
+	if s.subscriptions != nil {
+		active, subErr := s.subscriptions.IsActive(ctx, providerID)
+		if subErr != nil {
+			slog.Warn("payment: subscription lookup failed, applying full fee",
+				"provider_id", providerID, "error", subErr)
+			return fee, nil
+		}
+		if active {
+			return 0, nil
+		}
+	}
+	return fee, nil
 }
 
 // PreviewFee returns the fee schedule for the authenticated user alongside
 // a permission flag that tells the UI whether the caller would actually pay
 // the fee on a hypothetical proposal against `recipientID`. Used by the
 // web/mobile proposal creation flow to render the live simulator.
+//
+// Subscription-aware: when the caller has an active Premium subscription,
+// the FeeCents is zeroed (and NetCents equals AmountCents). The tier grid
+// is still returned so the UI can explain "you would pay X without Premium"
+// if it wants — the caller decides how to present the waiver visually.
 //
 // Visibility rule (single source of truth = proposal.DetermineRoles):
 //   - recipientID nil: fallback to role-based default. Enterprise is ALWAYS
@@ -836,9 +871,26 @@ func (s *Service) PreviewFee(ctx context.Context, userID uuid.UUID, amountCents 
 		}
 	}
 
+	// Waive the fee for Premium subscribers. The tier grid (calc.Tiers
+	// and calc.ActiveTierIndex) is kept intact so the UI can still show
+	// "Premium → 0 €, normal price would be X" if it chooses.
+	viewerIsSubscribed := false
+	if s.subscriptions != nil && viewerIsProvider {
+		active, sErr := s.subscriptions.IsActive(ctx, userID)
+		if sErr != nil {
+			slog.Warn("payment: subscription lookup in PreviewFee failed",
+				"user_id", userID, "error", sErr)
+		} else if active {
+			viewerIsSubscribed = true
+			calc.FeeCents = 0
+			calc.NetCents = calc.AmountCents
+		}
+	}
+
 	return &FeePreviewResult{
-		Billing:          calc,
-		ViewerIsProvider: viewerIsProvider,
+		Billing:            calc,
+		ViewerIsProvider:   viewerIsProvider,
+		ViewerIsSubscribed: viewerIsSubscribed,
 	}, nil
 }
 

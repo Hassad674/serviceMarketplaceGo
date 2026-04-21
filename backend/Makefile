@@ -1,4 +1,4 @@
-.PHONY: run build test test-unit test-integration migrate-up migrate-down migrate-status seed mock lint tidy clean dev \
+.PHONY: run build test test-unit test-integration migrate-up migrate-down migrate-status seed seed-stripe mock lint tidy clean dev \
 	reindex-bulk snapshot-typesense drift-check seed-search cover-backend fuzz-search perf-search
 
 # Run API server with .env loaded
@@ -34,6 +34,12 @@ migrate-status:
 # Seed initial data
 seed:
 	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/seed/main.go
+
+# Seed Stripe Premium prices. Idempotent — re-running skips existing
+# lookup_keys so it's safe to call on every fresh Stripe account.
+#   make seed-stripe
+seed-stripe:
+	set -a && [ -f .env ] && . ./.env; set +a; go run cmd/seed-stripe/main.go
 
 # Generate mocks from port interfaces
 mock:

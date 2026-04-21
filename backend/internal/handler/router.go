@@ -52,6 +52,7 @@ type RouterDeps struct {
 	Report              *ReportHandler
 	Wallet              *WalletHandler
 	Billing             *BillingHandler
+	Subscription        *SubscriptionHandler
 	Admin               *AdminHandler
 	Portfolio           *PortfolioHandler
 	ProjectHistory      *ProjectHistoryHandler
@@ -606,6 +607,23 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
 				r.Use(middleware.NoCache)
 				r.Get("/fee-preview", deps.Billing.GetFeePreview)
+			})
+		}
+
+		// Subscription — Premium plan lifecycle endpoints. Every handler
+		// requires auth; the role-based access (enterprise can't pay a
+		// prestataire fee) is enforced inside the subscription service
+		// when it rejects invalid plans, so no per-route role gate here.
+		if deps.Subscription != nil {
+			r.Route("/subscriptions", func(r chi.Router) {
+				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(middleware.NoCache)
+				r.Post("/", deps.Subscription.Subscribe)
+				r.Get("/me", deps.Subscription.GetMine)
+				r.Patch("/me/auto-renew", deps.Subscription.ToggleAutoRenew)
+				r.Patch("/me/billing-cycle", deps.Subscription.ChangeCycle)
+				r.Get("/me/stats", deps.Subscription.GetStats)
+				r.Get("/portal", deps.Subscription.GetPortal)
 			})
 		}
 
