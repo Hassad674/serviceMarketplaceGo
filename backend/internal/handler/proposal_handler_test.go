@@ -577,3 +577,9 @@ func assertProposalErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantC
 	assert.Equal(t, wantCode, resp["error"])
 }
 func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) { return 0, 0, nil }
+func (m *mockProposalRepo) SumPaidByClientOrganization(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func (m *mockProposalRepo) ListCompletedByClientOrganization(context.Context, uuid.UUID, int) ([]*proposaldomain.Proposal, error) {
+	return nil, nil
+}

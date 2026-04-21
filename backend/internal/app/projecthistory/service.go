@@ -94,6 +94,55 @@ func (s *Service) ListByOrganization(ctx context.Context, orgID uuid.UUID, curso
 	return entries, nextCursor, nil
 }
 
+// ListByClientOrganization is the client-side mirror of
+// ListByOrganization: it returns completed deals where the given
+// organization is the CLIENT (not the provider), together with the
+// provider→client review attached to each one. Used by the public
+// client profile's project-history section. Bounded fetch (limit
+// capped at 100) — no cursor because the surface shows a small
+// window.
+func (s *Service) ListByClientOrganization(ctx context.Context, orgID uuid.UUID, limit int) ([]Entry, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	proposals, err := s.proposals.ListCompletedByClientOrganization(ctx, orgID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list completed by client organization: %w", err)
+	}
+	if len(proposals) == 0 {
+		return []Entry{}, nil
+	}
+
+	ids := make([]uuid.UUID, len(proposals))
+	for i, p := range proposals {
+		ids[i] = p.ID
+	}
+
+	// The provider→client review is the one that belongs on the
+	// client's public project history — symmetric counterpart of the
+	// client→provider side used by ListByOrganization. Filter at the
+	// SQL level so the map keyed by proposal_id cannot collide.
+	reviews, err := s.reviews.GetByProposalIDs(ctx, ids, reviewdomain.SideProviderToClient)
+	if err != nil {
+		return nil, fmt.Errorf("get reviews by proposal ids: %w", err)
+	}
+
+	entries := make([]Entry, 0, len(proposals))
+	for _, p := range proposals {
+		entry := entryFromProposal(p)
+		if rv, ok := reviews[p.ID]; ok {
+			entry.Review = rv
+			if !rv.TitleVisible {
+				entry.Title = ""
+			}
+		}
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
 func entryFromProposal(p *proposaldomain.Proposal) Entry {
 	var completedAt time.Time
 	if p.CompletedAt != nil {

@@ -31,6 +31,11 @@ const (
 	// Org profile (public-facing)
 	PermOrgProfileEdit Permission = "org_profile.edit"
 
+	// Client profile (the client-facing facet of the org's public
+	// profile — distinct from the provider-facing profile above).
+	// Same default matrix as PermOrgProfileEdit: owner + admin only.
+	PermOrgClientProfileEdit Permission = "org_client_profile.edit"
+
 	// Team management (within the org)
 	PermTeamView          Permission = "team.view"
 	PermTeamInvite        Permission = "team.invite"
@@ -79,7 +84,7 @@ var rolePermissions = map[Role]map[Permission]bool{
 		PermProposalsView: true, PermProposalsCreate: true, PermProposalsRespond: true,
 		PermMessagingView: true, PermMessagingSend: true,
 		PermWalletView: true, PermWalletWithdraw: true,
-		PermOrgProfileEdit: true,
+		PermOrgProfileEdit: true, PermOrgClientProfileEdit: true,
 		PermTeamView: true, PermTeamInvite: true, PermTeamManage: true, PermTeamTransferOwner: true,
 		PermTeamManageRolePermissions: true,
 		PermBillingView:               true, PermBillingManage: true,
@@ -91,7 +96,7 @@ var rolePermissions = map[Role]map[Permission]bool{
 		PermProposalsView: true, PermProposalsCreate: true, PermProposalsRespond: true,
 		PermMessagingView: true, PermMessagingSend: true,
 		PermWalletView: true, // view only — no withdraw for admins
-		PermOrgProfileEdit: true,
+		PermOrgProfileEdit: true, PermOrgClientProfileEdit: true,
 		PermTeamView: true, PermTeamInvite: true, PermTeamManage: true,
 		PermBillingView: true, // can see invoices but not change payment methods
 		PermReviewsRespond: true,
@@ -487,7 +492,8 @@ var permissionMetadataByKey = map[Permission]PermissionMetadata{
 	PermMessagingSend:     {Key: PermMessagingSend, Group: "messaging", Label: "Send messages", Description: "Can write and send messages from the organization account."},
 	PermWalletView:        {Key: PermWalletView, Group: "wallet", Label: "View wallet", Description: "Can see the organization's balance and transaction history."},
 	PermWalletWithdraw:    {Key: PermWalletWithdraw, Group: "wallet", Label: "Request payouts", Description: "Can move money out of the organization wallet to the connected Stripe account."},
-	PermOrgProfileEdit:    {Key: PermOrgProfileEdit, Group: "org_profile", Label: "Edit public profile", Description: "Can update the organization's public-facing marketplace profile (logo, about, video)."},
+	PermOrgProfileEdit:       {Key: PermOrgProfileEdit, Group: "org_profile", Label: "Edit provider profile", Description: "Can update the organization's public-facing marketplace profile (logo, about, video)."},
+	PermOrgClientProfileEdit: {Key: PermOrgClientProfileEdit, Group: "org_profile", Label: "Edit client profile", Description: "Can update the organization's public-facing client profile (description, logo — the client-facing facet)."},
 	PermTeamView:          {Key: PermTeamView, Group: "team", Label: "View team", Description: "Can see the list of members and pending invitations."},
 	PermTeamInvite:        {Key: PermTeamInvite, Group: "team", Label: "Invite members", Description: "Can send email invitations to join the organization."},
 	PermTeamManage:        {Key: PermTeamManage, Group: "team", Label: "Manage team", Description: "Can change member roles and titles, and remove members from the organization."},
@@ -535,6 +541,7 @@ var allPermissionsOrdered = []Permission{
 	PermTeamView, PermTeamInvite, PermTeamManage, PermTeamTransferOwner, PermTeamManageRolePermissions,
 	// Org profile
 	PermOrgProfileEdit,
+	PermOrgClientProfileEdit,
 	// Jobs
 	PermJobsView, PermJobsCreate, PermJobsEdit, PermJobsDelete,
 	// Proposals

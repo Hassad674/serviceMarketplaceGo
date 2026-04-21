@@ -183,6 +183,12 @@ func (f *fakeProposalRepo) IsOrgAuthorizedForProposal(context.Context, uuid.UUID
 	return true, nil
 }
 func (f *fakeProposalRepo) CountAll(context.Context) (int, int, error) { return 0, 0, nil }
+func (f *fakeProposalRepo) SumPaidByClientOrganization(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func (f *fakeProposalRepo) ListCompletedByClientOrganization(context.Context, uuid.UUID, int) ([]*proposaldomain.Proposal, error) {
+	return nil, nil
+}
 
 var _ repository.ProposalRepository = (*fakeProposalRepo)(nil)
 
@@ -207,6 +213,12 @@ func (f *fakeReviewRepo) ListByReviewedOrganization(context.Context, uuid.UUID, 
 	return nil, "", nil
 }
 func (f *fakeReviewRepo) GetAverageRatingByOrganization(context.Context, uuid.UUID) (*reviewdomain.AverageRating, error) {
+	return &reviewdomain.AverageRating{}, nil
+}
+func (f *fakeReviewRepo) ListClientReviewsByOrganization(context.Context, uuid.UUID, int) ([]*reviewdomain.Review, error) {
+	return nil, nil
+}
+func (f *fakeReviewRepo) GetClientAverageRating(context.Context, uuid.UUID) (*reviewdomain.AverageRating, error) {
 	return &reviewdomain.AverageRating{}, nil
 }
 func (f *fakeReviewRepo) HasReviewed(context.Context, uuid.UUID, uuid.UUID) (bool, error) {

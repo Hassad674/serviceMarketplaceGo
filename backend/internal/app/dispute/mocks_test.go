@@ -202,6 +202,12 @@ func (m *mockProposalRepo) IsOrgAuthorizedForProposal(context.Context, uuid.UUID
 	return true, nil
 }
 func (m *mockProposalRepo) CountAll(context.Context) (int, int, error) { return 0, 0, nil }
+func (m *mockProposalRepo) SumPaidByClientOrganization(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func (m *mockProposalRepo) ListCompletedByClientOrganization(context.Context, uuid.UUID, int) ([]*proposal.Proposal, error) {
+	return nil, nil
+}
 
 // ---------------------------------------------------------------------------
 // mockUserRepo (minimal)

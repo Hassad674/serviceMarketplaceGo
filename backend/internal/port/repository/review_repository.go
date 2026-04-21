@@ -64,6 +64,21 @@ type ReviewRepository interface {
 	// an organization. Only published, non-hidden client→provider
 	// reviews are counted.
 	GetAverageRatingByOrganization(ctx context.Context, orgID uuid.UUID) (*review.AverageRating, error)
+
+	// ListClientReviewsByOrganization returns the reviews an org has
+	// received as a CLIENT (provider→client side of the double-blind
+	// pair), ordered by created_at DESC. Mirror of
+	// ListByReviewedOrganization scoped to the opposite side. No
+	// cursor pagination in v1 — the client profile surfaces a
+	// bounded window (limit capped at 100). Hidden and unpublished
+	// reviews are excluded at the SQL level.
+	ListClientReviewsByOrganization(ctx context.Context, orgID uuid.UUID, limit int) ([]*review.Review, error)
+
+	// GetClientAverageRating returns the aggregated rating an org has
+	// received as a CLIENT (provider→client side). Mirror of
+	// GetAverageRatingByOrganization.
+	GetClientAverageRating(ctx context.Context, orgID uuid.UUID) (*review.AverageRating, error)
+
 	HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error)
 	// GetByProposalIDs returns a map of proposalID → review for the given
 	// proposal IDs, filtered to the requested side. Missing entries mean

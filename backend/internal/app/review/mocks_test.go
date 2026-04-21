@@ -63,6 +63,14 @@ func (m *mockReviewRepo) GetAverageRatingByOrganization(ctx context.Context, use
 	return &domain.AverageRating{}, nil
 }
 
+func (m *mockReviewRepo) ListClientReviewsByOrganization(_ context.Context, _ uuid.UUID, _ int) ([]*domain.Review, error) {
+	return nil, nil
+}
+
+func (m *mockReviewRepo) GetClientAverageRating(_ context.Context, _ uuid.UUID) (*domain.AverageRating, error) {
+	return &domain.AverageRating{}, nil
+}
+
 func (m *mockReviewRepo) HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error) {
 	if m.hasReviewedFn != nil {
 		return m.hasReviewedFn(ctx, proposalID, reviewerID)
@@ -173,6 +181,12 @@ func (m *mockNotificationSender) Send(ctx context.Context, input service.Notific
 	return nil
 }
 func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) { return 0, 0, nil }
+func (m *mockProposalRepo) SumPaidByClientOrganization(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func (m *mockProposalRepo) ListCompletedByClientOrganization(context.Context, uuid.UUID, int) ([]*proposaldomain.Proposal, error) {
+	return nil, nil
+}
 
 // --- mockUserRepo (minimal, org-aware) ---
 

@@ -71,6 +71,14 @@ func (m *mockReviewRepo) GetAverageRatingByOrganization(ctx context.Context, use
 	return &reviewdomain.AverageRating{Average: 0, Count: 0}, nil
 }
 
+func (m *mockReviewRepo) ListClientReviewsByOrganization(_ context.Context, _ uuid.UUID, _ int) ([]*reviewdomain.Review, error) {
+	return nil, nil
+}
+
+func (m *mockReviewRepo) GetClientAverageRating(_ context.Context, _ uuid.UUID) (*reviewdomain.AverageRating, error) {
+	return &reviewdomain.AverageRating{Average: 0, Count: 0}, nil
+}
+
 func (m *mockReviewRepo) HasReviewed(ctx context.Context, proposalID, reviewerID uuid.UUID) (bool, error) {
 	if m.hasReviewedFn != nil {
 		return m.hasReviewedFn(ctx, proposalID, reviewerID)

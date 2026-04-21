@@ -20,4 +20,21 @@ var (
 	// outside the closed set {available_now, available_soon,
 	// not_available}. HTTP 400.
 	ErrInvalidAvailabilityStatus = errors.New("invalid availability status")
+
+	// ErrForbiddenOrgType is returned when an org-type-gated write is
+	// attempted by an org of the wrong type (e.g. a provider_personal
+	// org trying to edit its client profile — v1 exposes the client
+	// profile only to agency and enterprise orgs). HTTP 403.
+	ErrForbiddenOrgType = errors.New("feature is not available for this organization type")
+
+	// ErrClientDescriptionTooLong signals a client_description payload
+	// that exceeds the domain's max length. HTTP 400.
+	ErrClientDescriptionTooLong = errors.New("client description exceeds maximum length")
 )
+
+// MaxClientDescriptionLength is the cap enforced on the
+// client_description field. Mirrors the informal bio/about limits
+// used elsewhere in the profile feature — the number is deliberately
+// generous so the UI never has to truncate typical copy, but bounded
+// so a payload abuse cannot inflate the row indefinitely.
+const MaxClientDescriptionLength = 2000

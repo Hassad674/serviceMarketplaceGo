@@ -131,6 +131,14 @@ func (m *mockProposalRepo) CountAll(_ context.Context) (int, int, error) {
 	return 0, 0, nil
 }
 
+func (m *mockProposalRepo) SumPaidByClientOrganization(_ context.Context, _ uuid.UUID) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockProposalRepo) ListCompletedByClientOrganization(_ context.Context, _ uuid.UUID, _ int) ([]*domain.Proposal, error) {
+	return nil, nil
+}
+
 var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
 
 // --- mockMilestoneRepo ---

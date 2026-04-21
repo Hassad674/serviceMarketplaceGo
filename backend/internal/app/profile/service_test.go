@@ -22,9 +22,10 @@ type mockProfileRepo struct {
 	updateFn              func(ctx context.Context, p *profile.Profile) error
 	createFn              func(ctx context.Context, p *profile.Profile) error
 	searchPublicFn        func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
-	updateLocationFn      func(ctx context.Context, orgID uuid.UUID, input repository.LocationInput) error
-	updateLanguagesFn     func(ctx context.Context, orgID uuid.UUID, pro, conv []string) error
-	updateAvailabilityFn  func(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
+	updateLocationFn          func(ctx context.Context, orgID uuid.UUID, input repository.LocationInput) error
+	updateLanguagesFn         func(ctx context.Context, orgID uuid.UUID, pro, conv []string) error
+	updateAvailabilityFn      func(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
+	updateClientDescriptionFn func(ctx context.Context, orgID uuid.UUID, clientDescription string) error
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -80,6 +81,13 @@ func (m *mockProfileRepo) UpdateLanguages(ctx context.Context, orgID uuid.UUID, 
 func (m *mockProfileRepo) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
 	if m.updateAvailabilityFn != nil {
 		return m.updateAvailabilityFn(ctx, orgID, direct, referrer)
+	}
+	return nil
+}
+
+func (m *mockProfileRepo) UpdateClientDescription(ctx context.Context, orgID uuid.UUID, clientDescription string) error {
+	if m.updateClientDescriptionFn != nil {
+		return m.updateClientDescriptionFn(ctx, orgID, clientDescription)
 	}
 	return nil
 }
