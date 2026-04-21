@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   ArrowLeft,
   Calendar,
@@ -25,6 +26,8 @@ import { ActionsPanel, type ActionsPanelProps } from "./proposal-actions-panel"
 import { MilestoneTracker } from "./milestone-tracker"
 import type { ProposalResponse } from "../types"
 import { FeePreview } from "@/features/billing/components/fee-preview"
+import { UpgradeCta } from "@/features/subscription/components/upgrade-cta"
+import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
 
 interface ProposalDetailViewProps {
   proposalId: string
@@ -40,6 +43,7 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const submitMilestoneMutation = useSubmitMilestone()
   const approveMilestoneMutation = useApproveMilestone()
   const rejectMilestoneMutation = useRejectMilestone()
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const isMutating =
     acceptMutation.isPending ||
@@ -60,6 +64,14 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   const isSender = user?.id === proposal.sender_id
   const isClient = user?.id === proposal.client_id
   const isProvider = user?.id === proposal.provider_id
+
+  // Subscription role pricing for the upgrade CTA. Only providers /
+  // agencies ever reach this code path (isProvider is true), so the
+  // fallback branch is defensive — enterprises can never own a
+  // subscription.
+  const subscriptionRole: "freelance" | "agency" =
+    user?.role === "agency" ? "agency" : "freelance"
+  const monthlyPrice = subscriptionRole === "agency" ? 49 : 19
 
   // The backend sets current_milestone_sequence to the active milestone's
   // sequence while the proposal is in a milestone-driven state (active,
@@ -152,6 +164,13 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
               mode={proposal.payment_mode}
               milestones={buildDetailFeeMilestones(proposal)}
               heading="Frais plateforme estimés pour ta mission"
+              renderPremiumCta={
+                <UpgradeCta
+                  variant="inline"
+                  onClick={() => setUpgradeOpen(true)}
+                  monthlyPrice={monthlyPrice}
+                />
+              }
             />
           )}
         </div>
@@ -212,6 +231,13 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
         onCompleteProposal={handleCompleteProposal}
         onRejectCompletion={handleRejectCompletion}
       />
+      {isProvider && (
+        <UpgradeModal
+          open={upgradeOpen}
+          role={subscriptionRole}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
     </div>
   )
 }

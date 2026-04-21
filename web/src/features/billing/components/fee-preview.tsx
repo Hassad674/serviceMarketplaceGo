@@ -1,6 +1,7 @@
 "use client"
 
-import { Receipt } from "lucide-react"
+import type { ReactNode } from "react"
+import { Receipt, Sparkles } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { useFeePreview } from "../hooks/use-fee-preview"
 import type { FeePreview, FeePreviewTier } from "../types"
@@ -27,26 +28,33 @@ type FeePreviewProps = {
    * Optional recipient UUID. When set, the backend resolves roles on
    * the (caller, recipient) pair; the returned `viewer_is_provider`
    * flag determines whether this component renders anything at all.
-   * When omitted, the backend assumes the caller is the provider —
-   * appropriate for the received-proposal page where isProvider is
-   * already confirmed client-side before this component mounts.
    */
   recipientId?: string
   /**
-   * Overrides the heading text. Defaults to "Frais plateforme" for
-   * the create-proposal form; the received-proposal view uses a more
-   * explicit wording so the prestataire understands it's a preview
-   * of what they'll be charged if they accept.
+   * Overrides the heading text. Defaults to "Frais plateforme".
    */
   heading?: string
+  /**
+   * Slot rendered below the tariff grid when the viewer is NOT a
+   * Premium subscriber. Meant for the upgrade CTA — the billing
+   * feature stays independent of the subscription feature by letting
+   * the parent page wire the CTA that opens the upgrade modal.
+   * Omitted → no CTA rendered (sensible default for pages that do
+   * not want to push Premium there).
+   */
+  renderPremiumCta?: ReactNode
 }
 
-export function FeePreview({ milestones, mode, recipientId, heading }: FeePreviewProps) {
+export function FeePreview({
+  milestones,
+  mode,
+  recipientId,
+  heading,
+  renderPremiumCta,
+}: FeePreviewProps) {
   // When any milestone is empty we still want to surface the tier grid
   // without hammering the backend. We pick the first positive amount
-  // as the "reference" that drives the active-tier highlight — this
-  // matches what a prestataire would expect (tier visible as soon as
-  // they type any one amount).
+  // as the "reference" that drives the active-tier highlight.
   const referenceAmount = pickReferenceAmount(milestones)
   const query = useFeePreview(referenceAmount, recipientId)
 
@@ -65,21 +73,47 @@ export function FeePreview({ milestones, mode, recipientId, heading }: FeePrevie
         "dark:border-slate-700 dark:bg-slate-800/80",
       )}
     >
-      <FeePreviewHeader heading={heading} />
+      <FeePreviewHeader
+        heading={heading}
+        subscribed={query.data?.viewer_is_subscribed === true}
+      />
       <FeePreviewBody
         query={query}
         milestones={milestones}
         mode={mode}
+        renderPremiumCta={renderPremiumCta}
       />
     </section>
   )
 }
 
-function FeePreviewHeader({ heading }: { heading?: string }) {
+function FeePreviewHeader({
+  heading,
+  subscribed,
+}: {
+  heading?: string
+  subscribed: boolean
+}) {
+  const Icon = subscribed ? Sparkles : Receipt
   return (
     <div className="mb-4 flex items-start gap-3">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-500/20">
-        <Receipt className="h-4 w-4 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+      <div
+        className={cn(
+          "flex h-9 w-9 items-center justify-center rounded-xl",
+          subscribed
+            ? "bg-emerald-100 dark:bg-emerald-500/20"
+            : "bg-rose-100 dark:bg-rose-500/20",
+        )}
+      >
+        <Icon
+          className={cn(
+            "h-4 w-4",
+            subscribed
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-rose-600 dark:text-rose-400",
+          )}
+          aria-hidden="true"
+        />
       </div>
       <div>
         <h3
@@ -89,7 +123,9 @@ function FeePreviewHeader({ heading }: { heading?: string }) {
           {heading ?? "Frais plateforme"}
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Frais fixes par jalon, selon votre grille tarifaire
+          {subscribed
+            ? "Premium actif"
+            : "Frais fixes par jalon, selon votre grille tarifaire"}
         </p>
       </div>
     </div>
@@ -100,10 +136,12 @@ function FeePreviewBody({
   query,
   milestones,
   mode,
+  renderPremiumCta,
 }: {
   query: ReturnType<typeof useFeePreview>
   milestones: Milestone[]
   mode: "one_time" | "milestone"
+  renderPremiumCta?: ReactNode
 }) {
   if (query.isLoading) return <FeePreviewSkeleton />
   if (query.isError) {
@@ -117,6 +155,13 @@ function FeePreviewBody({
     )
   }
   if (!query.data) return <FeePreviewEmpty />
+
+  // Premium subscribers never see the tariff grid — the waiver is the
+  // entire story. Show a single encouraging line that makes the
+  // subscription's value explicit.
+  if (query.data.viewer_is_subscribed) {
+    return <PremiumActiveNotice />
+  }
 
   // Amount zero = the prestataire has not typed anything yet. Show the
   // tariff grid without an active-tier highlight + the "enter an amount"
@@ -136,6 +181,22 @@ function FeePreviewBody({
       ) : (
         <MilestoneBreakdown milestones={milestones} tiers={query.data.tiers} />
       )}
+      {renderPremiumCta ? (
+        <div className="border-t border-slate-100 pt-3 dark:border-slate-700">
+          {renderPremiumCta}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function PremiumActiveNotice() {
+  return (
+    <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 dark:border-emerald-500/30 dark:from-emerald-500/10 dark:to-slate-900/40">
+      <p className="text-sm text-slate-800 dark:text-slate-100">
+        Grâce à votre abonnement, vous ne payez aucun frais plateforme sur
+        vos missions.
+      </p>
     </div>
   )
 }

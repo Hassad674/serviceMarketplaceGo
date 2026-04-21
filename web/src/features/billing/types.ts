@@ -40,4 +40,12 @@ export type FeePreview = {
    * preview from clients.
    */
   viewer_is_provider: boolean
+  /**
+   * Whether the viewer currently holds an active Premium subscription.
+   * When `true`, the backend has already zeroed `fee_cents` and
+   * `net_cents` equals `amount_cents`; the UI swaps the tier grid for a
+   * subscription-active notice so the prestataire sees the waiver
+   * unambiguously.
+   */
+  viewer_is_subscribed: boolean
 }
