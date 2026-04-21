@@ -285,10 +285,11 @@ func (m *mockEmailService) SendRolePermissionsChanged(_ context.Context, _ servi
 // --- mockProfileRepo ---
 
 type mockProfileRepo struct {
-	createFn       func(ctx context.Context, p *profile.Profile) error
-	getByOrgIDFn   func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
-	updateFn       func(ctx context.Context, p *profile.Profile) error
-	searchPublicFn func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
+	createFn                  func(ctx context.Context, p *profile.Profile) error
+	getByOrgIDFn              func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
+	updateFn                  func(ctx context.Context, p *profile.Profile) error
+	searchPublicFn            func(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
+	updateClientDescriptionFn func(ctx context.Context, orgID uuid.UUID, clientDescription string) error
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -336,6 +337,13 @@ func (m *mockProfileRepo) UpdateLanguages(_ context.Context, _ uuid.UUID, _, _ [
 	return nil
 }
 func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
+	return nil
+}
+
+func (m *mockProfileRepo) UpdateClientDescription(ctx context.Context, orgID uuid.UUID, clientDescription string) error {
+	if m.updateClientDescriptionFn != nil {
+		return m.updateClientDescriptionFn(ctx, orgID, clientDescription)
+	}
 	return nil
 }
 

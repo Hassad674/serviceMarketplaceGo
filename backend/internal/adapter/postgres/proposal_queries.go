@@ -4,6 +4,13 @@ package postgres
 // keyed on the client (the business side of the proposal). Agencies/
 // Enterprises have a row there and get denormalized. Provider-only
 // proposals keep NULL.
+//
+// Migration 115 adds the symmetrical client_organization_id and
+// provider_organization_id columns. Their values are resolved from
+// users.organization_id (the R1 source of truth): the client side
+// mirrors what the legacy organization_id column captures, and the
+// provider side uses the provider's user → org mapping so the new
+// client-profile read paths can aggregate without a JOIN.
 const queryInsertProposal = `
 	INSERT INTO proposals (
 		id, conversation_id, sender_id, recipient_id,
@@ -12,7 +19,8 @@ const queryInsertProposal = `
 		client_id, provider_id, metadata,
 		active_dispute_id, last_dispute_id,
 		accepted_at, declined_at, paid_at, completed_at,
-		created_at, updated_at, organization_id
+		created_at, updated_at, organization_id,
+		client_organization_id, provider_organization_id
 	) VALUES (
 		$1, $2, $3, $4,
 		$5, $6, $7, $8,
@@ -21,7 +29,9 @@ const queryInsertProposal = `
 		$15, $16,
 		$17, $18, $19, $20,
 		$21, $22,
-		(SELECT organization_id FROM organization_members WHERE user_id = $12 LIMIT 1)
+		(SELECT organization_id FROM organization_members WHERE user_id = $12 LIMIT 1),
+		(SELECT organization_id FROM users WHERE id = $12),
+		(SELECT organization_id FROM users WHERE id = $13)
 	)`
 
 const queryGetProposalByID = `
@@ -183,3 +193,33 @@ const queryGetProposalDocuments = `
 const queryInsertProposalDocument = `
 	INSERT INTO proposal_documents (id, proposal_id, filename, url, size, mime_type, created_at)
 	VALUES ($1, $2, $3, $4, $5, $6, $7)`
+
+// querySumPaidByClientOrg aggregates the total amount (in cents) the
+// given organization has spent as the client. Keyed on the
+// denormalized client_organization_id column (migration 115) so the
+// plan stays a partial-index scan. Counts proposals that reached the
+// paid stage or beyond — i.e. the money actually left the client.
+const querySumPaidByClientOrg = `
+	SELECT COALESCE(SUM(amount), 0)::bigint
+	FROM proposals
+	WHERE client_organization_id = $1
+	  AND status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')`
+
+// queryListCompletedByClientOrg returns the org's most recent completed
+// deals as the client — the symmetric counterpart of
+// queryListCompletedByOrg*. Uses the dedicated partial index
+// idx_proposals_client_org_completed.
+const queryListCompletedByClientOrg = `
+	SELECT id, conversation_id, sender_id, recipient_id,
+		title, description, amount, deadline,
+		status, parent_id, version,
+		client_id, provider_id, metadata,
+		active_dispute_id, last_dispute_id,
+		accepted_at, declined_at, paid_at, completed_at,
+		created_at, updated_at
+	FROM proposals
+	WHERE client_organization_id = $1
+		AND status = 'completed'
+		AND completed_at IS NOT NULL
+	ORDER BY completed_at DESC, id DESC
+	LIMIT $2`

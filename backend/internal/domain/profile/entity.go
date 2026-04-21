@@ -40,6 +40,16 @@ type Profile struct {
 	ReferrerAbout        string
 	ReferrerVideoURL     string
 
+	// ClientDescription (migration 114) is the organization's
+	// client-facing presentation text — the facet surfaced when the org
+	// is the client in a deal (enterprise browsing providers, agency
+	// hiring a subcontractor). It is the client-side mirror of About,
+	// which is provider-facing. Empty string is the default for every
+	// org that has not written a client profile yet; the public
+	// client-profile endpoint still renders that case (with an empty
+	// description).
+	ClientDescription string
+
 	// ---- Location (migration 083) ----
 	City           string
 	CountryCode    string // ISO 3166-1 alpha-2, uppercase (empty = unset)

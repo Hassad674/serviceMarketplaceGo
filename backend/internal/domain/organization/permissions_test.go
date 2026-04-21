@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestHasPermission_Owner verifies that the Owner has every defined permission.
@@ -15,7 +16,7 @@ func TestHasPermission_Owner(t *testing.T) {
 		PermProposalsView, PermProposalsCreate, PermProposalsRespond,
 		PermMessagingView, PermMessagingSend,
 		PermWalletView, PermWalletWithdraw,
-		PermOrgProfileEdit,
+		PermOrgProfileEdit, PermOrgClientProfileEdit,
 		PermTeamView, PermTeamInvite, PermTeamManage, PermTeamTransferOwner,
 		PermTeamManageRolePermissions,
 		PermBillingView, PermBillingManage,
@@ -79,6 +80,7 @@ func TestHasPermission_MemberCapabilities(t *testing.T) {
 		PermTeamManage,                // can't change others' roles
 		PermTeamManageRolePermissions, // Owner-only
 		PermOrgProfileEdit,            // can't edit the org's public profile
+		PermOrgClientProfileEdit,      // can't edit the org's client profile either
 		PermBillingView,               // billing is restricted
 		PermOrgDelete,
 	}
@@ -110,7 +112,7 @@ func TestHasPermission_ViewerIsReadOnly(t *testing.T) {
 		PermProposalsCreate, PermProposalsRespond,
 		PermMessagingSend,
 		PermWalletWithdraw,
-		PermOrgProfileEdit,
+		PermOrgProfileEdit, PermOrgClientProfileEdit,
 		PermTeamInvite, PermTeamManage, PermTeamTransferOwner, PermTeamManageRolePermissions,
 		PermBillingView, PermBillingManage,
 		PermOrgDelete, PermKYCManage,
@@ -210,4 +212,43 @@ func TestMetadataForPermission_UnknownPermissionSafeFallback(t *testing.T) {
 	assert.Equal(t, Permission("future.feature"), meta.Key)
 	assert.Equal(t, "other", meta.Group)
 	assert.Equal(t, "future.feature", meta.Label)
+}
+
+// TestAllPermissionMetadata_ClientProfileRegistered guards the
+// client-profile permission catalog entry: ordered list includes it
+// right after PermOrgProfileEdit, metadata label/description are the
+// two agreed-upon strings, and the provider-facing label was renamed
+// to "Edit provider profile" to disambiguate from the client one.
+func TestAllPermissionMetadata_ClientProfileRegistered(t *testing.T) {
+	byKey := map[Permission]PermissionMetadata{}
+	for _, m := range AllPermissionMetadata() {
+		byKey[m.Key] = m
+	}
+	clientMeta, ok := byKey[PermOrgClientProfileEdit]
+	require.True(t, ok, "PermOrgClientProfileEdit must have metadata registered")
+	assert.Equal(t, "org_profile", clientMeta.Group)
+	assert.Equal(t, "Edit client profile", clientMeta.Label)
+	assert.Contains(t, clientMeta.Description, "client-facing")
+
+	providerMeta, ok := byKey[PermOrgProfileEdit]
+	require.True(t, ok)
+	assert.Equal(t, "Edit provider profile", providerMeta.Label,
+		"legacy provider-profile label must be renamed to disambiguate from the new client-profile permission")
+
+	// Ordered list invariant — the client-profile entry must sit
+	// directly after the provider-profile entry so the team-page UI
+	// renders the two next to each other.
+	providerIdx := -1
+	clientIdx := -1
+	for i, p := range allPermissionsOrdered {
+		if p == PermOrgProfileEdit {
+			providerIdx = i
+		}
+		if p == PermOrgClientProfileEdit {
+			clientIdx = i
+		}
+	}
+	require.GreaterOrEqual(t, providerIdx, 0)
+	require.GreaterOrEqual(t, clientIdx, 0)
+	assert.Equal(t, providerIdx+1, clientIdx, "client profile permission must immediately follow provider profile")
 }

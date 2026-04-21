@@ -18,6 +18,7 @@ type RouterDeps struct {
 	Team           *TeamHandler
 	RoleOverrides  *RoleOverridesHandler
 	Profile        *ProfileHandler
+	ClientProfile  *ClientProfileHandler // client-facing profile facet — optional; nil disables the /profile/client + /clients/{orgId} routes
 	ProfilePricing *ProfilePricingHandler
 
 	// Split-profile handlers (migrations 096-104). These are the
@@ -213,6 +214,16 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.ProfilePricing.UpsertMyPricing)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing/{kind}", deps.ProfilePricing.DeleteMyPricingByKind)
 			}
+
+			// Client profile (migration 114) — the client-facing facet
+			// of the org's public profile. Gated by a dedicated
+			// permission (org_client_profile.edit) so an operator can
+			// be trusted with the client profile without also having
+			// write access to the provider-facing profile.
+			if deps.ClientProfile != nil {
+				r.With(middleware.RequirePermission(organization.PermOrgClientProfileEdit)).
+					Put("/client", deps.ClientProfile.UpdateMyClientProfile)
+			}
 		})
 
 		// Split-profile routes (migrations 096-104). Mounted in
@@ -307,6 +318,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Public profiles (keyed by organization id since phase R2)
 		r.Get("/profiles/search", deps.Profile.SearchProfiles)
 		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
+
+		// Public client profile (migration 114). Keyed on organization
+		// id so the URL scheme stays symmetrical with /profiles/{orgId}.
+		// Nil ClientProfile handler disables the route entirely —
+		// feature-isolation rule.
+		if deps.ClientProfile != nil {
+			r.Get("/clients/{orgId}", deps.ClientProfile.GetPublicClientProfile)
+		}
 
 		// Typesense-backed search routes. Both endpoints require an
 		// authenticated user. The legacy /profiles/search SQL path

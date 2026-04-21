@@ -101,6 +101,21 @@ type ProfileResponse struct {
 	ReferrerAbout        string `json:"referrer_about"`
 	ReferrerVideoURL     string `json:"referrer_video_url"`
 
+	// ClientDescription (migration 114) is the client-facing facet of
+	// the organization's profile — see domain/profile.Profile.
+	// Always present (empty string when unset) so the JSON shape is
+	// stable for every org type.
+	ClientDescription string `json:"client_description"`
+
+	// Client is the pre-computed slice of client-side stats for the
+	// authenticated owner's profile. Nil on the public read endpoint
+	// (GET /api/v1/profiles/{orgId}) because the public client
+	// profile /api/v1/clients/{orgId} is the canonical surface for
+	// these numbers. The private /api/v1/profile endpoint populates
+	// this block so the owner sees their own live aggregates without
+	// a second round-trip.
+	Client *ProfileClientSection `json:"client,omitempty"`
+
 	// ExpertiseDomains is the ordered list of domain specialization
 	// keys the organization has declared (see internal/domain/expertise
 	// for the catalog). Empty orgs and enterprise orgs always receive
@@ -128,6 +143,17 @@ type ProfileResponse struct {
 
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+}
+
+// ProfileClientSection is the authenticated owner's client-side
+// aggregates, surfaced inline on GET /api/v1/profile. Mirror of the
+// PublicClientProfile stat trio so web/mobile can render the "me as
+// client" dashboard block without a separate request.
+type ProfileClientSection struct {
+	TotalSpent                int64   `json:"total_spent"`
+	ReviewCount               int     `json:"review_count"`
+	AverageRating             float64 `json:"average_rating"`
+	ProjectsCompletedAsClient int     `json:"projects_completed_as_client"`
 }
 
 // PublicProfileSummary is the shape surfaced to marketplace search /
@@ -313,6 +339,7 @@ func NewProfileResponseWithExtras(
 		PresentationVideoURL:       p.PresentationVideoURL,
 		ReferrerAbout:              p.ReferrerAbout,
 		ReferrerVideoURL:           p.ReferrerVideoURL,
+		ClientDescription:          p.ClientDescription,
 		ExpertiseDomains:           expertiseDomains,
 		Skills:                     NewProfileSkillSummaryList(skills),
 		City:                       p.City,
@@ -329,4 +356,17 @@ func NewProfileResponseWithExtras(
 		CreatedAt:                  p.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:                  p.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 	}
+}
+
+// WithClientSection attaches the pre-computed client-side stats to an
+// existing profile response. Returns a value copy so the caller can
+// chain and the original response is not mutated. Passing nil is a
+// no-op (returns the response unchanged) — used on the public read
+// endpoint where client stats are not surfaced.
+func (r ProfileResponse) WithClientSection(section *ProfileClientSection) ProfileResponse {
+	if section == nil {
+		return r
+	}
+	r.Client = section
+	return r
 }

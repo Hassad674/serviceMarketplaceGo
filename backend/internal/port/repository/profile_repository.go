@@ -64,4 +64,10 @@ type ProfileRepository interface {
 	// keep their current value. At least one pointer must be non-nil;
 	// passing both nil is a programmer error.
 	UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
+
+	// UpdateClientDescription writes the client-facing description
+	// column in a single SQL UPDATE. Implementations MUST NOT touch
+	// any other column — this call is scoped to the client profile
+	// facet and must not clobber the provider-facing about / title.
+	UpdateClientDescription(ctx context.Context, orgID uuid.UUID, clientDescription string) error
 }

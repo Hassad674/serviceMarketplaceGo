@@ -243,6 +243,10 @@ func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ *
 	return nil
 }
 
+func (m *mockProfileRepo) UpdateClientDescription(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 // --- mockMsgSender ---
 
 type mockMsgSender struct {

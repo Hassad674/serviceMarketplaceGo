@@ -46,7 +46,7 @@ func NewProfileRepository(db *sql.DB) *ProfileRepository {
 // paired Scan call, nothing else.
 const profileSelectColumns = `
 	organization_id, title, about, photo_url, presentation_video_url,
-	referrer_about, referrer_video_url,
+	referrer_about, referrer_video_url, client_description,
 	city, country_code, latitude, longitude, work_mode, travel_radius_km,
 	languages_professional, languages_conversational,
 	availability_status, referrer_availability_status,
@@ -255,6 +255,34 @@ func (r *ProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.U
 	return nil
 }
 
+// UpdateClientDescription writes the client_description column in a
+// single SQL UPDATE. Scoped to the client profile facet — the other
+// columns (title, about, referrer_about, Tier 1 blocks) are untouched
+// so the provider-facing state cannot be clobbered by a client-facing
+// save.
+func (r *ProfileRepository) UpdateClientDescription(ctx context.Context, orgID uuid.UUID, clientDescription string) error {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query := `
+		UPDATE profiles
+		SET client_description = $2
+		WHERE organization_id = $1`
+
+	result, err := r.db.ExecContext(ctx, query, orgID, clientDescription)
+	if err != nil {
+		return fmt.Errorf("failed to update profile client_description: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for client_description update: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
 // queryByOrgID fetches the full profile row (including every Tier 1
 // column). Extracted from GetByOrganizationID so the auto-create
 // fallback can reuse it without paying a second SELECT.
@@ -274,6 +302,7 @@ func (r *ProfileRepository) queryByOrgID(ctx context.Context, orgID uuid.UUID) (
 	err := r.db.QueryRowContext(ctx, query, orgID).Scan(
 		&p.OrganizationID, &p.Title, &p.About, &p.PhotoURL,
 		&p.PresentationVideoURL, &p.ReferrerAbout, &p.ReferrerVideoURL,
+		&p.ClientDescription,
 		&p.City, &p.CountryCode, &lat, &lng,
 		pq.Array(&workMode), &travelRadius,
 		pq.Array(&languagesPro), pq.Array(&languagesConvList),

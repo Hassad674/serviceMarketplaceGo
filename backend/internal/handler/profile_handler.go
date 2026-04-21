@@ -25,6 +25,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	clientprofileapp "marketplace-backend/internal/app/clientprofile"
 	profileapp "marketplace-backend/internal/app/profile"
 	"marketplace-backend/internal/domain/expertise"
 	"marketplace-backend/internal/domain/profile"
@@ -67,17 +68,29 @@ type PricingReader interface {
 	GetForOrgsBatch(ctx context.Context, orgIDs []uuid.UUID) (map[uuid.UUID][]*domainpricing.Pricing, error)
 }
 
+// ClientStatsReader is the narrow read contract the profile handler
+// needs to decorate GET /api/v1/profile with the owner's client-side
+// aggregates (total_spent, review_count, average_rating,
+// projects_completed_as_client). Defined locally so the profile
+// handler does not carry a wider dependency on the clientprofile
+// app package's public surface. Nil is tolerated — the Client block
+// is simply omitted from the response.
+type ClientStatsReader interface {
+	GetStats(ctx context.Context, orgID uuid.UUID) (*clientprofileapp.ClientStats, error)
+}
+
 // ProfileHandler wires the profile-related HTTP endpoints to the
 // profile application services. The expertise service, skills
-// reader, and pricing reader are optional at the struct level so
-// existing unit tests that only care about the main profile flow
-// can pass nil — in production wiring (cmd/api/main.go) they are
-// always non-nil.
+// reader, pricing reader, and client stats reader are optional at
+// the struct level so existing unit tests that only care about the
+// main profile flow can pass nil — in production wiring
+// (cmd/api/main.go) they are always non-nil.
 type ProfileHandler struct {
-	profileService   *profileapp.Service
-	expertiseService *profileapp.ExpertiseService
-	skillsReader     SkillsReader
-	pricingReader    PricingReader
+	profileService    *profileapp.Service
+	expertiseService  *profileapp.ExpertiseService
+	skillsReader      SkillsReader
+	pricingReader     PricingReader
+	clientStatsReader ClientStatsReader
 }
 
 // NewProfileHandler constructs the handler with the profile service
@@ -116,6 +129,18 @@ func (h *ProfileHandler) WithPricingReader(reader PricingReader) *ProfileHandler
 	return h
 }
 
+// WithClientStatsReader sets the client-stats reader used to decorate
+// the authenticated /api/v1/profile response with the owner's
+// client-side aggregates. Returns the same handler for fluent
+// wiring. Passing nil is a no-op — the Client block simply stays
+// absent in the response.
+func (h *ProfileHandler) WithClientStatsReader(reader ClientStatsReader) *ProfileHandler {
+	if reader != nil {
+		h.clientStatsReader = reader
+	}
+	return h
+}
+
 // GetMyProfile returns the org profile of the authenticated user's
 // current organization. All operators in the same org see the same
 // profile — this is the Stripe Dashboard shared-workspace model.
@@ -135,7 +160,10 @@ func (h *ProfileHandler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 	domains := h.loadExpertise(r, orgID)
 	skills := h.loadSkills(r, orgID)
 	pricing := h.loadPricing(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
+	client := h.loadClientStats(r, orgID)
+	res.JSON(w, http.StatusOK,
+		response.NewProfileResponseWithExtras(p, domains, skills, pricing).
+			WithClientSection(client))
 }
 
 // UpdateMyProfile updates the authenticated user's org profile.
@@ -178,7 +206,10 @@ func (h *ProfileHandler) UpdateMyProfile(w http.ResponseWriter, r *http.Request)
 	domains := h.loadExpertise(r, orgID)
 	skills := h.loadSkills(r, orgID)
 	pricing := h.loadPricing(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
+	client := h.loadClientStats(r, orgID)
+	res.JSON(w, http.StatusOK,
+		response.NewProfileResponseWithExtras(p, domains, skills, pricing).
+			WithClientSection(client))
 }
 
 // ---------------------------------------------------------------
@@ -317,7 +348,10 @@ func (h *ProfileHandler) writeProfileFromOrg(w http.ResponseWriter, r *http.Requ
 	domains := h.loadExpertise(r, orgID)
 	skills := h.loadSkills(r, orgID)
 	pricing := h.loadPricing(r, orgID)
-	res.JSON(w, http.StatusOK, response.NewProfileResponseWithExtras(p, domains, skills, pricing))
+	client := h.loadClientStats(r, orgID)
+	res.JSON(w, http.StatusOK,
+		response.NewProfileResponseWithExtras(p, domains, skills, pricing).
+			WithClientSection(client))
 }
 
 // SearchProfiles surfaces org-level public profiles for discovery.
@@ -479,6 +513,25 @@ func (h *ProfileHandler) loadSkills(r *http.Request, orgID uuid.UUID) []*domains
 		return []*domainskill.ProfileSkill{}
 	}
 	return skills
+}
+
+// loadClientStats fetches the authenticated owner's client-side
+// aggregates for embedding inside GET /api/v1/profile. Graceful
+// degradation mirrors the other decorative loaders: a nil reader,
+// an unknown org, or any repository error yields a nil block so the
+// profile read never fails on the client-stats side — the DTO helper
+// omits the section entirely when the value is nil. Returns a typed
+// pointer to a helper-owned DTO to dodge an extra domain import on
+// callers.
+func (h *ProfileHandler) loadClientStats(r *http.Request, orgID uuid.UUID) *response.ProfileClientSection {
+	if h.clientStatsReader == nil {
+		return nil
+	}
+	stats, err := h.clientStatsReader.GetStats(r.Context(), orgID)
+	if err != nil {
+		return nil
+	}
+	return response.NewProfileClientSection(stats)
 }
 
 // loadPricing fetches the org's pricing rows (0, 1 or 2) for

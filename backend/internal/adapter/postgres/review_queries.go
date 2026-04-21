@@ -75,6 +75,37 @@ const queryAverageRatingByOrg = `
 		AND published_at IS NOT NULL
 		AND moderation_status <> 'hidden'`
 
+// queryListClientReviewsByOrg — public client profile list. Mirror of
+// queryListReviewsByReviewedOrgFirst but scoped to the provider→client
+// side of the double-blind pair. Bounded-limit fetch (no cursor) — the
+// public client profile surfaces a small fixed window.
+const queryListClientReviewsByOrg = `
+	SELECT id, proposal_id, reviewer_id, reviewed_id,
+		reviewer_organization_id, reviewed_organization_id,
+		side,
+		global_rating, timeliness, communication, quality,
+		comment, video_url, title_visible, created_at, updated_at,
+		published_at
+	FROM reviews
+	WHERE reviewed_organization_id = $1
+		AND side = 'provider_to_client'
+		AND published_at IS NOT NULL
+		AND moderation_status <> 'hidden'
+	ORDER BY created_at DESC, id DESC
+	LIMIT $2`
+
+// queryClientAverageRatingByOrg — provider→client aggregate counterpart
+// of queryAverageRatingByOrg. Used by the public client profile and by
+// the /profile (authenticated) endpoint for the "received as client"
+// rating surface.
+const queryClientAverageRatingByOrg = `
+	SELECT COALESCE(AVG(global_rating), 0), COUNT(*)
+	FROM reviews
+	WHERE reviewed_organization_id = $1
+		AND side = 'provider_to_client'
+		AND published_at IS NOT NULL
+		AND moderation_status <> 'hidden'`
+
 const queryHasReviewed = `
 	SELECT EXISTS(
 		SELECT 1 FROM reviews

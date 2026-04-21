@@ -319,6 +319,41 @@ func (r *ProposalRepository) IsOrgAuthorizedForProposal(ctx context.Context, pro
 	return exists, nil
 }
 
+// SumPaidByClientOrganization aggregates the total amount (in cents)
+// the given organization has spent as the client across paid-or-later
+// proposals. See querySumPaidByClientOrg for the SQL predicate.
+func (r *ProposalRepository) SumPaidByClientOrganization(ctx context.Context, orgID uuid.UUID) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var total int64
+	if err := r.db.QueryRowContext(ctx, querySumPaidByClientOrg, orgID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("sum paid by client organization: %w", err)
+	}
+	return total, nil
+}
+
+// ListCompletedByClientOrganization returns the org's most recent
+// completed deals as the client, capped at limit rows (1..100). The
+// result is ordered by completed_at DESC and by id DESC as a tie-
+// breaker — stable output across identical timestamps.
+func (r *ProposalRepository) ListCompletedByClientOrganization(ctx context.Context, orgID uuid.UUID, limit int) ([]*proposal.Proposal, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryListCompletedByClientOrg, orgID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list completed by client organization: %w", err)
+	}
+	defer rows.Close()
+
+	return scanProposalList(rows)
+}
+
 func (r *ProposalRepository) CountAll(ctx context.Context) (total int, active int, err error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

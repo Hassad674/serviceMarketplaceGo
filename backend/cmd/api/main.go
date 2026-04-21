@@ -30,6 +30,7 @@ import (
 	adminapp "marketplace-backend/internal/app/admin"
 	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
+	clientprofileapp "marketplace-backend/internal/app/clientprofile"
 	disputeapp "marketplace-backend/internal/app/dispute"
 	embeddedapp "marketplace-backend/internal/app/embedded"
 	freelancepricingapp "marketplace-backend/internal/app/freelancepricing"
@@ -1000,10 +1001,27 @@ func main() {
 		organizationSharedHandler = organizationSharedHandler.WithSearchIndexPublisher(searchPublisher)
 	}
 
+	// Client profile (migration 114) — the client-facing facet of the
+	// organization's public profile. Two services orchestrate the
+	// feature: the write path (ClientProfileService, co-located with
+	// the profile aggregate) and the read path (clientprofile.Service,
+	// its own package). Splitting write vs. read keeps each service
+	// under the SRP cap and makes the feature fully removable by
+	// dropping these few lines.
+	clientProfileWriteSvc := profileapp.NewClientProfileService(profileRepo, organizationRepo)
+	clientProfileReadSvc := clientprofileapp.NewService(clientprofileapp.ServiceDeps{
+		Organizations: organizationRepo,
+		Profiles:      profileRepo,
+		Proposals:     proposalRepo,
+		Reviews:       reviewRepo,
+	})
+	clientProfileHandler := handler.NewClientProfileHandler(clientProfileWriteSvc, clientProfileReadSvc)
+
 	profileHandler := handler.
 		NewProfileHandler(profileSvc, expertiseSvc).
 		WithSkillsReader(skillSvc).
-		WithPricingReader(profilePricingSvc)
+		WithPricingReader(profilePricingSvc).
+		WithClientStatsReader(clientProfileReadSvc)
 	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
 	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
 	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
@@ -1117,6 +1135,7 @@ func main() {
 		Team:           teamHandler,
 		RoleOverrides:  roleOverridesHandler,
 		Profile:        profileHandler,
+		ClientProfile:  clientProfileHandler,
 		ProfilePricing: profilePricingHandler,
 
 		// Split-profile handlers (migrations 096-104).

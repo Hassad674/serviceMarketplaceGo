@@ -49,6 +49,7 @@ func (m *mockExpertiseRepo) Replace(ctx context.Context, orgID uuid.UUID, keys [
 // return zero values so the struct satisfies the full interface.
 type mockExpertiseOrgRepo struct {
 	findByIDFn func(ctx context.Context, id uuid.UUID) (*organization.Organization, error)
+	updateFn   func(ctx context.Context, org *organization.Organization) error
 }
 
 func (m *mockExpertiseOrgRepo) Create(context.Context, *organization.Organization) error {
@@ -69,7 +70,10 @@ func (m *mockExpertiseOrgRepo) FindByOwnerUserID(context.Context, uuid.UUID) (*o
 func (m *mockExpertiseOrgRepo) FindByUserID(context.Context, uuid.UUID) (*organization.Organization, error) {
 	return nil, organization.ErrOrgNotFound
 }
-func (m *mockExpertiseOrgRepo) Update(context.Context, *organization.Organization) error {
+func (m *mockExpertiseOrgRepo) Update(ctx context.Context, org *organization.Organization) error {
+	if m.updateFn != nil {
+		return m.updateFn(ctx, org)
+	}
 	return nil
 }
 func (m *mockExpertiseOrgRepo) Delete(context.Context, uuid.UUID) error { return nil }

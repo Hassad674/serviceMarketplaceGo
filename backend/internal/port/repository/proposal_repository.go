@@ -48,4 +48,18 @@ type ProposalRepository interface {
 	// are still narrowed to a single side at the service layer.
 	IsOrgAuthorizedForProposal(ctx context.Context, proposalID, orgID uuid.UUID) (bool, error)
 	CountAll(ctx context.Context) (total int, active int, err error)
+
+	// SumPaidByClientOrganization returns the total amount (in cents)
+	// the given organization has spent as the client across all paid-
+	// or-later proposals (paid, active, completion_requested, completed,
+	// disputed). Keyed on the denormalized proposals.client_organization_id
+	// column (migration 115) so the query hits the dedicated partial
+	// index without a JOIN.
+	SumPaidByClientOrganization(ctx context.Context, orgID uuid.UUID) (int64, error)
+
+	// ListCompletedByClientOrganization returns the most recent
+	// completed proposals where the given organization is the client.
+	// Ordered by completed_at DESC, capped to limit. Used to power the
+	// public client profile's project-history section.
+	ListCompletedByClientOrganization(ctx context.Context, orgID uuid.UUID, limit int) ([]*proposal.Proposal, error)
 }

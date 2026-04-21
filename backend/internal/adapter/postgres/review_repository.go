@@ -171,6 +171,63 @@ func (r *ReviewRepository) GetAverageRatingByOrganization(ctx context.Context, o
 	return &review.AverageRating{Average: avg, Count: count}, nil
 }
 
+// ListClientReviewsByOrganization returns the provider→client reviews
+// the given org received, capped at limit rows. Mirror of
+// ListByReviewedOrganization but scoped to the opposite side of the
+// double-blind pair.
+func (r *ReviewRepository) ListClientReviewsByOrganization(ctx context.Context, orgID uuid.UUID, limit int) ([]*review.Review, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	// Best-effort auto-publish sweep, same pattern as the provider-side
+	// list. A failure is non-fatal — the SELECT still returns what is
+	// visible today and the sweep retries on the next read.
+	if _, err := r.db.ExecContext(ctx, queryAutoPublishDeadlineElapsed); err != nil {
+		return nil, fmt.Errorf("auto-publish deadline sweep: %w", err)
+	}
+
+	rows, err := r.db.QueryContext(ctx, queryListClientReviewsByOrg, orgID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list client reviews by organization: %w", err)
+	}
+	defer rows.Close()
+
+	var reviews []*review.Review
+	for rows.Next() {
+		rv, scanErr := scanReview(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan review: %w", scanErr)
+		}
+		reviews = append(reviews, rv)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	if reviews == nil {
+		reviews = []*review.Review{}
+	}
+	return reviews, nil
+}
+
+// GetClientAverageRating returns the aggregated provider→client rating
+// for the given org. Mirror of GetAverageRatingByOrganization.
+func (r *ReviewRepository) GetClientAverageRating(ctx context.Context, orgID uuid.UUID) (*review.AverageRating, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var avg float64
+	var count int
+	err := r.db.QueryRowContext(ctx, queryClientAverageRatingByOrg, orgID).Scan(&avg, &count)
+	if err != nil {
+		return nil, fmt.Errorf("get client average rating: %w", err)
+	}
+	return &review.AverageRating{Average: avg, Count: count}, nil
+}
+
 func (r *ReviewRepository) UpdateReviewModeration(ctx context.Context, reviewID uuid.UUID, status string, score float64, labelsJSON []byte) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()

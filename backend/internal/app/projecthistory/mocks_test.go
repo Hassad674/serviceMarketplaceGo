@@ -14,7 +14,8 @@ import (
 // --- mockProposalRepo ---
 
 type mockProposalRepo struct {
-	ListCompletedByOrganizationFunc func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error)
+	ListCompletedByOrganizationFunc    func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*proposaldomain.Proposal, string, error)
+	ListCompletedByClientOrganizationFn func(orgID uuid.UUID, limit int) ([]*proposaldomain.Proposal, error)
 }
 
 func (m *mockProposalRepo) Create(context.Context, *proposaldomain.Proposal) error { return nil }
@@ -56,6 +57,15 @@ func (m *mockProposalRepo) IsOrgAuthorizedForProposal(context.Context, uuid.UUID
 	return true, nil
 }
 func (m *mockProposalRepo) CountAll(context.Context) (int, int, error) { return 0, 0, nil }
+func (m *mockProposalRepo) SumPaidByClientOrganization(context.Context, uuid.UUID) (int64, error) {
+	return 0, nil
+}
+func (m *mockProposalRepo) ListCompletedByClientOrganization(_ context.Context, orgID uuid.UUID, limit int) ([]*proposaldomain.Proposal, error) {
+	if m.ListCompletedByClientOrganizationFn != nil {
+		return m.ListCompletedByClientOrganizationFn(orgID, limit)
+	}
+	return nil, nil
+}
 
 var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
 
@@ -76,6 +86,12 @@ func (m *mockReviewRepo) ListByReviewedOrganization(context.Context, uuid.UUID, 
 	return nil, "", nil
 }
 func (m *mockReviewRepo) GetAverageRatingByOrganization(context.Context, uuid.UUID) (*reviewdomain.AverageRating, error) {
+	return &reviewdomain.AverageRating{}, nil
+}
+func (m *mockReviewRepo) ListClientReviewsByOrganization(context.Context, uuid.UUID, int) ([]*reviewdomain.Review, error) {
+	return nil, nil
+}
+func (m *mockReviewRepo) GetClientAverageRating(context.Context, uuid.UUID) (*reviewdomain.AverageRating, error) {
 	return &reviewdomain.AverageRating{}, nil
 }
 func (m *mockReviewRepo) HasReviewed(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
