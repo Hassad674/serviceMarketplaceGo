@@ -61,26 +61,31 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
     }
   }
   if (sub.status === "past_due") {
+    // Paiement échoué : le libellé garde l'information critique (CTA
+    // implicite "va regler ça") plutôt qu'un simple "gérer".
     return {
-      label: "Premium · paiement echoue",
-      ariaLabel: "Premium, paiement echoue, gerer mon abonnement",
+      label: "Paiement échoué · gérer",
+      ariaLabel: "Paiement Premium échoué, gérer mon abonnement",
       className:
         "bg-orange-100 text-orange-700 border border-orange-300 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/40",
       icon: false,
     }
   }
+  // Any subscribed state (auto-renew on OR off) shows a single clear
+  // action label. The date of expiration and the renewal toggle live
+  // in the manage modal — the navbar stays succinct.
   if (sub.cancel_at_period_end) {
     return {
-      label: `Premium ✓ · expire ${formatShortDate(sub.current_period_end)}`,
-      ariaLabel: `Premium, expire le ${formatShortDate(sub.current_period_end)}, gerer mon abonnement`,
+      label: "Gérer mon abonnement",
+      ariaLabel: `Abonnement Premium actif, expire le ${formatShortDate(sub.current_period_end)}, gérer`,
       className:
         "border border-rose-500 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-400/60",
       icon: false,
     }
   }
   return {
-    label: "Premium ✓",
-    ariaLabel: "Premium actif, gerer mon abonnement",
+    label: "Gérer mon abonnement",
+    ariaLabel: "Abonnement Premium actif, gérer",
     className: "bg-rose-500 text-white shadow-sm hover:shadow-glow",
     icon: false,
   }

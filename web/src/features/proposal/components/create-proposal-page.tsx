@@ -17,6 +17,9 @@ import { useCreateProposal, useModifyProposal } from "../hooks/use-proposals"
 import { getProposal, getUploadURL } from "../api/proposal-api"
 import type { CreateProposalData, MilestoneInputData } from "../api/proposal-api"
 import { FeePreview } from "@/features/billing/components/fee-preview"
+import { UpgradeCta } from "@/features/subscription/components/upgrade-cta"
+import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
+import { useUser } from "@/shared/hooks/use-user"
 
 const TITLE_MAX_LENGTH = 100
 
@@ -37,8 +40,18 @@ export function CreateProposalPage() {
   const [recipientName, setRecipientName] = useState("")
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
 
   const canCreate = useHasPermission("proposals.create")
+  const user = useUser()
+  // Subscription is provider-only. `enterprise` users never see the
+  // FeePreview so the CTA role here can be derived solely from the two
+  // prestataire roles; default to freelance when the role hasn't loaded
+  // yet (UpgradeModal will hide if `viewer_is_subscribed` is already
+  // true, so the default is safe).
+  const subscriptionRole: "freelance" | "agency" =
+    user.data?.role === "agency" ? "agency" : "freelance"
+  const monthlyPrice = subscriptionRole === "agency" ? 49 : 19
   const createMutation = useCreateProposal()
   const modifyMutation = useModifyProposal()
   const isSubmitting = createMutation.isPending || modifyMutation.isPending || isUploading
@@ -372,11 +385,22 @@ export function CreateProposalPage() {
                 component itself hides the section when the backend says
                 `viewer_is_provider=false` (client-side viewers), so no
                 role logic is needed here. We pass the recipient id so
-                the backend can resolve the pair's roles. */}
+                the backend can resolve the pair's roles, and an
+                `UpgradeCta` that opens the subscription modal so
+                prospects can convert from the exact moment they see
+                the fee. The FeePreview only renders the CTA when
+                `viewer_is_subscribed=false`. */}
             <FeePreview
               mode={formData.paymentMode}
               milestones={buildFeePreviewMilestones(formData)}
               recipientId={recipientId || undefined}
+              renderPremiumCta={
+                <UpgradeCta
+                  variant="inline"
+                  onClick={() => setUpgradeOpen(true)}
+                  monthlyPrice={monthlyPrice}
+                />
+              }
             />
 
             {/* Deadline */}
@@ -453,6 +477,11 @@ export function CreateProposalPage() {
           </div>
         </div>
       </main>
+      <UpgradeModal
+        open={upgradeOpen}
+        role={subscriptionRole}
+        onClose={() => setUpgradeOpen(false)}
+      />
     </div>
   )
 }
