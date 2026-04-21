@@ -1,9 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useId, useRef, useState } from "react"
-import { X } from "lucide-react"
-import { cn } from "@/shared/lib/utils"
-import { formatCurrency, formatDate } from "@/shared/lib/utils"
+import { useCallback, useState } from "react"
+import { cn, formatCurrency, formatDate } from "@/shared/lib/utils"
+import { Modal } from "@/shared/components/ui/modal"
 import { useSubscription } from "../hooks/use-subscription"
 import { useSubscriptionStats } from "../hooks/use-subscription-stats"
 import { useToggleAutoRenew } from "../hooks/use-toggle-auto-renew"
@@ -12,154 +11,46 @@ import { usePortalURL } from "../hooks/use-portal"
 import type { BillingCycle, Subscription } from "../types"
 
 type ManageModalProps = {
-  open: boolean
-  onClose: () => void
+	open: boolean
+	onClose: () => void
 }
 
 /**
- * Premium management panel. Reads the cached subscription +
- * stats, orchestrates the toggle / cycle-change / portal actions.
- * Each action has its own hook so failures are isolated — a
- * portal error never breaks the auto-renew toggle and vice versa.
+ * Premium management panel. Reads the cached subscription + stats,
+ * orchestrates toggle / cycle-change / portal actions. Each action has
+ * its own hook so failures are isolated — a portal error never breaks
+ * the auto-renew toggle and vice versa.
+ *
+ * Delegates dialog plumbing (portal, backdrop, escape, focus trap) to
+ * the shared `Modal` primitive.
  */
 export function ManageModal({ open, onClose }: ManageModalProps) {
-  const { data: subscription } = useSubscription()
-  const titleId = useId()
-  const triggerRef = useRef<HTMLElement | null>(null)
-  const dialogRef = useRef<HTMLDivElement | null>(null)
-  useModalKeyboard({ open, onClose, triggerRef, dialogRef })
+	const { data: subscription } = useSubscription()
 
-  if (!open) return null
-  if (!subscription) return null
+	// Nothing to manage on the free tier — render nothing so the caller
+	// can open this modal speculatively without a crash when the user
+	// happens to have just cancelled.
+	if (!subscription) {
+		return (
+			<Modal open={open} onClose={onClose} title="Gérer mon abonnement">
+				<p className="text-sm text-slate-500 dark:text-slate-400">
+					Aucun abonnement actif.
+				</p>
+			</Modal>
+		)
+	}
 
-  return (
-    <ModalShell onDismiss={onClose} labelledBy={titleId} dialogRef={dialogRef}>
-      <ManageHeader id={titleId} onClose={onClose} />
-      <div className="space-y-5">
-        <PlanSummary subscription={subscription} />
-        <StatsPanel startedAt={subscription.started_at} />
-        <AutoRenewSwitch subscription={subscription} />
-        <ChangeCycleBlock subscription={subscription} />
-        <PortalActions />
-      </div>
-    </ModalShell>
-  )
-}
-
-function useModalKeyboard({
-  open,
-  onClose,
-  triggerRef,
-  dialogRef,
-}: {
-  open: boolean
-  onClose: () => void
-  triggerRef: React.MutableRefObject<HTMLElement | null>
-  dialogRef: React.MutableRefObject<HTMLDivElement | null>
-}) {
-  useEffect(() => {
-    if (!open) return
-    // document.activeElement is typed Element | null. The trigger
-    // that opens the modal is always a focusable HTMLElement (the
-    // badge button), and we call focus() optionally on cleanup —
-    // so the narrowing is safe.
-    triggerRef.current = document.activeElement as HTMLElement | null
-    const dialog = dialogRef.current
-    const focusable = dialog?.querySelector<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    )
-    focusable?.focus()
-    return () => {
-      triggerRef.current?.focus?.()
-    }
-  }, [open, dialogRef, triggerRef])
-
-  useEffect(() => {
-    if (!open) return
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose()
-      if (e.key === "Tab") trapFocus(e, dialogRef.current)
-    }
-    document.addEventListener("keydown", handleKey)
-    return () => document.removeEventListener("keydown", handleKey)
-  }, [open, onClose, dialogRef])
-}
-
-function trapFocus(e: KeyboardEvent, dialog: HTMLElement | null) {
-  if (!dialog) return
-  const nodes = dialog.querySelectorAll<HTMLElement>(
-    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-  )
-  if (nodes.length === 0) return
-  const first = nodes[0]
-  const last = nodes[nodes.length - 1]
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault()
-    last.focus()
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault()
-    first.focus()
-  }
-}
-
-function ModalShell({
-  children,
-  onDismiss,
-  labelledBy,
-  dialogRef,
-}: {
-  children: React.ReactNode
-  onDismiss: () => void
-  labelledBy: string
-  dialogRef: React.MutableRefObject<HTMLDivElement | null>
-}) {
-  return (
-    // The OVERLAY is the scroll container, not the dialog. This is the
-    // pattern Headless UI / Radix use — on short viewports the user pages
-    // through the modal by scrolling the backdrop; on tall ones the modal
-    // simply centers. No content ever gets clipped at the top or bottom.
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onDismiss()}
-      role="presentation"
-    >
-      <div
-        className="flex min-h-full items-center justify-center p-4"
-        onClick={(e) => e.target === e.currentTarget && onDismiss()}
-      >
-        <div
-          ref={dialogRef}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby={labelledBy}
-          className="w-full max-w-md animate-scale-in rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900"
-        >
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ManageHeader({ id, onClose }: { id: string; onClose: () => void }) {
-  return (
-    <div className="mb-5 flex items-start justify-between">
-      <h2
-        id={id}
-        className="text-lg font-semibold text-slate-900 dark:text-white"
-      >
-        Gérer mon abonnement
-      </h2>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Fermer"
-        className="rounded-lg p-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-      >
-        <X className="h-5 w-5" aria-hidden="true" />
-      </button>
-    </div>
-  )
+	return (
+		<Modal open={open} onClose={onClose} title="Gérer mon abonnement">
+			<div className="space-y-5">
+				<PlanSummary subscription={subscription} />
+				<StatsPanel startedAt={subscription.started_at} />
+				<AutoRenewSwitch subscription={subscription} />
+				<ChangeCycleBlock subscription={subscription} />
+				<PortalActions />
+			</div>
+		</Modal>
+	)
 }
 
 function PlanSummary({ subscription }: { subscription: Subscription }) {
