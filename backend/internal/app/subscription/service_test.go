@@ -211,7 +211,7 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
-	stripe.changeCycleFn = func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error) {
+	stripe.changeCycleFn = func(ctx context.Context, stripeSubID, newPriceID string, _ bool) (service.SubscriptionSnapshot, error) {
 		return service.SubscriptionSnapshot{
 			ID:                 stripeSubID,
 			Status:             "active",
@@ -254,6 +254,52 @@ func TestChangeCycle_SameCycle(t *testing.T) {
 	_, err := svc.ChangeCycle(context.Background(), users.user.ID, existing.BillingCycle)
 
 	assert.ErrorIs(t, err, domain.ErrSameCycle)
+}
+
+// TestChangeCycle_ProrationDirection locks in the product rule: upgrading
+// monthly → annual charges the user immediately (always_invoice), while
+// downgrading annual → monthly defers the change (no refund, applies at
+// the next renewal). A regression here directly impacts user billing.
+func TestChangeCycle_ProrationDirection(t *testing.T) {
+	tests := []struct {
+		name              string
+		fromCycle         domain.BillingCycle
+		toCycle           domain.BillingCycle
+		wantProrateNow    bool
+	}{
+		{"monthly to annual is immediate", domain.CycleMonthly, domain.CycleAnnual, true},
+		{"annual to monthly is deferred", domain.CycleAnnual, domain.CycleMonthly, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, subs, users, _, stripe := newTestService()
+			in := freshDomainInput(users.user.ID)
+			in.BillingCycle = tc.fromCycle
+			existing, _ := domain.NewSubscription(in)
+			_ = existing.Activate()
+			subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+				return existing, nil
+			}
+
+			var gotProrateNow bool
+			stripe.changeCycleFn = func(_ context.Context, subID, newPriceID string, prorateImmediately bool) (service.SubscriptionSnapshot, error) {
+				gotProrateNow = prorateImmediately
+				return service.SubscriptionSnapshot{
+					ID:                 subID,
+					Status:             "active",
+					PriceID:            newPriceID,
+					CurrentPeriodStart: time.Now(),
+					CurrentPeriodEnd:   time.Now().Add(365 * 24 * time.Hour),
+				}, nil
+			}
+
+			_, err := svc.ChangeCycle(context.Background(), users.user.ID, tc.toCycle)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantProrateNow, gotProrateNow,
+				"proration flag drives Stripe billing; regression = user charged wrong amount")
+		})
+	}
 }
 
 func TestChangeCycle_InvalidCycle(t *testing.T) {

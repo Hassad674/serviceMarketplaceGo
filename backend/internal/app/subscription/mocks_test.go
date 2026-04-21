@@ -116,7 +116,7 @@ type mockStripe struct {
 	createCheckoutSessionFn    func(ctx context.Context, in service.CreateCheckoutSessionInput) (string, error)
 	resolvePriceIDFn           func(ctx context.Context, lookupKey string) (string, error)
 	updateCancelAtPeriodEndFn  func(ctx context.Context, stripeSubID string, cancelAtEnd bool) (service.SubscriptionSnapshot, error)
-	changeCycleFn              func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error)
+	changeCycleFn              func(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.SubscriptionSnapshot, error)
 	createPortalSessionFn      func(ctx context.Context, customerID, returnURL string) (string, error)
 
 	lastCreateCheckoutInput *service.CreateCheckoutSessionInput // captured for assertions
@@ -159,9 +159,9 @@ func (m *mockStripe) UpdateCancelAtPeriodEnd(ctx context.Context, stripeSubID st
 	}, nil
 }
 
-func (m *mockStripe) ChangeCycle(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error) {
+func (m *mockStripe) ChangeCycle(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.SubscriptionSnapshot, error) {
 	if m.changeCycleFn != nil {
-		return m.changeCycleFn(ctx, stripeSubID, newPriceID)
+		return m.changeCycleFn(ctx, stripeSubID, newPriceID, prorateImmediately)
 	}
 	return service.SubscriptionSnapshot{
 		ID:                stripeSubID,

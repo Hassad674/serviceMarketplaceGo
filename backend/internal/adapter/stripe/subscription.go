@@ -124,13 +124,11 @@ func (s *SubscriptionService) CreateCheckoutSession(ctx context.Context, in port
 		// Stripe's SubscriptionData does not expose cancel_at_period_end
 		// at creation time for Checkout sessions — we apply it via a
 		// post-creation subscription.update in the webhook handler once
-		// the subscription id is known. To signal intent across the
-		// checkout redirect, store the flag in session metadata so the
-		// webhook handler can read it.
-		if params.Metadata == nil {
-			params.Metadata = make(map[string]string)
-		}
-		params.Metadata["cancel_at_period_end"] = "true"
+		// the subscription id is known. The flag MUST live on the
+		// SubscriptionData metadata (not the session metadata) so it
+		// propagates onto the Stripe Subscription object itself,
+		// where the webhook handler can read it.
+		params.SubscriptionData.Metadata["cancel_at_period_end"] = "true"
 	}
 	params.Context = ctx
 
@@ -157,10 +155,20 @@ func (s *SubscriptionService) UpdateCancelAtPeriodEnd(ctx context.Context, strip
 }
 
 // ChangeCycle swaps the subscription to a new price (monthly <-> annual).
-// Proration is immediate: Stripe invoices the delta or credits the
-// difference on the next invoice. The caller reflects the returned
-// snapshot (new period, new price) into its row.
-func (s *SubscriptionService) ChangeCycle(ctx context.Context, stripeSubID, newPriceID string) (portservice.SubscriptionSnapshot, error) {
+//
+// Direction governs proration:
+//
+//   - Upgrade (monthly → annual, `prorateImmediately=true`): Stripe
+//     invoices the delta immediately via proration_behavior=always_invoice.
+//   - Downgrade (annual → monthly, `prorateImmediately=false`): Stripe
+//     keeps the current period intact via proration_behavior=none. No
+//     credit, no refund. The new price applies only on the next renewal
+//     — matching the product rule "annual is prepaid, the user keeps the
+//     benefit until the period ends".
+//
+// The caller reflects the returned snapshot (new price, period dates) into
+// its row. On downgrade, current_period_end does not change.
+func (s *SubscriptionService) ChangeCycle(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (portservice.SubscriptionSnapshot, error) {
 	// Fetch current subscription to get the active item id — we UPDATE
 	// the price, not create a new line item.
 	existing, err := stripesub.Get(stripeSubID, &stripe.SubscriptionParams{
@@ -174,6 +182,11 @@ func (s *SubscriptionService) ChangeCycle(ctx context.Context, stripeSubID, newP
 	}
 	itemID := existing.Items.Data[0].ID
 
+	prorationBehavior := "none"
+	if prorateImmediately {
+		prorationBehavior = "always_invoice"
+	}
+
 	params := &stripe.SubscriptionParams{
 		Items: []*stripe.SubscriptionItemsParams{
 			{
@@ -181,7 +194,7 @@ func (s *SubscriptionService) ChangeCycle(ctx context.Context, stripeSubID, newP
 				Price: stripe.String(newPriceID),
 			},
 		},
-		ProrationBehavior: stripe.String("always_invoice"),
+		ProrationBehavior: stripe.String(prorationBehavior),
 	}
 	params.Context = ctx
 

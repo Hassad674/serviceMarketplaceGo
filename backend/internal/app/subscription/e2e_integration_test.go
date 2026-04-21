@@ -131,7 +131,7 @@ func (e *e2eStripe) UpdateCancelAtPeriodEnd(_ context.Context, subID string, can
 		CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(30 * 24 * time.Hour),
 	}, nil
 }
-func (e *e2eStripe) ChangeCycle(_ context.Context, subID, newPriceID string) (service.SubscriptionSnapshot, error) {
+func (e *e2eStripe) ChangeCycle(_ context.Context, subID, newPriceID string, _ bool) (service.SubscriptionSnapshot, error) {
 	return service.SubscriptionSnapshot{
 		ID: subID, Status: "active", PriceID: newPriceID,
 		CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(365 * 24 * time.Hour),

@@ -96,6 +96,13 @@ type StripeWebhookEvent struct {
 	SubscriptionUserID    string // from session/subscription metadata
 	SubscriptionPlan      string // parsed from price lookup_key
 	SubscriptionCycle     string // parsed from price lookup_key
+	// SubscriptionCancelAtPeriodEndIntent captures the user's choice at
+	// checkout time (the "auto-renew off by default" product rule).
+	// Stripe Checkout doesn't expose cancel_at_period_end at creation,
+	// so we propagate it via subscription metadata and let the webhook
+	// handler apply the flag post-creation. True iff the metadata key
+	// `cancel_at_period_end` equals "true".
+	SubscriptionCancelAtPeriodEndIntent bool
 	InvoiceSubscriptionID string // parent subscription id on invoice events
 	InvoicePaymentFailed  bool   // true on invoice.payment_failed
 }

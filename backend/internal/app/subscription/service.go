@@ -213,8 +213,15 @@ func (s *Service) ToggleAutoRenew(ctx context.Context, userID uuid.UUID, on bool
 	return sub, nil
 }
 
-// ChangeCycle switches monthly <-> annual. Proration is immediate; Stripe
-// sends a new invoice for the delta or credits the difference.
+// ChangeCycle switches monthly <-> annual.
+//
+// Upgrade (monthly → annual): immediate proration; the user is invoiced
+// the delta right away and the annual period starts now.
+//
+// Downgrade (annual → monthly): deferred. No refund, no credit. The
+// annual period keeps running until its natural end; at renewal Stripe
+// bills the new monthly rate. Current_period_end on the returned
+// snapshot does NOT change on downgrade — the user keeps their benefit.
 func (s *Service) ChangeCycle(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*domain.Subscription, error) {
 	if !newCycle.IsValid() {
 		return nil, domain.ErrInvalidCycle
@@ -237,7 +244,11 @@ func (s *Service) ChangeCycle(ctx context.Context, userID uuid.UUID, newCycle do
 		return nil, fmt.Errorf("change cycle: resolve price: %w", err)
 	}
 
-	snap, err := s.stripe.ChangeCycle(ctx, sub.StripeSubscriptionID, newPriceID)
+	// Only monthly→annual is a paid-upgrade (user adds value, pays delta).
+	// The reverse direction keeps the prepaid annual period intact.
+	prorateImmediately := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
+
+	snap, err := s.stripe.ChangeCycle(ctx, sub.StripeSubscriptionID, newPriceID, prorateImmediately)
 	if err != nil {
 		return nil, fmt.Errorf("change cycle: stripe update: %w", err)
 	}
@@ -323,6 +334,21 @@ func (s *Service) IsActive(ctx context.Context, userID uuid.UUID) (bool, error) 
 		return false, err
 	}
 	return sub.IsPremium(time.Now()), nil
+}
+
+// EnforceCancelAtPeriodEnd sets cancel_at_period_end on the given Stripe
+// subscription id WITHOUT requiring the local DB row to exist. The
+// `customer.subscription.created` webhook calls this to apply the user's
+// "auto-renew off" choice captured in subscription metadata — Stripe
+// Checkout doesn't expose the flag at creation time, so we apply it
+// post-hoc before persisting the local row.
+//
+// Thin wrapper over the Stripe adapter: the webhook handler depends on
+// the subscription app service (not the Stripe adapter directly) so
+// removing the feature still cleanly disables this call path.
+func (s *Service) EnforceCancelAtPeriodEnd(ctx context.Context, stripeSubID string, cancelAtEnd bool) error {
+	_, err := s.stripe.UpdateCancelAtPeriodEnd(ctx, stripeSubID, cancelAtEnd)
+	return err
 }
 
 // HandleSubscriptionSnapshot reflects a Stripe subscription snapshot

@@ -179,13 +179,34 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 	// RegisterFromCheckout call below is the canonical insert path.
 	customerID := "" // RegisterFromCheckout resolves via EnsureCustomer
 
+	// Enforce the user's auto-renew choice captured at checkout. Stripe
+	// Checkout doesn't support cancel_at_period_end at session creation,
+	// so the flag rides in subscription metadata and we apply it here via
+	// a secondary update. We mutate the snapshot BEFORE persisting so the
+	// DB row reflects the user's intent from the very first insert, then
+	// propagate the change to Stripe. A follow-up
+	// customer.subscription.updated will arrive and reconfirm; its
+	// idempotent snapshot handler makes that a no-op.
+	snap := *event.SubscriptionSnapshot
+	if event.SubscriptionCancelAtPeriodEndIntent && !snap.CancelAtPeriodEnd {
+		if uErr := h.subscriptionSvc.EnforceCancelAtPeriodEnd(r.Context(), snap.ID, true); uErr != nil {
+			// Log and proceed with the original snapshot — the next
+			// customer.subscription.updated event will sync the flag if
+			// the update succeeds eventually.
+			slog.Warn("stripe webhook: enforce cancel_at_period_end failed, persisting Stripe default",
+				"event_id", event.EventID, "stripe_sub_id", snap.ID, "error", uErr)
+		} else {
+			snap.CancelAtPeriodEnd = true
+		}
+	}
+
 	err = h.subscriptionSvc.RegisterFromCheckout(
 		r.Context(),
 		userID,
 		subscriptiondomain.Plan(event.SubscriptionPlan),
 		subscriptiondomain.BillingCycle(event.SubscriptionCycle),
 		customerID,
-		*event.SubscriptionSnapshot,
+		snap,
 	)
 	if err != nil {
 		slog.Error("stripe webhook: register subscription failed",

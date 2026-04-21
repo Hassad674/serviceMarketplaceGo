@@ -34,9 +34,15 @@ type StripeSubscriptionService interface {
 	UpdateCancelAtPeriodEnd(ctx context.Context, stripeSubscriptionID string, cancelAtEnd bool) (SubscriptionSnapshot, error)
 
 	// ChangeCycle switches the subscription to a new price (monthly <->
-	// annual). proration_behavior is always "always_invoice" so the
-	// user is charged/credited immediately.
-	ChangeCycle(ctx context.Context, stripeSubscriptionID string, newPriceID string) (SubscriptionSnapshot, error)
+	// annual).
+	//
+	// When `prorateImmediately` is true (upgrade monthly→annual), the
+	// adapter sets proration_behavior="always_invoice" so the user is
+	// charged the delta immediately. When false (downgrade annual→
+	// monthly), the adapter sets proration_behavior="none" — no refund,
+	// the new price takes effect only at the next renewal, matching
+	// the product rule "annual is prepaid, keep the benefit".
+	ChangeCycle(ctx context.Context, stripeSubscriptionID string, newPriceID string, prorateImmediately bool) (SubscriptionSnapshot, error)
 
 	// CreatePortalSession returns a Customer Portal URL so the user can
 	// update their payment method and view invoices without us

@@ -125,7 +125,7 @@ func (s *subHandlerStripe) UpdateCancelAtPeriodEnd(_ context.Context, subID stri
 		CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(30 * 24 * time.Hour),
 	}, nil
 }
-func (s *subHandlerStripe) ChangeCycle(_ context.Context, subID, newPriceID string) (service.SubscriptionSnapshot, error) {
+func (s *subHandlerStripe) ChangeCycle(_ context.Context, subID, newPriceID string, _ bool) (service.SubscriptionSnapshot, error) {
 	return service.SubscriptionSnapshot{
 		ID: subID, Status: "active", PriceID: newPriceID,
 		CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(365 * 24 * time.Hour),

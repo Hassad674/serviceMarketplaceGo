@@ -56,6 +56,10 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 		result.SubscriptionDeleted = event.Type == "customer.subscription.deleted"
 		if sub.Metadata != nil {
 			result.SubscriptionUserID = sub.Metadata["user_id"]
+			// The UI sends "auto-renew off" by default via this metadata
+			// key (Stripe Checkout does not support cancel_at_period_end
+			// at creation time, see CreateCheckoutSession).
+			result.SubscriptionCancelAtPeriodEndIntent = sub.Metadata["cancel_at_period_end"] == "true"
 		}
 		plan, cycle := parsePlanCycleFromSubscription(&sub)
 		result.SubscriptionPlan = plan
