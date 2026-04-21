@@ -174,11 +174,6 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 		return
 	}
 
-	// Look up the customer id via the stored subscription if this row
-	// already exists (edge case: events out of order) — otherwise the
-	// RegisterFromCheckout call below is the canonical insert path.
-	customerID := "" // RegisterFromCheckout resolves via EnsureCustomer
-
 	// Enforce the user's auto-renew choice captured at checkout. Stripe
 	// Checkout doesn't support cancel_at_period_end at session creation,
 	// so the flag rides in subscription metadata and we apply it here via
@@ -205,7 +200,7 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 		userID,
 		subscriptiondomain.Plan(event.SubscriptionPlan),
 		subscriptiondomain.BillingCycle(event.SubscriptionCycle),
-		customerID,
+		snap.CustomerID,
 		snap,
 	)
 	if err != nil {
