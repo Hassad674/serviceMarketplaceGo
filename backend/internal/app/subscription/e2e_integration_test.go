@@ -131,10 +131,32 @@ func (e *e2eStripe) UpdateCancelAtPeriodEnd(_ context.Context, subID string, can
 		CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(30 * 24 * time.Hour),
 	}, nil
 }
-func (e *e2eStripe) ChangeCycle(_ context.Context, subID, newPriceID string, _ bool) (service.SubscriptionSnapshot, error) {
+func (e *e2eStripe) ChangeCycleImmediate(_ context.Context, subID, newPriceID string) (service.SubscriptionSnapshot, error) {
 	return service.SubscriptionSnapshot{
 		ID: subID, Status: "active", PriceID: newPriceID,
 		CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(365 * 24 * time.Hour),
+	}, nil
+}
+func (e *e2eStripe) ScheduleCycleChange(_ context.Context, subID, newPriceID string) (service.ScheduledCycleChange, error) {
+	effectiveAt := time.Now().Add(365 * 24 * time.Hour)
+	return service.ScheduledCycleChange{
+		ScheduleID:  "sched_e2e_" + subID,
+		EffectiveAt: effectiveAt,
+		Snapshot: service.SubscriptionSnapshot{
+			ID: subID, Status: "active", PriceID: "price_current",
+			CurrentPeriodStart: time.Now(), CurrentPeriodEnd: effectiveAt,
+		},
+	}, nil
+}
+func (e *e2eStripe) ReleaseSchedule(_ context.Context, _ string) error { return nil }
+func (e *e2eStripe) PreviewCycleChange(_ context.Context, _ string, _ string, prorateImmediately bool) (service.InvoicePreview, error) {
+	amount := int64(0)
+	if prorateImmediately {
+		amount = 41900
+	}
+	return service.InvoicePreview{
+		AmountDueCents: amount, Currency: "eur",
+		PeriodStart: time.Now(), PeriodEnd: time.Now().Add(365 * 24 * time.Hour),
 	}, nil
 }
 func (e *e2eStripe) CreatePortalSession(_ context.Context, customerID, _ string) (string, error) {

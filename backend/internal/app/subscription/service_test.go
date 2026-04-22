@@ -211,7 +211,7 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
-	stripe.changeCycleFn = func(ctx context.Context, stripeSubID, newPriceID string, _ bool) (service.SubscriptionSnapshot, error) {
+	stripe.changeCycleImmediateFn = func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error) {
 		return service.SubscriptionSnapshot{
 			ID:                 stripeSubID,
 			Status:             "active",
@@ -224,10 +224,12 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 	got, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleAnnual)
 
 	require.NoError(t, err)
-	assert.Equal(t, domain.CycleAnnual, got.BillingCycle)
+	assert.Equal(t, domain.CycleAnnual, got.BillingCycle, "upgrade applies immediately")
+	assert.False(t, got.HasPendingCycleChange(), "upgrade MUST NOT leave a pending schedule")
 }
 
 func TestChangeCycle_AnnualToMonthly(t *testing.T) {
+	// Downgrade = scheduled, current cycle UNCHANGED, pending tuple set.
 	svc, subs, users, _, _ := newTestService()
 	in := freshDomainInput(users.user.ID)
 	in.BillingCycle = domain.CycleAnnual
@@ -240,7 +242,12 @@ func TestChangeCycle_AnnualToMonthly(t *testing.T) {
 	got, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleMonthly)
 
 	require.NoError(t, err)
-	assert.Equal(t, domain.CycleMonthly, got.BillingCycle)
+	// CURRENT cycle stays annual — user keeps prepaid access until phase 2.
+	assert.Equal(t, domain.CycleAnnual, got.BillingCycle, "downgrade defers; current cycle MUST stay annual")
+	require.True(t, got.HasPendingCycleChange())
+	assert.Equal(t, domain.CycleMonthly, *got.PendingBillingCycle, "pending target = monthly")
+	require.NotNil(t, got.StripeScheduleID)
+	assert.NotEmpty(t, *got.StripeScheduleID)
 }
 
 func TestChangeCycle_SameCycle(t *testing.T) {
@@ -256,50 +263,110 @@ func TestChangeCycle_SameCycle(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrSameCycle)
 }
 
-// TestChangeCycle_ProrationDirection locks in the product rule: upgrading
-// monthly → annual charges the user immediately (always_invoice), while
-// downgrading annual → monthly defers the change (no refund, applies at
-// the next renewal). A regression here directly impacts user billing.
-func TestChangeCycle_ProrationDirection(t *testing.T) {
-	tests := []struct {
-		name              string
-		fromCycle         domain.BillingCycle
-		toCycle           domain.BillingCycle
-		wantProrateNow    bool
-	}{
-		{"monthly to annual is immediate", domain.CycleMonthly, domain.CycleAnnual, true},
-		{"annual to monthly is deferred", domain.CycleAnnual, domain.CycleMonthly, false},
+// TestChangeCycle_DirectionRouting locks in the product rule: upgrading
+// monthly → annual calls Stripe with an immediate charge path
+// (ChangeCycleImmediate), while downgrading annual → monthly uses the
+// scheduled path (ScheduleCycleChange) which preserves the prepaid
+// annual period. A regression here either double-charges the user or
+// makes them lose their annual access — both are billing-critical bugs.
+func TestChangeCycle_DirectionRouting(t *testing.T) {
+	t.Run("upgrade monthly->annual calls ChangeCycleImmediate", func(t *testing.T) {
+		svc, subs, users, _, stripe := newTestService()
+		in := freshDomainInput(users.user.ID)
+		in.BillingCycle = domain.CycleMonthly
+		existing, _ := domain.NewSubscription(in)
+		_ = existing.Activate()
+		subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+			return existing, nil
+		}
+
+		var immediateCalled, scheduleCalled bool
+		stripe.changeCycleImmediateFn = func(_ context.Context, subID, newPriceID string) (service.SubscriptionSnapshot, error) {
+			immediateCalled = true
+			return service.SubscriptionSnapshot{
+				ID: subID, Status: "active", PriceID: newPriceID,
+				CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(365 * 24 * time.Hour),
+			}, nil
+		}
+		stripe.scheduleCycleChangeFn = func(_ context.Context, _, _ string) (service.ScheduledCycleChange, error) {
+			scheduleCalled = true
+			return service.ScheduledCycleChange{}, nil
+		}
+
+		_, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleAnnual)
+		require.NoError(t, err)
+		assert.True(t, immediateCalled, "upgrade MUST use immediate-proration path")
+		assert.False(t, scheduleCalled, "upgrade MUST NOT create a subscription schedule")
+	})
+
+	t.Run("downgrade annual->monthly calls ScheduleCycleChange", func(t *testing.T) {
+		svc, subs, users, _, stripe := newTestService()
+		in := freshDomainInput(users.user.ID)
+		in.BillingCycle = domain.CycleAnnual
+		existing, _ := domain.NewSubscription(in)
+		_ = existing.Activate()
+		subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+			return existing, nil
+		}
+
+		var immediateCalled, scheduleCalled bool
+		stripe.changeCycleImmediateFn = func(_ context.Context, _, _ string) (service.SubscriptionSnapshot, error) {
+			immediateCalled = true
+			return service.SubscriptionSnapshot{}, nil
+		}
+		stripe.scheduleCycleChangeFn = func(_ context.Context, subID, _ string) (service.ScheduledCycleChange, error) {
+			scheduleCalled = true
+			effectiveAt := time.Now().Add(365 * 24 * time.Hour)
+			return service.ScheduledCycleChange{
+				ScheduleID:  "sched_abc",
+				EffectiveAt: effectiveAt,
+				Snapshot: service.SubscriptionSnapshot{
+					ID: subID, Status: "active",
+					CurrentPeriodStart: time.Now(), CurrentPeriodEnd: effectiveAt,
+				},
+			}, nil
+		}
+
+		_, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleMonthly)
+		require.NoError(t, err)
+		assert.False(t, immediateCalled, "downgrade MUST NOT use immediate-proration path (would lose annual access)")
+		assert.True(t, scheduleCalled, "downgrade MUST go through Stripe Subscription Schedules")
+	})
+}
+
+// TestChangeCycle_UpgradeReleasesStaleSchedule: if a user scheduled a
+// downgrade, then changes their mind and upgrades, the existing schedule
+// MUST be released before the immediate upgrade runs — Stripe rejects
+// subscription.update when a schedule is still managing the subscription.
+func TestChangeCycle_UpgradeReleasesStaleSchedule(t *testing.T) {
+	svc, subs, users, _, stripe := newTestService()
+	in := freshDomainInput(users.user.ID)
+	in.BillingCycle = domain.CycleMonthly
+	existing, _ := domain.NewSubscription(in)
+	_ = existing.Activate()
+	effectiveAt := time.Now().Add(365 * 24 * time.Hour)
+	require.NoError(t, existing.SchedulePendingCycle(domain.CycleAnnual, effectiveAt, "sched_stale"))
+	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+		return existing, nil
 	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			svc, subs, users, _, stripe := newTestService()
-			in := freshDomainInput(users.user.ID)
-			in.BillingCycle = tc.fromCycle
-			existing, _ := domain.NewSubscription(in)
-			_ = existing.Activate()
-			subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
-				return existing, nil
-			}
 
-			var gotProrateNow bool
-			stripe.changeCycleFn = func(_ context.Context, subID, newPriceID string, prorateImmediately bool) (service.SubscriptionSnapshot, error) {
-				gotProrateNow = prorateImmediately
-				return service.SubscriptionSnapshot{
-					ID:                 subID,
-					Status:             "active",
-					PriceID:            newPriceID,
-					CurrentPeriodStart: time.Now(),
-					CurrentPeriodEnd:   time.Now().Add(365 * 24 * time.Hour),
-				}, nil
-			}
-
-			_, err := svc.ChangeCycle(context.Background(), users.user.ID, tc.toCycle)
-			require.NoError(t, err)
-
-			assert.Equal(t, tc.wantProrateNow, gotProrateNow,
-				"proration flag drives Stripe billing; regression = user charged wrong amount")
-		})
+	var releasedID string
+	stripe.releaseScheduleFn = func(_ context.Context, id string) error {
+		releasedID = id
+		return nil
 	}
+	stripe.changeCycleImmediateFn = func(_ context.Context, subID, newPriceID string) (service.SubscriptionSnapshot, error) {
+		return service.SubscriptionSnapshot{
+			ID: subID, Status: "active", PriceID: newPriceID,
+			CurrentPeriodStart: time.Now(), CurrentPeriodEnd: time.Now().Add(365 * 24 * time.Hour),
+		}, nil
+	}
+
+	// Re-upgrade to annual (the already-scheduled target — but direct now).
+	got, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleAnnual)
+	require.NoError(t, err)
+	assert.Equal(t, "sched_stale", releasedID, "the existing schedule MUST be released first")
+	assert.False(t, got.HasPendingCycleChange(), "no pending state after a direct upgrade")
 }
 
 func TestChangeCycle_InvalidCycle(t *testing.T) {

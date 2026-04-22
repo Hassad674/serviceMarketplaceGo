@@ -7,8 +7,9 @@ import { useSubscription } from "../hooks/use-subscription"
 import { useSubscriptionStats } from "../hooks/use-subscription-stats"
 import { useToggleAutoRenew } from "../hooks/use-toggle-auto-renew"
 import { useChangeCycle } from "../hooks/use-change-cycle"
+import { useCyclePreview } from "../hooks/use-cycle-preview"
 import { usePortalURL } from "../hooks/use-portal"
-import type { BillingCycle, Subscription } from "../types"
+import type { BillingCycle, CyclePreview, Subscription } from "../types"
 
 type ManageModalProps = {
 	open: boolean
@@ -57,6 +58,11 @@ function PlanSummary({ subscription }: { subscription: Subscription }) {
   const planLabel = subscription.plan === "agency" ? "Premium Agence" : "Premium Freelance"
   const price = priceOf(subscription.plan, subscription.billing_cycle)
   const cycle = subscription.billing_cycle === "annual" ? "Annuel" : "Mensuel"
+  const nextCycleLabel = subscription.pending_billing_cycle === "monthly"
+    ? "Mensuel"
+    : subscription.pending_billing_cycle === "annual"
+      ? "Annuel"
+      : null
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40">
       <div className="flex items-start justify-between gap-3">
@@ -76,6 +82,15 @@ function PlanSummary({ subscription }: { subscription: Subscription }) {
           </span>
         </p>
       </div>
+      {nextCycleLabel && subscription.pending_cycle_effective_at ? (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          Passage en {nextCycleLabel.toLowerCase()} prévu le{" "}
+          <span className="font-semibold">
+            {formatDate(subscription.pending_cycle_effective_at)}
+          </span>
+          . Tu gardes ton accès {cycle.toLowerCase()} jusqu'à cette date.
+        </p>
+      ) : null}
     </div>
   )
 }
@@ -160,17 +175,27 @@ function SwitchToggle({
 }
 
 function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
-  const [confirming, setConfirming] = useState(false)
+  const [target, setTarget] = useState<BillingCycle | null>(null)
   const change = useChangeCycle()
-  const target: BillingCycle = subscription.billing_cycle === "monthly" ? "annual" : "monthly"
+  const preview = useCyclePreview(target)
+  const nextTarget: BillingCycle =
+    subscription.billing_cycle === "monthly" ? "annual" : "monthly"
   const label =
-    target === "annual" ? "Passer à l'annuel (-21%)" : "Repasser en mensuel"
+    nextTarget === "annual" ? "Passer à l'annuel (-21%)" : "Repasser en mensuel"
 
+  const handleCancel = useCallback(() => setTarget(null), [])
   const handleConfirm = useCallback(() => {
+    if (!target) return
     change.mutate(target, {
-      onSuccess: () => setConfirming(false),
+      onSuccess: () => setTarget(null),
     })
   }, [change, target])
+
+  // If a schedule is already pending, swap the CTA to "Annuler le
+  // passage programmé" — re-confirming the current cycle releases the
+  // schedule cleanly. V1 keeps this implicit via the upgrade path
+  // clearing pendings; a dedicated cancel button is a B.2 concern.
+  const hasPending = Boolean(subscription.pending_billing_cycle)
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/30">
@@ -180,23 +205,29 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
           {subscription.billing_cycle === "annual" ? "annuel" : "mensuel"}
         </span>
       </p>
-      {confirming ? (
+      {target ? (
         <ConfirmCycleChange
-          onCancel={() => setConfirming(false)}
-          onConfirm={handleConfirm}
+          target={target}
+          preview={preview.data ?? null}
+          loading={preview.isLoading}
+          error={preview.isError}
           pending={change.isPending}
+          onCancel={handleCancel}
+          onConfirm={handleConfirm}
         />
       ) : (
         <button
           type="button"
-          onClick={() => setConfirming(true)}
+          onClick={() => setTarget(nextTarget)}
+          disabled={hasPending}
           className={cn(
             "mt-2 w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600",
             "transition-colors duration-200 hover:bg-rose-100",
             "dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20",
+            "disabled:cursor-not-allowed disabled:opacity-60",
           )}
         >
-          {label}
+          {hasPending ? "Changement déjà programmé" : label}
         </button>
       )}
     </div>
@@ -204,19 +235,25 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
 }
 
 function ConfirmCycleChange({
+  target,
+  preview,
+  loading,
+  error,
+  pending,
   onCancel,
   onConfirm,
-  pending,
 }: {
+  target: BillingCycle
+  preview: CyclePreview | null
+  loading: boolean
+  error: boolean
+  pending: boolean
   onCancel: () => void
   onConfirm: () => void
-  pending: boolean
 }) {
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-xs text-slate-600 dark:text-slate-300">
-        En confirmant, Stripe applique une proration immédiate pour le montant restant.
-      </p>
+      <PreviewMessage target={target} preview={preview} loading={loading} error={error} />
       <div className="flex gap-2">
         <button
           type="button"
@@ -229,7 +266,7 @@ function ConfirmCycleChange({
         <button
           type="button"
           onClick={onConfirm}
-          disabled={pending}
+          disabled={pending || loading || error}
           className={cn(
             "flex-1 rounded-lg bg-rose-500 px-3 py-2 text-xs font-semibold text-white",
             "transition-all hover:bg-rose-600 active:scale-[0.98]",
@@ -240,6 +277,56 @@ function ConfirmCycleChange({
         </button>
       </div>
     </div>
+  )
+}
+
+function PreviewMessage({
+  target,
+  preview,
+  loading,
+  error,
+}: {
+  target: BillingCycle
+  preview: CyclePreview | null
+  loading: boolean
+  error: boolean
+}) {
+  if (loading) {
+    return (
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Calcul du montant…
+      </p>
+    )
+  }
+  if (error || !preview) {
+    return (
+      <p className="text-xs text-red-600 dark:text-red-400">
+        Impossible d&apos;afficher le montant. Réessaie plus tard.
+      </p>
+    )
+  }
+  if (preview.prorate_immediately) {
+    // Upgrade — Stripe charges the delta today.
+    return (
+      <p className="text-xs text-slate-600 dark:text-slate-300">
+        Tu seras facturé{" "}
+        <span className="font-semibold text-slate-900 dark:text-white">
+          {formatCurrency(preview.amount_due_cents / 100)}
+        </span>{" "}
+        aujourd&apos;hui. Ton cycle passe en{" "}
+        {target === "annual" ? "annuel" : "mensuel"} immédiatement.
+      </p>
+    )
+  }
+  // Downgrade — scheduled, no charge today, user keeps current access.
+  return (
+    <p className="text-xs text-slate-600 dark:text-slate-300">
+      Aucun débit aujourd&apos;hui. Tu gardes ton accès jusqu&apos;au{" "}
+      <span className="font-semibold text-slate-900 dark:text-white">
+        {formatDate(preview.period_end)}
+      </span>
+      , puis tu passeras en {target === "annual" ? "annuel" : "mensuel"}.
+    </p>
   )
 }
 

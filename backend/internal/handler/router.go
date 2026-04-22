@@ -642,6 +642,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Patch("/me/auto-renew", deps.Subscription.ToggleAutoRenew)
 				r.Patch("/me/billing-cycle", deps.Subscription.ChangeCycle)
 				r.Get("/me/stats", deps.Subscription.GetStats)
+				r.Get("/me/cycle-preview", deps.Subscription.PreviewCycleChange)
 				r.Get("/portal", deps.Subscription.GetPortal)
 			})
 		}

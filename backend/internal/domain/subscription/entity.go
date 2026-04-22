@@ -111,6 +111,24 @@ type Subscription struct {
 	// "fees saved since subscribing" stats. Set on Activate().
 	StartedAt time.Time
 
+	// PendingBillingCycle + PendingCycleEffectiveAt + StripeScheduleID
+	// describe a scheduled cycle change (typically a downgrade annual →
+	// monthly) that is NOT yet applied. All three fields are set together
+	// or all three are nil; the DB CHECK constraint enforces the invariant.
+	//
+	// While pending:
+	//   - BillingCycle + StripePriceID + CurrentPeriodEnd still reflect the
+	//     CURRENT (paid) phase — the user keeps that access.
+	//   - PendingBillingCycle is the cycle that takes effect at
+	//     PendingCycleEffectiveAt, backed by the Stripe subscription schedule.
+	//   - The UI shows "Annuel jusqu'au 22/04/2027 → Mensuel ensuite".
+	//
+	// Cleared by ApplyScheduledCycle (webhook fires when phase 2 starts)
+	// or by ClearScheduledCycle (user cancelled the planned downgrade).
+	PendingBillingCycle       *BillingCycle
+	PendingCycleEffectiveAt   *time.Time
+	StripeScheduleID          *string
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -249,11 +267,14 @@ func (s *Subscription) SetAutoRenew(on bool) {
 	s.UpdatedAt = time.Now()
 }
 
-// ChangeCycle switches monthly <-> annual. Both directions are supported
-// in V1 — Stripe handles proration with proration_behavior=always_invoice
-// so the user is charged/credited immediately. The new StripePriceID and
-// current period are provided by the caller (from Stripe's response to
-// the subscription update call).
+// ChangeCycle swaps the current cycle IMMEDIATELY: used only for upgrades
+// (monthly → annual) where Stripe's always_invoice proration charges the
+// delta right away. The caller feeds back Stripe's post-update snapshot
+// (new price, new period) so DB and Stripe stay aligned.
+//
+// Downgrades (annual → monthly) MUST go through SchedulePendingCycle
+// instead — they don't change the current cycle, they schedule a future
+// transition so the user keeps access for the period they already paid.
 func (s *Subscription) ChangeCycle(newCycle BillingCycle, newPriceID string, newPeriodStart, newPeriodEnd time.Time) error {
 	if s.Status != StatusActive && s.Status != StatusPastDue {
 		return ErrInvalidTransition
@@ -274,8 +295,91 @@ func (s *Subscription) ChangeCycle(newCycle BillingCycle, newPriceID string, new
 	s.StripePriceID = newPriceID
 	s.CurrentPeriodStart = newPeriodStart
 	s.CurrentPeriodEnd = newPeriodEnd
+	// Any direct cycle change supersedes a pending schedule.
+	s.clearPending()
 	s.UpdatedAt = time.Now()
 	return nil
+}
+
+// SchedulePendingCycle records a future cycle switch without changing
+// the CURRENT cycle. Used by the downgrade path (annual → monthly): the
+// user keeps their paid annual access until `effectiveAt`, then Stripe
+// transitions the subscription to the new cycle automatically (our
+// customer.subscription.updated webhook fires ApplyScheduledCycle).
+//
+// Preconditions:
+//   - Subscription must be active or past_due.
+//   - newCycle must differ from the current cycle.
+//   - scheduleID, effectiveAt must be set (Stripe's returned values).
+//
+// Overwriting an existing pending cycle is allowed — the app layer is
+// expected to release the previous Stripe schedule first.
+func (s *Subscription) SchedulePendingCycle(newCycle BillingCycle, effectiveAt time.Time, scheduleID string) error {
+	if s.Status != StatusActive && s.Status != StatusPastDue {
+		return ErrInvalidTransition
+	}
+	if !newCycle.IsValid() {
+		return ErrInvalidCycle
+	}
+	if newCycle == s.BillingCycle {
+		return ErrSameCycle
+	}
+	if scheduleID == "" {
+		return ErrMissingStripeIDs
+	}
+	cycle := newCycle
+	when := effectiveAt
+	sid := scheduleID
+	s.PendingBillingCycle = &cycle
+	s.PendingCycleEffectiveAt = &when
+	s.StripeScheduleID = &sid
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+// ClearScheduledCycle cancels a pending cycle switch (the user changed
+// their mind before the transition date, or they re-upgraded and the
+// schedule was released). Safe no-op when nothing is scheduled.
+func (s *Subscription) ClearScheduledCycle() {
+	s.clearPending()
+	s.UpdatedAt = time.Now()
+}
+
+// ApplyScheduledCycle promotes a pending cycle into the current cycle.
+// Called by the webhook handler when Stripe fires the phase transition
+// (customer.subscription.updated with the new price on the item). The
+// caller provides the post-transition snapshot so we overwrite CurrentPeriod*
+// and StripePriceID from the authoritative source.
+//
+// Returns ErrInvalidTransition when no pending cycle exists.
+func (s *Subscription) ApplyScheduledCycle(newPriceID string, newPeriodStart, newPeriodEnd time.Time) error {
+	if s.PendingBillingCycle == nil {
+		return ErrInvalidTransition
+	}
+	if newPriceID == "" {
+		return ErrMissingStripeIDs
+	}
+	if newPeriodEnd.Before(newPeriodStart) {
+		return ErrInvalidPeriod
+	}
+	s.BillingCycle = *s.PendingBillingCycle
+	s.StripePriceID = newPriceID
+	s.CurrentPeriodStart = newPeriodStart
+	s.CurrentPeriodEnd = newPeriodEnd
+	s.clearPending()
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+// HasPendingCycleChange is a read helper for the handler DTO.
+func (s *Subscription) HasPendingCycleChange() bool {
+	return s.PendingBillingCycle != nil
+}
+
+func (s *Subscription) clearPending() {
+	s.PendingBillingCycle = nil
+	s.PendingCycleEffectiveAt = nil
+	s.StripeScheduleID = nil
 }
 
 // IsPremium answers the ONLY question the billing layer cares about:

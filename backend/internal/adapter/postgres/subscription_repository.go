@@ -31,7 +31,9 @@ const subscriptionColumns = `
 	stripe_customer_id, stripe_subscription_id, stripe_price_id,
 	current_period_start, current_period_end,
 	cancel_at_period_end, grace_period_ends_at, canceled_at,
-	started_at, created_at, updated_at
+	started_at,
+	pending_billing_cycle, pending_cycle_effective_at, stripe_schedule_id,
+	created_at, updated_at
 `
 
 func (r *SubscriptionRepository) Create(ctx context.Context, s *domain.Subscription) error {
@@ -44,21 +46,36 @@ func (r *SubscriptionRepository) Create(ctx context.Context, s *domain.Subscript
 			stripe_customer_id, stripe_subscription_id, stripe_price_id,
 			current_period_start, current_period_end,
 			cancel_at_period_end, grace_period_ends_at, canceled_at,
-			started_at, created_at, updated_at
+			started_at,
+			pending_billing_cycle, pending_cycle_effective_at, stripe_schedule_id,
+			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16
+			$11, $12, $13, $14, $15, $16, $17, $18, $19
 		)`,
 		s.ID, s.UserID, string(s.Plan), string(s.BillingCycle), string(s.Status),
 		s.StripeCustomerID, s.StripeSubscriptionID, s.StripePriceID,
 		s.CurrentPeriodStart, s.CurrentPeriodEnd,
 		s.CancelAtPeriodEnd, s.GracePeriodEndsAt, s.CanceledAt,
-		s.StartedAt, s.CreatedAt, s.UpdatedAt,
+		s.StartedAt,
+		pendingCycleStringOrNil(s.PendingBillingCycle), s.PendingCycleEffectiveAt, s.StripeScheduleID,
+		s.CreatedAt, s.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert subscription: %w", err)
 	}
 	return nil
+}
+
+// pendingCycleStringOrNil returns the BillingCycle as a pointer-to-string
+// so Postgres receives NULL when the tuple is absent. The `all-or-none`
+// CHECK constraint depends on this being NULL, not "".
+func pendingCycleStringOrNil(c *domain.BillingCycle) *string {
+	if c == nil {
+		return nil
+	}
+	str := string(*c)
+	return &str
 }
 
 func (r *SubscriptionRepository) FindOpenByUser(ctx context.Context, userID uuid.UUID) (*domain.Subscription, error) {
@@ -123,6 +140,9 @@ func (r *SubscriptionRepository) Update(ctx context.Context, s *domain.Subscript
 			grace_period_ends_at = $11,
 			canceled_at = $12,
 			started_at = $13,
+			pending_billing_cycle = $14,
+			pending_cycle_effective_at = $15,
+			stripe_schedule_id = $16,
 			updated_at = now()
 		WHERE id = $1`,
 		s.ID, string(s.Plan), string(s.BillingCycle), string(s.Status),
@@ -130,6 +150,7 @@ func (r *SubscriptionRepository) Update(ctx context.Context, s *domain.Subscript
 		s.CurrentPeriodStart, s.CurrentPeriodEnd,
 		s.CancelAtPeriodEnd, s.GracePeriodEndsAt, s.CanceledAt,
 		s.StartedAt,
+		pendingCycleStringOrNil(s.PendingBillingCycle), s.PendingCycleEffectiveAt, s.StripeScheduleID,
 	)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)
@@ -146,19 +167,24 @@ func (r *SubscriptionRepository) Update(ctx context.Context, s *domain.Subscript
 // normalised to Go native types/pointers.
 func scanSubscription(row *sql.Row) (*domain.Subscription, error) {
 	var (
-		s              domain.Subscription
-		plan           string
-		cycle          string
-		status         string
-		gracePeriod    sql.NullTime
-		canceledAt     sql.NullTime
+		s                  domain.Subscription
+		plan               string
+		cycle              string
+		status             string
+		gracePeriod        sql.NullTime
+		canceledAt         sql.NullTime
+		pendingCycle       sql.NullString
+		pendingEffectiveAt sql.NullTime
+		scheduleID         sql.NullString
 	)
 	err := row.Scan(
 		&s.ID, &s.UserID, &plan, &cycle, &status,
 		&s.StripeCustomerID, &s.StripeSubscriptionID, &s.StripePriceID,
 		&s.CurrentPeriodStart, &s.CurrentPeriodEnd,
 		&s.CancelAtPeriodEnd, &gracePeriod, &canceledAt,
-		&s.StartedAt, &s.CreatedAt, &s.UpdatedAt,
+		&s.StartedAt,
+		&pendingCycle, &pendingEffectiveAt, &scheduleID,
+		&s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -171,6 +197,18 @@ func scanSubscription(row *sql.Row) (*domain.Subscription, error) {
 	}
 	if canceledAt.Valid {
 		s.CanceledAt = &canceledAt.Time
+	}
+	if pendingCycle.Valid {
+		c := domain.BillingCycle(pendingCycle.String)
+		s.PendingBillingCycle = &c
+	}
+	if pendingEffectiveAt.Valid {
+		t := pendingEffectiveAt.Time
+		s.PendingCycleEffectiveAt = &t
+	}
+	if scheduleID.Valid {
+		sid := scheduleID.String
+		s.StripeScheduleID = &sid
 	}
 	return &s, nil
 }

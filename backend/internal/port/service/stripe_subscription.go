@@ -33,16 +33,36 @@ type StripeSubscriptionService interface {
 	// caller must refresh the local row from the returned snapshot.
 	UpdateCancelAtPeriodEnd(ctx context.Context, stripeSubscriptionID string, cancelAtEnd bool) (SubscriptionSnapshot, error)
 
-	// ChangeCycle switches the subscription to a new price (monthly <->
-	// annual).
-	//
-	// When `prorateImmediately` is true (upgrade monthly→annual), the
-	// adapter sets proration_behavior="always_invoice" so the user is
-	// charged the delta immediately. When false (downgrade annual→
-	// monthly), the adapter sets proration_behavior="none" — no refund,
-	// the new price takes effect only at the next renewal, matching
-	// the product rule "annual is prepaid, keep the benefit".
-	ChangeCycle(ctx context.Context, stripeSubscriptionID string, newPriceID string, prorateImmediately bool) (SubscriptionSnapshot, error)
+	// ChangeCycleImmediate swaps the subscription to a new price with
+	// immediate effect and proration (always_invoice). Used only for
+	// UPGRADES (monthly → annual): the user is charged the delta now.
+	// DO NOT use for downgrades — Stripe will recompute the period end
+	// and the user loses the access they already paid for; use
+	// ScheduleCycleChange instead.
+	ChangeCycleImmediate(ctx context.Context, stripeSubscriptionID string, newPriceID string) (SubscriptionSnapshot, error)
+
+	// ScheduleCycleChange defers a cycle change to the end of the
+	// current period via a Stripe Subscription Schedule. Used for
+	// DOWNGRADES (annual → monthly): the user keeps their annual
+	// access until the period ends, then Stripe transitions to the new
+	// price automatically. Returns the schedule id and effective date
+	// so the app layer can store the pending state on the domain row.
+	ScheduleCycleChange(ctx context.Context, stripeSubscriptionID string, newPriceID string) (ScheduledCycleChange, error)
+
+	// ReleaseSchedule detaches the subscription from its schedule
+	// without altering the current billing cycle. Used when the user
+	// cancels a pending downgrade (re-upgrades before the phase fires)
+	// or when the orchestration layer needs to revert to a plain
+	// subscription to then run an immediate upgrade on top.
+	ReleaseSchedule(ctx context.Context, stripeScheduleID string) error
+
+	// PreviewCycleChange computes the amount that would be charged /
+	// credited if the subscription switched to the given price with the
+	// given proration behaviour. Backed by Stripe's invoices.upcoming
+	// API — no state is mutated. The UI surfaces this number in the
+	// confirm step so the user always sees what they will pay BEFORE
+	// clicking "Confirmer".
+	PreviewCycleChange(ctx context.Context, stripeSubscriptionID string, newPriceID string, prorateImmediately bool) (InvoicePreview, error)
 
 	// CreatePortalSession returns a Customer Portal URL so the user can
 	// update their payment method and view invoices without us
@@ -59,6 +79,27 @@ type CreateCheckoutSessionInput struct {
 	CancelAtPeriodEnd bool   // default-off renewal flag
 	SuccessURL        string // where to return after successful payment
 	CancelURL         string // where to return if user bails
+}
+
+// ScheduledCycleChange is what the adapter returns after wiring up a
+// subscription schedule for a deferred cycle change.
+type ScheduledCycleChange struct {
+	ScheduleID  string    // stripe schedule id (sub_sched_...)
+	EffectiveAt time.Time // when phase 2 (new price) starts — usually current period_end
+	Snapshot    SubscriptionSnapshot
+}
+
+// InvoicePreview captures what Stripe would bill for a hypothetical
+// cycle change. All amounts are in cents (net of Stripe fees).
+//   - AmountDueCents > 0: the customer owes that amount now (upgrade).
+//   - AmountDueCents == 0: nothing is charged now (downgrade, scheduled).
+//   - AmountDueCents < 0: a credit will be applied on the next invoice
+//     (rare; we don't refund, so we carry the credit forward).
+type InvoicePreview struct {
+	AmountDueCents int64
+	Currency       string
+	PeriodStart    time.Time
+	PeriodEnd      time.Time
 }
 
 // SubscriptionSnapshot is a minimal projection of the Stripe subscription

@@ -41,6 +41,15 @@ export type Subscription = {
   started_at: string
   grace_period_ends_at?: string
   canceled_at?: string
+  /**
+   * When set, the user has scheduled a cycle switch that takes effect
+   * at `pending_cycle_effective_at`. Until then the current cycle
+   * stays in force (e.g. annual keeps running until its end date).
+   * Both fields are populated together or both absent.
+   */
+  pending_billing_cycle?: BillingCycle
+  /** ISO-8601 UTC — when the pending cycle takes over. */
+  pending_cycle_effective_at?: string
 }
 
 export type SubscriptionStats = {
@@ -48,4 +57,22 @@ export type SubscriptionStats = {
   saved_count: number
   /** ISO-8601 UTC */
   since: string
+}
+
+/**
+ * Invoice preview returned by GET /subscriptions/me/cycle-preview.
+ *
+ * amount_due_cents > 0 → the user is charged that amount today
+ * (upgrade path). 0 means no immediate charge (downgrade is scheduled).
+ * prorate_immediately mirrors the backend flag so the UI can switch
+ * copy ("Tu seras facturé …" vs "Aucun débit aujourd'hui, bascule le …").
+ */
+export type CyclePreview = {
+  amount_due_cents: number
+  currency: string
+  /** ISO-8601 UTC */
+  period_start: string
+  /** ISO-8601 UTC */
+  period_end: string
+  prorate_immediately: boolean
 }

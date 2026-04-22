@@ -116,7 +116,10 @@ type mockStripe struct {
 	createCheckoutSessionFn    func(ctx context.Context, in service.CreateCheckoutSessionInput) (string, error)
 	resolvePriceIDFn           func(ctx context.Context, lookupKey string) (string, error)
 	updateCancelAtPeriodEndFn  func(ctx context.Context, stripeSubID string, cancelAtEnd bool) (service.SubscriptionSnapshot, error)
-	changeCycleFn              func(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.SubscriptionSnapshot, error)
+	changeCycleImmediateFn     func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error)
+	scheduleCycleChangeFn      func(ctx context.Context, stripeSubID, newPriceID string) (service.ScheduledCycleChange, error)
+	releaseScheduleFn          func(ctx context.Context, scheduleID string) error
+	previewCycleChangeFn       func(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.InvoicePreview, error)
 	createPortalSessionFn      func(ctx context.Context, customerID, returnURL string) (string, error)
 
 	lastCreateCheckoutInput *service.CreateCheckoutSessionInput // captured for assertions
@@ -159,16 +162,57 @@ func (m *mockStripe) UpdateCancelAtPeriodEnd(ctx context.Context, stripeSubID st
 	}, nil
 }
 
-func (m *mockStripe) ChangeCycle(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.SubscriptionSnapshot, error) {
-	if m.changeCycleFn != nil {
-		return m.changeCycleFn(ctx, stripeSubID, newPriceID, prorateImmediately)
+func (m *mockStripe) ChangeCycleImmediate(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error) {
+	if m.changeCycleImmediateFn != nil {
+		return m.changeCycleImmediateFn(ctx, stripeSubID, newPriceID)
 	}
 	return service.SubscriptionSnapshot{
-		ID:                stripeSubID,
-		Status:            "active",
-		PriceID:           newPriceID,
+		ID:                 stripeSubID,
+		Status:             "active",
+		PriceID:            newPriceID,
 		CurrentPeriodStart: time.Now(),
 		CurrentPeriodEnd:   time.Now().Add(365 * 24 * time.Hour),
+	}, nil
+}
+
+func (m *mockStripe) ScheduleCycleChange(ctx context.Context, stripeSubID, newPriceID string) (service.ScheduledCycleChange, error) {
+	if m.scheduleCycleChangeFn != nil {
+		return m.scheduleCycleChangeFn(ctx, stripeSubID, newPriceID)
+	}
+	effectiveAt := time.Now().Add(365 * 24 * time.Hour)
+	return service.ScheduledCycleChange{
+		ScheduleID:  "sched_default",
+		EffectiveAt: effectiveAt,
+		Snapshot: service.SubscriptionSnapshot{
+			ID:                 stripeSubID,
+			Status:             "active",
+			PriceID:            "price_current",
+			CurrentPeriodStart: time.Now(),
+			CurrentPeriodEnd:   effectiveAt,
+		},
+	}, nil
+}
+
+func (m *mockStripe) ReleaseSchedule(ctx context.Context, scheduleID string) error {
+	if m.releaseScheduleFn != nil {
+		return m.releaseScheduleFn(ctx, scheduleID)
+	}
+	return nil
+}
+
+func (m *mockStripe) PreviewCycleChange(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.InvoicePreview, error) {
+	if m.previewCycleChangeFn != nil {
+		return m.previewCycleChangeFn(ctx, stripeSubID, newPriceID, prorateImmediately)
+	}
+	amount := int64(0)
+	if prorateImmediately {
+		amount = 41900 // 419€ default delta
+	}
+	return service.InvoicePreview{
+		AmountDueCents: amount,
+		Currency:       "eur",
+		PeriodStart:    time.Now(),
+		PeriodEnd:      time.Now().Add(365 * 24 * time.Hour),
 	}, nil
 }
 

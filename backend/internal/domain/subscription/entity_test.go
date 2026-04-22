@@ -226,6 +226,119 @@ func TestChangeCycle_FromIncompleteRejected(t *testing.T) {
 	assert.ErrorIs(t, err, subscription.ErrInvalidTransition)
 }
 
+func TestSchedulePendingCycle(t *testing.T) {
+	in := baseInput()
+	in.BillingCycle = subscription.CycleAnnual
+	s, _ := subscription.NewSubscription(in)
+	require.NoError(t, s.Activate())
+
+	effectiveAt := time.Now().Add(365 * 24 * time.Hour)
+	err := s.SchedulePendingCycle(subscription.CycleMonthly, effectiveAt, "sub_sched_xyz")
+
+	require.NoError(t, err)
+	// CURRENT cycle + period are untouched — user keeps paid annual access.
+	assert.Equal(t, subscription.CycleAnnual, s.BillingCycle)
+	// Pending tuple set.
+	require.NotNil(t, s.PendingBillingCycle)
+	require.NotNil(t, s.PendingCycleEffectiveAt)
+	require.NotNil(t, s.StripeScheduleID)
+	assert.Equal(t, subscription.CycleMonthly, *s.PendingBillingCycle)
+	assert.Equal(t, "sub_sched_xyz", *s.StripeScheduleID)
+	assert.True(t, s.HasPendingCycleChange())
+}
+
+func TestSchedulePendingCycle_SameCycleRejected(t *testing.T) {
+	in := baseInput()
+	in.BillingCycle = subscription.CycleAnnual
+	s, _ := subscription.NewSubscription(in)
+	require.NoError(t, s.Activate())
+
+	err := s.SchedulePendingCycle(subscription.CycleAnnual, time.Now(), "sub_sched_xyz")
+
+	assert.ErrorIs(t, err, subscription.ErrSameCycle)
+}
+
+func TestSchedulePendingCycle_MissingScheduleID(t *testing.T) {
+	s, _ := subscription.NewSubscription(baseInput())
+	require.NoError(t, s.Activate())
+
+	err := s.SchedulePendingCycle(subscription.CycleAnnual, time.Now(), "")
+
+	assert.ErrorIs(t, err, subscription.ErrMissingStripeIDs)
+}
+
+func TestSchedulePendingCycle_FromIncompleteRejected(t *testing.T) {
+	s, _ := subscription.NewSubscription(baseInput())
+
+	err := s.SchedulePendingCycle(subscription.CycleAnnual, time.Now(), "sub_sched_xyz")
+
+	assert.ErrorIs(t, err, subscription.ErrInvalidTransition)
+}
+
+func TestClearScheduledCycle(t *testing.T) {
+	in := baseInput()
+	in.BillingCycle = subscription.CycleAnnual
+	s, _ := subscription.NewSubscription(in)
+	require.NoError(t, s.Activate())
+	require.NoError(t, s.SchedulePendingCycle(subscription.CycleMonthly, time.Now().Add(365*24*time.Hour), "sub_sched_xyz"))
+	require.True(t, s.HasPendingCycleChange())
+
+	s.ClearScheduledCycle()
+
+	assert.False(t, s.HasPendingCycleChange())
+	assert.Nil(t, s.PendingBillingCycle)
+	assert.Nil(t, s.PendingCycleEffectiveAt)
+	assert.Nil(t, s.StripeScheduleID)
+	// Current cycle untouched.
+	assert.Equal(t, subscription.CycleAnnual, s.BillingCycle)
+}
+
+func TestApplyScheduledCycle(t *testing.T) {
+	in := baseInput()
+	in.BillingCycle = subscription.CycleAnnual
+	s, _ := subscription.NewSubscription(in)
+	require.NoError(t, s.Activate())
+	effectiveAt := time.Now()
+	require.NoError(t, s.SchedulePendingCycle(subscription.CycleMonthly, effectiveAt, "sub_sched_xyz"))
+
+	newPeriodStart := effectiveAt
+	newPeriodEnd := effectiveAt.Add(30 * 24 * time.Hour)
+	err := s.ApplyScheduledCycle("price_monthly_new", newPeriodStart, newPeriodEnd)
+
+	require.NoError(t, err)
+	assert.Equal(t, subscription.CycleMonthly, s.BillingCycle)
+	assert.Equal(t, "price_monthly_new", s.StripePriceID)
+	assert.Equal(t, newPeriodStart.Unix(), s.CurrentPeriodStart.Unix())
+	assert.Equal(t, newPeriodEnd.Unix(), s.CurrentPeriodEnd.Unix())
+	assert.False(t, s.HasPendingCycleChange(), "pending tuple MUST be cleared after apply")
+}
+
+func TestApplyScheduledCycle_WithoutPendingRejected(t *testing.T) {
+	s, _ := subscription.NewSubscription(baseInput())
+	require.NoError(t, s.Activate())
+
+	err := s.ApplyScheduledCycle("price_xyz", time.Now(), time.Now().Add(time.Hour))
+
+	assert.ErrorIs(t, err, subscription.ErrInvalidTransition)
+}
+
+func TestChangeCycle_ClearsPending(t *testing.T) {
+	// If a user schedules a downgrade then changes their mind and
+	// re-upgrades, the direct ChangeCycle MUST clear the pending tuple
+	// so the DB invariant (all-or-none) holds and the UI stops showing
+	// the stale "passage le DATE" hint.
+	in := baseInput()
+	in.BillingCycle = subscription.CycleAnnual
+	s, _ := subscription.NewSubscription(in)
+	require.NoError(t, s.Activate())
+	require.NoError(t, s.SchedulePendingCycle(subscription.CycleMonthly, time.Now().Add(365*24*time.Hour), "sub_sched_xyz"))
+
+	err := s.ChangeCycle(subscription.CycleMonthly, "price_monthly_new", time.Now(), time.Now().Add(30*24*time.Hour))
+
+	require.NoError(t, err)
+	assert.False(t, s.HasPendingCycleChange(), "direct ChangeCycle MUST supersede a pending schedule")
+}
+
 func TestIsPremium(t *testing.T) {
 	now := time.Date(2026, 4, 21, 12, 0, 0, 0, time.UTC)
 	periodEnd := now.Add(30 * 24 * time.Hour)
