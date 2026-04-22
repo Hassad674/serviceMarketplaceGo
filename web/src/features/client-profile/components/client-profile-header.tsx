@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Image from "next/image"
 import { Briefcase, Camera, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
@@ -131,7 +130,14 @@ function Avatar({ avatarUrl, initials, name, editable }: AvatarProps) {
   const hasImage = Boolean(avatarUrl) && !photoError
 
   const pictureNode = hasImage ? (
-    <Image
+    // Plain <img> rather than next/image to match the provider
+    // ProfileHeader and skip the Next image optimizer — user-uploaded
+    // MinIO URLs (e.g. http://192.168.1.156:9000) occasionally get
+    // rejected by the optimizer across dev-server restarts when the
+    // remotePatterns config changes, while the raw <img> just works.
+    // Performance cost is negligible for an 80×80 avatar.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
       src={avatarUrl!}
       alt={name}
       width={80}
