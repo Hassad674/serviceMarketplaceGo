@@ -29,10 +29,6 @@ export type PublicClientProfile = {
   projects_completed_as_client: number
 }
 
-export type PublicClientProfileResponse = {
-  data: PublicClientProfile
-}
-
 // Private update payload for `/api/v1/profile/client`. Both fields
 // are optional so callers can update only the description without
 // touching the company name (and vice versa). The backend enforces
@@ -52,13 +48,16 @@ export async function updateClientProfile(
   })
 }
 
+// The backend writes `PublicClientProfileResponse` directly to the
+// response body (no `{ data: ... }` envelope), matching the rest of
+// the /api/v1/profile endpoints. Decoding into `PublicClientProfile`
+// on the same level is what we want here — any other shape would
+// produce `undefined` and TanStack Query would throw "Query data
+// cannot be undefined" on the affected query key.
 export async function fetchPublicClientProfile(
   orgId: string,
 ): Promise<PublicClientProfile> {
-  const envelope = await apiClient<PublicClientProfileResponse>(
-    `/api/v1/clients/${orgId}`,
-  )
-  return envelope.data
+  return apiClient<PublicClientProfile>(`/api/v1/clients/${orgId}`)
 }
 
 // MyClientProfile is the exact shape the private client-profile page

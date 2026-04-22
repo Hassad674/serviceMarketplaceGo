@@ -4,10 +4,7 @@
 // bundler tree-shakes it out of the client bundle.
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
-import type {
-  PublicClientProfile,
-  PublicClientProfileResponse,
-} from "./client-profile-api"
+import type { PublicClientProfile } from "./client-profile-api"
 
 // Fallback host must mirror the dev-default used by api-client.ts
 // when NEXT_PUBLIC_API_URL is unset. Hard-coding the fallback here
@@ -25,8 +22,10 @@ export async function fetchPublicClientProfileForMetadata(
       next: { revalidate: 120 },
     })
     if (!res.ok) return null
-    const envelope = (await res.json()) as PublicClientProfileResponse
-    return envelope.data
+    // Backend writes PublicClientProfile directly to the body (no
+    // `{ data: ... }` envelope), mirroring the rest of the profile
+    // endpoints.
+    return (await res.json()) as PublicClientProfile
   } catch {
     return null
   }
