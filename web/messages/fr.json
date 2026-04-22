@@ -356,7 +356,9 @@
     "permissionDeniedBody": "Demandez à un administrateur ou au propriétaire de votre organisation d'accorder la permission « org_client_profile.edit ».",
     "notFoundTitle": "Profil client introuvable",
     "notFoundBody": "Cette organisation ne dispose pas d'un profil client public.",
-    "loading": "Chargement du profil client…"
+    "loading": "Chargement du profil client…",
+    "logo": "logo",
+    "editLogo": "Modifier le logo"
   },
   "account": {
     "title": "Paramètres du compte",

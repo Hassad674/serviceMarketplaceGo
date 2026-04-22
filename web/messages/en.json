@@ -356,7 +356,9 @@
     "permissionDeniedBody": "Ask an admin or owner of your organization to grant you the \"org_client_profile.edit\" permission.",
     "notFoundTitle": "Client profile not found",
     "notFoundBody": "This organization does not expose a client profile.",
-    "loading": "Loading client profile…"
+    "loading": "Loading client profile…",
+    "logo": "logo",
+    "editLogo": "Edit logo"
   },
   "account": {
     "title": "Account Settings",

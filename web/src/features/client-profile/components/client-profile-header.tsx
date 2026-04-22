@@ -1,9 +1,11 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Image from "next/image"
-import { Briefcase, Star } from "lucide-react"
+import { Briefcase, Camera, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { formatCurrency } from "@/shared/lib/utils"
+import { UploadModal } from "@/shared/components/upload-modal"
+import { cn, formatCurrency } from "@/shared/lib/utils"
 
 export interface ClientProfileHeaderStats {
   totalSpent: number
@@ -12,19 +14,32 @@ export interface ClientProfileHeaderStats {
   projectsCompleted: number
 }
 
+export interface ClientProfileHeaderEditable {
+  onUploadPhoto: (file: File) => Promise<void>
+  uploadingPhoto: boolean
+}
+
 interface ClientProfileHeaderProps {
   companyName: string
   avatarUrl: string | null
   stats: ClientProfileHeaderStats
+  // `editable` is optional — when absent the header renders in its
+  // original read-only shape (public /clients/[id] page and non-admin
+  // private viewers). When provided the avatar turns into an editable
+  // widget that reuses the provider feature's upload mutation, so the
+  // logo stays in sync across the two facets for agencies.
+  editable?: ClientProfileHeaderEditable
 }
 
-// ClientProfileHeader renders the read-only identity + metrics strip
-// for both the private `/client-profile` page and the public
-// `/clients/[id]` page. It is intentionally avatar-read-only — the
-// avatar is shared with the provider profile and is edited there, so
-// the editor lives on the existing provider-profile surface.
+const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB — matches provider ProfileHeader
+
+// ClientProfileHeader renders the identity + metrics strip for both
+// the private `/client-profile` page and the public `/clients/[id]`
+// page. When `editable` is passed it also mounts the shared
+// UploadModal so owners with the `org_client_profile.edit` permission
+// can swap the avatar without hopping to the provider profile.
 export function ClientProfileHeader(props: ClientProfileHeaderProps) {
-  const { companyName, avatarUrl, stats } = props
+  const { companyName, avatarUrl, stats, editable } = props
   const t = useTranslations("clientProfile")
 
   const initials = getInitials(companyName)
@@ -40,7 +55,12 @@ export function ClientProfileHeader(props: ClientProfileHeaderProps) {
       aria-label={t("pageTitle")}
     >
       <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-        <Avatar avatarUrl={avatarUrl} initials={initials} name={companyName} />
+        <Avatar
+          avatarUrl={avatarUrl}
+          initials={initials}
+          name={companyName}
+          editable={editable}
+        />
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold text-foreground truncate">
             {companyName}
@@ -87,27 +107,85 @@ interface AvatarProps {
   avatarUrl: string | null
   initials: string
   name: string
+  editable?: ClientProfileHeaderEditable
 }
 
-function Avatar({ avatarUrl, initials, name }: AvatarProps) {
-  if (avatarUrl) {
-    return (
-      <Image
-        src={avatarUrl}
-        alt={name}
-        width={80}
-        height={80}
-        className="h-20 w-20 shrink-0 rounded-full object-cover"
-      />
-    )
+function Avatar({ avatarUrl, initials, name, editable }: AvatarProps) {
+  const t = useTranslations("clientProfile")
+  const tUpload = useTranslations("upload")
+  const [open, setOpen] = useState(false)
+  const [photoError, setPhotoError] = useState(false)
+
+  // Reset the broken-image flag when the URL changes — typical on a
+  // fresh upload returning a new signed URL.
+  useEffect(() => {
+    setPhotoError(false)
+  }, [avatarUrl])
+
+  async function handleUpload(file: File) {
+    if (!editable) return
+    await editable.onUploadPhoto(file)
+    setOpen(false)
   }
-  return (
-    <div
+
+  const hasImage = Boolean(avatarUrl) && !photoError
+
+  const pictureNode = hasImage ? (
+    <Image
+      src={avatarUrl!}
+      alt={name}
+      width={80}
+      height={80}
+      onError={() => setPhotoError(true)}
+      className="h-full w-full rounded-full object-cover"
+    />
+  ) : editable ? (
+    <Camera
+      className="h-6 w-6 text-muted-foreground"
       aria-hidden="true"
-      className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-xl font-semibold text-white"
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      className="flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-xl font-semibold text-white"
     >
       {initials}
-    </div>
+    </span>
+  )
+
+  if (!editable) {
+    return (
+      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full">
+        {pictureNode}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={t("editLogo")}
+        className={cn(
+          "relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full",
+          "border-2 border-dashed border-border bg-muted transition-colors",
+          "hover:border-primary focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
+        )}
+      >
+        {pictureNode}
+      </button>
+      <UploadModal
+        open={open}
+        onClose={() => setOpen(false)}
+        onUpload={handleUpload}
+        accept="image/*"
+        maxSize={PHOTO_MAX_SIZE}
+        title={tUpload("addPhoto")}
+        description={tUpload("imageFormats", { imageType: t("logo") })}
+        uploading={editable.uploadingPhoto}
+      />
+    </>
   )
 }
 

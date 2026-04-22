@@ -1,5 +1,4 @@
 import { apiClient } from "@/shared/lib/api-client"
-import type { Review } from "@/shared/types/review"
 
 // Domain types for the client-profile feature. They map the backend
 // contract locked in the feature spec; we deliberately duplicate the
@@ -7,28 +6,16 @@ import type { Review } from "@/shared/types/review"
 // `Profile` type so the two features stay independent (removing one
 // must not break the other).
 
-export type ClientProfileProjectHistoryProvider = {
-  organization_id: string
-  display_name: string
-  avatar_url: string | null
-}
-
-export type ClientProjectHistoryEntry = {
-  proposal_id: string
-  title: string
-  // Amount is in the smallest currency unit (cents) — same convention
-  // as the rest of the billing surface. The component is responsible
-  // for formatting via `formatCurrency`.
-  amount: number
-  completed_at: string
-  provider: ClientProfileProjectHistoryProvider
-}
-
 export type ClientOrgType = "agency" | "enterprise"
 
 // Shape of the public `/api/v1/clients/{orgId}` response envelope.
 // Every counter defaults to `0` server-side so the UI never has to
-// branch on `undefined`.
+// branch on `undefined`. Note: neither `project_history[]` nor a
+// top-level `reviews[]` are surfaced here — the unified "project
+// history" section reads the shared `/api/v1/profiles/{orgId}/
+// project-history` endpoint (same source of truth as the provider
+// profile), and each entry carries its associated provider→client
+// review embedded inline.
 export type PublicClientProfile = {
   organization_id: string
   type: ClientOrgType
@@ -40,8 +27,6 @@ export type PublicClientProfile = {
   review_count: number
   average_rating: number
   projects_completed_as_client: number
-  project_history: ClientProjectHistoryEntry[]
-  reviews: Review[]
 }
 
 export type PublicClientProfileResponse = {
