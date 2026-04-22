@@ -23,6 +23,7 @@ import (
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
+	reviewdomain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/port/repository"
 )
 
@@ -36,7 +37,11 @@ const DefaultProjectHistoryLimit = 20
 
 // ProjectHistoryEntry is one completed deal where the org was the
 // client, with the provider's identity resolved so the public page
-// can render the counterparty.
+// can render the counterparty. When the provider has left a
+// provider→client review for this deal the row is attached inline so
+// the frontend can render a unified "Completed projects" card
+// (mirroring the provider project history pattern) without a second
+// round-trip. Review is nil when no review has been submitted yet.
 type ProjectHistoryEntry struct {
 	ProposalID  uuid.UUID
 	Title       string
@@ -44,6 +49,7 @@ type ProjectHistoryEntry struct {
 	Currency    string
 	CompletedAt time.Time
 	Provider    *profile.PublicProfile // may be nil when the provider org is gone
+	Review      *reviewdomain.Review   // provider→client review for this proposal, nil when not yet submitted
 }
 
 // PublicClientProfile is the aggregated shape surfaced by the public
@@ -207,10 +213,17 @@ func (s *Service) loadClientProfileText(ctx context.Context, orgID uuid.UUID) (d
 }
 
 // loadProjectHistory fetches the most recent completed deals where
-// the org was the client and enriches each with the provider's org
-// public profile for counterparty display. The provider lookup is
-// batched via ProfileRepository.OrgProfilesByUserIDs so we never
-// trigger an N+1 across the result set.
+// the org was the client and enriches each with (a) the provider's
+// org public profile for counterparty display and (b) the inline
+// provider→client review for that deal, when one has been submitted
+// and published. Both enrichments are batched — provider profiles via
+// ProfileRepository.OrgProfilesByUserIDs, reviews via
+// ReviewRepository.GetByProposalIDs — so the loop never triggers an
+// N+1 across the result set.
+//
+// Title visibility: when the provider submitted the review with
+// title_visible=false, the proposal title is redacted to empty on
+// the way out — same semantic as the provider project history.
 func (s *Service) loadProjectHistory(ctx context.Context, orgID uuid.UUID) ([]ProjectHistoryEntry, error) {
 	proposals, err := s.proposals.ListCompletedByClientOrganization(ctx, orgID, DefaultProjectHistoryLimit)
 	if err != nil {
@@ -221,9 +234,12 @@ func (s *Service) loadProjectHistory(ctx context.Context, orgID uuid.UUID) ([]Pr
 	}
 
 	providerIDs := make([]uuid.UUID, 0, len(proposals))
+	proposalIDs := make([]uuid.UUID, 0, len(proposals))
 	for _, p := range proposals {
 		providerIDs = append(providerIDs, p.ProviderID)
+		proposalIDs = append(proposalIDs, p.ID)
 	}
+
 	providerByUser, err := s.profiles.OrgProfilesByUserIDs(ctx, providerIDs)
 	if err != nil {
 		// Degrade gracefully — the deal rows are still useful without the
@@ -231,9 +247,24 @@ func (s *Service) loadProjectHistory(ctx context.Context, orgID uuid.UUID) ([]Pr
 		providerByUser = map[uuid.UUID]*profile.PublicProfile{}
 	}
 
+	reviewsByProposal, err := s.reviews.GetByProposalIDs(ctx, proposalIDs, reviewdomain.SideProviderToClient)
+	if err != nil {
+		// Degrade gracefully — the deal rows still render without their
+		// inline review; the frontend shows "Awaiting review" which is
+		// indistinguishable from the "not yet submitted" state.
+		reviewsByProposal = map[uuid.UUID]*reviewdomain.Review{}
+	}
+
 	entries := make([]ProjectHistoryEntry, 0, len(proposals))
 	for _, p := range proposals {
-		entries = append(entries, entryFromProposal(p, providerByUser[p.ProviderID]))
+		entry := entryFromProposal(p, providerByUser[p.ProviderID])
+		if rv, ok := reviewsByProposal[p.ID]; ok {
+			entry.Review = rv
+			if !rv.TitleVisible {
+				entry.Title = ""
+			}
+		}
+		entries = append(entries, entry)
 	}
 	return entries, nil
 }
