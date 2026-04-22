@@ -252,14 +252,17 @@ func (h *SubscriptionHandler) PreviewCycleChange(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// AmountDueCents > 0 implies the call would charge today (upgrade).
-	// Downgrades are always 0 today (scheduled for next renewal).
+	// ProrateImmediately comes from the service (direction-derived),
+	// NOT inferred from the amount: Stripe's invoices.upcoming returns
+	// the NEXT invoice for downgrades (e.g. the first monthly charge
+	// that will hit at the phase boundary), which would mislead the UI
+	// into labelling it as "charged today" if we used amount > 0.
 	res.JSON(w, http.StatusOK, cyclePreviewResponse{
 		AmountDueCents:     preview.AmountDueCents,
 		Currency:           preview.Currency,
 		PeriodStart:        preview.PeriodStart.UTC().Format("2006-01-02T15:04:05Z"),
 		PeriodEnd:          preview.PeriodEnd.UTC().Format("2006-01-02T15:04:05Z"),
-		ProrateImmediately: preview.AmountDueCents > 0,
+		ProrateImmediately: preview.ProrateImmediately,
 	})
 }
 

@@ -295,11 +295,29 @@ func (s *Service) ChangeCycle(ctx context.Context, userID uuid.UUID, newCycle do
 	return sub, nil
 }
 
-// PreviewCycleChange computes what Stripe would bill today if the user
-// switched to `newCycle`, without mutating anything. Used by the manage
+// CyclePreviewResult is the app-layer preview — Stripe's raw invoice
+// numbers PLUS a direction flag the handler needs to pick the right
+// copy. We don't infer direction from the amount because Stripe's
+// invoices.upcoming returns the NEXT invoice even for downgrades (e.g.
+// 49 € for the first monthly period after the annual ends), which would
+// read as "charged today" if the UI only looked at amount > 0.
+type CyclePreviewResult struct {
+	AmountDueCents     int64
+	Currency           string
+	PeriodStart        time.Time
+	PeriodEnd          time.Time
+	// ProrateImmediately is true for upgrades only: the charge is
+	// effective today. Downgrades set this to false — no charge today,
+	// the quoted amount is the FIRST monthly invoice that Stripe will
+	// issue when phase 2 of the schedule fires at PeriodStart.
+	ProrateImmediately bool
+}
+
+// PreviewCycleChange computes what Stripe would bill if the user
+// switched to `newCycle`. No state is mutated. Used by the manage
 // modal's two-step confirmation so the UI always surfaces an exact
 // number before the user clicks "Confirmer".
-func (s *Service) PreviewCycleChange(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*service.InvoicePreview, error) {
+func (s *Service) PreviewCycleChange(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*CyclePreviewResult, error) {
 	if !newCycle.IsValid() {
 		return nil, domain.ErrInvalidCycle
 	}
@@ -323,7 +341,13 @@ func (s *Service) PreviewCycleChange(ctx context.Context, userID uuid.UUID, newC
 	if err != nil {
 		return nil, fmt.Errorf("preview cycle: stripe: %w", err)
 	}
-	return &preview, nil
+	return &CyclePreviewResult{
+		AmountDueCents:     preview.AmountDueCents,
+		Currency:           preview.Currency,
+		PeriodStart:        preview.PeriodStart,
+		PeriodEnd:          preview.PeriodEnd,
+		ProrateImmediately: prorateImmediately,
+	}, nil
 }
 
 // StatsOutput is the data the management modal renders under
