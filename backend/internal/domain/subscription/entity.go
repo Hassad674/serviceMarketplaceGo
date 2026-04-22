@@ -1,4 +1,4 @@
-// Package subscription models the Premium plan lifecycle — a per-user,
+// Package subscription models the Premium plan lifecycle — a per-organization,
 // per-role flat subscription that waives the platform fee on every
 // milestone payment as long as the subscription is active.
 //
@@ -72,12 +72,12 @@ func (s Status) IsValid() bool {
 }
 
 // Subscription is the aggregate root of the package. Exactly one row with
-// status in (incomplete, active, past_due) exists per user (enforced by
-// a partial unique index in the DB); earlier rows stay as historical
+// status in (incomplete, active, past_due) exists per organization (enforced
+// by a partial unique index in the DB); earlier rows stay as historical
 // record with status canceled or unpaid.
 type Subscription struct {
-	ID     uuid.UUID
-	UserID uuid.UUID
+	ID             uuid.UUID
+	OrganizationID uuid.UUID
 
 	Plan         Plan
 	BillingCycle BillingCycle
@@ -138,7 +138,7 @@ type Subscription struct {
 // field before returning a Subscription — invalid inputs are rejected
 // without ever touching the database.
 type NewSubscriptionInput struct {
-	UserID               uuid.UUID
+	OrganizationID       uuid.UUID
 	Plan                 Plan
 	BillingCycle         BillingCycle
 	StripeCustomerID     string
@@ -155,8 +155,8 @@ type NewSubscriptionInput struct {
 // incomplete to match Stripe's own state machine — the row exists but
 // the user is NOT Premium yet.
 func NewSubscription(in NewSubscriptionInput) (*Subscription, error) {
-	if in.UserID == uuid.Nil {
-		return nil, ErrInvalidUser
+	if in.OrganizationID == uuid.Nil {
+		return nil, ErrInvalidOrganization
 	}
 	if !in.Plan.IsValid() {
 		return nil, ErrInvalidPlan
@@ -173,7 +173,7 @@ func NewSubscription(in NewSubscriptionInput) (*Subscription, error) {
 	now := time.Now()
 	return &Subscription{
 		ID:                   uuid.New(),
-		UserID:               in.UserID,
+		OrganizationID:       in.OrganizationID,
 		Plan:                 in.Plan,
 		BillingCycle:         in.BillingCycle,
 		Status:               StatusIncomplete,

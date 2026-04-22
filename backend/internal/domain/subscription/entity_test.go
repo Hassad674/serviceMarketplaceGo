@@ -14,7 +14,7 @@ import (
 func baseInput() subscription.NewSubscriptionInput {
 	now := time.Now()
 	return subscription.NewSubscriptionInput{
-		UserID:               uuid.New(),
+		OrganizationID:       uuid.New(),
 		Plan:                 subscription.PlanFreelance,
 		BillingCycle:         subscription.CycleMonthly,
 		StripeCustomerID:     "cus_test",
@@ -32,7 +32,7 @@ func TestNewSubscription(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, s)
-	assert.Equal(t, in.UserID, s.UserID)
+	assert.Equal(t, in.OrganizationID, s.OrganizationID)
 	assert.Equal(t, subscription.PlanFreelance, s.Plan)
 	assert.Equal(t, subscription.CycleMonthly, s.BillingCycle)
 	assert.Equal(t, subscription.StatusIncomplete, s.Status, "new sub must start incomplete")
@@ -48,7 +48,7 @@ func TestNewSubscription_ValidationErrors(t *testing.T) {
 		mutate func(*subscription.NewSubscriptionInput)
 		want   error
 	}{
-		{"zero user id", func(in *subscription.NewSubscriptionInput) { in.UserID = uuid.Nil }, subscription.ErrInvalidUser},
+		{"zero organization id", func(in *subscription.NewSubscriptionInput) { in.OrganizationID = uuid.Nil }, subscription.ErrInvalidOrganization},
 		{"invalid plan", func(in *subscription.NewSubscriptionInput) { in.Plan = "enterprise" }, subscription.ErrInvalidPlan},
 		{"empty plan", func(in *subscription.NewSubscriptionInput) { in.Plan = "" }, subscription.ErrInvalidPlan},
 		{"invalid cycle", func(in *subscription.NewSubscriptionInput) { in.BillingCycle = "weekly" }, subscription.ErrInvalidCycle},

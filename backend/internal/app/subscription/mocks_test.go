@@ -25,7 +25,7 @@ var (
 
 type mockSubRepo struct {
 	createFn         func(ctx context.Context, s *domain.Subscription) error
-	findOpenByUserFn func(ctx context.Context, userID uuid.UUID) (*domain.Subscription, error)
+	findOpenByOrgFn  func(ctx context.Context, organizationID uuid.UUID) (*domain.Subscription, error)
 	findByStripeIDFn func(ctx context.Context, stripeSubID string) (*domain.Subscription, error)
 	updateFn         func(ctx context.Context, s *domain.Subscription) error
 }
@@ -36,9 +36,9 @@ func (m *mockSubRepo) Create(ctx context.Context, s *domain.Subscription) error 
 	}
 	return nil
 }
-func (m *mockSubRepo) FindOpenByUser(ctx context.Context, userID uuid.UUID) (*domain.Subscription, error) {
-	if m.findOpenByUserFn != nil {
-		return m.findOpenByUserFn(ctx, userID)
+func (m *mockSubRepo) FindOpenByOrganization(ctx context.Context, organizationID uuid.UUID) (*domain.Subscription, error) {
+	if m.findOpenByOrgFn != nil {
+		return m.findOpenByOrgFn(ctx, organizationID)
 	}
 	return nil, domain.ErrNotFound
 }
