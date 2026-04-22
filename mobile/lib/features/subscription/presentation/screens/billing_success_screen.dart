@@ -32,7 +32,14 @@ class _BillingSuccessScreenState extends ConsumerState<BillingSuccessScreen> {
   @override
   void initState() {
     super.initState();
-    _startPolling();
+    // Defer the first invalidate + timers to after the first frame.
+    // Calling ref.invalidate() inside initState trips a debug-mode
+    // assertion because the widget's InheritedWidget dependencies are
+    // not fully resolved yet; post-frame the tree is stable.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startPolling();
+    });
   }
 
   @override
