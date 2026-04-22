@@ -213,15 +213,26 @@ func (s *Service) ToggleAutoRenew(ctx context.Context, userID uuid.UUID, on bool
 	return sub, nil
 }
 
-// ChangeCycle switches monthly <-> annual.
+// ChangeCycle switches monthly <-> annual following product rules:
 //
-// Upgrade (monthly → annual): immediate proration; the user is invoiced
-// the delta right away and the annual period starts now.
+//   - Upgrade (monthly → annual): immediate. Stripe charges the delta
+//     via proration_behavior=always_invoice; the annual period starts
+//     now. If the user previously scheduled a downgrade and changes
+//     their mind, the schedule is released first so the direct upgrade
+//     can run cleanly.
 //
-// Downgrade (annual → monthly): deferred. No refund, no credit. The
-// annual period keeps running until its natural end; at renewal Stripe
-// bills the new monthly rate. Current_period_end on the returned
-// snapshot does NOT change on downgrade — the user keeps their benefit.
+//   - Downgrade (annual → monthly): deferred via a Stripe Subscription
+//     Schedule. The annual period keeps running until current_period_end;
+//     Stripe fires customer.subscription.updated at the phase boundary
+//     and the webhook handler promotes the pending cycle into the
+//     current one (ApplyScheduledCycle). No refund, no credit, no
+//     change to the current period_end.
+//
+// The domain row reflects CURRENT billing_cycle in both cases; on a
+// downgrade, PendingBillingCycle + PendingCycleEffectiveAt + StripeScheduleID
+// are populated so the UI can render "Annuel jusqu'au JJ/MM/YYYY → Mensuel
+// ensuite". The row flips cycle only when the phase transition actually
+// happens.
 func (s *Service) ChangeCycle(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*domain.Subscription, error) {
 	if !newCycle.IsValid() {
 		return nil, domain.ErrInvalidCycle
@@ -244,22 +255,75 @@ func (s *Service) ChangeCycle(ctx context.Context, userID uuid.UUID, newCycle do
 		return nil, fmt.Errorf("change cycle: resolve price: %w", err)
 	}
 
-	// Only monthly→annual is a paid-upgrade (user adds value, pays delta).
-	// The reverse direction keeps the prepaid annual period intact.
-	prorateImmediately := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
+	isUpgrade := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
 
-	snap, err := s.stripe.ChangeCycle(ctx, sub.StripeSubscriptionID, newPriceID, prorateImmediately)
-	if err != nil {
-		return nil, fmt.Errorf("change cycle: stripe update: %w", err)
+	if isUpgrade {
+		// If the user re-upgrades after previously scheduling a downgrade,
+		// release the schedule first so Stripe accepts a direct subscription
+		// update (Stripe rejects subscription.update when a schedule is
+		// managing the subscription).
+		if sub.StripeScheduleID != nil && *sub.StripeScheduleID != "" {
+			if rErr := s.stripe.ReleaseSchedule(ctx, *sub.StripeScheduleID); rErr != nil {
+				return nil, fmt.Errorf("change cycle: release stale schedule: %w", rErr)
+			}
+		}
+
+		snap, upErr := s.stripe.ChangeCycleImmediate(ctx, sub.StripeSubscriptionID, newPriceID)
+		if upErr != nil {
+			return nil, fmt.Errorf("change cycle: stripe upgrade: %w", upErr)
+		}
+		if err := sub.ChangeCycle(newCycle, snap.PriceID, snap.CurrentPeriodStart, snap.CurrentPeriodEnd); err != nil {
+			return nil, err
+		}
+		if err := s.subs.Update(ctx, sub); err != nil {
+			return nil, fmt.Errorf("change cycle: persist upgrade: %w", err)
+		}
+		return sub, nil
 	}
 
-	if err := sub.ChangeCycle(newCycle, snap.PriceID, snap.CurrentPeriodStart, snap.CurrentPeriodEnd); err != nil {
+	// Downgrade path — schedule the transition at current period end.
+	scheduled, err := s.stripe.ScheduleCycleChange(ctx, sub.StripeSubscriptionID, newPriceID)
+	if err != nil {
+		return nil, fmt.Errorf("change cycle: stripe schedule: %w", err)
+	}
+	if err := sub.SchedulePendingCycle(newCycle, scheduled.EffectiveAt, scheduled.ScheduleID); err != nil {
 		return nil, err
 	}
 	if err := s.subs.Update(ctx, sub); err != nil {
-		return nil, fmt.Errorf("change cycle: persist: %w", err)
+		return nil, fmt.Errorf("change cycle: persist downgrade: %w", err)
 	}
 	return sub, nil
+}
+
+// PreviewCycleChange computes what Stripe would bill today if the user
+// switched to `newCycle`, without mutating anything. Used by the manage
+// modal's two-step confirmation so the UI always surfaces an exact
+// number before the user clicks "Confirmer".
+func (s *Service) PreviewCycleChange(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*service.InvoicePreview, error) {
+	if !newCycle.IsValid() {
+		return nil, domain.ErrInvalidCycle
+	}
+	sub, err := s.subs.FindOpenByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if sub.BillingCycle == newCycle {
+		return nil, domain.ErrSameCycle
+	}
+	lookupKey, err := s.lookupKeyFor(sub.Plan, newCycle)
+	if err != nil {
+		return nil, err
+	}
+	newPriceID, err := s.stripe.ResolvePriceID(ctx, lookupKey)
+	if err != nil {
+		return nil, fmt.Errorf("preview cycle: resolve price: %w", err)
+	}
+	prorateImmediately := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
+	preview, err := s.stripe.PreviewCycleChange(ctx, sub.StripeSubscriptionID, newPriceID, prorateImmediately)
+	if err != nil {
+		return nil, fmt.Errorf("preview cycle: stripe: %w", err)
+	}
+	return &preview, nil
 }
 
 // StatsOutput is the data the management modal renders under
@@ -399,6 +463,21 @@ func (s *Service) HandleSubscriptionSnapshot(
 			return fmt.Errorf("handle snapshot: canceled: %w", err)
 		}
 		// incomplete / incomplete_expired: nothing to do, row already reflects it.
+	}
+
+	// If a Stripe Subscription Schedule had staged a cycle change and
+	// its phase boundary just fired, the incoming snapshot carries the
+	// NEW price id. Detect that by (pending set) + (price id changed),
+	// then promote the pending cycle into the current cycle via the
+	// domain's ApplyScheduledCycle — this flips BillingCycle + clears
+	// the pending tuple atomically so the row never lands in a
+	// half-updated state.
+	if sub.HasPendingCycleChange() && snap.PriceID != "" && snap.PriceID != sub.StripePriceID {
+		if err := sub.ApplyScheduledCycle(snap.PriceID, snap.CurrentPeriodStart, snap.CurrentPeriodEnd); err != nil {
+			return fmt.Errorf("handle snapshot: apply scheduled cycle: %w", err)
+		}
+		sub.CancelAtPeriodEnd = snap.CancelAtPeriodEnd
+		return s.subs.Update(ctx, sub)
 	}
 
 	if snap.PriceID != "" {

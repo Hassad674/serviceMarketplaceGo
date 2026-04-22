@@ -46,6 +46,23 @@ type subscriptionResponse struct {
 	StartedAt          string  `json:"started_at"`
 	GracePeriodEndsAt  *string `json:"grace_period_ends_at,omitempty"`
 	CanceledAt         *string `json:"canceled_at,omitempty"`
+	// PendingBillingCycle + PendingCycleEffectiveAt describe a scheduled
+	// downgrade. Populated together or both omitted (mirroring the DB
+	// CHECK constraint). The UI renders "Annuel jusqu'au JJ/MM/YYYY →
+	// Mensuel ensuite" when pending_billing_cycle is present.
+	PendingBillingCycle     *string `json:"pending_billing_cycle,omitempty"`
+	PendingCycleEffectiveAt *string `json:"pending_cycle_effective_at,omitempty"`
+}
+
+// cyclePreviewResponse mirrors service.InvoicePreview on the wire.
+type cyclePreviewResponse struct {
+	AmountDueCents int64  `json:"amount_due_cents"`
+	Currency       string `json:"currency"`
+	PeriodStart    string `json:"period_start"`
+	PeriodEnd      string `json:"period_end"`
+	// ProrateImmediately flags whether the amount is charged today
+	// (upgrade) or at the next renewal (downgrade → always 0 today).
+	ProrateImmediately bool `json:"prorate_immediately"`
 }
 
 type toggleAutoRenewRequest struct {
@@ -204,6 +221,48 @@ func (h *SubscriptionHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// PreviewCycleChange — GET /api/v1/subscriptions/me/cycle-preview?billing_cycle=X
+// Side-effect free — returns the invoice preview (amount charged today +
+// next period) so the manage modal can render an accurate confirm step.
+func (h *SubscriptionHandler) PreviewCycleChange(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	newCycleRaw := r.URL.Query().Get("billing_cycle")
+	if newCycleRaw == "" {
+		res.Error(w, http.StatusBadRequest, "missing_billing_cycle", "billing_cycle query parameter is required")
+		return
+	}
+
+	preview, err := h.svc.PreviewCycleChange(r.Context(), userID, domain.BillingCycle(newCycleRaw))
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+		case errors.Is(err, domain.ErrInvalidCycle):
+			res.Error(w, http.StatusBadRequest, "invalid_cycle", err.Error())
+		case errors.Is(err, domain.ErrSameCycle):
+			res.Error(w, http.StatusConflict, "same_cycle", err.Error())
+		default:
+			res.Error(w, http.StatusInternalServerError, "preview_error", err.Error())
+		}
+		return
+	}
+
+	// AmountDueCents > 0 implies the call would charge today (upgrade).
+	// Downgrades are always 0 today (scheduled for next renewal).
+	res.JSON(w, http.StatusOK, cyclePreviewResponse{
+		AmountDueCents:     preview.AmountDueCents,
+		Currency:           preview.Currency,
+		PeriodStart:        preview.PeriodStart.UTC().Format("2006-01-02T15:04:05Z"),
+		PeriodEnd:          preview.PeriodEnd.UTC().Format("2006-01-02T15:04:05Z"),
+		ProrateImmediately: preview.AmountDueCents > 0,
+	})
+}
+
 // GetPortal — GET /api/v1/subscriptions/portal
 // Returns a short-lived URL to the Stripe Customer Portal so the user
 // can update their payment method or view invoices without ever leaving
@@ -247,6 +306,14 @@ func toSubscriptionResponse(s *domain.Subscription) subscriptionResponse {
 	if s.CanceledAt != nil {
 		formatted := s.CanceledAt.UTC().Format("2006-01-02T15:04:05Z")
 		out.CanceledAt = &formatted
+	}
+	if s.PendingBillingCycle != nil {
+		cycle := string(*s.PendingBillingCycle)
+		out.PendingBillingCycle = &cycle
+	}
+	if s.PendingCycleEffectiveAt != nil {
+		formatted := s.PendingCycleEffectiveAt.UTC().Format("2006-01-02T15:04:05Z")
+		out.PendingCycleEffectiveAt = &formatted
 	}
 	return out
 }

@@ -1,6 +1,7 @@
 import { apiClient, ApiError } from "@/shared/lib/api-client"
 import type {
   BillingCycle,
+  CyclePreview,
   SubscribeInput,
   SubscribeResponse,
   Subscription,
@@ -73,6 +74,20 @@ export async function getStats(): Promise<SubscriptionStats | null> {
     if (err instanceof ApiError && err.status === 404) return null
     throw err
   }
+}
+
+/**
+ * GET /api/v1/subscriptions/me/cycle-preview — computes what Stripe
+ * would bill today if the user switched to `billingCycle`, without
+ * mutating any state. Used by the manage modal to surface the exact
+ * amount BEFORE asking the user to confirm.
+ *
+ * Upgrade (monthly → annual): amount_due_cents > 0, charged today.
+ * Downgrade (annual → monthly): amount_due_cents = 0, scheduled.
+ */
+export function getCyclePreview(billingCycle: BillingCycle): Promise<CyclePreview> {
+  const qs = new URLSearchParams({ billing_cycle: billingCycle }).toString()
+  return apiClient<CyclePreview>(`/api/v1/subscriptions/me/cycle-preview?${qs}`)
 }
 
 /**
