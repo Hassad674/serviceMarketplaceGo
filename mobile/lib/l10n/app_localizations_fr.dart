@@ -2939,17 +2939,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get clientProfileProjectsCompleted => 'Projets terminés';
 
   @override
-  String get clientProfileProjectHistoryTitle => 'Projets terminés';
+  String get clientProfileProjectHistoryTitle => 'Historique des projets';
 
   @override
   String get clientProfileProjectHistoryEmpty =>
       'Aucun projet terminé pour le moment.';
-
-  @override
-  String get clientProfileReviewsTitle => 'Avis des prestataires';
-
-  @override
-  String get clientProfileReviewsEmpty => 'Aucun avis reçu pour le moment.';
 
   @override
   String get clientProfileSave => 'Enregistrer';

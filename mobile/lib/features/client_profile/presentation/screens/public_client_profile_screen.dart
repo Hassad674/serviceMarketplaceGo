@@ -9,7 +9,6 @@ import '../providers/client_profile_provider.dart';
 import '../widgets/client_profile_description_widget.dart';
 import '../widgets/client_profile_header.dart';
 import '../widgets/client_project_history_widget.dart';
-import '../widgets/client_reviews_list_widget.dart';
 
 /// Public (read-only) client-profile screen.
 ///
@@ -80,8 +79,6 @@ class _Content extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ClientProjectHistoryWidget(projects: profile.projectHistory),
-          const SizedBox(height: 16),
-          ClientReviewsListWidget(reviews: profile.reviews),
           const SizedBox(height: 24),
         ],
       ),
