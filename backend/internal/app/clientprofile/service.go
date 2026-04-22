@@ -1,11 +1,16 @@
 // Package clientprofile orchestrates the public read of an org's
 // client-facing profile: the client description, the aggregate client
 // stats (total spent, review count, average rating, projects
-// completed as client), the recent project history on the client side,
-// and the provider→client reviews. It is the symmetric counterpart to
-// projecthistory (which handles the provider side) and lives in its
-// own package so a consumer that only needs the client profile view
-// does not drag in the provider aggregates.
+// completed as client) and the recent project history on the client
+// side. It is the symmetric counterpart to projecthistory (which
+// handles the provider side) and lives in its own package so a
+// consumer that only needs the client profile view does not drag in
+// the provider aggregates.
+//
+// Reviews are intentionally not materialized as a top-level list on
+// the public aggregate — the review attached to each completed deal
+// is surfaced inline on project_history, mirroring the provider
+// profile's single-section UX.
 package clientprofile
 
 import (
@@ -18,7 +23,6 @@ import (
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
-	reviewdomain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/port/repository"
 )
 
@@ -45,7 +49,7 @@ type ProjectHistoryEntry struct {
 // PublicClientProfile is the aggregated shape surfaced by the public
 // /api/v1/clients/{orgId} endpoint. Every field is pre-allocated (no
 // nil slices) so the JSON shape stays stable across requests — a
-// brand-new org with no deals still serializes as { …, "reviews": [],
+// brand-new org with no deals still serializes as { …,
 // "project_history": [] }.
 type PublicClientProfile struct {
 	OrganizationID            uuid.UUID
@@ -58,7 +62,6 @@ type PublicClientProfile struct {
 	AverageRating             float64
 	ProjectsCompletedAsClient int
 	ProjectHistory            []ProjectHistoryEntry
-	Reviews                   []*reviewdomain.Review
 }
 
 // ServiceDeps groups the repositories the service orchestrates. Every
@@ -106,8 +109,11 @@ func NewService(deps ServiceDeps) *Service {
 //  4. Aggregate the stats (total spent, review count, average rating,
 //     projects completed) in parallel-friendly sequential calls. Each
 //     is bounded and hits a dedicated index.
-//  5. Load the project history and the provider→client reviews. Both
-//     are capped at DefaultProjectHistoryLimit.
+//  5. Load the project history capped at DefaultProjectHistoryLimit.
+//     Reviews are not fetched as a top-level list — the frontend
+//     renders one unified "Completed projects" section and reads the
+//     review inline from project_history. GetClientAverageRating still
+//     runs because its count + average feed the header stats block.
 func (s *Service) GetPublicClientProfile(ctx context.Context, orgID uuid.UUID) (*PublicClientProfile, error) {
 	org, err := s.organizations.FindByID(ctx, orgID)
 	if err != nil {
@@ -133,13 +139,6 @@ func (s *Service) GetPublicClientProfile(ctx context.Context, orgID uuid.UUID) (
 	if err != nil {
 		return nil, err
 	}
-	reviews, err := s.reviews.ListClientReviewsByOrganization(ctx, orgID, DefaultProjectHistoryLimit)
-	if err != nil {
-		return nil, fmt.Errorf("get public client profile: list reviews: %w", err)
-	}
-	if reviews == nil {
-		reviews = []*reviewdomain.Review{}
-	}
 
 	return &PublicClientProfile{
 		OrganizationID:            org.ID,
@@ -152,7 +151,6 @@ func (s *Service) GetPublicClientProfile(ctx context.Context, orgID uuid.UUID) (
 		AverageRating:             avgRating.Average,
 		ProjectsCompletedAsClient: len(history),
 		ProjectHistory:            history,
-		Reviews:                   reviews,
 	}, nil
 }
 
