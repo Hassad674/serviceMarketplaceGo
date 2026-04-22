@@ -69,6 +69,13 @@ type RouterDeps struct {
 	SessionService      service.SessionService
 	UserRepo            repository.UserRepository // for KYC middleware
 
+	// OrgOverridesResolver is the read port used by the Auth middleware
+	// to compute each caller's effective permissions live on every
+	// request — instead of trusting the snapshot baked into the session
+	// at login time. Optional for backwards compat (nil in tests that
+	// don't exercise permissions); production always wires it.
+	OrgOverridesResolver middleware.OrgOverridesResolver
+
 	// Metrics is optional. When non-nil, a Prometheus-format scrape
 	// endpoint is exposed at GET /metrics (public, unauthenticated —
 	// bind this port to an internal-only network in production).
@@ -76,6 +83,15 @@ type RouterDeps struct {
 }
 
 func NewRouter(deps RouterDeps) chi.Router {
+	// Single auth middleware reused on every authenticated route group.
+	// Extracted into a local so the 4-arg call stays in one place and
+	// each `r.Use(auth)` line below reads as pure routing intent.
+	auth := middleware.Auth(
+		deps.TokenService,
+		deps.SessionService,
+		deps.UserRepo,
+		deps.OrgOverridesResolver,
+	)
 	r := chi.NewRouter()
 
 	// Global middleware
@@ -110,7 +126,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Protected
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/me", deps.Auth.Me)
 				r.Get("/ws-token", deps.Auth.WSToken)
@@ -127,7 +143,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Post("/invitations/accept", deps.Invitation.Accept)
 
 			r.Route("/organizations/{orgID}/invitations", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Invitation.Send)
 				r.Get("/", deps.Invitation.List)
@@ -145,13 +161,13 @@ func NewRouter(deps RouterDeps) chi.Router {
 			// them correctly. role-definitions is a global catalogue
 			// (R13: team page "About roles" panel + edit modal preview).
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/organizations/role-definitions", deps.Team.RoleDefinitions)
 			})
 
 			r.Route("/organizations/{orgID}", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 
 				r.Get("/members", deps.Team.ListMembers)
@@ -181,7 +197,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Profile routes (authenticated, permission-gated)
 		r.Route("/profile", func(r chi.Router) {
-			r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+			r.Use(auth)
 			r.Use(middleware.NoCache)
 			r.Get("/", deps.Profile.GetMyProfile)
 			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.Profile.UpdateMyProfile)
@@ -233,7 +249,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// each feature fully removable.
 		if deps.FreelanceProfile != nil {
 			r.Route("/freelance-profile", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.FreelanceProfile.GetMy)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceProfile.UpdateMy)
@@ -252,7 +268,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		}
 		if deps.ReferrerProfile != nil {
 			r.Route("/referrer-profile", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.ReferrerProfile.GetMy)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerProfile.UpdateMy)
@@ -271,7 +287,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		}
 		if deps.OrganizationShared != nil {
 			r.Route("/organization", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/shared", deps.OrganizationShared.GetSharedProfile)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/location", deps.OrganizationShared.UpdateLocation)
@@ -291,7 +307,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			// the "Create X" autocomplete option. Permission-gated by
 			// the same edit-profile grant as the profile skills PUT.
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/skills", deps.Skill.CreateUserSkill)
 			})
@@ -299,7 +315,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 		// Upload routes (authenticated, permission-gated)
 		r.Route("/upload", func(r chi.Router) {
-			r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+			r.Use(auth)
 			r.Use(middleware.NoCache)
 			// Profile-related uploads require org profile edit permission
 			r.Group(func(r chi.Router) {
@@ -335,7 +351,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// picker, which uses it as a simple directory read.
 		if deps.Search != nil {
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/search/key", deps.Search.ScopedKey)
 				r.Get("/search", deps.Search.Search)
@@ -367,7 +383,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Messaging routes (authenticated, permission-gated)
 		if deps.Messaging != nil {
 			r.Route("/messaging", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				// Read operations
 				r.Group(func(r chi.Router) {
@@ -392,7 +408,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Proposal routes (authenticated, permission-gated)
 		if deps.Proposal != nil {
 			r.Route("/proposals", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/{id}", deps.Proposal.GetProposal)
 				r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/", deps.Proposal.CreateProposal)
@@ -427,7 +443,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				})
 			})
 			r.Route("/projects", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Use(middleware.RequirePermission(organization.PermProposalsView))
 				r.Get("/", deps.Proposal.ListActiveProjects)
@@ -437,7 +453,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Job routes (authenticated, permission-gated)
 		if deps.Job != nil {
 			r.Route("/jobs", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 
 				// View operations
@@ -487,7 +503,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 				// Authenticated: create reviews and check eligibility
 				r.Group(func(r chi.Router) {
-					r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+					r.Use(auth)
 					r.Use(middleware.NoCache)
 					r.With(middleware.RequirePermission(organization.PermReviewsRespond)).Post("/", deps.Review.CreateReview)
 					r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/can-review/{proposalId}", deps.Review.CanReview)
@@ -498,7 +514,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Report routes (authenticated)
 		if deps.Report != nil {
 			r.Route("/reports", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Report.CreateReport)
 				r.Get("/mine", deps.Report.ListMyReports)
@@ -513,7 +529,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Authenticated: manage own agency social links
 			r.Route("/profile/social-links", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.SocialLink.ListMySocialLinks)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.SocialLink.UpsertSocialLink)
@@ -527,7 +543,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Get("/freelance-profiles/{orgId}/social-links", deps.FreelanceSocialLink.ListPublicSocialLinks)
 
 			r.Route("/freelance-profile/social-links", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.FreelanceSocialLink.ListMySocialLinks)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceSocialLink.UpsertSocialLink)
@@ -541,7 +557,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 			r.Get("/referrer-profiles/{orgId}/social-links", deps.ReferrerSocialLink.ListPublicSocialLinks)
 
 			r.Route("/referrer-profile/social-links", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.ReferrerSocialLink.ListMySocialLinks)
 				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerSocialLink.UpsertSocialLink)
@@ -557,7 +573,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 			// Authenticated: manage own portfolio (org profile edit permission)
 			r.Route("/portfolio", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Use(middleware.RequirePermission(organization.PermOrgProfileEdit))
 				r.Post("/", deps.Portfolio.CreatePortfolioItem)
@@ -570,7 +586,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Call routes (authenticated, permission-gated)
 		if deps.Call != nil {
 			r.Route("/calls", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermMessagingSend)).Post("/initiate", deps.Call.InitiateCall)
 				// Accept/decline/end are receiving-side actions — view permission is sufficient
@@ -586,7 +602,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Payment info routes — all served by Embedded Components now.
 		if deps.Embedded != nil {
 			r.Route("/payment-info", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/account-status", deps.Embedded.GetAccountStatus)
 				r.Group(func(r chi.Router) {
@@ -600,7 +616,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Notification routes (authenticated)
 		if deps.Notification != nil {
 			r.Route("/notifications", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/", deps.Notification.ListNotifications)
 				r.Get("/unread-count", deps.Notification.GetUnreadCount)
@@ -623,7 +639,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// authenticated user can see their own applicable fee grid.
 		if deps.Billing != nil {
 			r.Route("/billing", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Get("/fee-preview", deps.Billing.GetFeePreview)
 			})
@@ -635,7 +651,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// when it rejects invalid plans, so no per-route role gate here.
 		if deps.Subscription != nil {
 			r.Route("/subscriptions", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Subscription.Subscribe)
 				r.Get("/me", deps.Subscription.GetMine)
@@ -650,7 +666,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Wallet routes (authenticated, permission-gated)
 		if deps.Wallet != nil {
 			r.Route("/wallet", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
 				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
@@ -664,7 +680,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// loadAndAuthorise on every state transition.
 		if deps.Referral != nil {
 			r.Route("/referrals", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.Post("/", deps.Referral.Create)
 				r.Get("/me", deps.Referral.ListMine)
@@ -680,7 +696,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Dispute routes (authenticated, permission-gated)
 		if deps.Dispute != nil {
 			r.Route("/disputes", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				// Read
 				r.Group(func(r chi.Router) {
@@ -703,7 +719,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Stripe routes
 		if deps.Stripe != nil {
 			r.Route("/stripe", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.NoCache)
 				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/config", deps.Stripe.GetConfig)
 			})
@@ -719,7 +735,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 		// Admin routes (authenticated + admin only)
 		if deps.Admin != nil {
 			r.Route("/admin", func(r chi.Router) {
-				r.Use(middleware.Auth(deps.TokenService, deps.SessionService, deps.UserRepo))
+				r.Use(auth)
 				r.Use(middleware.RequireAdmin())
 				r.Use(middleware.NoCache)
 				r.Get("/dashboard/stats", deps.Admin.GetDashboardStats)

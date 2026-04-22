@@ -3,11 +3,13 @@ package middleware
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/pkg/response"
@@ -24,6 +26,24 @@ type SessionVersionChecker interface {
 	GetSessionVersion(ctx context.Context, userID uuid.UUID) (int, error)
 }
 
+// OrgOverridesResolver returns the per-org role-permission overrides
+// used to compute the caller's effective permissions on every request.
+// Keeping it narrow (just the overrides, not the full org row) means
+// the auth middleware does not need to know the organization entity's
+// shape and the implementation is free to front a DB query with a
+// Redis / in-process cache without changing this contract.
+//
+// Return value semantics:
+//   - A nil map is acceptable — the domain's EffectivePermissionsFor
+//     treats it as "no overrides, fall back to the static defaults",
+//     which is the desired behaviour for brand-new orgs.
+//   - An error fails open: the middleware keeps the session's cached
+//     perms list. We'd rather briefly trust the snapshot than lock
+//     every user out on a transient DB blip.
+type OrgOverridesResolver interface {
+	GetRoleOverrides(ctx context.Context, orgID uuid.UUID) (organization.RoleOverrides, error)
+}
+
 // Auth validates an incoming request's credentials (session cookie
 // first, Bearer token second), injects the authenticated user context,
 // and enforces the session_version revocation check.
@@ -32,10 +52,17 @@ type SessionVersionChecker interface {
 // skipped. This is useful for unit tests and for deployments that
 // have not yet wired the revocation system. In production, always
 // pass a non-nil checker so role changes take effect immediately.
+//
+// overridesResolver may be nil — in that case the middleware falls
+// back to the perms snapshot baked into the session/JWT at login
+// time. In production, always pass a non-nil resolver so new
+// permissions added to the catalog after a deploy propagate to every
+// live session without requiring everyone to log out.
 func Auth(
 	tokenService service.TokenService,
 	sessionService service.SessionService,
 	sessionVersions SessionVersionChecker,
+	overridesResolver OrgOverridesResolver,
 ) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,9 +94,10 @@ func Auth(
 					if session.OrgRole != "" {
 						ctx = context.WithValue(ctx, ContextKeyOrgRole, session.OrgRole)
 					}
-					if len(session.Permissions) > 0 {
-						ctx = context.WithValue(ctx, ContextKeyPermissions, session.Permissions)
-					}
+					ctx = injectLivePermissions(
+						ctx, overridesResolver,
+						session.OrganizationID, session.OrgRole, session.Permissions,
+					)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -101,9 +129,10 @@ func Auth(
 						if claims.OrgRole != "" {
 							ctx = context.WithValue(ctx, ContextKeyOrgRole, claims.OrgRole)
 						}
-						if len(claims.Permissions) > 0 {
-							ctx = context.WithValue(ctx, ContextKeyPermissions, claims.Permissions)
-						}
+						ctx = injectLivePermissions(
+							ctx, overridesResolver,
+							claims.OrganizationID, claims.OrgRole, claims.Permissions,
+						)
 						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}
@@ -161,4 +190,72 @@ func verifySessionVersion(
 		return sessionVersionMatch
 	}
 	return sessionVersionRevoked
+}
+
+// injectLivePermissions populates ContextKeyPermissions with the set of
+// permissions effective for the caller's role + the org's live role
+// overrides, computed fresh on every request.
+//
+// Why live instead of the snapshot baked into the session/JWT at login:
+// the session stores the permission list verbatim, so any permission
+// added to the static catalogue after a session was created never
+// reaches the middleware unless the user re-logs-in. Existing users
+// kept getting 403s on brand-new features (e.g. `org_client_profile.edit`
+// after migration 114). Resolving against the catalogue on every
+// request closes that drift at a cost of one cheap read per request
+// (indexed lookup of `organizations.role_overrides`, Redis-cachable by
+// the adapter) — the correctness gain far outweighs the µs cost.
+//
+// Fallbacks, in order:
+//  1. No resolver wired OR session carries no org / role → use the
+//     snapshot as-is (or leave the key unset if the snapshot is empty).
+//     Keeps unit tests and legacy deployments working unchanged.
+//  2. Resolver returns an error → fail open: trust the snapshot rather
+//     than lock the user out on a transient DB blip. The error is
+//     logged so operators can notice a persistent outage.
+//  3. Role string on the session is unknown to the domain → use the
+//     snapshot. Should never happen in production (we only sign known
+//     roles into the session) but the safe default matters.
+func injectLivePermissions(
+	ctx context.Context,
+	resolver OrgOverridesResolver,
+	orgID *uuid.UUID,
+	orgRole string,
+	snapshot []string,
+) context.Context {
+	// Nothing to compute: no resolver, no org, or no role → keep the
+	// snapshot if any so the RequirePermission middleware still has
+	// something to match against.
+	if resolver == nil || orgID == nil || orgRole == "" {
+		if len(snapshot) > 0 {
+			return context.WithValue(ctx, ContextKeyPermissions, snapshot)
+		}
+		return ctx
+	}
+
+	role := organization.Role(orgRole)
+	overrides, err := resolver.GetRoleOverrides(ctx, *orgID)
+	if err != nil {
+		slog.Warn("auth: live perms lookup failed, falling back to session snapshot",
+			"org_id", orgID.String(), "error", err)
+		if len(snapshot) > 0 {
+			return context.WithValue(ctx, ContextKeyPermissions, snapshot)
+		}
+		return ctx
+	}
+
+	effective := organization.EffectivePermissionsFor(role, overrides)
+	perms := make([]string, 0, len(effective))
+	for _, p := range effective {
+		perms = append(perms, string(p))
+	}
+	if len(perms) == 0 {
+		// Unknown role → EffectivePermissionsFor returned nil. Fall
+		// back to the snapshot rather than silently deny everything.
+		if len(snapshot) > 0 {
+			return context.WithValue(ctx, ContextKeyPermissions, snapshot)
+		}
+		return ctx
+	}
+	return context.WithValue(ctx, ContextKeyPermissions, perms)
 }

@@ -1227,10 +1227,11 @@ func main() {
 		AdminSearchStats:    adminSearchStatsHandler,
 		WSHandler:           wsHandler,
 		Config:              cfg,
-		TokenService:        tokenSvc,
-		SessionService:      sessionSvc,
-		UserRepo:            userRepo,
-		Metrics:             metrics,
+		TokenService:         tokenSvc,
+		SessionService:       sessionSvc,
+		UserRepo:             userRepo,
+		OrgOverridesResolver: orgOverridesAdapter{repo: organizationRepo},
+		Metrics:              metrics,
 	})
 
 	// Create HTTP server

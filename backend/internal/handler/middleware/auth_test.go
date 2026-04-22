@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
 
@@ -16,6 +17,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// --- mock org overrides resolver ---
+
+type mockOrgOverridesResolver struct {
+	getFn func(ctx context.Context, orgID uuid.UUID) (organization.RoleOverrides, error)
+}
+
+func (m *mockOrgOverridesResolver) GetRoleOverrides(ctx context.Context, orgID uuid.UUID) (organization.RoleOverrides, error) {
+	return m.getFn(ctx, orgID)
+}
 
 // --- mock session version checker ---
 
@@ -111,7 +122,7 @@ func TestAuth_ValidSessionCookie(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, nil)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/profile", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "sess-1"})
 	rec := httptest.NewRecorder()
@@ -152,7 +163,7 @@ func TestAuth_ExpiredSessionFallsBackToBearer(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, nil)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/profile", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "dead-sess"})
 	req.Header.Set("Authorization", "Bearer valid-access-token")
@@ -191,7 +202,7 @@ func TestAuth_ValidBearerToken(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, nil)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer good-token")
 	rec := httptest.NewRecorder()
@@ -219,7 +230,7 @@ func TestAuth_InvalidBearerToken(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, nil)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer bad-token")
 	rec := httptest.NewRecorder()
@@ -247,7 +258,7 @@ func TestAuth_NoAuthAtAll(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, nil)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 
@@ -283,7 +294,7 @@ func TestAuth_SessionTakesPriorityOverBearer(t *testing.T) {
 		ctxRole = GetRole(r.Context())
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, nil)(next)
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "sess-priority"})
 	req.Header.Set("Authorization", "Bearer some-token")
@@ -329,7 +340,7 @@ func TestAuth_BearerToken_UserDeletedReturns401SessionInvalid(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	handler := Auth(tokenSvc, sessionSvc, checker, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	rec := httptest.NewRecorder()
@@ -374,7 +385,7 @@ func TestAuth_SessionCookie_UserDeletedReturns401SessionInvalid(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	handler := Auth(tokenSvc, sessionSvc, checker, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	req.AddCookie(&http.Cookie{Name: "session_id", Value: "sess-zombie"})
 	rec := httptest.NewRecorder()
@@ -419,7 +430,7 @@ func TestAuth_BearerToken_TransientCheckerErrorFailsOpen(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	handler := Auth(tokenSvc, sessionSvc, checker, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	rec := httptest.NewRecorder()
@@ -458,7 +469,7 @@ func TestAuth_BearerToken_VersionMismatchReturnsSessionRevoked(t *testing.T) {
 		nextCalled = true
 	})
 
-	handler := Auth(tokenSvc, sessionSvc, checker)(next)
+	handler := Auth(tokenSvc, sessionSvc, checker, nil)(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Authorization", "Bearer valid-token")
 	rec := httptest.NewRecorder()
@@ -471,4 +482,117 @@ func TestAuth_BearerToken_VersionMismatchReturnsSessionRevoked(t *testing.T) {
 	var body map[string]string
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "session_revoked", body["error"])
+}
+
+// --- live perms resolution tests (R17-fix) ---
+
+// TestAuth_LivePermsOverrideStaleSessionSnapshot asserts that the
+// middleware ignores a stale `perms` snapshot baked into the session
+// and instead injects the freshly-computed set from
+// EffectivePermissionsFor(role, overrides). This is the regression
+// guard for the "org_client_profile.edit missing from pre-R18 sessions"
+// bug: the catalog grew but long-lived sessions never saw the new key.
+func TestAuth_LivePermsOverrideStaleSessionSnapshot(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+	tokenSvc := &mockTokenService{validateAccessFn: func(_ string) (*service.TokenClaims, error) { return nil, errors.New("not used") }}
+	sessionSvc := &mockSessionService{getFn: func(_ context.Context, _ string) (*service.Session, error) {
+		return &service.Session{
+			UserID:         userID,
+			Role:           "agency",
+			OrganizationID: &orgID,
+			OrgRole:        "owner",
+			// Snapshot that is missing the new permission the test
+			// will ask for. Mimics a session written before the
+			// catalog grew.
+			Permissions: []string{"jobs.view"},
+		}, nil
+	}}
+	resolver := &mockOrgOverridesResolver{getFn: func(_ context.Context, _ uuid.UUID) (organization.RoleOverrides, error) {
+		return nil, nil // no overrides — defaults apply
+	}}
+
+	var seenPerms []string
+	next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		perms, _ := GetPermissions(r.Context())
+		seenPerms = perms
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, nil, resolver)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: "abc"})
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	// Owner defaults include PermOrgClientProfileEdit even though the
+	// stale session snapshot did not — live resolution must supersede.
+	assert.Contains(t, seenPerms, string(organization.PermOrgClientProfileEdit))
+	// And the old snapshot-only entry must not leak through.
+	assert.Greater(t, len(seenPerms), 1, "live resolution should produce the full owner set, not just the stale snapshot")
+}
+
+// TestAuth_LivePermsFallbackToSnapshotOnResolverError covers the
+// fail-open branch: when the overrides resolver errors (e.g. Postgres
+// blip), we keep the session's snapshot rather than locking the user
+// out. Operators get an alert from the slog.Warn, but traffic stays up.
+func TestAuth_LivePermsFallbackToSnapshotOnResolverError(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+	snapshot := []string{"jobs.view", "proposals.view"}
+	tokenSvc := &mockTokenService{validateAccessFn: func(_ string) (*service.TokenClaims, error) { return nil, errors.New("not used") }}
+	sessionSvc := &mockSessionService{getFn: func(_ context.Context, _ string) (*service.Session, error) {
+		return &service.Session{
+			UserID:         userID,
+			Role:           "agency",
+			OrganizationID: &orgID,
+			OrgRole:        "owner",
+			Permissions:    snapshot,
+		}, nil
+	}}
+	resolver := &mockOrgOverridesResolver{getFn: func(_ context.Context, _ uuid.UUID) (organization.RoleOverrides, error) {
+		return nil, errors.New("db blip")
+	}}
+
+	var seenPerms []string
+	next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		perms, _ := GetPermissions(r.Context())
+		seenPerms = perms
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, nil, resolver)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: "abc"})
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.Equal(t, snapshot, seenPerms, "resolver error should fall open to the session snapshot")
+}
+
+// TestAuth_NoResolverKeepsSessionSnapshot ensures legacy deployments
+// and tests that wire nil as the resolver keep the old behaviour
+// (trust the session snapshot) without any silent denial.
+func TestAuth_NoResolverKeepsSessionSnapshot(t *testing.T) {
+	orgID := uuid.New()
+	snapshot := []string{"jobs.view"}
+	tokenSvc := &mockTokenService{validateAccessFn: func(_ string) (*service.TokenClaims, error) { return nil, errors.New("not used") }}
+	sessionSvc := &mockSessionService{getFn: func(_ context.Context, _ string) (*service.Session, error) {
+		return &service.Session{
+			UserID:         uuid.New(),
+			Role:           "agency",
+			OrganizationID: &orgID,
+			OrgRole:        "owner",
+			Permissions:    snapshot,
+		}, nil
+	}}
+
+	var seenPerms []string
+	next := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		perms, _ := GetPermissions(r.Context())
+		seenPerms = perms
+	})
+
+	handler := Auth(tokenSvc, sessionSvc, nil, nil)(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: "abc"})
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+
+	assert.Equal(t, snapshot, seenPerms)
 }
