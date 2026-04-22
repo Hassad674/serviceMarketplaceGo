@@ -22,7 +22,7 @@ import { useUpdateClientProfile } from "../hooks/use-update-client-profile"
 export function ClientProfilePage() {
   const t = useTranslations("clientProfile")
   const { data: org } = useOrganization()
-  const { data: profile, isLoading, isError } = useMyClientProfile()
+  const { data: profile, isLoading, isError } = useMyClientProfile(org?.id)
   const canEdit = useHasPermission("org_client_profile.edit")
   const updateMutation = useUpdateClientProfile()
   // The photo/logo is shared between the provider and client facets
@@ -69,8 +69,8 @@ export function ClientProfilePage() {
         avatarUrl={profile.avatar_url}
         stats={{
           totalSpent: profile.total_spent,
-          reviewCount: profile.client_review_count,
-          averageRating: profile.client_avg_rating,
+          reviewCount: profile.review_count,
+          averageRating: profile.average_rating,
           projectsCompleted: profile.projects_completed_as_client,
         }}
         editable={

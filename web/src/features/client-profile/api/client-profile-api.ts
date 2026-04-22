@@ -61,47 +61,24 @@ export async function fetchPublicClientProfile(
   return envelope.data
 }
 
-// MyClientProfile projects the subset of `/api/v1/profile` that the
-// private client-profile page needs. The backend extends the existing
-// ProfileResponse with five client-side fields (client_description,
-// total_spent, client_review_count, client_avg_rating,
-// projects_completed_as_client). Every counter defaults to `0` so
-// the form / header never branch on undefined.
-export type MyClientProfile = {
-  organization_id: string
-  company_name: string
-  avatar_url: string | null
-  client_description: string
-  total_spent: number
-  client_review_count: number
-  client_avg_rating: number
-  projects_completed_as_client: number
-}
+// MyClientProfile is the exact shape the private client-profile page
+// needs. Since `/api/v1/clients/{orgId}` (the public read endpoint)
+// already returns every field at the right name and nesting —
+// company_name from organizations.name, stats flat at the top level,
+// avatar_url, client_description — we reuse it for the owner's own
+// view instead of trying to fish values out of `/api/v1/profile`,
+// whose `title` is the provider's job title (not the company name)
+// and whose client stats are nested under a `client` section that is
+// easy to mis-map. Single source of truth for the data, single cache
+// key to invalidate after a write.
+export type MyClientProfile = PublicClientProfile
 
-// Raw backend payload. Kept loose on purpose — the /profile endpoint
-// carries a lot of provider-side fields we don't consume here, and
-// re-declaring them would create brittle cross-feature coupling.
-type RawProfileResponse = {
-  organization_id: string
-  title?: string
-  photo_url?: string | null
-  client_description?: string
-  total_spent?: number
-  client_review_count?: number
-  client_avg_rating?: number
-  projects_completed_as_client?: number
-}
-
-export async function fetchMyClientProfile(): Promise<MyClientProfile> {
-  const raw = await apiClient<RawProfileResponse>("/api/v1/profile")
-  return {
-    organization_id: raw.organization_id,
-    company_name: raw.title ?? "",
-    avatar_url: raw.photo_url ?? null,
-    client_description: raw.client_description ?? "",
-    total_spent: raw.total_spent ?? 0,
-    client_review_count: raw.client_review_count ?? 0,
-    client_avg_rating: raw.client_avg_rating ?? 0,
-    projects_completed_as_client: raw.projects_completed_as_client ?? 0,
-  }
+// Fetches the authenticated owner's client profile via the public
+// endpoint. Still 404s for `provider_personal` orgs — matching v1's
+// rule. The private page renders its own NotFoundState for that case
+// before this call ever runs.
+export async function fetchMyClientProfile(
+  orgId: string,
+): Promise<MyClientProfile> {
+  return fetchPublicClientProfile(orgId)
 }
