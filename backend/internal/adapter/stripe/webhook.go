@@ -55,6 +55,10 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 		result.SubscriptionSnapshot = &snap
 		result.SubscriptionDeleted = event.Type == "customer.subscription.deleted"
 		if sub.Metadata != nil {
+			// Prefer the org-scoped key written since the migration; fall
+			// back to the legacy user_id key for subscriptions created
+			// before the migration so their webhooks still resolve.
+			result.SubscriptionOrganizationID = sub.Metadata["organization_id"]
 			result.SubscriptionUserID = sub.Metadata["user_id"]
 			// The UI sends "auto-renew off" by default via this metadata
 			// key (Stripe Checkout does not support cancel_at_period_end

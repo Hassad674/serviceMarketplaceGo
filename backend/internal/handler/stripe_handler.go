@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,6 +19,12 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 	res "marketplace-backend/pkg/response"
 )
+
+// errMissingOwnerMetadata is returned when a Stripe subscription event
+// carries neither organization_id nor user_id metadata. The webhook is
+// then silently ignored — if Stripe is hitting us with subs we did not
+// create, there is nothing to do.
+var errMissingOwnerMetadata = errors.New("stripe webhook: subscription metadata has neither organization_id nor user_id")
 
 // IdempotencyClaimer is the narrow interface the Stripe webhook handler
 // consumes to dedupe replays. Implemented by
@@ -158,14 +165,26 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 // handleSubscriptionCreated fires on first payment of a checkout session.
 // Persists the subscription row and pre-warms the cache invalidation so
 // the next fee-preview hit reflects Premium immediately.
+//
+// Owner id is read from metadata with a dual-key strategy: since the
+// org-scoped migration the canonical key is organization_id, but Stripe
+// subscriptions created before the migration still carry the legacy
+// user_id key — in that case the handler resolves the owning org via
+// users.organization_id. The backfill script
+// (cmd/stripe-backfill-metadata) removes the need for this fallback in
+// Stripe once it runs; the code keeps it around for safety during the
+// transition window.
 func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portservice.StripeWebhookEvent) {
 	if h.subscriptionSvc == nil || event.SubscriptionSnapshot == nil {
 		return
 	}
-	userID, err := uuid.Parse(event.SubscriptionUserID)
+	orgID, cacheUserID, err := h.resolveSubscriptionOwner(r.Context(), event)
 	if err != nil {
-		slog.Warn("stripe webhook: subscription.created with missing/invalid user_id metadata",
-			"event_id", event.EventID, "user_id_raw", event.SubscriptionUserID)
+		slog.Warn("stripe webhook: subscription.created owner resolution failed",
+			"event_id", event.EventID,
+			"organization_id_raw", event.SubscriptionOrganizationID,
+			"user_id_raw", event.SubscriptionUserID,
+			"error", err)
 		return
 	}
 	if event.SubscriptionPlan == "" || event.SubscriptionCycle == "" {
@@ -174,20 +193,17 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 		return
 	}
 
-	// Enforce the user's auto-renew choice captured at checkout. Stripe
+	// Enforce the actor's auto-renew choice captured at checkout. Stripe
 	// Checkout doesn't support cancel_at_period_end at session creation,
 	// so the flag rides in subscription metadata and we apply it here via
 	// a secondary update. We mutate the snapshot BEFORE persisting so the
-	// DB row reflects the user's intent from the very first insert, then
-	// propagate the change to Stripe. A follow-up
-	// customer.subscription.updated will arrive and reconfirm; its
-	// idempotent snapshot handler makes that a no-op.
+	// DB row reflects intent from the very first insert, then propagate
+	// the change to Stripe. A follow-up customer.subscription.updated
+	// will arrive and reconfirm; its idempotent snapshot handler makes
+	// that a no-op.
 	snap := *event.SubscriptionSnapshot
 	if event.SubscriptionCancelAtPeriodEndIntent && !snap.CancelAtPeriodEnd {
 		if uErr := h.subscriptionSvc.EnforceCancelAtPeriodEnd(r.Context(), snap.ID, true); uErr != nil {
-			// Log and proceed with the original snapshot — the next
-			// customer.subscription.updated event will sync the flag if
-			// the update succeeds eventually.
 			slog.Warn("stripe webhook: enforce cancel_at_period_end failed, persisting Stripe default",
 				"event_id", event.EventID, "stripe_sub_id", snap.ID, "error", uErr)
 		} else {
@@ -195,21 +211,56 @@ func (h *StripeHandler) handleSubscriptionCreated(r *http.Request, event *portse
 		}
 	}
 
-	err = h.subscriptionSvc.RegisterFromCheckout(
+	if err := h.subscriptionSvc.RegisterFromCheckout(
 		r.Context(),
-		userID,
+		orgID,
 		subscriptiondomain.Plan(event.SubscriptionPlan),
 		subscriptiondomain.BillingCycle(event.SubscriptionCycle),
 		snap.CustomerID,
 		snap,
-	)
-	if err != nil {
+	); err != nil {
 		slog.Error("stripe webhook: register subscription failed",
-			"event_id", event.EventID, "user_id", userID, "error", err)
+			"event_id", event.EventID, "organization_id", orgID, "error", err)
 		return
 	}
 
-	h.invalidateSubscriptionCache(r.Context(), userID)
+	// Cache is still keyed by user id (billing is per-provider). Only the
+	// legacy path gives us a direct user id; new metadata carries only
+	// org_id, and invalidation falls back to TTL — acceptable given the
+	// 60s window.
+	if cacheUserID != uuid.Nil {
+		h.invalidateSubscriptionCache(r.Context(), cacheUserID)
+	}
+}
+
+// resolveSubscriptionOwner derives the organization_id that owns the
+// subscription from the Stripe event metadata, using the dual-key
+// strategy. cacheUserID is returned only when the legacy user_id path is
+// used — new events with organization_id alone return uuid.Nil there,
+// and the caller must rely on cache TTL for invalidation.
+func (h *StripeHandler) resolveSubscriptionOwner(
+	ctx context.Context,
+	event *portservice.StripeWebhookEvent,
+) (orgID, cacheUserID uuid.UUID, err error) {
+	if event.SubscriptionOrganizationID != "" {
+		parsed, pErr := uuid.Parse(event.SubscriptionOrganizationID)
+		if pErr != nil {
+			return uuid.Nil, uuid.Nil, pErr
+		}
+		return parsed, uuid.Nil, nil
+	}
+	if event.SubscriptionUserID == "" {
+		return uuid.Nil, uuid.Nil, errMissingOwnerMetadata
+	}
+	userID, pErr := uuid.Parse(event.SubscriptionUserID)
+	if pErr != nil {
+		return uuid.Nil, uuid.Nil, pErr
+	}
+	resolved, rErr := h.subscriptionSvc.ResolveActorOrganization(ctx, userID)
+	if rErr != nil {
+		return uuid.Nil, uuid.Nil, rErr
+	}
+	return resolved, userID, nil
 }
 
 // handleSubscriptionSnapshot reflects customer.subscription.updated and
@@ -224,11 +275,11 @@ func (h *StripeHandler) handleSubscriptionSnapshot(r *http.Request, event *ports
 		return
 	}
 
-	// Invalidate cache using the user id from the subscription metadata
-	// when available. On subscription.updated we don't always get the
-	// metadata echoed back — in that case we fall back to invalidating
-	// by the Stripe subscription id, which requires an app-level lookup.
-	// For now, best-effort: only invalidate when user_id is present.
+	// Cache invalidation stays user-keyed for now (billing is
+	// per-provider). Only the legacy metadata path gives us a user id;
+	// when only organization_id is echoed we rely on the cache TTL. This
+	// is the same best-effort approach the code took before the
+	// migration and keeps the 60s worst-case staleness bound.
 	if event.SubscriptionUserID != "" {
 		if uid, err := uuid.Parse(event.SubscriptionUserID); err == nil {
 			h.invalidateSubscriptionCache(r.Context(), uid)

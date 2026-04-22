@@ -37,18 +37,22 @@ func NewSubscriptionService(secretKey string) *SubscriptionService {
 	return &SubscriptionService{apiKey: secretKey}
 }
 
-// EnsureCustomer looks up (by metadata.user_id) a Stripe customer for
-// the given user and creates one if absent. Idempotent across concurrent
-// callers thanks to the lookup-first strategy; two racing Subscribe
-// calls can result in a duplicate customer but Stripe tolerates that and
-// the subscription is attached to the one chosen by the CreateSession
-// call — acceptable cost for keeping the code simple.
-func (s *SubscriptionService) EnsureCustomer(ctx context.Context, userID, email, displayName string) (string, error) {
-	// Search by metadata['user_id'] to find an existing customer. This
-	// avoids duplicates across re-subscriptions.
+// EnsureCustomer looks up (by metadata.organization_id) a Stripe customer
+// for the given org and creates one if absent. Idempotent across concurrent
+// callers thanks to the lookup-first strategy; two racing Subscribe calls
+// can result in a duplicate customer but Stripe tolerates that and the
+// subscription is attached to the one chosen by the CreateSession call —
+// acceptable cost for keeping the code simple.
+//
+// Legacy customers created before the org-scoped migration carry only
+// metadata['user_id']. They will not be found by this search and a new
+// customer may be created alongside. The Phase 3 backfill script
+// (cmd/stripe-backfill-metadata) repairs that by adding organization_id
+// metadata to pre-existing Stripe customers.
+func (s *SubscriptionService) EnsureCustomer(ctx context.Context, organizationID, email, displayName string) (string, error) {
 	searchParams := &stripe.CustomerSearchParams{
 		SearchParams: stripe.SearchParams{
-			Query:   fmt.Sprintf("metadata['user_id']:'%s'", userID),
+			Query:   fmt.Sprintf("metadata['organization_id']:'%s'", organizationID),
 			Context: ctx,
 			Limit:   stripe.Int64(1),
 		},
@@ -65,7 +69,7 @@ func (s *SubscriptionService) EnsureCustomer(ctx context.Context, userID, email,
 		Email: stripe.String(email),
 		Name:  stripe.String(displayName),
 	}
-	params.AddMetadata("user_id", userID)
+	params.AddMetadata("organization_id", organizationID)
 	params.Context = ctx
 	c, err := customer.New(params)
 	if err != nil {
@@ -118,7 +122,7 @@ func (s *SubscriptionService) CreateCheckoutSession(ctx context.Context, in port
 		},
 		SubscriptionData: &stripe.CheckoutSessionSubscriptionDataParams{
 			Metadata: map[string]string{
-				"user_id": in.UserID,
+				"organization_id": in.OrganizationID,
 			},
 		},
 	}

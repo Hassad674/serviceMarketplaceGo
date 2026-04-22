@@ -87,22 +87,52 @@ func e2eProposalFixture(t *testing.T, db *sql.DB, clientID, providerID uuid.UUID
 	return milestoneID
 }
 
+// e2eInsertUser creates a user AND their personal organization so
+// subscription flows (org-scoped since migration 119) have something to
+// attach to. Returns the user id; the caller fetches the org_id via
+// users.organization_id when needed (see e2eUserOrg).
 func e2eInsertUser(t *testing.T, db *sql.DB, role string) uuid.UUID {
 	t.Helper()
-	id := uuid.New()
-	email := id.String()[:8] + "@e2e.local"
+	userID := uuid.New()
+	orgID := uuid.New()
+	email := userID.String()[:8] + "@e2e.local"
+	// users.organization_id + organizations.owner_user_id form a cycle.
+	// Insert user with NULL org, the org with the owner ref, then link.
 	_, err := db.Exec(`
 		INSERT INTO users (id, email, hashed_password, first_name, last_name, display_name, role)
 		VALUES ($1, $2, 'x', 'E2E', 'User', 'E2E User', $3)`,
-		id, email, role,
+		userID, email, role,
 	)
 	require.NoError(t, err)
+	orgType := role
+	if role == "provider" {
+		orgType = "provider_personal" // matches organizations_type_check
+	}
+	_, err = db.Exec(`
+		INSERT INTO organizations (id, owner_user_id, type, name)
+		VALUES ($1, $2, $3, $4)`,
+		orgID, userID, orgType, "E2E Org "+userID.String()[:8],
+	)
+	require.NoError(t, err)
+	_, err = db.Exec(`UPDATE users SET organization_id = $1 WHERE id = $2`, orgID, userID)
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, _ = db.Exec(`DELETE FROM payment_records WHERE provider_id = $1 OR client_id = $1`, id)
-		_, _ = db.Exec(`DELETE FROM subscriptions WHERE user_id = $1`, id)
-		_, _ = db.Exec(`DELETE FROM users WHERE id = $1`, id)
+		_, _ = db.Exec(`DELETE FROM payment_records WHERE provider_id = $1 OR client_id = $1`, userID)
+		_, _ = db.Exec(`DELETE FROM subscriptions WHERE organization_id = $1`, orgID)
+		_, _ = db.Exec(`DELETE FROM users WHERE id = $1`, userID)
+		_, _ = db.Exec(`DELETE FROM organizations WHERE id = $1`, orgID)
 	})
-	return id
+	return userID
+}
+
+// e2eUserOrg reads back the organization_id associated with a test user.
+// Isolated so the test reads stay tight to the SQL contract.
+func e2eUserOrg(t *testing.T, db *sql.DB, userID uuid.UUID) uuid.UUID {
+	t.Helper()
+	var orgID uuid.UUID
+	err := db.QueryRow(`SELECT organization_id FROM users WHERE id = $1`, userID).Scan(&orgID)
+	require.NoError(t, err)
+	return orgID
 }
 
 // e2eStripe implements both StripeSubscriptionService AND the minimal
@@ -268,17 +298,19 @@ func TestSubscriptionE2E_FullLifecycle(t *testing.T) {
 
 	// ---- Step 2: subscribe → checkout URL + no local row yet ----
 	t.Log("Step 2: user subscribes, checkout URL returned")
+	providerOrgID := e2eUserOrg(t, db, providerID)
 	subOut, err := subSvc.Subscribe(ctx, appsub.SubscribeInput{
-		UserID:       providerID,
-		Plan:         domain.PlanFreelance,
-		BillingCycle: domain.CycleMonthly,
-		AutoRenew:    false,
+		OrganizationID: providerOrgID,
+		ActorUserID:    providerID,
+		Plan:           domain.PlanFreelance,
+		BillingCycle:   domain.CycleMonthly,
+		AutoRenew:      false,
 	})
 	require.NoError(t, err)
 	assert.NotEmpty(t, subOut.CheckoutURL)
 	assert.Equal(t, stripeSub.createdCheckoutURL, subOut.CheckoutURL)
 	// No DB row yet — the webhook creates it.
-	_, err = subRepo.FindOpenByUser(ctx, providerID)
+	_, err = subRepo.FindOpenByOrganization(ctx, providerOrgID)
 	assert.ErrorIs(t, err, domain.ErrNotFound, "no row until the webhook lands")
 
 	// ---- Step 3: simulate customer.subscription.created webhook ----
@@ -294,7 +326,7 @@ func TestSubscriptionE2E_FullLifecycle(t *testing.T) {
 	}
 	err = subSvc.RegisterFromCheckout(
 		ctx,
-		providerID,
+		providerOrgID,
 		domain.PlanFreelance,
 		domain.CycleMonthly,
 		"cus_e2e_"+providerID.String()[:8],
@@ -339,7 +371,7 @@ func TestSubscriptionE2E_FullLifecycle(t *testing.T) {
 
 	// ---- Step 6: toggle auto-renew on ----
 	t.Log("Step 6: user toggles auto-renew on")
-	updated, err := subSvc.ToggleAutoRenew(ctx, providerID, true)
+	updated, err := subSvc.ToggleAutoRenew(ctx, providerOrgID, true)
 	require.NoError(t, err)
 	assert.False(t, updated.CancelAtPeriodEnd, "auto_renew=true → cancel_at_period_end=false")
 
