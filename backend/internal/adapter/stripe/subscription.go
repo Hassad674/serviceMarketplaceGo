@@ -248,9 +248,16 @@ func (s *SubscriptionService) ScheduleCycleChange(ctx context.Context, stripeSub
 	}
 
 	// Step 2: update schedule with 2 phases. Phase 1 is the CURRENT
-	// period (same price + same end date). Phase 2 starts at phase-1
+	// period (same price + same window). Phase 2 starts at phase-1
 	// end with the new price, proration_behavior=none so the phase
 	// hand-off produces no invoice.
+	//
+	// StartDate on phase[0] is REQUIRED by Stripe when updating a
+	// schedule created via from_subscription — omitting it silently
+	// rejects the update (the schedule stays single-phase). Must match
+	// the subscription item's current period_start to align with the
+	// billing anchor Stripe already recorded.
+	phaseStart := currentItem.CurrentPeriodStart
 	phase1 := &stripe.SubscriptionSchedulePhaseParams{
 		Items: []*stripe.SubscriptionSchedulePhaseItemParams{
 			{
@@ -258,7 +265,8 @@ func (s *SubscriptionService) ScheduleCycleChange(ctx context.Context, stripeSub
 				Quantity: stripe.Int64(1),
 			},
 		},
-		EndDate: stripe.Int64(phaseBoundary),
+		StartDate: stripe.Int64(phaseStart),
+		EndDate:   stripe.Int64(phaseBoundary),
 	}
 	phase2 := &stripe.SubscriptionSchedulePhaseParams{
 		Items: []*stripe.SubscriptionSchedulePhaseItemParams{

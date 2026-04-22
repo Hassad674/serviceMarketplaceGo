@@ -212,6 +212,7 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
           loading={preview.isLoading}
           error={preview.isError}
           pending={change.isPending}
+          currentPeriodEnd={subscription.current_period_end}
           onCancel={handleCancel}
           onConfirm={handleConfirm}
         />
@@ -240,6 +241,7 @@ function ConfirmCycleChange({
   loading,
   error,
   pending,
+  currentPeriodEnd,
   onCancel,
   onConfirm,
 }: {
@@ -248,12 +250,19 @@ function ConfirmCycleChange({
   loading: boolean
   error: boolean
   pending: boolean
+  currentPeriodEnd: string
   onCancel: () => void
   onConfirm: () => void
 }) {
   return (
     <div className="mt-3 space-y-2">
-      <PreviewMessage target={target} preview={preview} loading={loading} error={error} />
+      <PreviewMessage
+        target={target}
+        preview={preview}
+        loading={loading}
+        error={error}
+        currentPeriodEnd={currentPeriodEnd}
+      />
       <div className="flex gap-2">
         <button
           type="button"
@@ -285,11 +294,13 @@ function PreviewMessage({
   preview,
   loading,
   error,
+  currentPeriodEnd,
 }: {
   target: BillingCycle
   preview: CyclePreview | null
   loading: boolean
   error: boolean
+  currentPeriodEnd: string
 }) {
   if (loading) {
     return (
@@ -318,12 +329,16 @@ function PreviewMessage({
       </p>
     )
   }
-  // Downgrade — scheduled, no charge today, user keeps current access.
+  // Downgrade — scheduled, no charge today, user keeps current access
+  // until the end of the CURRENT period. We intentionally ignore
+  // preview.period_end here: on an interval change Stripe's preview
+  // returns the next monthly invoice window (today + 1 month), which
+  // would misleadingly shorten the access date displayed to the user.
   return (
     <p className="text-xs text-slate-600 dark:text-slate-300">
       Aucun débit aujourd&apos;hui. Tu gardes ton accès jusqu&apos;au{" "}
       <span className="font-semibold text-slate-900 dark:text-white">
-        {formatDate(preview.period_end)}
+        {formatDate(currentPeriodEnd)}
       </span>
       , puis tu passeras en {target === "annual" ? "annuel" : "mensuel"}.
     </p>
