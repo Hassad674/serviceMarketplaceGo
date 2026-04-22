@@ -23,9 +23,63 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!--
+              Enables Flutter's platform deep-link handling so the
+              <intent-filter>s below are forwarded into the Dart side.
+              `go_router` 13.x consumes them automatically and routes
+              to the matching GoRoute (no extra Dart code needed — the
+              `/billing/success` and `/billing/cancel` routes are
+              already registered by agent 5B).
+            -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="true"
+              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!--
+              Stripe Checkout return trip (deep links).
+
+              After a successful or cancelled payment Stripe redirects
+              the user to the URL the backend configured on the
+              Checkout Session (see `cfg.FrontendURL + "/billing/..."`
+              in backend/cmd/api/main.go). On mobile we want the
+              redirect to open the Flutter app directly rather than
+              bouncing through the web.
+
+              Replace `app.marketplace-service.com` below with the
+              production host once finalised. The `localhost` entry is
+              kept for dev testing via `adb shell am start` and does
+              NOT get `autoVerify` because Android refuses to verify
+              non-public hosts.
+
+              autoVerify requires a matching
+                https://app.marketplace-service.com/.well-known/assetlinks.json
+              hosted on the server — this is a FOLLOW-UP (see
+              deliverable). Until that file is published, users will
+              see the "Open with" chooser on the first return trip.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="app.marketplace-service.com" />
+                <data android:pathPrefix="/billing/success" />
+                <data android:pathPrefix="/billing/cancel" />
+            </intent-filter>
+            <!-- Dev: allow `adb` and emulator loopback to exercise the
+                 same deep-link path locally. No autoVerify for localhost. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:host="localhost" />
+                <data android:pathPrefix="/billing/success" />
+                <data android:pathPrefix="/billing/cancel" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

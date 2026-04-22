@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../domain/entities/subscription.dart';
+import '../launcher/checkout_launcher.dart';
 import '../providers/subscription_providers.dart';
 
 /// Premium subscribe entry point. Mirrors the web `UpgradeModal`.
@@ -13,9 +14,10 @@ import '../providers/subscription_providers.dart';
 ///   * billing cycle (monthly / annual, with -21% hint on annual)
 ///   * auto-renew (defaults OFF as per the product rule)
 ///
-/// The CTA calls [SubscribeUseCase] which returns a Stripe Checkout URL.
-/// For now we stub the launch: agent 5C will wire url_launcher. See
-/// `TODO(5C)` below.
+/// The CTA calls [SubscribeUseCase] which returns a Stripe Checkout
+/// URL — opened via [CheckoutLauncher] in an in-app browser tab so the
+/// return trip through universal / App Links lands back on
+/// `/billing/success` or `/billing/cancel` without leaving the app.
 class PricingScreen extends ConsumerStatefulWidget {
   const PricingScreen({super.key});
 
@@ -57,19 +59,21 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
         billingCycle: _cycle,
         autoRenew: _autoRenew,
       );
-      // TODO(5C): launch Checkout URL via url_launcher (external
-      // browser / Chrome Custom Tabs). Until then we surface a toast
-      // so the flow feels real end-to-end for QA.
-      // Debug aid — not user-visible.
-      // ignore: avoid_print
-      assert(() {
-        // Printing inside assert keeps it out of release builds while
-        // still letting the dev see the URL during QA.
-        // ignore: avoid_print
-        debugPrint('[subscription] checkout URL (TODO 5C): $checkoutUrl');
-        return true;
-      }());
+      final launcher = ref.read(checkoutLauncherProvider);
+      final launched = await launcher.launch(checkoutUrl);
       if (!mounted) return;
+      if (!launched) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "Impossible d'ouvrir Stripe. Vérifie ta connexion et réessaie.",
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ouverture du paiement…'),

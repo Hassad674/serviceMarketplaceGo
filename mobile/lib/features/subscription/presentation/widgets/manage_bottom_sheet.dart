@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../launcher/checkout_launcher.dart';
 import '../providers/subscription_providers.dart';
 import 'auto_renew_toggle.dart';
 import 'change_cycle_block.dart';
@@ -12,8 +13,8 @@ import 'subscription_stats_card.dart';
 ///
 /// Mirrors the web `ManageModal` — the sheet composes plan summary,
 /// stats, auto-renew toggle, cycle-change block and portal actions.
-/// The Stripe Billing Portal launch is a stub; see `TODO(5C)` in
-/// [_PortalActions].
+/// The portal URL is opened via [CheckoutLauncher] (in-app browser
+/// tab) so users stay anchored to the Flutter app.
 Future<void> showManageBottomSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
@@ -161,11 +162,24 @@ class _PortalActionsState extends ConsumerState<_PortalActions> {
     setState(() => _pending = true);
     try {
       final useCase = ref.read(getPortalUrlUseCaseProvider);
-      await useCase();
-      // TODO(5C): launch portal URL in an external browser (Chrome
-      // Custom Tabs / url_launcher). The use-case returns a one-time
-      // Stripe Billing Portal URL — treat as sensitive, don't log.
+      final portalUrl = await useCase();
+      // The use-case returns a one-time Stripe Billing Portal URL —
+      // treat as sensitive: the launcher refuses to log it.
+      final launcher = ref.read(checkoutLauncherProvider);
+      final launched = await launcher.launch(portalUrl);
       if (!mounted) return;
+      if (!launched) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              "Impossible d'ouvrir Stripe. Vérifie ta connexion et réessaie.",
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ouverture du portail…'),
