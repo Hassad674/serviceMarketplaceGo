@@ -4,16 +4,14 @@ import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { useOrganization } from "@/shared/hooks/use-user"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import { useProjectHistory } from "@/shared/hooks/profile/use-project-history"
+import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
+import { useUploadPhoto } from "@/features/provider/hooks/use-upload"
 import { ApiError } from "@/shared/lib/api-client"
 import { ClientProfileHeader } from "./client-profile-header"
 import { ClientProfileEditor } from "./client-profile-editor"
 import { ClientProfileDescription } from "./client-profile-description"
-import { ClientProjectHistory } from "./client-project-history"
-import { ClientReviewsList } from "./client-reviews-list"
 import { useMyClientProfile } from "../hooks/use-my-client-profile"
 import { useUpdateClientProfile } from "../hooks/use-update-client-profile"
-import type { ClientProjectHistoryEntry } from "../api/client-profile-api"
 
 // ClientProfilePage is the editable private `/client-profile` view.
 // Providers with the `org_client_profile.edit` permission see the
@@ -25,9 +23,14 @@ export function ClientProfilePage() {
   const t = useTranslations("clientProfile")
   const { data: org } = useOrganization()
   const { data: profile, isLoading, isError } = useMyClientProfile()
-  const projectHistory = useProjectHistory(org?.id)
   const canEdit = useHasPermission("org_client_profile.edit")
   const updateMutation = useUpdateClientProfile()
+  // The photo/logo is shared between the provider and client facets
+  // of the same organization. We reuse the provider feature's upload
+  // mutation so a single /api/v1/upload/photo call keeps both pages
+  // in sync — the mutation invalidates the provider profile cache
+  // AND the client-profile caches on success.
+  const photoUpload = useUploadPhoto()
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
 
@@ -59,15 +62,6 @@ export function ClientProfilePage() {
     }
   }
 
-  // Private page does not expose a public `project_history[]` payload
-  // — we reuse the shared /project-history endpoint and project it
-  // into the client-side shape. The owned provider data doesn't carry
-  // counterparty info on that endpoint, so we render an empty
-  // provider block rather than a fake name.
-  const historyEntries = mapOwnedHistoryToClientEntries(
-    projectHistory.data?.data ?? [],
-  )
-
   return (
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8" aria-label={t("pageTitle")}>
       <ClientProfileHeader
@@ -79,6 +73,16 @@ export function ClientProfilePage() {
           averageRating: profile.client_avg_rating,
           projectsCompleted: profile.projects_completed_as_client,
         }}
+        editable={
+          canEdit
+            ? {
+                onUploadPhoto: async (file) => {
+                  await photoUpload.mutateAsync(file)
+                },
+                uploadingPhoto: photoUpload.isPending,
+              }
+            : undefined
+        }
       />
 
       {canEdit ? (
@@ -109,9 +113,7 @@ export function ClientProfilePage() {
         </>
       )}
 
-      <ClientProjectHistory entries={historyEntries} />
-
-      <ClientReviewsList reviews={[]} />
+      <ProjectHistorySection orgId={org.id} />
     </main>
   )
 }
@@ -167,32 +169,4 @@ function PageSkeleton() {
       <div className="h-40 rounded-2xl border border-border bg-muted/40 animate-shimmer" />
     </div>
   )
-}
-
-// mapOwnedHistoryToClientEntries bridges the shared project-history
-// endpoint (counterparty-agnostic) into the shape the client history
-// card expects. We drop the counterparty — the private page shows the
-// current user's own paid missions, which is sufficient context for
-// the owner. The public /clients/[id] page gets a richer payload with
-// the provider counterparty embedded by the backend.
-function mapOwnedHistoryToClientEntries(
-  entries: {
-    proposal_id: string
-    title: string
-    amount: number
-    currency: string
-    completed_at: string
-  }[],
-): ClientProjectHistoryEntry[] {
-  return entries.map((entry) => ({
-    proposal_id: entry.proposal_id,
-    title: entry.title,
-    amount: entry.amount,
-    completed_at: entry.completed_at,
-    provider: {
-      organization_id: "",
-      display_name: "—",
-      avatar_url: null,
-    },
-  }))
 }

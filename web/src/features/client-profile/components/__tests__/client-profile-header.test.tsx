@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 import messages from "@/../messages/en.json"
@@ -79,5 +79,28 @@ describe("ClientProfileHeader", () => {
     expect(screen.getByText("4.5 / 5")).toBeInTheDocument()
     expect(screen.getByText("3")).toBeInTheDocument()
     expect(screen.getByText("2")).toBeInTheDocument()
+  })
+
+  it("does not expose an edit-logo button in read-only mode", () => {
+    renderHeader()
+    expect(
+      screen.queryByRole("button", {
+        name: messages.clientProfile.editLogo,
+      }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("renders an editable avatar button when `editable` is provided", () => {
+    renderHeader({
+      editable: {
+        onUploadPhoto: vi.fn().mockResolvedValue(undefined),
+        uploadingPhoto: false,
+      },
+    })
+    expect(
+      screen.getByRole("button", {
+        name: messages.clientProfile.editLogo,
+      }),
+    ).toBeInTheDocument()
   })
 })
