@@ -18,13 +18,17 @@ type ClientProjectHistoryProvider struct {
 
 // ClientProjectHistoryEntry is the public API shape of one completed
 // deal where the org was the client. Title is empty when the provider
-// did not elect to share it in their review.
+// did not elect to share it in their review. Review is the inline
+// provider→client review for this deal when one has been submitted
+// and published, or nil when the review window is still open /
+// nothing was ever submitted.
 type ClientProjectHistoryEntry struct {
 	ProposalID  string                        `json:"proposal_id"`
 	Title       string                        `json:"title"`
 	Amount      int64                         `json:"amount"`
 	CompletedAt string                        `json:"completed_at"`
 	Provider    *ClientProjectHistoryProvider `json:"provider"`
+	Review      *ReviewResponse               `json:"review"`
 }
 
 // PublicClientProfileResponse is the public read shape for the
@@ -75,7 +79,9 @@ func NewPublicClientProfileResponse(p *clientprofile.PublicClientProfile) Public
 // newClientProjectHistoryEntry maps one app-layer entry to the API
 // shape. Nil provider stays nil so the frontend can render a generic
 // placeholder for deleted counterparties without a defensive
-// guard on other fields.
+// guard on other fields. Review is similarly nil when no review has
+// been submitted yet — the frontend surfaces an "Awaiting review"
+// placeholder in that case.
 func newClientProjectHistoryEntry(e clientprofile.ProjectHistoryEntry) ClientProjectHistoryEntry {
 	entry := ClientProjectHistoryEntry{
 		ProposalID:  e.ProposalID.String(),
@@ -89,6 +95,10 @@ func newClientProjectHistoryEntry(e clientprofile.ProjectHistoryEntry) ClientPro
 			DisplayName:    e.Provider.Name,
 			AvatarURL:      e.Provider.PhotoURL,
 		}
+	}
+	if e.Review != nil {
+		rv := ReviewFromDomain(e.Review)
+		entry.Review = &rv
 	}
 	return entry
 }
