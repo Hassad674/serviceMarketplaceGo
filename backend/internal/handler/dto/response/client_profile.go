@@ -30,6 +30,12 @@ type ClientProjectHistoryEntry struct {
 // PublicClientProfileResponse is the public read shape for the
 // /api/v1/clients/{orgId} endpoint. Every slice and every nullable is
 // explicitly modeled so the JSON shape is stable across requests.
+//
+// Reviews are NOT surfaced as a top-level list — the review attached
+// to each completed deal travels inline on project_history[].review,
+// and the frontend renders one unified "Completed projects" section
+// (mirroring the provider profile). ReviewCount + AverageRating stay
+// at the top level because they feed the header stats block.
 type PublicClientProfileResponse struct {
 	OrganizationID            string                      `json:"organization_id"`
 	Type                      string                      `json:"type"`
@@ -41,7 +47,6 @@ type PublicClientProfileResponse struct {
 	AverageRating             float64                     `json:"average_rating"`
 	ProjectsCompletedAsClient int                         `json:"projects_completed_as_client"`
 	ProjectHistory            []ClientProjectHistoryEntry `json:"project_history"`
-	Reviews                   []ReviewResponse            `json:"reviews"`
 }
 
 // NewPublicClientProfileResponse builds the public response envelope
@@ -52,13 +57,6 @@ func NewPublicClientProfileResponse(p *clientprofile.PublicClientProfile) Public
 	history := make([]ClientProjectHistoryEntry, 0, len(p.ProjectHistory))
 	for _, e := range p.ProjectHistory {
 		history = append(history, newClientProjectHistoryEntry(e))
-	}
-	reviews := make([]ReviewResponse, 0, len(p.Reviews))
-	for _, rv := range p.Reviews {
-		if rv == nil {
-			continue
-		}
-		reviews = append(reviews, ReviewFromDomain(rv))
 	}
 	return PublicClientProfileResponse{
 		OrganizationID:            p.OrganizationID.String(),
@@ -71,7 +69,6 @@ func NewPublicClientProfileResponse(p *clientprofile.PublicClientProfile) Public
 		AverageRating:             p.AverageRating,
 		ProjectsCompletedAsClient: p.ProjectsCompletedAsClient,
 		ProjectHistory:            history,
-		Reviews:                   reviews,
 	}
 }
 

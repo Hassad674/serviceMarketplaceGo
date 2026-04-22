@@ -318,9 +318,14 @@ func TestClientProfileHandler_GetPublicClientProfile_HappyPath(t *testing.T) {
 	assert.Equal(t, "Public desc", resp["client_description"])
 	assert.Equal(t, "https://example.com/l.png", resp["avatar_url"])
 	assert.EqualValues(t, 99_900, resp["total_spent"])
+	// Count + average feed the header stats block — they stay at the
+	// top level even though the reviews[] array has been removed.
 	assert.EqualValues(t, 1, resp["review_count"])
 	assert.NotNil(t, resp["project_history"])
-	assert.NotNil(t, resp["reviews"])
+	// The reviews array has been unified into project_history[].review —
+	// no top-level reviews field on the response anymore.
+	_, hasReviews := resp["reviews"]
+	assert.False(t, hasReviews, "top-level reviews[] must not be surfaced")
 }
 
 func TestClientProfileHandler_GetPublicClientProfile_InvalidOrgID(t *testing.T) {

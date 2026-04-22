@@ -285,9 +285,6 @@ func TestService_GetPublicClientProfile_Enterprise(t *testing.T) {
 		clientAvgFn: func(_ context.Context, _ uuid.UUID) (*reviewdomain.AverageRating, error) {
 			return &reviewdomain.AverageRating{Average: 4.7, Count: 3}, nil
 		},
-		listClientFn: func(_ context.Context, _ uuid.UUID, _ int) ([]*reviewdomain.Review, error) {
-			return []*reviewdomain.Review{}, nil
-		},
 	}
 	svc := newTestService(orgs, profiles, proposals, reviews)
 
@@ -300,6 +297,9 @@ func TestService_GetPublicClientProfile_Enterprise(t *testing.T) {
 	assert.Equal(t, "We hire great freelancers.", got.ClientDescription)
 	assert.Equal(t, "https://example.com/logo.png", got.AvatarURL)
 	assert.Equal(t, int64(1_234_567), got.TotalSpent)
+	// Count + average come from GetClientAverageRating and feed the
+	// header stats block — they must still be populated now that the
+	// top-level reviews list is gone.
 	assert.Equal(t, 3, got.ReviewCount)
 	assert.InDelta(t, 4.7, got.AverageRating, 0.001)
 	assert.Equal(t, 1, got.ProjectsCompletedAsClient)
@@ -308,8 +308,6 @@ func TestService_GetPublicClientProfile_Enterprise(t *testing.T) {
 	require.NotNil(t, got.ProjectHistory[0].Provider, "provider profile must be attached")
 	assert.Equal(t, "Provider Co", got.ProjectHistory[0].Provider.Name)
 	assert.Equal(t, clientprofile.Currency, got.ProjectHistory[0].Currency)
-	// Always-non-nil slices so the JSON shape is stable.
-	assert.NotNil(t, got.Reviews)
 }
 
 func TestService_GetPublicClientProfile_ProviderPersonalReturnsNotFound(t *testing.T) {
@@ -337,9 +335,7 @@ func TestService_GetPublicClientProfile_EmptyProjectHistoryIsSafe(t *testing.T) 
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.NotNil(t, got.ProjectHistory)
-	assert.NotNil(t, got.Reviews)
 	assert.Empty(t, got.ProjectHistory)
-	assert.Empty(t, got.Reviews)
 	assert.Equal(t, 0, got.ProjectsCompletedAsClient)
 }
 
