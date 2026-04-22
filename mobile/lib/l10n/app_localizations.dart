@@ -5489,7 +5489,7 @@ abstract class AppLocalizations {
   /// No description provided for @clientProfileProjectHistoryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Completed projects'**
+  /// **'Project history'**
   String get clientProfileProjectHistoryTitle;
 
   /// No description provided for @clientProfileProjectHistoryEmpty.
@@ -5497,18 +5497,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No completed project yet.'**
   String get clientProfileProjectHistoryEmpty;
-
-  /// No description provided for @clientProfileReviewsTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Reviews from providers'**
-  String get clientProfileReviewsTitle;
-
-  /// No description provided for @clientProfileReviewsEmpty.
-  ///
-  /// In en, this message translates to:
-  /// **'No review received yet.'**
-  String get clientProfileReviewsEmpty;
 
   /// No description provided for @clientProfileSave.
   ///

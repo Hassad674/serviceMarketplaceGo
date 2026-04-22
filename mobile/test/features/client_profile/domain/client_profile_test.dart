@@ -66,6 +66,40 @@ void main() {
       });
       expect(entry.amount, 9900);
     });
+
+    test('parses an embedded provider→client review when present', () {
+      final entry = ClientProjectEntry.fromJson({
+        'proposal_id': 'p',
+        'title': 't',
+        'amount': 100,
+        'completed_at': '2026-01-01T00:00:00Z',
+        'provider': const <String, dynamic>{},
+        'review': {
+          'id': 'rev-1',
+          'proposal_id': 'p',
+          'reviewer_id': 'u1',
+          'reviewed_id': 'u2',
+          'global_rating': 4,
+          'side': 'provider_to_client',
+          'created_at': '2026-01-02T00:00:00Z',
+        },
+      });
+
+      expect(entry.review, isNotNull);
+      expect(entry.review!.id, 'rev-1');
+      expect(entry.review!.globalRating, 4);
+    });
+
+    test('review defaults to null when no review is submitted yet', () {
+      final entry = ClientProjectEntry.fromJson({
+        'proposal_id': 'p',
+        'title': 't',
+        'amount': 100,
+        'completed_at': '2026-01-01T00:00:00Z',
+        'provider': const <String, dynamic>{},
+      });
+      expect(entry.review, isNull);
+    });
   });
 
   group('ClientProfile.fromJson', () {
@@ -90,16 +124,15 @@ void main() {
               'organization_id': 'org-p-1',
               'display_name': 'Alice',
             },
-          },
-        ],
-        'reviews': [
-          {
-            'id': 'r1',
-            'proposal_id': 'p1',
-            'reviewer_id': 'u1',
-            'reviewed_id': 'u2',
-            'global_rating': 5,
-            'created_at': '2026-02-03T10:00:00Z',
+            'review': {
+              'id': 'r1',
+              'proposal_id': 'p1',
+              'reviewer_id': 'u1',
+              'reviewed_id': 'u2',
+              'global_rating': 5,
+              'side': 'provider_to_client',
+              'created_at': '2026-02-03T10:00:00Z',
+            },
           },
         ],
       });
@@ -113,8 +146,8 @@ void main() {
       expect(profile.projectsCompletedAsClient, 5);
       expect(profile.projectHistory, hasLength(1));
       expect(profile.projectHistory.first.title, 'Logo');
-      expect(profile.reviews, hasLength(1));
-      expect(profile.reviews.first.globalRating, 5);
+      expect(profile.projectHistory.first.review, isNotNull);
+      expect(profile.projectHistory.first.review!.globalRating, 5);
       expect(profile.hasReviews, isTrue);
     });
 
@@ -131,21 +164,44 @@ void main() {
       expect(profile.projectsCompletedAsClient, 0);
       expect(profile.clientDescription, '');
       expect(profile.projectHistory, isEmpty);
-      expect(profile.reviews, isEmpty);
       expect(profile.hasReviews, isFalse);
     });
 
-    test('ignores non-list project_history/reviews safely', () {
+    test('ignores non-list project_history safely', () {
       final profile = ClientProfile.fromJson({
         'organization_id': 'org-a-1',
         'type': 'agency',
         'company_name': 'Studio',
         'project_history': 'not-a-list',
-        'reviews': 42,
       });
 
       expect(profile.projectHistory, isEmpty);
-      expect(profile.reviews, isEmpty);
+    });
+
+    test('silently ignores a legacy top-level reviews[] field', () {
+      // The v1 contract exposed a `reviews[]` list. Backend has since
+      // dropped it in favour of the embedded `project_history[].review`.
+      // The client must tolerate a lingering field gracefully — old
+      // cached responses in the Dio interceptor layer could still ship
+      // the key during a rolling deploy.
+      final profile = ClientProfile.fromJson({
+        'organization_id': 'org-a-1',
+        'type': 'agency',
+        'company_name': 'Studio',
+        'reviews': [
+          {
+            'id': 'legacy',
+            'proposal_id': 'p',
+            'reviewer_id': 'u1',
+            'reviewed_id': 'u2',
+            'global_rating': 1,
+            'created_at': '2026-01-01T00:00:00Z',
+          },
+        ],
+      });
+      // The entity no longer carries a top-level reviews list —
+      // silently ignored, no crash.
+      expect(profile.projectHistory, isEmpty);
     });
 
     test('average_rating accepts int', () {

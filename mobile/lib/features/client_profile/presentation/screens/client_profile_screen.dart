@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/models/review.dart';
 import '../../../../core/network/upload_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -17,7 +16,6 @@ import '../providers/client_profile_provider.dart';
 import '../widgets/client_profile_description_widget.dart';
 import '../widgets/client_profile_header.dart';
 import '../widgets/client_project_history_widget.dart';
-import '../widgets/client_reviews_list_widget.dart';
 
 /// Permission gating the private edit surface. Mirrors the backend's
 /// `org_client_profile.edit` permission key (also exposed on
@@ -146,14 +144,6 @@ class _ClientProfileContent extends ConsumerWidget {
     final projectsCompleted =
         _readInt(profile['projects_completed_as_client']);
 
-    final reviewsRaw = profile['client_reviews'];
-    final reviews = reviewsRaw is List
-        ? reviewsRaw
-            .whereType<Map<String, dynamic>>()
-            .map(Review.fromJson)
-            .toList(growable: false)
-        : const <Review>[];
-
     final historyRaw = profile['client_project_history'];
     final history = historyRaw is List
         ? historyRaw
@@ -196,8 +186,6 @@ class _ClientProfileContent extends ConsumerWidget {
           ],
           const SizedBox(height: 16),
           ClientProjectHistoryWidget(projects: history),
-          const SizedBox(height: 16),
-          ClientReviewsListWidget(reviews: reviews),
           const SizedBox(height: 24),
         ],
       ),
@@ -206,13 +194,27 @@ class _ClientProfileContent extends ConsumerWidget {
 
   Future<void> _uploadAvatar(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context)!;
+    // Capture the current org id BEFORE the sheet closes so we can
+    // also invalidate the public client-profile cache for this org —
+    // keeping the /clients/{id} page in sync with the provider-side
+    // profile screen that shares the same `profileProvider`.
+    final authState = ref.read(authProvider);
+    final orgId = authState.organization?['id'] as String?;
+
     showUploadBottomSheet(
       context: context,
       type: UploadMediaType.photo,
       onUpload: (File file) async {
         final uploadService = ref.read(uploadServiceProvider);
         await uploadService.uploadPhoto(file);
+        // Symmetric invalidation — both the provider profile screen
+        // and the private client profile screen read `profileProvider`;
+        // the public client profile page reads
+        // `publicClientProfileProvider(orgId)`.
         ref.invalidate(profileProvider);
+        if (orgId != null && orgId.isNotEmpty) {
+          ref.invalidate(publicClientProfileProvider(orgId));
+        }
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.photoUpdated)),

@@ -4,14 +4,16 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../shared/widgets/project_history_card.dart';
 import '../../domain/entities/client_profile.dart';
 
-/// Renders the list of completed projects on the client profile.
+/// Unified "Project history" section for the client profile.
 ///
-/// Each row shows title + amount + completion date + a small chip for
-/// the provider side of the engagement. The provider chip deep-links
-/// to the provider's public profile via `/profiles/{orgId}` so users
-/// can jump across the graph without a dedicated search step.
+/// Mirrors the provider-side pattern — one card per completed mission
+/// with the matching provider→client review embedded inline, falling
+/// back to an "Awaiting review" placeholder when the review has not
+/// been submitted yet. The provider chip is rendered as the shared
+/// card's footer so users can jump to the provider's public profile.
 class ClientProjectHistoryWidget extends StatelessWidget {
   const ClientProjectHistoryWidget({
     super.key,
@@ -26,33 +28,23 @@ class ClientProjectHistoryWidget extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final appColors = theme.extension<AppColors>();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.history,
-                size: 20,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                l10n.clientProfileProjectHistoryTitle,
-                style: theme.textTheme.titleMedium,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (projects.isEmpty)
+    if (projects.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _Header(
+              title: l10n.clientProfileProjectHistoryTitle,
+              subtitle: null,
+            ),
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
@@ -62,94 +54,93 @@ class ClientProjectHistoryWidget extends StatelessWidget {
                   fontStyle: FontStyle.italic,
                 ),
               ),
-            )
-          else
-            // List.generate keeps the code readable vs. interleaved
-            // spread + Divider.
-            for (var i = 0; i < projects.length; i++) ...[
-              _ProjectRow(entry: projects[i]),
-              if (i < projects.length - 1)
-                Divider(
-                  height: 20,
-                  color: appColors?.border ?? theme.dividerColor,
-                ),
-            ],
-        ],
-      ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final subtitle = '${projects.length} '
+        '${projects.length > 1 ? 'projects' : 'project'}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+          child: _Header(
+            title: l10n.clientProfileProjectHistoryTitle,
+            subtitle: subtitle,
+          ),
+        ),
+        ...projects.map(
+          (entry) => ProjectHistoryCard(
+            title: entry.title,
+            amountCents: entry.amount,
+            completedAt: entry.completedAt,
+            review: entry.review,
+            footer: _ProviderChip(provider: entry.provider),
+          ),
+        ),
+      ],
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Single project row
+// Header — gradient history icon + title + optional count subtitle
 // ---------------------------------------------------------------------------
 
-class _ProjectRow extends StatelessWidget {
-  const _ProjectRow({required this.entry});
+class _Header extends StatelessWidget {
+  const _Header({required this.title, required this.subtitle});
 
-  final ClientProjectEntry entry;
+  final String title;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                entry.title,
-                style: theme.textTheme.bodyLarge?.copyWith(
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFE4E6), Color(0xFFFEF2F2)],
+            ),
+          ),
+          child: const Icon(
+            Icons.history,
+            size: 18,
+            color: Color(0xFFE11D48),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              _formatEuros(entry.amount),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          _formatDate(entry.completedAt),
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: appColors?.mutedForeground,
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        _ProviderChip(provider: entry.provider),
       ],
     );
-  }
-
-  String _formatEuros(int cents) {
-    final euros = cents / 100;
-    if (euros >= 1000) {
-      final whole = euros.toStringAsFixed(0);
-      final buffer = StringBuffer();
-      final reversed = whole.split('').reversed.toList();
-      for (var i = 0; i < reversed.length; i++) {
-        if (i > 0 && i % 3 == 0) buffer.write(' ');
-        buffer.write(reversed[i]);
-      }
-      return '€${buffer.toString().split('').reversed.join()}';
-    }
-    return '€${euros.toStringAsFixed(0)}';
-  }
-
-  String _formatDate(DateTime dt) {
-    return '${dt.day.toString().padLeft(2, '0')}/'
-        '${dt.month.toString().padLeft(2, '0')}/'
-        '${dt.year}';
   }
 }
 

@@ -47,7 +47,10 @@ class ClientProjectProvider {
 /// One completed project in the client's project history.
 ///
 /// Amounts are stored in cents (the backend's canonical representation)
-/// so consumers must format them before rendering.
+/// so consumers must format them before rendering. Each entry carries
+/// the matching provider→client review inline when the provider has
+/// already left feedback; otherwise [review] is null and the UI shows
+/// an "Awaiting review" placeholder.
 class ClientProjectEntry {
   const ClientProjectEntry({
     required this.proposalId,
@@ -55,6 +58,7 @@ class ClientProjectEntry {
     required this.amount,
     required this.completedAt,
     required this.provider,
+    this.review,
   });
 
   /// Unique id of the proposal that produced this project row.
@@ -72,7 +76,12 @@ class ClientProjectEntry {
   /// Provider side of the completed engagement.
   final ClientProjectProvider provider;
 
+  /// Provider→client review for this project, when one has been
+  /// submitted. `null` means the review is still pending.
+  final Review? review;
+
   factory ClientProjectEntry.fromJson(Map<String, dynamic> json) {
+    final rawReview = json['review'];
     return ClientProjectEntry(
       proposalId: json['proposal_id'] as String? ?? '',
       title: json['title'] as String? ?? '',
@@ -81,6 +90,9 @@ class ClientProjectEntry {
       provider: ClientProjectProvider.fromJson(
         (json['provider'] as Map<String, dynamic>?) ?? const {},
       ),
+      review: rawReview is Map<String, dynamic>
+          ? Review.fromJson(rawReview)
+          : null,
     );
   }
 
@@ -92,23 +104,27 @@ class ClientProjectEntry {
         other.title == title &&
         other.amount == amount &&
         other.completedAt == completedAt &&
-        other.provider == provider;
+        other.provider == provider &&
+        other.review?.id == review?.id;
   }
 
   @override
   int get hashCode =>
-      Object.hash(proposalId, title, amount, completedAt, provider);
+      Object.hash(proposalId, title, amount, completedAt, provider, review?.id);
 }
 
 /// Public client profile aggregate — company identity + client-side
-/// reputation + history of completed engagements + reviews received
-/// from providers.
+/// reputation + history of completed engagements.
 ///
 /// Built around the locked contract for `GET /api/v1/clients/{orgId}`.
 /// The private profile (editable screen) reuses the same fields by
 /// cherry-picking values off the existing `GET /api/v1/profile`
 /// response — this entity is the single source of truth regardless of
 /// the fetch surface.
+///
+/// Reviews are no longer exposed as a top-level list — each
+/// [ClientProjectEntry] carries the matching provider→client review
+/// inline under [ClientProjectEntry.review].
 class ClientProfile {
   const ClientProfile({
     required this.organizationId,
@@ -121,7 +137,6 @@ class ClientProfile {
     required this.projectsCompletedAsClient,
     this.avatarUrl,
     this.projectHistory = const <ClientProjectEntry>[],
-    this.reviews = const <Review>[],
   });
 
   /// Organization id — used to build the public profile URL.
@@ -157,12 +172,8 @@ class ClientProfile {
   /// for ordering — we simply render the list as received).
   final List<ClientProjectEntry> projectHistory;
 
-  /// Reviews received from providers.
-  final List<Review> reviews;
-
   factory ClientProfile.fromJson(Map<String, dynamic> json) {
     final rawHistory = json['project_history'];
-    final rawReviews = json['reviews'];
 
     return ClientProfile(
       organizationId: json['organization_id'] as String? ?? '',
@@ -181,12 +192,6 @@ class ClientProfile {
               .map(ClientProjectEntry.fromJson)
               .toList(growable: false)
           : const <ClientProjectEntry>[],
-      reviews: rawReviews is List
-          ? rawReviews
-              .whereType<Map<String, dynamic>>()
-              .map(Review.fromJson)
-              .toList(growable: false)
-          : const <Review>[],
     );
   }
 
