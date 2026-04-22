@@ -73,7 +73,7 @@ type StripeSubscriptionService interface {
 // CreateCheckoutSessionInput groups the many parameters Stripe Checkout
 // needs. Each field is required unless noted.
 type CreateCheckoutSessionInput struct {
-	UserID            string // internal id, echoed back via metadata so the webhook can correlate
+	OrganizationID    string // internal org id, echoed back via metadata so the webhook can correlate
 	CustomerID        string // Stripe customer id (from EnsureCustomer)
 	PriceID           string // Stripe price id (from ResolvePriceID)
 	CancelAtPeriodEnd bool   // default-off renewal flag

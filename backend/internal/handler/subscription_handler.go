@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/google/uuid"
+
 	appsub "marketplace-backend/internal/app/subscription"
 	domain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/handler/middleware"
@@ -14,13 +16,37 @@ import (
 // SubscriptionHandler groups the seven REST endpoints that drive the
 // Premium flow: subscribe, get status, toggle auto-renew, change cycle,
 // fetch stats, open portal. Auth is enforced by the router; every
-// handler below assumes a non-empty userID in the context.
+// handler below resolves the caller's organization from the JWT user
+// claim and passes organization_id — never user_id — to the app service.
 type SubscriptionHandler struct {
 	svc *appsub.Service
 }
 
 func NewSubscriptionHandler(svc *appsub.Service) *SubscriptionHandler {
 	return &SubscriptionHandler{svc: svc}
+}
+
+// resolveActorOrg reads the JWT user_id from context, then asks the app
+// service for that user's organization_id. Writes the appropriate HTTP
+// error response on failure and returns ok=false so the caller can
+// short-circuit. Centralised here so every endpoint handles "unauth" and
+// "user without org" identically.
+func (h *SubscriptionHandler) resolveActorOrg(w http.ResponseWriter, r *http.Request) (userID, orgID uuid.UUID, ok bool) {
+	userID, authed := middleware.GetUserID(r.Context())
+	if !authed {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return uuid.Nil, uuid.Nil, false
+	}
+	orgID, err := h.svc.ResolveActorOrganization(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidOrganization) {
+			res.Error(w, http.StatusForbidden, "no_organization", "user is not yet a member of any organization")
+			return uuid.Nil, uuid.Nil, false
+		}
+		res.Error(w, http.StatusInternalServerError, "org_resolve_error", err.Error())
+		return uuid.Nil, uuid.Nil, false
+	}
+	return userID, orgID, true
 }
 
 // ---------- Request / response DTOs ----------
@@ -89,9 +115,8 @@ type portalResponse struct {
 
 // Subscribe — POST /api/v1/subscriptions
 func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	userID, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
@@ -102,10 +127,11 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	}
 
 	out, err := h.svc.Subscribe(r.Context(), appsub.SubscribeInput{
-		UserID:       userID,
-		Plan:         domain.Plan(req.Plan),
-		BillingCycle: domain.BillingCycle(req.BillingCycle),
-		AutoRenew:    req.AutoRenew,
+		OrganizationID: orgID,
+		ActorUserID:    userID,
+		Plan:           domain.Plan(req.Plan),
+		BillingCycle:   domain.BillingCycle(req.BillingCycle),
+		AutoRenew:      req.AutoRenew,
 	})
 	if err != nil {
 		mapSubscribeError(w, err)
@@ -115,19 +141,18 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetMine — GET /api/v1/subscriptions/me
-// Returns 404 when the user is on the free tier so the UI can
+// Returns 404 when the org is on the free tier so the UI can
 // differentiate "no subscription" from a real error.
 func (h *SubscriptionHandler) GetMine(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
-	sub, err := h.svc.GetStatus(r.Context(), userID)
+	sub, err := h.svc.GetStatus(r.Context(), orgID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+			res.Error(w, http.StatusNotFound, "no_subscription", "organization has no active subscription")
 			return
 		}
 		res.Error(w, http.StatusInternalServerError, "subscription_read_error", err.Error())
@@ -138,9 +163,8 @@ func (h *SubscriptionHandler) GetMine(w http.ResponseWriter, r *http.Request) {
 
 // ToggleAutoRenew — PATCH /api/v1/subscriptions/me/auto-renew
 func (h *SubscriptionHandler) ToggleAutoRenew(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
@@ -150,10 +174,10 @@ func (h *SubscriptionHandler) ToggleAutoRenew(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	sub, err := h.svc.ToggleAutoRenew(r.Context(), userID, req.AutoRenew)
+	sub, err := h.svc.ToggleAutoRenew(r.Context(), orgID, req.AutoRenew)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+			res.Error(w, http.StatusNotFound, "no_subscription", "organization has no active subscription")
 			return
 		}
 		res.Error(w, http.StatusInternalServerError, "subscription_update_error", err.Error())
@@ -166,9 +190,8 @@ func (h *SubscriptionHandler) ToggleAutoRenew(w http.ResponseWriter, r *http.Req
 // Body carries the NEW billing_cycle; both directions monthly↔annual are
 // supported with immediate Stripe-handled proration.
 func (h *SubscriptionHandler) ChangeCycle(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
@@ -178,11 +201,11 @@ func (h *SubscriptionHandler) ChangeCycle(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	sub, err := h.svc.ChangeCycle(r.Context(), userID, domain.BillingCycle(req.BillingCycle))
+	sub, err := h.svc.ChangeCycle(r.Context(), orgID, domain.BillingCycle(req.BillingCycle))
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrNotFound):
-			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+			res.Error(w, http.StatusNotFound, "no_subscription", "organization has no active subscription")
 		case errors.Is(err, domain.ErrInvalidCycle):
 			res.Error(w, http.StatusBadRequest, "invalid_cycle", err.Error())
 		case errors.Is(err, domain.ErrSameCycle):
@@ -199,16 +222,15 @@ func (h *SubscriptionHandler) ChangeCycle(w http.ResponseWriter, r *http.Request
 
 // GetStats — GET /api/v1/subscriptions/me/stats
 func (h *SubscriptionHandler) GetStats(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	userID, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
-	stats, err := h.svc.GetStats(r.Context(), userID)
+	stats, err := h.svc.GetStats(r.Context(), orgID, userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+			res.Error(w, http.StatusNotFound, "no_subscription", "organization has no active subscription")
 			return
 		}
 		res.Error(w, http.StatusInternalServerError, "stats_error", err.Error())
@@ -225,9 +247,8 @@ func (h *SubscriptionHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 // Side-effect free — returns the invoice preview (amount charged today +
 // next period) so the manage modal can render an accurate confirm step.
 func (h *SubscriptionHandler) PreviewCycleChange(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
@@ -237,11 +258,11 @@ func (h *SubscriptionHandler) PreviewCycleChange(w http.ResponseWriter, r *http.
 		return
 	}
 
-	preview, err := h.svc.PreviewCycleChange(r.Context(), userID, domain.BillingCycle(newCycleRaw))
+	preview, err := h.svc.PreviewCycleChange(r.Context(), orgID, domain.BillingCycle(newCycleRaw))
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrNotFound):
-			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+			res.Error(w, http.StatusNotFound, "no_subscription", "organization has no active subscription")
 		case errors.Is(err, domain.ErrInvalidCycle):
 			res.Error(w, http.StatusBadRequest, "invalid_cycle", err.Error())
 		case errors.Is(err, domain.ErrSameCycle):
@@ -271,16 +292,15 @@ func (h *SubscriptionHandler) PreviewCycleChange(w http.ResponseWriter, r *http.
 // can update their payment method or view invoices without ever leaving
 // Stripe's PCI-compliant environment.
 func (h *SubscriptionHandler) GetPortal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, orgID, ok := h.resolveActorOrg(w, r)
 	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
 		return
 	}
 
-	url, err := h.svc.GetPortalURL(r.Context(), userID)
+	url, err := h.svc.GetPortalURL(r.Context(), orgID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
-			res.Error(w, http.StatusNotFound, "no_subscription", "user has no active subscription")
+			res.Error(w, http.StatusNotFound, "no_subscription", "organization has no active subscription")
 			return
 		}
 		res.Error(w, http.StatusInternalServerError, "portal_error", err.Error())

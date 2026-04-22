@@ -91,11 +91,17 @@ type StripeWebhookEvent struct {
 	// Subscription fields — populated for customer.subscription.* and
 	// invoice.payment_* events. The subscription app service consumes
 	// them to mirror the Stripe state into our local row.
-	SubscriptionSnapshot  *SubscriptionSnapshot
-	SubscriptionDeleted   bool
-	SubscriptionUserID    string // from session/subscription metadata
-	SubscriptionPlan      string // parsed from price lookup_key
-	SubscriptionCycle     string // parsed from price lookup_key
+	SubscriptionSnapshot       *SubscriptionSnapshot
+	SubscriptionDeleted        bool
+	// SubscriptionOrganizationID is the canonical owner identifier written
+	// in subscription metadata since the org-scoped migration. Empty for
+	// legacy Stripe subscriptions that predate the migration — in that
+	// case SubscriptionUserID is populated and the handler resolves the
+	// org via users.organization_id.
+	SubscriptionOrganizationID string
+	SubscriptionUserID         string // legacy metadata.user_id — transition only
+	SubscriptionPlan           string // parsed from price lookup_key
+	SubscriptionCycle          string // parsed from price lookup_key
 	// SubscriptionCancelAtPeriodEndIntent captures the user's choice at
 	// checkout time (the "auto-renew off by default" product rule).
 	// Stripe Checkout doesn't expose cancel_at_period_end at creation,

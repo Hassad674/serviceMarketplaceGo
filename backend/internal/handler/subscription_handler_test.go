@@ -84,7 +84,7 @@ func (r *subHandlerSubRepo) Create(_ context.Context, s *domain.Subscription) er
 	r.existing = s
 	return nil
 }
-func (r *subHandlerSubRepo) FindOpenByUser(_ context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+func (r *subHandlerSubRepo) FindOpenByOrganization(_ context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 	if r.notFound || r.existing == nil {
 		return nil, domain.ErrNotFound
 	}
@@ -159,16 +159,22 @@ func (s *subHandlerStripe) CreatePortalSession(_ context.Context, customerID, _ 
 
 // ---------- harness ----------
 
-func newSubTestHandler(t *testing.T) (*handler.SubscriptionHandler, *subHandlerSubRepo, uuid.UUID) {
+// newSubTestHandler wires a handler against in-memory mocks. Returns
+// (handler, repo, userID, orgID). The user is pre-linked to orgID so
+// the handler's resolveActorOrg succeeds without extra setup; seed the
+// subscription against orgID (that is what the service queries).
+func newSubTestHandler(t *testing.T) (*handler.SubscriptionHandler, *subHandlerSubRepo, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	userID := uuid.New()
+	orgID := uuid.New()
 	userRepo := &subHandlerUserRepo{user: &domainuser.User{
-		ID:          userID,
-		Email:       "sub@test.local",
-		FirstName:   "Sub",
-		LastName:    "Test",
-		DisplayName: "Sub Test",
-		Role:        domainuser.RoleProvider,
+		ID:             userID,
+		Email:          "sub@test.local",
+		FirstName:      "Sub",
+		LastName:       "Test",
+		DisplayName:    "Sub Test",
+		Role:           domainuser.RoleProvider,
+		OrganizationID: &orgID,
 	}}
 	subRepo := &subHandlerSubRepo{}
 	svc := appsub.NewService(appsub.ServiceDeps{
@@ -183,7 +189,7 @@ func newSubTestHandler(t *testing.T) (*handler.SubscriptionHandler, *subHandlerS
 			PortalReturn:    "https://app.test/billing",
 		},
 	})
-	return handler.NewSubscriptionHandler(svc), subRepo, userID
+	return handler.NewSubscriptionHandler(svc), subRepo, userID, orgID
 }
 
 func authReq(method, url string, body any, userID uuid.UUID) *http.Request {
@@ -206,7 +212,7 @@ func authReq(method, url string, body any, userID uuid.UUID) *http.Request {
 // ---------- Subscribe ----------
 
 func TestSubscribe_Unauthenticated_Returns401(t *testing.T) {
-	h, _, _ := newSubTestHandler(t)
+	h, _, _, _ := newSubTestHandler(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/subscriptions", bytes.NewBufferString(`{"plan":"freelance","billing_cycle":"monthly"}`))
 	rec := httptest.NewRecorder()
 
@@ -216,7 +222,7 @@ func TestSubscribe_Unauthenticated_Returns401(t *testing.T) {
 }
 
 func TestSubscribe_HappyPath_Returns201WithCheckoutURL(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodPost, "/api/v1/subscriptions", map[string]any{
 		"plan": "freelance", "billing_cycle": "monthly", "auto_renew": false,
 	}, userID)
@@ -231,7 +237,7 @@ func TestSubscribe_HappyPath_Returns201WithCheckoutURL(t *testing.T) {
 }
 
 func TestSubscribe_InvalidPlan_Returns400(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodPost, "/api/v1/subscriptions", map[string]any{
 		"plan": "enterprise", "billing_cycle": "monthly",
 	}, userID)
@@ -243,7 +249,7 @@ func TestSubscribe_InvalidPlan_Returns400(t *testing.T) {
 }
 
 func TestSubscribe_MalformedJSON_Returns400(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/subscriptions", strings.NewReader("{not json"))
 	req = req.WithContext(context.WithValue(req.Context(), middleware.ContextKeyUserID, userID))
 	rec := httptest.NewRecorder()
@@ -254,9 +260,9 @@ func TestSubscribe_MalformedJSON_Returns400(t *testing.T) {
 }
 
 func TestSubscribe_AlreadySubscribed_Returns409(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	// Seed an existing subscription for the user.
-	subRepo.existing = seedSubscription(userID)
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	// Seed an existing subscription for the org.
+	subRepo.existing = seedSubscription(orgID)
 
 	req := authReq(http.MethodPost, "/api/v1/subscriptions", map[string]any{
 		"plan": "freelance", "billing_cycle": "monthly",
@@ -271,7 +277,7 @@ func TestSubscribe_AlreadySubscribed_Returns409(t *testing.T) {
 // ---------- GetMine ----------
 
 func TestGetMine_FreeUser_Returns404(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodGet, "/api/v1/subscriptions/me", nil, userID)
 	rec := httptest.NewRecorder()
 
@@ -281,8 +287,8 @@ func TestGetMine_FreeUser_Returns404(t *testing.T) {
 }
 
 func TestGetMine_Subscribed_Returns200(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID)
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID)
 	req := authReq(http.MethodGet, "/api/v1/subscriptions/me", nil, userID)
 	rec := httptest.NewRecorder()
 
@@ -298,8 +304,8 @@ func TestGetMine_Subscribed_Returns200(t *testing.T) {
 // ---------- ToggleAutoRenew ----------
 
 func TestToggleAutoRenew_HappyPath(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID)
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID)
 	req := authReq(http.MethodPatch, "/api/v1/subscriptions/me/auto-renew",
 		map[string]any{"auto_renew": true}, userID)
 	rec := httptest.NewRecorder()
@@ -314,7 +320,7 @@ func TestToggleAutoRenew_HappyPath(t *testing.T) {
 }
 
 func TestToggleAutoRenew_NoSubscription_Returns404(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodPatch, "/api/v1/subscriptions/me/auto-renew",
 		map[string]any{"auto_renew": true}, userID)
 	rec := httptest.NewRecorder()
@@ -327,8 +333,8 @@ func TestToggleAutoRenew_NoSubscription_Returns404(t *testing.T) {
 // ---------- ChangeCycle ----------
 
 func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID) // monthly
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID) // monthly
 	req := authReq(http.MethodPatch, "/api/v1/subscriptions/me/billing-cycle",
 		map[string]any{"billing_cycle": "annual"}, userID)
 	rec := httptest.NewRecorder()
@@ -342,8 +348,8 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 }
 
 func TestChangeCycle_SameCycle_Returns409(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID) // monthly
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID) // monthly
 	req := authReq(http.MethodPatch, "/api/v1/subscriptions/me/billing-cycle",
 		map[string]any{"billing_cycle": "monthly"}, userID)
 	rec := httptest.NewRecorder()
@@ -354,8 +360,8 @@ func TestChangeCycle_SameCycle_Returns409(t *testing.T) {
 }
 
 func TestChangeCycle_InvalidCycle_Returns400(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID)
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID)
 	req := authReq(http.MethodPatch, "/api/v1/subscriptions/me/billing-cycle",
 		map[string]any{"billing_cycle": "weekly"}, userID)
 	rec := httptest.NewRecorder()
@@ -368,8 +374,8 @@ func TestChangeCycle_InvalidCycle_Returns400(t *testing.T) {
 // ---------- GetStats ----------
 
 func TestGetStats_HappyPath(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID)
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID)
 	req := authReq(http.MethodGet, "/api/v1/subscriptions/me/stats", nil, userID)
 	rec := httptest.NewRecorder()
 
@@ -384,7 +390,7 @@ func TestGetStats_HappyPath(t *testing.T) {
 }
 
 func TestGetStats_NoSubscription_Returns404(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodGet, "/api/v1/subscriptions/me/stats", nil, userID)
 	rec := httptest.NewRecorder()
 
@@ -396,8 +402,8 @@ func TestGetStats_NoSubscription_Returns404(t *testing.T) {
 // ---------- GetPortal ----------
 
 func TestGetPortal_HappyPath(t *testing.T) {
-	h, subRepo, userID := newSubTestHandler(t)
-	subRepo.existing = seedSubscription(userID)
+	h, subRepo, userID, orgID := newSubTestHandler(t)
+	subRepo.existing = seedSubscription(orgID)
 	req := authReq(http.MethodGet, "/api/v1/subscriptions/portal", nil, userID)
 	rec := httptest.NewRecorder()
 
@@ -410,7 +416,7 @@ func TestGetPortal_HappyPath(t *testing.T) {
 }
 
 func TestGetPortal_NoSubscription_Returns404(t *testing.T) {
-	h, _, userID := newSubTestHandler(t)
+	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodGet, "/api/v1/subscriptions/portal", nil, userID)
 	rec := httptest.NewRecorder()
 
@@ -424,14 +430,18 @@ var _ = errors.Is
 
 // ---------- helpers ----------
 
-func seedSubscription(userID uuid.UUID) *domain.Subscription {
+// seedSubscription returns an activated subscription tied to the given
+// org. Handler tests always resolve the caller's user → org first, so
+// this helper takes the org id directly to mirror what the service
+// would see.
+func seedSubscription(orgID uuid.UUID) *domain.Subscription {
 	now := time.Now()
 	s, _ := domain.NewSubscription(domain.NewSubscriptionInput{
-		UserID:               userID,
+		OrganizationID:       orgID,
 		Plan:                 domain.PlanFreelance,
 		BillingCycle:         domain.CycleMonthly,
 		StripeCustomerID:     "cus_test",
-		StripeSubscriptionID: "sub_test_" + userID.String()[:8],
+		StripeSubscriptionID: "sub_test_" + orgID.String()[:8],
 		StripePriceID:        "price_freelance_monthly",
 		CurrentPeriodStart:   now,
 		CurrentPeriodEnd:     now.Add(30 * 24 * time.Hour),

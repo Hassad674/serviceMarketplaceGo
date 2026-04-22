@@ -20,14 +20,16 @@ import (
 // returned mock fields to inject specific behaviour.
 func newTestService() (*appsub.Service, *mockSubRepo, *mockUserRepo, *mockAmountsReader, *mockStripe) {
 	subs := &mockSubRepo{}
+	orgID := uuid.New()
 	users := &mockUserRepo{
 		user: &domainuser.User{
-			ID:          uuid.New(),
-			Email:       "test@example.com",
-			FirstName:   "Test",
-			LastName:    "User",
-			DisplayName: "Test User",
-			Role:        domainuser.RoleProvider,
+			ID:             uuid.New(),
+			Email:          "test@example.com",
+			FirstName:      "Test",
+			LastName:       "User",
+			DisplayName:    "Test User",
+			Role:           domainuser.RoleProvider,
+			OrganizationID: &orgID,
 		},
 	}
 	amounts := &mockAmountsReader{}
@@ -54,7 +56,8 @@ func TestSubscribe_HappyPath_FreelanceMonthlyNoAutoRenew(t *testing.T) {
 	svc, _, users, _, stripe := newTestService()
 
 	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
-		UserID:       users.user.ID,
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
 		Plan:         domain.PlanFreelance,
 		BillingCycle: domain.CycleMonthly,
 		AutoRenew:    false,
@@ -73,7 +76,8 @@ func TestSubscribe_HappyPath_AgencyAnnualAutoRenewOn(t *testing.T) {
 	users.user.Role = domainuser.RoleAgency
 
 	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
-		UserID:       users.user.ID,
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
 		Plan:         domain.PlanAgency,
 		BillingCycle: domain.CycleAnnual,
 		AutoRenew:    true,
@@ -90,7 +94,8 @@ func TestSubscribe_RejectsInvalidPlan(t *testing.T) {
 	svc, _, users, _, _ := newTestService()
 
 	_, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
-		UserID:       users.user.ID,
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
 		Plan:         "enterprise",
 		BillingCycle: domain.CycleMonthly,
 	})
@@ -102,7 +107,8 @@ func TestSubscribe_RejectsInvalidCycle(t *testing.T) {
 	svc, _, users, _, _ := newTestService()
 
 	_, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
-		UserID:       users.user.ID,
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
 		Plan:         domain.PlanFreelance,
 		BillingCycle: "weekly",
 	})
@@ -112,13 +118,14 @@ func TestSubscribe_RejectsInvalidCycle(t *testing.T) {
 
 func TestSubscribe_RejectsWhenAlreadySubscribed(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
 	_, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
-		UserID:       users.user.ID,
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
 		Plan:         domain.PlanFreelance,
 		BillingCycle: domain.CycleMonthly,
 	})
@@ -130,12 +137,12 @@ func TestSubscribe_RejectsWhenAlreadySubscribed(t *testing.T) {
 
 func TestGetStatus_ReturnsSubscription(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
-	got, err := svc.GetStatus(context.Background(), users.user.ID)
+	got, err := svc.GetStatus(context.Background(), *users.user.OrganizationID)
 
 	require.NoError(t, err)
 	assert.Equal(t, existing.ID, got.ID)
@@ -144,7 +151,7 @@ func TestGetStatus_ReturnsSubscription(t *testing.T) {
 func TestGetStatus_NotFoundWhenFree(t *testing.T) {
 	svc, _, users, _, _ := newTestService()
 
-	_, err := svc.GetStatus(context.Background(), users.user.ID)
+	_, err := svc.GetStatus(context.Background(), *users.user.OrganizationID)
 
 	assert.ErrorIs(t, err, domain.ErrNotFound)
 }
@@ -165,13 +172,13 @@ func TestToggleAutoRenew_BothDirections(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc, subs, users, _, stripe := newTestService()
-			existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+			existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 			_ = existing.Activate()
 			// Start in the opposite state of what we're about to toggle to
 			// so we observe a real transition.
 			existing.CancelAtPeriodEnd = !tc.wantCancelAtEnd
 
-			subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+			subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 				return existing, nil
 			}
 			stripe.updateCancelAtPeriodEndFn = func(ctx context.Context, stripeSubID string, cancelAtEnd bool) (service.SubscriptionSnapshot, error) {
@@ -184,7 +191,7 @@ func TestToggleAutoRenew_BothDirections(t *testing.T) {
 				}, nil
 			}
 
-			got, err := svc.ToggleAutoRenew(context.Background(), users.user.ID, tc.turnOn)
+			got, err := svc.ToggleAutoRenew(context.Background(), *users.user.OrganizationID,tc.turnOn)
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.wantCancelAtEnd, got.CancelAtPeriodEnd)
@@ -195,7 +202,7 @@ func TestToggleAutoRenew_BothDirections(t *testing.T) {
 func TestToggleAutoRenew_NoSubscription(t *testing.T) {
 	svc, _, users, _, _ := newTestService()
 
-	_, err := svc.ToggleAutoRenew(context.Background(), users.user.ID, true)
+	_, err := svc.ToggleAutoRenew(context.Background(), *users.user.OrganizationID,true)
 
 	assert.ErrorIs(t, err, domain.ErrNotFound)
 }
@@ -204,11 +211,11 @@ func TestToggleAutoRenew_NoSubscription(t *testing.T) {
 
 func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 	svc, subs, users, _, stripe := newTestService()
-	in := freshDomainInput(users.user.ID)
+	in := freshDomainInput(*users.user.OrganizationID)
 	in.BillingCycle = domain.CycleMonthly
 	existing, _ := domain.NewSubscription(in)
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 	stripe.changeCycleImmediateFn = func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error) {
@@ -221,7 +228,7 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 		}, nil
 	}
 
-	got, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleAnnual)
+	got, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,domain.CycleAnnual)
 
 	require.NoError(t, err)
 	assert.Equal(t, domain.CycleAnnual, got.BillingCycle, "upgrade applies immediately")
@@ -231,15 +238,15 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 func TestChangeCycle_AnnualToMonthly(t *testing.T) {
 	// Downgrade = scheduled, current cycle UNCHANGED, pending tuple set.
 	svc, subs, users, _, _ := newTestService()
-	in := freshDomainInput(users.user.ID)
+	in := freshDomainInput(*users.user.OrganizationID)
 	in.BillingCycle = domain.CycleAnnual
 	existing, _ := domain.NewSubscription(in)
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
-	got, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleMonthly)
+	got, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,domain.CycleMonthly)
 
 	require.NoError(t, err)
 	// CURRENT cycle stays annual — user keeps prepaid access until phase 2.
@@ -252,13 +259,13 @@ func TestChangeCycle_AnnualToMonthly(t *testing.T) {
 
 func TestChangeCycle_SameCycle(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
-	_, err := svc.ChangeCycle(context.Background(), users.user.ID, existing.BillingCycle)
+	_, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,existing.BillingCycle)
 
 	assert.ErrorIs(t, err, domain.ErrSameCycle)
 }
@@ -272,11 +279,11 @@ func TestChangeCycle_SameCycle(t *testing.T) {
 func TestChangeCycle_DirectionRouting(t *testing.T) {
 	t.Run("upgrade monthly->annual calls ChangeCycleImmediate", func(t *testing.T) {
 		svc, subs, users, _, stripe := newTestService()
-		in := freshDomainInput(users.user.ID)
+		in := freshDomainInput(*users.user.OrganizationID)
 		in.BillingCycle = domain.CycleMonthly
 		existing, _ := domain.NewSubscription(in)
 		_ = existing.Activate()
-		subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+		subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 			return existing, nil
 		}
 
@@ -293,7 +300,7 @@ func TestChangeCycle_DirectionRouting(t *testing.T) {
 			return service.ScheduledCycleChange{}, nil
 		}
 
-		_, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleAnnual)
+		_, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,domain.CycleAnnual)
 		require.NoError(t, err)
 		assert.True(t, immediateCalled, "upgrade MUST use immediate-proration path")
 		assert.False(t, scheduleCalled, "upgrade MUST NOT create a subscription schedule")
@@ -301,11 +308,11 @@ func TestChangeCycle_DirectionRouting(t *testing.T) {
 
 	t.Run("downgrade annual->monthly calls ScheduleCycleChange", func(t *testing.T) {
 		svc, subs, users, _, stripe := newTestService()
-		in := freshDomainInput(users.user.ID)
+		in := freshDomainInput(*users.user.OrganizationID)
 		in.BillingCycle = domain.CycleAnnual
 		existing, _ := domain.NewSubscription(in)
 		_ = existing.Activate()
-		subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+		subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 			return existing, nil
 		}
 
@@ -327,7 +334,7 @@ func TestChangeCycle_DirectionRouting(t *testing.T) {
 			}, nil
 		}
 
-		_, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleMonthly)
+		_, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,domain.CycleMonthly)
 		require.NoError(t, err)
 		assert.False(t, immediateCalled, "downgrade MUST NOT use immediate-proration path (would lose annual access)")
 		assert.True(t, scheduleCalled, "downgrade MUST go through Stripe Subscription Schedules")
@@ -340,13 +347,13 @@ func TestChangeCycle_DirectionRouting(t *testing.T) {
 // subscription.update when a schedule is still managing the subscription.
 func TestChangeCycle_UpgradeReleasesStaleSchedule(t *testing.T) {
 	svc, subs, users, _, stripe := newTestService()
-	in := freshDomainInput(users.user.ID)
+	in := freshDomainInput(*users.user.OrganizationID)
 	in.BillingCycle = domain.CycleMonthly
 	existing, _ := domain.NewSubscription(in)
 	_ = existing.Activate()
 	effectiveAt := time.Now().Add(365 * 24 * time.Hour)
 	require.NoError(t, existing.SchedulePendingCycle(domain.CycleAnnual, effectiveAt, "sched_stale"))
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
@@ -363,7 +370,7 @@ func TestChangeCycle_UpgradeReleasesStaleSchedule(t *testing.T) {
 	}
 
 	// Re-upgrade to annual (the already-scheduled target — but direct now).
-	got, err := svc.ChangeCycle(context.Background(), users.user.ID, domain.CycleAnnual)
+	got, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,domain.CycleAnnual)
 	require.NoError(t, err)
 	assert.Equal(t, "sched_stale", releasedID, "the existing schedule MUST be released first")
 	assert.False(t, got.HasPendingCycleChange(), "no pending state after a direct upgrade")
@@ -372,7 +379,7 @@ func TestChangeCycle_UpgradeReleasesStaleSchedule(t *testing.T) {
 func TestChangeCycle_InvalidCycle(t *testing.T) {
 	svc, _, users, _, _ := newTestService()
 
-	_, err := svc.ChangeCycle(context.Background(), users.user.ID, "weekly")
+	_, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID,"weekly")
 
 	assert.ErrorIs(t, err, domain.ErrInvalidCycle)
 }
@@ -381,9 +388,9 @@ func TestChangeCycle_InvalidCycle(t *testing.T) {
 
 func TestGetStats_ComputesSavingsAcrossTiers(t *testing.T) {
 	svc, subs, users, amounts, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 	// Freelance role — tiers 9€/15€/25€
@@ -393,7 +400,7 @@ func TestGetStats_ComputesSavingsAcrossTiers(t *testing.T) {
 		200000, // 2000€  → tier 3 → 25€ saved
 	}
 
-	stats, err := svc.GetStats(context.Background(), users.user.ID)
+	stats, err := svc.GetStats(context.Background(), *users.user.OrganizationID, users.user.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(900+1500+2500), stats.SavedFeeCents)
@@ -402,14 +409,14 @@ func TestGetStats_ComputesSavingsAcrossTiers(t *testing.T) {
 
 func TestGetStats_EmptyHistory(t *testing.T) {
 	svc, subs, users, amounts, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 	amounts.amounts = nil
 
-	stats, err := svc.GetStats(context.Background(), users.user.ID)
+	stats, err := svc.GetStats(context.Background(), *users.user.OrganizationID, users.user.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), stats.SavedFeeCents)
@@ -419,9 +426,9 @@ func TestGetStats_EmptyHistory(t *testing.T) {
 func TestGetStats_AgencyTierGrid(t *testing.T) {
 	svc, subs, users, amounts, _ := newTestService()
 	users.user.Role = domainuser.RoleAgency
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 	// Agency role — tiers 19€/39€/69€
@@ -431,7 +438,7 @@ func TestGetStats_AgencyTierGrid(t *testing.T) {
 		500000, // 5000€  → tier 3 → 69€
 	}
 
-	stats, err := svc.GetStats(context.Background(), users.user.ID)
+	stats, err := svc.GetStats(context.Background(), *users.user.OrganizationID, users.user.ID)
 
 	require.NoError(t, err)
 	assert.Equal(t, int64(1900+3900+6900), stats.SavedFeeCents)
@@ -441,13 +448,13 @@ func TestGetStats_AgencyTierGrid(t *testing.T) {
 
 func TestGetPortalURL_HappyPath(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
-	url, err := svc.GetPortalURL(context.Background(), users.user.ID)
+	url, err := svc.GetPortalURL(context.Background(), *users.user.OrganizationID)
 
 	require.NoError(t, err)
 	assert.Contains(t, url, "portal.stripe.test")
@@ -456,7 +463,7 @@ func TestGetPortalURL_HappyPath(t *testing.T) {
 func TestGetPortalURL_NoSubscription(t *testing.T) {
 	svc, _, users, _, _ := newTestService()
 
-	_, err := svc.GetPortalURL(context.Background(), users.user.ID)
+	_, err := svc.GetPortalURL(context.Background(), *users.user.OrganizationID)
 
 	assert.ErrorIs(t, err, domain.ErrNotFound)
 }
@@ -465,9 +472,9 @@ func TestGetPortalURL_NoSubscription(t *testing.T) {
 
 func TestIsActive_ActiveSubscription(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
 
@@ -490,7 +497,7 @@ func TestIsActive_FailsOpenOnRepositoryError(t *testing.T) {
 	// Transient DB error must surface AND return active=false so the
 	// caller applies the normal fee. Never grant Premium under doubt.
 	svc, subs, users, _, _ := newTestService()
-	subs.findOpenByUserFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return nil, errors.New("db connection lost")
 	}
 
@@ -504,7 +511,7 @@ func TestIsActive_FailsOpenOnRepositoryError(t *testing.T) {
 
 func TestHandleSubscriptionSnapshot_ActivatesFromIncomplete(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	existing.StripeSubscriptionID = "sub_xyz"
 	subs.findByStripeIDFn = func(ctx context.Context, _ string) (*domain.Subscription, error) {
 		return existing, nil
@@ -525,7 +532,7 @@ func TestHandleSubscriptionSnapshot_ActivatesFromIncomplete(t *testing.T) {
 
 func TestHandleSubscriptionSnapshot_PastDueSetsGrace(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
 	subs.findByStripeIDFn = func(ctx context.Context, _ string) (*domain.Subscription, error) {
 		return existing, nil
@@ -545,7 +552,7 @@ func TestHandleSubscriptionSnapshot_PastDueSetsGrace(t *testing.T) {
 
 func TestHandleSubscriptionSnapshot_DeletedTransitions(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
 	subs.findByStripeIDFn = func(ctx context.Context, _ string) (*domain.Subscription, error) {
 		return existing, nil
@@ -576,7 +583,7 @@ func TestHandleSubscriptionSnapshot_Idempotent(t *testing.T) {
 	// this as: a canceled row can receive a canceled snapshot again with
 	// no error (no state change either).
 	svc, subs, users, _, _ := newTestService()
-	existing, _ := domain.NewSubscription(freshDomainInput(users.user.ID))
+	existing, _ := domain.NewSubscription(freshDomainInput(*users.user.OrganizationID))
 	_ = existing.Activate()
 	_ = existing.MarkCanceled()
 	firstCanceledAt := existing.CanceledAt
@@ -604,7 +611,7 @@ func TestRegisterFromCheckout_CreatesActiveRow(t *testing.T) {
 
 	err := svc.RegisterFromCheckout(
 		context.Background(),
-		users.user.ID,
+		*users.user.OrganizationID,
 		domain.PlanFreelance,
 		domain.CycleMonthly,
 		"cus_123",
@@ -625,11 +632,13 @@ func TestRegisterFromCheckout_CreatesActiveRow(t *testing.T) {
 	assert.Equal(t, "sub_456", persisted.StripeSubscriptionID)
 }
 
-// freshDomainInput builds a valid NewSubscriptionInput for a given user.
-func freshDomainInput(userID uuid.UUID) domain.NewSubscriptionInput {
+// freshDomainInput builds a valid NewSubscriptionInput for a given org.
+// The input used to key by user; it now keys by organization_id — tests
+// pass users.user.OrganizationID (pre-set in newTestService).
+func freshDomainInput(orgID uuid.UUID) domain.NewSubscriptionInput {
 	now := time.Now()
 	return domain.NewSubscriptionInput{
-		UserID:               userID,
+		OrganizationID:       orgID,
 		Plan:                 domain.PlanFreelance,
 		BillingCycle:         domain.CycleMonthly,
 		StripeCustomerID:     "cus_test",

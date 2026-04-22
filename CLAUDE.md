@@ -125,6 +125,24 @@ The marketplace has three primary roles:
 
 ---
 
+## Organizations — the entity that owns state
+
+**All business state — subscriptions, wallet, billing, invoices, jobs, contracts, KYC, commissions, referrals, team members — is scoped to an `organization`, not a `user`.** Users are *members* of an organization; the organization is the legal/economic entity.
+
+### Why
+
+A marketplace agency has multiple members who share a single billing address, a single Stripe Connect account, a single wallet, a single Premium subscription, and receives invoices as one entity. Invoicing or subscribing a specific member instead of the agency breaks the business model — if that member leaves, the agency loses its subscription or its wallet balance.
+
+### Rules
+
+1. **New tables holding business state use `organization_id` FK, never `user_id` for ownership.** `user_id` is only appropriate for action authorship (audit log, `created_by`, `updated_by`) — never for "who owns this resource".
+2. **Handlers resolve `organization_id`** from the authenticated user's membership in JWT context, then query by org. Never query business state by `user_id`.
+3. **RBAC checks membership**: the requesting user must be a member of the target org. Role within the org (admin/member) determines what actions are allowed.
+4. **Before writing a new feature**, grep an existing similar feature's schema to confirm it's correctly org-scoped — do not blindly copy a per-user pattern.
+5. **Any existing table using `user_id` for ownership is a bug** to flag (e.g., `subscriptions` currently uses `user_id` — flagged for migration on 2026-04-22).
+
+---
+
 ## Project structure
 
 ```

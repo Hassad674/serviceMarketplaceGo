@@ -24,34 +24,49 @@ import (
 	domain "marketplace-backend/internal/domain/subscription"
 )
 
-// subTestUser inserts a minimal user row so the FK satisfies.
-// Isolated helper to avoid coupling to other suites' helpers.
+// subTestUser inserts a user AND their personal organization so the
+// subscriptions FK (organization_id since migration 119) has a target.
+// Returns the organization id — that is what the repository keys on.
 func subTestUser(t *testing.T, db *sql.DB) uuid.UUID {
 	t.Helper()
-	id := uuid.New()
-	email := id.String()[:8] + "@subs.local"
+	userID := uuid.New()
+	orgID := uuid.New()
+	email := userID.String()[:8] + "@subs.local"
+	// users.organization_id is FK → organizations.id AND
+	// organizations.owner_user_id is FK → users.id. The circular pair is
+	// resolved in three steps: insert the user with NULL org, insert the
+	// org pointing to the user, then backfill the user's organization_id.
 	_, err := db.Exec(`
 		INSERT INTO users (id, email, hashed_password, first_name, last_name, display_name, role)
 		VALUES ($1, $2, 'x', 'Sub', 'Test', 'Sub Test', 'provider')`,
-		id, email,
+		userID, email,
 	)
 	require.NoError(t, err, "insert user")
+	_, err = db.Exec(`
+		INSERT INTO organizations (id, owner_user_id, type, name)
+		VALUES ($1, $2, 'provider_personal', 'Sub Test Org')`,
+		orgID, userID,
+	)
+	require.NoError(t, err, "insert organization")
+	_, err = db.Exec(`UPDATE users SET organization_id = $1 WHERE id = $2`, orgID, userID)
+	require.NoError(t, err, "link user to organization")
 
 	t.Cleanup(func() {
-		_, _ = db.Exec(`DELETE FROM subscriptions WHERE user_id = $1`, id)
-		_, _ = db.Exec(`DELETE FROM users WHERE id = $1`, id)
+		_, _ = db.Exec(`DELETE FROM subscriptions WHERE organization_id = $1`, orgID)
+		_, _ = db.Exec(`DELETE FROM users WHERE id = $1`, userID)
+		_, _ = db.Exec(`DELETE FROM organizations WHERE id = $1`, orgID)
 	})
-	return id
+	return orgID
 }
 
-// validSubscription builds a fresh domain.Subscription for the given user.
+// validSubscription builds a fresh domain.Subscription for the given org.
 // The Stripe IDs include the test's uuid so reruns never collide.
-func validSubscription(t *testing.T, userID uuid.UUID) *domain.Subscription {
+func validSubscription(t *testing.T, orgID uuid.UUID) *domain.Subscription {
 	t.Helper()
 	nonce := uuid.New().String()[:8]
 	now := time.Now().UTC().Truncate(time.Second)
 	s, err := domain.NewSubscription(domain.NewSubscriptionInput{
-		UserID:               userID,
+		OrganizationID:       orgID,
 		Plan:                 domain.PlanFreelance,
 		BillingCycle:         domain.CycleMonthly,
 		StripeCustomerID:     "cus_test_" + nonce,
@@ -65,16 +80,16 @@ func validSubscription(t *testing.T, userID uuid.UUID) *domain.Subscription {
 	return s
 }
 
-func TestSubscriptionRepository_CreateAndFindOpenByUser(t *testing.T) {
+func TestSubscriptionRepository_CreateAndFindOpenByOrganization(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
+	orgID := subTestUser(t, db)
 
-	sub := validSubscription(t, userID)
+	sub := validSubscription(t, orgID)
 
 	require.NoError(t, repo.Create(context.Background(), sub))
 
-	got, err := repo.FindOpenByUser(context.Background(), userID)
+	got, err := repo.FindOpenByOrganization(context.Background(), orgID)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	assert.Equal(t, sub.ID, got.ID)
@@ -85,12 +100,12 @@ func TestSubscriptionRepository_CreateAndFindOpenByUser(t *testing.T) {
 	assert.Nil(t, got.CanceledAt)
 }
 
-func TestSubscriptionRepository_FindOpenByUser_NotFoundIsSentinel(t *testing.T) {
+func TestSubscriptionRepository_FindOpenByOrganization_NotFoundIsSentinel(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
+	orgID := subTestUser(t, db)
 
-	_, err := repo.FindOpenByUser(context.Background(), userID)
+	_, err := repo.FindOpenByOrganization(context.Background(), orgID)
 
 	assert.ErrorIs(t, err, domain.ErrNotFound)
 }
@@ -98,8 +113,8 @@ func TestSubscriptionRepository_FindOpenByUser_NotFoundIsSentinel(t *testing.T) 
 func TestSubscriptionRepository_FindByStripeID(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
-	sub := validSubscription(t, userID)
+	orgID := subTestUser(t, db)
+	sub := validSubscription(t, orgID)
 	require.NoError(t, repo.Create(context.Background(), sub))
 
 	got, err := repo.FindByStripeID(context.Background(), sub.StripeSubscriptionID)
@@ -119,15 +134,15 @@ func TestSubscriptionRepository_FindByStripeID_NotFound(t *testing.T) {
 func TestSubscriptionRepository_Update(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
-	sub := validSubscription(t, userID)
+	orgID := subTestUser(t, db)
+	sub := validSubscription(t, orgID)
 	require.NoError(t, repo.Create(context.Background(), sub))
 
 	// Simulate the webhook-driven activation path and persist.
 	require.NoError(t, sub.Activate())
 	require.NoError(t, repo.Update(context.Background(), sub))
 
-	reloaded, err := repo.FindOpenByUser(context.Background(), userID)
+	reloaded, err := repo.FindOpenByOrganization(context.Background(), orgID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.StatusActive, reloaded.Status)
 	assert.WithinDuration(t, time.Now(), reloaded.StartedAt, 5*time.Second)
@@ -136,8 +151,8 @@ func TestSubscriptionRepository_Update(t *testing.T) {
 func TestSubscriptionRepository_Update_NotFound(t *testing.T) {
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
-	ghost := validSubscription(t, userID) // built but never persisted
+	orgID := subTestUser(t, db)
+	ghost := validSubscription(t, orgID) // built but never persisted
 
 	err := repo.Update(context.Background(), ghost)
 
@@ -150,12 +165,12 @@ func TestSubscriptionRepository_UniqueIndex_RejectsSecondOpenRow(t *testing.T) {
 	// The subscribe service relies on this as the last line of defence.
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
+	orgID := subTestUser(t, db)
 
-	first := validSubscription(t, userID)
+	first := validSubscription(t, orgID)
 	require.NoError(t, repo.Create(context.Background(), first))
 
-	second := validSubscription(t, userID)
+	second := validSubscription(t, orgID)
 	err := repo.Create(context.Background(), second)
 
 	require.Error(t, err)
@@ -172,15 +187,15 @@ func TestSubscriptionRepository_UniqueIndex_AllowsSecondAfterFirstCanceled(t *te
 	// rows, matching the "resubscribe after natural expiration" flow.
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
+	orgID := subTestUser(t, db)
 
-	first := validSubscription(t, userID)
+	first := validSubscription(t, orgID)
 	require.NoError(t, repo.Create(context.Background(), first))
 	require.NoError(t, first.Activate())
 	require.NoError(t, first.MarkCanceled())
 	require.NoError(t, repo.Update(context.Background(), first))
 
-	second := validSubscription(t, userID)
+	second := validSubscription(t, orgID)
 	err := repo.Create(context.Background(), second)
 
 	require.NoError(t, err, "resubscribe after cancel MUST succeed")
@@ -192,8 +207,8 @@ func TestSubscriptionRepository_UpdatedAtTriggerFires(t *testing.T) {
 	// stale value — the trigger is our safety net against clock skew.
 	db := testDB(t)
 	repo := postgres.NewSubscriptionRepository(db)
-	userID := subTestUser(t, db)
-	sub := validSubscription(t, userID)
+	orgID := subTestUser(t, db)
+	sub := validSubscription(t, orgID)
 	require.NoError(t, repo.Create(context.Background(), sub))
 
 	originalUpdatedAt := sub.UpdatedAt
@@ -203,7 +218,7 @@ func TestSubscriptionRepository_UpdatedAtTriggerFires(t *testing.T) {
 	require.NoError(t, sub.Activate())
 	require.NoError(t, repo.Update(context.Background(), sub))
 
-	reloaded, err := repo.FindOpenByUser(context.Background(), userID)
+	reloaded, err := repo.FindOpenByOrganization(context.Background(), orgID)
 	require.NoError(t, err)
 	assert.True(t, reloaded.UpdatedAt.After(originalUpdatedAt),
 		"trigger must bump updated_at on UPDATE")

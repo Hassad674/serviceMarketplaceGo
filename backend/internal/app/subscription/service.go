@@ -93,10 +93,15 @@ func NewService(deps ServiceDeps) *Service {
 }
 
 // SubscribeInput is the payload of the POST /api/v1/subscriptions endpoint.
+// OrganizationID is the owner of the subscription — Premium is granted to
+// the org, not to the individual who clicked subscribe. ActorUserID is the
+// person triggering the flow; their email + display name seed the Stripe
+// Customer record so Stripe emails go to a real human mailbox.
 type SubscribeInput struct {
-	UserID       uuid.UUID
-	Plan         domain.Plan
-	BillingCycle domain.BillingCycle
+	OrganizationID uuid.UUID
+	ActorUserID    uuid.UUID
+	Plan           domain.Plan
+	BillingCycle   domain.BillingCycle
 	// AutoRenew flips the default: when true, the created subscription
 	// renews automatically at period end. When false (the product
 	// default), cancel_at_period_end is set and the user gets exactly
@@ -123,21 +128,21 @@ func (s *Service) Subscribe(ctx context.Context, in SubscribeInput) (*SubscribeO
 		return nil, domain.ErrInvalidCycle
 	}
 
-	// Reject if the user already has an open subscription. The DB unique
+	// Reject if the org already has an open subscription. The DB unique
 	// index is the last line of defence; checking here returns a clean
 	// domain error instead of a SQL constraint violation.
-	if existing, err := s.subs.FindOpenByUser(ctx, in.UserID); err == nil && existing != nil {
+	if existing, err := s.subs.FindOpenByOrganization(ctx, in.OrganizationID); err == nil && existing != nil {
 		return nil, domain.ErrAlreadySubscribed
 	} else if err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return nil, fmt.Errorf("subscribe: probe existing subscription: %w", err)
 	}
 
-	user, err := s.users.GetByID(ctx, in.UserID)
+	actor, err := s.users.GetByID(ctx, in.ActorUserID)
 	if err != nil {
-		return nil, fmt.Errorf("subscribe: fetch user: %w", err)
+		return nil, fmt.Errorf("subscribe: fetch actor: %w", err)
 	}
-	if user == nil {
-		return nil, fmt.Errorf("subscribe: user not found")
+	if actor == nil {
+		return nil, fmt.Errorf("subscribe: actor not found")
 	}
 
 	// Map (plan, cycle) to the Stripe lookup key, resolve it to a live
@@ -152,17 +157,20 @@ func (s *Service) Subscribe(ctx context.Context, in SubscribeInput) (*SubscribeO
 		return nil, fmt.Errorf("subscribe: resolve price: %w", err)
 	}
 
-	displayName := user.DisplayName
+	displayName := actor.DisplayName
 	if displayName == "" {
-		displayName = user.FirstName + " " + user.LastName
+		displayName = actor.FirstName + " " + actor.LastName
 	}
-	customerID, err := s.stripe.EnsureCustomer(ctx, in.UserID.String(), user.Email, displayName)
+	// The Stripe Customer is keyed by organization id — that is the
+	// entity being billed. The actor's email + name seed the default
+	// billing contact on the Customer.
+	customerID, err := s.stripe.EnsureCustomer(ctx, in.OrganizationID.String(), actor.Email, displayName)
 	if err != nil {
 		return nil, fmt.Errorf("subscribe: ensure customer: %w", err)
 	}
 
 	url, err := s.stripe.CreateCheckoutSession(ctx, service.CreateCheckoutSessionInput{
-		UserID:            in.UserID.String(),
+		OrganizationID:    in.OrganizationID.String(),
 		CustomerID:        customerID,
 		PriceID:           priceID,
 		CancelAtPeriodEnd: !in.AutoRenew,
@@ -176,12 +184,12 @@ func (s *Service) Subscribe(ctx context.Context, in SubscribeInput) (*SubscribeO
 	return &SubscribeOutput{CheckoutURL: url}, nil
 }
 
-// GetStatus returns the user's current open subscription, or
-// subscription.ErrNotFound when the user is on the free tier. The status
+// GetStatus returns the org's current open subscription, or
+// subscription.ErrNotFound when the org is on the free tier. The status
 // modal in the UI uses this to decide whether to render the upgrade or
 // manage panel.
-func (s *Service) GetStatus(ctx context.Context, userID uuid.UUID) (*domain.Subscription, error) {
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+func (s *Service) GetStatus(ctx context.Context, organizationID uuid.UUID) (*domain.Subscription, error) {
+	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -191,8 +199,8 @@ func (s *Service) GetStatus(ctx context.Context, userID uuid.UUID) (*domain.Subs
 // ToggleAutoRenew flips cancel_at_period_end on both Stripe and the local
 // row. The adapter returns a snapshot; we reflect the authoritative
 // fields (not just the flag — Stripe may have updated the period too).
-func (s *Service) ToggleAutoRenew(ctx context.Context, userID uuid.UUID, on bool) (*domain.Subscription, error) {
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+func (s *Service) ToggleAutoRenew(ctx context.Context, organizationID uuid.UUID, on bool) (*domain.Subscription, error) {
+	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -233,12 +241,12 @@ func (s *Service) ToggleAutoRenew(ctx context.Context, userID uuid.UUID, on bool
 // are populated so the UI can render "Annuel jusqu'au JJ/MM/YYYY → Mensuel
 // ensuite". The row flips cycle only when the phase transition actually
 // happens.
-func (s *Service) ChangeCycle(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*domain.Subscription, error) {
+func (s *Service) ChangeCycle(ctx context.Context, organizationID uuid.UUID, newCycle domain.BillingCycle) (*domain.Subscription, error) {
 	if !newCycle.IsValid() {
 		return nil, domain.ErrInvalidCycle
 	}
 
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -317,11 +325,11 @@ type CyclePreviewResult struct {
 // switched to `newCycle`. No state is mutated. Used by the manage
 // modal's two-step confirmation so the UI always surfaces an exact
 // number before the user clicks "Confirmer".
-func (s *Service) PreviewCycleChange(ctx context.Context, userID uuid.UUID, newCycle domain.BillingCycle) (*CyclePreviewResult, error) {
+func (s *Service) PreviewCycleChange(ctx context.Context, organizationID uuid.UUID, newCycle domain.BillingCycle) (*CyclePreviewResult, error) {
 	if !newCycle.IsValid() {
 		return nil, domain.ErrInvalidCycle
 	}
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -358,29 +366,35 @@ type StatsOutput struct {
 	Since         time.Time
 }
 
-// GetStats computes the cumulative platform fee the user would have paid
-// if they had not been subscribed, between started_at and now. Uses the
-// billing schedule directly — the source of truth is the same function
-// the fee-preview endpoint calls.
-func (s *Service) GetStats(ctx context.Context, userID uuid.UUID) (*StatsOutput, error) {
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+// GetStats computes the cumulative platform fee the org's member would
+// have paid if the org had not been subscribed, between started_at and
+// now. Uses the billing schedule directly — the source of truth is the
+// same function the fee-preview endpoint calls.
+//
+// The org owns the subscription (organizationID) but milestone amounts
+// are still tracked per individual provider (actorUserID). Until the
+// amounts feature is itself migrated to org-scope, we read amounts for
+// the requesting actor — that keeps the "what YOU saved" display honest
+// while Premium is org-wide.
+func (s *Service) GetStats(ctx context.Context, organizationID, actorUserID uuid.UUID) (*StatsOutput, error) {
+	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
-	user, uErr := s.users.GetByID(ctx, userID)
+	actor, uErr := s.users.GetByID(ctx, actorUserID)
 	if uErr != nil {
-		return nil, fmt.Errorf("stats: fetch user: %w", uErr)
+		return nil, fmt.Errorf("stats: fetch actor: %w", uErr)
 	}
-	if user == nil {
-		return nil, fmt.Errorf("stats: user not found")
+	if actor == nil {
+		return nil, fmt.Errorf("stats: actor not found")
 	}
 
-	amounts, aErr := s.amounts.ListProviderMilestoneAmountsSince(ctx, userID, sub.StartedAt)
+	amounts, aErr := s.amounts.ListProviderMilestoneAmountsSince(ctx, actorUserID, sub.StartedAt)
 	if aErr != nil {
 		return nil, fmt.Errorf("stats: list amounts: %w", aErr)
 	}
 
-	role := billing.RoleFromUser(string(user.Role))
+	role := billing.RoleFromUser(string(actor.Role))
 	var saved int64
 	for _, a := range amounts {
 		saved += billing.Calculate(role, a).FeeCents
@@ -397,8 +411,8 @@ func (s *Service) GetStats(ctx context.Context, userID uuid.UUID) (*StatsOutput,
 // update their payment method and view invoices. Fails with
 // subscription.ErrNoActiveSub when there is no open subscription to
 // manage — the UI only exposes this action to subscribers.
-func (s *Service) GetPortalURL(ctx context.Context, userID uuid.UUID) (string, error) {
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+func (s *Service) GetPortalURL(ctx context.Context, organizationID uuid.UUID) (string, error) {
+	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return "", err
 	}
@@ -414,7 +428,20 @@ func (s *Service) GetPortalURL(ctx context.Context, userID uuid.UUID) (string, e
 // error the caller sees false (no waiver) so a downed cache never
 // accidentally grants free milestones.
 func (s *Service) IsActive(ctx context.Context, userID uuid.UUID) (bool, error) {
-	sub, err := s.subs.FindOpenByUser(ctx, userID)
+	// The port's semantic stays user-oriented because billing is a
+	// per-provider concern (milestone payments are to individuals). We
+	// resolve the user's organization internally so the subscription
+	// table can be queried by its new FK. A user without an organization
+	// is not subscribed — return false, not an error, so billing keeps
+	// charging the standard fee without spamming the logs.
+	orgID, err := s.ResolveActorOrganization(ctx, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidOrganization) {
+			return false, nil
+		}
+		return false, err
+	}
+	sub, err := s.subs.FindOpenByOrganization(ctx, orgID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
 			return false, nil
@@ -517,18 +544,18 @@ func (s *Service) HandleSubscriptionSnapshot(
 
 // RegisterFromCheckout persists the subscription row just after the
 // Checkout session converts. Called by the webhook handler on
-// customer.subscription.created — that event carries the internal user id
-// (via metadata) AND the final Stripe subscription object.
+// customer.subscription.created — that event carries the internal
+// organization id (via metadata) AND the final Stripe subscription object.
 func (s *Service) RegisterFromCheckout(
 	ctx context.Context,
-	userID uuid.UUID,
+	organizationID uuid.UUID,
 	plan domain.Plan,
 	cycle domain.BillingCycle,
 	stripeCustomerID string,
 	snap service.SubscriptionSnapshot,
 ) error {
 	sub, err := domain.NewSubscription(domain.NewSubscriptionInput{
-		UserID:               userID,
+		OrganizationID:       organizationID,
 		Plan:                 plan,
 		BillingCycle:         cycle,
 		StripeCustomerID:     stripeCustomerID,
@@ -547,6 +574,22 @@ func (s *Service) RegisterFromCheckout(
 		}
 	}
 	return s.subs.Create(ctx, sub)
+}
+
+// ResolveActorOrganization looks up the organization the given user
+// belongs to. The handler layer calls this on every request to bridge
+// from the JWT user_id claim to the org_id that owns the subscription.
+// Returns subscription.ErrInvalidOrganization when the user has no
+// organization (fresh account pre-onboarding).
+func (s *Service) ResolveActorOrganization(ctx context.Context, actorUserID uuid.UUID) (uuid.UUID, error) {
+	u, err := s.users.GetByID(ctx, actorUserID)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve org: fetch user: %w", err)
+	}
+	if u == nil || u.OrganizationID == nil {
+		return uuid.Nil, domain.ErrInvalidOrganization
+	}
+	return *u.OrganizationID, nil
 }
 
 // lookupKeyFor maps a (plan, cycle) pair to the Stripe lookup key. Defined

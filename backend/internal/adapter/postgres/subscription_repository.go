@@ -27,7 +27,7 @@ func NewSubscriptionRepository(db *sql.DB) *SubscriptionRepository {
 // The column list is kept in one const to avoid drift between the three
 // queries that scan a Subscription row.
 const subscriptionColumns = `
-	id, user_id, plan, billing_cycle, status,
+	id, organization_id, plan, billing_cycle, status,
 	stripe_customer_id, stripe_subscription_id, stripe_price_id,
 	current_period_start, current_period_end,
 	cancel_at_period_end, grace_period_ends_at, canceled_at,
@@ -42,7 +42,7 @@ func (r *SubscriptionRepository) Create(ctx context.Context, s *domain.Subscript
 
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO subscriptions (
-			id, user_id, plan, billing_cycle, status,
+			id, organization_id, plan, billing_cycle, status,
 			stripe_customer_id, stripe_subscription_id, stripe_price_id,
 			current_period_start, current_period_end,
 			cancel_at_period_end, grace_period_ends_at, canceled_at,
@@ -53,7 +53,7 @@ func (r *SubscriptionRepository) Create(ctx context.Context, s *domain.Subscript
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 			$11, $12, $13, $14, $15, $16, $17, $18, $19
 		)`,
-		s.ID, s.UserID, string(s.Plan), string(s.BillingCycle), string(s.Status),
+		s.ID, s.OrganizationID, string(s.Plan), string(s.BillingCycle), string(s.Status),
 		s.StripeCustomerID, s.StripeSubscriptionID, s.StripePriceID,
 		s.CurrentPeriodStart, s.CurrentPeriodEnd,
 		s.CancelAtPeriodEnd, s.GracePeriodEndsAt, s.CanceledAt,
@@ -78,16 +78,16 @@ func pendingCycleStringOrNil(c *domain.BillingCycle) *string {
 	return &str
 }
 
-func (r *SubscriptionRepository) FindOpenByUser(ctx context.Context, userID uuid.UUID) (*domain.Subscription, error) {
+func (r *SubscriptionRepository) FindOpenByOrganization(ctx context.Context, organizationID uuid.UUID) (*domain.Subscription, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	row := r.db.QueryRowContext(ctx, `
 		SELECT `+subscriptionColumns+`
 		FROM subscriptions
-		WHERE user_id = $1
+		WHERE organization_id = $1
 		  AND status IN ('incomplete', 'active', 'past_due')
-		LIMIT 1`, userID)
+		LIMIT 1`, organizationID)
 
 	s, err := scanSubscription(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -178,7 +178,7 @@ func scanSubscription(row *sql.Row) (*domain.Subscription, error) {
 		scheduleID         sql.NullString
 	)
 	err := row.Scan(
-		&s.ID, &s.UserID, &plan, &cycle, &status,
+		&s.ID, &s.OrganizationID, &plan, &cycle, &status,
 		&s.StripeCustomerID, &s.StripeSubscriptionID, &s.StripePriceID,
 		&s.CurrentPeriodStart, &s.CurrentPeriodEnd,
 		&s.CancelAtPeriodEnd, &gracePeriod, &canceledAt,

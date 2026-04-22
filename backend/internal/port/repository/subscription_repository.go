@@ -13,19 +13,20 @@ import (
 // method becomes a contract every adapter AND every mock must satisfy.
 //
 // Update is preferred over Save/Upsert: the app layer always knows if
-// it just created or just mutated a row. FindOpenByUser excludes
+// it just created or just mutated a row. FindOpenByOrganization excludes
 // canceled/unpaid rows — past subscriptions stay around for history but
-// are irrelevant when asking "is this user subscribed right now".
+// are irrelevant when asking "is this organization subscribed right now".
 type SubscriptionRepository interface {
 	// Create inserts a new row. Fails with a duplicate-key error if the
-	// partial unique index (user_id where status in open states) is
-	// violated — meaning the user already has an open subscription.
+	// partial unique index (organization_id where status in open states)
+	// is violated — meaning the org already has an open subscription.
 	Create(ctx context.Context, s *subscription.Subscription) error
 
-	// FindOpenByUser returns the single row for user_id whose status is
-	// one of (incomplete, active, past_due). Returns subscription.ErrNotFound
-	// when no such row exists; nil + error for real I/O failures.
-	FindOpenByUser(ctx context.Context, userID uuid.UUID) (*subscription.Subscription, error)
+	// FindOpenByOrganization returns the single row for organization_id
+	// whose status is one of (incomplete, active, past_due). Returns
+	// subscription.ErrNotFound when no such row exists; nil + error for
+	// real I/O failures.
+	FindOpenByOrganization(ctx context.Context, organizationID uuid.UUID) (*subscription.Subscription, error)
 
 	// FindByStripeID is the lookup path used by webhook handlers. The
 	// stripe_subscription_id column is globally unique.
