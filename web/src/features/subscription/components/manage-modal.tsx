@@ -33,7 +33,7 @@ export function ManageModal({ open, onClose }: ManageModalProps) {
 	// happens to have just cancelled.
 	if (!subscription) {
 		return (
-			<Modal open={open} onClose={onClose} title="Gérer mon abonnement">
+			<Modal open={open} onClose={onClose} title="Gérer l'abonnement">
 				<p className="text-sm text-slate-500 dark:text-slate-400">
 					Aucun abonnement actif.
 				</p>
@@ -42,7 +42,7 @@ export function ManageModal({ open, onClose }: ManageModalProps) {
 	}
 
 	return (
-		<Modal open={open} onClose={onClose} title="Gérer mon abonnement">
+		<Modal open={open} onClose={onClose} title="Gérer l'abonnement">
 			<div className="space-y-5">
 				<PlanSummary subscription={subscription} />
 				<StatsPanel startedAt={subscription.started_at} />

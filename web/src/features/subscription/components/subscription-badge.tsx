@@ -65,7 +65,7 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
     // implicite "va regler ça") plutôt qu'un simple "gérer".
     return {
       label: "Paiement échoué · gérer",
-      ariaLabel: "Paiement Premium échoué, gérer mon abonnement",
+      ariaLabel: "Paiement Premium échoué, gérer l'abonnement",
       className:
         "bg-orange-100 text-orange-700 border border-orange-300 dark:bg-orange-500/20 dark:text-orange-300 dark:border-orange-500/40",
       icon: false,
@@ -76,7 +76,7 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
   // in the manage modal — the navbar stays succinct.
   if (sub.cancel_at_period_end) {
     return {
-      label: "Gérer mon abonnement",
+      label: "Gérer l'abonnement",
       ariaLabel: `Abonnement Premium actif, expire le ${formatShortDate(sub.current_period_end)}, gérer`,
       className:
         "border border-rose-500 bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-400/60",
@@ -84,7 +84,7 @@ function pickVariant(sub: Subscription | null | undefined): BadgeVariant {
     }
   }
   return {
-    label: "Gérer mon abonnement",
+    label: "Gérer l'abonnement",
     ariaLabel: "Abonnement Premium actif, gérer",
     className: "bg-rose-500 text-white shadow-sm hover:shadow-glow",
     icon: false,
