@@ -43,6 +43,9 @@ import '../../features/referral/presentation/screens/referral_dashboard_screen.d
 import '../../features/referral/presentation/screens/referral_detail_screen.dart';
 import '../../features/proposal/presentation/screens/proposal_detail_screen.dart';
 import '../../features/search/presentation/screens/public_profile_screen.dart';
+import '../../features/subscription/presentation/screens/billing_cancel_screen.dart';
+import '../../features/subscription/presentation/screens/billing_success_screen.dart';
+import '../../features/subscription/presentation/screens/pricing_screen.dart';
 import '../../features/team/presentation/screens/team_screen.dart';
 import '../../features/notification/presentation/screens/notification_screen.dart';
 import '../../features/notification/presentation/widgets/notification_badge.dart';
@@ -113,6 +116,11 @@ class RoutePaths {
   static const String disputeCounter = '/disputes/counter';
   static const String referralsDashboard = '/referrals';
   static const String referralCreate = '/referrals/new';
+
+  // Subscription (Premium) — pricing page + Stripe Checkout landings.
+  static const String pricing = '/pricing';
+  static const String billingSuccess = '/billing/success';
+  static const String billingCancel = '/billing/cancel';
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +376,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ReferralDetailScreen(
           referralId: state.pathParameters['id'] ?? '',
         ),
+      ),
+
+      // --- Subscription routes (full-screen, no bottom nav) ---
+      // Pricing is the entry point for free users. The two billing
+      // landings handle Stripe Checkout's redirect after success or
+      // cancel. All three live outside the ShellRoute so they don't
+      // get wrapped in the bottom navigation.
+      GoRoute(
+        path: RoutePaths.pricing,
+        builder: (context, state) => const PricingScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.billingSuccess,
+        builder: (context, state) => const BillingSuccessScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.billingCancel,
+        builder: (context, state) => const BillingCancelScreen(),
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---
