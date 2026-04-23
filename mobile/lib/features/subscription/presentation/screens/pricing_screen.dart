@@ -31,21 +31,31 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
   bool _autoRenew = false;
   bool _pending = false;
 
+  /// True when the operator's org type dictates the plan unambiguously
+  /// (agency → Agence, provider_personal → Freelance). The chip picker
+  /// is hidden in that case — the product rule is that an agency cannot
+  /// subscribe to the Freelance plan, and vice versa.
+  bool _planLocked = false;
+
   @override
   void initState() {
     super.initState();
-    _plan = _inferDefaultPlan();
+    final (plan, locked) = _inferDefaultPlan();
+    _plan = plan;
+    _planLocked = locked;
   }
 
-  /// Picks the default plan from the operator's organization type.
-  /// Freelance for `provider_personal`, Agence for `agency`. When the
-  /// role is unknown we leave it null so the user must pick explicitly.
-  Plan? _inferDefaultPlan() {
+  /// Reads the operator's organization type to pick the plan. Returns
+  /// (plan, locked) — when locked the UI hides the chip picker because
+  /// the other choice would violate the product rule.
+  (Plan?, bool) _inferDefaultPlan() {
     final orgType =
         ref.read(authProvider).organization?['type'] as String?;
-    if (orgType == 'provider_personal') return Plan.freelance;
-    if (orgType == 'agency') return Plan.agency;
-    return Plan.freelance; // safe default — mirrors web fallback
+    if (orgType == 'provider_personal') return (Plan.freelance, true);
+    if (orgType == 'agency') return (Plan.agency, true);
+    // Unknown org type — fall back to Freelance and let the user pick
+    // in case the detection fails (e.g. during onboarding edge cases).
+    return (Plan.freelance, false);
   }
 
   Future<void> _onSubscribe() async {
@@ -60,7 +70,8 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
         autoRenew: _autoRenew,
       );
       final launcher = ref.read(checkoutLauncherProvider);
-      final launched = await launcher.launch(checkoutUrl);
+      if (!mounted) return;
+      final launched = await launcher.launch(context, checkoutUrl);
       if (!mounted) return;
       if (!launched) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,11 +128,12 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 20),
-              _PlanPicker(
-                value: _plan,
-                onChanged: (p) => setState(() => _plan = p),
-              ),
-              const SizedBox(height: 16),
+              if (!_planLocked)
+                _PlanPicker(
+                  value: _plan,
+                  onChanged: (p) => setState(() => _plan = p),
+                ),
+              if (!_planLocked) const SizedBox(height: 16),
               _CycleSegmented(
                 value: _cycle,
                 onChanged: (c) => setState(() => _cycle = c),

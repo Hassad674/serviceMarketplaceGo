@@ -220,7 +220,8 @@ class FakeGetPortalUrlUseCase implements GetPortalUrlUseCase {
 }
 
 /// Recording [CheckoutLauncher] that returns [result] and stores every
-/// URL it was asked to open.
+/// URL it was asked to open. The BuildContext is accepted and ignored
+/// — it only matters to the production WebView implementation.
 class RecordingCheckoutLauncher implements CheckoutLauncher {
   RecordingCheckoutLauncher({this.result = true});
 
@@ -228,7 +229,7 @@ class RecordingCheckoutLauncher implements CheckoutLauncher {
   final List<String> launched = <String>[];
 
   @override
-  Future<bool> launch(String url) async {
+  Future<bool> launch(BuildContext context, String url) async {
     launched.add(url);
     return result;
   }

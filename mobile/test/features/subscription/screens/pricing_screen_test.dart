@@ -43,8 +43,12 @@ Widget _buildScreen({
 }
 
 void main() {
-  testWidgets('renders plan picker, cycle toggle, auto-renew and CTA',
+  testWidgets(
+      'provider_personal role hides the plan picker and renders the rest of the form',
       (tester) async {
+    // Product rule: an operator with a known org type cannot switch
+    // plans — the plan is implied by their role. The chip picker is
+    // hidden and the summary card shows the forced plan directly.
     await tester.pumpWidget(
       _buildScreen(
         overrides: [
@@ -59,13 +63,36 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Freelance'), findsOneWidget);
-    expect(find.text('Agence'), findsOneWidget);
+    expect(
+      find.text('Agence'),
+      findsNothing,
+      reason: 'picker MUST be hidden when role locks the plan',
+    );
+    expect(find.text('Premium Freelance'), findsOneWidget);
     expect(find.text('Mensuel'), findsOneWidget);
     expect(find.text('Annuel'), findsOneWidget);
     expect(find.text('Souscrire'), findsOneWidget);
     // Auto-renew row present
     expect(find.byType(Checkbox), findsOneWidget);
+  });
+
+  testWidgets('agency role locks the picker to Agence', (tester) async {
+    await tester.pumpWidget(
+      _buildScreen(
+        overrides: [
+          subscribeUseCaseProvider.overrideWithValue(
+            FakeSubscribeUseCase(
+              ({required plan, required billingCycle, required autoRenew}) async =>
+                  'https://stripe.test/checkout',
+            ),
+          ),
+        ],
+        orgType: 'agency',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Freelance'), findsNothing);
+    expect(find.text('Premium Agence'), findsOneWidget);
   });
 
   testWidgets('default state is monthly + auto-renew OFF', (tester) async {
