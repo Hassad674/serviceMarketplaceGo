@@ -45,6 +45,7 @@ import '../../features/proposal/presentation/screens/proposal_detail_screen.dart
 import '../../features/search/presentation/screens/public_profile_screen.dart';
 import '../../features/subscription/presentation/screens/billing_cancel_screen.dart';
 import '../../features/subscription/presentation/screens/billing_success_screen.dart';
+import '../../features/subscription/presentation/screens/checkout_webview_screen.dart';
 import '../../features/subscription/presentation/screens/pricing_screen.dart';
 import '../../features/team/presentation/screens/team_screen.dart';
 import '../../features/notification/presentation/screens/notification_screen.dart';
@@ -121,6 +122,10 @@ class RoutePaths {
   static const String pricing = '/pricing';
   static const String billingSuccess = '/billing/success';
   static const String billingCancel = '/billing/cancel';
+  // In-app WebView host for Stripe Checkout / Customer Portal URLs.
+  // Reached by push-navigation from the subscription flow, not a
+  // direct URL — the target Stripe URL is passed via `extra`.
+  static const String checkoutWebview = '/billing/checkout';
 }
 
 // ---------------------------------------------------------------------------
@@ -394,6 +399,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.billingCancel,
         builder: (context, state) => const BillingCancelScreen(),
+      ),
+      // In-app WebView host for Stripe-hosted URLs. The target URL
+      // arrives via `extra` — never as a path param so the secret
+      // session id never touches our routing table's history.
+      GoRoute(
+        path: RoutePaths.checkoutWebview,
+        builder: (context, state) {
+          final url = state.extra;
+          if (url is! String || url.isEmpty) {
+            return const BillingCancelScreen();
+          }
+          return CheckoutWebViewScreen(url: url);
+        },
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---

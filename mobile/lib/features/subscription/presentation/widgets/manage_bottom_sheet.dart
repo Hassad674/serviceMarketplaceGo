@@ -166,7 +166,8 @@ class _PortalActionsState extends ConsumerState<_PortalActions> {
       // The use-case returns a one-time Stripe Billing Portal URL —
       // treat as sensitive: the launcher refuses to log it.
       final launcher = ref.read(checkoutLauncherProvider);
-      final launched = await launcher.launch(portalUrl);
+      if (!mounted) return;
+      final launched = await launcher.launch(context, portalUrl);
       if (!mounted) return;
       if (!launched) {
         ScaffoldMessenger.of(context).showSnackBar(
