@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/lib/api-client"
+import type { Review } from "@/shared/types/review"
 
 // Domain types for the client-profile feature. They map the backend
 // contract locked in the feature spec; we deliberately duplicate the
@@ -8,14 +9,38 @@ import { apiClient } from "@/shared/lib/api-client"
 
 export type ClientOrgType = "agency" | "enterprise"
 
+// ClientProjectHistoryProvider is the public identity of the provider
+// that delivered a given mission — surfaced inline on each
+// project_history[] row so the client profile can show the
+// counterparty (org name + avatar) without a second round-trip.
+export type ClientProjectHistoryProvider = {
+  organization_id: string
+  display_name: string
+  avatar_url: string | null
+}
+
+// ClientProjectHistoryEntry is one completed mission where the org
+// acted as the client. The inline `review` field is the provider→
+// client review attached to that mission when one was submitted and
+// published (null when the provider has not yet reviewed or the
+// 14-day window is still open).
+export type ClientProjectHistoryEntry = {
+  proposal_id: string
+  title: string
+  amount: number
+  completed_at: string
+  provider: ClientProjectHistoryProvider | null
+  review: Review | null
+}
+
 // Shape of the public `/api/v1/clients/{orgId}` response envelope.
 // Every counter defaults to `0` server-side so the UI never has to
-// branch on `undefined`. Note: neither `project_history[]` nor a
-// top-level `reviews[]` are surfaced here — the unified "project
-// history" section reads the shared `/api/v1/profiles/{orgId}/
-// project-history` endpoint (same source of truth as the provider
-// profile), and each entry carries its associated provider→client
-// review embedded inline.
+// branch on `undefined`. The `project_history[]` rows come pre-joined
+// with the provider counterparty + provider→client review so the
+// client surface has a unified source of truth — no secondary lookup
+// to the generic /profiles/{orgId}/project-history endpoint (which
+// is keyed on the PROVIDER facet of an org and is the wrong side
+// for a client view).
 export type PublicClientProfile = {
   organization_id: string
   type: ClientOrgType
@@ -27,6 +52,7 @@ export type PublicClientProfile = {
   review_count: number
   average_rating: number
   projects_completed_as_client: number
+  project_history: ClientProjectHistoryEntry[]
 }
 
 // Private update payload for `/api/v1/profile/client`. Both fields

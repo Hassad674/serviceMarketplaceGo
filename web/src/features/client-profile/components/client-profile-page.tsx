@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { useOrganization } from "@/shared/hooks/use-user"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
-import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
+import { ClientProjectHistorySection } from "./client-project-history-section"
 import { useUploadPhoto } from "@/features/provider/hooks/use-upload"
 import { ApiError } from "@/shared/lib/api-client"
 import { ClientProfileHeader } from "./client-profile-header"
@@ -113,7 +113,7 @@ export function ClientProfilePage() {
         </>
       )}
 
-      <ProjectHistorySection orgId={org.id} />
+      <ClientProjectHistorySection entries={profile.project_history} />
     </main>
   )
 }
