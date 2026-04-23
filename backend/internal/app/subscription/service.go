@@ -199,10 +199,26 @@ func (s *Service) GetStatus(ctx context.Context, organizationID uuid.UUID) (*dom
 // ToggleAutoRenew flips cancel_at_period_end on both Stripe and the local
 // row. The adapter returns a snapshot; we reflect the authoritative
 // fields (not just the flag — Stripe may have updated the period too).
+//
+// Turning auto-renew OFF while a cycle downgrade is scheduled is a
+// contradiction: cancel_at_period_end=TRUE says "end at period_end",
+// but the schedule says "transition to the new cycle and keep charging
+// at period_end". Stripe resolves this in favour of the schedule, which
+// silently billed users who thought they had opted out. We release the
+// schedule FIRST so cancel_at_period_end is authoritative on the sub.
+// If the user later wants the downgrade back, they re-enable auto-renew
+// and re-schedule — cheap and explicit.
 func (s *Service) ToggleAutoRenew(ctx context.Context, organizationID uuid.UUID, on bool) (*domain.Subscription, error) {
 	sub, err := s.subs.FindOpenByOrganization(ctx, organizationID)
 	if err != nil {
 		return nil, err
+	}
+
+	if !on && sub.StripeScheduleID != nil && *sub.StripeScheduleID != "" {
+		if rErr := s.stripe.ReleaseSchedule(ctx, *sub.StripeScheduleID); rErr != nil {
+			return nil, fmt.Errorf("toggle auto renew: release pending schedule: %w", rErr)
+		}
+		sub.ClearScheduledCycle()
 	}
 
 	snap, err := s.stripe.UpdateCancelAtPeriodEnd(ctx, sub.StripeSubscriptionID, !on)
@@ -264,6 +280,16 @@ func (s *Service) ChangeCycle(ctx context.Context, organizationID uuid.UUID, new
 	}
 
 	isUpgrade := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
+
+	// A downgrade schedules a future transition to the new cycle and
+	// keeps charging the user on the new cadence. If auto-renew is off,
+	// the subscription is meant to END at period_end — scheduling a
+	// transition on top contradicts that intent and Stripe resolves the
+	// contradiction by renewing anyway. Reject loudly so the UI can
+	// prompt the user to re-enable auto-renew first.
+	if !isUpgrade && sub.CancelAtPeriodEnd {
+		return nil, domain.ErrAutoRenewOffBlocksDowngrade
+	}
 
 	if isUpgrade {
 		// If the user re-upgrades after previously scheduling a downgrade,
@@ -336,6 +362,10 @@ func (s *Service) PreviewCycleChange(ctx context.Context, organizationID uuid.UU
 	if sub.BillingCycle == newCycle {
 		return nil, domain.ErrSameCycle
 	}
+	isUpgrade := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
+	if !isUpgrade && sub.CancelAtPeriodEnd {
+		return nil, domain.ErrAutoRenewOffBlocksDowngrade
+	}
 	lookupKey, err := s.lookupKeyFor(sub.Plan, newCycle)
 	if err != nil {
 		return nil, err
@@ -344,8 +374,7 @@ func (s *Service) PreviewCycleChange(ctx context.Context, organizationID uuid.UU
 	if err != nil {
 		return nil, fmt.Errorf("preview cycle: resolve price: %w", err)
 	}
-	prorateImmediately := sub.BillingCycle == domain.CycleMonthly && newCycle == domain.CycleAnnual
-	preview, err := s.stripe.PreviewCycleChange(ctx, sub.StripeSubscriptionID, newPriceID, prorateImmediately)
+	preview, err := s.stripe.PreviewCycleChange(ctx, sub.StripeSubscriptionID, newPriceID, isUpgrade)
 	if err != nil {
 		return nil, fmt.Errorf("preview cycle: stripe: %w", err)
 	}
@@ -354,7 +383,7 @@ func (s *Service) PreviewCycleChange(ctx context.Context, organizationID uuid.UU
 		Currency:           preview.Currency,
 		PeriodStart:        preview.PeriodStart,
 		PeriodEnd:          preview.PeriodEnd,
-		ProrateImmediately: prorateImmediately,
+		ProrateImmediately: isUpgrade,
 	}, nil
 }
 

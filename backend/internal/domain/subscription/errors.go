@@ -17,4 +17,11 @@ var (
 	ErrNoActiveSub         = errors.New("subscription: no active subscription found for organization")
 	ErrAlreadySubscribed   = errors.New("subscription: organization already has an open subscription")
 	ErrNotFound            = errors.New("subscription: not found")
+	// ErrAutoRenewOffBlocksDowngrade guards the downgrade (annual → monthly)
+	// path. A downgrade schedules the subscription to transition to the new
+	// cycle at the current period end; if auto-renew is also off, the
+	// subscription is supposed to end at that date, not transition. The two
+	// intents contradict, so we reject the downgrade and tell the user to
+	// re-enable auto-renew first.
+	ErrAutoRenewOffBlocksDowngrade = errors.New("subscription: enable auto-renew before scheduling a cycle downgrade")
 )

@@ -23,6 +23,30 @@ void main() {
     expect(btn.onPressed, isNull);
   });
 
+  testWidgets(
+      'downgrade with auto-renew off disables the button and shows helper copy',
+      (tester) async {
+    // The server rejects this combination because the Stripe schedule
+    // would override cancel_at_period_end and silently resume charging
+    // at the phase boundary. The UI must preempt that and guide the
+    // user to re-enable auto-renew first.
+    final sub = buildSubscription(
+      billingCycle: BillingCycle.annual,
+      cancelAtPeriodEnd: true,
+    );
+    await tester.pumpWidget(
+      wrapWidget(child: ChangeCycleBlock(subscription: sub)),
+    );
+
+    final OutlinedButton btn = tester.widget(find.byType(OutlinedButton));
+    expect(btn.onPressed, isNull, reason: 'button MUST be disabled');
+    expect(
+      find.textContaining('Active le renouvellement automatique'),
+      findsOneWidget,
+      reason: 'helper text MUST explain how to unblock the action',
+    );
+  });
+
   testWidgets('monthly cycle → button label "Passer à l\'annuel (-21%)"',
       (tester) async {
     final sub = buildSubscription(billingCycle: BillingCycle.monthly);

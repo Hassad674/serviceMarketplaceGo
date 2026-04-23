@@ -40,6 +40,14 @@ class _ChangeCycleBlockState extends ConsumerState<ChangeCycleBlock> {
 
   bool get _hasPending => widget.subscription.pendingBillingCycle != null;
 
+  /// A downgrade schedules a future transition that overrides
+  /// cancel_at_period_end on Stripe's side. Allowing it while auto-renew
+  /// is off silently renews the subscription at the phase boundary — the
+  /// server rejects this combination and the UI mirrors it so the user
+  /// knows to re-enable auto-renew first.
+  bool get _downgradeBlocked =>
+      _nextTarget == BillingCycle.monthly && widget.subscription.cancelAtPeriodEnd;
+
   void _onStart() {
     setState(() {
       _target = _nextTarget;
@@ -125,28 +133,45 @@ class _ChangeCycleBlockState extends ConsumerState<ChangeCycleBlock> {
   Widget _buildTrigger() {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    final disabled = _hasPending || _downgradeBlocked;
     final label = _hasPending
         ? 'Changement déjà programmé'
         : (_nextTarget == BillingCycle.annual
             ? "Passer à l'annuel (-21%)"
             : 'Repasser en mensuel');
 
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: _hasPending ? null : _onStart,
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 40),
-          foregroundColor: primary,
-          backgroundColor: primary.withValues(alpha: 0.08),
-          side: BorderSide(color: primary.withValues(alpha: 0.6)),
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: disabled ? null : _onStart,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 40),
+              foregroundColor: primary,
+              backgroundColor: primary.withValues(alpha: 0.08),
+              side: BorderSide(color: primary.withValues(alpha: 0.6)),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: Text(label),
           ),
         ),
-        child: Text(label),
-      ),
+        if (_downgradeBlocked && !_hasPending) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Active le renouvellement automatique avant de programmer un passage en mensuel.',
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: Colors.amber.shade800,
+            ),
+          ),
+        ],
+      ],
     );
   }
 

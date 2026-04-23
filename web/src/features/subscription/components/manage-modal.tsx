@@ -197,6 +197,20 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
   // clearing pendings; a dedicated cancel button is a B.2 concern.
   const hasPending = Boolean(subscription.pending_billing_cycle)
 
+  // Downgrades schedule a future transition via a Stripe Subscription
+  // Schedule, which overrides cancel_at_period_end. If auto-renew is off
+  // we would silently resume charging at the phase boundary — the server
+  // now rejects this case and the UI mirrors it so the user understands
+  // what to do before clicking.
+  const isDowngradeTarget = nextTarget === "monthly"
+  const downgradeBlocked = isDowngradeTarget && subscription.cancel_at_period_end
+  const disabled = hasPending || downgradeBlocked
+  const hint = hasPending
+    ? "Changement déjà programmé"
+    : downgradeBlocked
+      ? "Active le renouvellement automatique avant de programmer un passage en mensuel."
+      : null
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/30">
       <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -217,19 +231,27 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
           onConfirm={handleConfirm}
         />
       ) : (
-        <button
-          type="button"
-          onClick={() => setTarget(nextTarget)}
-          disabled={hasPending}
-          className={cn(
-            "mt-2 w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600",
-            "transition-colors duration-200 hover:bg-rose-100",
-            "dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20",
-            "disabled:cursor-not-allowed disabled:opacity-60",
-          )}
-        >
-          {hasPending ? "Changement déjà programmé" : label}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => setTarget(nextTarget)}
+            disabled={disabled}
+            title={hint ?? undefined}
+            className={cn(
+              "mt-2 w-full rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600",
+              "transition-colors duration-200 hover:bg-rose-100",
+              "dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20",
+              "disabled:cursor-not-allowed disabled:opacity-60",
+            )}
+          >
+            {hasPending ? "Changement déjà programmé" : label}
+          </button>
+          {downgradeBlocked ? (
+            <p className="mt-2 text-[11px] leading-snug text-amber-700 dark:text-amber-300">
+              Active le renouvellement automatique avant de programmer un passage en mensuel.
+            </p>
+          ) : null}
+        </>
       )}
     </div>
   )

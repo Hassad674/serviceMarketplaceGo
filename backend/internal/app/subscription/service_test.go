@@ -207,6 +207,53 @@ func TestToggleAutoRenew_NoSubscription(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrNotFound)
 }
 
+// TestToggleAutoRenew_OffReleasesPendingSchedule covers the other half of
+// the fix that landed with ErrAutoRenewOffBlocksDowngrade: a user who has
+// already scheduled a downgrade and then switches auto-renew OFF wants to
+// end the subscription at period_end, not transition to a monthly plan.
+// Without releasing the Stripe schedule first, Stripe renews anyway — the
+// very bug reported on 2026-04-23. The service must release the schedule
+// BEFORE flipping the cancel flag so Stripe sees a plain subscription
+// it can honour.
+func TestToggleAutoRenew_OffReleasesPendingSchedule(t *testing.T) {
+	svc, subs, users, _, stripe := newTestService()
+	in := freshDomainInput(*users.user.OrganizationID)
+	in.BillingCycle = domain.CycleAnnual
+	existing, _ := domain.NewSubscription(in)
+	_ = existing.Activate()
+	existing.SetAutoRenew(true) // auto-renew ON (a pending downgrade needs this)
+	require.NoError(t, existing.SchedulePendingCycle(
+		domain.CycleMonthly,
+		time.Now().Add(30*24*time.Hour),
+		"sub_sched_abc",
+	))
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+		return existing, nil
+	}
+
+	var releasedScheduleID string
+	stripe.releaseScheduleFn = func(_ context.Context, scheduleID string) error {
+		releasedScheduleID = scheduleID
+		return nil
+	}
+	stripe.updateCancelAtPeriodEndFn = func(_ context.Context, subID string, cancelAtEnd bool) (service.SubscriptionSnapshot, error) {
+		return service.SubscriptionSnapshot{
+			ID:                 subID,
+			Status:             "active",
+			CancelAtPeriodEnd:  cancelAtEnd,
+			CurrentPeriodStart: time.Now(),
+			CurrentPeriodEnd:   time.Now().Add(365 * 24 * time.Hour),
+		}, nil
+	}
+
+	got, err := svc.ToggleAutoRenew(context.Background(), *users.user.OrganizationID, false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "sub_sched_abc", releasedScheduleID, "service MUST release the Stripe schedule when turning auto-renew OFF")
+	assert.True(t, got.CancelAtPeriodEnd, "cancel flag reflects the user's intent to end at period_end")
+	assert.False(t, got.HasPendingCycleChange(), "pending cycle MUST be cleared once the schedule is released")
+}
+
 // ---------- ChangeCycle ----------
 
 func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
@@ -237,11 +284,14 @@ func TestChangeCycle_MonthlyToAnnual(t *testing.T) {
 
 func TestChangeCycle_AnnualToMonthly(t *testing.T) {
 	// Downgrade = scheduled, current cycle UNCHANGED, pending tuple set.
+	// Requires auto-renew ON because a downgrade = "renew at a different
+	// cadence next time"; see TestChangeCycle_DowngradeRequiresAutoRenew.
 	svc, subs, users, _, _ := newTestService()
 	in := freshDomainInput(*users.user.OrganizationID)
 	in.BillingCycle = domain.CycleAnnual
 	existing, _ := domain.NewSubscription(in)
 	_ = existing.Activate()
+	existing.SetAutoRenew(true)
 	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 		return existing, nil
 	}
@@ -255,6 +305,56 @@ func TestChangeCycle_AnnualToMonthly(t *testing.T) {
 	assert.Equal(t, domain.CycleMonthly, *got.PendingBillingCycle, "pending target = monthly")
 	require.NotNil(t, got.StripeScheduleID)
 	assert.NotEmpty(t, *got.StripeScheduleID)
+}
+
+// TestChangeCycle_DowngradeRequiresAutoRenew locks in the product rule that
+// fixed a billing bug: scheduling a downgrade while auto-renew is OFF used
+// to leave Stripe's subscription schedule in charge. At the phase boundary,
+// the schedule kept charging monthly invoices even though the user had
+// explicitly opted out — "cancel_at_period_end=TRUE" meant to kill the sub
+// but Stripe silently honoured the schedule. The service now rejects the
+// request with ErrAutoRenewOffBlocksDowngrade so the UI can tell the user
+// to re-enable auto-renew first.
+func TestChangeCycle_DowngradeRequiresAutoRenew(t *testing.T) {
+	svc, subs, users, _, stripe := newTestService()
+	in := freshDomainInput(*users.user.OrganizationID)
+	in.BillingCycle = domain.CycleAnnual
+	existing, _ := domain.NewSubscription(in)
+	_ = existing.Activate()
+	// Auto-renew OFF by default (CancelAtPeriodEnd=TRUE on freshDomainInput).
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+		return existing, nil
+	}
+
+	var scheduleCalled bool
+	stripe.scheduleCycleChangeFn = func(_ context.Context, _, _ string) (service.ScheduledCycleChange, error) {
+		scheduleCalled = true
+		return service.ScheduledCycleChange{}, nil
+	}
+
+	_, err := svc.ChangeCycle(context.Background(), *users.user.OrganizationID, domain.CycleMonthly)
+
+	assert.ErrorIs(t, err, domain.ErrAutoRenewOffBlocksDowngrade)
+	assert.False(t, scheduleCalled, "service MUST NOT reach Stripe when the rule rejects the request")
+	assert.False(t, existing.HasPendingCycleChange(), "local sub MUST stay untouched")
+}
+
+// TestPreviewCycleChange_DowngradeRequiresAutoRenew mirrors the guard for
+// the read-only preview endpoint so the UI never surfaces a misleading
+// number for a downgrade the caller won't be allowed to confirm.
+func TestPreviewCycleChange_DowngradeRequiresAutoRenew(t *testing.T) {
+	svc, subs, users, _, _ := newTestService()
+	in := freshDomainInput(*users.user.OrganizationID)
+	in.BillingCycle = domain.CycleAnnual
+	existing, _ := domain.NewSubscription(in)
+	_ = existing.Activate()
+	subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
+		return existing, nil
+	}
+
+	_, err := svc.PreviewCycleChange(context.Background(), *users.user.OrganizationID, domain.CycleMonthly)
+
+	assert.ErrorIs(t, err, domain.ErrAutoRenewOffBlocksDowngrade)
 }
 
 func TestChangeCycle_SameCycle(t *testing.T) {
@@ -312,6 +412,7 @@ func TestChangeCycle_DirectionRouting(t *testing.T) {
 		in.BillingCycle = domain.CycleAnnual
 		existing, _ := domain.NewSubscription(in)
 		_ = existing.Activate()
+		existing.SetAutoRenew(true)
 		subs.findOpenByOrgFn = func(ctx context.Context, _ uuid.UUID) (*domain.Subscription, error) {
 			return existing, nil
 		}

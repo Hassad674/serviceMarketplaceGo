@@ -210,6 +210,8 @@ func (h *SubscriptionHandler) ChangeCycle(w http.ResponseWriter, r *http.Request
 			res.Error(w, http.StatusBadRequest, "invalid_cycle", err.Error())
 		case errors.Is(err, domain.ErrSameCycle):
 			res.Error(w, http.StatusConflict, "same_cycle", err.Error())
+		case errors.Is(err, domain.ErrAutoRenewOffBlocksDowngrade):
+			res.Error(w, http.StatusConflict, "auto_renew_required", err.Error())
 		case errors.Is(err, domain.ErrInvalidTransition):
 			res.Error(w, http.StatusConflict, "invalid_state", err.Error())
 		default:
@@ -267,6 +269,8 @@ func (h *SubscriptionHandler) PreviewCycleChange(w http.ResponseWriter, r *http.
 			res.Error(w, http.StatusBadRequest, "invalid_cycle", err.Error())
 		case errors.Is(err, domain.ErrSameCycle):
 			res.Error(w, http.StatusConflict, "same_cycle", err.Error())
+		case errors.Is(err, domain.ErrAutoRenewOffBlocksDowngrade):
+			res.Error(w, http.StatusConflict, "auto_renew_required", err.Error())
 		default:
 			res.Error(w, http.StatusInternalServerError, "preview_error", err.Error())
 		}
