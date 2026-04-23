@@ -1,10 +1,10 @@
 "use client"
 
 import { useTranslations } from "next-intl"
-import { ProjectHistorySection } from "@/shared/components/profile/project-history-section"
 import { usePublicClientProfile } from "../hooks/use-public-client-profile"
 import { ClientProfileHeader } from "./client-profile-header"
 import { ClientProfileDescription } from "./client-profile-description"
+import { ClientProjectHistorySection } from "./client-project-history-section"
 
 interface PublicClientProfileLoaderProps {
   orgId: string
@@ -40,9 +40,14 @@ export function PublicClientProfileLoader(
       <ClientProfileDescription description={data.client_description} />
       {/* Unified project history — one card per completed mission
           with the provider→client review embedded, or an "awaiting
-          review" placeholder when none was submitted yet. Mirrors
-          the provider profile surface. */}
-      <ProjectHistorySection orgId={orgId} readOnly />
+          review" placeholder when none was submitted yet. Entries
+          come from the /api/v1/clients/{orgId} response directly
+          (the generic /profiles/{orgId}/project-history is the
+          PROVIDER side and would be the wrong data here). */}
+      <ClientProjectHistorySection
+        entries={data.project_history}
+        readOnly
+      />
     </div>
   )
 }

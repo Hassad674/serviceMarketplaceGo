@@ -4,13 +4,12 @@ import { NextIntlClientProvider } from "next-intl"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import messages from "@/../messages/en.json"
 import type { PublicClientProfile } from "../../api/client-profile-api"
-import type { ProjectHistoryResponse } from "@/shared/hooks/profile/use-project-history"
 
 // Public loader exercises the unified "project history" card — one
 // entry per completed mission with the provider→client review
 // embedded inline, or an "awaiting review" placeholder otherwise.
-// We mock the shared project-history hook and the public client
-// profile hook so the section renders from in-memory fixtures.
+// The project history ships inline with the public client profile
+// payload, so we mock only `usePublicClientProfile` here.
 
 const publicClientProfile: PublicClientProfile = {
   organization_id: "org-1",
@@ -22,16 +21,17 @@ const publicClientProfile: PublicClientProfile = {
   review_count: 1,
   average_rating: 5,
   projects_completed_as_client: 2,
-}
-
-const projectHistory: ProjectHistoryResponse = {
-  data: [
+  project_history: [
     {
       proposal_id: "prop-1",
       title: "Landing page redesign",
       amount: 500000,
-      currency: "EUR",
       completed_at: "2026-03-01T10:00:00Z",
+      provider: {
+        organization_id: "org-provider-1",
+        display_name: "Studio Nova",
+        avatar_url: null,
+      },
       review: {
         id: "rev-1",
         proposal_id: "prop-1",
@@ -53,13 +53,15 @@ const projectHistory: ProjectHistoryResponse = {
       proposal_id: "prop-2",
       title: "Growth audit",
       amount: 200000,
-      currency: "EUR",
       completed_at: "2026-02-01T10:00:00Z",
+      provider: {
+        organization_id: "org-provider-2",
+        display_name: "Peak Advisors",
+        avatar_url: null,
+      },
       review: null,
     },
   ],
-  next_cursor: "",
-  has_more: false,
 }
 
 vi.mock("../../hooks/use-public-client-profile", () => ({
@@ -69,20 +71,6 @@ vi.mock("../../hooks/use-public-client-profile", () => ({
     isError: false,
   }),
 }))
-
-vi.mock("@/shared/hooks/profile/use-project-history", async () => {
-  const actual = await vi.importActual<
-    typeof import("@/shared/hooks/profile/use-project-history")
-  >("@/shared/hooks/profile/use-project-history")
-  return {
-    ...actual,
-    useProjectHistory: () => ({
-      data: projectHistory,
-      isLoading: false,
-      isError: false,
-    }),
-  }
-})
 
 import { PublicClientProfileLoader } from "../public-client-profile-loader"
 

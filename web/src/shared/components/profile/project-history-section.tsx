@@ -1,12 +1,9 @@
 "use client"
 
-import { Clock, Euro, FileText } from "lucide-react"
-import { useFormatter, useTranslations } from "next-intl"
-import { ReviewCard } from "@/shared/components/ui/review-card"
-import {
-  useProjectHistory,
-  type ProjectHistoryEntry,
-} from "@/shared/hooks/profile/use-project-history"
+import { FileText } from "lucide-react"
+import { useTranslations } from "next-intl"
+import { ProjectHistoryCard } from "./project-history-card"
+import { useProjectHistory } from "@/shared/hooks/profile/use-project-history"
 
 interface ProjectHistorySectionProps {
   orgId: string | undefined
@@ -70,7 +67,7 @@ export function ProjectHistorySection(props: ProjectHistorySectionProps) {
         <ul className="space-y-4">
           {entries.map((entry) => (
             <li key={entry.proposal_id}>
-              <ProjectHistoryEntryCard entry={entry} />
+              <ProjectHistoryCard entry={entry} />
             </li>
           ))}
         </ul>
@@ -134,58 +131,3 @@ function HistorySkeleton() {
   )
 }
 
-interface EntryCardProps {
-  entry: ProjectHistoryEntry
-}
-
-function ProjectHistoryEntryCard({ entry }: EntryCardProps) {
-  const t = useTranslations("profile")
-  const format = useFormatter()
-  const amount = entry.amount / 100
-  const completedDate = new Date(entry.completed_at)
-  const showTitle = entry.title.trim().length > 0
-
-  return (
-    <article className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-rose-200">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-rose-50 to-rose-100/60 px-3 py-1.5 text-sm font-semibold text-rose-700">
-          <Euro className="h-3.5 w-3.5" strokeWidth={2.5} />
-          {format.number(amount, {
-            style: "currency",
-            currency: entry.currency || "EUR",
-            maximumFractionDigits: 0,
-          })}
-        </div>
-        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Clock className="h-3.5 w-3.5" />
-          <time dateTime={entry.completed_at}>
-            {t("completedOn", {
-              date: format.dateTime(completedDate, {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              }),
-            })}
-          </time>
-        </div>
-      </header>
-
-      {showTitle ? (
-        <h3 className="mt-3 text-base font-semibold text-foreground">
-          {entry.title}
-        </h3>
-      ) : null}
-
-      <div className="mt-4">
-        {entry.review ? (
-          <ReviewCard review={entry.review} />
-        ) : (
-          <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-            <Clock className="h-4 w-4 shrink-0" />
-            <span>{t("awaitingReview")}</span>
-          </div>
-        )}
-      </div>
-    </article>
-  )
-}
