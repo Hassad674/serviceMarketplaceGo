@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/router/app_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../features/subscription/presentation/providers/subscription_providers.dart';
+import '../../features/subscription/presentation/widgets/manage_bottom_sheet.dart';
+import '../../features/subscription/presentation/widgets/subscription_badge.dart';
 import '../../l10n/app_localizations.dart';
 
 // Role badge colors — matches web sidebar ROLE_COLORS
@@ -160,6 +163,14 @@ class AppDrawer extends ConsumerWidget {
         child: Column(
           children: [
             _DrawerHeader(user: authState.user, role: role),
+            // Premium entry mirrors the web sidebar: visible only for
+            // roles that can subscribe (provider + agency — enterprise
+            // is a buyer, not a seller). The badge covers all four
+            // states (loading, free, past_due, active) — tapping opens
+            // the manage bottom-sheet if subscribed, the pricing screen
+            // if free.
+            if (role == 'provider' || role == 'agency')
+              _PremiumRow(role: role),
             Divider(height: 1, color: appColors?.border ?? theme.dividerColor),
             if (showWorkspaceSwitch)
               _WorkspaceSwitch(l10n: l10n),
@@ -502,6 +513,49 @@ class _DrawerNavTile extends StatelessWidget {
       default:
         return key;
     }
+  }
+}
+
+// Premium entry — rose pill under the drawer header. Tap routes to the
+// manage bottom-sheet when the org is subscribed, or the /pricing screen
+// otherwise. Hidden for enterprise (buyer side — they don't subscribe).
+class _PremiumRow extends ConsumerWidget {
+  const _PremiumRow({required this.role});
+
+  final String role;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SubscriptionBadge(
+          onTap: () => _onTap(context, ref),
+        ),
+      ),
+    );
+  }
+
+  void _onTap(BuildContext context, WidgetRef ref) {
+    // Close the drawer so the next surface (sheet or page) has the
+    // full viewport. Navigator.pop() is safe here — Drawer is always
+    // on the stack when its content is tapped.
+    Navigator.of(context).pop();
+    final current = ref.read(subscriptionProvider).valueOrNull;
+    if (current != null) {
+      // Give the pop animation a frame to settle before pushing the
+      // modal — otherwise Flutter complains about lost focus traversal.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        showManageBottomSheet(context);
+      });
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      context.push(RoutePaths.pricing);
+    });
   }
 }
 
