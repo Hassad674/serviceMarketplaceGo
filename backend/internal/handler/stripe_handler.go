@@ -21,10 +21,12 @@ import (
 )
 
 // errMissingOwnerMetadata is returned when a Stripe subscription event
-// carries neither organization_id nor user_id metadata. The webhook is
-// then silently ignored — if Stripe is hitting us with subs we did not
-// create, there is nothing to do.
-var errMissingOwnerMetadata = errors.New("stripe webhook: subscription metadata has neither organization_id nor user_id")
+// carries no resolvable owner. The canonical key is organization_id —
+// user_id is only checked as a legacy fallback for subscriptions
+// created before migration 119, while the metadata backfill script
+// hasn't run on them yet. Once that script has been run in every env
+// the user_id branch is dead code and can be dropped.
+var errMissingOwnerMetadata = errors.New("stripe webhook: subscription metadata is missing organization_id (legacy user_id fallback also empty)")
 
 // IdempotencyClaimer is the narrow interface the Stripe webhook handler
 // consumes to dedupe replays. Implemented by
@@ -275,11 +277,13 @@ func (h *StripeHandler) handleSubscriptionSnapshot(r *http.Request, event *ports
 		return
 	}
 
-	// Cache invalidation stays user-keyed for now (billing is
-	// per-provider). Only the legacy metadata path gives us a user id;
-	// when only organization_id is echoed we rely on the cache TTL. This
-	// is the same best-effort approach the code took before the
-	// migration and keeps the 60s worst-case staleness bound.
+	// Cache invalidation stays user-keyed by design — billing is a
+	// per-provider concern (milestone payments are paid to individuals,
+	// not to organizations) so the cache mirrors that grain. We only
+	// have a user id to invalidate when the event carries the legacy
+	// metadata; on the new metadata path we rely on the 60s TTL to
+	// self-heal, which is acceptable on a billing decision that
+	// already errs on the side of charging the standard fee on miss.
 	if event.SubscriptionUserID != "" {
 		if uid, err := uuid.Parse(event.SubscriptionUserID); err == nil {
 			h.invalidateSubscriptionCache(r.Context(), uid)
