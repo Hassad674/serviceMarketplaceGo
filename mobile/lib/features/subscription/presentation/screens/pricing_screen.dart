@@ -1,8 +1,12 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../invoicing/data/repositories/invoicing_repository_impl.dart';
+import '../../../invoicing/presentation/providers/invoicing_providers.dart';
+import '../../../invoicing/presentation/widgets/billing_profile_completion_modal.dart';
 import '../../domain/entities/subscription.dart';
 import '../launcher/checkout_launcher.dart';
 import '../providers/subscription_providers.dart';
@@ -61,6 +65,24 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
   Future<void> _onSubscribe() async {
     final plan = _plan;
     if (plan == null || _pending) return;
+
+    // Proactive billing-profile gate. The backend will reject the
+    // subscribe call with 403 + `billing_profile_incomplete` when
+    // mandatory fields are missing. Pop the gate modal up front when
+    // we already know it's incomplete so the user fixes the profile
+    // before we round-trip Stripe.
+    final completeness = ref.read(billingProfileCompletenessProvider);
+    if (!completeness.isLoading && !completeness.isComplete) {
+      if (!mounted) return;
+      await showBillingProfileCompletionModal(
+        context,
+        missingFields: completeness.missingFields,
+        message: 'Complète ton profil de facturation pour souscrire à '
+            'Premium.',
+      );
+      return;
+    }
+
     setState(() => _pending = true);
     try {
       final useCase = ref.read(subscribeUseCaseProvider);
@@ -91,6 +113,29 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } on DioException catch (e) {
+      // Defensive gate — proactive cache may be stale.
+      final incomplete = tryDecodeBillingProfileIncomplete(e);
+      if (incomplete != null) {
+        ref.invalidate(billingProfileProvider);
+        if (!mounted) return;
+        await showBillingProfileCompletionModal(
+          context,
+          missingFields: incomplete.missingFields,
+          message: 'Complète ton profil de facturation pour souscrire à '
+              'Premium.',
+        );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Impossible de démarrer le paiement. Réessaie.',
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

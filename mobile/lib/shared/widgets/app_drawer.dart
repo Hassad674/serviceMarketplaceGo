@@ -111,6 +111,15 @@ const _primaryItems = [
     route: RoutePaths.wallet,
     roles: ['agency', 'provider'],
   ),
+  // Invoicing entry — only provider + agency can subscribe / receive
+  // commission invoices. Enterprise users are buyers and don't see
+  // invoices addressed to them at this stage.
+  _DrawerItem(
+    labelKey: 'drawerInvoices',
+    icon: Icons.description_outlined,
+    route: RoutePaths.invoices,
+    roles: ['agency', 'provider'],
+  ),
 ];
 
 // Search / discovery items
@@ -510,6 +519,8 @@ class _DrawerNavTile extends StatelessWidget {
         return l10n.drawerWallet;
       case 'drawerNotifications':
         return l10n.drawerNotifications;
+      case 'drawerInvoices':
+        return 'Mes factures';
       default:
         return key;
     }
