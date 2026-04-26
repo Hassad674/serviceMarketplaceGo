@@ -106,5 +106,6 @@ type MessageRepository interface {
 	MarkMessagesAsRead(ctx context.Context, conversationID, readerID uuid.UUID, upToSeq int) error
 	GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 	SaveMessageHistory(ctx context.Context, messageID, performedBy uuid.UUID, content, action string) error
-	UpdateMessageModeration(ctx context.Context, messageID uuid.UUID, status string, score float64, labelsJSON []byte) error
+	// UpdateMessageModeration removed in Phase 7 — moderation now lives
+	// in moderation_results, accessed via ModerationResultsRepository.
 }

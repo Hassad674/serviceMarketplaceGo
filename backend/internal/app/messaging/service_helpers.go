@@ -9,9 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/domain/message"
+	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/port/repository"
-	"marketplace-backend/internal/port/service"
 )
 
 func (s *Service) GetParticipantIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
@@ -256,58 +257,39 @@ func (s *Service) recordMediaIfNeeded(msg *message.Message) {
 	}
 }
 
-// moderateTextIfNeeded fires a background text moderation check for text messages.
-// Results are stored in the database asynchronously (never blocks the send flow).
+// moderateTextIfNeeded fires a background text moderation check for
+// text messages via the central moderation orchestrator. The
+// orchestrator handles analysis + decision + persistence + audit +
+// admin notifier in one call so messaging stays focused on its own
+// concerns. Returns immediately — the analysis runs in a goroutine so
+// the send flow is never blocked by an external API call.
 func (s *Service) moderateTextIfNeeded(msg *message.Message) {
-	if s.textModeration == nil {
+	if s.moderationOrchestrator == nil {
 		return
 	}
 	if msg.Type != message.MessageTypeText || msg.Content == "" {
 		return
 	}
 
-	go s.runTextModeration(msg.ID, msg.Content)
+	authorID := msg.SenderID
+	go s.runTextModeration(msg.ID, &authorID, msg.Content)
 }
 
-// runTextModeration calls the text moderation service and updates the message.
-func (s *Service) runTextModeration(msgID uuid.UUID, content string) {
+// runTextModeration is the goroutine entry point. Wraps a 30s timeout
+// because OpenAI's free tier occasionally takes 5-10s during peak
+// hours; 30s is well above the 99th percentile we have observed.
+func (s *Service) runTextModeration(msgID uuid.UUID, authorID *uuid.UUID, content string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	result, err := s.textModeration.AnalyzeText(ctx, content)
+	_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+		ContentType:  moderation.ContentTypeMessage,
+		ContentID:    msgID,
+		AuthorUserID: authorID,
+		Text:         content,
+	})
 	if err != nil {
 		slog.Error("text moderation failed", "error", err, "msg_id", msgID)
-		return
-	}
-
-	if result.IsSafe {
-		return
-	}
-
-	status := "flagged"
-	if result.MaxScore >= 0.9 {
-		status = "hidden"
-	}
-
-	labelsJSON, err := json.Marshal(result.Labels)
-	if err != nil {
-		slog.Error("marshal moderation labels", "error", err, "msg_id", msgID)
-		return
-	}
-
-	if err := s.messages.UpdateMessageModeration(ctx, msgID, status, result.MaxScore, labelsJSON); err != nil {
-		slog.Error("update message moderation", "error", err, "msg_id", msgID)
-	}
-
-	// Notify admins
-	if s.adminNotifier != nil {
-		category := service.AdminNotifMessagesFlagged
-		if status == "hidden" {
-			category = service.AdminNotifMessagesHidden
-		}
-		if err := s.adminNotifier.IncrementAll(ctx, category); err != nil {
-			slog.Error("admin notifier: increment messages", "error", err, "category", category)
-		}
 	}
 }
 

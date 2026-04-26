@@ -54,6 +54,9 @@ type RouterDeps struct {
 	Wallet              *WalletHandler
 	Billing             *BillingHandler
 	Subscription        *SubscriptionHandler
+	BillingProfile      *BillingProfileHandler // optional — nil disables /me/billing-profile routes
+	Invoice             *InvoiceHandler        // optional — nil disables /me/invoices routes
+	AdminCreditNote     *AdminCreditNoteHandler // optional — nil disables admin credit-note correction endpoint
 	Admin               *AdminHandler
 	Portfolio           *PortfolioHandler
 	ProjectHistory      *ProjectHistoryHandler
@@ -663,6 +666,37 @@ func NewRouter(deps RouterDeps) chi.Router {
 			})
 		}
 
+		// Invoicing — billing profile + invoices for the caller's org.
+		// Mounted on a single /me prefix so the URLs stay symmetrical
+		// with the rest of the org-scoped self routes. Each handler is
+		// optional — nil pointer means "feature not wired" and the
+		// routes simply do not exist.
+		if deps.BillingProfile != nil {
+			r.Route("/me/billing-profile", func(r chi.Router) {
+				r.Use(auth)
+				r.Use(middleware.NoCache)
+				// Read is open to any org member — completeness is part
+				// of the wallet/subscribe self-service UX.
+				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/", deps.BillingProfile.GetMine)
+				// Mutations require billing.manage so a Viewer cannot
+				// edit the recipient identity that ends up on every
+				// invoice.
+				r.With(middleware.RequirePermission(organization.PermBillingManage)).Put("/", deps.BillingProfile.Update)
+				r.With(middleware.RequirePermission(organization.PermBillingManage)).Post("/sync-from-stripe", deps.BillingProfile.SyncFromStripe)
+				r.With(middleware.RequirePermission(organization.PermBillingManage)).Post("/validate-vat", deps.BillingProfile.ValidateVAT)
+			})
+		}
+		if deps.Invoice != nil {
+			r.Route("/me", func(r chi.Router) {
+				r.Use(auth)
+				r.Use(middleware.NoCache)
+				r.Use(middleware.RequirePermission(organization.PermBillingView))
+				r.Get("/invoices", deps.Invoice.List)
+				r.Get("/invoices/{id}/pdf", deps.Invoice.GetPDF)
+				r.Get("/invoicing/current-month", deps.Invoice.CurrentMonth)
+			})
+		}
+
 		// Wallet routes (authenticated, permission-gated)
 		if deps.Wallet != nil {
 			r.Route("/wallet", func(r chi.Router) {
@@ -767,6 +801,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Message moderation action endpoints
 				r.Post("/messages/{id}/approve-moderation", deps.Admin.ApproveMessageModeration)
 				r.Post("/messages/{id}/hide", deps.Admin.HideMessage)
+				r.Post("/messages/{id}/restore-moderation", deps.Admin.RestoreMessageModeration)
 
 				// Review admin endpoints
 				r.Get("/reviews", deps.Admin.ListReviews)
@@ -774,10 +809,18 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Delete("/reviews/{id}", deps.Admin.DeleteReview)
 				r.Get("/reviews/{id}/reports", deps.Admin.ListReviewReports)
 				r.Post("/reviews/{id}/approve-moderation", deps.Admin.ApproveReviewModeration)
+				r.Post("/reviews/{id}/restore-moderation", deps.Admin.RestoreReviewModeration)
 
 				// Unified moderation queue
 				r.Get("/moderation", deps.Admin.ListModerationItems)
 				r.Get("/moderation/count", deps.Admin.ModerationCount)
+				// Generic restore endpoint covering Phase 2 content types
+				// (profile_about, profile_title, job_title, job_description,
+				// proposal_description, job_application_message,
+				// user_display_name). The legacy per-type routes above
+				// (.../messages/{id}/restore-moderation,
+				// .../reviews/{id}/restore-moderation) keep working.
+				r.Post("/moderation/{content_type}/{content_id}/restore", deps.Admin.RestoreModerationGeneric)
 
 				// Admin notification counters
 				r.Get("/notifications", deps.Admin.GetNotificationCounters)
@@ -835,6 +878,12 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// middleware; the handler re-checks defensively.
 				if deps.AdminSearchStats != nil {
 					r.Get("/search/stats", deps.AdminSearchStats.GetStats)
+				}
+
+				// Admin invoicing corrections — manual credit-note issuance.
+				// Same RequireAdmin gate as every sibling under /admin.
+				if deps.AdminCreditNote != nil {
+					r.Post("/invoices/{id}/credit-note", deps.AdminCreditNote.Issue)
 				}
 			})
 		}

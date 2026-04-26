@@ -70,6 +70,9 @@ func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[s
 func (m *mockOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
 	return nil
 }
+func (m *mockOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 
 var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 

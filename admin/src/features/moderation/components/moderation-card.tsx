@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Flag, Image, MessageSquare, ExternalLink } from "lucide-react"
+import { Flag, Image, MessageSquare, ExternalLink, Trash2 } from "lucide-react"
 import { Card } from "@/shared/components/ui/card"
 import { Badge, RoleBadge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
@@ -15,8 +15,29 @@ import {
   useApproveReviewModeration,
   useDeleteReview,
   useResolveReport,
+  useRestoreMessageModeration,
+  useRestoreReviewModeration,
+  useRestoreModerationGeneric,
 } from "../hooks/use-moderation"
-import type { ModerationItem } from "../types"
+import type { ModerationItem, ModerationContentType } from "../types"
+
+// CONTENT_TYPE_LABELS surfaces a friendly French label for every Phase 2
+// content_type in the badge below the SourceBadge. Defined as a record
+// (with fallback in code) so adding a new type later is a one-line
+// change.
+const CONTENT_TYPE_LABELS: Record<ModerationContentType, string> = {
+  report: "Signalement",
+  message: "Message",
+  review: "Avis",
+  media: "Média",
+  profile_about: "Profil — Bio",
+  profile_title: "Profil — Titre",
+  job_title: "Offre — Titre",
+  job_description: "Offre — Description",
+  proposal_description: "Proposition — Description",
+  job_application_message: "Candidature",
+  user_display_name: "Nom utilisateur",
+}
 
 type ModerationCardProps = {
   item: ModerationItem
@@ -38,10 +59,21 @@ export function ModerationCard({ item }: ModerationCardProps) {
 }
 
 function TopRow({ item }: { item: ModerationItem }) {
+  const typeLabel = CONTENT_TYPE_LABELS[item.content_type] ?? item.content_type
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
         <SourceBadge source={item.source} score={item.moderation_score} />
+        <Badge variant="outline">{typeLabel}</Badge>
+        {item.status === "deleted" && (
+          <Badge variant="destructive" className="gap-1">
+            <Trash2 className="h-3 w-3" />
+            Supprimé auto
+          </Badge>
+        )}
+        {item.status === "blocked" && (
+          <Badge variant="destructive">Bloqué</Badge>
+        )}
         <ReasonBadge item={item} />
       </div>
       <span className="text-xs text-muted-foreground">
@@ -152,6 +184,13 @@ function ActionButtons({ item }: { item: ModerationItem }) {
 }
 
 function SourceActions({ item }: { item: ModerationItem }) {
+  // Status takes precedence over content_type. Soft-deleted AND
+  // blocked items both expose only Restore — a blocked content has
+  // no source row to approve/hide, restoring it just removes the row
+  // from the admin queue.
+  if (item.status === "deleted" || item.status === "blocked") {
+    return <RestoreActions item={item} />
+  }
   if (item.source === "human_report") {
     return <ReportActions item={item} />
   }
@@ -164,7 +203,53 @@ function SourceActions({ item }: { item: ModerationItem }) {
   if (item.source === "auto_media") {
     return <MediaActions item={item} />
   }
-  return null
+  // Phase 2 content types (profile_*, job_*, proposal_*, etc.) reach
+  // here when the auto pipeline flagged them. The admin's only useful
+  // action is Restore (clear the flag) — Approve/Hide are message/
+  // review concepts that do not generalise. The "Voir" button at the
+  // ActionButtons level still navigates to the source content.
+  return <RestoreActions item={item} />
+}
+
+function RestoreActions({ item }: { item: ModerationItem }) {
+  // Three branches: dedicated routes for message and review (kept for
+  // route stability + tests), generic fallback for every Phase 2
+  // content_type. The hook objects are stable so calling all three is
+  // cheap; only the matching one fires.
+  const restoreMessage = useRestoreMessageModeration()
+  const restoreReview = useRestoreReviewModeration()
+  const restoreGeneric = useRestoreModerationGeneric()
+
+  function handleRestore() {
+    if (item.content_type === "message") {
+      restoreMessage.mutate(item.content_id)
+      return
+    }
+    if (item.content_type === "review") {
+      restoreReview.mutate(item.content_id)
+      return
+    }
+    restoreGeneric.mutate({
+      contentType: item.content_type,
+      contentID: item.content_id,
+    })
+  }
+
+  const isPending =
+    restoreMessage.isPending ||
+    restoreReview.isPending ||
+    restoreGeneric.isPending
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleRestore}
+      disabled={isPending}
+    >
+      Restaurer
+    </Button>
+  )
 }
 
 function ReportActions({ item }: { item: ModerationItem }) {

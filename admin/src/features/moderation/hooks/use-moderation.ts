@@ -9,6 +9,9 @@ import {
   approveReviewModeration,
   deleteReview,
   resolveReport,
+  restoreMessageModeration,
+  restoreReviewModeration,
+  restoreModerationGeneric,
 } from "../api/moderation-api"
 import type { ModerationFilters } from "../types"
 
@@ -93,6 +96,35 @@ export function useResolveReport() {
   return useMutation({
     mutationFn: (params: { reportId: string; status: "resolved" | "dismissed"; adminNote: string }) =>
       resolveReport(params.reportId, { status: params.status, admin_note: params.adminNote }),
+    onSuccess: invalidate,
+  })
+}
+
+export function useRestoreMessageModeration() {
+  const invalidate = useInvalidateModeration()
+  return useMutation({
+    mutationFn: (id: string) => restoreMessageModeration(id),
+    onSuccess: invalidate,
+  })
+}
+
+export function useRestoreReviewModeration() {
+  const invalidate = useInvalidateModeration()
+  return useMutation({
+    mutationFn: (id: string) => restoreReviewModeration(id),
+    onSuccess: invalidate,
+  })
+}
+
+// useRestoreModerationGeneric — the catch-all hook used by Phase 2
+// content types that do not have a dedicated restore endpoint
+// (profile_*, job_*, proposal_*, job_application_*, user_display_name).
+// Same invalidation strategy as the typed hooks above.
+export function useRestoreModerationGeneric() {
+  const invalidate = useInvalidateModeration()
+  return useMutation({
+    mutationFn: (params: { contentType: string; contentID: string }) =>
+      restoreModerationGeneric(params.contentType, params.contentID),
     onSuccess: invalidate,
   })
 }

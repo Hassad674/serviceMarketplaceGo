@@ -106,6 +106,9 @@ func (m *mockOrgRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, _
 func (m *mockOrgRepo) SaveRoleOverrides(_ context.Context, _ uuid.UUID, _ organization.RoleOverrides) error {
 	return nil
 }
+func (m *mockOrgRepo) ListWithStripeAccount(_ context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 
 // mockMemberRepo is a minimal mock of repository.OrganizationMemberRepository.
 type mockMemberRepo struct {

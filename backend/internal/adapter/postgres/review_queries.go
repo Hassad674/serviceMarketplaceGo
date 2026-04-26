@@ -44,7 +44,13 @@ const queryListReviewsByReviewedOrgFirst = `
 	WHERE reviewed_organization_id = $1
 		AND side = 'client_to_provider'
 		AND published_at IS NOT NULL
-		AND moderation_status <> 'hidden'
+		AND NOT EXISTS (
+			SELECT 1 FROM moderation_results mr
+			 WHERE mr.content_type = 'review'
+			   AND mr.content_id = reviews.id
+			   AND mr.status IN ('hidden', 'deleted')
+			   AND mr.reviewed_at IS NULL
+		)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $2`
 
@@ -59,7 +65,13 @@ const queryListReviewsByReviewedOrgWithCursor = `
 	WHERE reviewed_organization_id = $1
 		AND side = 'client_to_provider'
 		AND published_at IS NOT NULL
-		AND moderation_status <> 'hidden'
+		AND NOT EXISTS (
+			SELECT 1 FROM moderation_results mr
+			 WHERE mr.content_type = 'review'
+			   AND mr.content_id = reviews.id
+			   AND mr.status IN ('hidden', 'deleted')
+			   AND mr.reviewed_at IS NULL
+		)
 		AND (created_at, id) < ($2, $3)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $4`
@@ -73,7 +85,13 @@ const queryAverageRatingByOrg = `
 	WHERE reviewed_organization_id = $1
 		AND side = 'client_to_provider'
 		AND published_at IS NOT NULL
-		AND moderation_status <> 'hidden'`
+		AND NOT EXISTS (
+			SELECT 1 FROM moderation_results mr
+			 WHERE mr.content_type = 'review'
+			   AND mr.content_id = reviews.id
+			   AND mr.status IN ('hidden', 'deleted')
+			   AND mr.reviewed_at IS NULL
+		)`
 
 // queryListClientReviewsByOrg — public client profile list. Mirror of
 // queryListReviewsByReviewedOrgFirst but scoped to the provider→client
@@ -90,7 +108,13 @@ const queryListClientReviewsByOrg = `
 	WHERE reviewed_organization_id = $1
 		AND side = 'provider_to_client'
 		AND published_at IS NOT NULL
-		AND moderation_status <> 'hidden'
+		AND NOT EXISTS (
+			SELECT 1 FROM moderation_results mr
+			 WHERE mr.content_type = 'review'
+			   AND mr.content_id = reviews.id
+			   AND mr.status IN ('hidden', 'deleted')
+			   AND mr.reviewed_at IS NULL
+		)
 	ORDER BY created_at DESC, id DESC
 	LIMIT $2`
 
@@ -104,7 +128,13 @@ const queryClientAverageRatingByOrg = `
 	WHERE reviewed_organization_id = $1
 		AND side = 'provider_to_client'
 		AND published_at IS NOT NULL
-		AND moderation_status <> 'hidden'`
+		AND NOT EXISTS (
+			SELECT 1 FROM moderation_results mr
+			 WHERE mr.content_type = 'review'
+			   AND mr.content_id = reviews.id
+			   AND mr.status IN ('hidden', 'deleted')
+			   AND mr.reviewed_at IS NULL
+		)`
 
 const queryHasReviewed = `
 	SELECT EXISTS(
@@ -112,10 +142,7 @@ const queryHasReviewed = `
 		WHERE proposal_id = $1 AND reviewer_id = $2
 	)`
 
-const queryUpdateReviewModeration = `
-	UPDATE reviews
-	SET moderation_status = $2, moderation_score = $3, moderation_labels = $4, updated_at = now()
-	WHERE id = $1`
+// queryUpdateReviewModeration removed in Phase 7 — see moderation_results.
 
 // queryReviewsByProposalIDs — batch loader used by the project history
 // and apporteur reputation services. Excludes hidden and unpublished
@@ -138,7 +165,13 @@ const queryReviewsByProposalIDs = `
 	WHERE proposal_id = ANY($1)
 		AND ($2 = '' OR side = $2)
 		AND published_at IS NOT NULL
-		AND moderation_status <> 'hidden'`
+		AND NOT EXISTS (
+			SELECT 1 FROM moderation_results mr
+			 WHERE mr.content_type = 'review'
+			   AND mr.content_id = reviews.id
+			   AND mr.status IN ('hidden', 'deleted')
+			   AND mr.reviewed_at IS NULL
+		)`
 
 // queryCountReviewsForProposal — returns the total row count and the
 // published row count for the reveal decision. Runs inside the reveal

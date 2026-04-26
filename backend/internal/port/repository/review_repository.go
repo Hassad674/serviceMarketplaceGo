@@ -99,7 +99,8 @@ type ReviewRepository interface {
 	// IS NULL) reviews are excluded so the project history surface never
 	// leaks blind submissions.
 	GetByProposalIDs(ctx context.Context, proposalIDs []uuid.UUID, side string) (map[uuid.UUID]*review.Review, error)
-	UpdateReviewModeration(ctx context.Context, reviewID uuid.UUID, status string, score float64, labelsJSON []byte) error
+	// UpdateReviewModeration removed in Phase 7 — moderation_results is
+	// the single source of truth; admins write via MarkReviewed.
 
 	// Admin operations
 	ListAdmin(ctx context.Context, filters AdminReviewFilters) ([]AdminReview, error)

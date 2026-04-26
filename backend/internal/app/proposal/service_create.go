@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/domain/milestone"
+	"marketplace-backend/internal/domain/moderation"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/service"
@@ -144,7 +147,42 @@ func (s *Service) CreateProposal(ctx context.Context, input CreateProposalInput)
 		sender.DisplayName+" sent you a proposal",
 		buildNotificationData(p.ID, p.ConversationID, p.Title))
 
+	// Async moderation on the proposal description. Title is short
+	// and we already validate it here at the app layer; description
+	// is the long-form field where toxic copy hides. We concatenate
+	// title + description in a single OpenAI call to economise on
+	// quota — the engine flags by content, not by field.
+	s.moderateProposalText(p.ID, &p.SenderID, input.Title, input.Description)
+
 	return p, nil
+}
+
+// moderateProposalText fires a background scan on the proposal copy.
+// Failures are non-fatal: the proposal is already persisted and
+// notifications are already sent — a moderation hiccup must not
+// invalidate that flow.
+func (s *Service) moderateProposalText(proposalID uuid.UUID, authorID *uuid.UUID, title, description string) {
+	if s.moderationOrchestrator == nil {
+		return
+	}
+	combined := strings.TrimSpace(title + " " + description)
+	if combined == "" {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+			ContentType:  moderation.ContentTypeProposalDescription,
+			ContentID:    proposalID,
+			AuthorUserID: authorID,
+			Text:         combined,
+		})
+		if err != nil {
+			slog.Error("proposal text moderation failed",
+				"error", err, "proposal_id", proposalID)
+		}
+	}()
 }
 
 // validateProposalFields runs the top-level proposal-domain checks

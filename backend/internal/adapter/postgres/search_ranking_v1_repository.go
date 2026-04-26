@@ -132,11 +132,17 @@ WITH recent AS (
     SELECT
         reviewer_id,
         EXTRACT(EPOCH FROM (NOW() - created_at)) / 86400.0 AS age_days
-    FROM reviews
-    WHERE reviewed_organization_id = $1
-      AND side = 'client_to_provider'
-      AND published_at IS NOT NULL
-      AND moderation_status <> 'hidden'
+    FROM reviews rv
+    WHERE rv.reviewed_organization_id = $1
+      AND rv.side = 'client_to_provider'
+      AND rv.published_at IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1 FROM moderation_results mr
+           WHERE mr.content_type = 'review'
+             AND mr.content_id = rv.id
+             AND mr.status IN ('hidden', 'deleted')
+             AND mr.reviewed_at IS NULL
+      )
 ),
 per_reviewer AS (
     SELECT reviewer_id, COUNT(*) AS review_count

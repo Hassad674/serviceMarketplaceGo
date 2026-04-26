@@ -34,6 +34,8 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => ({
     get: (key: string) => mockSearchParams.get(key) ?? null,
   }),
+  useRouter: () => ({ push: pushFn, back: backFn, replace: () => {}, refresh: () => {}, prefetch: () => {} }),
+  usePathname: () => "/",
 }))
 
 // Mock @i18n/navigation
@@ -44,14 +46,18 @@ vi.mock("@i18n/navigation", () => ({
 }))
 
 // Mock lucide-react icons
-vi.mock("lucide-react", () => ({
-  X: (props: Record<string, unknown>) => <span data-testid="x-icon" {...props} />,
-  Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
-  Euro: (props: Record<string, unknown>) => <span data-testid="euro-icon" {...props} />,
-  Calendar: (props: Record<string, unknown>) => <span data-testid="calendar-icon" {...props} />,
-  Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
-  User: (props: Record<string, unknown>) => <span data-testid="user-icon" {...props} />,
-}))
+vi.mock("lucide-react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("lucide-react")>()
+  return {
+    ...actual,
+    X: (props: Record<string, unknown>) => <span data-testid="x-icon" {...props} />,
+    Loader2: (props: Record<string, unknown>) => <span data-testid="loader-icon" {...props} />,
+    Euro: (props: Record<string, unknown>) => <span data-testid="euro-icon" {...props} />,
+    Calendar: (props: Record<string, unknown>) => <span data-testid="calendar-icon" {...props} />,
+    Paperclip: (props: Record<string, unknown>) => <span data-testid="paperclip-icon" {...props} />,
+    User: (props: Record<string, unknown>) => <span data-testid="user-icon" {...props} />,
+  }
+})
 
 // Mock @/shared/lib/utils
 vi.mock("@/shared/lib/utils", () => ({

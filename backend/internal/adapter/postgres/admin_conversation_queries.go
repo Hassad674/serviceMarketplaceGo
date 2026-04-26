@@ -79,15 +79,24 @@ const queryAdminConversationParticipants = `
 	JOIN users u ON u.id = cp.user_id
 	WHERE cp.conversation_id = $1`
 
+// Phase 7 — moderation columns moved from messages to moderation_results.
+// LEFT JOIN keeps un-moderated messages visible (NULL → '' status, 0 score,
+// NULL labels). reviewed_at IS NULL ignores admin-reviewed rows so a
+// previously-flagged-then-approved message shows up as clean again.
 const queryAdminListMessagesFirst = `
 	SELECT
 		m.id, m.conversation_id, m.sender_id, m.content,
 		m.msg_type, m.metadata, m.reply_to_id, m.created_at,
 		COALESCE(u.display_name, u.first_name || ' ' || u.last_name),
 		COALESCE(u.role, ''),
-		m.moderation_status, m.moderation_score, m.moderation_labels
+		COALESCE(mr.status, ''), COALESCE(mr.score, 0),
+		mr.labels
 	FROM messages m
 	JOIN users u ON u.id = m.sender_id
+	LEFT JOIN moderation_results mr
+	    ON mr.content_type = 'message'
+	   AND mr.content_id = m.id
+	   AND mr.reviewed_at IS NULL
 	WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
 	ORDER BY m.created_at ASC, m.id ASC
 	LIMIT $2`
@@ -98,9 +107,14 @@ const queryAdminListMessagesWithCursor = `
 		m.msg_type, m.metadata, m.reply_to_id, m.created_at,
 		COALESCE(u.display_name, u.first_name || ' ' || u.last_name),
 		COALESCE(u.role, ''),
-		m.moderation_status, m.moderation_score, m.moderation_labels
+		COALESCE(mr.status, ''), COALESCE(mr.score, 0),
+		mr.labels
 	FROM messages m
 	JOIN users u ON u.id = m.sender_id
+	LEFT JOIN moderation_results mr
+	    ON mr.content_type = 'message'
+	   AND mr.content_id = m.id
+	   AND mr.reviewed_at IS NULL
 	WHERE m.conversation_id = $1 AND m.deleted_at IS NULL
 		AND (m.created_at, m.id) > ($2, $3)
 	ORDER BY m.created_at ASC, m.id ASC

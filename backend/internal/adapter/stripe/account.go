@@ -269,6 +269,75 @@ func createAccountToken(info *payment.PaymentInfo, tosIP string, email string) (
 	return tok.ID, nil
 }
 
+// GetAccountKYCSnapshot reads the Stripe Account and projects the
+// fields the invoicing layer pre-fills onto a billing profile. Stripe
+// returns sparse data on half-onboarded accounts so every field of the
+// snapshot is optional — the caller's merge rule is "fill empty fields
+// only, never overwrite user-edited values". Implements
+// portservice.StripeKYCSnapshotReader.
+func (s *Service) GetAccountKYCSnapshot(ctx context.Context, accountID string) (*portservice.StripeAccountKYCSnapshot, error) {
+	acct, err := account.GetByID(accountID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get stripe account kyc snapshot: %w", err)
+	}
+	out := &portservice.StripeAccountKYCSnapshot{
+		BusinessType: string(acct.BusinessType),
+		Country:      acct.Country,
+	}
+	if acct.BusinessProfile != nil {
+		out.SupportEmail = acct.BusinessProfile.SupportEmail
+	}
+
+	// Company branch — legal name, address, tax_id all live under .Company.
+	if acct.Company != nil {
+		if acct.Company.Name != "" {
+			out.LegalName = acct.Company.Name
+		}
+		if acct.Company.Address != nil {
+			out.AddressLine1 = acct.Company.Address.Line1
+			out.AddressLine2 = acct.Company.Address.Line2
+			out.City = acct.Company.Address.City
+			out.PostalCode = acct.Company.Address.PostalCode
+		}
+		if acct.Company.TaxIDProvided {
+			// Stripe never returns the raw tax_id back over the API;
+			// the boolean tells us the user provided one. We leave the
+			// snapshot blank so the merge rule does not pollute the
+			// profile with a placeholder — the user must re-enter it
+			// on first save.
+			out.TaxID = ""
+		}
+	}
+	// Individual branch — name comes from first+last, address from .Address.
+	if acct.Individual != nil {
+		fn := acct.Individual.FirstName
+		ln := acct.Individual.LastName
+		switch {
+		case fn != "" && ln != "":
+			out.LegalName = fn + " " + ln
+		case fn != "":
+			out.LegalName = fn
+		case ln != "":
+			out.LegalName = ln
+		}
+		if acct.Individual.Address != nil {
+			if out.AddressLine1 == "" {
+				out.AddressLine1 = acct.Individual.Address.Line1
+			}
+			if out.AddressLine2 == "" {
+				out.AddressLine2 = acct.Individual.Address.Line2
+			}
+			if out.City == "" {
+				out.City = acct.Individual.Address.City
+			}
+			if out.PostalCode == "" {
+				out.PostalCode = acct.Individual.Address.PostalCode
+			}
+		}
+	}
+	return out, nil
+}
+
 // GetAccount retrieves a connected account's capability status.
 func (s *Service) GetAccount(ctx context.Context, accountID string) (*portservice.StripeAccountInfo, error) {
 	acct, err := account.GetByID(accountID, nil)

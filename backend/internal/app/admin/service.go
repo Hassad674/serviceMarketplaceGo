@@ -42,6 +42,8 @@ type ServiceDeps struct {
 	AdminConversations repository.AdminConversationRepository
 	MediaRepo          repository.MediaRepository
 	ModerationRepo     repository.AdminModerationRepository
+	ModerationResults  repository.ModerationResultsRepository
+	Audit              repository.AuditRepository
 	StorageSvc         portservice.StorageService
 	SessionSvc         portservice.SessionService
 	Broadcaster        portservice.MessageBroadcaster
@@ -67,6 +69,8 @@ type Service struct {
 	adminConversations repository.AdminConversationRepository
 	mediaRepo          repository.MediaRepository
 	moderationRepo     repository.AdminModerationRepository
+	moderationResults  repository.ModerationResultsRepository
+	audit              repository.AuditRepository
 	storageSvc         portservice.StorageService
 	sessionSvc         portservice.SessionService
 	broadcaster        portservice.MessageBroadcaster
@@ -90,6 +94,8 @@ func NewService(deps ServiceDeps) *Service {
 		adminConversations: deps.AdminConversations,
 		mediaRepo:          deps.MediaRepo,
 		moderationRepo:     deps.ModerationRepo,
+		moderationResults:  deps.ModerationResults,
+		audit:              deps.Audit,
 		storageSvc:         deps.StorageSvc,
 		sessionSvc:         deps.SessionSvc,
 		broadcaster:        deps.Broadcaster,

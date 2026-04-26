@@ -59,13 +59,11 @@ func (s *Service) ListReviewReports(ctx context.Context, reviewID uuid.UUID) ([]
 	return reports, nil
 }
 
-// ApproveReviewModeration clears the moderation flag on a review, marking it clean.
-func (s *Service) ApproveReviewModeration(ctx context.Context, reviewID uuid.UUID) error {
-	if err := s.reviews.UpdateReviewModeration(ctx, reviewID, "clean", 0, nil); err != nil {
-		return fmt.Errorf("approve review moderation: %w", err)
-	}
-	return nil
-}
+// ApproveReviewModeration and RestoreReviewModeration moved to
+// message_moderation.go alongside their message counterparts to share
+// the markReviewModeration helper. Keeping them grouped by "manual
+// admin moderation overrides" reads better than splitting the helper
+// across two files.
 
 func (s *Service) loadReviewPendingReportCounts(ctx context.Context, reviews []repository.AdminReview) (map[uuid.UUID]int, error) {
 	if len(reviews) == 0 {

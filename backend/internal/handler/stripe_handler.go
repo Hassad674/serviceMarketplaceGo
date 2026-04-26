@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	embeddedapp "marketplace-backend/internal/app/embedded"
+	invoicingapp "marketplace-backend/internal/app/invoicing"
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	subscriptionapp "marketplace-backend/internal/app/subscription"
@@ -54,6 +55,11 @@ type StripeHandler struct {
 	subscriptionSvc        *subscriptionapp.Service
 	subscriptionCache      SubscriptionCacheInvalidator
 	idempotencyStore       IdempotencyClaimer
+
+	// Invoicing wiring. Optional — when nil the invoice.paid hook is a
+	// no-op. Removing the invoicing module from main.go disables the
+	// hook cleanly.
+	invoicingSvc *invoicingapp.Service
 }
 
 func NewStripeHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service, publishableKey string) *StripeHandler {
@@ -69,6 +75,16 @@ func NewStripeHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.S
 // service. Call once at wiring time.
 func (h *StripeHandler) WithEmbeddedNotifier(n *embeddedapp.Notifier) *StripeHandler {
 	h.embeddedNotifier = n
+	return h
+}
+
+// WithInvoicing wires the invoicing app service into the webhook
+// dispatcher. Once attached, every successful subscription invoice
+// (Stripe invoice.paid) triggers an outbound customer-facing invoice.
+// Pass svc=nil to leave the feature off — the hook degrades to a no-op
+// and the rest of the dispatcher continues to work unchanged.
+func (h *StripeHandler) WithInvoicing(svc *invoicingapp.Service) *StripeHandler {
+	h.invoicingSvc = svc
 	return h
 }
 
@@ -156,6 +172,20 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		// Stripe fires both on a successful renewal, but the
 		// subscription.updated carries the new period dates — the
 		// invoice event is informational.
+	case "invoice.paid":
+		// invoice.paid fires on EVERY successful subscription
+		// payment (initial + renewals), and crucially carries the
+		// authoritative AmountPaid + service period. We use it as
+		// the trigger for issuing our own customer-facing invoice
+		// (FAC-NNNNNN), independent of the subscription state
+		// reflection that customer.subscription.updated drives.
+		h.handleInvoicePaid(r, event)
+	case "charge.refunded":
+		// charge.refunded triggers a credit note (AV-NNNNNN) for the
+		// refunded amount. The handler short-circuits when the refund
+		// can't be matched to one of our subscription invoices —
+		// non-invoiced charges are out of scope.
+		h.handleChargeRefunded(r, event)
 	default:
 		slog.Debug("unhandled stripe event", "type", event.Type)
 	}
@@ -288,6 +318,138 @@ func (h *StripeHandler) handleSubscriptionSnapshot(r *http.Request, event *ports
 		if uid, err := uuid.Parse(event.SubscriptionUserID); err == nil {
 			h.invalidateSubscriptionCache(r.Context(), uid)
 		}
+	}
+}
+
+// handleInvoicePaid issues a customer-facing invoice for a Stripe
+// invoice.paid event. The flow:
+//
+//  1. Skip when invoicing is disabled (feature not wired in main.go).
+//  2. Filter to subscription-backed invoices — non-subscription
+//     invoices are out of scope for this hook.
+//  3. Resolve the owning organization via the subscription metadata
+//     captured on the invoice's parent.subscription_details snapshot.
+//     Falls back to the legacy user_id metadata for subscriptions
+//     created before the org-scoped migration.
+//  4. Pick a sensible plan label, defaulting to a generic string when
+//     the line description is missing.
+//  5. Hand off to the invoicing app service; errors are logged but the
+//     webhook still returns 200 to Stripe (handled by the caller).
+func (h *StripeHandler) handleInvoicePaid(r *http.Request, event *portservice.StripeWebhookEvent) {
+	if h.invoicingSvc == nil {
+		return
+	}
+	if !event.InvoicePaid || event.InvoiceSubscriptionID == "" {
+		// Either not the projection we expect, or a non-subscription
+		// invoice (manual / one-off). The latter is out of scope
+		// for the invoice.paid -> FAC pipeline.
+		return
+	}
+
+	orgID, err := h.resolveInvoicePaidOwner(r.Context(), event)
+	if err != nil {
+		slog.Warn("stripe webhook: invoice.paid owner resolution failed",
+			"event_id", event.EventID,
+			"stripe_invoice_id", event.InvoiceID,
+			"organization_id_raw", event.InvoiceSubscriptionOrgID,
+			"user_id_raw", event.InvoiceSubscriptionUserID,
+			"error", err)
+		return
+	}
+
+	planLabel := event.InvoiceLineDescription
+	if planLabel == "" {
+		planLabel = "Premium subscription"
+	}
+
+	if _, err := h.invoicingSvc.IssueFromSubscription(r.Context(), invoicingapp.IssueFromSubscriptionInput{
+		OrganizationID:        orgID,
+		StripeEventID:         event.EventID,
+		StripeInvoiceID:       event.InvoiceID,
+		StripePaymentIntentID: event.InvoicePaymentIntentID,
+		AmountCents:           event.InvoiceAmountPaidCents,
+		Currency:              event.InvoiceCurrency,
+		PeriodStart:           event.InvoicePeriodStart,
+		PeriodEnd:             event.InvoicePeriodEnd,
+		PlanLabel:             planLabel,
+	}); err != nil {
+		slog.Error("stripe webhook: invoice issuance failed",
+			"event_id", event.EventID,
+			"stripe_invoice_id", event.InvoiceID,
+			"organization_id", orgID,
+			"error", err)
+	}
+}
+
+// resolveInvoicePaidOwner derives the org id from invoice.paid metadata.
+// Mirrors resolveSubscriptionOwner's dual-key strategy but reads the
+// fields the webhook adapter projects out of the invoice's parent
+// snapshot (not the subscription event payload, which we don't have
+// here).
+func (h *StripeHandler) resolveInvoicePaidOwner(
+	ctx context.Context,
+	event *portservice.StripeWebhookEvent,
+) (uuid.UUID, error) {
+	if event.InvoiceSubscriptionOrgID != "" {
+		return uuid.Parse(event.InvoiceSubscriptionOrgID)
+	}
+	if event.InvoiceSubscriptionUserID == "" {
+		return uuid.Nil, errMissingOwnerMetadata
+	}
+	if h.subscriptionSvc == nil {
+		return uuid.Nil, errMissingOwnerMetadata
+	}
+	userID, err := uuid.Parse(event.InvoiceSubscriptionUserID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return h.subscriptionSvc.ResolveActorOrganization(ctx, userID)
+}
+
+// handleChargeRefunded issues a credit note for a Stripe charge.refunded
+// event. The pipeline:
+//
+//  1. Skip when invoicing is disabled (feature not wired in main.go).
+//  2. Look up the original invoice via the PaymentIntent — we only emit
+//     credit notes for subscription invoices we issued. Charges that
+//     never produced an invoice (early test data, non-subscription
+//     payments) are silently skipped with a debug log.
+//  3. Hand off to the invoicing app service. Errors are logged but the
+//     webhook still returns 200 so Stripe doesn't burn its retry budget
+//     re-running a pipeline that's never going to succeed.
+func (h *StripeHandler) handleChargeRefunded(r *http.Request, event *portservice.StripeWebhookEvent) {
+	if h.invoicingSvc == nil {
+		return
+	}
+	if !event.ChargeRefunded || event.ChargePaymentIntentID == "" {
+		slog.Debug("stripe webhook: charge.refunded without payment intent — skipping",
+			"event_id", event.EventID, "charge_id", event.ChargeID)
+		return
+	}
+
+	inv, err := h.invoicingSvc.FindInvoiceByPaymentIntentID(r.Context(), event.ChargePaymentIntentID)
+	if err != nil {
+		// Not all charges produce one of OUR invoices (early
+		// test data, non-subscription payments, etc.). A miss is
+		// not an error condition — log and bail.
+		slog.Info("stripe webhook: charge.refunded has no matching invoice — skipping",
+			"event_id", event.EventID,
+			"payment_intent_id", event.ChargePaymentIntentID,
+			"error", err)
+		return
+	}
+
+	if _, err := h.invoicingSvc.IssueCreditNote(r.Context(), invoicingapp.IssueCreditNoteInput{
+		OriginalInvoiceID: inv.ID,
+		Reason:            "Stripe refund",
+		AmountCents:       event.ChargeAmountRefundedCents,
+		StripeEventID:     event.EventID,
+		StripeRefundID:    event.ChargeRefundID,
+	}); err != nil {
+		slog.Error("stripe webhook: credit note issuance failed",
+			"event_id", event.EventID,
+			"original_invoice_id", inv.ID,
+			"error", err)
 	}
 }
 

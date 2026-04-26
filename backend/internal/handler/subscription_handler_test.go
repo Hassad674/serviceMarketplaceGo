@@ -15,7 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	invoicingapp "marketplace-backend/internal/app/invoicing"
 	appsub "marketplace-backend/internal/app/subscription"
+	domaininv "marketplace-backend/internal/domain/invoicing"
 	domain "marketplace-backend/internal/domain/subscription"
 	domainuser "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler"
@@ -257,6 +259,43 @@ func TestSubscribe_MalformedJSON_Returns400(t *testing.T) {
 	h.Subscribe(rec, req)
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestSubscribe_BillingProfileIncomplete_403(t *testing.T) {
+	// When the invoicing module is wired, /subscriptions must refuse to
+	// create a checkout session if the org's billing profile is
+	// incomplete. The body shape is the canonical
+	// {error:{code:"billing_profile_incomplete"}, missing_fields:[]}.
+	h, _, userID, _ := newSubTestHandler(t)
+
+	// Build an invoicing service with an empty profile repo (every
+	// FindByOrganization yields ErrNotFound → empty stub →
+	// incomplete) and bolt it onto the existing handler via
+	// WithInvoicing.
+	profiles := newBPRepo()
+	invSvc := invoicingapp.NewService(invoicingapp.ServiceDeps{
+		Invoices:    bpFakeInvoiceRepo{},
+		Profiles:    profiles,
+		PDF:         bpFakePDF{},
+		Storage:     bpFakeStorage{},
+		Deliverer:   bpFakeDeliverer{},
+		Issuer:      domaininv.IssuerInfo{Country: "FR", LegalName: "Issuer"},
+		Idempotency: bpFakeIdempotency{},
+	})
+	h = h.WithInvoicing(invSvc)
+
+	req := authReq(http.MethodPost, "/api/v1/subscriptions", map[string]any{
+		"plan": "freelance", "billing_cycle": "monthly", "auto_renew": false,
+	}, userID)
+	rec := httptest.NewRecorder()
+
+	h.Subscribe(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	var body map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	errObj, _ := body["error"].(map[string]any)
+	assert.Equal(t, "billing_profile_incomplete", errObj["code"])
 }
 
 func TestSubscribe_AlreadySubscribed_Returns409(t *testing.T) {

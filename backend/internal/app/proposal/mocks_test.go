@@ -424,6 +424,9 @@ func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[s
 func (m *mockOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
 	return nil
 }
+func (m *mockOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 
 var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 
@@ -522,6 +525,10 @@ func (m *mockStorageService) GetPresignedUploadURL(ctx context.Context, key stri
 		return m.getPresignedUploadFn(ctx, key, contentType, expiry)
 	}
 	return "https://storage.example.com/presigned/" + key, nil
+}
+
+func (m *mockStorageService) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return "https://storage.example.com/download/" + key, nil
 }
 
 func (m *mockStorageService) Download(_ context.Context, _ string) ([]byte, error) {

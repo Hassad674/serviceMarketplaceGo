@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	domain "marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -113,7 +116,37 @@ func (s *Service) ApplyToJob(ctx context.Context, input ApplyToJobInput) (*domai
 		return nil, fmt.Errorf("persist application: %w", err)
 	}
 
+	// Async moderation: run AFTER the application is persisted so a
+	// transient OpenAI hiccup never blocks the apply flow. The
+	// content_id is the application's own ID — that lets the admin
+	// queue link straight back to the application detail page.
+	s.moderateApplicationMessage(app.ID, &app.ApplicantID, input.Message)
+
 	return app, nil
+}
+
+// moderateApplicationMessage fires a background scan on the cover
+// letter. Empty messages skip the call so we do not waste an API call
+// on the (rare) zero-content apply. The orchestrator owns persistence
+// + audit + admin notifier — this helper just spawns the goroutine.
+func (s *Service) moderateApplicationMessage(appID uuid.UUID, authorID *uuid.UUID, message string) {
+	if s.moderationOrchestrator == nil || message == "" {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+			ContentType:  moderation.ContentTypeJobApplicationMessage,
+			ContentID:    appID,
+			AuthorUserID: authorID,
+			Text:         message,
+		})
+		if err != nil {
+			slog.Error("application message moderation failed",
+				"error", err, "application_id", appID)
+		}
+	}()
 }
 
 // refundCredit returns one credit to the org pool after a failed

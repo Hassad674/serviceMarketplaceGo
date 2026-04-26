@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +6,10 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/permissions.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../invoicing/data/repositories/invoicing_repository_impl.dart';
+import '../../../invoicing/presentation/providers/invoicing_providers.dart';
+import '../../../invoicing/presentation/widgets/billing_profile_completion_modal.dart';
+import '../../../invoicing/presentation/widgets/current_month_aggregate_card.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../providers/wallet_provider.dart';
 
@@ -30,6 +35,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   String? _retryingRecordId;
 
   Future<void> _requestPayout() async {
+    // Proactive billing-profile gate. Read the cached completeness
+    // snapshot — if it's already known to be incomplete, pop the
+    // completion modal up front so the user fixes their profile before
+    // we even hit the wallet endpoint.
+    final completeness = ref.read(billingProfileCompletenessProvider);
+    if (!completeness.isLoading && !completeness.isComplete) {
+      if (!mounted) return;
+      await showBillingProfileCompletionModal(
+        context,
+        missingFields: completeness.missingFields,
+        message: 'Complète ton profil de facturation pour pouvoir retirer.',
+      );
+      return;
+    }
+
     setState(() => _payingOut = true);
     try {
       final repo = ref.read(walletRepositoryProvider);
@@ -42,6 +62,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
               AppLocalizations.of(context)!.walletPayoutRequested,
             ),
           ),
+        );
+      }
+    } on DioException catch (e) {
+      // Defensive gate — the cached completeness can be stale across
+      // tabs / sessions, so a 403 may still come back from the
+      // backend. Translate the typed error and pop the same modal.
+      final incomplete = tryDecodeBillingProfileIncomplete(e);
+      if (incomplete != null) {
+        ref.invalidate(billingProfileProvider);
+        if (mounted) {
+          await showBillingProfileCompletionModal(
+            context,
+            missingFields: incomplete.missingFields,
+            message: 'Complète ton profil de facturation pour pouvoir retirer.',
+          );
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Payout failed: $e')),
         );
       }
     } catch (e) {
@@ -129,6 +168,11 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Running fee aggregate for the current calendar month —
+            // sits above the hero so providers immediately see how
+            // much commission is being accrued.
+            const CurrentMonthAggregateCard(),
+            const SizedBox(height: 16),
             // Hero — total earned + stripe status + payout CTA
             _WalletHero(
               wallet: wallet,

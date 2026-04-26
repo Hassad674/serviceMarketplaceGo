@@ -20,6 +20,8 @@ import '../../features/client_profile/presentation/screens/client_profile_screen
 import '../../features/client_profile/presentation/screens/public_client_profile_screen.dart';
 import '../../features/freelance_profile/presentation/screens/freelance_profile_screen.dart';
 import '../../features/freelance_profile/presentation/screens/freelance_public_profile_screen.dart';
+import '../../features/invoicing/presentation/screens/billing_profile_screen.dart';
+import '../../features/invoicing/presentation/screens/invoices_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/referrer_profile/presentation/screens/referrer_profile_screen.dart';
 import '../../features/referrer_profile/presentation/screens/referrer_public_profile_screen.dart';
@@ -126,6 +128,11 @@ class RoutePaths {
   // Reached by push-navigation from the subscription flow, not a
   // direct URL — the target Stripe URL is passed via `extra`.
   static const String checkoutWebview = '/billing/checkout';
+
+  // Invoicing — full-screen settings/utility routes reached from the
+  // drawer or from the gate modal. NOT inside the bottom-nav shell.
+  static const String billingProfile = '/settings/billing-profile';
+  static const String invoices = '/invoices';
 }
 
 // ---------------------------------------------------------------------------
@@ -412,6 +419,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           }
           return CheckoutWebViewScreen(url: url);
         },
+      ),
+
+      // --- Invoicing routes (full-screen, no bottom nav) ---
+      // The billing-profile form and the invoice list are utility
+      // screens reached from the drawer entry "Mes factures" or from
+      // the gate modal popped by wallet payout / subscribe flows.
+      GoRoute(
+        path: RoutePaths.billingProfile,
+        builder: (context, state) => const BillingProfileScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.invoices,
+        builder: (context, state) => const InvoicesScreen(),
       ),
 
       // --- Authenticated routes (with bottom navigation shell) ---

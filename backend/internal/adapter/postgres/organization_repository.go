@@ -319,6 +319,40 @@ func (r *OrganizationRepository) ListKYCPending(ctx context.Context) ([]*organiz
 	return orgs, nil
 }
 
+// ListWithStripeAccount returns the ids of every organization that
+// has completed Stripe Connect onboarding (stripe_account_id IS NOT
+// NULL). Used by the invoicing scheduler to enumerate orgs that may
+// need a monthly commission invoice. Returns an empty slice when the
+// platform has no onboarded merchants — never returns nil to keep
+// callers free of nil-checks.
+func (r *OrganizationRepository) ListWithStripeAccount(ctx context.Context) ([]uuid.UUID, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id
+		FROM organizations
+		WHERE stripe_account_id IS NOT NULL
+		ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("list orgs with stripe account: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan org id: %w", err)
+		}
+		out = append(out, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return out, nil
+}
+
 // CreateWithOwnerMembership is the atomic convenience method used at
 // account registration. It creates the organization row and the
 // corresponding Owner membership in a single transaction so both sides

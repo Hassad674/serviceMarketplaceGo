@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/domain/message"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -16,17 +17,16 @@ import (
 )
 
 type Service struct {
-	messages       repository.MessageRepository
-	users          repository.UserRepository
-	orgs           repository.OrganizationRepository
-	orgMembers     repository.OrganizationMemberRepository
-	presence       service.PresenceService
-	broadcaster    service.MessageBroadcaster
-	storage        service.StorageService
-	rateLimiter    service.MessagingRateLimiter
-	mediaRecorder  service.MediaRecorder
-	textModeration service.TextModerationService
-	adminNotifier  service.AdminNotifierService
+	messages              repository.MessageRepository
+	users                 repository.UserRepository
+	orgs                  repository.OrganizationRepository
+	orgMembers            repository.OrganizationMemberRepository
+	presence              service.PresenceService
+	broadcaster           service.MessageBroadcaster
+	storage               service.StorageService
+	rateLimiter           service.MessagingRateLimiter
+	mediaRecorder         service.MediaRecorder
+	moderationOrchestrator *appmoderation.Service
 }
 
 type ServiceDeps struct {
@@ -61,14 +61,16 @@ func (s *Service) SetMediaRecorder(recorder service.MediaRecorder) {
 	s.mediaRecorder = recorder
 }
 
-// SetTextModeration sets the text moderation service after construction.
-func (s *Service) SetTextModeration(svc service.TextModerationService) {
-	s.textModeration = svc
-}
-
-// SetAdminNotifier sets the admin notifier after construction.
-func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
-	s.adminNotifier = n
+// SetModerationOrchestrator wires the central moderation pipeline.
+// Optional: when nil, automated text moderation is disabled (the
+// messaging service still works, just without flagging/hiding).
+//
+// This single setter replaces the legacy SetTextModeration +
+// SetAdminNotifier + SetAuditRepo trio — the orchestrator now owns
+// each of those collaborators internally so messaging only needs to
+// know about ONE moderation entry point.
+func (s *Service) SetModerationOrchestrator(svc *appmoderation.Service) {
+	s.moderationOrchestrator = svc
 }
 
 type StartConversationInput struct {

@@ -8,8 +8,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	invoicingapp "marketplace-backend/internal/app/invoicing"
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
+	domaininv "marketplace-backend/internal/domain/invoicing"
 	paymentdomain "marketplace-backend/internal/domain/payment"
 	"marketplace-backend/internal/handler/middleware"
 	res "marketplace-backend/pkg/response"
@@ -18,10 +20,42 @@ import (
 type WalletHandler struct {
 	paymentSvc  *paymentapp.Service
 	proposalSvc *proposalapp.Service
+	// invoicingSvc is the optional gate the RequestPayout endpoint
+	// uses to enforce billing-profile completeness BEFORE handing off
+	// to Stripe. Nil = invoicing module disabled, in which case the
+	// gate degrades open (the action is allowed) — invoicing is a
+	// removable feature and removing it must never block payouts.
+	invoicingSvc *invoicingapp.Service
 }
 
 func NewWalletHandler(paymentSvc *paymentapp.Service, proposalSvc *proposalapp.Service) *WalletHandler {
 	return &WalletHandler{paymentSvc: paymentSvc, proposalSvc: proposalSvc}
+}
+
+// WithInvoicing wires the invoicing gate. Builder pattern keeps the
+// constructor signature stable so a worktree without invoicing wired in
+// still boots — and removing the invoicing feature is a single-line edit
+// in main.go.
+func (h *WalletHandler) WithInvoicing(svc *invoicingapp.Service) *WalletHandler {
+	h.invoicingSvc = svc
+	return h
+}
+
+// respondBillingProfileIncomplete writes the canonical 403 envelope
+// shared between the wallet payout and the subscription subscribe
+// gates. The shape mirrors what the frontend's "completion modal"
+// expects: a discriminator code + the missing-fields list.
+func respondBillingProfileIncomplete(w http.ResponseWriter, missing []domaininv.MissingField, message string) {
+	if missing == nil {
+		missing = []domaininv.MissingField{}
+	}
+	res.JSON(w, http.StatusForbidden, map[string]any{
+		"error": map[string]string{
+			"code":    "billing_profile_incomplete",
+			"message": message,
+		},
+		"missing_fields": missing,
+	})
 }
 
 // GetWallet returns wallet overview with proposal statuses.
@@ -79,6 +113,23 @@ func (h *WalletHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
 		return
+	}
+
+	// Phase 6 gate: every payout requires a complete billing profile.
+	// If the invoicing module is disabled (svc nil), the gate degrades
+	// open — invoicing is a removable feature and must never block the
+	// rest of the platform. Errors during the probe are logged and the
+	// payout is allowed (fail-open is the safer default for a
+	// money-out flow when the gate itself is broken).
+	if h.invoicingSvc != nil {
+		complete, missing, gerr := h.invoicingSvc.IsBillingProfileComplete(r.Context(), orgID)
+		if gerr != nil {
+			slog.Warn("wallet payout: billing profile gate probe failed, allowing through",
+				"org_id", orgID, "error", gerr)
+		} else if !complete {
+			respondBillingProfileIncomplete(w, missing, "Complete your billing profile before requesting a payout")
+			return
+		}
 	}
 
 	result, err := h.paymentSvc.RequestPayout(r.Context(), userID, orgID)

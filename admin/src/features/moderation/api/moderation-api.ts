@@ -54,3 +54,27 @@ export function resolveReport(
     body: payload,
   })
 }
+
+export function restoreMessageModeration(id: string): Promise<void> {
+  return adminApi(`/api/v1/admin/messages/${id}/restore-moderation`, { method: "POST", body: {} })
+}
+
+export function restoreReviewModeration(id: string): Promise<void> {
+  return adminApi(`/api/v1/admin/reviews/${id}/restore-moderation`, { method: "POST", body: {} })
+}
+
+// Generic Phase 2 restore endpoint. Used for every content_type that
+// is not "message" or "review" — profile_*, job_*, proposal_*,
+// job_application_message, user_display_name. The backend route is
+// POST /api/v1/admin/moderation/{content_type}/{content_id}/restore
+// and writes the admin override into moderation_results without
+// touching any source table.
+export function restoreModerationGeneric(
+  contentType: string,
+  contentID: string,
+): Promise<void> {
+  return adminApi(
+    `/api/v1/admin/moderation/${contentType}/${contentID}/restore`,
+    { method: "POST", body: {} },
+  )
+}
