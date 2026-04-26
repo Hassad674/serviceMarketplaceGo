@@ -270,15 +270,19 @@ func insertPublishedReview(ctx context.Context, db *sql.DB, providerOrgID, provi
 	}
 	// reviews has a UNIQUE (proposal_id, reviewer_id) constraint.
 	// Use ON CONFLICT to guarantee idempotent reruns on the same seed.
+	// Phase 2 cleanup: moderation_status / moderation_score columns
+	// were dropped in migration 121. Seed reviews are clean by
+	// definition (no row in moderation_results) so the search ranking
+	// query treats them as visible without further wiring.
 	_, err := db.ExecContext(ctx,
 		`INSERT INTO reviews (id, proposal_id, reviewer_id, reviewed_id,
 		                      global_rating, timeliness, communication, quality, comment,
 		                      reviewer_organization_id, reviewed_organization_id, side,
-		                      moderation_status, moderation_score, title_visible,
+		                      title_visible,
 		                      created_at, published_at)
 		 VALUES ($1, $2, $3, $4, $5, $5, $5, $5, 'Clean work',
 		         $6, $7, 'client_to_provider',
-		         'clean', 0, true,
+		         true,
 		         NOW() - ($8::text || ' days')::interval,
 		         NOW() - ($8::text || ' days')::interval)
 		 ON CONFLICT (proposal_id, reviewer_id) DO NOTHING`,

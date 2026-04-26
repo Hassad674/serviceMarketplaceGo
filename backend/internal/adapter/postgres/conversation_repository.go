@@ -719,13 +719,5 @@ func (r *ConversationRepository) SaveMessageHistory(ctx context.Context, message
 	return nil
 }
 
-func (r *ConversationRepository) UpdateMessageModeration(ctx context.Context, messageID uuid.UUID, status string, score float64, labelsJSON []byte) error {
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
-
-	_, err := r.db.ExecContext(ctx, queryUpdateMessageModeration, messageID, status, score, labelsJSON)
-	if err != nil {
-		return fmt.Errorf("update message moderation: %w", err)
-	}
-	return nil
-}
+// UpdateMessageModeration removed in Phase 7 — see moderation_results
+// repository's Upsert / MarkReviewed instead.

@@ -442,8 +442,14 @@ func (r *ProfileRepository) SearchPublic(ctx context.Context, orgTypeFilter stri
 			SELECT reviewed_id,
 			       AVG(global_rating)::float8 AS avg_rating,
 			       COUNT(*)::int              AS review_count
-			FROM reviews
-			WHERE moderation_status != 'hidden'
+			FROM reviews rv
+			WHERE NOT EXISTS (
+			    SELECT 1 FROM moderation_results mr
+			     WHERE mr.content_type = 'review'
+			       AND mr.content_id = rv.id
+			       AND mr.status IN ('hidden', 'deleted')
+			       AND mr.reviewed_at IS NULL
+			)
 			GROUP BY reviewed_id
 		) rv ON rv.reviewed_id = o.owner_user_id
 		LEFT JOIN (
@@ -538,8 +544,14 @@ func (r *ProfileRepository) GetPublicProfilesByOrgIDs(ctx context.Context, orgID
 			SELECT reviewed_id,
 			       AVG(global_rating)::float8 AS avg_rating,
 			       COUNT(*)::int              AS review_count
-			FROM reviews
-			WHERE moderation_status != 'hidden'
+			FROM reviews rv
+			WHERE NOT EXISTS (
+			    SELECT 1 FROM moderation_results mr
+			     WHERE mr.content_type = 'review'
+			       AND mr.content_id = rv.id
+			       AND mr.status IN ('hidden', 'deleted')
+			       AND mr.reviewed_at IS NULL
+			)
 			GROUP BY reviewed_id
 		) r ON r.reviewed_id = o.owner_user_id
 		WHERE o.id = ANY($1)`
@@ -604,8 +616,14 @@ func (r *ProfileRepository) OrgProfilesByUserIDs(ctx context.Context, userIDs []
 			SELECT reviewed_id,
 			       AVG(global_rating)::float8 AS avg_rating,
 			       COUNT(*)::int              AS review_count
-			FROM reviews
-			WHERE moderation_status != 'hidden'
+			FROM reviews rv
+			WHERE NOT EXISTS (
+			    SELECT 1 FROM moderation_results mr
+			     WHERE mr.content_type = 'review'
+			       AND mr.content_id = rv.id
+			       AND mr.status IN ('hidden', 'deleted')
+			       AND mr.reviewed_at IS NULL
+			)
 			GROUP BY reviewed_id
 		) r ON r.reviewed_id = u.id
 		WHERE u.id = ANY($1)`

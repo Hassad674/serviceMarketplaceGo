@@ -65,9 +65,7 @@ type AdminConversationRepository interface {
 	// ListMessages returns messages for a conversation with cursor pagination.
 	ListMessages(ctx context.Context, conversationID uuid.UUID, cursor string, limit int) ([]AdminMessage, string, error)
 
-	// UpdateMessageModeration updates the moderation status/score/labels on a message.
-	UpdateMessageModeration(ctx context.Context, messageID uuid.UUID, status string, score float64, labelsJSON []byte) error
-
-	// HideMessage sets message status to 'hidden' so it is no longer visible to users.
-	HideMessage(ctx context.Context, messageID uuid.UUID) error
+	// UpdateMessageModeration + HideMessage removed in Phase 7 — admin
+	// moderation goes through ModerationResultsRepository.MarkReviewed
+	// now (single source of truth for the verdict).
 }
