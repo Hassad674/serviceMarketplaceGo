@@ -81,6 +81,9 @@ func (m *mockExpertiseOrgRepo) CountAll(context.Context) (int, error)   { return
 func (m *mockExpertiseOrgRepo) FindByStripeAccountID(context.Context, string) (*organization.Organization, error) {
 	return nil, organization.ErrOrgNotFound
 }
+func (m *mockExpertiseOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 func (m *mockExpertiseOrgRepo) ListKYCPending(context.Context) ([]*organization.Organization, error) {
 	return nil, nil
 }

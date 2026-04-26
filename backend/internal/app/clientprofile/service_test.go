@@ -73,6 +73,9 @@ func (m *mockOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, time.Time) 
 func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
 	return nil
 }
+func (m *mockOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 
 type mockProfileRepo struct {
 	getByOrgIDFn           func(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)

@@ -164,6 +164,9 @@ func (m *mockStorage) GetPublicURL(_ string) string { return "" }
 func (m *mockStorage) GetPresignedUploadURL(_ context.Context, _, _ string, _ time.Duration) (string, error) {
 	return "", nil
 }
+func (m *mockStorage) GetPresignedDownloadURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", nil
+}
 func (m *mockStorage) Download(_ context.Context, _ string) ([]byte, error) { return nil, nil }
 
 // --- mock email ---
