@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
+	"marketplace-backend/internal/domain/moderation"
 	domain "marketplace-backend/internal/domain/review"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -24,17 +26,11 @@ type ServiceDeps struct {
 
 // Service orchestrates review use cases.
 type Service struct {
-	reviews        repository.ReviewRepository
-	proposals      repository.ProposalRepository
-	users          repository.UserRepository
-	notifications  service.NotificationSender
-	textModeration service.TextModerationService
-	adminNotifier  service.AdminNotifierService
-}
-
-// SetAdminNotifier sets the admin notifier after construction.
-func (s *Service) SetAdminNotifier(n service.AdminNotifierService) {
-	s.adminNotifier = n
+	reviews                repository.ReviewRepository
+	proposals              repository.ProposalRepository
+	users                  repository.UserRepository
+	notifications          service.NotificationSender
+	moderationOrchestrator *appmoderation.Service
 }
 
 // NewService creates a new review service.
@@ -47,9 +43,13 @@ func NewService(deps ServiceDeps) *Service {
 	}
 }
 
-// SetTextModeration sets the text moderation service after construction.
-func (s *Service) SetTextModeration(svc service.TextModerationService) {
-	s.textModeration = svc
+// SetModerationOrchestrator wires the central moderation pipeline.
+// Optional: when nil, automated review-comment moderation is disabled.
+// Replaces the legacy SetTextModeration + SetAdminNotifier +
+// SetAuditRepo trio — the orchestrator handles those collaborators
+// internally.
+func (s *Service) SetModerationOrchestrator(svc *appmoderation.Service) {
+	s.moderationOrchestrator = svc
 }
 
 // CreateReviewInput contains the data needed to create a review. Note
@@ -231,50 +231,32 @@ func (s *Service) sendReviewNotifications(ctx context.Context, r *domain.Review,
 	}
 }
 
-// moderateReviewIfNeeded fires a background text moderation check for the review comment.
+// moderateReviewIfNeeded fires a background moderation check for the
+// review comment via the central orchestrator. Returns immediately —
+// the analysis runs in a goroutine so review submission stays snappy.
 func (s *Service) moderateReviewIfNeeded(r *domain.Review) {
-	if s.textModeration == nil || r.Comment == "" {
+	if s.moderationOrchestrator == nil || r.Comment == "" {
 		return
 	}
 
-	go s.runReviewModeration(r.ID, r.Comment)
+	authorID := r.ReviewerID
+	go s.runReviewModeration(r.ID, &authorID, r.Comment)
 }
 
-// runReviewModeration calls the text moderation service and updates the review.
-func (s *Service) runReviewModeration(reviewID uuid.UUID, comment string) {
+// runReviewModeration is the goroutine entry point. The 30s timeout
+// matches the messaging pipeline so both surfaces share an SLA.
+func (s *Service) runReviewModeration(reviewID uuid.UUID, authorID *uuid.UUID, comment string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	result, err := s.textModeration.AnalyzeText(ctx, comment)
+	_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+		ContentType:  moderation.ContentTypeReview,
+		ContentID:    reviewID,
+		AuthorUserID: authorID,
+		Text:         comment,
+	})
 	if err != nil {
 		slog.Error("review text moderation failed", "error", err, "review_id", reviewID)
-		return
-	}
-
-	if result.IsSafe {
-		return
-	}
-
-	status := "flagged"
-	if result.MaxScore >= 0.9 {
-		status = "hidden"
-	}
-
-	labelsJSON, err := json.Marshal(result.Labels)
-	if err != nil {
-		slog.Error("marshal review moderation labels", "error", err, "review_id", reviewID)
-		return
-	}
-
-	if err := s.reviews.UpdateReviewModeration(ctx, reviewID, status, result.MaxScore, labelsJSON); err != nil {
-		slog.Error("update review moderation", "error", err, "review_id", reviewID)
-	}
-
-	// Notify admins of flagged review
-	if s.adminNotifier != nil {
-		if err := s.adminNotifier.IncrementAll(ctx, service.AdminNotifReviewsFlagged); err != nil {
-			slog.Error("admin notifier: increment reviews_flagged", "error", err)
-		}
 	}
 }
 
