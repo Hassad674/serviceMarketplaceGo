@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
@@ -47,6 +48,11 @@ type Service struct {
 	// break the import cycle. Nil when the referral feature is not active.
 	referralAttributor service.ReferralAttributor
 
+	// moderationOrchestrator runs an async scan on the proposal title +
+	// description after a successful create. Optional: when nil, the
+	// proposal goes through unchecked (legacy behaviour).
+	moderationOrchestrator *appmoderation.Service
+
 	autoApprovalDelay time.Duration
 	fundReminderDelay time.Duration
 	autoCloseDelay    time.Duration
@@ -57,6 +63,13 @@ type Service struct {
 // any active referral covering the (provider, client) couple.
 func (s *Service) SetReferralAttributor(a service.ReferralAttributor) {
 	s.referralAttributor = a
+}
+
+// SetModerationOrchestrator wires the central moderation pipeline.
+// Optional: when nil, proposal title/description moderation is
+// skipped. Same setter pattern as messaging + review for parity.
+func (s *Service) SetModerationOrchestrator(svc *appmoderation.Service) {
+	s.moderationOrchestrator = svc
 }
 
 func NewService(deps ServiceDeps) *Service {
