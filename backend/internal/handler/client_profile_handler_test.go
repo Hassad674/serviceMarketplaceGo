@@ -88,6 +88,9 @@ func (m *clientHandlerOrgRepo) SetKYCFirstEarning(context.Context, uuid.UUID, ti
 func (m *clientHandlerOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[string]time.Time) error {
 	return nil
 }
+func (m *clientHandlerOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 
 // --- minimal proposal + review repos satisfying the clientprofile.Service deps ---
 

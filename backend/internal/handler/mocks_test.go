@@ -447,6 +447,10 @@ func (m *mockStorageService) Download(_ context.Context, _ string) ([]byte, erro
 	return nil, nil
 }
 
+func (m *mockStorageService) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return "https://storage.example.com/download/" + key, nil
+}
+
 // --- helpers ---
 
 func testUser(id uuid.UUID, role user.Role) *user.User {
@@ -583,4 +587,7 @@ func (m *mockOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[s
 }
 func (m *mockOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
 	return nil
+}
+func (m *mockOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
 }
