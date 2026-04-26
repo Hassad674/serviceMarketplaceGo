@@ -183,6 +183,9 @@ func (m *mockStorage) GetPresignedUploadURL(ctx context.Context, key string, con
 	}
 	return "https://r2.test/upload/" + key, nil
 }
+func (m *mockStorage) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return "https://r2.test/download/" + key, nil
+}
 func (m *mockStorage) Download(ctx context.Context, key string) ([]byte, error) {
 	if m.downloadFn != nil {
 		return m.downloadFn(ctx, key)

@@ -65,6 +65,14 @@ type Service struct {
 	deliverer   service.InvoiceDeliverer
 	issuer      invoicing.IssuerInfo
 	idempotency IdempotencyClaimer
+
+	// Optional Phase 6 dependencies, wired via SetBillingProfileDeps so
+	// the original constructor signature (Phase 4/5 callers) stays
+	// unchanged. Each method that needs one returns a clear "feature
+	// disabled" error when the dep is nil.
+	organizations repository.OrganizationRepository
+	stripeKYC     service.StripeKYCSnapshotReader
+	vies          service.VIESValidator
 }
 
 // NewService constructs the Service. Every dependency is required;

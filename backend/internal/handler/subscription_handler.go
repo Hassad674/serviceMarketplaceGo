@@ -3,10 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
 
+	invoicingapp "marketplace-backend/internal/app/invoicing"
 	appsub "marketplace-backend/internal/app/subscription"
 	domain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/handler/middleware"
@@ -20,10 +22,23 @@ import (
 // claim and passes organization_id — never user_id — to the app service.
 type SubscriptionHandler struct {
 	svc *appsub.Service
+
+	// invoicingSvc is the optional gate the Subscribe endpoint uses to
+	// enforce billing-profile completeness BEFORE creating the Stripe
+	// checkout session. Nil = invoicing module disabled, in which case
+	// the gate degrades open. See WalletHandler.WithInvoicing for the
+	// matching pattern.
+	invoicingSvc *invoicingapp.Service
 }
 
 func NewSubscriptionHandler(svc *appsub.Service) *SubscriptionHandler {
 	return &SubscriptionHandler{svc: svc}
+}
+
+// WithInvoicing wires the billing-profile completeness gate.
+func (h *SubscriptionHandler) WithInvoicing(svc *invoicingapp.Service) *SubscriptionHandler {
+	h.invoicingSvc = svc
+	return h
 }
 
 // resolveActorOrg reads the JWT user_id from context, then asks the app
@@ -124,6 +139,21 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		res.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON payload")
 		return
+	}
+
+	// Phase 6 gate — billing profile must be complete before we can
+	// invoice the org for the subscription. Degrades open when the
+	// invoicing module is disabled (svc nil) so removing invoicing
+	// never blocks subscribes. Probe errors are logged + allowed.
+	if h.invoicingSvc != nil {
+		complete, missing, gerr := h.invoicingSvc.IsBillingProfileComplete(r.Context(), orgID)
+		if gerr != nil {
+			slog.Warn("subscription subscribe: billing profile gate probe failed, allowing through",
+				"org_id", orgID, "error", gerr)
+		} else if !complete {
+			respondBillingProfileIncomplete(w, missing, "Complete your billing profile before subscribing")
+			return
+		}
 	}
 
 	out, err := h.svc.Subscribe(r.Context(), appsub.SubscribeInput{

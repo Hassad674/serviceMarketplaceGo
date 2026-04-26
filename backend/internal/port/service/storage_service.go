@@ -11,5 +11,10 @@ type StorageService interface {
 	Delete(ctx context.Context, key string) error
 	GetPublicURL(key string) string
 	GetPresignedUploadURL(ctx context.Context, key string, contentType string, expiry time.Duration) (string, error)
+	// GetPresignedDownloadURL returns a short-lived signed GET url for the
+	// stored object. Used by handlers that gate object access on
+	// application-level ownership checks (e.g. invoice PDFs) so the bucket
+	// itself stays private and clients only ever see a one-shot link.
+	GetPresignedDownloadURL(ctx context.Context, key string, expiry time.Duration) (string, error)
 	Download(ctx context.Context, key string) ([]byte, error)
 }

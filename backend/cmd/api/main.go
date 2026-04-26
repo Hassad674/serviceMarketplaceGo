@@ -28,6 +28,7 @@ import (
 	"marketplace-backend/internal/adapter/s3transit"
 	sqsadapter "marketplace-backend/internal/adapter/sqs"
 	stripeadapter "marketplace-backend/internal/adapter/stripe"
+	viesadapter "marketplace-backend/internal/adapter/vies"
 	"marketplace-backend/internal/adapter/worker"
 	"marketplace-backend/internal/adapter/worker/handlers"
 	"marketplace-backend/internal/adapter/ws"
@@ -318,10 +319,12 @@ func main() {
 	// to inject it into the referral feature alongside the narrower interface.
 	var stripeSvc service.StripeService
 	var stripeReversalSvc service.StripeTransferReversalService
+	var stripeKYCReader service.StripeKYCSnapshotReader
 	if cfg.StripeConfigured() {
 		stripeAdapter := stripeadapter.NewService(cfg.StripeSecretKey, cfg.StripeWebhookSecret)
 		stripeSvc = stripeAdapter
 		stripeReversalSvc = stripeAdapter
+		stripeKYCReader = stripeAdapter
 		slog.Info("stripe payment adapter enabled")
 	} else {
 		slog.Info("stripe payment adapter disabled (not configured)")
@@ -1153,6 +1156,8 @@ func main() {
 	// of the issuer env vars are missing or the PDF renderer can't
 	// initialise, we log + skip and the rest of the backend boots.
 	// invoice.paid events then fall through with a no-op handler.
+	var billingProfileHandler *handler.BillingProfileHandler
+	var invoiceHandler *handler.InvoiceHandler
 	if stripeHandler != nil {
 		issuer, issuerErr := confighelpers.LoadInvoiceIssuer()
 		if issuerErr != nil {
@@ -1179,8 +1184,29 @@ func main() {
 					Issuer:      issuer,
 					Idempotency: invoiceIdempotency,
 				})
+
+				// Phase 6 — wire optional dependencies for the
+				// /me/billing-profile flows: stripe KYC pre-fill +
+				// VIES validation. Both are best-effort; missing
+				// config simply disables the corresponding endpoint.
+				viesValidator := viesadapter.NewClient(redisClient)
+				invoicingSvc.SetBillingProfileDeps(invoicingapp.BillingProfileDeps{
+					Organizations: organizationRepo,
+					StripeKYC:     stripeKYCReader,
+					VIESValidator: viesValidator,
+				})
+
 				stripeHandler = stripeHandler.WithInvoicing(invoicingSvc)
-				slog.Info("invoicing feature enabled (subscription path)")
+
+				// Phase 6 handlers + wallet/subscription gates.
+				billingProfileHandler = handler.NewBillingProfileHandler(invoicingSvc)
+				invoiceHandler = handler.NewInvoiceHandler(invoicingSvc)
+				walletHandler = walletHandler.WithInvoicing(invoicingSvc)
+				if subscriptionHandler != nil {
+					subscriptionHandler = subscriptionHandler.WithInvoicing(invoicingSvc)
+				}
+
+				slog.Info("invoicing feature enabled (subscription path + me/billing-profile + me/invoices)")
 			}
 		}
 	}
@@ -1282,6 +1308,8 @@ func main() {
 		Wallet:              walletHandler,
 		Billing:             billingHandler,
 		Subscription:        subscriptionHandler,
+		BillingProfile:      billingProfileHandler,
+		Invoice:             invoiceHandler,
 		Admin:               adminHandler,
 		Portfolio:           portfolioHandler,
 		ProjectHistory:      projectHistoryHandler,

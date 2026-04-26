@@ -212,6 +212,9 @@ func (f *handlerFakeStorage) GetPublicURL(key string) string                    
 func (f *handlerFakeStorage) GetPresignedUploadURL(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
 	return "https://r2.test/upload/" + key, nil
 }
+func (f *handlerFakeStorage) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	return "https://r2.test/download/" + key, nil
+}
 func (f *handlerFakeStorage) Download(_ context.Context, _ string) ([]byte, error) {
 	return nil, nil
 }

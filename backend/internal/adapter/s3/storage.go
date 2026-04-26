@@ -113,3 +113,17 @@ func (s *StorageService) GetPresignedUploadURL(ctx context.Context, key string, 
 
 	return result.URL, nil
 }
+
+// GetPresignedDownloadURL returns a short-lived signed GET URL. Callers
+// must perform the ownership check before issuing the URL — the URL
+// itself encodes no authorization beyond the signed expiry.
+func (s *StorageService) GetPresignedDownloadURL(ctx context.Context, key string, expiry time.Duration) (string, error) {
+	result, err := s.presigner.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	}, s3.WithPresignExpires(expiry))
+	if err != nil {
+		return "", fmt.Errorf("s3 presign download %q: %w", key, err)
+	}
+	return result.URL, nil
+}
