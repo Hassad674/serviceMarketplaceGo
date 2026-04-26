@@ -74,6 +74,9 @@ func (s *stubOrgRepo) SaveKYCNotificationState(context.Context, uuid.UUID, map[s
 func (s *stubOrgRepo) SaveRoleOverrides(context.Context, uuid.UUID, organization.RoleOverrides) error {
 	return nil
 }
+func (s *stubOrgRepo) ListWithStripeAccount(context.Context) ([]uuid.UUID, error) {
+	return nil, nil
+}
 
 // Compile-time assertion that stubOrgRepo satisfies the interface.
 var _ repository.OrganizationRepository = (*stubOrgRepo)(nil)
