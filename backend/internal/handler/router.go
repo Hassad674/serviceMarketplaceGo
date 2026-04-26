@@ -56,6 +56,7 @@ type RouterDeps struct {
 	Subscription        *SubscriptionHandler
 	BillingProfile      *BillingProfileHandler // optional — nil disables /me/billing-profile routes
 	Invoice             *InvoiceHandler        // optional — nil disables /me/invoices routes
+	AdminCreditNote     *AdminCreditNoteHandler // optional — nil disables admin credit-note correction endpoint
 	Admin               *AdminHandler
 	Portfolio           *PortfolioHandler
 	ProjectHistory      *ProjectHistoryHandler
@@ -877,6 +878,12 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// middleware; the handler re-checks defensively.
 				if deps.AdminSearchStats != nil {
 					r.Get("/search/stats", deps.AdminSearchStats.GetStats)
+				}
+
+				// Admin invoicing corrections — manual credit-note issuance.
+				// Same RequireAdmin gate as every sibling under /admin.
+				if deps.AdminCreditNote != nil {
+					r.Post("/invoices/{id}/credit-note", deps.AdminCreditNote.Issue)
 				}
 			})
 		}

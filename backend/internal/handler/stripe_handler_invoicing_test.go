@@ -162,6 +162,12 @@ func (f *handlerFakeInvoiceRepo) FindInvoiceByStripeEventID(_ context.Context, _
 func (f *handlerFakeInvoiceRepo) FindCreditNoteByStripeEventID(_ context.Context, _ string) (*invoicing.CreditNote, error) {
 	return nil, invoicing.ErrNotFound
 }
+func (f *handlerFakeInvoiceRepo) FindInvoiceByStripePaymentIntentID(_ context.Context, _ string) (*invoicing.Invoice, error) {
+	return nil, invoicing.ErrNotFound
+}
+func (f *handlerFakeInvoiceRepo) MarkInvoiceCredited(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
 func (f *handlerFakeInvoiceRepo) ListInvoicesByOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*invoicing.Invoice, string, error) {
 	return nil, "", nil
 }

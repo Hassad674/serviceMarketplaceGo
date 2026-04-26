@@ -74,6 +74,12 @@ func (bpFakeInvoiceRepo) FindInvoiceByStripeEventID(_ context.Context, _ string)
 func (bpFakeInvoiceRepo) FindCreditNoteByStripeEventID(_ context.Context, _ string) (*domain.CreditNote, error) {
 	return nil, domain.ErrNotFound
 }
+func (bpFakeInvoiceRepo) FindInvoiceByStripePaymentIntentID(_ context.Context, _ string) (*domain.Invoice, error) {
+	return nil, domain.ErrNotFound
+}
+func (bpFakeInvoiceRepo) MarkInvoiceCredited(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
 func (bpFakeInvoiceRepo) ListInvoicesByOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*domain.Invoice, string, error) {
 	return nil, "", nil
 }

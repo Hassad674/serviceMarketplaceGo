@@ -55,6 +55,12 @@ func (r *invFakeRepo) FindInvoiceByStripeEventID(_ context.Context, _ string) (*
 func (r *invFakeRepo) FindCreditNoteByStripeEventID(_ context.Context, _ string) (*domain.CreditNote, error) {
 	return nil, domain.ErrNotFound
 }
+func (r *invFakeRepo) FindInvoiceByStripePaymentIntentID(_ context.Context, _ string) (*domain.Invoice, error) {
+	return nil, domain.ErrNotFound
+}
+func (r *invFakeRepo) MarkInvoiceCredited(_ context.Context, _ uuid.UUID) error {
+	return nil
+}
 func (r *invFakeRepo) ListInvoicesByOrganization(_ context.Context, organizationID uuid.UUID, cursor string, limit int) ([]*domain.Invoice, string, error) {
 	all := r.byOrg[organizationID]
 	// naive pagination: cursor is the index as a string for tests.

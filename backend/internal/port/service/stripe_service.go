@@ -126,6 +126,15 @@ type StripeWebhookEvent struct {
 	InvoiceLineDescription       string // first line item description (e.g. plan label) — best-effort
 	InvoiceSubscriptionOrgID     string // organization_id from subscription metadata, if present
 	InvoiceSubscriptionUserID    string // legacy user_id from subscription metadata, if present
+
+	// Charge.refunded fields — populated when event.Type == "charge.refunded".
+	// Consumed by the invoicing app service to emit a credit note (avoir)
+	// for the refunded amount. Empty/zero on every other event type.
+	ChargeRefunded            bool
+	ChargeID                  string // ch_*
+	ChargePaymentIntentID     string // pi_* — bridges back to the original invoice
+	ChargeAmountRefundedCents int64  // total refunded so far on the charge (cumulative)
+	ChargeRefundID            string // re_* — most recent refund id, when available
 }
 
 // StripeAccountSnapshot captures the state of a connected account at the

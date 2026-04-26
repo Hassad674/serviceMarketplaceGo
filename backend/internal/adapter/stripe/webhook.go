@@ -90,6 +90,18 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 			return nil, fmt.Errorf("unmarshal invoice (paid): %w", err)
 		}
 		populateInvoicePaid(result, &inv)
+
+	case "charge.refunded":
+		// charge.refunded fires whenever a refund (full or partial)
+		// is applied to a Charge. We project the fields the invoicing
+		// service needs to emit a credit note: the PaymentIntent id
+		// (which bridges back to the original invoice) and the total
+		// amount refunded so far on the charge.
+		var ch stripe.Charge
+		if err := json.Unmarshal(event.Data.Raw, &ch); err != nil {
+			return nil, fmt.Errorf("unmarshal charge (refunded): %w", err)
+		}
+		populateChargeRefunded(result, &ch)
 	}
 
 	return result, nil
@@ -200,6 +212,28 @@ func populateInvoicePaid(result *portservice.StripeWebhookEvent, inv *stripe.Inv
 					break
 				}
 			}
+		}
+	}
+}
+
+// populateChargeRefunded copies the fields the invoicing app service needs
+// out of a freshly-decoded stripe.Charge. AmountRefunded is the cumulative
+// refunded total on the charge (Stripe semantics) — partial refunds emit
+// the event multiple times, each carrying the running total. The credit-note
+// pipeline dedupes off the event id so cumulative semantics are safe.
+func populateChargeRefunded(result *portservice.StripeWebhookEvent, ch *stripe.Charge) {
+	result.ChargeRefunded = true
+	result.ChargeID = ch.ID
+	result.ChargeAmountRefundedCents = ch.AmountRefunded
+	if ch.PaymentIntent != nil {
+		result.ChargePaymentIntentID = ch.PaymentIntent.ID
+	}
+	// Most recent refund first when present — Stripe orders refunds.data
+	// newest-first. Defensive nil-checks because the field is optional on
+	// older API versions.
+	if ch.Refunds != nil && len(ch.Refunds.Data) > 0 {
+		if r := ch.Refunds.Data[0]; r != nil {
+			result.ChargeRefundID = r.ID
 		}
 	}
 }

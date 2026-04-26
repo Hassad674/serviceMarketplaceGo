@@ -1158,6 +1158,7 @@ func main() {
 	// invoice.paid events then fall through with a no-op handler.
 	var billingProfileHandler *handler.BillingProfileHandler
 	var invoiceHandler *handler.InvoiceHandler
+	var adminCreditNoteHandler *handler.AdminCreditNoteHandler
 	if stripeHandler != nil {
 		issuer, issuerErr := confighelpers.LoadInvoiceIssuer()
 		if issuerErr != nil {
@@ -1201,6 +1202,7 @@ func main() {
 				// Phase 6 handlers + wallet/subscription gates.
 				billingProfileHandler = handler.NewBillingProfileHandler(invoicingSvc)
 				invoiceHandler = handler.NewInvoiceHandler(invoicingSvc)
+				adminCreditNoteHandler = handler.NewAdminCreditNoteHandler(invoicingSvc)
 				walletHandler = walletHandler.WithInvoicing(invoicingSvc)
 				if subscriptionHandler != nil {
 					subscriptionHandler = subscriptionHandler.WithInvoicing(invoicingSvc)
@@ -1310,6 +1312,7 @@ func main() {
 		Subscription:        subscriptionHandler,
 		BillingProfile:      billingProfileHandler,
 		Invoice:             invoiceHandler,
+		AdminCreditNote:     adminCreditNoteHandler,
 		Admin:               adminHandler,
 		Portfolio:           portfolioHandler,
 		ProjectHistory:      projectHistoryHandler,
