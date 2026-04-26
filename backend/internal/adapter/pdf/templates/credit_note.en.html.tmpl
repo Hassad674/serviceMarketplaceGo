@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Credit note {{ .Number }}</title>
+<style>
+  @page { size: A4; margin: 1.5cm; }
+  body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10pt; color: #0F172A; line-height: 1.4; }
+  h1 { color: #F43F5E; font-size: 22pt; margin: 0 0 4pt 0; }
+  h2 { font-size: 11pt; margin: 12pt 0 4pt 0; color: #475569; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .header { display: flex; justify-content: space-between; margin-bottom: 18pt; }
+  .header .left { width: 55%; }
+  .header .right { width: 40%; text-align: right; }
+  .meta { font-size: 9pt; color: #475569; }
+  .ref { background: #FFF1F2; border: 1px solid #FECACA; color: #9F1239; padding: 6pt 8pt; border-radius: 4pt; margin-bottom: 12pt; font-size: 9pt; }
+  .parties { display: flex; justify-content: space-between; margin-bottom: 18pt; }
+  .parties .col { width: 48%; padding: 8pt; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4pt; }
+  .totals { margin-top: 12pt; margin-left: auto; width: 50%; }
+  .totals table { width: 100%; border-collapse: collapse; }
+  .totals td { padding: 4pt 8pt; }
+  .totals .grand td { font-weight: 700; font-size: 11pt; border-top: 1pt solid #0F172A; padding-top: 8pt; color: #B91C1C; }
+  .mentions { margin-top: 18pt; font-size: 8pt; font-style: italic; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 8pt; }
+  .mentions p { margin: 2pt 0; }
+  .footer { margin-top: 18pt; font-size: 8pt; color: #94A3B8; text-align: center; }
+  .reason { padding: 8pt; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 4pt; margin-bottom: 12pt; font-size: 9pt; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="left">
+    <h1>Credit note</h1>
+    <div class="meta">No. <strong>{{ .Number }}</strong></div>
+    <div class="meta">Issued on {{ .IssuedAt }}</div>
+  </div>
+  <div class="right">
+    <strong>{{ .Issuer.LegalName }}</strong><br>
+    {{ .Issuer.AddressLine1 }}<br>
+    {{ .Issuer.PostalCode }} {{ .Issuer.City }}<br>
+    {{ .Issuer.Country }}<br>
+    {{ if .Issuer.SIRET }}SIRET: {{ .Issuer.SIRET }}<br>{{ end }}
+    {{ if .Issuer.VATNumber }}VAT: {{ .Issuer.VATNumber }}{{ end }}
+  </div>
+</div>
+
+<div class="ref">
+  Credit note for invoice <strong>{{ .OriginalInvoiceNumber }}</strong>.
+</div>
+
+{{ if .Reason }}
+<div class="reason">
+  <strong>Reason:</strong> {{ .Reason }}
+</div>
+{{ end }}
+
+<div class="parties">
+  <div class="col">
+    <h2>Issuer</h2>
+    <div>
+      <strong>{{ .Issuer.LegalName }}</strong><br>
+      {{ .Issuer.AddressLine1 }}<br>
+      {{ .Issuer.PostalCode }} {{ .Issuer.City }}<br>
+      {{ .Issuer.Country }}
+    </div>
+  </div>
+  <div class="col">
+    <h2>Bill to</h2>
+    <div>
+      <strong>{{ .Recipient.LegalName }}</strong><br>
+      {{ if .Recipient.AddressLine1 }}{{ .Recipient.AddressLine1 }}<br>{{ end }}
+      {{ .Recipient.PostalCode }} {{ .Recipient.City }}<br>
+      {{ .Recipient.Country }}<br>
+      {{ if .Recipient.TaxID }}Tax ID: {{ .Recipient.TaxID }}<br>{{ end }}
+      {{ if .Recipient.VATNumber }}VAT: {{ .Recipient.VATNumber }}{{ end }}
+    </div>
+  </div>
+</div>
+
+<div class="totals">
+  <table>
+    <tr><td>Subtotal credited</td><td class="num" style="text-align:right;">-{{ .AmountExcl }}</td></tr>
+    <tr><td>VAT ({{ .VATRate }}%)</td><td class="num" style="text-align:right;">-{{ .VATAmount }}</td></tr>
+    <tr class="grand"><td>Total credited</td><td class="num" style="text-align:right;">-{{ .AmountIncl }}</td></tr>
+  </table>
+</div>
+
+<div class="mentions">
+  {{ range .Mentions }}<p>{{ . }}</p>{{ end }}
+</div>
+
+<div class="footer">
+  {{ .Issuer.LegalName }} — SIRET {{ .Issuer.SIRET }}{{ if .Issuer.APECode }} — APE {{ .Issuer.APECode }}{{ end }}
+</div>
+</body>
+</html>
