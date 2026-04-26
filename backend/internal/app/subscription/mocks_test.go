@@ -112,17 +112,20 @@ func (m *mockAmountsReader) ListProviderMilestoneAmountsSince(
 // --- mockStripe ---
 
 type mockStripe struct {
-	ensureCustomerFn           func(ctx context.Context, userID, email, name string) (string, error)
-	createCheckoutSessionFn    func(ctx context.Context, in service.CreateCheckoutSessionInput) (string, error)
-	resolvePriceIDFn           func(ctx context.Context, lookupKey string) (string, error)
-	updateCancelAtPeriodEndFn  func(ctx context.Context, stripeSubID string, cancelAtEnd bool) (service.SubscriptionSnapshot, error)
-	changeCycleImmediateFn     func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error)
-	scheduleCycleChangeFn      func(ctx context.Context, stripeSubID, newPriceID string) (service.ScheduledCycleChange, error)
-	releaseScheduleFn          func(ctx context.Context, scheduleID string) error
-	previewCycleChangeFn       func(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.InvoicePreview, error)
-	createPortalSessionFn      func(ctx context.Context, customerID, returnURL string) (string, error)
+	ensureCustomerFn                  func(ctx context.Context, userID, email, name string) (string, error)
+	createCheckoutSessionFn           func(ctx context.Context, in service.CreateCheckoutSessionInput) (string, error)
+	enrichCustomerFn                  func(ctx context.Context, customerID string, snap service.BillingProfileStripeSnapshot) error
+	resolvePriceIDFn                  func(ctx context.Context, lookupKey string) (string, error)
+	updateCancelAtPeriodEndFn         func(ctx context.Context, stripeSubID string, cancelAtEnd bool) (service.SubscriptionSnapshot, error)
+	changeCycleImmediateFn            func(ctx context.Context, stripeSubID, newPriceID string) (service.SubscriptionSnapshot, error)
+	scheduleCycleChangeFn             func(ctx context.Context, stripeSubID, newPriceID string) (service.ScheduledCycleChange, error)
+	releaseScheduleFn                 func(ctx context.Context, scheduleID string) error
+	previewCycleChangeFn              func(ctx context.Context, stripeSubID, newPriceID string, prorateImmediately bool) (service.InvoicePreview, error)
+	createPortalSessionFn             func(ctx context.Context, customerID, returnURL string) (string, error)
 
 	lastCreateCheckoutInput *service.CreateCheckoutSessionInput // captured for assertions
+	lastEnrichSnapshot      *service.BillingProfileStripeSnapshot
+	enrichCallCount         int
 }
 
 func (m *mockStripe) EnsureCustomer(ctx context.Context, userID, email, name string) (string, error) {
@@ -139,7 +142,17 @@ func (m *mockStripe) CreateCheckoutSession(ctx context.Context, in service.Creat
 	if m.createCheckoutSessionFn != nil {
 		return m.createCheckoutSessionFn(ctx, in)
 	}
-	return "https://checkout.stripe.test/" + in.PriceID, nil
+	return "cs_test_" + in.PriceID, nil
+}
+
+func (m *mockStripe) EnrichCustomerWithBillingProfile(ctx context.Context, customerID string, snap service.BillingProfileStripeSnapshot) error {
+	m.enrichCallCount++
+	copied := snap
+	m.lastEnrichSnapshot = &copied
+	if m.enrichCustomerFn != nil {
+		return m.enrichCustomerFn(ctx, customerID, snap)
+	}
+	return nil
 }
 
 func (m *mockStripe) ResolvePriceID(ctx context.Context, lookupKey string) (string, error) {

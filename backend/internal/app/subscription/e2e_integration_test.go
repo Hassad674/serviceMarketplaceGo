@@ -140,7 +140,7 @@ func e2eUserOrg(t *testing.T, db *sql.DB, userID uuid.UUID) uuid.UUID {
 // We don't care about Stripe correctness in this test — we care about the
 // end-to-end integration inside OUR code.
 type e2eStripe struct {
-	createdCheckoutURL string
+	createdClientSecret string
 }
 
 // --- StripeSubscriptionService ---
@@ -149,8 +149,11 @@ func (e *e2eStripe) EnsureCustomer(_ context.Context, userID, _, _ string) (stri
 	return "cus_e2e_" + userID[:8], nil
 }
 func (e *e2eStripe) CreateCheckoutSession(_ context.Context, in service.CreateCheckoutSessionInput) (string, error) {
-	e.createdCheckoutURL = "https://checkout.stripe.test/" + in.PriceID
-	return e.createdCheckoutURL, nil
+	e.createdClientSecret = "cs_e2e_" + in.PriceID
+	return e.createdClientSecret, nil
+}
+func (e *e2eStripe) EnrichCustomerWithBillingProfile(_ context.Context, _ string, _ service.BillingProfileStripeSnapshot) error {
+	return nil
 }
 func (e *e2eStripe) ResolvePriceID(_ context.Context, lookupKey string) (string, error) {
 	return "price_" + lookupKey, nil
@@ -262,9 +265,8 @@ func TestSubscriptionE2E_FullLifecycle(t *testing.T) {
 		Stripe:        stripeSub,
 		LookupKeys:    appsub.DefaultLookupKeys(),
 		URLs: appsub.URLs{
-			CheckoutSuccess: "https://app.test/billing/success",
-			CheckoutCancel:  "https://app.test/billing/cancel",
-			PortalReturn:    "https://app.test/billing",
+			CheckoutReturn: "https://app.test/subscribe/return?session_id={CHECKOUT_SESSION_ID}",
+			PortalReturn:   "https://app.test/billing",
 		},
 	})
 
@@ -307,8 +309,8 @@ func TestSubscriptionE2E_FullLifecycle(t *testing.T) {
 		AutoRenew:      false,
 	})
 	require.NoError(t, err)
-	assert.NotEmpty(t, subOut.CheckoutURL)
-	assert.Equal(t, stripeSub.createdCheckoutURL, subOut.CheckoutURL)
+	assert.NotEmpty(t, subOut.ClientSecret)
+	assert.Equal(t, stripeSub.createdClientSecret, subOut.ClientSecret)
 	// No DB row yet — the webhook creates it.
 	_, err = subRepo.FindOpenByOrganization(ctx, providerOrgID)
 	assert.ErrorIs(t, err, domain.ErrNotFound, "no row until the webhook lands")

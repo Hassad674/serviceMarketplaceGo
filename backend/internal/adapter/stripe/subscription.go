@@ -100,20 +100,27 @@ func (s *SubscriptionService) ResolvePriceID(ctx context.Context, lookupKey stri
 	return "", fmt.Errorf("no active price with lookup_key %q (did you run `make seed-stripe`?)", lookupKey)
 }
 
-// CreateCheckoutSession builds a Stripe Checkout URL the user is
-// redirected to. CancelAtPeriodEnd is forwarded to subscription_data so
-// the very first charge creates a subscription with auto-renew OFF —
-// matching the product default.
+// CreateCheckoutSession builds a Stripe EMBEDDED Checkout session and
+// returns its client_secret. The web/mobile client mounts the secret
+// via @stripe/react-stripe-js (web) or in a WebView (mobile) — there is
+// no hosted Stripe URL anymore.
+//
+// CancelAtPeriodEnd is forwarded to subscription_data.metadata so the
+// webhook handler can apply it post-creation (Stripe Checkout doesn't
+// expose the flag at creation time). billing_address_collection stays
+// on "auto" (Stripe default) and tax_id collection is disabled — the
+// caller pre-enriches the Customer via EnrichCustomerWithBillingProfile
+// so Stripe's form has nothing to re-collect.
 func (s *SubscriptionService) CreateCheckoutSession(ctx context.Context, in portservice.CreateCheckoutSessionInput) (string, error) {
-	if in.SuccessURL == "" || in.CancelURL == "" {
-		return "", errors.New("checkout session: success and cancel URLs are required")
+	if in.ReturnURL == "" {
+		return "", errors.New("checkout session: return URL is required for embedded mode")
 	}
 
 	params := &stripe.CheckoutSessionParams{
-		Mode:       stripe.String(string(stripe.CheckoutSessionModeSubscription)),
-		Customer:   stripe.String(in.CustomerID),
-		SuccessURL: stripe.String(in.SuccessURL),
-		CancelURL:  stripe.String(in.CancelURL),
+		Mode:      stripe.String(string(stripe.CheckoutSessionModeSubscription)),
+		UIMode:    stripe.String("embedded"),
+		Customer:  stripe.String(in.CustomerID),
+		ReturnURL: stripe.String(in.ReturnURL),
 		LineItems: []*stripe.CheckoutSessionLineItemParams{
 			{
 				Price:    stripe.String(in.PriceID),
@@ -142,7 +149,53 @@ func (s *SubscriptionService) CreateCheckoutSession(ctx context.Context, in port
 	if err != nil {
 		return "", fmt.Errorf("create checkout session: %w", err)
 	}
-	return sess.URL, nil
+	return sess.ClientSecret, nil
+}
+
+// EnrichCustomerWithBillingProfile pushes the org's billing profile
+// onto the Stripe Customer record. Called by the subscription app
+// service before CreateCheckoutSession so Stripe's embedded form sees
+// a fully populated Customer and skips re-collecting the address.
+//
+// The function is idempotent: each Subscribe call sends the freshest
+// snapshot from our DB. We DO NOT overwrite Stripe-side fields when
+// our snapshot is empty — `customer.Update` would silently clear them
+// otherwise. The VAT number rides in metadata.vat_number_intracom
+// (Stripe Customer.Update doesn't accept tax_id_data).
+func (s *SubscriptionService) EnrichCustomerWithBillingProfile(ctx context.Context, customerID string, snap portservice.BillingProfileStripeSnapshot) error {
+	if customerID == "" {
+		return errors.New("enrich customer: customer id is required")
+	}
+	if snap.IsEmpty() {
+		// Nothing to push — caller logs + continues.
+		return nil
+	}
+
+	params := &stripe.CustomerParams{}
+	if snap.LegalName != "" {
+		params.Name = stripe.String(snap.LegalName)
+	}
+	if snap.InvoicingEmail != "" {
+		params.Email = stripe.String(snap.InvoicingEmail)
+	}
+	if snap.AddressLine1 != "" || snap.PostalCode != "" || snap.City != "" || snap.Country != "" {
+		params.Address = &stripe.AddressParams{
+			Line1:      stripe.String(snap.AddressLine1),
+			Line2:      stripe.String(snap.AddressLine2),
+			PostalCode: stripe.String(snap.PostalCode),
+			City:       stripe.String(snap.City),
+			Country:    stripe.String(snap.Country),
+		}
+	}
+	if snap.VATNumber != "" {
+		params.AddMetadata("vat_number_intracom", snap.VATNumber)
+	}
+	params.Context = ctx
+
+	if _, err := customer.Update(customerID, params); err != nil {
+		return fmt.Errorf("update customer: %w", err)
+	}
+	return nil
 }
 
 // UpdateCancelAtPeriodEnd flips the flag on the Stripe subscription and
