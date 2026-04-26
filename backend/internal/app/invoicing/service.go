@@ -201,7 +201,30 @@ func (s *Service) IssueFromSubscription(ctx context.Context, in IssueFromSubscri
 		return nil, fmt.Errorf("invoicing: build draft invoice: %w", err)
 	}
 
-	// 7. Reserve the next invoice number atomically (counter row is
+	// 7-13. The deterministic post-NewInvoice pipeline (number reserve →
+	// PDF render → R2 upload → Finalize → CreateInvoice → email) is
+	// shared with the monthly-consolidation flow.
+	lang := pickLanguage(recipient.Country)
+	return s.buildAndPersist(ctx, draft, lang)
+}
+
+// buildAndPersist runs the deterministic post-NewInvoice pipeline:
+// reserve number → format → pre-set on draft → render PDF →
+// upload R2 → Finalize → CreateInvoice → best-effort email. Both the
+// subscription and monthly-consolidation flows reach here.
+//
+// Errors after the R2 upload but before Finalize/Create leave an
+// orphan PDF in R2 — same pre-refactor behaviour, flagged in logs so
+// a scrubber job can pick it up.
+func (s *Service) buildAndPersist(ctx context.Context, draft *invoicing.Invoice, language string) (*invoicing.Invoice, error) {
+	logger := slog.With(
+		"flow", "invoicing.build_and_persist",
+		"org_id", draft.RecipientOrganizationID,
+		"stripe_event_id", draft.StripeEventID,
+		"source_type", draft.SourceType,
+	)
+
+	// Reserve the next invoice number atomically (counter row is
 	// SELECT FOR UPDATE inside the adapter).
 	seq, err := s.invoices.ReserveNumber(ctx, invoicing.ScopeInvoice)
 	if err != nil {
@@ -209,7 +232,7 @@ func (s *Service) IssueFromSubscription(ctx context.Context, in IssueFromSubscri
 	}
 	number := invoicing.FormatInvoiceNumber(seq)
 
-	// 8. Pre-set the number on the draft so the PDF template prints
+	// Pre-set the number on the draft so the PDF template prints
 	// it. Direct assignment is explicitly OK pre-Finalize; after
 	// Finalize the row becomes read-only.
 	draft.Number = number
@@ -217,18 +240,17 @@ func (s *Service) IssueFromSubscription(ctx context.Context, in IssueFromSubscri
 	logger = logger.With("invoice_number", number)
 	logger.Info("invoicing: number reserved")
 
-	// 9. Render PDF. Language is derived from recipient country —
+	// Render PDF. Language is derived from recipient country —
 	// matches the email deliverer convention to keep voice
 	// consistent across PDF and notification.
-	lang := pickLanguage(recipient.Country)
-	pdfBytes, err := s.pdf.RenderInvoice(ctx, draft, lang)
+	pdfBytes, err := s.pdf.RenderInvoice(ctx, draft, language)
 	if err != nil {
 		return nil, fmt.Errorf("invoicing: render pdf: %w", err)
 	}
 
-	// 10. Upload to R2. Key is deterministic and grouped by org so
+	// Upload to R2. Key is deterministic and grouped by org so
 	// future archival/scrubbing jobs can scope by prefix.
-	pdfKey := fmt.Sprintf("invoices/%s/%s.pdf", in.OrganizationID, number)
+	pdfKey := fmt.Sprintf("invoices/%s/%s.pdf", draft.RecipientOrganizationID, number)
 	pdfURL, err := s.storage.Upload(
 		ctx,
 		pdfKey,
@@ -241,14 +263,14 @@ func (s *Service) IssueFromSubscription(ctx context.Context, in IssueFromSubscri
 	}
 	logger.Info("invoicing: pdf uploaded", "pdf_key", pdfKey)
 
-	// 11. Finalize — flips the row to read-only and stamps the
+	// Finalize — flips the row to read-only and stamps the
 	// finalized_at timestamp. The number was already on the draft
 	// for the PDF render but Finalize re-sets it (idempotent).
 	if err := draft.Finalize(number, pdfKey); err != nil {
 		return nil, fmt.Errorf("invoicing: finalize: %w", err)
 	}
 
-	// 12. Persist. The adapter wraps the INSERT in the same tx as
+	// Persist. The adapter wraps the INSERT in the same tx as
 	// the counter increment so a half-issued invoice never lands.
 	if err := s.invoices.CreateInvoice(ctx, draft); err != nil {
 		// PDF is already in R2 at this point; flag the orphan in
@@ -261,7 +283,7 @@ func (s *Service) IssueFromSubscription(ctx context.Context, in IssueFromSubscri
 	}
 	logger.Info("invoicing: invoice persisted")
 
-	// 13. Email delivery. Failures here are LOGGED but DO NOT bubble
+	// Email delivery. Failures here are LOGGED but DO NOT bubble
 	// — re-running the whole pipeline (Stripe retry on 5xx) wastes
 	// a counter, re-renders the PDF, and re-uploads to R2. The
 	// invoice is correctly issued; a stuck email is recoverable

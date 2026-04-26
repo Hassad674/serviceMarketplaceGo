@@ -74,6 +74,12 @@ type OrganizationRepository interface {
 	// to decide when to send a reminder or block the team's wallet.
 	ListKYCPending(ctx context.Context) ([]*organization.Organization, error)
 
+	// ListWithStripeAccount returns the IDs of every org that has
+	// completed Stripe Connect onboarding (stripe_account_id IS NOT
+	// NULL). Used by the monthly invoicing batch to enumerate the
+	// orgs that may have transacted in the period.
+	ListWithStripeAccount(ctx context.Context) ([]uuid.UUID, error)
+
 	// Stripe Connect account operations (moved from users in phase R5).
 	// These all operate on the given org's row.
 	GetStripeAccount(ctx context.Context, orgID uuid.UUID) (accountID, country string, err error)
