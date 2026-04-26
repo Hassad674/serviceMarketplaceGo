@@ -19,6 +19,8 @@ const statusOptions = [
   { value: "resolved", label: "Résolu" },
   { value: "dismissed", label: "Rejeté" },
   { value: "hidden", label: "Masqué" },
+  { value: "deleted", label: "Supprimé auto" },
+  { value: "blocked", label: "Bloqué" },
   { value: "approved", label: "Approuvé" },
 ]
 
