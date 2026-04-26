@@ -30,6 +30,16 @@ var (
 	// ErrClientDescriptionTooLong signals a client_description payload
 	// that exceeds the domain's max length. HTTP 400.
 	ErrClientDescriptionTooLong = errors.New("client description exceeds maximum length")
+
+	// ErrTitleInappropriate is returned when the synchronous moderation
+	// gate refuses a profile title for being above the blocking score.
+	// Public-facing field → strict 0.50 threshold. HTTP 422.
+	ErrTitleInappropriate = errors.New("profile title inappropriate")
+
+	// ErrAboutInappropriate is returned when the bio (about) is rejected
+	// by moderation. Threshold is more lenient (0.85) because legitimate
+	// descriptions can mention sensitive topics. HTTP 422.
+	ErrAboutInappropriate = errors.New("profile about inappropriate")
 )
 
 // MaxClientDescriptionLength is the cap enforced on the

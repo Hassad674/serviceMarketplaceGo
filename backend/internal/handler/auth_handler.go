@@ -379,6 +379,9 @@ func handleAuthError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusBadRequest, "weak_password", err.Error())
 	case errors.Is(err, user.ErrEmailAlreadyExists):
 		res.Error(w, http.StatusConflict, "email_exists", err.Error())
+	case errors.Is(err, user.ErrDisplayNameInappropriate):
+		res.Error(w, http.StatusUnprocessableEntity, "display_name_inappropriate",
+			"This name violates our content guidelines. Please choose a different one.")
 	case errors.Is(err, user.ErrInvalidCredentials):
 		res.Error(w, http.StatusUnauthorized, "invalid_credentials", err.Error())
 	case errors.Is(err, user.ErrUserNotFound):

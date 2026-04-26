@@ -30,4 +30,10 @@ var (
 	ErrNotApplicant              = errors.New("not the applicant of this application")
 	ErrApplicantTypeMismatch     = errors.New("your role does not match the required applicant type")
 	ErrNoCreditsLeft             = errors.New("no application credits remaining")
+
+	// Phase 2 moderation gate. Returned when the synchronous text
+	// moderation refuses a job title (strict 0.50 threshold) or
+	// description (looser 0.85 threshold). HTTP 422.
+	ErrJobTitleInappropriate       = errors.New("job title inappropriate")
+	ErrJobDescriptionInappropriate = errors.New("job description inappropriate")
 )

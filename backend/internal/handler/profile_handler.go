@@ -603,6 +603,12 @@ func handleProfileError(w http.ResponseWriter, err error) {
 	case errors.Is(err, profile.ErrInvalidCountryCode),
 		errors.Is(err, profile.ErrInvalidAvailabilityStatus):
 		res.Error(w, http.StatusBadRequest, "validation_error", err.Error())
+	case errors.Is(err, profile.ErrTitleInappropriate):
+		res.Error(w, http.StatusUnprocessableEntity, "title_inappropriate",
+			"This title violates our content guidelines. Please rephrase.")
+	case errors.Is(err, profile.ErrAboutInappropriate):
+		res.Error(w, http.StatusUnprocessableEntity, "about_inappropriate",
+			"This bio violates our content guidelines. Please rephrase.")
 	default:
 		res.Error(w, http.StatusInternalServerError, "internal_error", "an unexpected error occurred")
 	}
