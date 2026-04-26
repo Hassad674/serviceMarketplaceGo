@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Facture {{ .Number }}</title>
+<style>
+  @page { size: A4; margin: 1.5cm; }
+  body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10pt; color: #0F172A; line-height: 1.4; }
+  h1 { color: #F43F5E; font-size: 22pt; margin: 0 0 4pt 0; }
+  h2 { font-size: 11pt; margin: 12pt 0 4pt 0; color: #475569; text-transform: uppercase; letter-spacing: 0.5pt; }
+  .header { display: flex; justify-content: space-between; margin-bottom: 18pt; }
+  .header .left { width: 55%; }
+  .header .right { width: 40%; text-align: right; }
+  .meta { font-size: 9pt; color: #475569; }
+  .parties { display: flex; justify-content: space-between; margin-bottom: 18pt; }
+  .parties .col { width: 48%; padding: 8pt; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 4pt; }
+  table.items { width: 100%; border-collapse: collapse; margin-top: 12pt; }
+  table.items th { background: #F1F5F9; text-align: left; padding: 6pt 8pt; font-weight: 600; font-size: 9pt; border-bottom: 1pt solid #CBD5E1; }
+  table.items td { padding: 6pt 8pt; border-bottom: 1px solid #E2E8F0; vertical-align: top; }
+  table.items td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .totals { margin-top: 12pt; margin-left: auto; width: 50%; }
+  .totals table { width: 100%; border-collapse: collapse; }
+  .totals td { padding: 4pt 8pt; }
+  .totals .grand td { font-weight: 700; font-size: 11pt; border-top: 1pt solid #0F172A; padding-top: 8pt; }
+  .mentions { margin-top: 18pt; font-size: 8pt; font-style: italic; color: #64748B; border-top: 1px solid #E2E8F0; padding-top: 8pt; }
+  .mentions p { margin: 2pt 0; }
+  .footer { margin-top: 18pt; font-size: 8pt; color: #94A3B8; text-align: center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="left">
+    <h1>Facture</h1>
+    <div class="meta">N° <strong>{{ .Number }}</strong></div>
+    <div class="meta">Émise le {{ .IssuedAt }}</div>
+    <div class="meta">Période : {{ .ServicePeriodStart }} — {{ .ServicePeriodEnd }}</div>
+  </div>
+  <div class="right">
+    <strong>{{ .Issuer.LegalName }}</strong><br>
+    {{ if .Issuer.LegalForm }}{{ .Issuer.LegalForm }}<br>{{ end }}
+    {{ .Issuer.AddressLine1 }}<br>
+    {{ if .Issuer.AddressLine2 }}{{ .Issuer.AddressLine2 }}<br>{{ end }}
+    {{ .Issuer.PostalCode }} {{ .Issuer.City }}<br>
+    {{ .Issuer.Country }}<br>
+    {{ if .Issuer.SIRET }}SIRET : {{ .Issuer.SIRET }}<br>{{ end }}
+    {{ if .Issuer.VATNumber }}TVA : {{ .Issuer.VATNumber }}<br>{{ end }}
+    {{ if .Issuer.Email }}{{ .Issuer.Email }}<br>{{ end }}
+    {{ if .Issuer.IBAN }}IBAN : {{ .Issuer.IBAN }}{{ end }}
+  </div>
+</div>
+
+<div class="parties">
+  <div class="col">
+    <h2>Émetteur</h2>
+    <div>
+      <strong>{{ .Issuer.LegalName }}</strong><br>
+      {{ .Issuer.AddressLine1 }}<br>
+      {{ .Issuer.PostalCode }} {{ .Issuer.City }}<br>
+      {{ .Issuer.Country }}
+    </div>
+  </div>
+  <div class="col">
+    <h2>Destinataire</h2>
+    <div>
+      <strong>{{ .Recipient.LegalName }}</strong><br>
+      {{ if .Recipient.AddressLine1 }}{{ .Recipient.AddressLine1 }}<br>{{ end }}
+      {{ if .Recipient.AddressLine2 }}{{ .Recipient.AddressLine2 }}<br>{{ end }}
+      {{ .Recipient.PostalCode }} {{ .Recipient.City }}<br>
+      {{ .Recipient.Country }}<br>
+      {{ if .Recipient.TaxID }}Tax ID : {{ .Recipient.TaxID }}<br>{{ end }}
+      {{ if .Recipient.VATNumber }}TVA : {{ .Recipient.VATNumber }}<br>{{ end }}
+      {{ if .Recipient.Email }}{{ .Recipient.Email }}{{ end }}
+    </div>
+  </div>
+</div>
+
+<table class="items">
+  <thead>
+    <tr>
+      <th style="width:55%;">Description</th>
+      <th class="num" style="width:10%;">Qté</th>
+      <th class="num" style="width:17%;">Prix unitaire HT</th>
+      <th class="num" style="width:18%;">Montant HT</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{ range .Items }}
+    <tr>
+      <td>{{ .Description }}</td>
+      <td class="num">{{ .Quantity }}</td>
+      <td class="num">{{ .UnitPrice }}</td>
+      <td class="num">{{ .Amount }}</td>
+    </tr>
+    {{ end }}
+  </tbody>
+</table>
+
+<div class="totals">
+  <table>
+    <tr><td>Total HT</td><td class="num" style="text-align:right;">{{ .AmountExcl }}</td></tr>
+    <tr><td>TVA ({{ .VATRate }}%)</td><td class="num" style="text-align:right;">{{ .VATAmount }}</td></tr>
+    <tr class="grand"><td>Total TTC</td><td class="num" style="text-align:right;">{{ .AmountIncl }}</td></tr>
+  </table>
+</div>
+
+<div class="mentions">
+  {{ range .Mentions }}<p>{{ . }}</p>{{ end }}
+</div>
+
+<div class="footer">
+  {{ .Issuer.LegalName }} — SIRET {{ .Issuer.SIRET }}{{ if .Issuer.APECode }} — APE {{ .Issuer.APECode }}{{ end }}
+</div>
+</body>
+</html>
