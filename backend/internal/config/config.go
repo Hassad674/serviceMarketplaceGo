@@ -42,8 +42,16 @@ type Config struct {
 	S3ModerationBucket              string
 	SNSTopicARN                     string
 	SQSQueueURL                     string
-	ComprehendEnabled               bool
 	AnthropicAPIKey                 string
+
+	// TextModerationProvider selects which adapter powers automated
+	// text moderation (messages, reviews, future scope). Allowed values:
+	//   "openai"     -> adapter/openai.TextModerationService (default, free, FR-native)
+	//   "comprehend" -> adapter/comprehend.TextModerationService (legacy, EN only, needs
+	//                    a region where DetectToxicContent is available)
+	//   "noop"       -> adapter/noop.TextModerationService (disables moderation — dev/CI)
+	// Missing or unknown values fall back to "noop" to fail safe.
+	TextModerationProvider string
 
 	// Search engine (Typesense) — MANDATORY since phase 4. The
 	// legacy SQL path was retired after the 30-day grace period
@@ -93,8 +101,8 @@ func Load() *Config {
 		S3ModerationBucket:             getEnv("S3_MODERATION_BUCKET", ""),
 		SNSTopicARN:                    getEnv("SNS_TOPIC_ARN", ""),
 		SQSQueueURL:                    getEnv("SQS_QUEUE_URL", ""),
-		ComprehendEnabled:              getEnv("COMPREHEND_ENABLED", "false") == "true",
 		AnthropicAPIKey:                getEnv("ANTHROPIC_API_KEY", ""),
+		TextModerationProvider:         getEnv("TEXT_MODERATION_PROVIDER", "openai"),
 
 		// Search engine — Typesense is mandatory since phase 4.
 		TypesenseHost:         getEnv("TYPESENSE_HOST", "http://localhost:8108"),
@@ -134,8 +142,22 @@ func (c *Config) StripeConfigured() bool {
 	return c.StripeSecretKey != "" && c.StripePublishableKey != ""
 }
 
-func (c *Config) ComprehendConfigured() bool {
-	return c.ComprehendEnabled
+// TextModerationProviderOrDefault returns the provider to use, after
+// falling back safely. "openai" without an API key degrades to "noop"
+// so we never leak requests against an unauthenticated endpoint.
+// Anything not in the allow-list also resolves to "noop".
+func (c *Config) TextModerationProviderOrDefault() string {
+	switch c.TextModerationProvider {
+	case "openai":
+		if c.OpenAIAPIKey == "" {
+			return "noop"
+		}
+		return "openai"
+	case "comprehend", "noop":
+		return c.TextModerationProvider
+	default:
+		return "noop"
+	}
 }
 
 func (c *Config) RekognitionConfigured() bool {
