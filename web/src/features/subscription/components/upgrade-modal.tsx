@@ -1,8 +1,12 @@
 "use client"
 
 import { useCallback, useState } from "react"
+import { ApiError } from "@/shared/lib/api-client"
 import { cn } from "@/shared/lib/utils"
 import { Modal } from "@/shared/components/ui/modal"
+import { BillingProfileCompletionModal } from "@/features/invoicing/components/billing-profile-completion-modal"
+import { useBillingProfileCompleteness } from "@/features/invoicing/hooks/use-billing-profile-completeness"
+import type { MissingField } from "@/features/invoicing/types"
 import { useSubscribe } from "../hooks/use-subscribe"
 import type { BillingCycle, Plan } from "../types"
 
@@ -26,6 +30,16 @@ export function UpgradeModal({ open, role, onClose }: UpgradeModalProps) {
 	const [autoRenew, setAutoRenew] = useState(false)
 	const subscribe = useSubscribe()
 
+	// Billing-profile gate — same defensive pattern as the wallet:
+	// pre-check the snapshot, AND catch a 403 envelope on the way back
+	// in case the profile was edited in another tab between the cache
+	// read and the click.
+	const completeness = useBillingProfileCompleteness()
+	const [completionModalOpen, setCompletionModalOpen] = useState(false)
+	const [serverMissingFields, setServerMissingFields] = useState<
+		MissingField[] | null
+	>(null)
+
 	const handleClose = useCallback(() => {
 		subscribe.reset()
 		onClose()
@@ -36,40 +50,102 @@ export function UpgradeModal({ open, role, onClose }: UpgradeModalProps) {
 	const ctaAmount = cycle === "monthly" ? monthlyAmount : annualAmount
 
 	function handleSubmit() {
-		subscribe.mutate({ plan, billing_cycle: cycle, auto_renew: autoRenew })
+		if (!completeness.isLoading && !completeness.isComplete) {
+			setServerMissingFields(null)
+			setCompletionModalOpen(true)
+			return
+		}
+		subscribe.mutate(
+			{ plan, billing_cycle: cycle, auto_renew: autoRenew },
+			{
+				onError: (err) => {
+					if (
+						err instanceof ApiError &&
+						err.status === 403 &&
+						err.code === "billing_profile_incomplete"
+					) {
+						const missing = extractMissingFields(err.body)
+						setServerMissingFields(
+							missing.length > 0 ? missing : completeness.missingFields,
+						)
+						setCompletionModalOpen(true)
+					}
+				},
+			},
+		)
 	}
 
+	const fieldsForModal = serverMissingFields ?? completeness.missingFields
+
+	const subscribeError =
+		subscribe.isError &&
+		!(
+			subscribe.error instanceof ApiError &&
+			subscribe.error.code === "billing_profile_incomplete"
+		)
+
 	return (
-		<Modal open={open} onClose={handleClose} title="Passer Premium · 0% de frais">
-			<div className="space-y-5">
-				<CycleToggle cycle={cycle} onChange={setCycle} />
-				<PlanCard
-					role={role}
-					cycle={cycle}
-					monthlyAmount={monthlyAmount}
-					annualAmount={annualAmount}
-					annualPerMonth={annualPerMonth}
-				/>
-				<AutoRenewCheckbox checked={autoRenew} onChange={setAutoRenew} />
-				{subscribe.isError ? (
-					<p
-						role="alert"
-						className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
-					>
-						Impossible de démarrer le paiement. Réessaie.
+		<>
+			<Modal open={open} onClose={handleClose} title="Passer Premium · 0% de frais">
+				<div className="space-y-5">
+					<CycleToggle cycle={cycle} onChange={setCycle} />
+					<PlanCard
+						role={role}
+						cycle={cycle}
+						monthlyAmount={monthlyAmount}
+						annualAmount={annualAmount}
+						annualPerMonth={annualPerMonth}
+					/>
+					<AutoRenewCheckbox checked={autoRenew} onChange={setAutoRenew} />
+					{subscribeError ? (
+						<p
+							role="alert"
+							className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
+						>
+							Impossible de démarrer le paiement. Réessaie.
+						</p>
+					) : null}
+					<SubmitButton
+						amountEuros={ctaAmount}
+						pending={subscribe.isPending}
+						onSubmit={handleSubmit}
+					/>
+					<p className="text-center text-xs text-slate-500 dark:text-slate-400">
+						Tu peux annuler à tout moment
 					</p>
-				) : null}
-				<SubmitButton
-					amountEuros={ctaAmount}
-					pending={subscribe.isPending}
-					onSubmit={handleSubmit}
-				/>
-				<p className="text-center text-xs text-slate-500 dark:text-slate-400">
-					Tu peux annuler à tout moment
-				</p>
-			</div>
-		</Modal>
+				</div>
+			</Modal>
+			<BillingProfileCompletionModal
+				open={completionModalOpen}
+				onClose={() => setCompletionModalOpen(false)}
+				missingFields={fieldsForModal}
+			/>
+		</>
 	)
+}
+
+// Reads `missing_fields` off a parsed error envelope. Returns an empty
+// list when the body is missing or malformed — the modal falls back to
+// the cached snapshot in that case.
+function extractMissingFields(body: unknown): MissingField[] {
+	if (!body || typeof body !== "object") return []
+	const candidate = (body as { missing_fields?: unknown }).missing_fields
+	if (!Array.isArray(candidate)) return []
+	const out: MissingField[] = []
+	for (const item of candidate) {
+		if (
+			item &&
+			typeof item === "object" &&
+			typeof (item as { field?: unknown }).field === "string" &&
+			typeof (item as { reason?: unknown }).reason === "string"
+		) {
+			out.push({
+				field: (item as { field: string }).field,
+				reason: (item as { reason: string }).reason,
+			})
+		}
+	}
+	return out
 }
 
 function pricing(role: "freelance" | "agency") {

@@ -62,6 +62,10 @@ const FREELANCE_NAV: NavItem[] = [
   { labelKey: "clientProfile", href: "/client-profile", icon: Building2, roles: ["agency", "enterprise"], orgTypes: ["agency", "enterprise"] },
   { labelKey: "paymentInfo", href: "/payment-info", icon: CreditCard, roles: ["agency", "provider"] },
   { labelKey: "wallet", href: "/wallet", icon: Wallet, roles: ["agency", "provider"] },
+  // Invoicing surfaces — visible to providers & agencies only. Enterprises
+  // pay AGAINST these factures via Stripe but they don't need a self-serve
+  // invoice list yet (Phase 7 ships only the operator-side experience).
+  { labelKey: "invoices", href: "/invoices", icon: FileText, roles: ["agency", "provider"] },
   { labelKey: "findFreelancers", href: "/search?type=freelancer", icon: Search, roles: ["agency", "enterprise"] },
   { labelKey: "findAgencies", href: "/search?type=agency", icon: Search, roles: ["enterprise"] },
   { labelKey: "findReferrers", href: "/search?type=referrer", icon: Search, roles: ["agency", "enterprise"] },

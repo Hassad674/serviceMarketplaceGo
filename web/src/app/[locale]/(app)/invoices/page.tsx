@@ -1,18 +1,25 @@
-import { Receipt } from "lucide-react"
-import { getTranslations } from "next-intl/server"
+import type { Metadata } from "next"
+import { CurrentMonthAggregate } from "@/features/invoicing/components/current-month-aggregate"
+import { InvoiceList } from "@/features/invoicing/components/invoice-list"
 
-export default async function InvoicesPage() {
-  const t = await getTranslations("sidebar")
+export const metadata: Metadata = {
+  title: "Mes factures",
+}
 
+export default function InvoicesPage() {
   return (
-    <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 p-12 text-center">
-      <Receipt className="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
-      <h1 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-        {t("invoices")}
-      </h1>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Coming soon
-      </p>
+    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+      <header>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          Mes factures
+        </h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Historique des factures émises par la plateforme et suivi des
+          commissions du mois en cours.
+        </p>
+      </header>
+      <CurrentMonthAggregate />
+      <InvoiceList />
     </div>
   )
 }

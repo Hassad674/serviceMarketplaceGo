@@ -23,6 +23,10 @@ import {
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
+import { BillingProfileCompletionModal } from "@/features/invoicing/components/billing-profile-completion-modal"
+import { CurrentMonthAggregate as InvoicingCurrentMonth } from "@/features/invoicing/components/current-month-aggregate"
+import { useBillingProfileCompleteness } from "@/features/invoicing/hooks/use-billing-profile-completeness"
+import type { MissingField } from "@/features/invoicing/types"
 import { useWallet, useRequestPayout, useRetryTransfer } from "../hooks/use-wallet"
 import type {
   WalletRecord,
@@ -48,6 +52,17 @@ export function WalletPage() {
   const canWithdraw = useHasPermission("wallet.withdraw")
   const [payoutMessage, setPayoutMessage] = useState("")
 
+  // Billing-profile gate: the backend refuses payout when the profile
+  // is incomplete (403 billing_profile_incomplete). We pre-check via
+  // the snapshot to surface the modal before the round-trip, AND
+  // defensively re-handle the 403 envelope in case the profile was
+  // edited in another tab between the cache read and the click.
+  const completeness = useBillingProfileCompleteness()
+  const [completionModalOpen, setCompletionModalOpen] = useState(false)
+  const [serverMissingFields, setServerMissingFields] = useState<
+    MissingField[] | null
+  >(null)
+
   if (isLoading) return <WalletSkeleton />
   if (isError || !wallet) {
     return (
@@ -62,10 +77,37 @@ export function WalletPage() {
   const totalEarned = wallet.transferred_amount + wallet.commissions.paid_cents
 
   function handlePayout() {
+    // Pre-flight: open the completion modal directly when we already
+    // know the profile is incomplete. Skip the call entirely so the
+    // user gets immediate feedback.
+    if (!completeness.isLoading && !completeness.isComplete) {
+      setServerMissingFields(null)
+      setCompletionModalOpen(true)
+      return
+    }
     payoutMutation.mutate(undefined, {
       onSuccess: (result) => setPayoutMessage(result.message),
+      onError: (err) => {
+        if (
+          err instanceof ApiError &&
+          err.status === 403 &&
+          err.code === "billing_profile_incomplete"
+        ) {
+          // Defensive path — extract missing_fields off the 403
+          // envelope. Falls back to the cached snapshot if the
+          // body is missing the field for any reason.
+          const missing = extractMissingFields(err.body)
+          setServerMissingFields(
+            missing.length > 0 ? missing : completeness.missingFields,
+          )
+          setCompletionModalOpen(true)
+        }
+      },
     })
   }
+
+  const fieldsForModal =
+    serverMissingFields ?? completeness.missingFields
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 space-y-8">
@@ -80,6 +122,9 @@ export function WalletPage() {
         onPayout={handlePayout}
       />
 
+      {/* Running commission this month — sits above the missions list */}
+      <InvoicingCurrentMonth />
+
       {/* Missions — escrow / available / transferred + history */}
       <MissionsSection
         escrow={wallet.escrow_amount}
@@ -93,8 +138,38 @@ export function WalletPage() {
         summary={wallet.commissions}
         records={commissionRecords}
       />
+
+      <BillingProfileCompletionModal
+        open={completionModalOpen}
+        onClose={() => setCompletionModalOpen(false)}
+        missingFields={fieldsForModal}
+      />
     </div>
   )
+}
+
+// Reads the `missing_fields` array off a parsed error envelope.
+// Returns an empty list when the body is missing or malformed —
+// the modal falls back to the cached snapshot in that case.
+function extractMissingFields(body: unknown): MissingField[] {
+  if (!body || typeof body !== "object") return []
+  const candidate = (body as { missing_fields?: unknown }).missing_fields
+  if (!Array.isArray(candidate)) return []
+  const out: MissingField[] = []
+  for (const item of candidate) {
+    if (
+      item &&
+      typeof item === "object" &&
+      typeof (item as { field?: unknown }).field === "string" &&
+      typeof (item as { reason?: unknown }).reason === "string"
+    ) {
+      out.push({
+        field: (item as { field: string }).field,
+        reason: (item as { reason: string }).reason,
+      })
+    }
+  }
+  return out
 }
 
 // ---------------------------------------------------------------------------
