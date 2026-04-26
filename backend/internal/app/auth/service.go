@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -9,7 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	orgapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -73,13 +76,14 @@ type AuthOutput struct {
 }
 
 type Service struct {
-	users       repository.UserRepository
-	resets      repository.PasswordResetRepository
-	hasher      service.HasherService
-	tokens      service.TokenService
-	email       service.EmailService
-	orgs        OrgProvisioner // may be nil in unit tests that don't exercise the org path
-	frontendURL string
+	users                  repository.UserRepository
+	resets                 repository.PasswordResetRepository
+	hasher                 service.HasherService
+	tokens                 service.TokenService
+	email                  service.EmailService
+	orgs                   OrgProvisioner // may be nil in unit tests that don't exercise the org path
+	moderationOrchestrator *appmoderation.Service // optional: when nil, display_name moderation is skipped
+	frontendURL            string
 }
 
 // ServiceDeps groups the auth service dependencies to avoid a growing
@@ -129,6 +133,14 @@ func NewServiceWithDeps(deps ServiceDeps) *Service {
 	}
 }
 
+// SetModerationOrchestrator wires the central moderation pipeline.
+// Optional: when nil, display_name moderation is skipped (used by
+// tests and minimal wiring scenarios). In production this MUST be set
+// otherwise toxic display names will pass through registration.
+func (s *Service) SetModerationOrchestrator(svc *appmoderation.Service) {
+	s.moderationOrchestrator = svc
+}
+
 func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutput, error) {
 	email, err := user.NewEmail(input.Email)
 	if err != nil {
@@ -154,6 +166,16 @@ func (s *Service) Register(ctx context.Context, input RegisterInput) (*AuthOutpu
 
 	u, err := user.NewUser(email.String(), hashedPassword, strings.TrimSpace(input.FirstName), strings.TrimSpace(input.LastName), strings.TrimSpace(input.DisplayName), input.Role)
 	if err != nil {
+		return nil, err
+	}
+
+	// Synchronous moderation gate on the public-facing identity. We
+	// concatenate display_name + first_name + last_name into a single
+	// scan so the engine catches a toxic full name even when the
+	// individual fields scrape under the per-field threshold. The
+	// content_id is the freshly-minted user.ID — admins can later
+	// trace the blocked attempt back to a (failed) registration.
+	if err := s.moderateDisplayName(ctx, u); err != nil {
 		return nil, err
 	}
 
@@ -430,5 +452,45 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 		return fmt.Errorf("mark token used: %w", err)
 	}
 
+	return nil
+}
+
+// moderateDisplayName runs the synchronous blocking gate against the
+// user's public-facing identity. Returns nil when the moderation
+// orchestrator is not wired (test scenarios) or when the content
+// passes; returns user.ErrDisplayNameInappropriate when the engine
+// flags the input above the blocking threshold.
+//
+// The threshold is 0.50 — the strictest tier in the policy matrix —
+// because a public profile name has zero legitimate use case for
+// toxic terms. False positives are reversible by admin review on the
+// next attempt; false negatives create a permanent SEO + harassment
+// surface.
+//
+// Engine errors (OpenAI 5xx, network) are propagated as a generic
+// failure so the user retries. We deliberately fail closed: a
+// registration that we cannot moderate is a registration we refuse.
+func (s *Service) moderateDisplayName(ctx context.Context, u *user.User) error {
+	if s.moderationOrchestrator == nil {
+		return nil
+	}
+	combined := strings.TrimSpace(strings.Join([]string{u.DisplayName, u.FirstName, u.LastName}, " "))
+	if combined == "" {
+		return nil
+	}
+	_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+		ContentType:       moderation.ContentTypeUserDisplayName,
+		ContentID:         u.ID,
+		AuthorUserID:      &u.ID,
+		Text:              combined,
+		BlockingMode:      true,
+		BlockingThreshold: 0.50,
+	})
+	if errors.Is(err, moderation.ErrContentBlocked) {
+		return user.ErrDisplayNameInappropriate
+	}
+	if err != nil {
+		return fmt.Errorf("moderate display name: %w", err)
+	}
 	return nil
 }

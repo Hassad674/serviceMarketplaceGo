@@ -2,11 +2,15 @@ package job
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
 	domain "marketplace-backend/internal/domain/job"
+	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -24,14 +28,15 @@ type ServiceDeps struct {
 }
 
 type Service struct {
-	jobs         repository.JobRepository
-	applications repository.JobApplicationRepository
-	users        repository.UserRepository
-	orgs         repository.OrganizationRepository
-	profiles     repository.ProfileRepository
-	messages     service.MessageSender
-	jobViews     repository.JobViewRepository
-	credits      repository.JobCreditRepository
+	jobs                   repository.JobRepository
+	applications           repository.JobApplicationRepository
+	users                  repository.UserRepository
+	orgs                   repository.OrganizationRepository
+	profiles               repository.ProfileRepository
+	messages               service.MessageSender
+	jobViews               repository.JobViewRepository
+	credits                repository.JobCreditRepository
+	moderationOrchestrator *appmoderation.Service // optional sync moderation gate
 }
 
 func NewService(deps ServiceDeps) *Service {
@@ -45,6 +50,14 @@ func NewService(deps ServiceDeps) *Service {
 		jobViews:     deps.JobViews,
 		credits:      deps.Credits,
 	}
+}
+
+// SetModerationOrchestrator wires the synchronous moderation gate.
+// Optional: when nil, the create + update paths skip the gate (legacy
+// behaviour). In production this MUST be set, otherwise toxic job
+// listings make it through to the public marketplace.
+func (s *Service) SetModerationOrchestrator(svc *appmoderation.Service) {
+	s.moderationOrchestrator = svc
 }
 
 type CreateJobInput struct {
@@ -97,6 +110,16 @@ func (s *Service) CreateJob(ctx context.Context, input CreateJobInput) (*domain.
 	if err != nil {
 		return nil, err
 	}
+
+	// Synchronous moderation gate. Job listings are public + SEO-
+	// indexed, so we refuse creation outright when the title or
+	// description score above the blocking threshold. ContentID is
+	// the freshly-minted job.ID — admin queue can later show the
+	// blocked attempt and admin support can investigate the user.
+	if err := s.moderateJobText(ctx, j.ID, input.Title, input.Description); err != nil {
+		return nil, err
+	}
+
 	if err := s.jobs.Create(ctx, j); err != nil {
 		return nil, fmt.Errorf("persist job: %w", err)
 	}
@@ -252,10 +275,58 @@ func (s *Service) UpdateJob(ctx context.Context, input UpdateJobInput) (*domain.
 	if err := j.Update(input.UserID, updateInput); err != nil {
 		return nil, err
 	}
+
+	// Re-moderate edited title + description. Updates pass the same
+	// gate as creates because an edit can flip a clean listing into
+	// a toxic one (and we need to refuse it before persistence).
+	if err := s.moderateJobText(ctx, j.ID, input.Title, input.Description); err != nil {
+		return nil, err
+	}
+
 	if err := s.jobs.Update(ctx, j); err != nil {
 		return nil, fmt.Errorf("update job: %w", err)
 	}
 	return j, nil
+}
+
+// moderateJobText runs the synchronous gate on title (strict 0.50) and
+// description (lenient 0.85). Empty fields are skipped — partial
+// updates are common for the "change budget only" flow.
+func (s *Service) moderateJobText(ctx context.Context, jobID uuid.UUID, title, description string) error {
+	if s.moderationOrchestrator == nil {
+		return nil
+	}
+	if title = strings.TrimSpace(title); title != "" {
+		_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+			ContentType:       moderation.ContentTypeJobTitle,
+			ContentID:         jobID,
+			Text:              title,
+			BlockingMode:      true,
+			BlockingThreshold: 0.50,
+		})
+		if errors.Is(err, moderation.ErrContentBlocked) {
+			return domain.ErrJobTitleInappropriate
+		}
+		if err != nil {
+			return fmt.Errorf("moderate job title: %w", err)
+		}
+	}
+	if description = strings.TrimSpace(description); description != "" {
+		_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+			ContentType:       moderation.ContentTypeJobDescription,
+			ContentID:         jobID,
+			Text:              description,
+			BlockingMode:      true,
+			BlockingThreshold: 0.85,
+		})
+		if errors.Is(err, moderation.ErrContentBlocked) {
+			return domain.ErrJobDescriptionInappropriate
+		}
+		if err != nil {
+			return fmt.Errorf("moderate job description: %w", err)
+		}
+	}
+	return nil
 }
 
 func (s *Service) ReopenJob(ctx context.Context, jobID, userID uuid.UUID) error {

@@ -2,6 +2,7 @@ package profileapp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
+	appmoderation "marketplace-backend/internal/app/moderation"
+	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -47,6 +50,12 @@ type Service struct {
 	// searchIndex is the optional Typesense reindex publisher. Nil
 	// in tests + when the search engine is disabled.
 	searchIndex SearchIndexPublisher
+
+	// moderationOrchestrator runs the synchronous content gate on
+	// title + about updates. Optional: when nil, those fields are
+	// persisted unchecked (legacy behaviour pre-Phase-2). Set in
+	// production wiring via WithModerationOrchestrator.
+	moderationOrchestrator *appmoderation.Service
 }
 
 // NewService wires the profile service with its mandatory
@@ -74,6 +83,14 @@ func (s *Service) WithGeocoder(g service.Geocoder) *Service {
 // nil is allowed and disables publishing.
 func (s *Service) WithSearchIndexPublisher(p SearchIndexPublisher) *Service {
 	s.searchIndex = p
+	return s
+}
+
+// WithModerationOrchestrator attaches the synchronous text moderation
+// gate. Returns the same service for fluent wiring. Nil disables the
+// gate (legacy behaviour).
+func (s *Service) WithModerationOrchestrator(m *appmoderation.Service) *Service {
+	s.moderationOrchestrator = m
 	return s
 }
 
@@ -121,6 +138,15 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
+	// Synchronous moderation gate on the public-facing fields. Title
+	// is short and SEO-critical → strict 0.50 threshold. About is
+	// long-form so we tolerate up to 0.85 before blocking — most
+	// false positives sit in the 0.5-0.8 band where domain users
+	// describe sensitive but legitimate topics.
+	if err := s.moderateProfileText(ctx, orgID, input); err != nil {
+		return nil, err
+	}
+
 	applyUpdates(p, input)
 
 	if err := s.profiles.Update(ctx, p); err != nil {
@@ -129,6 +155,48 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 
 	s.publishReindex(ctx, orgID)
 	return p, nil
+}
+
+// moderateProfileText runs the title + about updates through the
+// blocking gate. Empty strings are skipped — this matches
+// applyUpdates which only writes non-empty values, so we avoid
+// burning quota on no-op submissions where the user only edited
+// the photo or video URL.
+func (s *Service) moderateProfileText(ctx context.Context, orgID uuid.UUID, input UpdateProfileInput) error {
+	if s.moderationOrchestrator == nil {
+		return nil
+	}
+	if input.Title != "" {
+		_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+			ContentType:       moderation.ContentTypeProfileTitle,
+			ContentID:         orgID,
+			Text:              strings.TrimSpace(input.Title),
+			BlockingMode:      true,
+			BlockingThreshold: 0.50,
+		})
+		if errors.Is(err, moderation.ErrContentBlocked) {
+			return profile.ErrTitleInappropriate
+		}
+		if err != nil {
+			return fmt.Errorf("moderate profile title: %w", err)
+		}
+	}
+	if input.About != "" {
+		_, err := s.moderationOrchestrator.Moderate(ctx, appmoderation.ModerateInput{
+			ContentType:       moderation.ContentTypeProfileAbout,
+			ContentID:         orgID,
+			Text:              strings.TrimSpace(input.About),
+			BlockingMode:      true,
+			BlockingThreshold: 0.85,
+		})
+		if errors.Is(err, moderation.ErrContentBlocked) {
+			return profile.ErrAboutInappropriate
+		}
+		if err != nil {
+			return fmt.Errorf("moderate profile about: %w", err)
+		}
+	}
+	return nil
 }
 
 func applyUpdates(p *profile.Profile, input UpdateProfileInput) {

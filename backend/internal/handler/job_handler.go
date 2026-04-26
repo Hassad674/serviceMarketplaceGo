@@ -223,6 +223,12 @@ func handleJobError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "unauthorized_role", err.Error())
 	case errors.Is(err, jobdomain.ErrEmptyTitle):
 		res.Error(w, http.StatusBadRequest, "empty_title", err.Error())
+	case errors.Is(err, jobdomain.ErrJobTitleInappropriate):
+		res.Error(w, http.StatusUnprocessableEntity, "title_inappropriate",
+			"This job title violates our content guidelines. Please rephrase.")
+	case errors.Is(err, jobdomain.ErrJobDescriptionInappropriate):
+		res.Error(w, http.StatusUnprocessableEntity, "description_inappropriate",
+			"This job description violates our content guidelines. Please rephrase.")
 	case errors.Is(err, jobdomain.ErrTitleTooLong):
 		res.Error(w, http.StatusBadRequest, "title_too_long", err.Error())
 	case errors.Is(err, jobdomain.ErrEmptyDescription):

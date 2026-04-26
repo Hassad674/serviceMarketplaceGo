@@ -14,6 +14,14 @@ var (
 	ErrAccountSuspended   = errors.New("account is suspended")
 	ErrAccountBanned      = errors.New("account is banned")
 	ErrKYCRestricted      = errors.New("account restricted: payment info not configured within 14 days of first earning")
+
+	// ErrDisplayNameInappropriate is returned by the auth service when
+	// the moderation pipeline (Phase 2) refuses the registration because
+	// the supplied display_name / first_name / last_name combination is
+	// flagged as inappropriate for a public-facing identity. The handler
+	// maps this to HTTP 422 with code "display_name_inappropriate" so
+	// the frontend can show the message in context.
+	ErrDisplayNameInappropriate = errors.New("display name inappropriate")
 )
 
 // AccountStatusError carries the suspension/ban reason alongside the sentinel.
