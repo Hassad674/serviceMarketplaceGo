@@ -78,6 +78,18 @@ func (s *Service) ConstructWebhookEvent(payload []byte, signature string) (*port
 			result.InvoiceSubscriptionID = inv.Parent.SubscriptionDetails.Subscription.ID
 		}
 		result.InvoicePaymentFailed = event.Type == "invoice.payment_failed"
+
+	case "invoice.paid":
+		// invoice.paid carries the authoritative amount paid, the
+		// service period, and the parent subscription. We project the
+		// fields the invoicing app service consumes — keeping the SDK
+		// import contained inside this adapter, the way every other
+		// event type does.
+		var inv stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &inv); err != nil {
+			return nil, fmt.Errorf("unmarshal invoice (paid): %w", err)
+		}
+		populateInvoicePaid(result, &inv)
 	}
 
 	return result, nil
@@ -134,6 +146,62 @@ func parsePlanCycleFromSubscription(sub *stripe.Subscription) (plan, cycle strin
 		return "", ""
 	}
 	return parts[1], parts[2]
+}
+
+// populateInvoicePaid copies the fields the invoicing app service needs out
+// of a freshly-decoded stripe.Invoice. Best-effort — when an optional field
+// (line description, payment intent id) is missing from the payload we
+// leave the projection empty and let the consumer fall back.
+func populateInvoicePaid(result *portservice.StripeWebhookEvent, inv *stripe.Invoice) {
+	result.InvoicePaid = true
+	result.InvoiceID = inv.ID
+	result.InvoiceAmountPaidCents = inv.AmountPaid
+	result.InvoiceCurrency = string(inv.Currency)
+	if inv.PeriodStart > 0 {
+		result.InvoicePeriodStart = time.Unix(inv.PeriodStart, 0).UTC()
+	}
+	if inv.PeriodEnd > 0 {
+		result.InvoicePeriodEnd = time.Unix(inv.PeriodEnd, 0).UTC()
+	}
+
+	if inv.Parent != nil && inv.Parent.SubscriptionDetails != nil && inv.Parent.SubscriptionDetails.Subscription != nil {
+		result.InvoiceSubscriptionID = inv.Parent.SubscriptionDetails.Subscription.ID
+		// Subscription metadata is replicated onto the invoice's
+		// parent.subscription_details snapshot at finalization time —
+		// reading from that frozen copy keeps us aligned with the
+		// subscription state at issuance.
+		md := inv.Parent.SubscriptionDetails.Metadata
+		if md != nil {
+			result.InvoiceSubscriptionOrgID = md["organization_id"]
+			result.InvoiceSubscriptionUserID = md["user_id"]
+		}
+	}
+
+	// First line item description — used as the human-facing plan label
+	// on the issued invoice ("Premium Agence — avril 2026" or whatever
+	// Stripe stamps on the line). Falls through to empty when absent so
+	// the caller can pick its own default.
+	if inv.Lines != nil && len(inv.Lines.Data) > 0 {
+		result.InvoiceLineDescription = inv.Lines.Data[0].Description
+	}
+
+	// PaymentIntent id is reachable via the invoice's payment list.
+	// Only the default payment carries the PI id we want for refund
+	// correlation; we walk the list defensively because Stripe may
+	// occasionally include retry payments alongside the default.
+	if inv.Payments != nil {
+		for _, ip := range inv.Payments.Data {
+			if ip == nil || ip.Payment == nil || ip.Payment.PaymentIntent == nil {
+				continue
+			}
+			if ip.IsDefault || result.InvoicePaymentIntentID == "" {
+				result.InvoicePaymentIntentID = ip.Payment.PaymentIntent.ID
+				if ip.IsDefault {
+					break
+				}
+			}
+		}
+	}
 }
 
 // buildAccountSnapshot extracts a complete requirements picture from a Stripe

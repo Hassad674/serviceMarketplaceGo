@@ -111,6 +111,21 @@ type StripeWebhookEvent struct {
 	SubscriptionCancelAtPeriodEndIntent bool
 	InvoiceSubscriptionID string // parent subscription id on invoice events
 	InvoicePaymentFailed  bool   // true on invoice.payment_failed
+
+	// Invoice.paid fields — populated when event.Type == "invoice.paid".
+	// Consumed by the invoicing app service to issue a customer-facing
+	// invoice for a successful subscription payment. Empty/zero on every
+	// other event type.
+	InvoicePaid                  bool
+	InvoiceID                    string // Stripe invoice id (in_*)
+	InvoicePaymentIntentID       string // pi_* — extracted from the invoice's payment list, may be empty
+	InvoiceAmountPaidCents       int64  // amount the customer actually paid, in cents
+	InvoiceCurrency              string // ISO-4217, lowercase as Stripe returns
+	InvoicePeriodStart           time.Time
+	InvoicePeriodEnd             time.Time
+	InvoiceLineDescription       string // first line item description (e.g. plan label) — best-effort
+	InvoiceSubscriptionOrgID     string // organization_id from subscription metadata, if present
+	InvoiceSubscriptionUserID    string // legacy user_id from subscription metadata, if present
 }
 
 // StripeAccountSnapshot captures the state of a connected account at the

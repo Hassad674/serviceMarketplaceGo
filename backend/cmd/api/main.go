@@ -12,10 +12,14 @@ import (
 
 	anthropicadapter "marketplace-backend/internal/adapter/anthropic"
 	comprehendadapter "marketplace-backend/internal/adapter/comprehend"
+	emailadapter "marketplace-backend/internal/adapter/email"
 	"marketplace-backend/internal/adapter/fcm"
 	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/noop"
+	openaiadapter "marketplace-backend/internal/adapter/openai"
+	pdfadapter "marketplace-backend/internal/adapter/pdf"
+	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	rekognitionadapter "marketplace-backend/internal/adapter/rekognition"
@@ -33,6 +37,7 @@ import (
 	clientprofileapp "marketplace-backend/internal/app/clientprofile"
 	disputeapp "marketplace-backend/internal/app/dispute"
 	embeddedapp "marketplace-backend/internal/app/embedded"
+	invoicingapp "marketplace-backend/internal/app/invoicing"
 	freelancepricingapp "marketplace-backend/internal/app/freelancepricing"
 	freelanceprofileapp "marketplace-backend/internal/app/freelanceprofile"
 	jobapp "marketplace-backend/internal/app/job"
@@ -70,6 +75,7 @@ import (
 	"marketplace-backend/internal/search/features"
 	"marketplace-backend/internal/search/rules"
 	"marketplace-backend/internal/search/scorer"
+	"marketplace-backend/pkg/confighelpers"
 	"marketplace-backend/pkg/crypto"
 
 	"github.com/google/uuid"
@@ -118,6 +124,7 @@ func main() {
 	organizationMemberRepo := postgres.NewOrganizationMemberRepository(db)
 	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
 	auditRepo := postgres.NewAuditRepository(db)
+	moderationResultsRepo := postgres.NewModerationResultsRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
 	emailSvc := resendadapter.NewEmailService(cfg.ResendAPIKey, cfg.ResendDevRedirectTo)
@@ -767,24 +774,28 @@ func main() {
 	// Wire media recorder into messaging so file/voice messages are tracked.
 	messagingSvc.SetMediaRecorder(mediaSvc)
 
-	// Text moderation (AWS Comprehend) — moderates messages and reviews for toxicity.
+	// Text moderation — selected by TEXT_MODERATION_PROVIDER env var.
+	// Defaults to OpenAI because it is free, multilingual (FR-native),
+	// and returns the fine-grained category scores that
+	// domain/moderation uses for zero-tolerance rules.
 	var textModerationSvc service.TextModerationService
-	if cfg.ComprehendConfigured() {
+	switch cfg.TextModerationProviderOrDefault() {
+	case "openai":
+		textModerationSvc = openaiadapter.NewTextModerationService(cfg.OpenAIAPIKey)
+		slog.Info("text moderation enabled (OpenAI omni-moderation)")
+	case "comprehend":
 		comprehendSvc, compErr := comprehendadapter.NewTextModerationService(cfg.RekognitionRegion)
 		if compErr != nil {
-			slog.Error("failed to init Comprehend text moderation", "error", compErr)
+			slog.Error("failed to init Comprehend text moderation, falling back to noop", "error", compErr)
 			textModerationSvc = noop.NewTextModerationService()
 		} else {
 			textModerationSvc = comprehendSvc
 			slog.Info("text moderation enabled (AWS Comprehend)")
 		}
-	} else {
+	default:
 		textModerationSvc = noop.NewTextModerationService()
 		slog.Info("text moderation disabled (noop)")
 	}
-	messagingSvc.SetTextModeration(textModerationSvc)
-	reviewSvc.SetTextModeration(textModerationSvc)
-
 	// SQS worker polls Rekognition completion notifications and finalizes jobs.
 	if cfg.VideoModerationConfigured() && transitStorage != nil {
 		worker, workerErr := sqsadapter.NewWorker(sqsadapter.WorkerDeps{
@@ -805,9 +816,24 @@ func main() {
 	adminNotifierSvc := redisadapter.NewAdminNotifierService(redisClient, db, streamBroadcaster)
 	reportSvc.SetAdminNotifier(adminNotifierSvc)
 	mediaSvc.SetAdminNotifier(adminNotifierSvc)
-	messagingSvc.SetAdminNotifier(adminNotifierSvc)
-	reviewSvc.SetAdminNotifier(adminNotifierSvc)
 	slog.Info("admin notification counters enabled")
+
+	// Central text moderation orchestrator. One instance fans every
+	// pipeline (messaging, reviews, profile blocking, jobs, …) through
+	// the same analyse → decide → persist → audit → notify chain so
+	// the policy lives in one place.
+	moderationOrchestrator := appmoderation.NewService(appmoderation.Deps{
+		TextModeration: textModerationSvc,
+		Results:        moderationResultsRepo,
+		Audit:          auditRepo,
+		AdminNotifier:  adminNotifierSvc,
+	})
+	messagingSvc.SetModerationOrchestrator(moderationOrchestrator)
+	reviewSvc.SetModerationOrchestrator(moderationOrchestrator)
+	authSvc.SetModerationOrchestrator(moderationOrchestrator)
+	profileSvc.WithModerationOrchestrator(moderationOrchestrator)
+	jobSvc.SetModerationOrchestrator(moderationOrchestrator)
+	proposalSvc.SetModerationOrchestrator(moderationOrchestrator)
 
 	// Admin feature
 	adminConvRepo := postgres.NewAdminConversationRepository(db)
@@ -822,6 +848,8 @@ func main() {
 		AdminConversations: adminConvRepo,
 		MediaRepo:          mediaRepo,
 		ModerationRepo:     adminModerationRepo,
+		ModerationResults:  moderationResultsRepo,
+		Audit:              auditRepo,
 		StorageSvc:         storageSvc,
 		SessionSvc:         sessionSvc,
 		Broadcaster:        streamBroadcaster,
@@ -1117,6 +1145,44 @@ func main() {
 		slog.Info("subscription feature enabled (premium plan)")
 	} else {
 		slog.Info("subscription feature disabled (stripe not configured)")
+	}
+
+	// Invoicing feature — outbound customer-facing invoices for
+	// successful subscription payments (monthly commission consolidation
+	// lives in a follow-up phase). The whole block is optional: if any
+	// of the issuer env vars are missing or the PDF renderer can't
+	// initialise, we log + skip and the rest of the backend boots.
+	// invoice.paid events then fall through with a no-op handler.
+	if stripeHandler != nil {
+		issuer, issuerErr := confighelpers.LoadInvoiceIssuer()
+		if issuerErr != nil {
+			slog.Warn("invoicing feature disabled (issuer config invalid)", "error", issuerErr)
+		} else {
+			pdfRenderer, pdfErr := pdfadapter.New()
+			if pdfErr != nil {
+				slog.Warn("invoicing feature disabled (pdf renderer init failed)", "error", pdfErr)
+			} else {
+				invoiceRepo := postgres.NewInvoiceRepository(db)
+				billingProfileRepo := postgres.NewBillingProfileRepository(db)
+				invoiceDeliverer := emailadapter.NewDeliverer(emailSvc)
+				invoiceIdempotency := redisadapter.NewWebhookIdempotencyStore(
+					redisClient,
+					redisadapter.DefaultWebhookIdempotencyTTL,
+				)
+
+				invoicingSvc := invoicingapp.NewService(invoicingapp.ServiceDeps{
+					Invoices:    invoiceRepo,
+					Profiles:    billingProfileRepo,
+					PDF:         pdfRenderer,
+					Storage:     storageSvc,
+					Deliverer:   invoiceDeliverer,
+					Issuer:      issuer,
+					Idempotency: invoiceIdempotency,
+				})
+				stripeHandler = stripeHandler.WithInvoicing(invoicingSvc)
+				slog.Info("invoicing feature enabled (subscription path)")
+			}
+		}
 	}
 
 	// Dispute feature
