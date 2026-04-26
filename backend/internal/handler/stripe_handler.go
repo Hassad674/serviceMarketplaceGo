@@ -180,6 +180,12 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		// (FAC-NNNNNN), independent of the subscription state
 		// reflection that customer.subscription.updated drives.
 		h.handleInvoicePaid(r, event)
+	case "charge.refunded":
+		// charge.refunded triggers a credit note (AV-NNNNNN) for the
+		// refunded amount. The handler short-circuits when the refund
+		// can't be matched to one of our subscription invoices —
+		// non-invoiced charges are out of scope.
+		h.handleChargeRefunded(r, event)
 	default:
 		slog.Debug("unhandled stripe event", "type", event.Type)
 	}
@@ -398,6 +404,53 @@ func (h *StripeHandler) resolveInvoicePaidOwner(
 		return uuid.Nil, err
 	}
 	return h.subscriptionSvc.ResolveActorOrganization(ctx, userID)
+}
+
+// handleChargeRefunded issues a credit note for a Stripe charge.refunded
+// event. The pipeline:
+//
+//  1. Skip when invoicing is disabled (feature not wired in main.go).
+//  2. Look up the original invoice via the PaymentIntent — we only emit
+//     credit notes for subscription invoices we issued. Charges that
+//     never produced an invoice (early test data, non-subscription
+//     payments) are silently skipped with a debug log.
+//  3. Hand off to the invoicing app service. Errors are logged but the
+//     webhook still returns 200 so Stripe doesn't burn its retry budget
+//     re-running a pipeline that's never going to succeed.
+func (h *StripeHandler) handleChargeRefunded(r *http.Request, event *portservice.StripeWebhookEvent) {
+	if h.invoicingSvc == nil {
+		return
+	}
+	if !event.ChargeRefunded || event.ChargePaymentIntentID == "" {
+		slog.Debug("stripe webhook: charge.refunded without payment intent — skipping",
+			"event_id", event.EventID, "charge_id", event.ChargeID)
+		return
+	}
+
+	inv, err := h.invoicingSvc.FindInvoiceByPaymentIntentID(r.Context(), event.ChargePaymentIntentID)
+	if err != nil {
+		// Not all charges produce one of OUR invoices (early
+		// test data, non-subscription payments, etc.). A miss is
+		// not an error condition — log and bail.
+		slog.Info("stripe webhook: charge.refunded has no matching invoice — skipping",
+			"event_id", event.EventID,
+			"payment_intent_id", event.ChargePaymentIntentID,
+			"error", err)
+		return
+	}
+
+	if _, err := h.invoicingSvc.IssueCreditNote(r.Context(), invoicingapp.IssueCreditNoteInput{
+		OriginalInvoiceID: inv.ID,
+		Reason:            "Stripe refund",
+		AmountCents:       event.ChargeAmountRefundedCents,
+		StripeEventID:     event.EventID,
+		StripeRefundID:    event.ChargeRefundID,
+	}); err != nil {
+		slog.Error("stripe webhook: credit note issuance failed",
+			"event_id", event.EventID,
+			"original_invoice_id", inv.ID,
+			"error", err)
+	}
 }
 
 // handleInvoicePaymentFailed opens a grace window on the subscription.

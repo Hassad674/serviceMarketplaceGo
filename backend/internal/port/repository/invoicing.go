@@ -46,6 +46,19 @@ type InvoiceRepository interface {
 	// FindCreditNoteByStripeEventID is the avoir analogue.
 	FindCreditNoteByStripeEventID(ctx context.Context, eventID string) (*invoicing.CreditNote, error)
 
+	// FindInvoiceByStripePaymentIntentID is the lookup the refund webhook
+	// uses to bridge a charge.refunded event back to the invoice we
+	// originally issued for that subscription payment. Subscription
+	// invoices store the PI on `invoice.stripe_payment_intent_id` (set at
+	// finalization time when the parent invoice carries the default
+	// payment).
+	FindInvoiceByStripePaymentIntentID(ctx context.Context, paymentIntentID string) (*invoicing.Invoice, error)
+
+	// MarkInvoiceCredited flips the invoice status to 'credited'. Called
+	// after a credit note has been issued for the FULL outstanding
+	// amount; partial refunds leave the original invoice status alone.
+	MarkInvoiceCredited(ctx context.Context, invoiceID uuid.UUID) error
+
 	// ListInvoicesByOrganization returns the org's invoices in the
 	// "Mes factures" page. Cursor-based pagination per project rule.
 	ListInvoicesByOrganization(ctx context.Context, organizationID uuid.UUID, cursor string, limit int) ([]*invoicing.Invoice, string, error)

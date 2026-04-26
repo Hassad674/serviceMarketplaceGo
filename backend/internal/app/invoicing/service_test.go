@@ -39,12 +39,16 @@ type mockInvoiceRepo struct {
 	reserveNumberFn      func(ctx context.Context, scope invoicing.CounterScope) (int64, error)
 	findByIDFn           func(ctx context.Context, id uuid.UUID) (*invoicing.Invoice, error)
 	findByEventIDFn      func(ctx context.Context, eventID string) (*invoicing.Invoice, error)
+	findByPIIDFn         func(ctx context.Context, paymentIntentID string) (*invoicing.Invoice, error)
 	findCnByEventIDFn    func(ctx context.Context, eventID string) (*invoicing.CreditNote, error)
+	markCreditedFn       func(ctx context.Context, invoiceID uuid.UUID) error
 	listByOrgFn          func(ctx context.Context, organizationID uuid.UUID, cursor string, limit int) ([]*invoicing.Invoice, string, error)
 	hasItemForPaymentFn  func(ctx context.Context, paymentRecordID uuid.UUID) (bool, error)
 	listReleasedForOrgFn func(ctx context.Context, organizationID uuid.UUID, periodStart, periodEnd time.Time) ([]repository.ReleasedPaymentRecord, error)
 
-	persistedInvoices []*invoicing.Invoice
+	persistedInvoices    []*invoicing.Invoice
+	persistedCreditNotes []*invoicing.CreditNote
+	markedCreditedIDs    []uuid.UUID
 }
 
 func (m *mockInvoiceRepo) CreateInvoice(ctx context.Context, inv *invoicing.Invoice) error {
@@ -58,6 +62,20 @@ func (m *mockInvoiceRepo) CreateCreditNote(ctx context.Context, cn *invoicing.Cr
 	if m.createCreditNoteFn != nil {
 		return m.createCreditNoteFn(ctx, cn)
 	}
+	m.persistedCreditNotes = append(m.persistedCreditNotes, cn)
+	return nil
+}
+func (m *mockInvoiceRepo) FindInvoiceByStripePaymentIntentID(ctx context.Context, paymentIntentID string) (*invoicing.Invoice, error) {
+	if m.findByPIIDFn != nil {
+		return m.findByPIIDFn(ctx, paymentIntentID)
+	}
+	return nil, invoicing.ErrNotFound
+}
+func (m *mockInvoiceRepo) MarkInvoiceCredited(ctx context.Context, invoiceID uuid.UUID) error {
+	if m.markCreditedFn != nil {
+		return m.markCreditedFn(ctx, invoiceID)
+	}
+	m.markedCreditedIDs = append(m.markedCreditedIDs, invoiceID)
 	return nil
 }
 func (m *mockInvoiceRepo) ReserveNumber(ctx context.Context, scope invoicing.CounterScope) (int64, error) {

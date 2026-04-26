@@ -282,6 +282,65 @@ func (r *InvoiceRepository) FindInvoiceByStripeEventID(ctx context.Context, even
 	return inv, nil
 }
 
+// FindInvoiceByStripePaymentIntentID looks up the subscription invoice
+// that originally captured the given PaymentIntent. Used by the refund
+// webhook to bridge a charge.refunded event back to its source invoice.
+// Returns invoicing.ErrNotFound when no row matches.
+func (r *InvoiceRepository) FindInvoiceByStripePaymentIntentID(ctx context.Context, paymentIntentID string) (*invoicing.Invoice, error) {
+	if paymentIntentID == "" {
+		return nil, invoicing.ErrNotFound
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	row := r.db.QueryRowContext(ctx, `
+		SELECT `+invoiceColumns+`
+		FROM invoice
+		WHERE stripe_payment_intent_id = $1
+		ORDER BY issued_at DESC
+		LIMIT 1`, paymentIntentID)
+
+	inv, err := scanInvoice(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, invoicing.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find invoice by stripe payment intent id: %w", err)
+	}
+
+	items, err := r.loadItems(ctx, inv.ID)
+	if err != nil {
+		return nil, fmt.Errorf("find invoice by stripe payment intent id: load items: %w", err)
+	}
+	inv.Items = items
+	return inv, nil
+}
+
+// MarkInvoiceCredited flips the invoice status to 'credited'. Bypasses
+// the finalized read-only guard intentionally: status is the ONLY column
+// that may transition after Finalize, and only via this single path.
+func (r *InvoiceRepository) MarkInvoiceCredited(ctx context.Context, invoiceID uuid.UUID) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE invoice
+		SET status = 'credited', updated_at = now()
+		WHERE id = $1`, invoiceID)
+	if err != nil {
+		return fmt.Errorf("mark invoice credited: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("mark invoice credited: rows affected: %w", err)
+	}
+	if rows == 0 {
+		return invoicing.ErrNotFound
+	}
+	return nil
+}
+
 // FindCreditNoteByStripeEventID is the credit-note analogue used by the
 // refund webhook for idempotency.
 func (r *InvoiceRepository) FindCreditNoteByStripeEventID(ctx context.Context, eventID string) (*invoicing.CreditNote, error) {
