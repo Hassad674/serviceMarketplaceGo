@@ -3,12 +3,10 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
 
-	invoicingapp "marketplace-backend/internal/app/invoicing"
 	appsub "marketplace-backend/internal/app/subscription"
 	domain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/handler/middleware"
@@ -22,23 +20,10 @@ import (
 // claim and passes organization_id — never user_id — to the app service.
 type SubscriptionHandler struct {
 	svc *appsub.Service
-
-	// invoicingSvc is the optional gate the Subscribe endpoint uses to
-	// enforce billing-profile completeness BEFORE creating the Stripe
-	// checkout session. Nil = invoicing module disabled, in which case
-	// the gate degrades open. See WalletHandler.WithInvoicing for the
-	// matching pattern.
-	invoicingSvc *invoicingapp.Service
 }
 
 func NewSubscriptionHandler(svc *appsub.Service) *SubscriptionHandler {
 	return &SubscriptionHandler{svc: svc}
-}
-
-// WithInvoicing wires the billing-profile completeness gate.
-func (h *SubscriptionHandler) WithInvoicing(svc *invoicingapp.Service) *SubscriptionHandler {
-	h.invoicingSvc = svc
-	return h
 }
 
 // resolveActorOrg reads the JWT user_id from context, then asks the app
@@ -73,7 +58,10 @@ type subscribeRequest struct {
 }
 
 type subscribeResponse struct {
-	CheckoutURL string `json:"checkout_url"`
+	// ClientSecret is the Stripe Embedded Checkout session client_secret.
+	// The web/mobile client mounts it via @stripe/react-stripe-js to
+	// render the inline payment form.
+	ClientSecret string `json:"client_secret"`
 }
 
 type subscriptionResponse struct {
@@ -141,20 +129,12 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Phase 6 gate — billing profile must be complete before we can
-	// invoice the org for the subscription. Degrades open when the
-	// invoicing module is disabled (svc nil) so removing invoicing
-	// never blocks subscribes. Probe errors are logged + allowed.
-	if h.invoicingSvc != nil {
-		complete, missing, gerr := h.invoicingSvc.IsBillingProfileComplete(r.Context(), orgID)
-		if gerr != nil {
-			slog.Warn("subscription subscribe: billing profile gate probe failed, allowing through",
-				"org_id", orgID, "error", gerr)
-		} else if !complete {
-			respondBillingProfileIncomplete(w, missing, "Complete your billing profile before subscribing")
-			return
-		}
-	}
+	// NOTE: the billing-profile completeness gate that used to block
+	// subscribe lives in the Embedded Checkout modal now (step 1 of
+	// the inline UX collects + validates the profile via our
+	// BillingProfileForm before transitioning to the Stripe payment
+	// step). The wallet handler keeps its own server-side gate because
+	// withdrawals don't go through any UI form.
 
 	out, err := h.svc.Subscribe(r.Context(), appsub.SubscribeInput{
 		OrganizationID: orgID,
@@ -167,7 +147,7 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		mapSubscribeError(w, err)
 		return
 	}
-	res.JSON(w, http.StatusCreated, subscribeResponse{CheckoutURL: out.CheckoutURL})
+	res.JSON(w, http.StatusCreated, subscribeResponse{ClientSecret: out.ClientSecret})
 }
 
 // GetMine — GET /api/v1/subscriptions/me

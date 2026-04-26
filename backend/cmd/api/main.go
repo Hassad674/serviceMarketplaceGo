@@ -1106,21 +1106,26 @@ func main() {
 	// optional: when Stripe is not configured the feature stays off and
 	// payment falls back to the full grid fee everywhere.
 	var subscriptionHandler *handler.SubscriptionHandler
+	var subscriptionAppSvc *subscriptionapp.Service
 	if stripeSvc != nil {
 		stripeSubSvc := stripeadapter.NewSubscriptionService(cfg.StripeSecretKey)
 		subRepo := postgres.NewSubscriptionRepository(db)
 		amountsRepo := postgres.NewProviderMilestoneAmountsRepository(db)
 
-		subscriptionAppSvc := subscriptionapp.NewService(subscriptionapp.ServiceDeps{
+		subscriptionAppSvc = subscriptionapp.NewService(subscriptionapp.ServiceDeps{
 			Subscriptions: subRepo,
 			Users:         userRepo,
 			Amounts:       amountsRepo,
 			Stripe:        stripeSubSvc,
 			LookupKeys:    subscriptionapp.DefaultLookupKeys(),
 			URLs: subscriptionapp.URLs{
-				CheckoutSuccess: cfg.FrontendURL + "/billing/success?session_id={CHECKOUT_SESSION_ID}",
-				CheckoutCancel:  cfg.FrontendURL + "/billing/cancel",
-				PortalReturn:    cfg.FrontendURL + "/billing",
+				// Embedded Checkout uses a single ReturnURL; Stripe
+				// substitutes the {CHECKOUT_SESSION_ID} placeholder
+				// with the real id so the return page can poll
+				// /subscriptions/me until the webhook flips the row
+				// to active.
+				CheckoutReturn: cfg.FrontendURL + "/subscribe/return?session_id={CHECKOUT_SESSION_ID}",
+				PortalReturn:   cfg.FrontendURL + "/billing",
 			},
 		})
 
@@ -1199,13 +1204,25 @@ func main() {
 
 				stripeHandler = stripeHandler.WithInvoicing(invoicingSvc)
 
-				// Phase 6 handlers + wallet/subscription gates.
+				// Phase 6 handlers + wallet gate. The subscribe gate
+				// has moved to the Embedded Checkout modal (step 1 of
+				// the inline UX collects + validates billing_profile
+				// via our form before the Stripe payment step), so the
+				// subscribe handler no longer takes the invoicing dep.
 				billingProfileHandler = handler.NewBillingProfileHandler(invoicingSvc)
 				invoiceHandler = handler.NewInvoiceHandler(invoicingSvc)
 				adminCreditNoteHandler = handler.NewAdminCreditNoteHandler(invoicingSvc)
 				walletHandler = walletHandler.WithInvoicing(invoicingSvc)
-				if subscriptionHandler != nil {
-					subscriptionHandler = subscriptionHandler.WithInvoicing(invoicingSvc)
+
+				// Subscription pre-enriches the Stripe Customer with
+				// the billing profile snapshot before creating an
+				// Embedded Checkout session, so the inline form has
+				// nothing to re-collect. Best-effort: if invoicing is
+				// disabled, the reader stays nil and Subscribe still
+				// works (Stripe will simply show whatever it already
+				// has on the customer).
+				if subscriptionAppSvc != nil {
+					subscriptionAppSvc.SetBillingProfileReader(invoicingSvc)
 				}
 
 				slog.Info("invoicing feature enabled (subscription path + me/billing-profile + me/invoices)")

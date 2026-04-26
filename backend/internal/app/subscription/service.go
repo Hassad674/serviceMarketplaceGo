@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +36,14 @@ type Service struct {
 	stripe     service.StripeSubscriptionService
 	lookupKeys PlanLookupKeys
 	urls       URLs
+
+	// billingProfile is the OPTIONAL reader used to pre-enrich the
+	// Stripe Customer with the org's address + name before creating an
+	// Embedded Checkout session. Wired by main.go via SetBillingProfileReader
+	// after the invoicing service is built (invoicing is wired AFTER
+	// subscription so it can't be passed to ServiceDeps directly).
+	// Nil = no enrichment, Subscribe still works.
+	billingProfile service.BillingProfileSnapshotReader
 }
 
 // PlanLookupKeys maps the four (plan, cycle) combinations to the Stripe
@@ -59,13 +68,15 @@ func DefaultLookupKeys() PlanLookupKeys {
 	}
 }
 
-// URLs groups the return URLs for Stripe Checkout and Customer Portal.
-// Configured at startup from env; kept separate from the service's core
-// dependencies so tests can inject harmless defaults.
+// URLs groups the return URLs for Stripe Embedded Checkout and Customer
+// Portal. Configured at startup from env; kept separate from the
+// service's core dependencies so tests can inject harmless defaults.
 type URLs struct {
-	CheckoutSuccess string // appended with ?session_id=... by Stripe
-	CheckoutCancel  string
-	PortalReturn    string
+	// CheckoutReturn is the single embedded-mode return URL. Stripe
+	// substitutes "{CHECKOUT_SESSION_ID}" with the real id so the
+	// return page can correlate. Required.
+	CheckoutReturn string
+	PortalReturn   string
 }
 
 // ServiceDeps bundles every constructor parameter. The app service never
@@ -92,6 +103,16 @@ func NewService(deps ServiceDeps) *Service {
 	}
 }
 
+// SetBillingProfileReader wires the optional reader used to pre-enrich
+// the Stripe Customer before creating an Embedded Checkout session.
+// Called by main.go after the invoicing service is built (since
+// invoicing is wired AFTER subscription so it can't be passed via
+// ServiceDeps). Safe to call with nil — the service silently skips
+// enrichment in that case.
+func (s *Service) SetBillingProfileReader(r service.BillingProfileSnapshotReader) {
+	s.billingProfile = r
+}
+
 // SubscribeInput is the payload of the POST /api/v1/subscriptions endpoint.
 // OrganizationID is the owner of the subscription — Premium is granted to
 // the org, not to the individual who clicked subscribe. ActorUserID is the
@@ -110,10 +131,11 @@ type SubscribeInput struct {
 }
 
 // SubscribeOutput is what the handler returns to the client. The caller
-// redirects the user to CheckoutURL; a webhook back to us then flips the
-// persisted row to active.
+// mounts ClientSecret in @stripe/react-stripe-js (web) or in a WebView
+// pointed at our /subscribe/embed page (mobile); the webhook back to us
+// flips the persisted row to active once the payment lands.
 type SubscribeOutput struct {
-	CheckoutURL string
+	ClientSecret string
 }
 
 // Subscribe starts a Stripe Checkout session and persists an incomplete
@@ -169,19 +191,36 @@ func (s *Service) Subscribe(ctx context.Context, in SubscribeInput) (*SubscribeO
 		return nil, fmt.Errorf("subscribe: ensure customer: %w", err)
 	}
 
-	url, err := s.stripe.CreateCheckoutSession(ctx, service.CreateCheckoutSessionInput{
+	// Pre-enrich the Stripe Customer with the org's billing profile so
+	// Stripe's embedded form doesn't have to re-collect address/name.
+	// Best-effort: a missing reader (invoicing module disabled) or an
+	// API failure must NOT block the subscribe — we log and continue.
+	// Stripe will simply show whatever it already has on the customer.
+	if s.billingProfile != nil {
+		snap, sErr := s.billingProfile.GetBillingProfileSnapshotForStripe(ctx, in.OrganizationID)
+		if sErr != nil {
+			slog.Warn("subscribe: billing profile snapshot read failed, skipping customer enrichment",
+				"org_id", in.OrganizationID, "error", sErr)
+		} else if !snap.IsEmpty() {
+			if eErr := s.stripe.EnrichCustomerWithBillingProfile(ctx, customerID, snap); eErr != nil {
+				slog.Warn("subscribe: stripe customer enrichment failed, continuing without",
+					"org_id", in.OrganizationID, "customer_id", customerID, "error", eErr)
+			}
+		}
+	}
+
+	clientSecret, err := s.stripe.CreateCheckoutSession(ctx, service.CreateCheckoutSessionInput{
 		OrganizationID:    in.OrganizationID.String(),
 		CustomerID:        customerID,
 		PriceID:           priceID,
 		CancelAtPeriodEnd: !in.AutoRenew,
-		SuccessURL:        s.urls.CheckoutSuccess,
-		CancelURL:         s.urls.CheckoutCancel,
+		ReturnURL:         s.urls.CheckoutReturn,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("subscribe: create checkout session: %w", err)
 	}
 
-	return &SubscribeOutput{CheckoutURL: url}, nil
+	return &SubscribeOutput{ClientSecret: clientSecret}, nil
 }
 
 // GetStatus returns the org's current open subscription, or
