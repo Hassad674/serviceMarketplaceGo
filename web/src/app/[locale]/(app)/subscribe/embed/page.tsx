@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { useRouter } from "@i18n/navigation"
 import {
   EmbeddedCheckoutProvider,
   EmbeddedCheckout,
@@ -50,6 +51,7 @@ import type {
  */
 export default function SubscribeEmbedPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const plan = searchParams.get("plan") as Plan | null
   const billingCycle = searchParams.get("cycle") as BillingCycle | null
   const autoRenew = searchParams.get("auto_renew") === "true"
@@ -60,6 +62,22 @@ export default function SubscribeEmbedPage() {
   const validParams =
     (plan === "freelance" || plan === "agency") &&
     (billingCycle === "monthly" || billingCycle === "annual")
+
+  // Cycle switch — rewrites the URL `cycle` param in place. PaymentStep's
+  // useEffect lists `billingCycle` in its deps, so when the param flips the
+  // component re-fires `subscribe()` and Stripe builds a fresh session for
+  // the new cycle. `router.replace` is used so the user's back button
+  // doesn't accumulate one history entry per toggle click.
+  const handleCycleChange = useCallback(
+    (next: BillingCycle) => {
+      if (next === billingCycle) return
+      const params = new URLSearchParams()
+      searchParams.forEach((value, key) => params.set(key, value))
+      params.set("cycle", next)
+      router.replace(`/subscribe/embed?${params.toString()}`)
+    },
+    [billingCycle, router, searchParams],
+  )
 
   return (
     <div className="mx-auto flex min-h-[80vh] max-w-2xl flex-col p-6">
@@ -88,6 +106,14 @@ export default function SubscribeEmbedPage() {
         )}
       </header>
 
+      {validParams && (
+        <CycleToggle
+          plan={plan as Plan}
+          cycle={billingCycle as BillingCycle}
+          onChange={handleCycleChange}
+        />
+      )}
+
       {!validParams ? (
         <InvalidParamsCard />
       ) : step === "billing" ? (
@@ -102,6 +128,94 @@ export default function SubscribeEmbedPage() {
       )}
     </div>
   )
+}
+
+/**
+ * Inline monthly/annual segmented control rendered between the page
+ * header and the step content. Styling mirrors the `CycleToggle` inside
+ * `upgrade-modal.tsx` (rose pill tabs) — duplicated rather than shared
+ * to keep the subscription feature self-contained and avoid a
+ * cross-feature import boundary.
+ *
+ * Prices are sourced from the same table as `upgrade-modal.tsx::pricing`
+ * so the two surfaces stay visually consistent. If pricing ever changes,
+ * both call sites must be updated.
+ */
+function CycleToggle({
+  plan,
+  cycle,
+  onChange,
+}: {
+  plan: Plan
+  cycle: BillingCycle
+  onChange: (c: BillingCycle) => void
+}) {
+  const { monthlyAmount, annualPerMonth } = pricing(plan)
+  return (
+    <div
+      role="tablist"
+      aria-label="Periode de facturation"
+      className="mb-6 flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/50"
+    >
+      <CycleTab active={cycle === "monthly"} onClick={() => onChange("monthly")}>
+        <span className="flex items-center justify-center gap-1.5">
+          Mensuel
+          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+            {monthlyAmount} €/mois
+          </span>
+        </span>
+      </CycleTab>
+      <CycleTab active={cycle === "annual"} onClick={() => onChange("annual")}>
+        <span className="flex items-center justify-center gap-1.5">
+          Annuel
+          <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+            {annualPerMonth} €/mois
+          </span>
+          <span className="inline-flex items-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+            -21%
+          </span>
+        </span>
+      </CycleTab>
+    </div>
+  )
+}
+
+function CycleTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200",
+        active
+          ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white"
+          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+// Mirrors `upgrade-modal.tsx::pricing()`. Kept local to avoid a
+// cross-component coupling — the two functions are intentionally
+// independent so the modal can evolve its UX without dragging the
+// embed page along.
+function pricing(plan: Plan) {
+  if (plan === "agency") {
+    return { monthlyAmount: 49, annualPerMonth: 39 }
+  }
+  return { monthlyAmount: 19, annualPerMonth: 15 }
 }
 
 /**
