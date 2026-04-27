@@ -56,16 +56,21 @@ type OrgStore interface {
 // KYC page itself already surfaces them. After the first activation,
 // subsequent requirement changes ARE meaningful and resume normal
 // dispatch.
+//
+// HasPayoutsEverActivated is the same idea but specifically for the
+// payouts capability — used to fire the positive "Virements sortants
+// activés" notification exactly once on the first PayoutsEnabled=true.
 type LastAccountState struct {
-	ChargesEnabled    bool
-	PayoutsEnabled    bool
-	DetailsSubmitted  bool
-	CurrentlyDueHash  string
-	PastDueHash       string
-	EventuallyDueHash string
-	ErrorCodes        []string
-	DisabledReason    string
-	HasEverActivated  bool
+	ChargesEnabled          bool
+	PayoutsEnabled          bool
+	DetailsSubmitted        bool
+	CurrentlyDueHash        string
+	PastDueHash             string
+	EventuallyDueHash       string
+	ErrorCodes              []string
+	DisabledReason          string
+	HasEverActivated        bool
+	HasPayoutsEverActivated bool
 }
 
 // Notifier dispatches user-facing notifications for Stripe account lifecycle
@@ -134,8 +139,9 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 	// Stripe Connect account doesn't trigger a flood of "11 informations
 	// requises" alerts before the user has even started filling forms.
 	hasEverActivated := prev != nil && prev.HasEverActivated
+	hasPayoutsEverActivated := prev != nil && prev.HasPayoutsEverActivated
 
-	events := n.diff(prev, snap, hasEverActivated)
+	events := n.diff(prev, snap, hasEverActivated, hasPayoutsEverActivated)
 	for _, ev := range events {
 		if !n.shouldSend(org.ID, ev.Key) {
 			slog.Debug("embedded: notification skipped (cooldown)",
@@ -165,11 +171,14 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 	}
 
 	// Persist the new state on the org row so the next webhook can
-	// diff against it. The HasEverActivated latch survives across
-	// snapshots — once true, always true.
+	// diff against it. The HasEverActivated / HasPayoutsEverActivated
+	// latches survive across snapshots — once true, always true.
 	newState := snapshotToState(snap)
 	if hasEverActivated || snap.ChargesEnabled || snap.PayoutsEnabled {
 		newState.HasEverActivated = true
+	}
+	if hasPayoutsEverActivated || snap.PayoutsEnabled {
+		newState.HasPayoutsEverActivated = true
 	}
 	n.savePrevState(ctx, org.ID, newState)
 	return nil
@@ -221,10 +230,14 @@ type notifEvent struct {
 // (i.e. the user is in their initial KYC onboarding pass and hasn't yet
 // reached an active state), Stripe's currently_due / eventually_due /
 // past_due lists are noise — the page already surfaces them, the bell
-// shouldn't compete. Bad-state events (account suspended via
-// disabled_reason) still fire regardless because they can only happen
-// after the user is past onboarding anyway.
-func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSnapshot, hasEverActivated bool) []notifEvent {
+// shouldn't compete. Bad-state events (account suspended, document
+// rejected) still fire regardless because they can only happen after
+// the user is past onboarding anyway.
+//
+// hasPayoutsEverActivated gates the positive "Virements sortants
+// activés" notification so it fires exactly once on the very first
+// PayoutsEnabled=true transition, never on later same-value webhooks.
+func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSnapshot, hasEverActivated, hasPayoutsEverActivated bool) []notifEvent {
 	var out []notifEvent
 
 	curState := snapshotToState(cur)
@@ -256,6 +269,20 @@ func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSn
 				Meta:  map[string]any{"account_id": cur.AccountID, "status": "payouts_disabled"},
 			})
 		}
+	}
+
+	// 1b. First-ever payouts activation — positive notif. Fires once,
+	// the first time we see PayoutsEnabled=true. The hasPayouts*
+	// latch is updated by the caller AFTER this diff returns, so
+	// repeated webhooks with PayoutsEnabled=true don't re-fire.
+	if cur.PayoutsEnabled && !hasPayoutsEverActivated {
+		out = append(out, notifEvent{
+			Key:   "payouts_first_activated",
+			Type:  notifdomain.TypeStripeAccountStatus,
+			Title: "Virements sortants activés — tu peux maintenant retirer ton solde",
+			Body:  "Votre compte est désormais habilité à recevoir des virements vers votre banque. Vous pouvez retirer votre solde quand vous le souhaitez.",
+			Meta:  map[string]any{"account_id": cur.AccountID, "status": "payouts_activated"},
+		})
 	}
 
 	// 2-5. Requirement-class notifications — only fire when the user

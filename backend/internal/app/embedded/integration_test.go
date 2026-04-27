@@ -100,10 +100,11 @@ func setupChain(prev *LastAccountState) (*Notifier, *capturingSink, *memoryUserS
 func TestIntegration_WebhookAddsNewRequirement_EmitsContextualNotif(t *testing.T) {
 	// Prior state: fully active account, no pending requirements
 	notifier, sink, store := setupChain(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		DetailsSubmitted: true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		DetailsSubmitted:        true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 
 	// New webhook arrives: Stripe added a requirement (person verification document)
@@ -141,10 +142,11 @@ func TestIntegration_DocumentExpired_EmitsSpecificFrenchMessage(t *testing.T) {
 	// is set so the requirement-class notifs are not gated by the
 	// initial-onboarding suppression.
 	notifier, sink, _ := setupChain(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		DetailsSubmitted: true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		DetailsSubmitted:        true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 
 	// Webhook: Stripe rejects the uploaded identity document
@@ -190,10 +192,11 @@ func TestIntegration_DocumentExpired_EmitsSpecificFrenchMessage(t *testing.T) {
 func TestIntegration_AccountSuspended_EmitsUrgentNotif(t *testing.T) {
 	// Prior state: account was fully active
 	notifier, sink, store := setupChain(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		DetailsSubmitted: true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		DetailsSubmitted:        true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 
 	// Webhook: Stripe suspended charges + payouts due to past_due requirements
@@ -241,10 +244,11 @@ func TestIntegration_AccountSuspended_EmitsUrgentNotif(t *testing.T) {
 
 func TestIntegration_EventuallyDueAdded_EmitsNonUrgentNotif(t *testing.T) {
 	notifier, sink, _ := setupChain(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		DetailsSubmitted: true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		DetailsSubmitted:        true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 
 	snap := &portservice.StripeAccountSnapshot{
@@ -277,10 +281,11 @@ func TestIntegration_EventuallyDueAdded_EmitsNonUrgentNotif(t *testing.T) {
 func TestIntegration_MultipleSimultaneousChanges_AllDispatched(t *testing.T) {
 	// Prior state: account active with no issues
 	notifier, sink, _ := setupChain(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		DetailsSubmitted: true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		DetailsSubmitted:        true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 
 	// Webhook: charges suspended AND past_due added AND doc rejected → user gets full picture
