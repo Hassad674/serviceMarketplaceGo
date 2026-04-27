@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/data/stripe_countries.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/billing_profile.dart';
 import '../../domain/entities/billing_profile_snapshot.dart';
@@ -10,39 +11,16 @@ import '../providers/invoicing_providers.dart';
 import '_missing_fields_copy.dart';
 
 // EU member states whose VAT numbers can be validated through VIES.
-// 2-letter ISO codes — mirror `web/src/features/invoicing/components/eu-countries.ts`.
-const List<({String code, String label})> _kEuCountries = [
-  (code: 'FR', label: 'France'),
-  (code: 'BE', label: 'Belgique'),
-  (code: 'DE', label: 'Allemagne'),
-  (code: 'ES', label: 'Espagne'),
-  (code: 'IT', label: 'Italie'),
-  (code: 'NL', label: 'Pays-Bas'),
-  (code: 'PT', label: 'Portugal'),
-  (code: 'LU', label: 'Luxembourg'),
-  (code: 'IE', label: 'Irlande'),
-  (code: 'AT', label: 'Autriche'),
-  (code: 'PL', label: 'Pologne'),
-  (code: 'RO', label: 'Roumanie'),
-  (code: 'CZ', label: 'République tchèque'),
-  (code: 'SE', label: 'Suède'),
-  (code: 'FI', label: 'Finlande'),
-  (code: 'DK', label: 'Danemark'),
-  (code: 'EL', label: 'Grèce'),
-  (code: 'HU', label: 'Hongrie'),
-  (code: 'BG', label: 'Bulgarie'),
-  (code: 'HR', label: 'Croatie'),
-  (code: 'SI', label: 'Slovénie'),
-  (code: 'SK', label: 'Slovaquie'),
-  (code: 'EE', label: 'Estonie'),
-  (code: 'LV', label: 'Lettonie'),
-  (code: 'LT', label: 'Lituanie'),
-  (code: 'MT', label: 'Malte'),
-  (code: 'CY', label: 'Chypre'),
-];
+// Domain predicate kept separate from the country selector list — the
+// selector renders every country Stripe Connect supports (43 entries),
+// but only EU countries trigger the autoliquidation regime.
+const Set<String> _kEuVatCountryCodes = <String>{
+  'FR', 'BE', 'LU', 'DE', 'AT', 'NL', 'IT', 'ES', 'PT', 'IE',
+  'DK', 'SE', 'FI', 'PL', 'CZ', 'GR', 'EE', 'LV', 'LT', 'SK',
+  'SI', 'HU', 'BG', 'HR', 'RO', 'CY', 'MT',
+};
 
-bool _isEuCountry(String code) =>
-    _kEuCountries.any((c) => c.code == code);
+bool _isEuCountry(String code) => _kEuVatCountryCodes.contains(code);
 
 /// Editable form for the org's billing profile.
 ///
@@ -175,6 +153,16 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
           ),
           const SizedBox(height: 16),
           _Section(
+            title: 'Pays',
+            subtitle:
+                "Choisis d'abord ton pays — les autres champs s'adaptent en conséquence (SIRET pour la France, n° TVA intracom pour l'UE, adresse seule ailleurs).",
+            child: _CountryDropdown(
+              value: _country,
+              onChanged: (v) => setState(() => _country = v ?? ''),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Section(
             title: 'Type de profil',
             child: _ProfileTypeRadio(
               value: _profileType,
@@ -277,12 +265,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                _CountryDropdown(
-                  value: _country,
-                  onChanged: (v) =>
-                      setState(() => _country = v ?? ''),
                 ),
               ],
             ),
@@ -491,9 +473,10 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
 // ---------------------------------------------------------------------------
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child});
+  const _Section({required this.title, required this.child, this.subtitle});
 
   final String title;
+  final String? subtitle;
   final Widget child;
 
   @override
@@ -518,6 +501,15 @@ class _Section extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           child,
         ],
@@ -666,43 +658,58 @@ class _CountryDropdown extends StatelessWidget {
   final String value;
   final ValueChanged<String?> onChanged;
 
-  @override
-  Widget build(BuildContext context) {
+  /// Builds [DropdownMenuItem]s grouped by region. Region headers are
+  /// rendered as disabled items so they appear as visual separators —
+  /// Flutter's [DropdownButtonFormField] has no native optgroup
+  /// concept, so this is the standard idiom.
+  List<DropdownMenuItem<String>> _buildItems(BuildContext context) {
     final theme = Theme.of(context);
-    final entries = _kEuCountries
-        .map(
-          (c) => DropdownMenuItem<String>(
-            value: c.code,
-            child: Text(c.label),
-          ),
-        )
-        .toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Pays',
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          initialValue: value.isEmpty ? null : value,
-          isExpanded: true,
-          decoration: InputDecoration(
-            isDense: true,
-            hintText: '— Sélectionne —',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+    final List<DropdownMenuItem<String>> items = <DropdownMenuItem<String>>[];
+    for (final region in kStripeRegionOrder) {
+      final entries = stripeCountriesByRegion(region);
+      if (entries.isEmpty) continue;
+      items.add(
+        DropdownMenuItem<String>(
+          enabled: false,
+          value: '__header_${region.name}',
+          child: Text(
+            kStripeRegionLabelsFr[region]!,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
             ),
           ),
-          items: entries,
-          onChanged: onChanged,
-          validator: (v) =>
-              v == null || v.isEmpty ? 'Champ obligatoire' : null,
         ),
-      ],
+      );
+      for (final c in entries) {
+        items.add(
+          DropdownMenuItem<String>(
+            value: c.code,
+            child: Text('${c.flag}  ${c.labelFr}'),
+          ),
+        );
+      }
+    }
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value.isEmpty ? null : value,
+      isExpanded: true,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: '— Sélectionne ton pays —',
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        ),
+      ),
+      items: _buildItems(context),
+      onChanged: onChanged,
+      validator: (v) =>
+          v == null || v.isEmpty ? 'Champ obligatoire' : null,
     );
   }
 }
