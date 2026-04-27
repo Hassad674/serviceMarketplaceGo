@@ -132,11 +132,16 @@ func TestNotifier_AccountActivated_SendsActivationNotif(t *testing.T) {
 
 	err := n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
-	require.Len(t, sink.calls, 1)
+	// Activation transition emits two notifications: the existing
+	// "Compte de paiement activé" + the new "Virements sortants activés"
+	// one-shot for the first PayoutsEnabled=true transition.
+	require.Len(t, sink.calls, 2)
 	assert.Equal(t, notifdomain.TypeStripeAccountStatus, sink.calls[0].typ)
 	assert.Contains(t, sink.calls[0].title, "activé")
 	assert.NotNil(t, store.saved)
 	assert.True(t, store.saved.ChargesEnabled)
+	assert.True(t, store.saved.HasEverActivated, "latch must flip on activation")
+	assert.True(t, store.saved.HasPayoutsEverActivated, "payouts latch must flip on activation")
 }
 
 func TestNotifier_NoPreviousState_ActivatedAccount_SendsActivationOnce(t *testing.T) {
@@ -147,14 +152,17 @@ func TestNotifier_NoPreviousState_ActivatedAccount_SendsActivationOnce(t *testin
 
 	err := n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
-	require.Len(t, sink.calls, 1)
+	// "Compte de paiement activé" + first-payouts-activation positive notif.
+	require.Len(t, sink.calls, 2)
 	assert.Contains(t, sink.calls[0].title, "activé")
 }
 
 func TestNotifier_ChargesDisabled_SendsChargesDisabledNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = false
@@ -168,8 +176,10 @@ func TestNotifier_ChargesDisabled_SendsChargesDisabledNotif(t *testing.T) {
 
 func TestNotifier_PayoutsDisabled_SendsPayoutsDisabledNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -183,8 +193,10 @@ func TestNotifier_PayoutsDisabled_SendsPayoutsDisabledNotif(t *testing.T) {
 
 func TestNotifier_SameState_NoNotification(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -197,10 +209,11 @@ func TestNotifier_SameState_NoNotification(t *testing.T) {
 
 func TestNotifier_CurrentlyDueAdded_SendsRequirementsNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
-		CurrentlyDueHash: "",
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
+		CurrentlyDueHash:        "",
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -217,8 +230,8 @@ func TestNotifier_CurrentlyDueAdded_SendsRequirementsNotif(t *testing.T) {
 func TestNotifier_MultipleCurrentlyDue_DuringInitialOnboarding_NoRequirementNotif(t *testing.T) {
 	// On the very first webhook with no prior state and no activation
 	// yet, the requirement notifications must be suppressed — the user
-	// is on the KYC page filling things out and the page itself
-	// surfaces requirements. Spamming the bell is what we are fixing.
+	// is on the KYC page filling things out and the page itself surfaces
+	// requirements. Spamming the bell is what we are fixing.
 	n, sink, _ := newTestNotifier(nil)
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = false
@@ -234,9 +247,10 @@ func TestNotifier_MultipleCurrentlyDue_DuringInitialOnboarding_NoRequirementNoti
 
 func TestNotifier_MultipleCurrentlyDue_AfterActivation_PluralizesCorrectly(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -256,10 +270,11 @@ func TestNotifier_MultipleCurrentlyDue_AfterActivation_PluralizesCorrectly(t *te
 
 func TestNotifier_CurrentlyDueSameHash_NoNotification(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
-		CurrentlyDueHash: "individual.verification.document",
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
+		CurrentlyDueHash:        "individual.verification.document",
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -273,9 +288,10 @@ func TestNotifier_CurrentlyDueSameHash_NoNotification(t *testing.T) {
 
 func TestNotifier_PastDueAdded_SendsUrgentNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -291,9 +307,10 @@ func TestNotifier_PastDueAdded_SendsUrgentNotif(t *testing.T) {
 
 func TestNotifier_DocumentRejected_SendsDocRejectionNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -316,9 +333,10 @@ func TestNotifier_DocumentRejected_SendsDocRejectionNotif(t *testing.T) {
 func TestNotifier_DocumentBlurry_FriendlyMessage(t *testing.T) {
 	// Prior activation required for document-error notifs to fire.
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -341,9 +359,10 @@ func TestNotifier_DocumentBlurry_FriendlyMessage(t *testing.T) {
 
 func TestNotifier_ErrorFraudulent_NeutralMessage(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -365,9 +384,10 @@ func TestNotifier_ErrorFraudulent_NeutralMessage(t *testing.T) {
 
 func TestNotifier_UnknownErrorCode_UsesGenericFallback(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -389,10 +409,11 @@ func TestNotifier_UnknownErrorCode_UsesGenericFallback(t *testing.T) {
 
 func TestNotifier_SameErrorCodeTwice_NoRepeatNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
-		ErrorCodes:       []string{"individual.verification.document:verification_document_expired"},
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
+		ErrorCodes:              []string{"individual.verification.document:verification_document_expired"},
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -408,10 +429,11 @@ func TestNotifier_SameErrorCodeTwice_NoRepeatNotif(t *testing.T) {
 
 func TestNotifier_NewErrorAfterOldOne_OnlyNewTriggers(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
-		ErrorCodes:       []string{"individual.verification.document:verification_document_expired"},
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
+		ErrorCodes:              []string{"individual.verification.document:verification_document_expired"},
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -429,9 +451,10 @@ func TestNotifier_NewErrorAfterOldOne_OnlyNewTriggers(t *testing.T) {
 
 func TestNotifier_AccountDisabled_SendsDisabledNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = false
@@ -468,21 +491,34 @@ func TestNotifier_SameDisabledReason_NoRepeat(t *testing.T) {
 }
 
 func TestNotifier_Cooldown_SuppressesSecondCall(t *testing.T) {
+	// Use a payouts-disabled→enabled transition (the cooldown bucket
+	// is per Key="payouts_disabled"). On the first transition we go
+	// from PayoutsEnabled=false→true, which fires "payouts_disabled"
+	// nothing — let's actually exercise an existing already-activated
+	// account suspending then resuming charges.
 	n, sink, store := newTestNotifier(&LastAccountState{
-		ChargesEnabled: false,
-		PayoutsEnabled: false,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_1")
-	snap.ChargesEnabled = true
+	snap.ChargesEnabled = false
 	snap.PayoutsEnabled = true
 
-	// First call — activation notif sent
+	// First call — charges_disabled notif sent
 	err := n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
 	require.Len(t, sink.calls, 1)
+	assert.Contains(t, sink.calls[0].title, "Paiements entrants")
 
 	// Reset store.prev to trigger the transition again
-	store.prev = &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}
+	store.prev = &LastAccountState{
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
+	}
 
 	// Second call with same transition — should be suppressed by cooldown
 	err = n.HandleAccountSnapshot(context.Background(), snap)
@@ -492,11 +528,20 @@ func TestNotifier_Cooldown_SuppressesSecondCall(t *testing.T) {
 
 func TestNotifier_Cooldown_ExpiresAfterTTL(t *testing.T) {
 	sink := &fakeSink{}
-	store := &fakeUserStore{orgID: uuid.New(), ownerUserID: uuid.New(), prev: &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}}
+	store := &fakeUserStore{
+		orgID:       uuid.New(),
+		ownerUserID: uuid.New(),
+		prev: &LastAccountState{
+			ChargesEnabled:          true,
+			PayoutsEnabled:          true,
+			HasEverActivated:        true,
+			HasPayoutsEverActivated: true,
+		},
+	}
 	n := NewNotifier(sink, store, 10*time.Millisecond)
 
 	snap := snapshot("acct_1")
-	snap.ChargesEnabled = true
+	snap.ChargesEnabled = false
 	snap.PayoutsEnabled = true
 
 	err := n.HandleAccountSnapshot(context.Background(), snap)
@@ -504,7 +549,12 @@ func TestNotifier_Cooldown_ExpiresAfterTTL(t *testing.T) {
 	require.Len(t, sink.calls, 1)
 
 	time.Sleep(20 * time.Millisecond)
-	store.prev = &LastAccountState{ChargesEnabled: false, PayoutsEnabled: false}
+	store.prev = &LastAccountState{
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
+	}
 
 	err = n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
@@ -611,8 +661,11 @@ func TestNotifier_MetadataContainsAccountID(t *testing.T) {
 
 	err := n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
-	require.Len(t, sink.calls, 1)
-	assert.Equal(t, "acct_xyz", sink.calls[0].meta["account_id"])
+	// 2 notifs: account_active + payouts_first_activated.
+	require.GreaterOrEqual(t, len(sink.calls), 1)
+	for _, c := range sink.calls {
+		assert.Equal(t, "acct_xyz", c.meta["account_id"])
+	}
 }
 
 func TestNotifier_PersistsNewState(t *testing.T) {
@@ -683,7 +736,8 @@ func TestNotifier_OnboardingState_NoRequirementNotifications(t *testing.T) {
 	err := n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
 
-	// Zero requirement-class notifications: not a single one must fire.
+	// Zero notifications: not a single requirement-class notif must
+	// fire. The user has not yet activated, so the bell stays quiet.
 	for _, c := range sink.calls {
 		assert.NotEqual(t, notifdomain.TypeStripeRequirements, c.typ,
 			"requirement notifs must be suppressed during initial onboarding (got: %s)", c.title)
@@ -691,8 +745,8 @@ func TestNotifier_OnboardingState_NoRequirementNotifications(t *testing.T) {
 
 	// State is still persisted so the next webhook can diff against it.
 	require.NotNil(t, store.saved)
-	assert.False(t, store.saved.HasEverActivated,
-		"latch must remain false until the account hits an active state")
+	assert.False(t, store.saved.HasEverActivated)
+	assert.False(t, store.saved.HasPayoutsEverActivated)
 }
 
 // TestNotifier_AlreadyActivated_RequirementNotificationsFire is the
@@ -702,9 +756,10 @@ func TestNotifier_OnboardingState_NoRequirementNotifications(t *testing.T) {
 // re-attestation).
 func TestNotifier_AlreadyActivated_RequirementNotificationsFire(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled:   true,
-		PayoutsEnabled:   true,
-		HasEverActivated: true,
+		ChargesEnabled:          true,
+		PayoutsEnabled:          true,
+		HasEverActivated:        true,
+		HasPayoutsEverActivated: true,
 	})
 	snap := snapshot("acct_existing")
 	snap.ChargesEnabled = true
@@ -722,6 +777,51 @@ func TestNotifier_AlreadyActivated_RequirementNotificationsFire(t *testing.T) {
 	}
 	assert.True(t, foundReq,
 		"after first activation, requirement notifs must fire on new currently_due")
+}
+
+// TestNotifier_PayoutsFirstActivation_FiresOnce covers Task C: the
+// first time we see PayoutsEnabled flip from false to true, fire the
+// "Virements sortants activés" notification. Subsequent webhooks
+// reporting PayoutsEnabled=true again must NOT re-fire.
+func TestNotifier_PayoutsFirstActivation_FiresOnce(t *testing.T) {
+	// Prev: payouts not yet activated.
+	n, sink, store := newTestNotifier(&LastAccountState{
+		ChargesEnabled:          false,
+		PayoutsEnabled:          false,
+		HasEverActivated:        false,
+		HasPayoutsEverActivated: false,
+	})
+	snap := snapshot("acct_xyz")
+	snap.ChargesEnabled = true
+	snap.PayoutsEnabled = true
+
+	err := n.HandleAccountSnapshot(context.Background(), snap)
+	require.NoError(t, err)
+
+	// Find the payouts-activated notif
+	foundPayoutsActivated := 0
+	for _, c := range sink.calls {
+		if contains(c.title, "Virements sortants activés") {
+			foundPayoutsActivated++
+			assert.Equal(t, "payouts_activated", c.meta["status"])
+		}
+	}
+	assert.Equal(t, 1, foundPayoutsActivated,
+		"first PayoutsEnabled=true transition must fire the activation notif exactly once")
+
+	// Latch must be set on the saved state.
+	require.NotNil(t, store.saved)
+	assert.True(t, store.saved.HasPayoutsEverActivated)
+
+	// Second webhook with the same state — must NOT re-fire.
+	store.prev = store.saved
+	beforeCount := len(sink.calls)
+	err = n.HandleAccountSnapshot(context.Background(), snap)
+	require.NoError(t, err)
+	for _, c := range sink.calls[beforeCount:] {
+		assert.NotContains(t, c.title, "Virements sortants activés",
+			"payouts-first-activated notif must not re-fire after the latch is set")
+	}
 }
 
 /* ----------------------------- utils ----------------------------- */
