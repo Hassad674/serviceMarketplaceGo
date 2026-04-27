@@ -227,6 +227,9 @@ func (f *handlerFakeStorage) GetPresignedUploadURL(_ context.Context, key string
 func (f *handlerFakeStorage) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
 	return "https://r2.test/download/" + key, nil
 }
+func (f *handlerFakeStorage) GetPresignedDownloadURLAsAttachment(_ context.Context, key string, filename string, _ time.Duration) (string, error) {
+	return "https://r2.test/download/" + key + "?response-content-disposition=attachment%3B+filename%3D%22" + filename + "%22", nil
+}
 func (f *handlerFakeStorage) Download(_ context.Context, _ string) ([]byte, error) {
 	return nil, nil
 }

@@ -127,3 +127,30 @@ func (s *StorageService) GetPresignedDownloadURL(ctx context.Context, key string
 	}
 	return result.URL, nil
 }
+
+// GetPresignedDownloadURLAsAttachment is identical to
+// GetPresignedDownloadURL but adds a `ResponseContentDisposition`
+// override on the GetObject input. The S3-compatible signer adds it to
+// the URL as the standard `response-content-disposition` query
+// parameter, which R2/MinIO honor by replaying as the response header.
+// The browser then saves the file under `filename` instead of
+// rendering it inline. The filename is quoted to keep spaces/special
+// characters safe; callers should pass a sanitized base filename
+// (e.g. "FAC-000123.pdf").
+func (s *StorageService) GetPresignedDownloadURLAsAttachment(
+	ctx context.Context,
+	key string,
+	filename string,
+	expiry time.Duration,
+) (string, error) {
+	disposition := fmt.Sprintf("attachment; filename=%q", filename)
+	result, err := s.presigner.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket:                     aws.String(s.bucket),
+		Key:                        aws.String(key),
+		ResponseContentDisposition: aws.String(disposition),
+	}, s3.WithPresignExpires(expiry))
+	if err != nil {
+		return "", fmt.Errorf("s3 presign download as attachment %q: %w", key, err)
+	}
+	return result.URL, nil
+}

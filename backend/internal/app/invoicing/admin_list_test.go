@@ -32,6 +32,24 @@ func newAdminListService(t *testing.T, repo *mockInvoiceRepo) *invoicingapp.Serv
 	})
 }
 
+// newAdminListServiceWithStorage is the same as newAdminListService but
+// returns the underlying mock storage so individual tests can inspect
+// the attachment filename that was passed to it.
+func newAdminListServiceWithStorage(t *testing.T, repo *mockInvoiceRepo) (*invoicingapp.Service, *mockStorage) {
+	t.Helper()
+	storage := &mockStorage{}
+	svc := invoicingapp.NewService(invoicingapp.ServiceDeps{
+		Invoices:    repo,
+		Profiles:    &mockProfileRepo{},
+		PDF:         &mockPDF{},
+		Storage:     storage,
+		Deliverer:   &mockDeliverer{},
+		Issuer:      defaultIssuer(),
+		Idempotency: &mockIdempotency{},
+	})
+	return svc, storage
+}
+
 func TestAdminListInvoices_PassesFiltersThrough(t *testing.T) {
 	orgID := uuid.New()
 	from := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
@@ -119,13 +137,19 @@ func TestAdminGetInvoicePDF_InvoiceBranch(t *testing.T) {
 	repo := &mockInvoiceRepo{
 		findByIDFn: func(_ context.Context, queryID uuid.UUID) (*invoicing.Invoice, error) {
 			assert.Equal(t, id, queryID)
-			return &invoicing.Invoice{ID: id, PDFR2Key: "invoices/x/FAC-1.pdf"}, nil
+			return &invoicing.Invoice{ID: id, Number: "FAC-000123", PDFR2Key: "invoices/x/FAC-1.pdf"}, nil
 		},
 	}
-	svc := newAdminListService(t, repo)
+	svc, storage := newAdminListServiceWithStorage(t, repo)
 	url, err := svc.AdminGetInvoicePDF(context.Background(), id, false, 5*time.Minute)
 	require.NoError(t, err)
-	assert.Equal(t, "https://r2.test/download/invoices/x/FAC-1.pdf", url)
+	// The URL now carries the response-content-disposition override so
+	// the browser triggers a file save. The filename uses the
+	// human-readable invoice number, not the opaque R2 key.
+	assert.Contains(t, url, "https://r2.test/download/invoices/x/FAC-1.pdf")
+	assert.Contains(t, url, "response-content-disposition=attachment")
+	assert.Equal(t, "FAC-000123.pdf", storage.lastAttachmentFilename)
+	assert.Equal(t, "invoices/x/FAC-1.pdf", storage.lastAttachmentKey)
 }
 
 func TestAdminGetInvoicePDF_CreditNoteBranch(t *testing.T) {
@@ -133,13 +157,18 @@ func TestAdminGetInvoicePDF_CreditNoteBranch(t *testing.T) {
 	repo := &mockInvoiceRepo{
 		findCnByIDFn: func(_ context.Context, queryID uuid.UUID) (*invoicing.CreditNote, error) {
 			assert.Equal(t, id, queryID)
-			return &invoicing.CreditNote{ID: id, PDFR2Key: "credit-notes/x/AV-1.pdf"}, nil
+			return &invoicing.CreditNote{ID: id, Number: "AV-000045", PDFR2Key: "credit-notes/x/AV-1.pdf"}, nil
 		},
 	}
-	svc := newAdminListService(t, repo)
+	svc, storage := newAdminListServiceWithStorage(t, repo)
 	url, err := svc.AdminGetInvoicePDF(context.Background(), id, true, 0)
 	require.NoError(t, err)
-	assert.Equal(t, "https://r2.test/download/credit-notes/x/AV-1.pdf", url)
+	// Credit notes follow the same attachment-disposition rule with
+	// the AV-* number as filename.
+	assert.Contains(t, url, "https://r2.test/download/credit-notes/x/AV-1.pdf")
+	assert.Contains(t, url, "response-content-disposition=attachment")
+	assert.Equal(t, "AV-000045.pdf", storage.lastAttachmentFilename)
+	assert.Equal(t, "credit-notes/x/AV-1.pdf", storage.lastAttachmentKey)
 }
 
 func TestAdminGetInvoicePDF_NotFoundIsTransparent(t *testing.T) {

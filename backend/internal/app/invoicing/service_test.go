@@ -186,6 +186,10 @@ type mockStorage struct {
 	uploadCalls    int
 	lastUploadKey  string
 	lastUploadSize int64
+	// Captured by GetPresignedDownloadURLAsAttachment so tests can
+	// assert the handler passes the right human-readable filename.
+	lastAttachmentKey      string
+	lastAttachmentFilename string
 }
 
 func (m *mockStorage) Upload(ctx context.Context, key string, reader io.Reader, contentType string, size int64) (string, error) {
@@ -217,6 +221,11 @@ func (m *mockStorage) GetPresignedUploadURL(ctx context.Context, key string, con
 }
 func (m *mockStorage) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
 	return "https://r2.test/download/" + key, nil
+}
+func (m *mockStorage) GetPresignedDownloadURLAsAttachment(_ context.Context, key string, filename string, _ time.Duration) (string, error) {
+	m.lastAttachmentKey = key
+	m.lastAttachmentFilename = filename
+	return "https://r2.test/download/" + key + "?response-content-disposition=attachment%3B+filename%3D%22" + filename + "%22", nil
 }
 func (m *mockStorage) Download(ctx context.Context, key string) ([]byte, error) {
 	if m.downloadFn != nil {

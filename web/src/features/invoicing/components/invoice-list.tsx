@@ -93,10 +93,12 @@ function InvoiceRow({ invoice }: { invoice: Invoice }) {
       </p>
       <a
         href={getInvoicePDFURL(invoice.id)}
-        // The handler issues a 302 to a presigned URL, so the
-        // browser handles the download natively. `download` hints
-        // the dialog rather than navigating away.
-        download
+        // The backend now signs the presigned URL with
+        // `Content-Disposition: attachment; filename=<number>.pdf`,
+        // which forces the browser to save the file. The `download`
+        // attribute is defense-in-depth (browsers ignore it for
+        // cross-origin links, so the server header is the actual fix).
+        download={`${invoice.number}.pdf`}
         rel="noopener noreferrer"
         className={cn(
           "inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5",

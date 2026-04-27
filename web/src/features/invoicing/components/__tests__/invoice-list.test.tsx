@@ -73,6 +73,11 @@ describe("InvoiceList", () => {
 
     const downloadLink = screen.getAllByRole("link", { name: /Télécharger/i })[0]
     expect(downloadLink).toHaveAttribute("href", expect.stringContaining("/api/v1/me/invoices/inv-1/pdf"))
+    // The download attribute carries the human-readable filename so
+    // that even if the server's Content-Disposition header is stripped
+    // (e.g. by an in-between proxy), the browser still saves the file
+    // under the invoice number.
+    expect(downloadLink).toHaveAttribute("download", "FA-2026-0001.pdf")
   })
 
   it("shows a `Voir plus` button when next_cursor is present", async () => {

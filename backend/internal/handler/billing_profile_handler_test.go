@@ -109,6 +109,9 @@ func (bpFakeStorage) GetPresignedUploadURL(_ context.Context, key string, _ stri
 func (bpFakeStorage) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
 	return "https://r2.test/download/" + key, nil
 }
+func (bpFakeStorage) GetPresignedDownloadURLAsAttachment(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
+	return "https://r2.test/download/" + key, nil
+}
 func (bpFakeStorage) Download(_ context.Context, _ string) ([]byte, error) { return nil, nil }
 
 type bpFakePDF struct{}

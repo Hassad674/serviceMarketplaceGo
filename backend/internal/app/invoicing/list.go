@@ -90,7 +90,12 @@ func (s *Service) GetInvoicePDFURL(ctx context.Context, organizationID, invoiceI
 	if inv.PDFR2Key == "" {
 		return "", fmt.Errorf("get invoice pdf: invoice has no stored PDF key")
 	}
-	url, err := s.storage.GetPresignedDownloadURL(ctx, inv.PDFR2Key, expiry)
+	// Signed URL is generated with Content-Disposition: attachment so
+	// the browser saves the file under "<number>.pdf" instead of
+	// rendering it inline in a new tab when the user clicks
+	// "Télécharger PDF".
+	filename := inv.Number + ".pdf"
+	url, err := s.storage.GetPresignedDownloadURLAsAttachment(ctx, inv.PDFR2Key, filename, expiry)
 	if err != nil {
 		return "", fmt.Errorf("get invoice pdf: presign: %w", err)
 	}

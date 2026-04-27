@@ -46,7 +46,7 @@ func (s *Service) AdminGetInvoicePDF(ctx context.Context, id uuid.UUID, isCredit
 		expiry = 5 * time.Minute
 	}
 
-	var pdfKey string
+	var pdfKey, number string
 	if isCreditNote {
 		cn, err := s.invoices.FindCreditNoteByID(ctx, id)
 		if err != nil {
@@ -56,6 +56,7 @@ func (s *Service) AdminGetInvoicePDF(ctx context.Context, id uuid.UUID, isCredit
 			return "", fmt.Errorf("admin get invoice pdf: load credit note: %w", err)
 		}
 		pdfKey = cn.PDFR2Key
+		number = cn.Number
 	} else {
 		inv, err := s.invoices.FindInvoiceByID(ctx, id)
 		if err != nil {
@@ -65,13 +66,18 @@ func (s *Service) AdminGetInvoicePDF(ctx context.Context, id uuid.UUID, isCredit
 			return "", fmt.Errorf("admin get invoice pdf: load invoice: %w", err)
 		}
 		pdfKey = inv.PDFR2Key
+		number = inv.Number
 	}
 
 	if pdfKey == "" {
 		return "", fmt.Errorf("admin get invoice pdf: row has no stored PDF key")
 	}
 
-	url, err := s.storage.GetPresignedDownloadURL(ctx, pdfKey, expiry)
+	// Use the attachment variant so admins clicking the row trigger a
+	// browser download dialog (with the human-readable invoice/credit-note
+	// number as filename) rather than the file being rendered inline.
+	filename := number + ".pdf"
+	url, err := s.storage.GetPresignedDownloadURLAsAttachment(ctx, pdfKey, filename, expiry)
 	if err != nil {
 		return "", fmt.Errorf("admin get invoice pdf: presign: %w", err)
 	}

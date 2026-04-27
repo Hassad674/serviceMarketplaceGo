@@ -531,6 +531,10 @@ func (m *mockStorageService) GetPresignedDownloadURL(_ context.Context, key stri
 	return "https://storage.example.com/download/" + key, nil
 }
 
+func (m *mockStorageService) GetPresignedDownloadURLAsAttachment(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
+	return "https://storage.example.com/download/" + key, nil
+}
+
 func (m *mockStorageService) Download(_ context.Context, _ string) ([]byte, error) {
 	return nil, nil
 }
