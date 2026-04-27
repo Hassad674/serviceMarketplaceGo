@@ -135,11 +135,20 @@ func (s *Service) IssueFromSubscription(ctx context.Context, in IssueFromSubscri
 		"stripe_invoice_id", in.StripeInvoiceID,
 	)
 
-	// 1. Idempotency claim. A duplicate event is a SUCCESS — Stripe
-	// retries on transient 5xx, and we do not want to issue a second
-	// invoice on the same payment.
+	// 1. Idempotency claim. A duplicate call is a SUCCESS — webhook
+	// replays, manual CLI re-runs, and racing scheduler ticks must
+	// never burn a second invoice number for the same event.
+	//
+	// IMPORTANT: the webhook dispatcher (stripe_handler.go ServeHTTP)
+	// already claims the bare event id at the gateway level, so we
+	// MUST namespace our key here — otherwise webhook → dispatcher →
+	// IssueFromSubscription would always see the inner claim fail
+	// because the dispatcher already wrote the same key. The
+	// "invoicing:issue_from_sub:" prefix isolates this flow's idempotency
+	// from the dispatcher's and from sibling flows (credit notes,
+	// monthly batch).
 	if s.idempotency != nil && in.StripeEventID != "" {
-		claimed, cErr := s.idempotency.TryClaim(ctx, in.StripeEventID)
+		claimed, cErr := s.idempotency.TryClaim(ctx, "invoicing:issue_from_sub:"+in.StripeEventID)
 		if cErr != nil {
 			// Redis blip — fall through to the DB-level dedup probe.
 			logger.Warn("invoicing: idempotency claim error, falling through to db dedup", "error", cErr)

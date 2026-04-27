@@ -453,6 +453,48 @@ func TestIssueFromSubscription_IdempotencyReplay_ShortCircuits(t *testing.T) {
 	assert.Empty(t, invRepo.persistedInvoices, "no persistence on duplicate")
 }
 
+func TestIssueFromSubscription_KeyIsNamespaced_NotCollidingWithGatewayClaim(t *testing.T) {
+	// Regression: the webhook dispatcher (stripe_handler.go) claims the
+	// bare event_id at gateway level for ALL events, then dispatches.
+	// Before this fix, IssueFromSubscription re-claimed the SAME bare
+	// event_id, so the inner claim always failed on webhook-driven calls
+	// and the invoice was silently skipped as a "duplicate".
+	//
+	// The inner claim must use a feature-namespaced key so the two
+	// idempotency layers protect against different replay axes without
+	// stomping on each other.
+	svc, _, profileRepo, _, _, _, idem := newSvc(t)
+	orgID := uuid.New()
+	rawEventID := "evt_test_no_collision"
+	gatewayClaimedKey := rawEventID
+
+	// Simulate the gateway already having claimed the bare event id.
+	// Inner claim with the bare key would fail; inner claim with a
+	// namespaced key must succeed.
+	var receivedKey string
+	idem.tryClaimFn = func(_ context.Context, key string) (bool, error) {
+		receivedKey = key
+		if key == gatewayClaimedKey {
+			return false, nil // gateway-style raw key — would fail here
+		}
+		return true, nil
+	}
+	profileRepo.findByOrgFn = func(_ context.Context, _ uuid.UUID) (*invoicing.BillingProfile, error) {
+		return frProfile(orgID), nil
+	}
+
+	in := defaultInput(orgID)
+	in.StripeEventID = rawEventID
+	out, err := svc.IssueFromSubscription(context.Background(), in)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, out, "must produce an invoice — not skipped as duplicate")
+	assert.NotEqual(t, rawEventID, receivedKey,
+		"inner TryClaim MUST use a namespaced key, not the bare event id")
+	assert.Contains(t, receivedKey, rawEventID,
+		"namespaced key still includes the event id for traceability")
+}
+
 func TestIssueFromSubscription_DBLevelDedup_ReturnsExistingWithoutReissue(t *testing.T) {
 	svc, invRepo, _, pdf, storage, deliverer, _ := newSvc(t)
 	orgID := uuid.New()

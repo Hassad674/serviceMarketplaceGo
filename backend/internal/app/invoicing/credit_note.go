@@ -94,8 +94,12 @@ func (s *Service) IssueCreditNote(ctx context.Context, in IssueCreditNoteInput) 
 // caller should proceed with the issuance pipeline; (nil, false, err)
 // only when the DB probe itself fails (Redis blip alone falls through).
 func (s *Service) creditNoteDedup(ctx context.Context, stripeEventID string, logger *slog.Logger) (*invoicing.CreditNote, bool, error) {
+	// Namespace the key so this flow's idempotency does NOT collide
+	// with the outer webhook dispatcher's (which claims the bare
+	// event id at gateway level for ALL events). Without the prefix
+	// the inner claim always fails on webhook-driven calls.
 	if s.idempotency != nil && stripeEventID != "" {
-		claimed, cErr := s.idempotency.TryClaim(ctx, stripeEventID)
+		claimed, cErr := s.idempotency.TryClaim(ctx, "invoicing:credit_note:"+stripeEventID)
 		if cErr != nil {
 			logger.Warn("invoicing: idempotency claim error, falling through to db dedup", "error", cErr)
 		} else if !claimed {
