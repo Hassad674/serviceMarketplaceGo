@@ -174,15 +174,16 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Aucune facture pour le moment',
+            'Aucune facture archivée',
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'Tes factures apparaîtront ici dès qu\'une opération '
-            'facturable sera enregistrée.',
+            'La facture consolidée des commissions du mois en cours sera '
+            'émise automatiquement le 1er du mois suivant. Les factures '
+            "d'abonnement Premium apparaîtront dès le premier paiement.",
             textAlign: TextAlign.center,
             style: theme.textTheme.bodySmall,
           ),

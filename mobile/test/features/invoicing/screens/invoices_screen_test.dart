@@ -35,7 +35,7 @@ Widget _wrap({
 }
 
 void main() {
-  testWidgets('empty state shows "Aucune facture pour le moment"',
+  testWidgets('empty state explains the monthly consolidation cadence',
       (tester) async {
     final repo = RecordingInvoicingRepository();
     await tester.pumpWidget(
@@ -46,7 +46,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Aucune facture pour le moment'), findsOneWidget);
+    expect(find.text('Aucune facture archivée'), findsOneWidget);
+    expect(
+      find.textContaining('1er du mois suivant'),
+      findsOneWidget,
+      reason: 'must explain the monthly batch cadence so users do not '
+          'think their delivered milestone is missing an invoice',
+    );
   });
 
   testWidgets('data state renders the aggregate card and the invoice rows',

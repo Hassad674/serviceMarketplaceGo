@@ -135,11 +135,12 @@ function EmptyState() {
         aria-hidden="true"
       />
       <h2 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">
-        Aucune facture pour le moment
+        Aucune facture archivée
       </h2>
       <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Tes factures apparaîtront ici dès qu&apos;une opération facturable
-        sera enregistrée (abonnement Premium ou commissions mensuelles).
+        La facture consolidée des commissions du mois en cours sera émise
+        automatiquement le 1er du mois suivant. Les factures d&apos;abonnement
+        Premium apparaîtront dès le premier paiement.
       </p>
     </div>
   )

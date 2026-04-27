@@ -36,7 +36,7 @@ describe("InvoiceList", () => {
     render(withQueryClient(<InvoiceList />))
     await waitFor(() =>
       expect(
-        screen.getByText(/Aucune facture pour le moment/i),
+        screen.getByText(/Aucune facture archivée/i),
       ).toBeInTheDocument(),
     )
   })
