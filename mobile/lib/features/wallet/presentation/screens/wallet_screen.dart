@@ -176,6 +176,25 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
           const SnackBar(content: Text('Transfer retried')),
         );
       }
+    } on DioException catch (e) {
+      // 412 provider_kyc_incomplete is the most common real-world
+      // failure mode (account exists but payouts_enabled=false because
+      // KYC validation is still pending). Surface the same modal as the
+      // payout flow so the user has a one-tap path to /payment-info
+      // instead of a generic snackbar dead-end.
+      if (_isKYCIncomplete(e)) {
+        if (mounted) {
+          await _showKYCIncompleteDialog(
+            message:
+                'Termine ton onboarding Stripe pour pouvoir recevoir le virement.',
+          );
+        }
+      } else if (mounted) {
+        final code = _errorCode(e);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_retryFailureCopy(code))),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -184,6 +203,43 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
       }
     } finally {
       if (mounted) setState(() => _retryingRecordId = null);
+    }
+  }
+
+  /// Returns true when the 412 envelope carries the
+  /// `provider_kyc_incomplete` discriminator. Distinct from the
+  /// `kyc_incomplete` code returned by the payout flow because they
+  /// fire on different gates with the same UX outcome (push the user
+  /// to /payment-info).
+  bool _isKYCIncomplete(DioException e) {
+    if (e.response?.statusCode != 412) return false;
+    return _errorCode(e) == 'provider_kyc_incomplete';
+  }
+
+  /// Reads `error` off the flat envelope produced by pkg/response.Error.
+  String _errorCode(DioException e) {
+    final body = e.response?.data;
+    if (body is Map && body['error'] is String) {
+      return body['error'] as String;
+    }
+    return '';
+  }
+
+  /// Maps the backend error code to the user-facing copy. Anything we
+  /// don't recognise falls through to the generic upstream-failure
+  /// message instead of dumping the raw exception.
+  String _retryFailureCopy(String code) {
+    switch (code) {
+      case 'transfer_not_retriable':
+        return 'Ce transfert ne peut plus être relancé — la mission doit être terminée et le précédent transfert en échec.';
+      case 'stripe_account_missing':
+        return "Configure d'abord tes informations de paiement avant de relancer ce transfert.";
+      case 'payment_record_not_found':
+        return 'Ce transfert est introuvable.';
+      case 'retry_failed':
+        return 'Le virement a de nouveau échoué côté Stripe. Réessaie dans quelques minutes ou contacte le support.';
+      default:
+        return 'Erreur lors de la nouvelle tentative.';
     }
   }
 
