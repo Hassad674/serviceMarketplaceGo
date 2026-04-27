@@ -14,11 +14,16 @@ import '../entities/subscription_stats.dart';
 /// subscription (backend responds 404 `no_subscription`). That is the
 /// free-tier happy path and must NOT surface as an error to callers.
 abstract class SubscriptionRepository {
-  /// Starts a Stripe Checkout session for the chosen plan + cycle.
+  /// Starts a Stripe Embedded Checkout session for the chosen plan +
+  /// cycle and returns its client_secret.
   ///
-  /// Returns the Stripe-hosted checkout URL — the mobile client is
-  /// expected to open it in an external browser / web view. Phase 5C
-  /// wires the url launcher; this method only returns the URL.
+  /// On the current mobile flow the client_secret is consumed by the
+  /// in-app WebView pointed at our /subscribe/embed page (which mounts
+  /// the same secret via @stripe/react-stripe-js), so callers don't
+  /// need to mutate this directly anymore — the WebView opens the
+  /// embed URL with plan/cycle/auto_renew query params and the web
+  /// page calls this endpoint itself. Kept on the interface for
+  /// completeness + integration tests.
   Future<String> subscribe({
     required Plan plan,
     required BillingCycle billingCycle,

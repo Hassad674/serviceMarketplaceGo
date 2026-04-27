@@ -15,9 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	invoicingapp "marketplace-backend/internal/app/invoicing"
 	appsub "marketplace-backend/internal/app/subscription"
-	domaininv "marketplace-backend/internal/domain/invoicing"
 	domain "marketplace-backend/internal/domain/subscription"
 	domainuser "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler"
@@ -116,7 +114,10 @@ func (s *subHandlerStripe) EnsureCustomer(_ context.Context, _, _, _ string) (st
 	return "cus_test", nil
 }
 func (s *subHandlerStripe) CreateCheckoutSession(_ context.Context, in service.CreateCheckoutSessionInput) (string, error) {
-	return "https://checkout.stripe.test/" + in.PriceID, nil
+	return "cs_test_" + in.PriceID, nil
+}
+func (s *subHandlerStripe) EnrichCustomerWithBillingProfile(_ context.Context, _ string, _ service.BillingProfileStripeSnapshot) error {
+	return nil
 }
 func (s *subHandlerStripe) ResolvePriceID(_ context.Context, lookupKey string) (string, error) {
 	return "price_" + lookupKey, nil
@@ -186,9 +187,8 @@ func newSubTestHandler(t *testing.T) (*handler.SubscriptionHandler, *subHandlerS
 		Stripe:        &subHandlerStripe{},
 		LookupKeys:    appsub.DefaultLookupKeys(),
 		URLs: appsub.URLs{
-			CheckoutSuccess: "https://app.test/billing/success",
-			CheckoutCancel:  "https://app.test/billing/cancel",
-			PortalReturn:    "https://app.test/billing",
+			CheckoutReturn: "https://app.test/subscribe/return?session_id={CHECKOUT_SESSION_ID}",
+			PortalReturn:   "https://app.test/billing",
 		},
 	})
 	return handler.NewSubscriptionHandler(svc), subRepo, userID, orgID
@@ -223,7 +223,7 @@ func TestSubscribe_Unauthenticated_Returns401(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func TestSubscribe_HappyPath_Returns201WithCheckoutURL(t *testing.T) {
+func TestSubscribe_HappyPath_Returns201WithClientSecret(t *testing.T) {
 	h, _, userID, _ := newSubTestHandler(t)
 	req := authReq(http.MethodPost, "/api/v1/subscriptions", map[string]any{
 		"plan": "freelance", "billing_cycle": "monthly", "auto_renew": false,
@@ -235,7 +235,8 @@ func TestSubscribe_HappyPath_Returns201WithCheckoutURL(t *testing.T) {
 	require.Equal(t, http.StatusCreated, rec.Code)
 	var body map[string]string
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-	assert.Contains(t, body["checkout_url"], "checkout.stripe.test")
+	assert.Contains(t, body["client_secret"], "cs_test_")
+	assert.Empty(t, body["checkout_url"], "checkout_url field must not appear in the response anymore")
 }
 
 func TestSubscribe_InvalidPlan_Returns400(t *testing.T) {
@@ -261,28 +262,15 @@ func TestSubscribe_MalformedJSON_Returns400(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func TestSubscribe_BillingProfileIncomplete_403(t *testing.T) {
-	// When the invoicing module is wired, /subscriptions must refuse to
-	// create a checkout session if the org's billing profile is
-	// incomplete. The body shape is the canonical
-	// {error:{code:"billing_profile_incomplete"}, missing_fields:[]}.
+func TestSubscribe_NoServerSideBillingProfileGate(t *testing.T) {
+	// Regression contract: the legacy 403 billing_profile_incomplete
+	// gate that used to live on POST /api/v1/subscriptions has moved to
+	// the Embedded Checkout modal (step 1 of the inline UX). The API
+	// must therefore accept subscribes even when the org has no
+	// billing_profile row yet — Stripe's checkout collects nothing and
+	// our front-end form is responsible for filling the profile before
+	// transitioning to the payment step.
 	h, _, userID, _ := newSubTestHandler(t)
-
-	// Build an invoicing service with an empty profile repo (every
-	// FindByOrganization yields ErrNotFound → empty stub →
-	// incomplete) and bolt it onto the existing handler via
-	// WithInvoicing.
-	profiles := newBPRepo()
-	invSvc := invoicingapp.NewService(invoicingapp.ServiceDeps{
-		Invoices:    bpFakeInvoiceRepo{},
-		Profiles:    profiles,
-		PDF:         bpFakePDF{},
-		Storage:     bpFakeStorage{},
-		Deliverer:   bpFakeDeliverer{},
-		Issuer:      domaininv.IssuerInfo{Country: "FR", LegalName: "Issuer"},
-		Idempotency: bpFakeIdempotency{},
-	})
-	h = h.WithInvoicing(invSvc)
 
 	req := authReq(http.MethodPost, "/api/v1/subscriptions", map[string]any{
 		"plan": "freelance", "billing_cycle": "monthly", "auto_renew": false,
@@ -291,11 +279,11 @@ func TestSubscribe_BillingProfileIncomplete_403(t *testing.T) {
 
 	h.Subscribe(rec, req)
 
-	assert.Equal(t, http.StatusForbidden, rec.Code)
+	require.Equal(t, http.StatusCreated, rec.Code)
 	var body map[string]any
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
-	errObj, _ := body["error"].(map[string]any)
-	assert.Equal(t, "billing_profile_incomplete", errObj["code"])
+	assert.NotEmpty(t, body["client_secret"])
+	assert.NotContains(t, body, "missing_fields")
 }
 
 func TestSubscribe_AlreadySubscribed_Returns409(t *testing.T) {

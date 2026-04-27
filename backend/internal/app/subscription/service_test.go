@@ -42,9 +42,8 @@ func newTestService() (*appsub.Service, *mockSubRepo, *mockUserRepo, *mockAmount
 		Stripe:        stripe,
 		LookupKeys:    appsub.DefaultLookupKeys(),
 		URLs: appsub.URLs{
-			CheckoutSuccess: "https://app.test/billing/success",
-			CheckoutCancel:  "https://app.test/billing/cancel",
-			PortalReturn:    "https://app.test/billing",
+			CheckoutReturn: "https://app.test/subscribe/return?session_id={CHECKOUT_SESSION_ID}",
+			PortalReturn:   "https://app.test/billing",
 		},
 	})
 	return svc, subs, users, amounts, stripe
@@ -64,7 +63,7 @@ func TestSubscribe_HappyPath_FreelanceMonthlyNoAutoRenew(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.NotEmpty(t, out.CheckoutURL)
+	require.NotEmpty(t, out.ClientSecret)
 	require.NotNil(t, stripe.lastCreateCheckoutInput)
 	assert.True(t, stripe.lastCreateCheckoutInput.CancelAtPeriodEnd,
 		"AutoRenew=false MUST send cancel_at_period_end=true to Stripe")
@@ -84,7 +83,7 @@ func TestSubscribe_HappyPath_AgencyAnnualAutoRenewOn(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.NotEmpty(t, out.CheckoutURL)
+	require.NotEmpty(t, out.ClientSecret)
 	assert.False(t, stripe.lastCreateCheckoutInput.CancelAtPeriodEnd,
 		"AutoRenew=true MUST send cancel_at_period_end=false to Stripe")
 	assert.Contains(t, stripe.lastCreateCheckoutInput.PriceID, "premium_agency_annual")
@@ -115,6 +114,133 @@ func TestSubscribe_RejectsInvalidCycle(t *testing.T) {
 
 	assert.ErrorIs(t, err, domain.ErrInvalidCycle)
 }
+
+// ---------- Customer enrichment from billing_profile ----------
+
+// fakeBillingReader returns a configurable snapshot to drive the
+// enrichment branches inside Subscribe. errFn is set when a test wants
+// to assert the error path is logged + swallowed (best-effort).
+type fakeBillingReader struct {
+	snap service.BillingProfileStripeSnapshot
+	err  error
+}
+
+func (f *fakeBillingReader) GetBillingProfileSnapshotForStripe(_ context.Context, _ uuid.UUID) (service.BillingProfileStripeSnapshot, error) {
+	return f.snap, f.err
+}
+
+func TestSubscribe_PushesBillingProfileToStripeBeforeCreatingSession(t *testing.T) {
+	// Happy path: a billing profile reader returning a populated
+	// snapshot must trigger exactly one EnrichCustomerWithBillingProfile
+	// call, with the snapshot as-is, BEFORE CreateCheckoutSession runs.
+	svc, _, users, _, stripe := newTestService()
+	reader := &fakeBillingReader{
+		snap: service.BillingProfileStripeSnapshot{
+			LegalName:    "Acme Studio",
+			AddressLine1: "1 rue de la Paix",
+			PostalCode:   "75001",
+			City:         "Paris",
+			Country:      "FR",
+		},
+	}
+	svc.SetBillingProfileReader(reader)
+
+	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
+		Plan:           domain.PlanFreelance,
+		BillingCycle:   domain.CycleMonthly,
+	})
+
+	require.NoError(t, err)
+	require.NotEmpty(t, out.ClientSecret)
+	assert.Equal(t, 1, stripe.enrichCallCount, "enrichment must run exactly once")
+	require.NotNil(t, stripe.lastEnrichSnapshot)
+	assert.Equal(t, "Acme Studio", stripe.lastEnrichSnapshot.LegalName)
+	assert.Equal(t, "FR", stripe.lastEnrichSnapshot.Country)
+}
+
+func TestSubscribe_SkipsStripeEnrichmentWhenSnapshotIsEmpty(t *testing.T) {
+	// First-time user: the org has no billing profile yet. The reader
+	// returns a zero-value snapshot — Subscribe must skip the Stripe
+	// Customer.Update entirely so we don't push empty strings that
+	// would clear the customer's existing fields.
+	svc, _, users, _, stripe := newTestService()
+	svc.SetBillingProfileReader(&fakeBillingReader{}) // zero-value snapshot
+
+	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
+		Plan:           domain.PlanFreelance,
+		BillingCycle:   domain.CycleMonthly,
+	})
+
+	require.NoError(t, err)
+	require.NotEmpty(t, out.ClientSecret)
+	assert.Zero(t, stripe.enrichCallCount, "must not call enrichment with an empty snapshot")
+}
+
+func TestSubscribe_LogsAndContinuesWhenStripeEnrichmentFails(t *testing.T) {
+	// Defensive: a failure on the Stripe Customer.Update side MUST NOT
+	// block the subscribe. The Embedded Checkout still works without
+	// the pre-fill, the user just gets a less-prefilled form.
+	svc, _, users, _, stripe := newTestService()
+	svc.SetBillingProfileReader(&fakeBillingReader{
+		snap: service.BillingProfileStripeSnapshot{LegalName: "Acme"},
+	})
+	stripe.enrichCustomerFn = func(_ context.Context, _ string, _ service.BillingProfileStripeSnapshot) error {
+		return errors.New("stripe API hiccup")
+	}
+
+	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
+		Plan:           domain.PlanFreelance,
+		BillingCycle:   domain.CycleMonthly,
+	})
+
+	require.NoError(t, err, "enrichment failure MUST NOT block the subscribe")
+	require.NotEmpty(t, out.ClientSecret)
+}
+
+func TestSubscribe_LogsAndContinuesWhenSnapshotReadFails(t *testing.T) {
+	// Defensive: a failure inside the invoicing module's snapshot read
+	// is also best-effort — Subscribe continues and Stripe gets no
+	// customer enrichment for this attempt.
+	svc, _, users, _, stripe := newTestService()
+	svc.SetBillingProfileReader(&fakeBillingReader{err: errors.New("db unavailable")})
+
+	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
+		Plan:           domain.PlanFreelance,
+		BillingCycle:   domain.CycleMonthly,
+	})
+
+	require.NoError(t, err)
+	require.NotEmpty(t, out.ClientSecret)
+	assert.Zero(t, stripe.enrichCallCount, "snapshot error must short-circuit before Stripe Customer.Update")
+}
+
+func TestSubscribe_NoBillingProfileReaderConfigured(t *testing.T) {
+	// Removable-by-design: when invoicing is disabled (reader nil),
+	// Subscribe still works — Stripe's customer is whatever it is and
+	// the embedded form falls back to what it already has.
+	svc, _, users, _, stripe := newTestService() // reader stays nil
+
+	out, err := svc.Subscribe(context.Background(), appsub.SubscribeInput{
+		OrganizationID: *users.user.OrganizationID,
+		ActorUserID:    users.user.ID,
+		Plan:           domain.PlanFreelance,
+		BillingCycle:   domain.CycleMonthly,
+	})
+
+	require.NoError(t, err)
+	require.NotEmpty(t, out.ClientSecret)
+	assert.Zero(t, stripe.enrichCallCount)
+}
+
+// ---------- Already-subscribed guard ----------
 
 func TestSubscribe_RejectsWhenAlreadySubscribed(t *testing.T) {
 	svc, subs, users, _, _ := newTestService()

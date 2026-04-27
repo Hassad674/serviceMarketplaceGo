@@ -17,11 +17,26 @@ type StripeSubscriptionService interface {
 	// customer already exists.
 	EnsureCustomer(ctx context.Context, userID string, email string, displayName string) (customerID string, err error)
 
-	// CreateCheckoutSession kicks off a Stripe-hosted checkout flow for
-	// the given price. Returns the URL the web/mobile client redirects
-	// to. cancelAtPeriodEnd is forwarded to the created subscription so
-	// the auto-renew-off default is honoured from the very first charge.
-	CreateCheckoutSession(ctx context.Context, in CreateCheckoutSessionInput) (url string, err error)
+	// CreateCheckoutSession kicks off a Stripe Embedded Checkout flow
+	// for the given price. Returns the session client_secret that the
+	// web/mobile client mounts via @stripe/react-stripe-js — there is no
+	// hosted Stripe URL anymore. cancelAtPeriodEnd is forwarded to the
+	// created subscription so the auto-renew-off default is honoured
+	// from the very first charge. BillingAddressCollection is kept on
+	// "auto" (Stripe default) and tax_id collection is disabled — the
+	// caller is expected to have already filled the Stripe Customer's
+	// address via EnrichCustomerWithBillingProfile so Stripe's form has
+	// nothing to re-collect from the user.
+	CreateCheckoutSession(ctx context.Context, in CreateCheckoutSessionInput) (clientSecret string, err error)
+
+	// EnrichCustomerWithBillingProfile pushes the org's billing profile
+	// onto the Stripe Customer record (address, name, email, VAT in
+	// metadata) BEFORE the session is created. Idempotent — every
+	// Subscribe call runs it so the Customer reflects the freshest copy
+	// of our DB. Best-effort: errors are surfaced but the caller is
+	// expected to log + continue, since Embedded Checkout will still
+	// work without the enrichment (it just shows a less-prefilled UI).
+	EnrichCustomerWithBillingProfile(ctx context.Context, customerID string, snap BillingProfileStripeSnapshot) error
 
 	// ResolvePriceID maps a logical lookup key (e.g. "premium_freelance_monthly")
 	// to the Stripe price id. The seed-stripe script creates prices with
@@ -70,15 +85,21 @@ type StripeSubscriptionService interface {
 	CreatePortalSession(ctx context.Context, customerID string, returnURL string) (url string, err error)
 }
 
-// CreateCheckoutSessionInput groups the many parameters Stripe Checkout
-// needs. Each field is required unless noted.
+// CreateCheckoutSessionInput groups the parameters Stripe Embedded
+// Checkout needs. Each field is required unless noted.
 type CreateCheckoutSessionInput struct {
 	OrganizationID    string // internal org id, echoed back via metadata so the webhook can correlate
 	CustomerID        string // Stripe customer id (from EnsureCustomer)
 	PriceID           string // Stripe price id (from ResolvePriceID)
 	CancelAtPeriodEnd bool   // default-off renewal flag
-	SuccessURL        string // where to return after successful payment
-	CancelURL         string // where to return if user bails
+	// ReturnURL is where Stripe redirects the embedded form after a
+	// successful or cancelled payment. Embedded mode uses a SINGLE
+	// return URL (not the success/cancel pair of hosted mode); the
+	// caller renders a polling page that hits /subscriptions/me until
+	// the webhook flips the row to active. Must contain the literal
+	// string "{CHECKOUT_SESSION_ID}" — Stripe substitutes it with the
+	// real session id so the return page can correlate.
+	ReturnURL string
 }
 
 // ScheduledCycleChange is what the adapter returns after wiring up a

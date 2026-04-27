@@ -35,14 +35,30 @@ import { describeMissing } from "./missing-fields-copy"
  *
  * Each mutation has its own pending/error state so a VIES failure
  * never blocks a save and vice versa.
+ *
+ * Variants:
+ *   - "page" (default): standalone /settings/billing-profile page
+ *   - "compact": embedded inside the upgrade modal, slightly tighter
+ *     spacing, hides the "synced from Stripe" indicator since the
+ *     sync runs automatically on mount in that context.
+ *
+ * onSaved fires once after a successful update mutation lands AND the
+ * resulting profile passes CheckCompleteness. The upgrade modal uses
+ * it to transition from the billing step to the payment step.
  */
-export function BillingProfileForm() {
+export type BillingProfileFormProps = {
+  variant?: "page" | "compact"
+  onSaved?: () => void
+}
+
+export function BillingProfileForm({ variant = "page", onSaved }: BillingProfileFormProps = {}) {
   const { data, isLoading, isError } = useBillingProfile()
   const updateMutation = useUpdateBillingProfile()
   const syncMutation = useSyncBillingProfile()
   const vatMutation = useValidateVAT()
 
   const [form, setForm] = useState<UpdateBillingProfileInput | null>(null)
+  const isCompact = variant === "compact"
 
   // Hydrate the local form from the server snapshot once on first
   // success, then re-hydrate whenever the server-side `updated_at`
@@ -51,6 +67,18 @@ export function BillingProfileForm() {
     if (!data?.profile) return
     setForm(profileToInput(data.profile))
   }, [data?.profile])
+
+  // Trigger onSaved exactly once per save: when the latest update
+  // mutation has settled successfully AND the resulting snapshot is
+  // complete. We watch isSuccess + the freshest is_complete flag.
+  // Resets on a new mutation so re-saving a still-incomplete profile
+  // never advances the modal.
+  useEffect(() => {
+    if (!onSaved) return
+    if (!updateMutation.isSuccess) return
+    if (!data?.is_complete) return
+    onSaved()
+  }, [onSaved, updateMutation.isSuccess, data?.is_complete])
 
   if (isLoading) return <FormSkeleton />
   if (isError || !data) {
@@ -81,31 +109,33 @@ export function BillingProfileForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className={cn(isCompact ? "space-y-4" : "space-y-6")}>
       {!data.is_complete && data.missing_fields.length > 0 && (
         <MissingFieldsBanner fields={data.missing_fields} />
       )}
 
-      <div className="flex items-center justify-between gap-3">
-        <SyncedFromStripeIndicator at={data.profile.synced_from_kyc_at} />
-        <button
-          type="button"
-          onClick={() => syncMutation.mutate()}
-          disabled={syncMutation.isPending}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors",
-            "hover:bg-slate-50 disabled:opacity-50",
-            "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
-          )}
-        >
-          {syncMutation.isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-          ) : (
-            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-          )}
-          Pré-remplir depuis Stripe
-        </button>
-      </div>
+      {!isCompact && (
+        <div className="flex items-center justify-between gap-3">
+          <SyncedFromStripeIndicator at={data.profile.synced_from_kyc_at} />
+          <button
+            type="button"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors",
+              "hover:bg-slate-50 disabled:opacity-50",
+              "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+            )}
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            Pré-remplir depuis Stripe
+          </button>
+        </div>
+      )}
       {syncMutation.isError && (
         <FormError message="La synchronisation Stripe a échoué. Réessaie ou complète manuellement." />
       )}

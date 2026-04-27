@@ -305,6 +305,38 @@ func (s *Service) ValidateBillingProfileVAT(ctx context.Context, organizationID 
 	}, nil
 }
 
+// GetBillingProfileSnapshotForStripe returns the slim projection of the
+// org's billing profile that the subscription app pushes onto the
+// Stripe Customer record before creating an Embedded Checkout session.
+// Implements port/service.BillingProfileSnapshotReader so subscription
+// can stay decoupled from the invoicing module.
+//
+// Returns a zero-value snapshot (every field empty) when the org has no
+// billing_profile row yet — the caller decides whether to skip the
+// Stripe Customer.Update in that case (see snap.IsEmpty()).
+func (s *Service) GetBillingProfileSnapshotForStripe(ctx context.Context, organizationID uuid.UUID) (service.BillingProfileStripeSnapshot, error) {
+	if organizationID == uuid.Nil {
+		return service.BillingProfileStripeSnapshot{}, fmt.Errorf("invoicing: organization id required")
+	}
+	profile, err := s.profiles.FindByOrganization(ctx, organizationID)
+	if err != nil {
+		if errors.Is(err, invoicing.ErrNotFound) {
+			return service.BillingProfileStripeSnapshot{}, nil
+		}
+		return service.BillingProfileStripeSnapshot{}, fmt.Errorf("get billing snapshot for stripe: %w", err)
+	}
+	return service.BillingProfileStripeSnapshot{
+		LegalName:      profile.LegalName,
+		AddressLine1:   profile.AddressLine1,
+		AddressLine2:   profile.AddressLine2,
+		PostalCode:     profile.PostalCode,
+		City:           profile.City,
+		Country:        profile.Country,
+		InvoicingEmail: profile.InvoicingEmail,
+		VATNumber:      profile.VATNumber,
+	}, nil
+}
+
 // IsBillingProfileComplete is the read-only gate the wallet/subscribe
 // handlers call before a payout/subscribe. Returns (true, nil) when the
 // profile passes domain.CheckCompleteness; otherwise the missing fields

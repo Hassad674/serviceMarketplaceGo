@@ -22,8 +22,15 @@ export type SubscribeInput = {
   auto_renew: boolean
 }
 
+/**
+ * Backend now returns a Stripe Embedded Checkout session secret instead
+ * of a hosted URL. The web client mounts it via @stripe/react-stripe-js
+ * (`<EmbeddedCheckoutProvider>` + `<EmbeddedCheckout>`); the mobile
+ * client opens a WebView pointed at our /subscribe/embed page which
+ * does the same thing inside the app.
+ */
 export type SubscribeResponse = {
-  checkout_url: string
+  client_secret: string
 }
 
 export type Subscription = {

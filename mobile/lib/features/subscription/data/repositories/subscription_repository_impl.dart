@@ -41,11 +41,11 @@ class SubscriptionRepositoryImpl implements SubscriptionRepository {
     if (body == null) {
       throw StateError('subscribe response body is empty');
     }
-    final url = body['checkout_url'];
-    if (url is! String || url.isEmpty) {
-      throw StateError('subscribe response missing checkout_url');
+    final clientSecret = body['client_secret'];
+    if (clientSecret is! String || clientSecret.isEmpty) {
+      throw StateError('subscribe response missing client_secret');
     }
-    return url;
+    return clientSecret;
   }
 
   @override
