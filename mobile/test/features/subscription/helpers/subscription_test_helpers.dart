@@ -235,6 +235,15 @@ class RecordingCheckoutLauncher implements CheckoutLauncher {
   }
 }
 
+/// Test double that throws to exercise the `catch (_)` branch in
+/// `pricing_screen._onSubscribe`.
+class ThrowingCheckoutLauncher implements CheckoutLauncher {
+  @override
+  Future<bool> launch(BuildContext context, String url) {
+    throw Exception('boom');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Widget wrapper
 // ---------------------------------------------------------------------------
