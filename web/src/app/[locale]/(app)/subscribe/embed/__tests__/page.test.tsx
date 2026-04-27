@@ -126,11 +126,15 @@ describe("SubscribeEmbedPage", () => {
     expect(screen.getByTestId("billing-profile-form")).toBeDefined()
   })
 
-  it("auto-syncs from Stripe KYC the first time when synced_from_kyc_at is null", () => {
+  it("auto-syncs from Stripe KYC when the profile is incomplete", () => {
+    // Snapshot with is_complete=false — independent of synced_from_kyc_at,
+    // we always retry the KYC pre-fill so a previous partial sync that
+    // filled nothing doesn't lock the user out of future attempts.
     useBillingProfileMock.mockReturnValue({
       data: {
         ...billingProfileSnapshot,
-        profile: { ...billingProfileSnapshot.profile, synced_from_kyc_at: null },
+        is_complete: false,
+        missing_fields: [{ field: "legal_name", reason: "required" }],
       },
       isLoading: false,
     })
@@ -138,8 +142,8 @@ describe("SubscribeEmbedPage", () => {
     expect(syncMutateMock).toHaveBeenCalledTimes(1)
   })
 
-  it("does NOT auto-sync when synced_from_kyc_at is already set", () => {
-    render(renderPage()) // default snapshot has synced_from_kyc_at != null
+  it("does NOT auto-sync when the profile is already complete", () => {
+    render(renderPage()) // default snapshot has is_complete=true
     expect(syncMutateMock).not.toHaveBeenCalled()
   })
 
@@ -181,7 +185,9 @@ describe("SubscribeEmbedPage", () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByText(/erreur est survenue/i)).toBeDefined()
+      expect(
+        screen.getByText(/Le paiement n'a pas pu démarrer/i),
+      ).toBeDefined()
     })
   })
 

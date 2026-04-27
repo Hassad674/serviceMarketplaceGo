@@ -119,28 +119,29 @@ export function BillingProfileForm({ variant = "page", onSaved }: BillingProfile
         <MissingFieldsBanner fields={data.missing_fields} />
       )}
 
-      {!isCompact && (
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
+        {!isCompact && (
           <SyncedFromStripeIndicator at={data.profile.synced_from_kyc_at} />
-          <button
-            type="button"
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors",
-              "hover:bg-slate-50 disabled:opacity-50",
-              "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
-            )}
-          >
-            {syncMutation.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            Pré-remplir depuis Stripe
-          </button>
-        </div>
-      )}
+        )}
+        {isCompact && <span />}
+        <button
+          type="button"
+          onClick={() => syncMutation.mutate()}
+          disabled={syncMutation.isPending}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors",
+            "hover:bg-slate-50 disabled:opacity-50",
+            "dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+          )}
+        >
+          {syncMutation.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          Pré-remplir depuis Stripe
+        </button>
+      </div>
       {syncMutation.isError && (
         <FormError message="La synchronisation Stripe a échoué. Réessaie ou complète manuellement." />
       )}

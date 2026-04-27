@@ -7,6 +7,7 @@ import {
   EmbeddedCheckout,
 } from "@stripe/react-stripe-js"
 import { ArrowLeft, Loader2 } from "lucide-react"
+import { ApiError } from "@/shared/lib/api-client"
 import { cn } from "@/shared/lib/utils"
 import { stripePromise } from "@/shared/lib/stripe-client"
 import { BillingProfileForm } from "@/features/invoicing/components/billing-profile-form"
@@ -113,16 +114,21 @@ function BillingStep({ onContinue }: { onContinue: () => void }) {
   const sync = useSyncBillingProfile()
   const synced = useRef(false)
 
-  // Auto-sync once when we know the profile has never been pre-filled
-  // from Stripe KYC. Subsequent visits skip this — the user might have
-  // intentionally cleared a field they don't want re-populated. The
-  // call is best-effort: if the org has no Stripe Connect account
-  // (KYC not done yet), the mutation errors and we just let the user
-  // fill the form manually.
+  // Auto-sync from Stripe Connect KYC once per page mount when the
+  // profile is INCOMPLETE. The previous gate ("only if synced_from_kyc_at
+  // is null") was too conservative: a partial sync that filled nothing
+  // would still flip the timestamp and lock the user out of retries
+  // forever. The merge logic on the backend is "fill empty fields only",
+  // so re-syncing never overwrites user-edited values.
+  //
+  // synced.current = once-per-mount mutex; React strict mode double-runs
+  // the effect but the ref keeps the network call to a single attempt.
   useEffect(() => {
     if (synced.current) return
     if (!data) return
-    if (data.profile.synced_from_kyc_at !== null) {
+    if (data.is_complete) {
+      // Nothing to fill — user already has a usable profile, skip the
+      // round-trip entirely.
       synced.current = true
       return
     }
@@ -133,12 +139,21 @@ function BillingStep({ onContinue }: { onContinue: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  // BillingProfileForm has its own loading skeleton + error fallback,
-  // so we render it directly — wrapping it with our own isLoading
-  // gate would hide its skeleton and turn a slow network into an
-  // indistinguishable infinite spinner.
   return (
     <div className="space-y-6">
+      {sync.isPending && (
+        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-300">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Récupération de tes informations Stripe…
+        </div>
+      )}
+      {sync.isError && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          Pré-remplissage Stripe indisponible (KYC peut-être incomplet).
+          Remplis les champs manuellement — les autres champs s'adapteront
+          au pays choisi.
+        </div>
+      )}
       <BillingProfileForm variant="compact" onSaved={onContinue} />
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
         Une fois ton profil enregistré et complet, tu passes automatiquement à
@@ -186,10 +201,48 @@ function PaymentStep({
   }, [subscribe.data?.client_secret])
 
   if (subscribe.isError) {
+    const apiErr =
+      subscribe.error instanceof ApiError ? subscribe.error : null
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-        Une erreur est survenue lors de la création du paiement. Réessaie ou
-        contacte le support.
+      <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
+        <p className="font-medium">
+          Le paiement n'a pas pu démarrer.
+        </p>
+        <p className="text-xs">
+          {apiErr?.message || subscribe.error?.message || "Erreur inconnue."}
+          {apiErr?.code && (
+            <span className="ml-1 rounded bg-red-100 px-1.5 py-0.5 font-mono text-[10px] text-red-800 dark:bg-red-500/20 dark:text-red-200">
+              {apiErr.code}
+            </span>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            fired.current = false
+            subscribe.reset()
+            const input: SubscribeInput = {
+              plan,
+              billing_cycle: billingCycle,
+              auto_renew: autoRenew,
+            }
+            subscribe.mutate(input)
+          }}
+          className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:bg-transparent dark:text-red-300"
+        >
+          Réessayer
+        </button>
+      </div>
+    )
+  }
+
+  // Defensive: backend returned 200 but the response shape is wrong
+  // (no client_secret). Surface it instead of spinning forever.
+  if (subscribe.isSuccess && !subscribe.data?.client_secret) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+        Réponse inattendue du serveur (client_secret manquant). Réessaie
+        plus tard ou contacte le support.
       </div>
     )
   }
@@ -204,7 +257,11 @@ function PaymentStep({
   }
 
   return (
-    <div data-testid="stripe-embedded-payment" data-return-to={returnTo}>
+    <div
+      data-testid="stripe-embedded-payment"
+      data-return-to={returnTo}
+      className="min-h-[400px]"
+    >
       <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
         <EmbeddedCheckout />
       </EmbeddedCheckoutProvider>
