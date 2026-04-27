@@ -199,6 +199,7 @@ func TestNotifier_CurrentlyDueAdded_SendsRequirementsNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
 		ChargesEnabled:   true,
 		PayoutsEnabled:   true,
+		HasEverActivated: true,
 		CurrentlyDueHash: "",
 	})
 	snap := snapshot("acct_1")
@@ -213,7 +214,11 @@ func TestNotifier_CurrentlyDueAdded_SendsRequirementsNotif(t *testing.T) {
 	assert.Equal(t, notifdomain.TypeStripeRequirements, sink.calls[0].typ)
 }
 
-func TestNotifier_MultipleCurrentlyDue_PluralizesCorrectly(t *testing.T) {
+func TestNotifier_MultipleCurrentlyDue_DuringInitialOnboarding_NoRequirementNotif(t *testing.T) {
+	// On the very first webhook with no prior state and no activation
+	// yet, the requirement notifications must be suppressed — the user
+	// is on the KYC page filling things out and the page itself
+	// surfaces requirements. Spamming the bell is what we are fixing.
 	n, sink, _ := newTestNotifier(nil)
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = false
@@ -221,8 +226,25 @@ func TestNotifier_MultipleCurrentlyDue_PluralizesCorrectly(t *testing.T) {
 
 	err := n.HandleAccountSnapshot(context.Background(), snap)
 	require.NoError(t, err)
-	// 2 notifs expected: one for charges (but charges is false vs nil prev → no activation notif),
-	// one for currently_due plural. Prev is nil so no status transition notif either.
+	for _, c := range sink.calls {
+		assert.NotEqual(t, notifdomain.TypeStripeRequirements, c.typ,
+			"requirement notifs must be suppressed during initial onboarding")
+	}
+}
+
+func TestNotifier_MultipleCurrentlyDue_AfterActivation_PluralizesCorrectly(t *testing.T) {
+	n, sink, _ := newTestNotifier(&LastAccountState{
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+	})
+	snap := snapshot("acct_1")
+	snap.ChargesEnabled = true
+	snap.PayoutsEnabled = true
+	snap.CurrentlyDue = []string{"individual.verification.document", "individual.phone"}
+
+	err := n.HandleAccountSnapshot(context.Background(), snap)
+	require.NoError(t, err)
 	foundReq := false
 	for _, c := range sink.calls {
 		if c.typ == notifdomain.TypeStripeRequirements && contains(c.title, "2 informations requises") {
@@ -236,6 +258,7 @@ func TestNotifier_CurrentlyDueSameHash_NoNotification(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
 		ChargesEnabled:   true,
 		PayoutsEnabled:   true,
+		HasEverActivated: true,
 		CurrentlyDueHash: "individual.verification.document",
 	})
 	snap := snapshot("acct_1")
@@ -250,8 +273,9 @@ func TestNotifier_CurrentlyDueSameHash_NoNotification(t *testing.T) {
 
 func TestNotifier_PastDueAdded_SendsUrgentNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -267,8 +291,9 @@ func TestNotifier_PastDueAdded_SendsUrgentNotif(t *testing.T) {
 
 func TestNotifier_DocumentRejected_SendsDocRejectionNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -289,8 +314,15 @@ func TestNotifier_DocumentRejected_SendsDocRejectionNotif(t *testing.T) {
 }
 
 func TestNotifier_DocumentBlurry_FriendlyMessage(t *testing.T) {
-	n, sink, _ := newTestNotifier(nil)
+	// Prior activation required for document-error notifs to fire.
+	n, sink, _ := newTestNotifier(&LastAccountState{
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+	})
 	snap := snapshot("acct_1")
+	snap.ChargesEnabled = true
+	snap.PayoutsEnabled = true
 	snap.RequirementErrors = []portservice.StripeRequirementError{
 		{Code: "verification_document_too_blurry", Requirement: "individual.verification.document"},
 	}
@@ -308,8 +340,14 @@ func TestNotifier_DocumentBlurry_FriendlyMessage(t *testing.T) {
 }
 
 func TestNotifier_ErrorFraudulent_NeutralMessage(t *testing.T) {
-	n, sink, _ := newTestNotifier(nil)
+	n, sink, _ := newTestNotifier(&LastAccountState{
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+	})
 	snap := snapshot("acct_1")
+	snap.ChargesEnabled = true
+	snap.PayoutsEnabled = true
 	snap.RequirementErrors = []portservice.StripeRequirementError{
 		{Code: "verification_document_fraudulent", Requirement: "individual.verification.document"},
 	}
@@ -326,8 +364,14 @@ func TestNotifier_ErrorFraudulent_NeutralMessage(t *testing.T) {
 }
 
 func TestNotifier_UnknownErrorCode_UsesGenericFallback(t *testing.T) {
-	n, sink, _ := newTestNotifier(nil)
+	n, sink, _ := newTestNotifier(&LastAccountState{
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+	})
 	snap := snapshot("acct_1")
+	snap.ChargesEnabled = true
+	snap.PayoutsEnabled = true
 	snap.RequirementErrors = []portservice.StripeRequirementError{
 		{Code: "zzz_unknown_code", Requirement: "individual.phone"},
 	}
@@ -345,9 +389,10 @@ func TestNotifier_UnknownErrorCode_UsesGenericFallback(t *testing.T) {
 
 func TestNotifier_SameErrorCodeTwice_NoRepeatNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
-		ErrorCodes:     []string{"individual.verification.document:verification_document_expired"},
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+		ErrorCodes:       []string{"individual.verification.document:verification_document_expired"},
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -363,9 +408,10 @@ func TestNotifier_SameErrorCodeTwice_NoRepeatNotif(t *testing.T) {
 
 func TestNotifier_NewErrorAfterOldOne_OnlyNewTriggers(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
-		ErrorCodes:     []string{"individual.verification.document:verification_document_expired"},
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+		ErrorCodes:       []string{"individual.verification.document:verification_document_expired"},
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = true
@@ -383,8 +429,9 @@ func TestNotifier_NewErrorAfterOldOne_OnlyNewTriggers(t *testing.T) {
 
 func TestNotifier_AccountDisabled_SendsDisabledNotif(t *testing.T) {
 	n, sink, _ := newTestNotifier(&LastAccountState{
-		ChargesEnabled: true,
-		PayoutsEnabled: true,
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
 	})
 	snap := snapshot("acct_1")
 	snap.ChargesEnabled = false
@@ -601,6 +648,80 @@ func TestNotifier_DiffErrors_NilPrev_AllNew(t *testing.T) {
 	cur := &LastAccountState{ErrorCodes: []string{"req1:code1"}}
 	diff := diffErrors(nil, cur)
 	assert.Len(t, diff, 1)
+}
+
+/* ----------------------- KYC onboarding gating ----------------------- */
+
+// TestNotifier_OnboardingState_NoRequirementNotifications covers the
+// fix for Task B: when the user just created a Stripe Connect account
+// and Stripe immediately reports a long currently_due / eventually_due
+// list, the notification bell must stay quiet — the user is on the
+// KYC page filling things out, the page itself surfaces requirements.
+func TestNotifier_OnboardingState_NoRequirementNotifications(t *testing.T) {
+	// No prior state → first webhook for a freshly-created account.
+	n, sink, store := newTestNotifier(nil)
+	snap := snapshot("acct_new")
+	snap.ChargesEnabled = false
+	snap.PayoutsEnabled = false
+	// A realistic load-on-creation: 11 currently_due + 4 eventually_due.
+	snap.CurrentlyDue = []string{
+		"individual.verification.document",
+		"individual.address.line1", "individual.address.city",
+		"individual.address.postal_code", "individual.first_name",
+		"individual.last_name", "individual.dob.day", "individual.dob.month",
+		"individual.dob.year", "individual.id_number", "individual.phone",
+	}
+	snap.EventuallyDue = []string{
+		"external_account", "individual.verification.additional_document",
+		"tos_acceptance.date", "tos_acceptance.ip",
+	}
+	snap.RequirementErrors = []portservice.StripeRequirementError{
+		{Requirement: "individual.verification.document",
+			Code: "verification_document_expired"},
+	}
+
+	err := n.HandleAccountSnapshot(context.Background(), snap)
+	require.NoError(t, err)
+
+	// Zero requirement-class notifications: not a single one must fire.
+	for _, c := range sink.calls {
+		assert.NotEqual(t, notifdomain.TypeStripeRequirements, c.typ,
+			"requirement notifs must be suppressed during initial onboarding (got: %s)", c.title)
+	}
+
+	// State is still persisted so the next webhook can diff against it.
+	require.NotNil(t, store.saved)
+	assert.False(t, store.saved.HasEverActivated,
+		"latch must remain false until the account hits an active state")
+}
+
+// TestNotifier_AlreadyActivated_RequirementNotificationsFire is the
+// counterpart: once the user has been active at least once in the
+// past, Stripe adding new requirements DOES warrant a notification
+// (it usually means an additional verification round, e.g. annual
+// re-attestation).
+func TestNotifier_AlreadyActivated_RequirementNotificationsFire(t *testing.T) {
+	n, sink, _ := newTestNotifier(&LastAccountState{
+		ChargesEnabled:   true,
+		PayoutsEnabled:   true,
+		HasEverActivated: true,
+	})
+	snap := snapshot("acct_existing")
+	snap.ChargesEnabled = true
+	snap.PayoutsEnabled = true
+	snap.CurrentlyDue = []string{"individual.verification.additional_document"}
+
+	err := n.HandleAccountSnapshot(context.Background(), snap)
+	require.NoError(t, err)
+
+	foundReq := false
+	for _, c := range sink.calls {
+		if c.typ == notifdomain.TypeStripeRequirements {
+			foundReq = true
+		}
+	}
+	assert.True(t, foundReq,
+		"after first activation, requirement notifs must fire on new currently_due")
 }
 
 /* ----------------------------- utils ----------------------------- */
