@@ -1,15 +1,11 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../invoicing/data/repositories/invoicing_repository_impl.dart';
-import '../../../invoicing/presentation/providers/invoicing_providers.dart';
-import '../../../invoicing/presentation/widgets/billing_profile_completion_modal.dart';
 import '../../domain/entities/subscription.dart';
 import '../launcher/checkout_launcher.dart';
-import '../providers/subscription_providers.dart';
 
 /// Premium subscribe entry point. Mirrors the web `UpgradeModal`.
 ///
@@ -18,10 +14,16 @@ import '../providers/subscription_providers.dart';
 ///   * billing cycle (monthly / annual, with -21% hint on annual)
 ///   * auto-renew (defaults OFF as per the product rule)
 ///
-/// The CTA calls [SubscribeUseCase] which returns a Stripe Checkout
-/// URL — opened via [CheckoutLauncher] in an in-app browser tab so the
-/// return trip through universal / App Links lands back on
-/// `/billing/success` or `/billing/cancel` without leaving the app.
+/// The CTA opens an in-app WebView pointed at our /subscribe/embed
+/// page (web app, locale-aware). The web page hosts the unified flow:
+/// step 1 collects the billing profile via our country-aware form
+/// (pre-filled from Stripe KYC, modifiable), step 2 mounts Stripe
+/// Embedded Checkout for the payment. The WebView dismisses itself
+/// when it observes a navigation to /subscribe/return?return_to=mobile.
+///
+/// The legacy `BillingProfileCompletionModal` pre-check is gone — the
+/// embed page owns billing-profile collection now. The wallet flow
+/// keeps its own gate untouched.
 class PricingScreen extends ConsumerStatefulWidget {
   const PricingScreen({super.key});
 
@@ -66,40 +68,24 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
     final plan = _plan;
     if (plan == null || _pending) return;
 
-    // Proactive billing-profile gate. The backend will reject the
-    // subscribe call with 403 + `billing_profile_incomplete` when
-    // mandatory fields are missing. Pop the gate modal up front when
-    // we already know it's incomplete so the user fixes the profile
-    // before we round-trip Stripe.
-    final completeness = ref.read(billingProfileCompletenessProvider);
-    if (!completeness.isLoading && !completeness.isComplete) {
-      if (!mounted) return;
-      await showBillingProfileCompletionModal(
-        context,
-        missingFields: completeness.missingFields,
-        message: 'Complète ton profil de facturation pour souscrire à '
-            'Premium.',
-      );
-      return;
-    }
-
     setState(() => _pending = true);
     try {
-      final useCase = ref.read(subscribeUseCaseProvider);
-      final checkoutUrl = await useCase(
-        plan: plan,
-        billingCycle: _cycle,
-        autoRenew: _autoRenew,
-      );
+      // Build the embed URL — the web page reads these query params,
+      // collects the billing profile (step 1), then mounts Stripe
+      // Embedded Checkout (step 2) and finally redirects to
+      // /subscribe/return?return_to=mobile which the WebView observes
+      // to close itself.
+      final embedUrl = _buildEmbedUrl(plan: plan, cycle: _cycle, autoRenew: _autoRenew);
+
       final launcher = ref.read(checkoutLauncherProvider);
       if (!mounted) return;
-      final launched = await launcher.launch(context, checkoutUrl);
+      final launched = await launcher.launch(context, embedUrl);
       if (!mounted) return;
       if (!launched) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text(
-              "Impossible d'ouvrir Stripe. Vérifie ta connexion et réessaie.",
+              "Impossible d'ouvrir le paiement. Vérifie ta connexion et réessaie.",
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
@@ -113,29 +99,6 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } on DioException catch (e) {
-      // Defensive gate — proactive cache may be stale.
-      final incomplete = tryDecodeBillingProfileIncomplete(e);
-      if (incomplete != null) {
-        ref.invalidate(billingProfileProvider);
-        if (!mounted) return;
-        await showBillingProfileCompletionModal(
-          context,
-          missingFields: incomplete.missingFields,
-          message: 'Complète ton profil de facturation pour souscrire à '
-              'Premium.',
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text(
-              'Impossible de démarrer le paiement. Réessaie.',
-            ),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,6 +111,25 @@ class _PricingScreenState extends ConsumerState<PricingScreen> {
     } finally {
       if (mounted) setState(() => _pending = false);
     }
+  }
+
+  /// Builds the absolute web URL the in-app WebView opens. Locale is
+  /// hard-coded via AppConfig to match the web build's default
+  /// (next-intl requires the segment in the path).
+  String _buildEmbedUrl({
+    required Plan plan,
+    required BillingCycle cycle,
+    required bool autoRenew,
+  }) {
+    final query = Uri(
+      queryParameters: <String, String>{
+        'plan': plan.toJson(),
+        'cycle': cycle.toJson(),
+        'auto_renew': autoRenew.toString(),
+        'return_to': 'mobile',
+      },
+    ).query;
+    return '${AppConfig.webOriginUrl}/${AppConfig.webLocaleSegment}/subscribe/embed?$query';
   }
 
   @override

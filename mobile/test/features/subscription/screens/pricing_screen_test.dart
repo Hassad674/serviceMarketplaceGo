@@ -118,11 +118,15 @@ void main() {
     expect(cb.value, isFalse);
   });
 
-  testWidgets('submitting calls subscribe and launches the returned URL',
+  testWidgets('submitting builds the embed URL and launches it via the WebView launcher',
       (tester) async {
+    // The subscribe use-case is NOT invoked anymore — the web embed
+    // page calls /api/v1/subscriptions itself once the billing form
+    // is saved. The mobile screen only constructs the embed URL with
+    // plan/cycle/auto_renew query params and hands it to the launcher.
     final subscribeFake = FakeSubscribeUseCase(
       ({required plan, required billingCycle, required autoRenew}) async =>
-          'https://stripe.test/checkout/abc',
+          'should_not_be_called',
     );
     final launcher = RecordingCheckoutLauncher();
     await tester.pumpWidget(
@@ -140,23 +144,25 @@ void main() {
     await tester.tap(find.text('Souscrire'));
     await tester.pumpAndSettle();
 
-    expect(subscribeFake.invocations.length, 1);
-    final invocation = subscribeFake.invocations.first;
-    expect(invocation.plan, Plan.freelance);
-    expect(invocation.billingCycle, BillingCycle.monthly);
-    expect(invocation.autoRenew, isFalse);
-    expect(launcher.launched, ['https://stripe.test/checkout/abc']);
+    expect(subscribeFake.invocations.length, 0,
+        reason: 'embed flow MUST NOT call the subscribe use-case from the mobile screen');
+    expect(launcher.launched.length, 1);
+    final url = launcher.launched.first;
+    expect(url, contains('/subscribe/embed'));
+    expect(url, contains('plan=freelance'));
+    expect(url, contains('cycle=monthly'));
+    expect(url, contains('auto_renew=false'));
+    expect(url, contains('return_to=mobile'));
   });
 
-  testWidgets('launch failure shows the "Impossible d\'ouvrir Stripe" SnackBar',
-      (tester) async {
+  testWidgets('launch failure shows an error SnackBar', (tester) async {
     await tester.pumpWidget(
       _buildScreen(
         overrides: [
           subscribeUseCaseProvider.overrideWithValue(
             FakeSubscribeUseCase(
               ({required plan, required billingCycle, required autoRenew}) async =>
-                  'https://stripe.test/checkout',
+                  '',
             ),
           ),
           checkoutLauncherProvider.overrideWithValue(
@@ -173,21 +179,25 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.textContaining("Impossible d'ouvrir Stripe"), findsOneWidget);
+    expect(
+      find.textContaining("Impossible d'ouvrir le paiement"),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('use-case error shows a generic error SnackBar', (tester) async {
+  testWidgets('launcher exception shows a generic error SnackBar',
+      (tester) async {
     await tester.pumpWidget(
       _buildScreen(
         overrides: [
           subscribeUseCaseProvider.overrideWithValue(
             FakeSubscribeUseCase(
-              ({required plan, required billingCycle, required autoRenew}) =>
-                  Future.error(Exception('already_subscribed')),
+              ({required plan, required billingCycle, required autoRenew}) async =>
+                  '',
             ),
           ),
           checkoutLauncherProvider.overrideWithValue(
-            RecordingCheckoutLauncher(),
+            ThrowingCheckoutLauncher(),
           ),
         ],
         orgType: 'provider_personal',
