@@ -58,11 +58,16 @@ type MissingField struct {
 // to fill before the profile can back an invoice. The ruleset depends
 // on the recipient's country:
 //
-//   - Universal: legal name, address, country, invoicing email.
+//   - Universal: legal name, address, country.
 //   - FR: SIRET (14 digits) is mandatory.
 //   - Other EU countries: validated VAT number is mandatory (the only
 //     way reverse charge can apply).
 //   - Outside the EU: no extra ID — the address + name is enough.
+//
+// invoicing_email is intentionally NOT required: the app layer defaults
+// it to the org owner's account email on every read, so the gate never
+// blocks on a field every account already has. The column is kept on
+// the row for a future opt-in override.
 //
 // Returns an empty slice when the profile is good to go. The order of
 // returned fields is deterministic so the frontend can render a stable
@@ -84,9 +89,6 @@ func CheckCompleteness(p BillingProfile) []MissingField {
 	}
 	if strings.TrimSpace(p.Country) == "" {
 		missing = append(missing, MissingField{Field: "country", Reason: "country is required"})
-	}
-	if strings.TrimSpace(p.InvoicingEmail) == "" {
-		missing = append(missing, MissingField{Field: "invoicing_email", Reason: "invoicing email is required to deliver the PDF"})
 	}
 
 	country := strings.ToUpper(strings.TrimSpace(p.Country))

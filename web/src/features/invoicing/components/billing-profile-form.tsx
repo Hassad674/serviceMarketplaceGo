@@ -293,21 +293,13 @@ export function BillingProfileForm({ variant = "page", onSaved }: BillingProfile
         </div>
       </Section>
 
-      <Section title="Email de facturation">
-        <Field
-          label="Email où envoyer les factures"
-          htmlFor="invoicing_email"
-        >
-          <input
-            id="invoicing_email"
-            type="email"
-            value={form.invoicing_email}
-            onChange={(e) => patch("invoicing_email", e.target.value)}
-            className={inputClasses}
-            autoComplete="email"
-          />
-        </Field>
-      </Section>
+      {/*
+        Note: the "Email de facturation" section was removed — invoices
+        default to the org owner's account email server-side. The
+        invoicing_email column stays on the row for a future
+        per-recipient override but the user is no longer prompted for
+        it during the inline subscribe flow.
+      */}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         {updateMutation.isError && (

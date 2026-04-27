@@ -90,7 +90,7 @@ describe("BillingProfileForm", () => {
   it("renders the missing-fields banner when the snapshot is incomplete", async () => {
     mockFetch.mockResolvedValue({
       ...SNAPSHOT,
-      missing_fields: [{ field: "invoicing_email", reason: "required" }],
+      missing_fields: [{ field: "legal_name", reason: "required" }],
       is_complete: false,
     })
     render(withQueryClient(<BillingProfileForm />))
@@ -99,9 +99,10 @@ describe("BillingProfileForm", () => {
         screen.getByText(/Quelques informations restent à compléter/i),
       ).toBeInTheDocument(),
     )
-    // Banner repeats the field name as a list item — narrow with role.
+    // The "Identité légale" section heading is still rendered — the
+    // banner echoes the field via describeMissing in the list item.
     expect(
-      screen.getByRole("heading", { name: /Email de facturation/i }),
+      screen.getByRole("heading", { name: /Identité légale/i }),
     ).toBeInTheDocument()
   })
 
