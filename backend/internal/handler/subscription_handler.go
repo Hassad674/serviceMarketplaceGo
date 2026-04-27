@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -147,7 +148,33 @@ func (h *SubscriptionHandler) Subscribe(w http.ResponseWriter, r *http.Request) 
 		mapSubscribeError(w, err)
 		return
 	}
+	if out == nil || out.ClientSecret == "" {
+		// Defensive: surface a clean error instead of returning an
+		// empty client_secret that leaves the embedded checkout
+		// frozen. Should never happen under normal Stripe flows
+		// (session.New either returns a populated session or errors).
+		slog.Error("subscribe: empty client_secret from Stripe",
+			"org_id", orgID,
+			"user_id", userID,
+			"plan", req.Plan,
+			"cycle", req.BillingCycle)
+		res.Error(w, http.StatusBadGateway, "stripe_empty_session", "Stripe returned an empty session — retry")
+		return
+	}
+	slog.Info("subscribe: created embedded checkout session",
+		"org_id", orgID,
+		"client_secret_prefix", clientSecretPrefix(out.ClientSecret))
 	res.JSON(w, http.StatusCreated, subscribeResponse{ClientSecret: out.ClientSecret})
+}
+
+// clientSecretPrefix returns a short public-safe prefix of the secret
+// (first 12 chars) for diagnostic logging without leaking the full
+// value.
+func clientSecretPrefix(s string) string {
+	if len(s) <= 12 {
+		return s
+	}
+	return s[:12] + "..."
 }
 
 // GetMine — GET /api/v1/subscriptions/me

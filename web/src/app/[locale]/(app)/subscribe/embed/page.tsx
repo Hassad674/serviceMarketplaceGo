@@ -248,10 +248,25 @@ function PaymentStep({
   }
 
   if (!options) {
+    // Diagnostic: show exactly which state the mutation is in so we
+    // can tell "preparing the call", "waiting on Stripe", and "got
+    // a response but no client_secret" apart instead of an
+    // indistinguishable spinner. Visible in dev + prod since the
+    // payment step is critical and a stuck spinner is the worst
+    // possible UX here.
     return (
-      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Préparation du paiement…
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Préparation du paiement…
+        </div>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          {subscribe.isIdle && "Initialisation…"}
+          {subscribe.isPending && "Création de la session Stripe en cours…"}
+          {subscribe.isSuccess &&
+            !subscribe.data?.client_secret &&
+            "Réponse reçue mais sans client_secret — relance la page."}
+        </p>
       </div>
     )
   }
