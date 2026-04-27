@@ -703,7 +703,17 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, recordID uuid.UUID) (*PayoutResult, error) {
 	record, err := s.records.GetByID(ctx, recordID)
 	if err != nil {
+		// Surface "not found" with a typed sentinel so the handler can
+		// return 404 (vs. swallowing into 500). The repository returns
+		// sql.ErrNoRows when no row matches; everything else is a real
+		// infra error and stays wrapped.
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, domain.ErrPaymentRecordNotFound) {
+			return nil, domain.ErrPaymentRecordNotFound
+		}
 		return nil, fmt.Errorf("find payment record: %w", err)
+	}
+	if record == nil {
+		return nil, domain.ErrPaymentRecordNotFound
 	}
 
 	// Auth: the record's ProviderID must belong to the caller's org.
@@ -736,6 +746,25 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, record
 	stripeAccountID, _, accErr := s.orgs.GetStripeAccountByUserID(ctx, record.ProviderID)
 	if accErr != nil || stripeAccountID == "" {
 		return nil, domain.ErrStripeAccountNotFound
+	}
+
+	// KYC readiness pre-check — distinct from "no account at all". Many
+	// real failures ("21 188 € transfer to a freshly-onboarded provider")
+	// happen when the account row exists but Stripe still has
+	// payouts_enabled=false because identity docs are pending or the
+	// capability is throttled. Calling CreateTransfer in that state burns
+	// the idempotency key and bounces with a generic Stripe error — the
+	// retry button silently no-ops. We block here with a typed sentinel
+	// so the handler can return 412 + a clear message pointing the user
+	// at /payment-info instead.
+	if s.stripe != nil {
+		info, infoErr := s.stripe.GetAccount(ctx, stripeAccountID)
+		if infoErr != nil {
+			return nil, fmt.Errorf("get stripe account capabilities: %w", infoErr)
+		}
+		if info == nil || !info.PayoutsEnabled {
+			return nil, domain.ErrProviderPayoutsDisabled
+		}
 	}
 
 	// Reset status to Pending BEFORE the Stripe call so concurrent

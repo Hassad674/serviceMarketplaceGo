@@ -28,6 +28,7 @@ import { CurrentMonthAggregate as InvoicingCurrentMonth } from "@/features/invoi
 import { useBillingProfileCompleteness } from "@/features/invoicing/hooks/use-billing-profile-completeness"
 import type { MissingField } from "@/features/invoicing/types"
 import { useWallet, useRequestPayout, useRetryTransfer } from "../hooks/use-wallet"
+import { KYCIncompleteModal } from "./kyc-incomplete-modal"
 import type {
   WalletRecord,
   CommissionWallet,
@@ -63,6 +64,18 @@ export function WalletPage() {
     MissingField[] | null
   >(null)
 
+  // KYC gate: backend now blocks the payout BEFORE the billing-profile
+  // gate when the provider's Stripe Connect account is not yet ready.
+  // The two 403 codes are mutually exclusive (`kyc_incomplete` wins
+  // over `billing_profile_incomplete`) so we route the user to the
+  // right page — KYC missing → /payment-info, billing missing →
+  // completion modal. The kycModalMessage carries the server copy
+  // when present so the wording matches the API contract exactly.
+  const [kycModalOpen, setKycModalOpen] = useState(false)
+  const [kycModalMessage, setKycModalMessage] = useState<string | undefined>(
+    undefined,
+  )
+
   if (isLoading) return <WalletSkeleton />
   if (isError || !wallet) {
     return (
@@ -72,35 +85,62 @@ export function WalletPage() {
     )
   }
 
-  const records = wallet.records ?? []
-  const commissionRecords = wallet.commission_records ?? []
-  const totalEarned = wallet.transferred_amount + wallet.commissions.paid_cents
+  // Re-bind to a const so the closures inside handlePayout get a
+  // narrowed (non-undefined) reference — function declarations are
+  // hoisted and would otherwise see the broader type from useWallet.
+  const walletData = wallet
+  const records = walletData.records ?? []
+  const commissionRecords = walletData.commission_records ?? []
+  const totalEarned =
+    walletData.transferred_amount + walletData.commissions.paid_cents
 
   function handlePayout() {
-    // Pre-flight: open the completion modal directly when we already
-    // know the profile is incomplete. Skip the call entirely so the
-    // user gets immediate feedback.
+    // Pre-flight ORDER MATTERS — KYC first, billing second. The
+    // backend enforces the same order, so the proactive UI gates
+    // mirror it to give immediate feedback before the round-trip.
+
+    // KYC pre-flight: the wallet payload already exposes
+    // `payouts_enabled`, so when we know KYC is not done we open the
+    // KYC modal up front and skip the request entirely.
+    if (!walletData.payouts_enabled) {
+      setKycModalMessage(undefined)
+      setKycModalOpen(true)
+      return
+    }
+
+    // Billing-profile pre-flight: open the completion modal directly
+    // when we already know the profile is incomplete.
     if (!completeness.isLoading && !completeness.isComplete) {
       setServerMissingFields(null)
       setCompletionModalOpen(true)
       return
     }
+
     payoutMutation.mutate(undefined, {
       onSuccess: (result) => setPayoutMessage(result.message),
       onError: (err) => {
-        if (
-          err instanceof ApiError &&
-          err.status === 403 &&
-          err.code === "billing_profile_incomplete"
-        ) {
-          // Defensive path — extract missing_fields off the 403
-          // envelope. Falls back to the cached snapshot if the
-          // body is missing the field for any reason.
-          const missing = extractMissingFields(err.body)
-          setServerMissingFields(
-            missing.length > 0 ? missing : completeness.missingFields,
-          )
-          setCompletionModalOpen(true)
+        if (err instanceof ApiError && err.status === 403) {
+          if (err.code === "kyc_incomplete") {
+            // Defensive path — the cached `payouts_enabled` flag may
+            // be stale across tabs, so we still translate the 403
+            // envelope into the KYC modal here. The server message
+            // becomes the modal copy when available so the wording
+            // stays the single source of truth on the API contract.
+            setKycModalMessage(extractMessage(err.body))
+            setKycModalOpen(true)
+            return
+          }
+          if (err.code === "billing_profile_incomplete") {
+            // Defensive path — extract missing_fields off the 403
+            // envelope. Falls back to the cached snapshot if the
+            // body is missing the field for any reason.
+            const missing = extractMissingFields(err.body)
+            setServerMissingFields(
+              missing.length > 0 ? missing : completeness.missingFields,
+            )
+            setCompletionModalOpen(true)
+            return
+          }
         }
       },
     })
@@ -144,8 +184,31 @@ export function WalletPage() {
         onClose={() => setCompletionModalOpen(false)}
         missingFields={fieldsForModal}
       />
+
+      <KYCIncompleteModal
+        open={kycModalOpen}
+        onClose={() => setKycModalOpen(false)}
+        message={kycModalMessage}
+      />
     </div>
   )
+}
+
+// Reads the `error.message` from a parsed error envelope. Returns
+// undefined when the body is missing or malformed so the consuming
+// modal can fall back to its own default copy. Used by the KYC gate
+// to surface the backend's exact message instead of a frontend
+// duplicate that might drift over time.
+function extractMessage(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined
+  const errField = (body as { error?: unknown }).error
+  if (errField && typeof errField === "object") {
+    const msg = (errField as { message?: unknown }).message
+    if (typeof msg === "string" && msg.length > 0) return msg
+  }
+  const topLevel = (body as { message?: unknown }).message
+  if (typeof topLevel === "string" && topLevel.length > 0) return topLevel
+  return undefined
 }
 
 // Reads the `missing_fields` array off a parsed error envelope.
@@ -522,18 +585,56 @@ function RecordRow({ record }: { record: WalletRecord }) {
         )}
       </div>
       {errorForThisRow && (
-        <p
-          role="alert"
-          className="mt-2 pl-9 text-xs text-red-700 dark:text-red-400"
-        >
+        <div role="alert" className="mt-2 pl-9 text-xs text-red-700 dark:text-red-400">
           {errorForThisRow instanceof ApiError &&
-          errorForThisRow.code === "transfer_not_retriable"
-            ? "Ce transfert ne peut plus être relancé — la mission doit être terminée et le précédent transfert en échec."
-            : errorForThisRow instanceof ApiError &&
-                errorForThisRow.code === "stripe_account_missing"
-              ? "Complétez votre configuration Stripe avant de relancer ce transfert."
-              : "Erreur lors de la nouvelle tentative"}
-        </p>
+          errorForThisRow.code === "provider_kyc_incomplete" ? (
+            // 412: account exists but payouts_enabled=false. Distinct
+            // copy from "no account" because the user already started
+            // onboarding — they need to FINISH it, not start over.
+            <p>
+              Termine ton onboarding Stripe (page{" "}
+              <Link
+                href="/payment-info"
+                className="font-semibold underline hover:text-red-900 dark:hover:text-red-300"
+              >
+                Infos paiement
+              </Link>
+              ) pour pouvoir recevoir le virement.
+            </p>
+          ) : errorForThisRow instanceof ApiError &&
+            errorForThisRow.code === "transfer_not_retriable" ? (
+            <p>
+              Ce transfert ne peut plus être relancé — la mission doit être
+              terminée et le précédent transfert en échec.
+            </p>
+          ) : errorForThisRow instanceof ApiError &&
+            errorForThisRow.code === "stripe_account_missing" ? (
+            <p>
+              Configure d&apos;abord tes informations de paiement avant de
+              relancer ce transfert.{" "}
+              <Link
+                href="/payment-info"
+                className="font-semibold underline hover:text-red-900 dark:hover:text-red-300"
+              >
+                Configurer
+              </Link>
+            </p>
+          ) : errorForThisRow instanceof ApiError &&
+            errorForThisRow.code === "retry_failed" ? (
+            // 502: upstream Stripe error. Tell the user to retry later
+            // instead of treating it as terminal — most of these clear
+            // up on their own within minutes.
+            <p>
+              Le virement a de nouveau échoué côté Stripe. Réessaie dans
+              quelques minutes ou contacte le support.
+            </p>
+          ) : errorForThisRow instanceof ApiError &&
+            errorForThisRow.code === "payment_record_not_found" ? (
+            <p>Ce transfert est introuvable.</p>
+          ) : (
+            <p>Erreur lors de la nouvelle tentative</p>
+          )}
+        </div>
       )}
     </div>
   )

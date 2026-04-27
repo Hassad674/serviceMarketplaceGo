@@ -2,11 +2,13 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
+	"marketplace-backend/internal/domain/organization"
 	domain "marketplace-backend/internal/domain/payment"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -383,4 +385,248 @@ func TestTransferPartialToProvider_RecordNotSucceeded_Rejected(t *testing.T) {
 	err := svc.TransferPartialToProvider(context.Background(), rec.ProposalID, 700)
 	assert.ErrorIs(t, err, domain.ErrPaymentNotSucceeded)
 	assert.Nil(t, records.updatedRec, "nothing must be persisted on a rejected record")
+}
+
+// ---------------------------------------------------------------------------
+// RetryFailedTransfer — recovery path for stuck payment records
+// ---------------------------------------------------------------------------
+
+// retryRecords is a focused stub for RetryFailedTransfer tests. It looks
+// records up by id (the actual call path) and records the post-call state
+// so tests can assert what was persisted (TransferPending vs TransferFailed
+// vs TransferCompleted).
+type retryRecords struct {
+	repository.PaymentRecordRepository
+	record   *domain.PaymentRecord
+	notFound bool
+	updates  []*domain.PaymentRecord
+}
+
+func (r *retryRecords) GetByID(_ context.Context, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	if r.notFound {
+		return nil, domain.ErrPaymentRecordNotFound
+	}
+	cp := *r.record
+	return &cp, nil
+}
+
+func (r *retryRecords) Update(_ context.Context, rec *domain.PaymentRecord) error {
+	cp := *rec
+	r.updates = append(r.updates, &cp)
+	*r.record = *rec
+	return nil
+}
+
+// retryOrgs adds FindByUserID on top of the existing fakeOrgs so the
+// retry handler's auth check (provider's org == caller's org) can be
+// exercised without dragging in the real postgres adapter.
+type retryOrgs struct {
+	repository.OrganizationRepository
+	stripeAccountID string
+	providerOrgID   uuid.UUID
+}
+
+func (o *retryOrgs) FindByUserID(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
+	return &organization.Organization{ID: o.providerOrgID}, nil
+}
+
+func (o *retryOrgs) GetStripeAccountByUserID(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return o.stripeAccountID, "FR", nil
+}
+
+func (o *retryOrgs) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
+	return o.stripeAccountID, "FR", nil
+}
+
+// retryStripe exposes both CreateTransfer and GetAccount so the KYC
+// readiness probe (payouts_enabled) and the actual transfer can be
+// independently controlled per test case.
+type retryStripe struct {
+	service.StripeService
+	transferCalls  []service.CreateTransferInput
+	transferErr    error
+	payoutsEnabled bool
+	getAccountErr  error
+}
+
+func (s *retryStripe) CreateTransfer(_ context.Context, in service.CreateTransferInput) (string, error) {
+	s.transferCalls = append(s.transferCalls, in)
+	if s.transferErr != nil {
+		return "", s.transferErr
+	}
+	return "tr_retry_" + in.IdempotencyKey, nil
+}
+
+func (s *retryStripe) GetAccount(_ context.Context, _ string) (*service.StripeAccountInfo, error) {
+	if s.getAccountErr != nil {
+		return nil, s.getAccountErr
+	}
+	return &service.StripeAccountInfo{
+		ChargesEnabled: s.payoutsEnabled,
+		PayoutsEnabled: s.payoutsEnabled,
+	}, nil
+}
+
+func failedRetryRecord(orgUserID uuid.UUID) *domain.PaymentRecord {
+	r := baseRecord()
+	r.ProviderID = orgUserID
+	r.Status = domain.RecordStatusSucceeded
+	r.TransferStatus = domain.TransferFailed
+	r.ProviderPayout = 21_188_00 // the real-world 21 188 € case
+	return r
+}
+
+// Happy path: record is failed, mission is completed, KYC is now done.
+// The retry must reset to Pending, hit Stripe, and persist Completed.
+func TestRetryFailedTransfer_HappyPath_TransfersAndMarksCompleted(t *testing.T) {
+	providerOrgID := uuid.New()
+	rec := failedRetryRecord(uuid.New())
+
+	records := &retryRecords{record: rec}
+	orgs := &retryOrgs{stripeAccountID: "acct_test", providerOrgID: providerOrgID}
+	stripe := &retryStripe{payoutsEnabled: true}
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+	svc.SetProposalStatusReader(&fakeProposalStatuses{statuses: map[uuid.UUID]string{
+		rec.ProposalID: "completed",
+	}})
+
+	result, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), providerOrgID, rec.ID)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "transferred", result.Status)
+	assert.Len(t, stripe.transferCalls, 1, "exactly one Stripe transfer attempted")
+	assert.Equal(t, rec.ProviderPayout, stripe.transferCalls[0].Amount)
+	// Two updates: reset to Pending, then mark Completed on success.
+	assert.GreaterOrEqual(t, len(records.updates), 2)
+	assert.Equal(t, domain.TransferCompleted, records.updates[len(records.updates)-1].TransferStatus)
+}
+
+// 412 path: the provider has an account on file BUT payouts_enabled=false
+// (KYC not yet validated). The service must short-circuit with
+// ErrProviderPayoutsDisabled BEFORE burning the Stripe transfer
+// idempotency key — that's the whole point of the pre-check.
+func TestRetryFailedTransfer_KYCPending_ReturnsProviderPayoutsDisabled(t *testing.T) {
+	providerOrgID := uuid.New()
+	rec := failedRetryRecord(uuid.New())
+
+	records := &retryRecords{record: rec}
+	orgs := &retryOrgs{stripeAccountID: "acct_test", providerOrgID: providerOrgID}
+	stripe := &retryStripe{payoutsEnabled: false} // KYC pending
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+	svc.SetProposalStatusReader(&fakeProposalStatuses{statuses: map[uuid.UUID]string{
+		rec.ProposalID: "completed",
+	}})
+
+	_, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), providerOrgID, rec.ID)
+	assert.ErrorIs(t, err, domain.ErrProviderPayoutsDisabled)
+	assert.Empty(t, stripe.transferCalls, "no Stripe transfer must be attempted when payouts are disabled")
+	// Nothing was persisted because the KYC gate fires before the
+	// "reset to Pending" write.
+	assert.Empty(t, records.updates)
+}
+
+// 403 path: no Stripe account on file at all. Distinct from the 412
+// "payouts disabled" case so the UI can route the user to the right
+// onboarding step.
+func TestRetryFailedTransfer_NoStripeAccount_ReturnsAccountNotFound(t *testing.T) {
+	providerOrgID := uuid.New()
+	rec := failedRetryRecord(uuid.New())
+
+	records := &retryRecords{record: rec}
+	orgs := &retryOrgs{stripeAccountID: "", providerOrgID: providerOrgID}
+	stripe := &retryStripe{payoutsEnabled: true}
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+	svc.SetProposalStatusReader(&fakeProposalStatuses{statuses: map[uuid.UUID]string{
+		rec.ProposalID: "completed",
+	}})
+
+	_, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), providerOrgID, rec.ID)
+	assert.ErrorIs(t, err, domain.ErrStripeAccountNotFound)
+	assert.Empty(t, stripe.transferCalls)
+}
+
+// 403 path: caller's org is NOT the provider's org. Must reject with
+// ErrTransferNotRetriable (handler maps that to 409). This is the
+// cross-tenant safeguard — a malicious user with a record id from a
+// different org must NEVER succeed at retrying that org's transfer.
+func TestRetryFailedTransfer_NotProviderOrg_Rejected(t *testing.T) {
+	providerOrgID := uuid.New()
+	otherOrgID := uuid.New() // attacker's org
+	rec := failedRetryRecord(uuid.New())
+
+	records := &retryRecords{record: rec}
+	orgs := &retryOrgs{stripeAccountID: "acct_test", providerOrgID: providerOrgID}
+	stripe := &retryStripe{payoutsEnabled: true}
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+
+	_, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), otherOrgID, rec.ID)
+	assert.ErrorIs(t, err, domain.ErrTransferNotRetriable)
+	assert.Empty(t, stripe.transferCalls)
+}
+
+// 404 path: the payment record id doesn't exist. The service must
+// surface the typed sentinel so the handler can return 404 instead of
+// swallowing into a generic 500.
+func TestRetryFailedTransfer_RecordNotFound_ReturnsTypedError(t *testing.T) {
+	records := &retryRecords{notFound: true}
+	orgs := &retryOrgs{stripeAccountID: "acct_test", providerOrgID: uuid.New()}
+	stripe := &retryStripe{payoutsEnabled: true}
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+
+	_, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), uuid.New(), uuid.New())
+	assert.ErrorIs(t, err, domain.ErrPaymentRecordNotFound)
+}
+
+// 409 path: the record is succeeded+pending (already transferred or
+// never failed). Calling Retry on a non-failed record is a no-op and
+// must surface ErrTransferNotRetriable so the handler returns 409.
+func TestRetryFailedTransfer_RecordNotFailed_Rejected(t *testing.T) {
+	providerOrgID := uuid.New()
+	rec := failedRetryRecord(uuid.New())
+	rec.TransferStatus = domain.TransferCompleted // already done
+
+	records := &retryRecords{record: rec}
+	orgs := &retryOrgs{stripeAccountID: "acct_test", providerOrgID: providerOrgID}
+	stripe := &retryStripe{payoutsEnabled: true}
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+
+	_, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), providerOrgID, rec.ID)
+	assert.ErrorIs(t, err, domain.ErrTransferNotRetriable)
+	assert.Empty(t, stripe.transferCalls)
+}
+
+// 502 path: the KYC gate passes but Stripe rejects the transfer (e.g.
+// rate-limited, network blip). The service must re-mark the record as
+// TransferFailed so a future retry can pick it up — otherwise it would
+// be stuck in TransferPending forever.
+func TestRetryFailedTransfer_StripeError_MarksFailedAndPropagates(t *testing.T) {
+	providerOrgID := uuid.New()
+	rec := failedRetryRecord(uuid.New())
+
+	records := &retryRecords{record: rec}
+	orgs := &retryOrgs{stripeAccountID: "acct_test", providerOrgID: providerOrgID}
+	stripe := &retryStripe{
+		payoutsEnabled: true,
+		transferErr:    errors.New("stripe: rate limited"),
+	}
+
+	svc := NewService(ServiceDeps{Records: records, Organizations: orgs, Stripe: stripe})
+	svc.SetProposalStatusReader(&fakeProposalStatuses{statuses: map[uuid.UUID]string{
+		rec.ProposalID: "completed",
+	}})
+
+	_, err := svc.RetryFailedTransfer(context.Background(), uuid.New(), providerOrgID, rec.ID)
+	assert.Error(t, err)
+	assert.NotErrorIs(t, err, domain.ErrTransferNotRetriable)
+	assert.NotErrorIs(t, err, domain.ErrProviderPayoutsDisabled)
+	// Last persisted state must be Failed so the row keeps showing
+	// "Échec — Réessayer" in the wallet UI.
+	assert.NotEmpty(t, records.updates)
+	assert.Equal(t, domain.TransferFailed, records.updates[len(records.updates)-1].TransferStatus)
 }

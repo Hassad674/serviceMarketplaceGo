@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -10,6 +11,7 @@ import '../../../invoicing/data/repositories/invoicing_repository_impl.dart';
 import '../../../invoicing/presentation/providers/invoicing_providers.dart';
 import '../../../invoicing/presentation/widgets/billing_profile_completion_modal.dart';
 import '../../../invoicing/presentation/widgets/current_month_aggregate_card.dart';
+import '../../data/exceptions/kyc_incomplete_exception.dart';
 import '../../domain/entities/wallet_entity.dart';
 import '../providers/wallet_provider.dart';
 
@@ -35,6 +37,21 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   String? _retryingRecordId;
 
   Future<void> _requestPayout() async {
+    // Proactive gate ORDER MATTERS — KYC first, billing second.
+    // The backend enforces the same order so the user fixes their
+    // actual blocker before round-tripping a doomed request.
+
+    // Proactive KYC gate: when the wallet payload already tells us
+    // payouts are not enabled (Stripe Connect not ready), surface the
+    // KYC dialog and skip the request entirely.
+    final asyncWallet = ref.read(walletProvider);
+    final wallet = asyncWallet.valueOrNull;
+    if (wallet != null && !wallet.payoutsEnabled) {
+      if (!mounted) return;
+      await _showKYCIncompleteDialog();
+      return;
+    }
+
     // Proactive billing-profile gate. Read the cached completeness
     // snapshot — if it's already known to be incomplete, pop the
     // completion modal up front so the user fixes their profile before
@@ -65,9 +82,18 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         );
       }
     } on DioException catch (e) {
-      // Defensive gate — the cached completeness can be stale across
-      // tabs / sessions, so a 403 may still come back from the
-      // backend. Translate the typed error and pop the same modal.
+      // Defensive gates — the cached snapshots can be stale across
+      // tabs / sessions, so 403s may still come back from the
+      // backend. Decode in the SAME ORDER as the backend so the
+      // user always sees the matching gate first.
+      final kycIncomplete = tryDecodeKYCIncomplete(e);
+      if (kycIncomplete != null) {
+        ref.invalidate(walletProvider);
+        if (mounted) {
+          await _showKYCIncompleteDialog(message: kycIncomplete.message);
+        }
+        return;
+      }
       final incomplete = tryDecodeBillingProfileIncomplete(e);
       if (incomplete != null) {
         ref.invalidate(billingProfileProvider);
@@ -92,6 +118,51 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
     } finally {
       if (mounted) setState(() => _payingOut = false);
     }
+  }
+
+  /// Surfaces a small AlertDialog explaining the user must finish
+  /// their Stripe onboarding before they can withdraw, with a single
+  /// CTA that pushes the payment-info screen via go_router. Mirrors
+  /// the BillingProfileCompletionModal pattern (modal + CTA) so the
+  /// UX stays consistent across the two prerequisite gates.
+  ///
+  /// Optional [message] is the server-provided copy from the 403
+  /// envelope — used verbatim when present so the wording stays the
+  /// single source of truth on the API contract.
+  Future<void> _showKYCIncompleteDialog({String? message}) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text(
+            'Termine ton onboarding Stripe pour pouvoir retirer',
+          ),
+          content: Text(
+            (message != null && message.isNotEmpty)
+                ? message
+                : "Avant de pouvoir retirer tes gains, finalise ton onboarding "
+                    "Stripe sur la page Infos paiement. Les virements ne sont "
+                    "activés qu'après vérification de ton identité par Stripe.",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Plus tard'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                // Use the rootNavigator-aware GoRouter API so the
+                // navigation works no matter which ShellRoute we
+                // happen to be sitting under.
+                GoRouter.of(context).push(RoutePaths.paymentInfo);
+              },
+              child: const Text('Aller à Infos paiement'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _retryTransfer(String recordId) async {
