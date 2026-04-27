@@ -46,15 +46,26 @@ type OrgStore interface {
 }
 
 // LastAccountState mirrors the fields of StripeAccountSnapshot we compare on.
+//
+// HasEverActivated is a sticky one-way latch: once we've observed the
+// account at ChargesEnabled=true OR PayoutsEnabled=true, this stays true
+// forever. It gates the requirement-class notifications (currently_due,
+// eventually_due, past_due, document errors) so they don't spam the user
+// during the very first onboarding pass — Stripe always returns a long
+// list of pending requirements for a freshly-created account, and the
+// KYC page itself already surfaces them. After the first activation,
+// subsequent requirement changes ARE meaningful and resume normal
+// dispatch.
 type LastAccountState struct {
-	ChargesEnabled     bool
-	PayoutsEnabled     bool
-	DetailsSubmitted   bool
-	CurrentlyDueHash   string
-	PastDueHash        string
-	EventuallyDueHash  string
-	ErrorCodes         []string
-	DisabledReason     string
+	ChargesEnabled    bool
+	PayoutsEnabled    bool
+	DetailsSubmitted  bool
+	CurrentlyDueHash  string
+	PastDueHash       string
+	EventuallyDueHash string
+	ErrorCodes        []string
+	DisabledReason    string
+	HasEverActivated  bool
 }
 
 // Notifier dispatches user-facing notifications for Stripe account lifecycle
@@ -117,7 +128,14 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 	// fan out to all members with the wallet.view permission.
 	recipientUserID := org.OwnerUserID
 
-	events := n.diff(prev, snap)
+	// hasEverActivated is the sticky onboarding-complete latch: true
+	// once we've observed the account active in any prior webhook.
+	// Requirement-class notifs are gated behind it so a freshly-created
+	// Stripe Connect account doesn't trigger a flood of "11 informations
+	// requises" alerts before the user has even started filling forms.
+	hasEverActivated := prev != nil && prev.HasEverActivated
+
+	events := n.diff(prev, snap, hasEverActivated)
 	for _, ev := range events {
 		if !n.shouldSend(org.ID, ev.Key) {
 			slog.Debug("embedded: notification skipped (cooldown)",
@@ -147,8 +165,13 @@ func (n *Notifier) HandleAccountSnapshot(ctx context.Context, snap *portservice.
 	}
 
 	// Persist the new state on the org row so the next webhook can
-	// diff against it.
-	n.savePrevState(ctx, org.ID, snapshotToState(snap))
+	// diff against it. The HasEverActivated latch survives across
+	// snapshots — once true, always true.
+	newState := snapshotToState(snap)
+	if hasEverActivated || snap.ChargesEnabled || snap.PayoutsEnabled {
+		newState.HasEverActivated = true
+	}
+	n.savePrevState(ctx, org.ID, newState)
 	return nil
 }
 
@@ -193,7 +216,15 @@ type notifEvent struct {
 
 // diff compares previous vs current state and returns the notifications
 // that should be emitted (deduped).
-func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSnapshot) []notifEvent {
+//
+// hasEverActivated gates the requirement-class notifications: when false
+// (i.e. the user is in their initial KYC onboarding pass and hasn't yet
+// reached an active state), Stripe's currently_due / eventually_due /
+// past_due lists are noise — the page already surfaces them, the bell
+// shouldn't compete. Bad-state events (account suspended via
+// disabled_reason) still fire regardless because they can only happen
+// after the user is past onboarding anyway.
+func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSnapshot, hasEverActivated bool) []notifEvent {
 	var out []notifEvent
 
 	curState := snapshotToState(cur)
@@ -227,80 +258,89 @@ func (n *Notifier) diff(prev *LastAccountState, cur *portservice.StripeAccountSn
 		}
 	}
 
-	// 2. Requirements added (new currently_due that wasn't there before)
-	if curState.CurrentlyDueHash != "" &&
-		(prev == nil || prev.CurrentlyDueHash != curState.CurrentlyDueHash) {
-		count := len(cur.CurrentlyDue)
-		if count > 0 {
+	// 2-5. Requirement-class notifications — only fire when the user
+	// has previously reached an active state. During the very first
+	// onboarding pass, Stripe's requirements list is not actionable
+	// noise: the user is filling the KYC form, the page itself
+	// surfaces the requirements, and the notification bell would
+	// just compete. The truly bad-state events (disabled_reason,
+	// section 6 below) keep firing regardless.
+	if hasEverActivated {
+		// 2. Requirements added (new currently_due that wasn't there before)
+		if curState.CurrentlyDueHash != "" &&
+			(prev == nil || prev.CurrentlyDueHash != curState.CurrentlyDueHash) {
+			count := len(cur.CurrentlyDue)
+			if count > 0 {
+				out = append(out, notifEvent{
+					Key:   "requirements_currently_due",
+					Type:  notifdomain.TypeStripeRequirements,
+					Title: fmt.Sprintf("%d information%s requise%s", count, pluralS(count), pluralS(count)),
+					Body:  "Stripe a besoin d'informations complémentaires pour maintenir votre compte actif.",
+					Meta: map[string]any{
+						"account_id":    cur.AccountID,
+						"currently_due": cur.CurrentlyDue,
+						"count":         count,
+					},
+				})
+			}
+		}
+
+		// 3. Eventually due (non-urgent, anticipated requirements)
+		if curState.EventuallyDueHash != "" &&
+			(prev == nil || prev.EventuallyDueHash != curState.EventuallyDueHash) {
+			count := len(cur.EventuallyDue)
+			if count > 0 {
+				out = append(out, notifEvent{
+					Key:   "requirements_eventually_due",
+					Type:  notifdomain.TypeStripeRequirements,
+					Title: fmt.Sprintf("%d information%s à prévoir", count, pluralS(count)),
+					Body:  "Stripe anticipe des informations qui seront nécessaires pour maintenir votre compte à jour. Vous pouvez les fournir dès maintenant.",
+					Meta: map[string]any{
+						"account_id":     cur.AccountID,
+						"eventually_due": cur.EventuallyDue,
+						"count":          count,
+						"urgent":         false,
+					},
+				})
+			}
+		}
+
+		// 4. Past due (urgent)
+		if curState.PastDueHash != "" &&
+			(prev == nil || prev.PastDueHash != curState.PastDueHash) {
+			count := len(cur.PastDue)
+			if count > 0 {
+				out = append(out, notifEvent{
+					Key:   "requirements_past_due",
+					Type:  notifdomain.TypeStripeRequirements,
+					Title: "Action urgente — délai dépassé",
+					Body:  fmt.Sprintf("%d information%s n'a%s pas été fournie%s à temps. Votre compte risque d'être suspendu.", count, pluralS(count), pluralS(count), pluralS(count)),
+					Meta: map[string]any{
+						"account_id": cur.AccountID,
+						"past_due":   cur.PastDue,
+						"urgent":     true,
+					},
+				})
+			}
+		}
+
+		// 5. Document rejected (new error appeared)
+		newErrors := diffErrors(prev, curState)
+		for _, ec := range newErrors {
+			title, body := errorMessageFor(ec.Code)
 			out = append(out, notifEvent{
-				Key:   "requirements_currently_due",
+				Key:   "doc_error_" + ec.Code,
 				Type:  notifdomain.TypeStripeRequirements,
-				Title: fmt.Sprintf("%d information%s requise%s", count, pluralS(count), pluralS(count)),
-				Body:  "Stripe a besoin d'informations complémentaires pour maintenir votre compte actif.",
+				Title: title,
+				Body:  body,
 				Meta: map[string]any{
-					"account_id":    cur.AccountID,
-					"currently_due": cur.CurrentlyDue,
-					"count":         count,
+					"account_id":  cur.AccountID,
+					"requirement": ec.Requirement,
+					"code":        ec.Code,
+					"reason":      ec.Reason,
 				},
 			})
 		}
-	}
-
-	// 3. Eventually due (non-urgent, anticipated requirements)
-	if curState.EventuallyDueHash != "" &&
-		(prev == nil || prev.EventuallyDueHash != curState.EventuallyDueHash) {
-		count := len(cur.EventuallyDue)
-		if count > 0 {
-			out = append(out, notifEvent{
-				Key:   "requirements_eventually_due",
-				Type:  notifdomain.TypeStripeRequirements,
-				Title: fmt.Sprintf("%d information%s à prévoir", count, pluralS(count)),
-				Body:  "Stripe anticipe des informations qui seront nécessaires pour maintenir votre compte à jour. Vous pouvez les fournir dès maintenant.",
-				Meta: map[string]any{
-					"account_id":     cur.AccountID,
-					"eventually_due": cur.EventuallyDue,
-					"count":          count,
-					"urgent":         false,
-				},
-			})
-		}
-	}
-
-	// 4. Past due (urgent)
-	if curState.PastDueHash != "" &&
-		(prev == nil || prev.PastDueHash != curState.PastDueHash) {
-		count := len(cur.PastDue)
-		if count > 0 {
-			out = append(out, notifEvent{
-				Key:   "requirements_past_due",
-				Type:  notifdomain.TypeStripeRequirements,
-				Title: "Action urgente — délai dépassé",
-				Body:  fmt.Sprintf("%d information%s n'a%s pas été fournie%s à temps. Votre compte risque d'être suspendu.", count, pluralS(count), pluralS(count), pluralS(count)),
-				Meta: map[string]any{
-					"account_id": cur.AccountID,
-					"past_due":   cur.PastDue,
-					"urgent":     true,
-				},
-			})
-		}
-	}
-
-	// 5. Document rejected (new error appeared)
-	newErrors := diffErrors(prev, curState)
-	for _, ec := range newErrors {
-		title, body := errorMessageFor(ec.Code)
-		out = append(out, notifEvent{
-			Key:   "doc_error_" + ec.Code,
-			Type:  notifdomain.TypeStripeRequirements,
-			Title: title,
-			Body:  body,
-			Meta: map[string]any{
-				"account_id":  cur.AccountID,
-				"requirement": ec.Requirement,
-				"code":        ec.Code,
-				"reason":      ec.Reason,
-			},
-		})
 	}
 
 	// 6. Account disabled
