@@ -314,6 +314,9 @@ func (m *mockPaymentProcessor) TransferPartialToProvider(_ context.Context, _ uu
 func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ int64) error {
 	return nil
 }
+func (m *mockPaymentProcessor) CanProviderReceivePayouts(_ context.Context, _ uuid.UUID) (bool, error) {
+	return true, nil
+}
 
 // ---------------------------------------------------------------------------
 // mockAIAnalyzer

@@ -29,7 +29,9 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockMilestoneRepo struct {
-	listByProposalFn func(ctx context.Context, proposalID uuid.UUID) ([]*milestonedomain.Milestone, error)
+	listByProposalFn     func(ctx context.Context, proposalID uuid.UUID) ([]*milestonedomain.Milestone, error)
+	getCurrentActiveFn   func(ctx context.Context, proposalID uuid.UUID) (*milestonedomain.Milestone, error)
+	getByIDForUpdateFn   func(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error)
 }
 
 func (m *mockMilestoneRepo) CreateBatch(_ context.Context, _ []*milestonedomain.Milestone) error {
@@ -40,7 +42,10 @@ func (m *mockMilestoneRepo) GetByID(_ context.Context, _ uuid.UUID) (*milestoned
 	return nil, milestonedomain.ErrMilestoneNotFound
 }
 
-func (m *mockMilestoneRepo) GetByIDForUpdate(_ context.Context, _ uuid.UUID) (*milestonedomain.Milestone, error) {
+func (m *mockMilestoneRepo) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
+	if m.getByIDForUpdateFn != nil {
+		return m.getByIDForUpdateFn(ctx, id)
+	}
 	return nil, milestonedomain.ErrMilestoneNotFound
 }
 
@@ -51,7 +56,10 @@ func (m *mockMilestoneRepo) ListByProposal(ctx context.Context, proposalID uuid.
 	return nil, nil
 }
 
-func (m *mockMilestoneRepo) GetCurrentActive(_ context.Context, _ uuid.UUID) (*milestonedomain.Milestone, error) {
+func (m *mockMilestoneRepo) GetCurrentActive(ctx context.Context, proposalID uuid.UUID) (*milestonedomain.Milestone, error) {
+	if m.getCurrentActiveFn != nil {
+		return m.getCurrentActiveFn(ctx, proposalID)
+	}
 	return nil, milestonedomain.ErrMilestoneNotFound
 }
 
@@ -91,13 +99,25 @@ func newTestProposalHandlerForMilestones(
 	pr *mockProposalRepo,
 	mr *mockMilestoneRepo,
 ) *ProposalHandler {
+	return newTestProposalHandlerForMilestonesWithPayments(ur, pr, mr, &mockPaymentProcessor{})
+}
+
+// newTestProposalHandlerForMilestonesWithPayments is the variant used by
+// tests that need to drive the PaymentProcessor stub (e.g. the provider-
+// KYC pre-check returning false).
+func newTestProposalHandlerForMilestonesWithPayments(
+	ur *mockUserRepo,
+	pr *mockProposalRepo,
+	mr *mockMilestoneRepo,
+	pp *mockPaymentProcessor,
+) *ProposalHandler {
 	svc := proposalapp.NewService(proposalapp.ServiceDeps{
 		Proposals:     pr,
 		Users:         ur,
 		Milestones:    mr,
 		Messages:      &mockMessageSender{},
 		Notifications: &mockNotificationSender{},
-		Payments:      &mockPaymentProcessor{},
+		Payments:      pp,
 		Storage:       &mockStorageService{},
 	})
 	return NewProposalHandler(svc, nil)
@@ -304,6 +324,74 @@ func TestProposalHandler_ApproveMilestone(t *testing.T) {
 		func(h *ProposalHandler, w http.ResponseWriter, r *http.Request) { h.ApproveMilestone(w, r) },
 		boundaryCases(proposalID, milestoneID, clientID),
 	)
+}
+
+// TestProposalHandler_ApproveMilestone_ProviderKYCNotReady verifies the
+// fix for the silent-transfer-failure bug: when the provider's Stripe
+// account is not ready (no Connect account or PayoutsEnabled=false),
+// ApproveMilestone must return HTTP 412 Precondition Failed with the
+// `provider_kyc_incomplete` error code so the client gets a proper
+// "ask the provider to finish onboarding" UX instead of a 200 + a lying
+// "milestone paid" notification.
+func TestProposalHandler_ApproveMilestone_ProviderKYCNotReady(t *testing.T) {
+	proposalID := uuid.New()
+	milestoneID := uuid.New()
+	clientID := uuid.New() // also used as orgID via proposalCtx convention
+	providerID := uuid.New()
+
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(clientID, providerID)}
+	pr := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*proposaldomain.Proposal, error) {
+			return &proposaldomain.Proposal{
+				ID:             proposalID,
+				ConversationID: uuid.New(),
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         proposaldomain.StatusCompletionRequested,
+				Title:          "Build REST API",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	now := time.Now()
+	submittedMilestone := &milestonedomain.Milestone{
+		ID:          milestoneID,
+		ProposalID:  proposalID,
+		Sequence:    1,
+		Title:       "Milestone 1",
+		Amount:      500000,
+		Status:      milestonedomain.StatusSubmitted,
+		Version:     1,
+		FundedAt:    &now,
+		SubmittedAt: &now,
+	}
+	mr := &mockMilestoneRepo{
+		listByProposalFn: func(_ context.Context, _ uuid.UUID) ([]*milestonedomain.Milestone, error) {
+			return []*milestonedomain.Milestone{submittedMilestone}, nil
+		},
+		getCurrentActiveFn: func(_ context.Context, _ uuid.UUID) (*milestonedomain.Milestone, error) {
+			return submittedMilestone, nil
+		},
+	}
+	pp := &mockPaymentProcessor{
+		canProviderReceiveFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+			return false, nil // provider has no Stripe account / payouts disabled
+		},
+	}
+	h := newTestProposalHandlerForMilestonesWithPayments(ur, pr, mr, pp)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/proposals/"+proposalID.String()+"/milestones/"+milestoneID.String()+"/approve",
+		nil,
+	)
+	req = milestoneCtx(req, &clientID, proposalID.String(), milestoneID.String())
+	rec := httptest.NewRecorder()
+
+	h.ApproveMilestone(rec, req)
+
+	assert.Equal(t, http.StatusPreconditionFailed, rec.Code, "must return 412 Precondition Failed")
+	assertProposalErrorCode(t, rec, "provider_kyc_incomplete")
 }
 
 // ---------------------------------------------------------------------------

@@ -40,6 +40,17 @@ type PaymentProcessor interface {
 	// RefundToClient creates a partial or full refund on the original PaymentIntent.
 	// amount is in centimes. Used for dispute resolutions.
 	RefundToClient(ctx context.Context, proposalID uuid.UUID, amount int64) error
+
+	// CanProviderReceivePayouts reports whether the given provider
+	// organization has a Stripe Connect account that is ready to receive
+	// transfers (account exists AND PayoutsEnabled == true).
+	//
+	// Used as a pre-check in the milestone-release path: callers MUST
+	// reject the release when this returns false, otherwise the local
+	// state flips to "released" while the Stripe transfer silently fails
+	// — giving the client a "milestone paid" notification while the
+	// money never leaves the platform.
+	CanProviderReceivePayouts(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
 }
 
 type PaymentIntentInput struct {

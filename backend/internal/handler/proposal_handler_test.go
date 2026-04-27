@@ -28,9 +28,10 @@ import (
 // ---------------------------------------------------------------------------
 
 type mockPaymentProcessor struct {
-	createPaymentIntentFn func(ctx context.Context, input service.PaymentIntentInput) (*service.PaymentIntentOutput, error)
-	transferToProviderFn  func(ctx context.Context, proposalID uuid.UUID) error
-	handlePaymentFn       func(ctx context.Context, piID string) (uuid.UUID, error)
+	createPaymentIntentFn  func(ctx context.Context, input service.PaymentIntentInput) (*service.PaymentIntentOutput, error)
+	transferToProviderFn   func(ctx context.Context, proposalID uuid.UUID) error
+	handlePaymentFn        func(ctx context.Context, piID string) (uuid.UUID, error)
+	canProviderReceiveFn   func(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
 }
 
 func (m *mockPaymentProcessor) CreatePaymentIntent(ctx context.Context, input service.PaymentIntentInput) (*service.PaymentIntentOutput, error) {
@@ -64,6 +65,15 @@ func (m *mockPaymentProcessor) TransferPartialToProvider(_ context.Context, _ uu
 
 func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ int64) error {
 	return nil
+}
+
+func (m *mockPaymentProcessor) CanProviderReceivePayouts(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	if m.canProviderReceiveFn != nil {
+		return m.canProviderReceiveFn(ctx, providerOrgID)
+	}
+	// Default: provider is ready. Existing tests rely on the happy path
+	// for milestone-release flows.
+	return true, nil
 }
 
 var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)

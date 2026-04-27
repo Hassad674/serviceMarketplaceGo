@@ -670,3 +670,45 @@ func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid
 func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+
+// --- mockPaymentProcessor ---
+//
+// Stub of service.PaymentProcessor used by tests that need to exercise
+// the proposal milestone-release path with a non-nil payments dependency
+// (e.g. the provider-KYC pre-check). Methods that mutate state record
+// the call so the test can assert "no Stripe transfer happened" alongside
+// "no DB write happened".
+type mockPaymentProcessor struct {
+	canProviderReceiveFn  func(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
+	transferMilestoneCalls int
+	transferProposalCalls  int
+}
+
+func (m *mockPaymentProcessor) CreatePaymentIntent(context.Context, service.PaymentIntentInput) (*service.PaymentIntentOutput, error) {
+	return nil, nil
+}
+func (m *mockPaymentProcessor) TransferToProvider(_ context.Context, _ uuid.UUID) error {
+	m.transferProposalCalls++
+	return nil
+}
+func (m *mockPaymentProcessor) TransferMilestone(_ context.Context, _ uuid.UUID) error {
+	m.transferMilestoneCalls++
+	return nil
+}
+func (m *mockPaymentProcessor) HandlePaymentSucceeded(context.Context, string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (m *mockPaymentProcessor) TransferPartialToProvider(_ context.Context, _ uuid.UUID, _ int64) error {
+	return nil
+}
+func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ int64) error {
+	return nil
+}
+func (m *mockPaymentProcessor) CanProviderReceivePayouts(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	if m.canProviderReceiveFn != nil {
+		return m.canProviderReceiveFn(ctx, providerOrgID)
+	}
+	return true, nil
+}
+
+var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)

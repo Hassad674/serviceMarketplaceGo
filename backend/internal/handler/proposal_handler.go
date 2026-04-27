@@ -903,6 +903,14 @@ func handleProposalError(w http.ResponseWriter, err error) {
 		res.Error(w, http.StatusForbidden, "not_provider", err.Error())
 	case errors.Is(err, proposaldomain.ErrNotClient):
 		res.Error(w, http.StatusForbidden, "not_client", err.Error())
+	case errors.Is(err, proposaldomain.ErrProviderKYCNotReady):
+		// 412 Precondition Failed: the resource state is fine, but a
+		// pre-condition (provider has finished Stripe onboarding) is
+		// not met. The client should ask the provider to complete
+		// payouts setup and retry. Message in French to match the
+		// existing user-facing messaging style on the proposal flow.
+		res.Error(w, http.StatusPreconditionFailed, "provider_kyc_incomplete",
+			"Le prestataire doit terminer son onboarding Stripe avant que ce jalon puisse être libéré. Demande-lui de finaliser sa configuration de paiement.")
 	case errors.Is(err, userdomain.ErrKYCRestricted):
 		res.Error(w, http.StatusForbidden, "kyc_restricted", "Your account is restricted. Set up your payment info to lift this restriction.")
 	default:

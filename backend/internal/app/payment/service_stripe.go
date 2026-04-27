@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -900,5 +901,42 @@ func (s *Service) PreviewFee(ctx context.Context, userID uuid.UUID, amountCents 
 // enterprise); edge cases MUST be disambiguated by passing recipientID.
 func defaultViewerIsProvider(role domainuser.Role) bool {
 	return role != domainuser.RoleEnterprise
+}
+
+// CanProviderReceivePayouts reports whether the given provider organization
+// has a Stripe Connect account that is ready to receive transfers (account
+// id known AND payouts_enabled == true on the live Stripe account).
+//
+// Used as a pre-check by the proposal milestone-release path so we never
+// flip a milestone to "released" + send a "milestone paid" notification
+// when the underlying Stripe transfer would fail (no account, KYC
+// pending, capability disabled, …).
+//
+// A nil error with a false bool means "the provider is not ready" — that
+// is the expected, non-error happy path for ghost providers. A non-nil
+// error means we could not even determine readiness (Stripe API down,
+// org lookup failed) — the caller MUST treat this as not-ready and
+// surface it the same way to avoid a partial release.
+func (s *Service) CanProviderReceivePayouts(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	accountID, _, err := s.orgs.GetStripeAccount(ctx, providerOrgID)
+	if err != nil {
+		return false, fmt.Errorf("get stripe account: %w", err)
+	}
+	if strings.TrimSpace(accountID) == "" {
+		return false, nil
+	}
+	if s.stripe == nil {
+		// No Stripe wired — degrade safely. Same posture as the existing
+		// wallet-overview path which silently skips the GetAccount call.
+		return false, nil
+	}
+	info, err := s.stripe.GetAccount(ctx, accountID)
+	if err != nil {
+		return false, fmt.Errorf("get stripe account capabilities: %w", err)
+	}
+	if info == nil {
+		return false, nil
+	}
+	return info.PayoutsEnabled, nil
 }
 
