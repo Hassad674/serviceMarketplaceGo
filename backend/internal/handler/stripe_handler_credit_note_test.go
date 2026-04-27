@@ -95,6 +95,12 @@ func (f *refundFakeRepo) HasInvoiceItemForPaymentRecord(_ context.Context, _ uui
 func (f *refundFakeRepo) ListReleasedPaymentRecordsForOrg(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
 	return nil, nil
 }
+func (f *refundFakeRepo) ListInvoicesAdmin(_ context.Context, _ repository.AdminInvoiceFilters, _ string, _ int) ([]*repository.AdminInvoiceRow, string, error) {
+	return nil, "", nil
+}
+func (f *refundFakeRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*invoicing.CreditNote, error) {
+	return nil, invoicing.ErrNotFound
+}
 
 type refundFakeIdem struct{ t *refundTracking }
 

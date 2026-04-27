@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom"
-import { LayoutDashboard, Users, MessageSquare, Briefcase, Star, Image, Shield, Scale, LogOut } from "lucide-react"
+import { LayoutDashboard, Users, MessageSquare, Briefcase, Star, Image, Shield, Scale, FileText, LogOut } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { useAuth } from "@/shared/hooks/use-auth"
 import { useModerationCount } from "@/shared/hooks/use-moderation-count"
@@ -26,6 +26,7 @@ export function Sidebar() {
     { to: "/reviews", label: "Avis", icon: Star },
     { to: "/media", label: "M\u00E9dias", icon: Image },
     { to: "/disputes", label: "Litiges", icon: Scale },
+    { to: "/invoices", label: "Factures", icon: FileText },
   ]
 
   return (

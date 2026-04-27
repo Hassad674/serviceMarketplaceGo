@@ -57,6 +57,7 @@ type RouterDeps struct {
 	BillingProfile      *BillingProfileHandler // optional — nil disables /me/billing-profile routes
 	Invoice             *InvoiceHandler        // optional — nil disables /me/invoices routes
 	AdminCreditNote     *AdminCreditNoteHandler // optional — nil disables admin credit-note correction endpoint
+	AdminInvoice        *AdminInvoiceHandler    // optional — nil disables admin "all invoices" listing + PDF redirect
 	Admin               *AdminHandler
 	Portfolio           *PortfolioHandler
 	ProjectHistory      *ProjectHistoryHandler
@@ -884,6 +885,14 @@ func NewRouter(deps RouterDeps) chi.Router {
 				// Same RequireAdmin gate as every sibling under /admin.
 				if deps.AdminCreditNote != nil {
 					r.Post("/invoices/{id}/credit-note", deps.AdminCreditNote.Issue)
+				}
+
+				// Admin "all invoices ever emitted" listing + PDF redirect.
+				// Wired separately from the credit-note handler so each
+				// admin surface stays removable in isolation.
+				if deps.AdminInvoice != nil {
+					r.Get("/invoices", deps.AdminInvoice.List)
+					r.Get("/invoices/{id}/pdf", deps.AdminInvoice.GetPDF)
 				}
 			})
 		}

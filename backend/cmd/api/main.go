@@ -1164,6 +1164,7 @@ func main() {
 	var billingProfileHandler *handler.BillingProfileHandler
 	var invoiceHandler *handler.InvoiceHandler
 	var adminCreditNoteHandler *handler.AdminCreditNoteHandler
+	var adminInvoiceHandler *handler.AdminInvoiceHandler
 	if stripeHandler != nil {
 		issuer, issuerErr := confighelpers.LoadInvoiceIssuer()
 		if issuerErr != nil {
@@ -1213,6 +1214,7 @@ func main() {
 				billingProfileHandler = handler.NewBillingProfileHandler(invoicingSvc)
 				invoiceHandler = handler.NewInvoiceHandler(invoicingSvc)
 				adminCreditNoteHandler = handler.NewAdminCreditNoteHandler(invoicingSvc)
+				adminInvoiceHandler = handler.NewAdminInvoiceHandler(invoicingSvc)
 				walletHandler = walletHandler.WithInvoicing(invoicingSvc)
 
 				// Subscription pre-enriches the Stripe Customer with
@@ -1331,6 +1333,7 @@ func main() {
 		BillingProfile:      billingProfileHandler,
 		Invoice:             invoiceHandler,
 		AdminCreditNote:     adminCreditNoteHandler,
+		AdminInvoice:        adminInvoiceHandler,
 		Admin:               adminHandler,
 		Portfolio:           portfolioHandler,
 		ProjectHistory:      projectHistoryHandler,

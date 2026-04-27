@@ -89,6 +89,12 @@ func (bpFakeInvoiceRepo) HasInvoiceItemForPaymentRecord(_ context.Context, _ uui
 func (bpFakeInvoiceRepo) ListReleasedPaymentRecordsForOrg(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
 	return nil, nil
 }
+func (bpFakeInvoiceRepo) ListInvoicesAdmin(_ context.Context, _ repository.AdminInvoiceFilters, _ string, _ int) ([]*repository.AdminInvoiceRow, string, error) {
+	return nil, "", nil
+}
+func (bpFakeInvoiceRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*domain.CreditNote, error) {
+	return nil, domain.ErrNotFound
+}
 
 type bpFakeStorage struct{}
 

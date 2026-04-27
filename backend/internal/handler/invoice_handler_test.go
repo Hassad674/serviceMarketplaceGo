@@ -91,6 +91,12 @@ func (r *invFakeRepo) HasInvoiceItemForPaymentRecord(_ context.Context, _ uuid.U
 func (r *invFakeRepo) ListReleasedPaymentRecordsForOrg(_ context.Context, _ uuid.UUID, _, _ time.Time) ([]repository.ReleasedPaymentRecord, error) {
 	return r.released, nil
 }
+func (r *invFakeRepo) ListInvoicesAdmin(_ context.Context, _ repository.AdminInvoiceFilters, _ string, _ int) ([]*repository.AdminInvoiceRow, string, error) {
+	return nil, "", nil
+}
+func (r *invFakeRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*domain.CreditNote, error) {
+	return nil, domain.ErrNotFound
+}
 
 // ---------- harness ----------
 

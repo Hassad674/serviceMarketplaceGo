@@ -45,6 +45,8 @@ type mockInvoiceRepo struct {
 	listByOrgFn          func(ctx context.Context, organizationID uuid.UUID, cursor string, limit int) ([]*invoicing.Invoice, string, error)
 	hasItemForPaymentFn  func(ctx context.Context, paymentRecordID uuid.UUID) (bool, error)
 	listReleasedForOrgFn func(ctx context.Context, organizationID uuid.UUID, periodStart, periodEnd time.Time) ([]repository.ReleasedPaymentRecord, error)
+	listAdminFn          func(ctx context.Context, filters repository.AdminInvoiceFilters, cursor string, limit int) ([]*repository.AdminInvoiceRow, string, error)
+	findCnByIDFn         func(ctx context.Context, id uuid.UUID) (*invoicing.CreditNote, error)
 
 	persistedInvoices    []*invoicing.Invoice
 	persistedCreditNotes []*invoicing.CreditNote
@@ -119,6 +121,18 @@ func (m *mockInvoiceRepo) ListReleasedPaymentRecordsForOrg(ctx context.Context, 
 		return m.listReleasedForOrgFn(ctx, organizationID, periodStart, periodEnd)
 	}
 	return nil, nil
+}
+func (m *mockInvoiceRepo) ListInvoicesAdmin(ctx context.Context, filters repository.AdminInvoiceFilters, cursor string, limit int) ([]*repository.AdminInvoiceRow, string, error) {
+	if m.listAdminFn != nil {
+		return m.listAdminFn(ctx, filters, cursor, limit)
+	}
+	return nil, "", nil
+}
+func (m *mockInvoiceRepo) FindCreditNoteByID(ctx context.Context, id uuid.UUID) (*invoicing.CreditNote, error) {
+	if m.findCnByIDFn != nil {
+		return m.findCnByIDFn(ctx, id)
+	}
+	return nil, invoicing.ErrNotFound
 }
 
 type mockProfileRepo struct {

@@ -15,6 +15,7 @@ import { MediaPage } from "@/features/media/components/media-page"
 import { MediaDetailPage } from "@/features/media/components/media-detail-page"
 import { DisputesPage } from "@/features/disputes/components/disputes-page"
 import { DisputeDetailPage } from "@/features/disputes/components/dispute-detail-page"
+import { InvoicesPage } from "@/features/invoices/components/invoices-page"
 
 export function AppRouter() {
   return (
@@ -37,6 +38,7 @@ export function AppRouter() {
           <Route path="/media/:id" element={<MediaDetailPage />} />
           <Route path="/disputes" element={<DisputesPage />} />
           <Route path="/disputes/:id" element={<DisputeDetailPage />} />
+          <Route path="/invoices" element={<InvoicesPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
