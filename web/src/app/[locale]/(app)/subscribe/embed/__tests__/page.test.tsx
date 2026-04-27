@@ -289,4 +289,41 @@ describe("SubscribeEmbedPage", () => {
       billing_cycle: "annual",
     })
   })
+
+  it("remounts the EmbeddedCheckoutProvider with the new client_secret when the cycle is toggled", async () => {
+    // Two distinct sessions — one per cycle. The provider must end up
+    // observably bound to the SECOND secret after the toggle, otherwise
+    // Stripe keeps rendering the iframe for the original price.
+    subscribeApiMock
+      .mockResolvedValueOnce({ client_secret: "cs_monthly_111" })
+      .mockResolvedValueOnce({ client_secret: "cs_annual_222" })
+
+    const { rerender } = render(renderPage())
+
+    act(() => {
+      screen.getByText("save-billing").click()
+    })
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId("embedded-checkout-provider")
+          .getAttribute("data-client-secret"),
+      ).toBe("cs_monthly_111")
+    })
+
+    const annual = screen.getByRole("tab", { name: /Annuel/i })
+    act(() => {
+      annual.click()
+    })
+    rerender(renderPage())
+
+    await waitFor(() => {
+      expect(
+        screen
+          .getByTestId("embedded-checkout-provider")
+          .getAttribute("data-client-secret"),
+      ).toBe("cs_annual_222")
+    })
+  })
 })

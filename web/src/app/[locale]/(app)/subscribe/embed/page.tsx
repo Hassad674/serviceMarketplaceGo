@@ -307,6 +307,14 @@ function PaymentStep({
   useEffect(() => {
     let cancelled = false
     setError(null)
+    // Drop the previous client_secret while the new session is being
+    // created — this swaps the Stripe iframe for the "Préparation du
+    // paiement…" loader card so the user sees a clean hand-off rather
+    // than a stale price flickering until the new POST resolves. The
+    // EmbeddedCheckoutProvider also gets a fresh React key once the
+    // new secret arrives (see `key={clientSecret}` below), guaranteeing
+    // the iframe actually re-renders with the new price.
+    setClientSecret(null)
     const input: SubscribeInput = {
       plan,
       billing_cycle: billingCycle,
@@ -392,7 +400,21 @@ function PaymentStep({
       data-return-to={returnTo}
       className="min-h-[400px]"
     >
-      <EmbeddedCheckoutProvider stripe={stripePromise} options={options}>
+      {/*
+        key={clientSecret} forces React to unmount the previous
+        EmbeddedCheckoutProvider subtree and mount a fresh one whenever
+        the client secret changes (e.g. after the user toggles between
+        mensuel/annuel and a new Stripe session is created). The Stripe
+        provider caches the underlying Checkout instance keyed by the
+        clientSecret it was first mounted with — updating
+        options.clientSecret in place does NOT swap the iframe, so
+        without the remount the user keeps seeing the old price.
+      */}
+      <EmbeddedCheckoutProvider
+        key={clientSecret}
+        stripe={stripePromise}
+        options={options}
+      >
         <EmbeddedCheckout />
       </EmbeddedCheckoutProvider>
     </div>
