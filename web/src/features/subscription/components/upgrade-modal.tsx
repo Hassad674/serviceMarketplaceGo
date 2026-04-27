@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { Modal } from "@/shared/components/ui/modal"
@@ -31,6 +31,15 @@ export function UpgradeModal({ open, role, onClose }: UpgradeModalProps) {
   const [cycle, setCycle] = useState<BillingCycle>("monthly")
   const [autoRenew, setAutoRenew] = useState(false)
   const [pending, setPending] = useState(false)
+
+  // Modal is mounted by the layout-level header so it survives every
+  // navigation. When the user comes back from the embed page (browser
+  // back, redirect cancelled, etc.) the previous click's `pending=true`
+  // would otherwise leave the CTA stuck on "Redirection…" — reset it
+  // every time the modal opens so the user lands on a fresh state.
+  useEffect(() => {
+    if (open) setPending(false)
+  }, [open])
 
   const handleClose = useCallback(() => {
     setPending(false)
