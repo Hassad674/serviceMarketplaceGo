@@ -2,14 +2,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor, act } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createElement } from "react"
-import { useWallet, useRequestPayout } from "../use-wallet"
+import {
+  useWallet,
+  useRequestPayout,
+  useRetryTransfer,
+} from "../use-wallet"
 
 const mockGetWallet = vi.fn()
 const mockRequestPayout = vi.fn()
+const mockRetryFailedTransfer = vi.fn()
 
 vi.mock("../../api/wallet-api", () => ({
   getWallet: (...args: unknown[]) => mockGetWallet(...args),
   requestPayout: (...args: unknown[]) => mockRequestPayout(...args),
+  retryFailedTransfer: (...args: unknown[]) =>
+    mockRetryFailedTransfer(...args),
 }))
 
 function createWrapper() {
@@ -151,5 +158,50 @@ describe("useRequestPayout", () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(result.current.error?.message).toBe("Insufficient balance")
+  })
+})
+
+describe("useRetryTransfer", () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it("calls retryFailedTransfer with the supplied record id", async () => {
+    mockRetryFailedTransfer.mockResolvedValue({
+      status: "transferred",
+      message: "Transferred 21188 EUR to your account",
+    })
+
+    const { result } = renderHook(() => useRetryTransfer(), {
+      wrapper: createWrapper(),
+    })
+
+    await act(async () => {
+      result.current.mutate("rec-123")
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    // The hook MUST forward the record id verbatim — the backend uses
+    // it to target the exact failed payment_record. Forwarding the
+    // proposal id (legacy bug) over-released sibling milestones.
+    expect(mockRetryFailedTransfer).toHaveBeenCalledWith("rec-123")
+    expect(result.current.data?.status).toBe("transferred")
+  })
+
+  it("propagates the api error to the caller", async () => {
+    mockRetryFailedTransfer.mockRejectedValue(
+      new Error("provider_kyc_incomplete"),
+    )
+
+    const { result } = renderHook(() => useRetryTransfer(), {
+      wrapper: createWrapper(),
+    })
+
+    await act(async () => {
+      result.current.mutate("rec-123")
+    })
+
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(result.current.error?.message).toBe("provider_kyc_incomplete")
   })
 })

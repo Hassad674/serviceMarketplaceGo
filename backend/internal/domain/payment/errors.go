@@ -25,6 +25,13 @@ var (
 	ErrTransferNotRetriable     = errors.New("transfer not retriable")
 	ErrStripeAccountNotFound    = errors.New("provider has no Stripe connected account")
 	ErrStripeAccountNotVerified = errors.New("provider Stripe account is not verified")
+	// ErrProviderPayoutsDisabled fires when the provider has a Stripe Connect
+	// account on file BUT payouts_enabled=false (KYC pending, capability
+	// disabled, …). Distinct from ErrStripeAccountNotFound because the user
+	// already started Stripe onboarding — the UX is "finish onboarding",
+	// not "set up payments". Mapped to HTTP 412 (Precondition Failed) at
+	// the handler boundary.
+	ErrProviderPayoutsDisabled = errors.New("provider Stripe payouts are not enabled")
 
 	// Identity document errors
 	ErrInvalidDocumentCategory = errors.New("invalid document category")
