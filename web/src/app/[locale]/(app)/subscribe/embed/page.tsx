@@ -15,7 +15,7 @@ import {
   useBillingProfile,
   useSyncBillingProfile,
 } from "@/features/invoicing/hooks/use-billing-profile"
-import { useSubscribe } from "@/features/subscription/hooks/use-subscribe"
+import { subscribe } from "@/features/subscription/api/subscription-api"
 import type {
   BillingCycle,
   Plan,
@@ -179,54 +179,76 @@ function PaymentStep({
   autoRenew: boolean
   returnTo: string
 }) {
-  const subscribe = useSubscribe()
-  const fired = useRef(false)
+  // Direct fetch + useState pattern instead of useMutation here. The
+  // previous useEffect+mutate combo lost data across React strict-mode
+  // dev double-mounts: each mount got a fresh useMutation instance, the
+  // first mount's POST result fell on the floor, and the second mount
+  // sat at isPending=true even after Stripe returned a session.
+  // useState survives the remount cycle because the value is held in
+  // the React tree itself.
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [error, setError] = useState<{ code?: string; message: string } | null>(null)
+  const [retryToken, setRetryToken] = useState(0)
 
   useEffect(() => {
-    if (fired.current) return
-    fired.current = true
+    let cancelled = false
+    setError(null)
     const input: SubscribeInput = {
       plan,
       billing_cycle: billingCycle,
       auto_renew: autoRenew,
     }
-    subscribe.mutate(input)
-    // subscribe.mutate is stable; deps would re-trigger needlessly.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan, billingCycle, autoRenew])
+    subscribe(input)
+      .then((res) => {
+        if (cancelled) return
+        if (!res?.client_secret) {
+          setError({
+            message:
+              "Réponse inattendue du serveur (client_secret manquant).",
+          })
+          return
+        }
+        setClientSecret(res.client_secret)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        if (err instanceof ApiError) {
+          setError({ code: err.code, message: err.message })
+          return
+        }
+        setError({
+          message:
+            err instanceof Error ? err.message : "Erreur inconnue.",
+        })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [plan, billingCycle, autoRenew, retryToken])
 
   const options = useMemo(() => {
-    if (!subscribe.data?.client_secret) return null
-    return { clientSecret: subscribe.data.client_secret }
-  }, [subscribe.data?.client_secret])
+    if (!clientSecret) return null
+    return { clientSecret }
+  }, [clientSecret])
 
-  if (subscribe.isError) {
-    const apiErr =
-      subscribe.error instanceof ApiError ? subscribe.error : null
+  if (error) {
     return (
       <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">
-        <p className="font-medium">
-          Le paiement n'a pas pu démarrer.
-        </p>
+        <p className="font-medium">Le paiement n'a pas pu démarrer.</p>
         <p className="text-xs">
-          {apiErr?.message || subscribe.error?.message || "Erreur inconnue."}
-          {apiErr?.code && (
+          {error.message}
+          {error.code && (
             <span className="ml-1 rounded bg-red-100 px-1.5 py-0.5 font-mono text-[10px] text-red-800 dark:bg-red-500/20 dark:text-red-200">
-              {apiErr.code}
+              {error.code}
             </span>
           )}
         </p>
         <button
           type="button"
           onClick={() => {
-            fired.current = false
-            subscribe.reset()
-            const input: SubscribeInput = {
-              plan,
-              billing_cycle: billingCycle,
-              auto_renew: autoRenew,
-            }
-            subscribe.mutate(input)
+            setError(null)
+            setClientSecret(null)
+            setRetryToken((t) => t + 1)
           }}
           className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:bg-transparent dark:text-red-300"
         >
@@ -236,24 +258,7 @@ function PaymentStep({
     )
   }
 
-  // Defensive: backend returned 200 but the response shape is wrong
-  // (no client_secret). Surface it instead of spinning forever.
-  if (subscribe.isSuccess && !subscribe.data?.client_secret) {
-    return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-        Réponse inattendue du serveur (client_secret manquant). Réessaie
-        plus tard ou contacte le support.
-      </div>
-    )
-  }
-
   if (!options) {
-    // Diagnostic: show exactly which state the mutation is in so we
-    // can tell "preparing the call", "waiting on Stripe", and "got
-    // a response but no client_secret" apart instead of an
-    // indistinguishable spinner. Visible in dev + prod since the
-    // payment step is critical and a stuck spinner is the worst
-    // possible UX here.
     return (
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
@@ -261,11 +266,7 @@ function PaymentStep({
           Préparation du paiement…
         </div>
         <p className="text-xs text-slate-400 dark:text-slate-500">
-          {subscribe.isIdle && "Initialisation…"}
-          {subscribe.isPending && "Création de la session Stripe en cours…"}
-          {subscribe.isSuccess &&
-            !subscribe.data?.client_secret &&
-            "Réponse reçue mais sans client_secret — relance la page."}
+          Création de la session Stripe en cours…
         </p>
       </div>
     )

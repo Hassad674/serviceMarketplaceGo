@@ -79,10 +79,9 @@ vi.mock("@/features/invoicing/hooks/use-billing-profile", () => ({
   useSyncBillingProfile: () => ({ mutate: syncMutateMock, isPending: false }),
 }))
 
-const subscribeMutateMock = vi.fn()
-const useSubscribeMock = vi.fn()
-vi.mock("@/features/subscription/hooks/use-subscribe", () => ({
-  useSubscribe: () => useSubscribeMock(),
+const subscribeApiMock = vi.fn()
+vi.mock("@/features/subscription/api/subscription-api", () => ({
+  subscribe: (...args: unknown[]) => subscribeApiMock(...args),
 }))
 
 // ---- Helpers ----
@@ -103,8 +102,7 @@ describe("SubscribeEmbedPage", () => {
     mockSearchParams.clear()
     useBillingProfileMock.mockReset()
     syncMutateMock.mockReset()
-    subscribeMutateMock.mockReset()
-    useSubscribeMock.mockReset()
+    subscribeApiMock.mockReset()
     mockSearchParams.set("plan", "freelance")
     mockSearchParams.set("cycle", "monthly")
     mockSearchParams.set("auto_renew", "false")
@@ -112,12 +110,9 @@ describe("SubscribeEmbedPage", () => {
       data: billingProfileSnapshot,
       isLoading: false,
     })
-    useSubscribeMock.mockReturnValue({
-      mutate: subscribeMutateMock,
-      data: undefined,
-      isPending: false,
-      isError: false,
-    })
+    // Default: hang on the call so step 2 sits in "preparing" — tests
+    // override per-case for success / error paths.
+    subscribeApiMock.mockReturnValue(new Promise(() => {}))
   })
 
   it("renders the billing step by default with the form", () => {
@@ -148,12 +143,7 @@ describe("SubscribeEmbedPage", () => {
   })
 
   it("transitions to the payment step when BillingProfileForm fires onSaved", async () => {
-    useSubscribeMock.mockReturnValue({
-      mutate: subscribeMutateMock,
-      data: { client_secret: "cs_test_abc" },
-      isPending: false,
-      isError: false,
-    })
+    subscribeApiMock.mockResolvedValue({ client_secret: "cs_test_abc" })
 
     render(renderPage())
 
@@ -165,19 +155,14 @@ describe("SubscribeEmbedPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/^Paiement$/i)).toBeDefined()
     })
-    expect(subscribeMutateMock).toHaveBeenCalledTimes(1)
-    expect(screen.getByTestId("embedded-checkout-provider").getAttribute("data-client-secret")).toBe("cs_test_abc")
+    await waitFor(() => {
+      expect(screen.getByTestId("embedded-checkout-provider").getAttribute("data-client-secret")).toBe("cs_test_abc")
+    })
+    expect(subscribeApiMock).toHaveBeenCalled()
   })
 
-  it("renders an error card when the subscribe mutation fails", async () => {
-    // Force payment step from the start by faking onSaved + provide an
-    // errored mutation.
-    useSubscribeMock.mockReturnValue({
-      mutate: subscribeMutateMock,
-      data: undefined,
-      isPending: false,
-      isError: true,
-    })
+  it("renders an error card when the subscribe call fails", async () => {
+    subscribeApiMock.mockRejectedValue(new Error("network down"))
 
     render(renderPage())
     act(() => {
