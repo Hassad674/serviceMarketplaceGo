@@ -1198,6 +1198,7 @@ func main() {
 				viesValidator := viesadapter.NewClient(redisClient)
 				invoicingSvc.SetBillingProfileDeps(invoicingapp.BillingProfileDeps{
 					Organizations: organizationRepo,
+					Users:         userRepo,
 					StripeKYC:     stripeKYCReader,
 					VIESValidator: viesValidator,
 				})

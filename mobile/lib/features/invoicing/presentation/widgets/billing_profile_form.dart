@@ -55,7 +55,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
   late final TextEditingController _postalCode;
   late final TextEditingController _city;
   String _country = '';
-  late final TextEditingController _invoicingEmail;
 
   bool _hydrated = false;
   bool _saving = false;
@@ -81,7 +80,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     _addressLine2 = TextEditingController();
     _postalCode = TextEditingController();
     _city = TextEditingController();
-    _invoicingEmail = TextEditingController();
   }
 
   @override
@@ -95,7 +93,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     _addressLine2.dispose();
     _postalCode.dispose();
     _city.dispose();
-    _invoicingEmail.dispose();
     super.dispose();
   }
 
@@ -111,7 +108,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     _postalCode.text = p.postalCode;
     _city.text = p.city;
     _country = p.country;
-    _invoicingEmail.text = p.invoicingEmail;
     _vatValidatedAt = p.vatValidatedAt;
     _hydrated = true;
   }
@@ -269,16 +265,11 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          _Section(
-            title: 'Email de facturation',
-            child: _LabeledField(
-              label: 'Email où envoyer les factures',
-              controller: _invoicingEmail,
-              keyboardType: TextInputType.emailAddress,
-              validator: _email,
-            ),
-          ),
+          // The "Email de facturation" section was removed — invoices
+          // default to the org owner's account email server-side. The
+          // backend keeps the column for a future per-recipient
+          // override but the user is no longer prompted for it during
+          // the inline subscribe flow.
           const SizedBox(height: 20),
           if (_saveError != null)
             Padding(
@@ -350,15 +341,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     return null;
   }
 
-  String? _email(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Champ obligatoire';
-    final value = v.trim();
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value)) {
-      return 'Email invalide';
-    }
-    return null;
-  }
-
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
@@ -391,7 +373,10 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
           postalCode: _postalCode.text.trim(),
           city: _city.text.trim(),
           country: _country,
-          invoicingEmail: _invoicingEmail.text.trim(),
+          // Empty: the backend defaults invoicing_email to the org
+          // owner's account email when the row's value is empty. The
+          // form no longer prompts for it.
+          invoicingEmail: '',
         ),
       );
       ref.invalidate(billingProfileProvider);

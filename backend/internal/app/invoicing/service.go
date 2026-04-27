@@ -71,6 +71,7 @@ type Service struct {
 	// unchanged. Each method that needs one returns a clear "feature
 	// disabled" error when the dep is nil.
 	organizations repository.OrganizationRepository
+	users         repository.UserRepository
 	stripeKYC     service.StripeKYCSnapshotReader
 	vies          service.VIESValidator
 }

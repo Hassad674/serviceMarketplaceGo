@@ -56,10 +56,17 @@ type VIESValidationSnapshot struct {
 // constructor and skip these — the methods that need the dep return a
 // configured-with error when it's missing. This keeps Phase 4/5 wiring
 // untouched and makes the new feature additive.
+//
+// Users + Organizations also drive the invoicing-email default: when a
+// billing profile has no explicit invoicing_email, the read paths
+// resolve the org's owner user and back-fill the snapshot with that
+// account's email. Both deps are optional — when missing, the
+// snapshot's invoicing_email simply stays empty (legacy behaviour).
 type BillingProfileDeps struct {
-	Organizations  repository.OrganizationRepository
-	StripeKYC      service.StripeKYCSnapshotReader
-	VIESValidator  service.VIESValidator
+	Organizations repository.OrganizationRepository
+	Users         repository.UserRepository
+	StripeKYC     service.StripeKYCSnapshotReader
+	VIESValidator service.VIESValidator
 }
 
 // SetBillingProfileDeps wires the optional dependencies the Phase 6
@@ -69,6 +76,7 @@ type BillingProfileDeps struct {
 // methods.
 func (s *Service) SetBillingProfileDeps(deps BillingProfileDeps) {
 	s.organizations = deps.Organizations
+	s.users = deps.Users
 	s.stripeKYC = deps.StripeKYC
 	s.vies = deps.VIESValidator
 }
@@ -86,6 +94,11 @@ var ErrBillingProfileFeatureDisabled = errors.New("invoicing: billing profile fe
 // GetBillingProfile returns the org's billing profile + completeness
 // snapshot. Returns an empty stub when the org has no row yet — the
 // frontend can render the empty form without a 404 dance.
+//
+// invoicing_email is back-filled with the org owner's account email
+// when the row's value is empty, so the invoice generator and the
+// frontend always see a usable address. The persisted column stays
+// empty until the user explicitly overrides it.
 func (s *Service) GetBillingProfile(ctx context.Context, organizationID uuid.UUID) (BillingProfileSnapshot, error) {
 	if organizationID == uuid.Nil {
 		return BillingProfileSnapshot{}, fmt.Errorf("invoicing: organization id required")
@@ -101,11 +114,54 @@ func (s *Service) GetBillingProfile(ctx context.Context, organizationID uuid.UUI
 				OrganizationID: organizationID,
 				ProfileType:    invoicing.ProfileBusiness,
 			}
+			s.fillDefaultInvoicingEmail(ctx, &stub)
 			return snapshotOf(stub), nil
 		}
 		return BillingProfileSnapshot{}, fmt.Errorf("get billing profile: %w", err)
 	}
-	return snapshotOf(*profile), nil
+	resolved := *profile
+	s.fillDefaultInvoicingEmail(ctx, &resolved)
+	return snapshotOf(resolved), nil
+}
+
+// fillDefaultInvoicingEmail back-fills profile.InvoicingEmail with the
+// org owner's account email when the row's value is empty. Mutates the
+// passed profile in place. Best-effort — if the org or owner cannot be
+// resolved (deps not wired, lookup error, etc.) the field stays empty
+// and the caller proceeds; this method must NEVER fail a read flow.
+//
+// We default to the org's *owner* user (FindByOwnerUserID-style row)
+// because the owner is the legal/economic principal of the org —
+// matches the "organizations own state" rule in CLAUDE.md, where
+// member emails are not authoritative for the org-level invoicing
+// contact.
+func (s *Service) fillDefaultInvoicingEmail(ctx context.Context, p *invoicing.BillingProfile) {
+	if p == nil {
+		return
+	}
+	if strings.TrimSpace(p.InvoicingEmail) != "" {
+		return
+	}
+	if s.organizations == nil || s.users == nil {
+		return
+	}
+	if p.OrganizationID == uuid.Nil {
+		return
+	}
+	org, err := s.organizations.FindByID(ctx, p.OrganizationID)
+	if err != nil || org == nil {
+		return
+	}
+	if org.OwnerUserID == uuid.Nil {
+		return
+	}
+	owner, err := s.users.GetByID(ctx, org.OwnerUserID)
+	if err != nil || owner == nil {
+		return
+	}
+	if email := strings.TrimSpace(owner.Email); email != "" {
+		p.InvoicingEmail = email
+	}
 }
 
 // UpdateBillingProfile upserts the profile. We accept partial saves —
@@ -325,15 +381,17 @@ func (s *Service) GetBillingProfileSnapshotForStripe(ctx context.Context, organi
 		}
 		return service.BillingProfileStripeSnapshot{}, fmt.Errorf("get billing snapshot for stripe: %w", err)
 	}
+	resolved := *profile
+	s.fillDefaultInvoicingEmail(ctx, &resolved)
 	return service.BillingProfileStripeSnapshot{
-		LegalName:      profile.LegalName,
-		AddressLine1:   profile.AddressLine1,
-		AddressLine2:   profile.AddressLine2,
-		PostalCode:     profile.PostalCode,
-		City:           profile.City,
-		Country:        profile.Country,
-		InvoicingEmail: profile.InvoicingEmail,
-		VATNumber:      profile.VATNumber,
+		LegalName:      resolved.LegalName,
+		AddressLine1:   resolved.AddressLine1,
+		AddressLine2:   resolved.AddressLine2,
+		PostalCode:     resolved.PostalCode,
+		City:           resolved.City,
+		Country:        resolved.Country,
+		InvoicingEmail: resolved.InvoicingEmail,
+		VATNumber:      resolved.VATNumber,
 	}, nil
 }
 

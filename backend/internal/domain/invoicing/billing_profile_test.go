@@ -112,7 +112,6 @@ func TestCheckCompleteness_UniversalFields(t *testing.T) {
 		{"missing postal", func(p *invoicing.BillingProfile) { p.PostalCode = "" }, "postal_code"},
 		{"missing city", func(p *invoicing.BillingProfile) { p.City = "" }, "city"},
 		{"missing country", func(p *invoicing.BillingProfile) { p.Country = "" }, "country"},
-		{"missing email", func(p *invoicing.BillingProfile) { p.InvoicingEmail = "" }, "invoicing_email"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -128,6 +127,15 @@ func TestCheckCompleteness_UniversalFields(t *testing.T) {
 			require.Contains(fields, tc.wantKey)
 		})
 	}
+}
+
+func TestCheckCompleteness_InvoicingEmailNotRequired(t *testing.T) {
+	// invoicing_email is no longer a completeness blocker — the app
+	// layer defaults it to the org owner's account email on read.
+	p := completeFRBusiness()
+	p.InvoicingEmail = ""
+	got := invoicing.CheckCompleteness(p)
+	assert.Empty(t, got, "invoicing_email must not be a missing field")
 }
 
 func TestBillingProfile_IsComplete(t *testing.T) {
