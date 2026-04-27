@@ -48,6 +48,10 @@ export function UpgradeModal({ open, role, onClose }: UpgradeModalProps) {
       cycle,
       auto_renew: String(autoRenew),
     })
+    // Modal is rendered from the layout-level header — navigating
+    // does NOT unmount it on its own. Close explicitly so it doesn't
+    // float over the embed page.
+    onClose()
     router.push(`/subscribe/embed?${query.toString()}`)
   }
 

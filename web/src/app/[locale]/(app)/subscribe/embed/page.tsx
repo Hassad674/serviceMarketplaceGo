@@ -109,13 +109,16 @@ export default function SubscribeEmbedPage() {
  * complete.
  */
 function BillingStep({ onContinue }: { onContinue: () => void }) {
-  const { data, isLoading } = useBillingProfile()
+  const { data } = useBillingProfile()
   const sync = useSyncBillingProfile()
   const synced = useRef(false)
 
   // Auto-sync once when we know the profile has never been pre-filled
   // from Stripe KYC. Subsequent visits skip this — the user might have
-  // intentionally cleared a field they don't want re-populated.
+  // intentionally cleared a field they don't want re-populated. The
+  // call is best-effort: if the org has no Stripe Connect account
+  // (KYC not done yet), the mutation errors and we just let the user
+  // fill the form manually.
   useEffect(() => {
     if (synced.current) return
     if (!data) return
@@ -130,15 +133,10 @@ function BillingStep({ onContinue }: { onContinue: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        Chargement de ton profil…
-      </div>
-    )
-  }
-
+  // BillingProfileForm has its own loading skeleton + error fallback,
+  // so we render it directly — wrapping it with our own isLoading
+  // gate would hide its skeleton and turn a slow network into an
+  // indistinguishable infinite spinner.
   return (
     <div className="space-y-6">
       <BillingProfileForm variant="compact" onSaved={onContinue} />
