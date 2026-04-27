@@ -21,7 +21,12 @@ import type {
   ProfileType,
   UpdateBillingProfileInput,
 } from "../types"
-import { EU_COUNTRIES, isEUCountry } from "./eu-countries"
+import {
+  REGION_LABELS,
+  STRIPE_CONNECT_COUNTRIES,
+  type SupportedCountry,
+} from "@/shared/lib/stripe-countries"
+import { isEUCountry } from "./eu-countries"
 import { describeMissing } from "./missing-fields-copy"
 
 /**
@@ -139,6 +144,18 @@ export function BillingProfileForm({ variant = "page", onSaved }: BillingProfile
       {syncMutation.isError && (
         <FormError message="La synchronisation Stripe a échoué. Réessaie ou complète manuellement." />
       )}
+
+      <Section
+        title="Pays"
+        subtitle="Choisis d'abord ton pays — les autres champs s'adaptent en conséquence (SIRET pour la France, n° TVA intracom pour l'UE, adresse seule ailleurs)."
+      >
+        <Field label="Pays de facturation" htmlFor="country">
+          <CountrySelect
+            value={form.country}
+            onChange={(v) => patch("country", v)}
+          />
+        </Field>
+      </Section>
 
       <Section title="Type de profil">
         <ProfileTypeRadio
@@ -273,21 +290,6 @@ export function BillingProfileForm({ variant = "page", onSaved }: BillingProfile
             />
           </Field>
         </div>
-        <Field label="Pays" htmlFor="country">
-          <select
-            id="country"
-            value={form.country}
-            onChange={(e) => patch("country", e.target.value)}
-            className={cn(inputClasses, "appearance-none")}
-          >
-            <option value="">— Sélectionne —</option>
-            {EU_COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </Field>
       </Section>
 
       <Section title="Email de facturation">
@@ -351,18 +353,80 @@ const inputClasses = cn(
 
 function Section({
   title,
+  subtitle,
   children,
 }: {
   title: string
+  subtitle?: string
   children: React.ReactNode
 }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <h2 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">
+      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
         {title}
       </h2>
-      <div className="space-y-3">{children}</div>
+      {subtitle && (
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {subtitle}
+        </p>
+      )}
+      <div className="mt-4 space-y-3">{children}</div>
     </div>
+  )
+}
+
+/**
+ * Country dropdown grouped by region (EU / Europe / Americas / APAC /
+ * MENA), backed by the same Stripe Connect supported list as the
+ * payment-info onboarding. Native <select> + <optgroup> keeps the
+ * markup screen-reader and mobile-keyboard friendly without pulling a
+ * combobox dependency.
+ */
+function CountrySelect({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (code: string) => void
+}) {
+  const groups: Record<string, SupportedCountry[]> = {
+    eu: [],
+    europe_other: [],
+    americas: [],
+    apac: [],
+    mena: [],
+  }
+  for (const c of STRIPE_CONNECT_COUNTRIES) {
+    groups[c.region].push(c)
+  }
+  const order: SupportedCountry["region"][] = [
+    "eu",
+    "europe_other",
+    "americas",
+    "apac",
+    "mena",
+  ]
+  return (
+    <select
+      id="country"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn(inputClasses, "appearance-none")}
+      autoComplete="country"
+    >
+      <option value="">— Sélectionne —</option>
+      {order.map((region) =>
+        groups[region].length === 0 ? null : (
+          <optgroup key={region} label={REGION_LABELS[region]}>
+            {groups[region].map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.flag} {c.labelFr}
+              </option>
+            ))}
+          </optgroup>
+        ),
+      )}
+    </select>
   )
 }
 

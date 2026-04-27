@@ -9,7 +9,7 @@ import {
   STRIPE_CONNECT_COUNTRIES,
   searchCountries,
   type SupportedCountry,
-} from "../lib/countries"
+} from "@/shared/lib/stripe-countries"
 
 type CountrySelectorProps = {
   value: string | null
