@@ -326,73 +326,12 @@ func TestProposalHandler_ApproveMilestone(t *testing.T) {
 	)
 }
 
-// TestProposalHandler_ApproveMilestone_ProviderKYCNotReady verifies the
-// fix for the silent-transfer-failure bug: when the provider's Stripe
-// account is not ready (no Connect account or PayoutsEnabled=false),
-// ApproveMilestone must return HTTP 412 Precondition Failed with the
-// `provider_kyc_incomplete` error code so the client gets a proper
-// "ask the provider to finish onboarding" UX instead of a 200 + a lying
-// "milestone paid" notification.
-func TestProposalHandler_ApproveMilestone_ProviderKYCNotReady(t *testing.T) {
-	proposalID := uuid.New()
-	milestoneID := uuid.New()
-	clientID := uuid.New() // also used as orgID via proposalCtx convention
-	providerID := uuid.New()
-
-	ur := &mockUserRepo{getByIDFn: userByIDLookup(clientID, providerID)}
-	pr := &mockProposalRepo{
-		getByIDFn: func(_ context.Context, _ uuid.UUID) (*proposaldomain.Proposal, error) {
-			return &proposaldomain.Proposal{
-				ID:             proposalID,
-				ConversationID: uuid.New(),
-				ClientID:       clientID,
-				ProviderID:     providerID,
-				Status:         proposaldomain.StatusCompletionRequested,
-				Title:          "Build REST API",
-				Amount:         500000,
-			}, nil
-		},
-	}
-	now := time.Now()
-	submittedMilestone := &milestonedomain.Milestone{
-		ID:          milestoneID,
-		ProposalID:  proposalID,
-		Sequence:    1,
-		Title:       "Milestone 1",
-		Amount:      500000,
-		Status:      milestonedomain.StatusSubmitted,
-		Version:     1,
-		FundedAt:    &now,
-		SubmittedAt: &now,
-	}
-	mr := &mockMilestoneRepo{
-		listByProposalFn: func(_ context.Context, _ uuid.UUID) ([]*milestonedomain.Milestone, error) {
-			return []*milestonedomain.Milestone{submittedMilestone}, nil
-		},
-		getCurrentActiveFn: func(_ context.Context, _ uuid.UUID) (*milestonedomain.Milestone, error) {
-			return submittedMilestone, nil
-		},
-	}
-	pp := &mockPaymentProcessor{
-		canProviderReceiveFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
-			return false, nil // provider has no Stripe account / payouts disabled
-		},
-	}
-	h := newTestProposalHandlerForMilestonesWithPayments(ur, pr, mr, pp)
-
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/v1/proposals/"+proposalID.String()+"/milestones/"+milestoneID.String()+"/approve",
-		nil,
-	)
-	req = milestoneCtx(req, &clientID, proposalID.String(), milestoneID.String())
-	rec := httptest.NewRecorder()
-
-	h.ApproveMilestone(rec, req)
-
-	assert.Equal(t, http.StatusPreconditionFailed, rec.Code, "must return 412 Precondition Failed")
-	assertProposalErrorCode(t, rec, "provider_kyc_incomplete")
-}
+// (TestProposalHandler_ApproveMilestone_ProviderKYCNotReady removed:
+// the 412 KYC block was reverted because it broke the dev/test
+// workflow and was a worse UX in prod than allowing the approve and
+// retrying the Stripe transfer asynchronously. The new behavior is
+// covered at the service level via
+// TestCompleteProposal_KYC_NoStripeAccount_DoesNotBlock.)
 
 // ---------------------------------------------------------------------------
 // RejectMilestone

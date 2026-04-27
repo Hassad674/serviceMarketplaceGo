@@ -517,19 +517,21 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		return domain.ErrInvalidStatus
 	}
 
-	// Pre-check provider KYC BEFORE flipping any state. If the provider
-	// has no Stripe Connect account, or payouts are not enabled, the
-	// downstream TransferMilestone (mid-project) or runEndOfProjectEffects
-	// (last milestone) Stripe transfer would fail silently — and the
-	// "milestone has been approved and paid" notification would be a lie.
-	// Fail-fast with a typed domain error so the handler can map it to
-	// HTTP 412 and the client can prompt the provider to finish KYC.
-	ready, kerr := s.providerCanReceivePayouts(ctx, p.ProviderID)
-	if kerr != nil {
-		return fmt.Errorf("check provider payouts: %w", kerr)
-	}
-	if !ready {
-		return domain.ErrProviderKYCNotReady
+	// KYC readiness probe — informational only. We do NOT block the
+	// approve when payouts aren't enabled (blocking made the dev/test
+	// workflow unusable, every fresh provider lacks KYC, and even in
+	// prod a held-up client UX is worse than a delayed transfer the
+	// provider can resolve by completing onboarding). The probe just
+	// adjusts the notification copy: "paid" when truly ready, "held
+	// pending Stripe onboarding" when the provider hasn't finished
+	// KYC yet. On a probe error we stay optimistic — the actual
+	// TransferMilestone call below is still authoritative.
+	providerReadyForPayouts := true
+	if ready, kerr := s.providerCanReceivePayouts(ctx, p.ProviderID); kerr != nil {
+		slog.Warn("approve milestone: provider payouts probe failed, continuing optimistically",
+			"proposal_id", p.ID, "provider_id", p.ProviderID, "error", kerr)
+	} else {
+		providerReadyForPayouts = ready
 	}
 
 	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
@@ -575,8 +577,16 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		s.sendNotification(ctx, p.ClientID, "milestone_released", "Milestone released",
 			"A milestone was released to the provider. Please fund the next milestone to continue.",
 			buildNotificationData(p.ID, p.ConversationID, p.Title))
+		// Honest message to the provider: only claim "paid" when the
+		// Stripe transfer can actually go through. If KYC isn't ready,
+		// flag the funds as held until onboarding completes — the
+		// scheduler will retry the transfer once payouts are enabled.
+		providerBody := "Your milestone has been approved and paid. Work on the next milestone can start once the client funds it."
+		if !providerReadyForPayouts {
+			providerBody = "Your milestone has been approved. Funds are held pending your Stripe onboarding — finish your payment setup to receive the payout."
+		}
 		s.sendNotification(ctx, p.ProviderID, "milestone_released", "Milestone released",
-			"Your milestone has been approved and paid. Work on the next milestone can start once the client funds it.",
+			providerBody,
 			buildNotificationData(p.ID, p.ConversationID, p.Title))
 
 		if next, nextErr := s.milestones.GetCurrentActive(ctx, p.ID); nextErr == nil && next.Status == milestone.StatusPendingFunding {
