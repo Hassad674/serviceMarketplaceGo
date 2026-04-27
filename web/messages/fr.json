@@ -1215,8 +1215,6 @@
     "countryLabel": "Pays de résidence fiscale",
     "countryPlaceholder": "Sélectionnez votre pays",
     "countryHint": "Le pays où vous déclarez vos revenus, indépendamment de votre nationalité.",
-    "addressLabel": "Adresse postale",
-    "addressHint": "Commencez à taper — on vous suggère les correspondances et remplit le reste.",
     "searchCountry": "Rechercher un pays...",
     "noCountryFound": "Aucun pays trouvé",
     "continue": "Continuer",

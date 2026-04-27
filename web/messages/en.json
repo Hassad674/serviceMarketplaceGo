@@ -1215,8 +1215,6 @@
     "countryLabel": "Country of tax residence",
     "countryPlaceholder": "Select your country",
     "countryHint": "The country where you file your taxes, regardless of your nationality.",
-    "addressLabel": "Postal address",
-    "addressHint": "Start typing — we'll suggest matches and fill the rest in for you.",
     "searchCountry": "Search for a country...",
     "noCountryFound": "No country found",
     "continue": "Continue",
