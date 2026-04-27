@@ -211,6 +211,35 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 		return fmt.Errorf("get proposal: %w", err)
 	}
 
+	// Pre-check provider KYC BEFORE flipping any state. If the provider
+	// has no Stripe Connect account or payouts are not enabled, do NOT
+	// auto-approve — otherwise the local row would flip to "released"
+	// while the Stripe transfer fails silently and the platform tells
+	// both parties the milestone was paid when it never was. We log a
+	// warning and notify both sides that the auto-approve was deferred,
+	// then return nil so the worker doesn't retry forever (a future
+	// auto-approve tick will re-check; the manual ApproveMilestone path
+	// will reject with ErrProviderKYCNotReady until KYC is complete).
+	ready, kerr := s.providerCanReceivePayouts(ctx, p.ProviderID)
+	if kerr != nil {
+		slog.Warn("auto-approve: skipped — provider readiness check failed",
+			"proposal_id", p.ID, "milestone_id", m.ID, "error", kerr)
+		return nil
+	}
+	if !ready {
+		slog.Warn("auto-approve: skipped — provider Stripe KYC not ready",
+			"proposal_id", p.ID, "milestone_id", m.ID, "provider_id", p.ProviderID)
+		s.sendNotification(ctx, p.ClientID, "milestone_auto_approve_deferred",
+			"Auto-approval deferred",
+			"The auto-approval of the milestone was deferred because the provider has not finished their Stripe onboarding yet. The milestone stays awaiting your manual review.",
+			buildNotificationData(p.ID, p.ConversationID, p.Title))
+		s.sendNotification(ctx, p.ProviderID, "milestone_auto_approve_deferred",
+			"Action required: finish Stripe onboarding",
+			"Your milestone could not be auto-approved because your Stripe onboarding is not complete. Finish your payment setup so future milestones can be released.",
+			buildNotificationData(p.ID, p.ConversationID, p.Title))
+		return nil
+	}
+
 	if err := s.withMilestoneLock(ctx, m.ID, func(mm *milestone.Milestone) error {
 		// Re-check inside the lock so a concurrent manual approval
 		// observable to AnotherWorker doesn't cause a double approve.

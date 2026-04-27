@@ -517,6 +517,21 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 		return domain.ErrInvalidStatus
 	}
 
+	// Pre-check provider KYC BEFORE flipping any state. If the provider
+	// has no Stripe Connect account, or payouts are not enabled, the
+	// downstream TransferMilestone (mid-project) or runEndOfProjectEffects
+	// (last milestone) Stripe transfer would fail silently — and the
+	// "milestone has been approved and paid" notification would be a lie.
+	// Fail-fast with a typed domain error so the handler can map it to
+	// HTTP 412 and the client can prompt the provider to finish KYC.
+	ready, kerr := s.providerCanReceivePayouts(ctx, p.ProviderID)
+	if kerr != nil {
+		return fmt.Errorf("check provider payouts: %w", kerr)
+	}
+	if !ready {
+		return domain.ErrProviderKYCNotReady
+	}
+
 	if err := s.withMilestoneLock(ctx, current.ID, func(m *milestone.Milestone) error {
 		if err := m.Approve(); err != nil {
 			return err
@@ -733,6 +748,42 @@ func (s *Service) requireOrgIsSide(
 		return notAllowedErr
 	}
 	return nil
+}
+
+// providerCanReceivePayouts resolves the provider's organization (via
+// the user repo) and asks the payment processor whether their Stripe
+// Connect account is ready to receive transfers. Returns true on the
+// happy path, false (with nil error) when the provider has no Stripe
+// account or payouts are disabled, and a non-nil error when the check
+// itself failed (in which case callers MUST treat the milestone as
+// unreleasable to avoid a partial release).
+//
+// When the proposal service has no PaymentProcessor wired (legacy test
+// setups, or a deployment without Stripe), the check is a no-op
+// returning true — same posture as TransferMilestone, which is also a
+// no-op when payments == nil. This keeps the existing "no payments
+// configured" test paths working without changes.
+func (s *Service) providerCanReceivePayouts(ctx context.Context, providerUserID uuid.UUID) (bool, error) {
+	if s.payments == nil {
+		return true, nil
+	}
+	if s.users == nil {
+		// No way to resolve provider org → cannot guarantee readiness.
+		// Fail closed: caller MUST treat this as not-ready.
+		return false, nil
+	}
+	providerUser, err := s.users.GetByID(ctx, providerUserID)
+	if err != nil {
+		return false, fmt.Errorf("resolve provider user: %w", err)
+	}
+	if providerUser.OrganizationID == nil {
+		return false, nil
+	}
+	ready, err := s.payments.CanProviderReceivePayouts(ctx, *providerUser.OrganizationID)
+	if err != nil {
+		return false, fmt.Errorf("payments: provider readiness check: %w", err)
+	}
+	return ready, nil
 }
 
 func buildStatusMetadata(p *domain.Proposal) json.RawMessage {

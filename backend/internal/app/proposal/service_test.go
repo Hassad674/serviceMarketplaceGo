@@ -47,6 +47,46 @@ func newTestServiceWithCredits(
 	return newTestServiceWithCreditsAndOrgs(proposalRepo, userRepo, nil, msgSender, storage, credits)
 }
 
+// newTestServiceWithPayments wires a mockPaymentProcessor into the
+// proposal service. Use this for KYC pre-check tests that need a
+// non-nil payments dependency to exercise the new
+// providerCanReceivePayouts path.
+func newTestServiceWithPayments(
+	proposalRepo *mockProposalRepo,
+	userRepo *mockUserRepo,
+	msgSender *mockMessageSender,
+	notifications *mockNotificationSender,
+	payments *mockPaymentProcessor,
+) *Service {
+	if proposalRepo == nil {
+		proposalRepo = &mockProposalRepo{}
+	}
+	if userRepo == nil {
+		userRepo = &mockUserRepo{}
+	}
+	if msgSender == nil {
+		msgSender = &mockMessageSender{}
+	}
+	if notifications == nil {
+		notifications = &mockNotificationSender{}
+	}
+	milestoneRepo := &mockMilestoneRepo{
+		autoSynthStatus: milestone.StatusPendingFunding,
+		autoSynthAmount: 500000,
+	}
+	deps := ServiceDeps{
+		Proposals:     proposalRepo,
+		Milestones:    milestoneRepo,
+		Users:         userRepo,
+		Organizations: &mockOrgRepo{},
+		Messages:      msgSender,
+		Storage:       &mockStorageService{},
+		Notifications: notifications,
+		Payments:      payments,
+	}
+	return NewService(deps)
+}
+
 func newTestServiceWithCreditsAndOrgs(
 	proposalRepo *mockProposalRepo,
 	userRepo *mockUserRepo,
@@ -1103,7 +1143,209 @@ func TestCompleteProposal_NotClient(t *testing.T) {
 	assert.ErrorIs(t, err, domain.ErrNotClient)
 }
 
-// --- RejectCompletion tests ---
+// --- CompleteProposal: provider KYC pre-check ---
+//
+// These tests cover the fix for the silent-transfer-failure bug: when
+// the client approves a milestone, the proposal service MUST verify
+// that the provider's Stripe account is ready BEFORE flipping any
+// state. If not, ErrProviderKYCNotReady bubbles up with no DB mutation
+// and no "milestone paid" notification — the handler maps it to 412.
+
+// orgAwareUserRepoSplit returns a userRepo where client and provider
+// belong to different orgs (mirrors orgAwareUserRepo, but with two
+// distinct org ids — the KYC tests need to know which org id we're
+// going to read for the provider).
+func orgAwareUserRepoSplit(clientID, providerID, clientOrgID, providerOrgID uuid.UUID) *mockUserRepo {
+	return &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			o := providerOrgID
+			if id == clientID {
+				o = clientOrgID
+			}
+			role := user.RoleAgency
+			if id == clientID {
+				role = user.RoleEnterprise
+			}
+			_ = providerID // kept for symmetry / readability
+			return &user.User{ID: id, Role: role, OrganizationID: &o}, nil
+		},
+	}
+}
+
+func TestCompleteProposal_KYC_NoStripeAccount(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+
+	repo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusCompletionRequested,
+				Title:          "Test",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgs := &mockMessageSender{}
+	notifs := &mockNotificationSender{}
+	payments := &mockPaymentProcessor{
+		canProviderReceiveFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+			return false, nil // provider has no Stripe account
+		},
+	}
+
+	svc := newTestServiceWithPayments(repo,
+		orgAwareUserRepoSplit(clientID, providerID, clientOrgID, providerOrgID),
+		msgs, notifs, payments)
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusSubmitted, 500000)
+
+	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
+		ProposalID: uuid.New(),
+		UserID:     clientID,
+		OrgID:      clientOrgID,
+	})
+
+	assert.ErrorIs(t, err, domain.ErrProviderKYCNotReady)
+	// CRITICAL: no message, no notification, no Stripe transfer when KYC blocks.
+	assert.Empty(t, msgs.calls, "no proposal message must be sent when KYC blocks the release")
+	assert.Equal(t, 0, payments.transferMilestoneCalls, "no Stripe transfer must happen when KYC blocks the release")
+	assert.Equal(t, 0, payments.transferProposalCalls, "no Stripe transfer must happen when KYC blocks the release")
+}
+
+func TestCompleteProposal_KYC_PayoutsDisabled(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+
+	repo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusCompletionRequested,
+				Title:          "Test",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgs := &mockMessageSender{}
+	payments := &mockPaymentProcessor{
+		canProviderReceiveFn: func(_ context.Context, orgID uuid.UUID) (bool, error) {
+			// Account exists but PayoutsEnabled == false on Stripe.
+			assert.Equal(t, providerOrgID, orgID, "service must look up the PROVIDER's org, not the client's")
+			return false, nil
+		},
+	}
+
+	svc := newTestServiceWithPayments(repo,
+		orgAwareUserRepoSplit(clientID, providerID, clientOrgID, providerOrgID),
+		msgs, nil, payments)
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusSubmitted, 500000)
+
+	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
+		ProposalID: uuid.New(),
+		UserID:     clientID,
+		OrgID:      clientOrgID,
+	})
+
+	assert.ErrorIs(t, err, domain.ErrProviderKYCNotReady)
+	assert.Equal(t, 0, payments.transferMilestoneCalls)
+}
+
+func TestCompleteProposal_KYC_HappyPathStillWorks(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+	clientOrgID := uuid.New()
+	providerOrgID := uuid.New()
+
+	repo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             uuid.New(),
+				ConversationID: uuid.New(),
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusCompletionRequested,
+				Title:          "Test",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgs := &mockMessageSender{}
+	payments := &mockPaymentProcessor{} // default: PayoutsEnabled=true
+
+	svc := newTestServiceWithPayments(repo,
+		orgAwareUserRepoSplit(clientID, providerID, clientOrgID, providerOrgID),
+		msgs, nil, payments)
+	svc.milestones.(*mockMilestoneRepo).enableAutoSynth(milestone.StatusSubmitted, 500000)
+
+	err := svc.CompleteProposal(context.Background(), CompleteProposalInput{
+		ProposalID: uuid.New(),
+		UserID:     clientID,
+		OrgID:      clientOrgID,
+	})
+
+	require.NoError(t, err)
+	// Last-milestone path: proposal_completed + evaluation_request.
+	require.Len(t, msgs.calls, 2)
+	assert.Equal(t, "proposal_completed", msgs.calls[0].Type)
+}
+
+// --- AutoApproveMilestone: provider KYC pre-check ---
+
+func TestAutoApproveMilestone_KYCMissing_NoOp(t *testing.T) {
+	clientID := uuid.New()
+	providerID := uuid.New()
+	providerOrgID := uuid.New()
+	proposalID := uuid.New()
+
+	repo := &mockProposalRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.Proposal, error) {
+			return &domain.Proposal{
+				ID:             proposalID,
+				ConversationID: uuid.New(),
+				ClientID:       clientID,
+				ProviderID:     providerID,
+				Status:         domain.StatusActive,
+				Title:          "Test",
+				Amount:         500000,
+			}, nil
+		},
+	}
+	msgs := &mockMessageSender{}
+	notifs := &mockNotificationSender{}
+	payments := &mockPaymentProcessor{
+		canProviderReceiveFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+			return false, nil
+		},
+	}
+
+	clientOrgID := uuid.New()
+	svc := newTestServiceWithPayments(repo,
+		orgAwareUserRepoSplit(clientID, providerID, clientOrgID, providerOrgID),
+		msgs, notifs, payments)
+
+	// Seed a submitted milestone so AutoApproveMilestone reaches the KYC
+	// pre-check (it short-circuits for non-submitted milestones).
+	m := svc.milestones.(*mockMilestoneRepo).seedMilestone(proposalID, milestone.StatusSubmitted, 500000)
+
+	err := svc.AutoApproveMilestone(context.Background(), m.ID)
+
+	require.NoError(t, err, "AutoApproveMilestone must return nil so the worker doesn't retry forever")
+	// Milestone state must NOT have flipped — still submitted.
+	assert.Equal(t, milestone.StatusSubmitted, m.Status, "milestone must not transition when KYC blocks the release")
+	assert.Equal(t, 0, payments.transferMilestoneCalls, "no Stripe transfer must happen")
+	// Both parties were notified that the auto-approve was deferred.
+	assert.GreaterOrEqual(t, len(notifs.calls), 2, "both client and provider must be notified")
+}
 
 func TestRejectCompletion_Success(t *testing.T) {
 	clientID := uuid.New()
