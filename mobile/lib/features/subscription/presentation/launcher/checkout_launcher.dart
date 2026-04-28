@@ -103,11 +103,19 @@ class WebSessionBridge {
       // The session_id is httpOnly on the server response; setting it
       // from the WebView side is independent — this matches the value
       // the browser would have received via Set-Cookie.
+      //
+      // We deliberately DO NOT pass a `domain` argument when the host
+      // is a raw IP. RFC 6265 forbids the `Domain` attribute on IP
+      // addresses; browsers (and WebViews) reject the Set-Cookie
+      // entirely, leaving the WebView cookie-less and the user stuck
+      // on the login redirect. Omitting the parameter creates a
+      // "host-only" cookie which is exactly what we want for the LAN
+      // dev URL. For DNS hosts (production), the WebView still scopes
+      // to the URL's host implicitly.
       await manager.setCookie(
-        url: WebUri('${target.scheme}://${target.host}'),
+        url: WebUri('${target.scheme}://${target.host}:${target.port}'),
         name: 'session_id',
         value: sessionID,
-        domain: target.host,
         path: '/',
         maxAge: maxAge,
         isSecure: target.scheme == 'https',
