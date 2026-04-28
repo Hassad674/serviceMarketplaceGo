@@ -14,7 +14,7 @@ import { AlertCircle, ArrowLeft, Loader2, ShieldX, Sparkles } from "lucide-react
 import { useTranslations } from "next-intl"
 
 import { API_BASE_URL } from "@/shared/lib/api-client"
-import { useHasPermission } from "@/shared/hooks/use-permissions"
+import { usePermissionStatus } from "@/shared/hooks/use-permissions"
 
 import {
   AccountStatusCard,
@@ -55,7 +55,10 @@ export default function PaymentInfoV2Page() {
   const stripeLocale = useMemo(() => mapAppLocaleToStripe(appLocale), [appLocale])
   const t = useTranslations("paymentInfo")
   const tPerm = useTranslations("permissions")
-  const canManageKyc = useHasPermission("kyc.manage")
+  const kycPermission = usePermissionStatus("kyc.manage")
+  const canManageKyc = kycPermission.granted
+  const isPermissionLoading = kycPermission.status === "loading"
+  const isPermissionDenied = kycPermission.status === "denied"
 
   // Mobile WebView passes the JWT via ?token= so we can authenticate
   // API calls with Authorization: Bearer header (no cookie needed).
@@ -258,8 +261,26 @@ export default function PaymentInfoV2Page() {
       </header>
 
       <div className="mx-auto max-w-5xl px-0 pt-3 sm:px-6 sm:pt-8">
-        {/* Permission denied card */}
-        {!canManageKyc ? (
+        {/* Loading skeleton — render while the permission check is still
+            in flight so we never flash the "Accès restreint" card. */}
+        {isPermissionLoading ? (
+          <div
+            data-testid="permission-loading"
+            className="flex items-center justify-center py-20"
+          >
+            <Loader2
+              className="h-6 w-6 animate-spin text-rose-500"
+              aria-hidden
+            />
+            <span className="ml-3 text-sm text-slate-600">
+              {t("loadingAccount")}
+            </span>
+          </div>
+        ) : null}
+
+        {/* Permission denied card — only after the permission check has
+            settled with a definitive `denied`. */}
+        {isPermissionDenied ? (
           <div className="mx-3 mt-4 flex flex-col items-center gap-4 rounded-2xl border border-slate-100 bg-white p-8 text-center shadow-sm sm:mx-0 sm:mt-8 sm:p-12">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50">
               <ShieldX className="h-7 w-7 text-rose-500" aria-hidden />
