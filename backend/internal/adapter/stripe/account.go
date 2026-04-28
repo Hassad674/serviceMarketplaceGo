@@ -45,6 +45,21 @@ func (s *Service) CreateConnectedAccount(ctx context.Context, info *payment.Paym
 				Requested: stripe.Bool(true),
 			},
 		},
+		// Force manual payout schedule. Without this, Stripe defaults
+		// French (and most country) connected accounts to a daily
+		// automatic payout — funds move connected-account → bank
+		// without our app ever firing the wallet "Retirer" flow. The
+		// product rule is: a payout only happens when the user
+		// explicitly clicks Retirer, so we disable the auto-schedule
+		// at account creation and trigger payouts ourselves via
+		// CreatePayout in the wallet RequestPayout path.
+		Settings: &stripe.AccountSettingsParams{
+			Payouts: &stripe.AccountSettingsPayoutsParams{
+				Schedule: &stripe.AccountSettingsPayoutsScheduleParams{
+					Interval: stripe.String("manual"),
+				},
+			},
+		},
 	}
 
 	// External bank account
@@ -91,6 +106,18 @@ func (s *Service) UpdateConnectedAccount(_ context.Context, accountID string, in
 	}
 	params.BusinessProfile = &stripe.AccountBusinessProfileParams{
 		MCC: stripe.String(mcc),
+	}
+
+	// Defensive: re-assert the manual payout schedule on every account
+	// update. Cheap to re-send (Stripe is idempotent on identical
+	// settings), and protects against a stray Stripe Dashboard edit
+	// that flipped an account back to automatic daily payouts.
+	params.Settings = &stripe.AccountSettingsParams{
+		Payouts: &stripe.AccountSettingsPayoutsParams{
+			Schedule: &stripe.AccountSettingsPayoutsScheduleParams{
+				Interval: stripe.String("manual"),
+			},
+		},
 	}
 
 	_, err = account.Update(accountID, params)
@@ -441,6 +468,37 @@ func (s *Service) GetAccountRequirements(ctx context.Context, accountID string) 
 		CurrentDeadline:     reqs.CurrentDeadline,
 		Errors:              errors,
 	}, nil
+}
+
+// UpdatePayoutSchedule mutates only the payout schedule on a connected
+// account, leaving every other account setting (KYC, business profile,
+// external bank account, capabilities) untouched. Used by the
+// stripe-payout-schedule-backfill command and by any defensive code path
+// that wants to re-assert the manual policy without rebuilding the full
+// AccountParams payload.
+//
+// The Stripe SDK call is idempotent at the field level: posting the
+// same interval value again is a no-op for billing.
+func (s *Service) UpdatePayoutSchedule(_ context.Context, accountID, interval string) error {
+	if accountID == "" {
+		return fmt.Errorf("update payout schedule: empty account id")
+	}
+	if interval == "" {
+		return fmt.Errorf("update payout schedule: empty interval")
+	}
+	params := &stripe.AccountParams{
+		Settings: &stripe.AccountSettingsParams{
+			Payouts: &stripe.AccountSettingsPayoutsParams{
+				Schedule: &stripe.AccountSettingsPayoutsScheduleParams{
+					Interval: stripe.String(interval),
+				},
+			},
+		},
+	}
+	if _, err := account.Update(accountID, params); err != nil {
+		return fmt.Errorf("update payout schedule on %s: %w", accountID, err)
+	}
+	return nil
 }
 
 // CreateAccountLink generates a Stripe-hosted link for the provider to complete requirements.

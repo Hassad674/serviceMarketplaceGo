@@ -219,6 +219,12 @@ func (e *e2ePaymentStripe) GetAccount(_ context.Context, _ string) (*service.Str
 func (e *e2ePaymentStripe) CreateRefund(_ context.Context, _ string, _ int64) (string, error) {
 	return "re_e2e", nil
 }
+func (e *e2ePaymentStripe) CreatePayout(_ context.Context, in service.CreatePayoutInput) (string, error) {
+	return "po_" + in.IdempotencyKey, nil
+}
+func (e *e2ePaymentStripe) UpdatePayoutSchedule(_ context.Context, _, _ string) error {
+	return nil
+}
 
 // TestSubscriptionE2E_FullLifecycle exercises the entire Premium arc —
 // from a free user's first subscribe to a milestone after the

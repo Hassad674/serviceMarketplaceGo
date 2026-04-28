@@ -520,6 +520,12 @@ func (f *fakeStripe) GetAccount(ctx context.Context, accountID string) (*service
 func (f *fakeStripe) CreateRefund(ctx context.Context, paymentIntentID string, amount int64) (string, error) {
 	return "", nil
 }
+func (f *fakeStripe) CreatePayout(ctx context.Context, input service.CreatePayoutInput) (string, error) {
+	return "po_" + input.IdempotencyKey, nil
+}
+func (f *fakeStripe) UpdatePayoutSchedule(ctx context.Context, accountID, interval string) error {
+	return nil
+}
 
 // fakeReversalService tracks reversal calls.
 type fakeReversalService struct {
