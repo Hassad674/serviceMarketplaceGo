@@ -19,6 +19,7 @@ import {
   ChevronRight,
   UserCheck,
   Undo2,
+  Pencil,
 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
@@ -375,6 +376,28 @@ function WalletHero({
           )}
         </div>
       )}
+
+      {/* Quick links — small, non-prominent shortcuts to the
+          settings the user might want to revise from the wallet
+          (billing profile + Stripe info). Sized down so they don't
+          compete visually with the Retirer CTA. */}
+      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-4 text-xs dark:border-slate-700">
+        <Link
+          href="/settings/billing-profile?return_to=/wallet"
+          className="inline-flex items-center gap-1.5 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400"
+        >
+          <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+          Modifier mes infos de facturation
+        </Link>
+        <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">·</span>
+        <Link
+          href="/payment-info"
+          className="inline-flex items-center gap-1.5 text-slate-600 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-400"
+        >
+          <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+          Mes infos de paiement Stripe
+        </Link>
+      </div>
     </section>
   )
 }
