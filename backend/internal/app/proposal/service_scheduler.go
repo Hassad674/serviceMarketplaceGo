@@ -206,11 +206,27 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 	// Mid-project releases just emit the lighter "milestone_released"
 	// signal so the next milestone CTA surfaces in the UI.
 	if p.Status == domain.StatusCompleted {
+		// Same eligibility rule as the mid-project branch: auto-transfer
+		// the freshly-released milestone iff the provider has consent.
+		if s.providerEligibleForAutoTransfer(ctx, p.ProviderID) {
+			if err := s.payments.TransferMilestone(ctx, m.ID); err != nil {
+				slog.Error("end-of-project auto-transfer failed; record stays TransferPending for manual retry",
+					"proposal_id", p.ID, "milestone_id", m.ID, "error", err)
+			}
+		}
 		s.runEndOfProjectEffects(ctx, p)
 	} else {
-		// Mid-project auto-approve: NO automatic transfer. The released
-		// milestone's payment_record stays TransferPending; the provider
-		// pulls the funds explicitly from the wallet via RequestPayout.
+		// Mid-project auto-approve: auto-transfer only when the provider
+		// has prior consent (a successful manual payout in the past).
+		// First-time providers go through the wallet manually so we
+		// never silently move funds to an account that has not been
+		// proven to work end-to-end.
+		if s.providerEligibleForAutoTransfer(ctx, p.ProviderID) {
+			if err := s.payments.TransferMilestone(ctx, m.ID); err != nil {
+				slog.Error("auto-approve auto-transfer failed; record stays TransferPending for manual retry",
+					"proposal_id", p.ID, "milestone_id", m.ID, "error", err)
+			}
+		}
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, uuid.Nil, "milestone_auto_approved", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_auto_approved", "Milestone auto-approved",

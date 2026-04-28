@@ -76,6 +76,10 @@ func (m *mockPaymentProcessor) CanProviderReceivePayouts(ctx context.Context, pr
 	return true, nil
 }
 
+func (m *mockPaymentProcessor) HasAutoPayoutConsent(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)
 
 // ---------------------------------------------------------------------------

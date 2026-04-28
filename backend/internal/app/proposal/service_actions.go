@@ -557,11 +557,28 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	// fund-reminder + auto-close timers so a ghosting client triggers a
 	// graceful auto-close.
 	if p.Status == domain.StatusCompleted {
+		// Same eligibility rule as the mid-project branch: auto-transfer
+		// the freshly-released milestone iff the provider has consent.
+		if s.providerEligibleForAutoTransfer(ctx, p.ProviderID) {
+			if err := s.payments.TransferMilestone(ctx, current.ID); err != nil {
+				slog.Error("end-of-project auto-transfer failed; record stays TransferPending for manual retry",
+					"proposal_id", p.ID, "milestone_id", current.ID, "error", err)
+			}
+		}
 		s.runEndOfProjectEffects(ctx, p)
 	} else {
-		// Mid-project release: NO automatic transfer. The just-released
-		// milestone's payment_record stays TransferPending; the provider
-		// pulls the funds explicitly from the wallet via RequestPayout.
+		// Mid-project release: auto-transfer ONLY when the provider has
+		// previously completed a manual payout (consent stamp). New
+		// providers stay TransferPending so they pull funds explicitly
+		// from the wallet on the first time — that click serves as the
+		// "Stripe payouts actually work for me" proof and flips the
+		// consent flag for every subsequent release.
+		if s.providerEligibleForAutoTransfer(ctx, p.ProviderID) {
+			if err := s.payments.TransferMilestone(ctx, current.ID); err != nil {
+				slog.Error("mid-project auto-transfer failed; record stays TransferPending for manual retry",
+					"proposal_id", p.ID, "milestone_id", current.ID, "error", err)
+			}
+		}
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "milestone_released", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_released", "Milestone released",
@@ -784,6 +801,40 @@ func (s *Service) providerCanReceivePayouts(ctx context.Context, providerUserID 
 		return false, fmt.Errorf("payments: provider readiness check: %w", err)
 	}
 	return ready, nil
+}
+
+// providerEligibleForAutoTransfer reports whether the just-released
+// milestone can be auto-transferred without waiting on the user to
+// click "Retirer" in the wallet. Three conditions, ALL required:
+//
+//  1. The proposal service has a PaymentProcessor wired (production).
+//  2. The provider's Stripe Connect account is ready (KYC + capabilities).
+//  3. The provider's org has previously completed a successful manual
+//     payout — the consent + the proof that Stripe payouts work for
+//     them. Without this, a fresh provider whose KYC just landed but
+//     has never received a payout still goes through the manual flow,
+//     so a misconfiguration on their account never silently produces
+//     a "released but not paid" milestone.
+//
+// Errors at any layer return false so callers default to the safer
+// manual flow rather than auto-transferring on partial information.
+func (s *Service) providerEligibleForAutoTransfer(ctx context.Context, providerUserID uuid.UUID) bool {
+	if s.payments == nil || s.users == nil {
+		return false
+	}
+	providerUser, err := s.users.GetByID(ctx, providerUserID)
+	if err != nil || providerUser.OrganizationID == nil {
+		return false
+	}
+	ready, err := s.payments.CanProviderReceivePayouts(ctx, *providerUser.OrganizationID)
+	if err != nil || !ready {
+		return false
+	}
+	consent, err := s.payments.HasAutoPayoutConsent(ctx, *providerUser.OrganizationID)
+	if err != nil {
+		return false
+	}
+	return consent
 }
 
 func buildStatusMetadata(p *domain.Proposal) json.RawMessage {
