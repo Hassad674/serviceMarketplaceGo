@@ -244,7 +244,24 @@ func (s *Service) SyncBillingProfileFromStripeKYC(ctx context.Context, organizat
 		return BillingProfileSnapshot{}, fmt.Errorf("sync billing profile: load org stripe account: %w", err)
 	}
 	if strings.TrimSpace(stripeAccountID) == "" {
-		return BillingProfileSnapshot{}, fmt.Errorf("sync billing profile: org has no stripe connect account")
+		// No Stripe Connect account yet (fresh provider, KYC not
+		// started). Returning an error here would crash the embed
+		// flow — the page calls this on mount to pre-fill the form
+		// and a 500 surfaces as a generic load error in the WebView.
+		// Instead, return whatever profile snapshot we already have
+		// (or an empty one for first-time users) so the form renders
+		// correctly and the user fills it manually.
+		existing, ferr := s.profiles.FindByOrganization(ctx, organizationID)
+		if ferr == nil {
+			return snapshotOf(*existing), nil
+		}
+		if errors.Is(ferr, invoicing.ErrNotFound) {
+			return snapshotOf(invoicing.BillingProfile{
+				OrganizationID: organizationID,
+				ProfileType:    invoicing.ProfileBusiness,
+			}), nil
+		}
+		return BillingProfileSnapshot{}, fmt.Errorf("sync billing profile: load existing: %w", ferr)
 	}
 
 	snap, err := s.stripeKYC.GetAccountKYCSnapshot(ctx, stripeAccountID)

@@ -123,10 +123,21 @@ class _CheckoutWebViewScreenState extends State<CheckoutWebViewScreen> {
               onLoadStop: (_, __) {
                 if (mounted) setState(() => _loading = false);
               },
-              onReceivedError: (_, __, error) {
+              onReceivedError: (_, request, error) {
                 if (kDebugMode) {
-                  debugPrint('checkout webview error: ${error.description}');
+                  debugPrint(
+                    'checkout webview error: ${error.description} '
+                    'for=${request.url} mainFrame=${request.isForMainFrame}',
+                  );
                 }
+                // Only flip into the error state when the MAIN frame
+                // fails. Stripe Embedded Checkout loads a handful of
+                // iframes (analytics, payment-method-specific runners)
+                // that can 404 / connection-reset / blocked-by-policy
+                // without breaking the actual checkout — flagging the
+                // whole screen on any of those was the cause of the
+                // false "Impossible de charger" error overlay.
+                if (request.isForMainFrame != true) return;
                 if (mounted) {
                   setState(() {
                     _loading = false;
@@ -134,11 +145,13 @@ class _CheckoutWebViewScreenState extends State<CheckoutWebViewScreen> {
                   });
                 }
               },
-              onReceivedHttpError: (_, __, response) {
-                // Ignore sub-resource 4xx (Stripe loads a lot of
-                // analytics endpoints that can 404 in test mode) — we
-                // only care when the main document itself fails, which
-                // onReceivedError already covers.
+              onReceivedHttpError: (_, request, response) {
+                // Same scoping rule: only the main-frame document's
+                // HTTP errors should flip the screen into the error
+                // state. Sub-resource 4xx/5xx are noise here — Stripe
+                // analytics is famous for 404'ing in test mode without
+                // breaking the checkout.
+                if (request.isForMainFrame != true) return;
                 if (response.statusCode != null &&
                     response.statusCode! >= 500) {
                   if (mounted) {
