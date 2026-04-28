@@ -44,6 +44,13 @@ type Service struct {
 	// subscription so it can't be passed to ServiceDeps directly).
 	// Nil = no enrichment, Subscribe still works.
 	billingProfile service.BillingProfileSnapshotReader
+
+	// feeWaiver is the OPTIONAL hook that retroactively zeroes the
+	// platform fee on every still-in-flight payment_record of the org
+	// when its subscription activates. Wired post-construction in
+	// main.go because the payment service is built before subscription.
+	// Nil = no waiver applied; activation just records the subscription.
+	feeWaiver service.ActiveRecordsFeeWaiver
 }
 
 // PlanLookupKeys maps the four (plan, cycle) combinations to the Stripe
@@ -111,6 +118,16 @@ func NewService(deps ServiceDeps) *Service {
 // enrichment in that case.
 func (s *Service) SetBillingProfileReader(r service.BillingProfileSnapshotReader) {
 	s.billingProfile = r
+}
+
+// SetFeeWaiver wires the optional hook that retroactively zeroes the
+// platform fee on every still-in-flight payment_record of the org
+// when its subscription activates. Called by main.go after the
+// payment service is built. Safe to call with nil — activation will
+// then just record the subscription without altering existing
+// records.
+func (s *Service) SetFeeWaiver(w service.ActiveRecordsFeeWaiver) {
+	s.feeWaiver = w
 }
 
 // SubscribeInput is the payload of the POST /api/v1/subscriptions endpoint.
@@ -636,12 +653,26 @@ func (s *Service) RegisterFromCheckout(
 	if err != nil {
 		return fmt.Errorf("register: build domain: %w", err)
 	}
-	if snap.Status == "active" || snap.Status == "trialing" {
+	activeNow := snap.Status == "active" || snap.Status == "trialing"
+	if activeNow {
 		if aErr := sub.Activate(); aErr != nil {
 			return fmt.Errorf("register: activate: %w", aErr)
 		}
 	}
-	return s.subs.Create(ctx, sub)
+	if cErr := s.subs.Create(ctx, sub); cErr != nil {
+		return cErr
+	}
+	// Retroactive fee waiver: as soon as the subscription is active,
+	// zero the platform fee on every still-in-flight payment_record
+	// of the org. Hook is best-effort — a failure here is logged but
+	// does not roll back the subscription registration.
+	if activeNow && s.feeWaiver != nil {
+		if wErr := s.feeWaiver.WaivePlatformFeeOnActiveRecords(ctx, organizationID); wErr != nil {
+			slog.Warn("subscription: fee waiver hook failed",
+				"organization_id", organizationID, "error", wErr)
+		}
+	}
+	return nil
 }
 
 // ResolveActorOrganization looks up the organization the given user

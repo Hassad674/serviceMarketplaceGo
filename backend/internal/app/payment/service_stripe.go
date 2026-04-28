@@ -1119,3 +1119,53 @@ func (s *Service) HasAutoPayoutConsent(ctx context.Context, providerOrgID uuid.U
 	return org.HasAutoPayoutConsent(), nil
 }
 
+// WaivePlatformFeeOnActiveRecords zeroes the platform fee on every
+// payment_record of the org that is still in flight — i.e. the money
+// is held in escrow by the platform and has not yet been transferred
+// to the provider's connected account. Called when the org's
+// subscription becomes active so missions started before the upgrade
+// stop carrying a fee from the moment the user goes Premium.
+//
+// In flight = transfer_status IN ('pending', 'failed'). Already-
+// transferred records (transfer_status = 'completed') are NOT touched
+// because the money has already been split between the platform and
+// the provider — refunding the fee retroactively would require a
+// second Stripe transfer that this V1 doesn't model.
+//
+// Errors at the per-record level are logged and the loop continues so
+// a single bad record doesn't block the rest of the org's records
+// from being credited. The aggregate count of waived records is
+// logged at INFO so the operator can confirm in a single line that
+// the hook fired correctly.
+func (s *Service) WaivePlatformFeeOnActiveRecords(ctx context.Context, providerOrgID uuid.UUID) error {
+	if s.records == nil {
+		return nil
+	}
+	records, err := s.records.ListByOrganization(ctx, providerOrgID)
+	if err != nil {
+		return fmt.Errorf("list records: %w", err)
+	}
+	var waived int
+	for _, r := range records {
+		if r.TransferStatus != domain.TransferPending && r.TransferStatus != domain.TransferFailed {
+			continue
+		}
+		if r.PlatformFeeAmount == 0 {
+			// Already at zero (concurrent waiver, manual edit, etc.) — skip.
+			continue
+		}
+		r.PlatformFeeAmount = 0
+		r.ProviderPayout = r.ProposalAmount
+		r.UpdatedAt = time.Now()
+		if uErr := s.records.Update(ctx, r); uErr != nil {
+			slog.Warn("waiver: failed to update record",
+				"record_id", r.ID, "org_id", providerOrgID, "error", uErr)
+			continue
+		}
+		waived++
+	}
+	slog.Info("waiver: platform fee waived on active records",
+		"org_id", providerOrgID, "waived_count", waived, "total_records", len(records))
+	return nil
+}
+

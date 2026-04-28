@@ -804,3 +804,61 @@ func TestTransferMilestone_NoStripeAccount_ReturnsTypedSentinel(t *testing.T) {
 	assert.Empty(t, records.updated,
 		"the record must not be mutated when the resolution fails")
 }
+
+// WaivePlatformFeeOnActiveRecords zeroes the fee on every still-in-flight
+// record (TransferPending or TransferFailed) and leaves transferred records
+// alone — the Premium subscription kicks in mid-mission and we only have
+// authority over money the platform still holds.
+func TestWaivePlatformFee_PendingAndFailedAreWaived(t *testing.T) {
+	orgID := uuid.New()
+
+	pending := baseRecord()
+	pending.ProposalAmount = 100_000
+	pending.PlatformFeeAmount = 5_000
+	pending.ProviderPayout = 95_000
+	pending.TransferStatus = domain.TransferPending
+
+	failed := baseRecord()
+	failed.ProposalAmount = 200_000
+	failed.PlatformFeeAmount = 10_000
+	failed.ProviderPayout = 190_000
+	failed.TransferStatus = domain.TransferFailed
+
+	completed := baseRecord()
+	completed.ProposalAmount = 300_000
+	completed.PlatformFeeAmount = 15_000
+	completed.ProviderPayout = 285_000
+	completed.TransferStatus = domain.TransferCompleted
+
+	records := &listingRecords{records: []*domain.PaymentRecord{pending, failed, completed}}
+	svc := NewService(ServiceDeps{Records: records})
+
+	err := svc.WaivePlatformFeeOnActiveRecords(context.Background(), orgID)
+	assert.NoError(t, err)
+
+	assert.Len(t, records.updated, 2, "only pending + failed must be updated")
+	for _, r := range records.updated {
+		assert.EqualValues(t, 0, r.PlatformFeeAmount, "fee must be zeroed")
+		assert.Equal(t, r.ProposalAmount, r.ProviderPayout, "payout must equal full proposal amount")
+	}
+}
+
+// Already-zero records stay untouched so we don't burn a write per
+// activation when there is nothing to do (e.g. a returning Premium user
+// re-activates after a cancel-at-period-end window).
+func TestWaivePlatformFee_AlreadyZero_NoUpdate(t *testing.T) {
+	orgID := uuid.New()
+
+	r := baseRecord()
+	r.ProposalAmount = 100_000
+	r.PlatformFeeAmount = 0
+	r.ProviderPayout = 100_000
+	r.TransferStatus = domain.TransferPending
+
+	records := &listingRecords{records: []*domain.PaymentRecord{r}}
+	svc := NewService(ServiceDeps{Records: records})
+
+	err := svc.WaivePlatformFeeOnActiveRecords(context.Background(), orgID)
+	assert.NoError(t, err)
+	assert.Empty(t, records.updated, "no Update call when fee was already zero")
+}

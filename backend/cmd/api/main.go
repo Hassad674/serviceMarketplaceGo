@@ -1143,6 +1143,12 @@ func main() {
 		)
 		paymentInfoSvc.SetSubscriptionReader(subscriptionReader)
 
+		// As soon as a Premium subscription activates, retroactively
+		// zero the platform fee on every still-in-flight payment_record
+		// of the org. Hook is best-effort — a failure here logs but
+		// does not block the subscription from being persisted.
+		subscriptionAppSvc.SetFeeWaiver(paymentInfoSvc)
+
 		subscriptionHandler = handler.NewSubscriptionHandler(subscriptionAppSvc)
 
 		// Wire subscription events into the Stripe webhook dispatcher
