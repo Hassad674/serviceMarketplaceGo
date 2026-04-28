@@ -23,6 +23,15 @@ type BillingProfileCompletionModalProps = {
    * can be reused on locale-aware routes later without forking it.
    */
   destination?: string
+  /**
+   * Optional path to return to after the user saves the profile.
+   * When set, the modal appends `?return_to=<path>` to the
+   * destination URL. The billing-profile page reads it and
+   * router.push()es back on a successful save so the user lands
+   * directly on the screen that triggered the gate (wallet, etc.)
+   * instead of being stranded on the settings page.
+   */
+  returnTo?: string
 }
 
 /**
@@ -37,11 +46,15 @@ export function BillingProfileCompletionModal({
   onClose,
   missingFields,
   destination = "/settings/billing-profile",
+  returnTo,
 }: BillingProfileCompletionModalProps) {
   const router = useRouter()
 
   function handleCta() {
-    router.push(destination)
+    const target = returnTo
+      ? `${destination}?return_to=${encodeURIComponent(returnTo)}`
+      : destination
+    router.push(target)
     onClose()
   }
 

@@ -63,6 +63,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         context,
         missingFields: completeness.missingFields,
         message: 'Complète ton profil de facturation pour pouvoir retirer.',
+        returnTo: '/wallet',
       );
       return;
     }
@@ -102,6 +103,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             context,
             missingFields: incomplete.missingFields,
             message: 'Complète ton profil de facturation pour pouvoir retirer.',
+            returnTo: '/wallet',
           );
         }
       } else if (mounted) {

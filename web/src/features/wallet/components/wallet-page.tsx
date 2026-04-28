@@ -183,6 +183,7 @@ export function WalletPage() {
         open={completionModalOpen}
         onClose={() => setCompletionModalOpen(false)}
         missingFields={fieldsForModal}
+        returnTo="/wallet"
       />
 
       <KYCIncompleteModal
