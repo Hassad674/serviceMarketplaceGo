@@ -523,7 +523,12 @@ func main() {
 	pendingEventsWorker.Register(pendingevent.TypeMilestoneAutoApprove, handlers.NewMilestoneAutoApproveHandler(proposalSvc))
 	pendingEventsWorker.Register(pendingevent.TypeMilestoneFundReminder, handlers.NewMilestoneFundReminderHandler(proposalSvc))
 	pendingEventsWorker.Register(pendingevent.TypeProposalAutoClose, handlers.NewProposalAutoCloseHandler(proposalSvc))
-	pendingEventsWorker.Register(pendingevent.TypeStripeTransfer, handlers.NewStripeTransferHandler(proposalSvc))
+	// stripe_transfer is the legacy auto-payout outbox event. Payouts
+	// now go through the wallet's manual RequestPayout / Retry path —
+	// no new events are enqueued. The drain handler is registered
+	// only so any stale rows still sitting in pending_events from a
+	// previous deploy get marked "done" on the next worker tick.
+	pendingEventsWorker.Register(pendingevent.TypeStripeTransfer, handlers.NewLegacyStripeTransferDrainHandler())
 
 	// Search engine (Typesense) — phase 1 infrastructure. Always
 	// wires the indexer + event handlers when TYPESENSE_* config
