@@ -427,7 +427,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // the gate modal popped by wallet payout / subscribe flows.
       GoRoute(
         path: RoutePaths.billingProfile,
-        builder: (context, state) => const BillingProfileScreen(),
+        builder: (context, state) => BillingProfileScreen(
+          returnTo: state.uri.queryParameters['return_to'],
+        ),
       ),
       GoRoute(
         path: RoutePaths.invoices,

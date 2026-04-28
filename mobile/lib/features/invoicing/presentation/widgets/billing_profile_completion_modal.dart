@@ -25,6 +25,7 @@ Future<void> showBillingProfileCompletionModal(
   BuildContext context, {
   required List<MissingField> missingFields,
   String? message,
+  String? returnTo,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -39,6 +40,7 @@ Future<void> showBillingProfileCompletionModal(
     builder: (_) => _BillingProfileCompletionSheet(
       missingFields: missingFields,
       message: message,
+      returnTo: returnTo,
     ),
   );
 }
@@ -47,10 +49,12 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
   const _BillingProfileCompletionSheet({
     required this.missingFields,
     this.message,
+    this.returnTo,
   });
 
   final List<MissingField> missingFields;
   final String? message;
+  final String? returnTo;
 
   @override
   Widget build(BuildContext context) {
@@ -140,7 +144,10 @@ class _BillingProfileCompletionSheet extends StatelessWidget {
                     // conflict with the route transition.
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!context.mounted) return;
-                      context.push(RoutePaths.billingProfile);
+                      final target = returnTo == null
+                          ? RoutePaths.billingProfile
+                          : '${RoutePaths.billingProfile}?return_to=${Uri.encodeComponent(returnTo!)}';
+                      context.push(target);
                     });
                   },
                   icon: const Icon(Icons.arrow_forward, size: 16),

@@ -35,7 +35,14 @@ bool _isEuCountry(String code) => _kEuVatCountryCodes.contains(code);
 /// Each mutation has its own pending state so a VIES failure never
 /// blocks a save and vice-versa.
 class BillingProfileForm extends ConsumerStatefulWidget {
-  const BillingProfileForm({super.key});
+  const BillingProfileForm({super.key, this.onSaved});
+
+  /// Fires once after a successful save AND only when the resulting
+  /// profile passes server-side completeness. The screen wrapper uses
+  /// it to route back to the page that triggered the gate (wallet,
+  /// subscribe). Save attempts that leave the profile still incomplete
+  /// keep the user on the form so they can fix the missing fields.
+  final VoidCallback? onSaved;
 
   @override
   ConsumerState<BillingProfileForm> createState() => _BillingProfileFormState();
@@ -360,7 +367,7 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     });
     try {
       final useCase = ref.read(updateBillingProfileUseCaseProvider);
-      await useCase(
+      final snapshot = await useCase(
         UpdateBillingProfileInput(
           profileType: _profileType!,
           legalName: _legalName.text.trim(),
@@ -384,6 +391,12 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
       setState(() {
         _saveSuccess = 'Profil enregistré.';
       });
+      // Notify the wrapper screen only when the just-saved profile is
+      // complete — partial saves keep the user on the page so they can
+      // correct the missing fields before being redirected away.
+      if (snapshot.isComplete) {
+        widget.onSaved?.call();
+      }
     } catch (e) {
       debugPrint('billing profile save failed: $e');
       if (!mounted) return;
