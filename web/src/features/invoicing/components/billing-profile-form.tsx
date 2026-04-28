@@ -28,6 +28,7 @@ import {
 } from "@/shared/lib/stripe-countries"
 import { isEUCountry } from "./eu-countries"
 import { describeMissing } from "./missing-fields-copy"
+import { AddressAutocomplete } from "./address-autocomplete"
 
 /**
  * Editable form for the billing profile. Reads the current snapshot
@@ -246,6 +247,23 @@ export function BillingProfileForm({ variant = "page", onSaved }: BillingProfile
       </Section>
 
       <Section title="Adresse">
+        <div className="mb-3">
+          <AddressAutocomplete
+            country={form.country}
+            onSelect={(addr) => {
+              setForm((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      address_line1: addr.line1,
+                      postal_code: addr.postalCode,
+                      city: addr.city,
+                    }
+                  : prev,
+              )
+            }}
+          />
+        </div>
         <Field label="Adresse" htmlFor="address_line1">
           <input
             id="address_line1"
