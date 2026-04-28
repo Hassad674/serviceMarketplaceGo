@@ -1,8 +1,10 @@
 import 'package:flutter/widgets.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/network/api_client.dart';
 import '../../../../core/router/app_router.dart';
 
 /// Contract for launching a Stripe-hosted URL (Checkout Session or
@@ -34,8 +36,19 @@ abstract class CheckoutLauncher {
 ///
 /// Never logs the URL itself — Stripe Checkout / Portal URLs are
 /// one-time credentials and must be treated as sensitive.
+///
+/// When [sessionBridge] is provided, the launcher mints a web session
+/// for the bearer-authenticated user and injects the session_id
+/// cookie into the WebView's CookieManager BEFORE pushing the route,
+/// so the embed page is already authenticated when it loads. Without
+/// this, the Next.js middleware redirects the user to /login because
+/// the WebView starts cookie-less. If the bridge call fails we still
+/// open the WebView — the user just sees the login page and can
+/// continue manually, instead of being blocked entirely.
 class WebViewCheckoutLauncher implements CheckoutLauncher {
-  const WebViewCheckoutLauncher();
+  const WebViewCheckoutLauncher({this.sessionBridge});
+
+  final WebSessionBridge? sessionBridge;
 
   @override
   Future<bool> launch(BuildContext context, String url) async {
@@ -48,12 +61,61 @@ class WebViewCheckoutLauncher implements CheckoutLauncher {
       debugPrint('[checkout_launcher] refused non-https URL');
       return false;
     }
+    if (sessionBridge != null) {
+      await sessionBridge!.injectInto(uri);
+    }
+    if (!context.mounted) return false;
     try {
       context.push(RoutePaths.checkoutWebview, extra: url);
       return true;
     } catch (e) {
       debugPrint('[checkout_launcher] navigation push failed: $e');
       return false;
+    }
+  }
+}
+
+/// Mints a fresh web session for the bearer-authenticated user and
+/// installs the matching session_id cookie into the in-app WebView's
+/// shared CookieManager so the WebView opens already authenticated
+/// against the web app. Stateless — pulls a new session on every call.
+class WebSessionBridge {
+  WebSessionBridge(this._apiClient);
+
+  final ApiClient _apiClient;
+
+  /// Mints a session and writes the cookie scoped to [target.host].
+  /// Errors are swallowed (logged in debug) — the launcher proceeds
+  /// regardless so the user can still manually sign in within the
+  /// WebView if the bridge transiently fails.
+  Future<void> injectInto(Uri target) async {
+    try {
+      final response = await _apiClient.post<Map<String, dynamic>>(
+        '/api/v1/auth/web-session',
+      );
+      final body = response.data;
+      if (body == null) return;
+      final sessionID = body['session_id'] as String?;
+      final maxAge = body['max_age_seconds'] as int?;
+      if (sessionID == null || sessionID.isEmpty) return;
+
+      final manager = CookieManager.instance();
+      // The session_id is httpOnly on the server response; setting it
+      // from the WebView side is independent — this matches the value
+      // the browser would have received via Set-Cookie.
+      await manager.setCookie(
+        url: WebUri('${target.scheme}://${target.host}'),
+        name: 'session_id',
+        value: sessionID,
+        domain: target.host,
+        path: '/',
+        maxAge: maxAge,
+        isSecure: target.scheme == 'https',
+        isHttpOnly: true,
+        sameSite: HTTPCookieSameSitePolicy.LAX,
+      );
+    } catch (e) {
+      debugPrint('[checkout_launcher] web-session bridge failed: $e');
     }
   }
 }
@@ -107,5 +169,8 @@ class ExternalBrowserCheckoutLauncher implements CheckoutLauncher {
 /// Riverpod handle for the [CheckoutLauncher]. Production wires the
 /// WebView impl; tests override this provider with a recording mock.
 final checkoutLauncherProvider = Provider<CheckoutLauncher>((ref) {
-  return const WebViewCheckoutLauncher();
+  final apiClient = ref.read(apiClientProvider);
+  return WebViewCheckoutLauncher(
+    sessionBridge: WebSessionBridge(apiClient),
+  );
 });

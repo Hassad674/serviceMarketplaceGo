@@ -209,6 +209,81 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	res.JSON(w, http.StatusOK, response.NewMeResponse(u, orgCtx))
 }
 
+// WebSession creates a fresh web session for the bearer-authenticated
+// caller and returns its session_id so a mobile app can inject the
+// matching cookie into an in-app WebView before opening pages that
+// require auth (e.g. the embedded Premium subscribe flow). Without
+// this bridge the WebView starts cookie-less and the Next.js
+// middleware redirects the user to /login even though the Flutter
+// app is already signed in.
+//
+// The endpoint mirrors the session creation logic at the tail of
+// Login (sessionSvc.Create with the same payload) and returns
+// `{ session_id, max_age_seconds }` so the caller can set the cookie
+// with the same TTL the web flow uses. The session is stored in
+// Redis with the standard expiry, indistinguishable from a
+// browser-issued one — so the WebView gets the same RBAC + permission
+// surface as a regular web tab.
+//
+// Security posture: the endpoint is mounted behind the same Bearer
+// token middleware as /auth/me. A stolen bearer token already has
+// equivalent privilege, so emitting an extra session does NOT
+// broaden the attack surface — it just lets the bearer-authenticated
+// caller open authenticated web pages in-app.
+func (h *AuthHandler) WebSession(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
+		return
+	}
+
+	u, err := h.authService.GetMe(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, user.ErrUserNotFound) {
+			res.Error(w, http.StatusUnauthorized, "session_invalid", "session is no longer valid — please sign in again")
+			return
+		}
+		handleAuthError(w, err)
+		return
+	}
+
+	// Resolve org context so the session carries the same permission
+	// surface a regular web login would (RequirePermission middleware
+	// reads them straight off the session). Solo users return no org
+	// context which is fine — no permission keys to project.
+	var orgCtx *orgapp.Context
+	input := service.CreateSessionInput{
+		UserID:         u.ID,
+		Role:           u.Role.String(),
+		IsAdmin:        u.IsAdmin,
+		SessionVersion: u.SessionVersion,
+	}
+	if h.orgService != nil {
+		resolved, resolveErr := h.orgService.ResolveContext(r.Context(), userID)
+		if resolveErr == nil && resolved != nil && resolved.Organization != nil {
+			orgCtx = resolved
+			id := resolved.Organization.ID
+			input.OrganizationID = &id
+			if resolved.Member != nil {
+				input.OrgRole = string(resolved.Member.Role)
+			}
+		}
+	}
+	input.Permissions = permissionKeysFromOrgContext(orgCtx)
+
+	session, err := h.sessionSvc.Create(r.Context(), input)
+	if err != nil {
+		slog.Error("failed to create web bridge session", "user_id", userID, "error", err)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to create session")
+		return
+	}
+
+	res.JSON(w, http.StatusOK, map[string]any{
+		"session_id":      session.ID,
+		"max_age_seconds": h.cookie.MaxAge,
+	})
+}
+
 // WSToken issues a short-lived single-use token for WebSocket authentication.
 // The frontend calls this via the same-origin proxy (httpOnly session cookie is
 // sent automatically), then passes the token as a query param when connecting to

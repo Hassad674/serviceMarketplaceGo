@@ -134,6 +134,7 @@ func NewRouter(deps RouterDeps) chi.Router {
 				r.Use(middleware.NoCache)
 				r.Get("/me", deps.Auth.Me)
 				r.Get("/ws-token", deps.Auth.WSToken)
+				r.Post("/web-session", deps.Auth.WebSession)
 				r.Post("/logout", deps.Auth.Logout)
 				r.Put("/referrer-enable", deps.Auth.EnableReferrer)
 			})
