@@ -45,11 +45,25 @@ class _CheckoutWebViewScreenState extends State<CheckoutWebViewScreen> {
   bool _errored = false;
 
   /// Paths we watch for to close the WebView and hand control back to
-  /// GoRouter. Both are configured on the backend as the Checkout
-  /// Session `success_url` / `cancel_url`, so Stripe guarantees one of
-  /// them resolves at the end of the flow.
+  /// GoRouter. The legacy hosted-Stripe flow used `/billing/success`
+  /// and `/billing/cancel`; the embedded flow lands on
+  /// `/subscribe/return` (locale-prefixed) which carries the same
+  /// "payment finished" semantics. Both are matched here so the
+  /// WebView auto-closes the moment Stripe finishes — without this,
+  /// the user sees the locale-prefixed return page inside the WebView
+  /// AND has to manually tap X (which previously routed to the
+  /// cancel screen and erroneously surfaced "Abonnement non confirmé"
+  /// after a perfectly successful payment).
   static const _successPath = '/billing/success';
   static const _cancelPath = '/billing/cancel';
+  static const _embeddedReturnSuffix = '/subscribe/return';
+
+  bool _isReturnPath(String path) {
+    return path.startsWith(_successPath) ||
+        path.endsWith(_embeddedReturnSuffix) ||
+        path.contains('${_embeddedReturnSuffix}?') ||
+        path.contains('${_embeddedReturnSuffix}/');
+  }
 
   Future<NavigationActionPolicy> _onNavigation(
     InAppWebViewController _,
@@ -59,7 +73,7 @@ class _CheckoutWebViewScreenState extends State<CheckoutWebViewScreen> {
     if (uri == null) return NavigationActionPolicy.ALLOW;
     final path = uri.path;
 
-    if (path.startsWith(_successPath)) {
+    if (_isReturnPath(path)) {
       _routeIntoApp(RoutePaths.billingSuccess);
       return NavigationActionPolicy.CANCEL;
     }
