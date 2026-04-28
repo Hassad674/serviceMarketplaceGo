@@ -40,7 +40,11 @@ class WebViewCheckoutLauncher implements CheckoutLauncher {
   @override
   Future<bool> launch(BuildContext context, String url) async {
     final Uri? uri = Uri.tryParse(url);
-    if (uri == null || !uri.hasScheme || !uri.isScheme('https')) {
+    if (uri == null || !uri.hasScheme) {
+      debugPrint('[checkout_launcher] refused malformed URL');
+      return false;
+    }
+    if (!_isAllowedScheme(uri)) {
       debugPrint('[checkout_launcher] refused non-https URL');
       return false;
     }
@@ -52,6 +56,31 @@ class WebViewCheckoutLauncher implements CheckoutLauncher {
       return false;
     }
   }
+}
+
+// Allow HTTPS unconditionally (production) AND allow HTTP for
+// localhost + private LAN IPs (RFC1918) so a flutter run pointed at
+// `http://192.168.1.156:3001` works during development without
+// loosening the production posture. Public HTTP URLs are still
+// refused — Checkout Sessions / Portal URLs are one-time credentials
+// that must travel over TLS in prod.
+bool _isAllowedScheme(Uri uri) {
+  if (uri.isScheme('https')) return true;
+  if (!uri.isScheme('http')) return false;
+  final host = uri.host.toLowerCase();
+  if (host == 'localhost' || host == '127.0.0.1' || host == '::1') {
+    return true;
+  }
+  // RFC1918 private ranges: 10/8, 172.16/12, 192.168/16.
+  if (host.startsWith('10.') || host.startsWith('192.168.')) return true;
+  if (host.startsWith('172.')) {
+    final parts = host.split('.');
+    if (parts.length >= 2) {
+      final second = int.tryParse(parts[1]);
+      if (second != null && second >= 16 && second <= 31) return true;
+    }
+  }
+  return false;
 }
 
 /// Legacy [CheckoutLauncher] that opens the URL in the system browser
