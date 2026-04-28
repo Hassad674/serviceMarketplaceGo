@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_client.dart';
@@ -105,6 +107,24 @@ class InvoicingRepositoryImpl implements InvoicingRepository {
     // The platform layer (browser / in-app webview) follows the redirect
     // automatically — no body parsing on the client side.
     return '${ApiClient.baseUrl}/api/v1/me/invoices/$id/pdf';
+  }
+
+  @override
+  Future<Uint8List> downloadInvoicePDFBytes(String id) async {
+    // Download through the authenticated ApiClient so the bearer token
+    // is sent on the initial request. Dio follows the 302 redirect to
+    // the presigned URL automatically; the presigned URL is keyed by
+    // signature (no further auth needed) so the redirected GET works
+    // even though the bearer is not forwarded cross-origin.
+    final response = await _api.get<List<int>>(
+      '/api/v1/me/invoices/$id/pdf',
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final body = response.data;
+    if (body == null) {
+      throw StateError('invoice pdf response body is empty');
+    }
+    return Uint8List.fromList(body);
   }
 
   @override
