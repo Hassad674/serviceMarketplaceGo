@@ -18,11 +18,18 @@ INSERT INTO pending_events (
 // updated_at — all in one round trip. The RETURNING clause hands
 // back the freshly-claimed rows so the worker doesn't need a
 // follow-up SELECT.
+//
+// The "attempts < 5" predicate enforces MaxAttempts at the SQL
+// level: once a row has been retried five times, the domain layer
+// stops bumping fires_at forward, but fires_at is still in the past
+// — without this filter the worker would re-pop the row every tick
+// in an infinite loop. The literal mirrors pendingevent.MaxAttempts.
 const queryPopDuePendingEvents = `
 WITH due AS (
     SELECT id
     FROM pending_events
     WHERE status IN ('pending', 'failed')
+      AND attempts < 5
       AND fires_at <= now()
     ORDER BY fires_at ASC
     LIMIT $1

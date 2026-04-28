@@ -559,19 +559,9 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 	if p.Status == domain.StatusCompleted {
 		s.runEndOfProjectEffects(ctx, p)
 	} else {
-		// Mid-project release: transfer the just-released milestone's
-		// escrow to the provider. Uses TransferMilestone(current.ID) so
-		// multi-milestone proposals release the correct record (the
-		// legacy TransferToProvider(proposal_id) would pick the most
-		// recent record, which on a 3-jalon proposal is almost always
-		// the wrong one and leaves jalons 1..N-1 stuck in escrow).
-		if s.payments != nil {
-			if err := s.payments.TransferMilestone(ctx, current.ID); err != nil {
-				slog.Error("mid-project: failed to transfer milestone",
-					"proposal_id", p.ID, "milestone_id", current.ID, "error", err)
-			}
-		}
-
+		// Mid-project release: NO automatic transfer. The just-released
+		// milestone's payment_record stays TransferPending; the provider
+		// pulls the funds explicitly from the wallet via RequestPayout.
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, input.UserID, "milestone_released", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_released", "Milestone released",

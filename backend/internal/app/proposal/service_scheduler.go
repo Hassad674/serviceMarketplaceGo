@@ -102,62 +102,6 @@ func (s *Service) scheduleProposalAutoClose(ctx context.Context, proposalID uuid
 	}
 }
 
-// scheduleStripeTransfer queues a stripe_transfer outbox event for
-// the proposal — the outbox-pattern alternative to calling Stripe
-// inline at end-of-project. The worker pops the event, calls
-// payments.TransferToProvider, and on failure the entity's backoff
-// (1m → 5m → 15m → 1h → 6h, capped at MaxAttempts=5) reschedules
-// the retry. This gives exactly-once-on-success semantics: a
-// transient Stripe 5xx at completion time no longer leaves the
-// platform in an inconsistent state.
-//
-// Schedules with fires_at = now() so the worker picks it up at the
-// next tick. Failures here are logged but don't block the caller —
-// the same fallback applies as the legacy direct call.
-func (s *Service) scheduleStripeTransfer(ctx context.Context, proposalID uuid.UUID) {
-	if s.pendingEvents == nil {
-		return
-	}
-	payload, err := json.Marshal(MilestoneEventPayload{ProposalID: proposalID})
-	if err != nil {
-		slog.Error("scheduler: marshal stripe transfer payload",
-			"proposal_id", proposalID, "error", err)
-		return
-	}
-	event, err := pendingevent.NewPendingEvent(pendingevent.NewPendingEventInput{
-		EventType: pendingevent.TypeStripeTransfer,
-		Payload:   payload,
-		FiresAt:   time.Now(),
-	})
-	if err != nil {
-		slog.Error("scheduler: build stripe transfer event",
-			"proposal_id", proposalID, "error", err)
-		return
-	}
-	if err := s.pendingEvents.Schedule(ctx, event); err != nil {
-		slog.Error("scheduler: schedule stripe transfer event",
-			"proposal_id", proposalID, "error", err)
-	}
-}
-
-// ExecuteStripeTransfer is the system-actor entry point used by the
-// stripe_transfer handler. Calls the underlying payment processor's
-// TransferToProvider with retry semantics handled by the worker (any
-// error returned here triggers MarkFailed + backoff at the worker
-// level, not a manual loop here).
-//
-// Idempotent: TransferToProvider in the payment service uses Stripe's
-// idempotency key derived from the milestone_id, so a retried call
-// after a transient failure does not double-transfer.
-func (s *Service) ExecuteStripeTransfer(ctx context.Context, proposalID uuid.UUID) error {
-	if s.payments == nil {
-		// Simulation mode — no Stripe to call. The worker should
-		// still mark the event done so it doesn't retry forever.
-		return nil
-	}
-	return s.payments.TransferToProvider(ctx, proposalID)
-}
-
 // buildMilestoneEvent is the common factory for milestone-scoped events.
 func (s *Service) buildMilestoneEvent(eventType pendingevent.EventType, milestoneID uuid.UUID, firesAt time.Time) (*pendingevent.PendingEvent, error) {
 	// Resolve the proposal id so the handler doesn't need a second
@@ -264,18 +208,9 @@ func (s *Service) AutoApproveMilestone(ctx context.Context, milestoneID uuid.UUI
 	if p.Status == domain.StatusCompleted {
 		s.runEndOfProjectEffects(ctx, p)
 	} else {
-		// Mid-project auto-approve: transfer the just-released milestone's
-		// escrow to the provider. Uses TransferMilestone(m.ID) so multi-
-		// milestone proposals release the correct record — the legacy
-		// TransferToProvider(proposal_id) picked the newest record which
-		// was almost always the wrong one for mid-project releases.
-		if s.payments != nil {
-			if err := s.payments.TransferMilestone(ctx, m.ID); err != nil {
-				slog.Error("auto-approve: failed to transfer milestone",
-					"proposal_id", p.ID, "milestone_id", m.ID, "error", err)
-			}
-		}
-
+		// Mid-project auto-approve: NO automatic transfer. The released
+		// milestone's payment_record stays TransferPending; the provider
+		// pulls the funds explicitly from the wallet via RequestPayout.
 		metadata := buildStatusMetadata(p)
 		s.sendProposalMessage(ctx, p.ConversationID, uuid.Nil, "milestone_auto_approved", metadata)
 		s.sendNotification(ctx, p.ClientID, "milestone_auto_approved", "Milestone auto-approved",
@@ -318,22 +253,13 @@ func (s *Service) runEndOfProjectEffects(ctx context.Context, p *domain.Proposal
 
 	s.awardBonusWithFraudCheck(ctx, p)
 
-	// Phase 7: schedule the Stripe transfer through the pending_events
-	// outbox so a transient Stripe 5xx no longer leaves the platform
-	// in an inconsistent state. The worker retries with exponential
-	// backoff, and TransferToProvider's idempotency key on the
-	// milestone_id prevents double-transfer on retry.
-	//
-	// Falls back to the inline call when pendingEvents is not wired
-	// (legacy test setups) so the existing happy path keeps working.
-	if s.pendingEvents != nil {
-		s.scheduleStripeTransfer(ctx, p.ID)
-	} else if s.payments != nil {
-		if err := s.payments.TransferToProvider(ctx, p.ID); err != nil {
-			slog.Error("end-of-project: failed to transfer to provider",
-				"proposal_id", p.ID, "error", err)
-		}
-	}
+	// NO automatic Stripe transfer here. Released milestones leave the
+	// payment_record in TransferPending; the provider explicitly clicks
+	// "Retirer" in the wallet (RequestPayout) to push the funds. This
+	// avoids the failure mode where a fresh provider has no Stripe
+	// connected account at completion time, the auto-transfer fails,
+	// and the platform shows a misleading "auto payout failed" state
+	// even after KYC is later finished.
 
 	if s.orgs != nil && s.users != nil {
 		providerUser, lookupErr := s.users.GetByID(ctx, p.ProviderID)
