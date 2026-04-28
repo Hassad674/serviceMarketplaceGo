@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/invoice.dart';
+import '../../domain/repositories/invoicing_repository.dart';
 import '../providers/invoicing_providers.dart';
 
 /// Single row in the invoices list.
@@ -76,7 +80,7 @@ class InvoiceListItem extends ConsumerWidget {
           const SizedBox(width: 8),
           IconButton(
             tooltip: 'Télécharger la facture ${invoice.number}',
-            onPressed: () => _downloadPdf(context, repo.getInvoicePDFURL(invoice.id)),
+            onPressed: () => _downloadPdf(context, repo, invoice),
             icon: const Icon(Icons.download_rounded, size: 20),
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -85,24 +89,41 @@ class InvoiceListItem extends ConsumerWidget {
     );
   }
 
-  Future<void> _downloadPdf(BuildContext context, String url) async {
+  Future<void> _downloadPdf(
+    BuildContext context,
+    InvoicingRepository repo,
+    Invoice invoice,
+  ) async {
+    // Pull the PDF through the authenticated ApiClient (so the bearer
+    // token is sent), persist it in the temp dir, then hand it to the
+    // system share/save sheet. The previous launchUrl flow opened the
+    // raw API URL in the system browser which has no auth cookie /
+    // token and bounced with 401 unauthorized.
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text('Téléchargement de ${invoice.number}…'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
     try {
-      final ok = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
+      final bytes = await repo.downloadInvoicePDFBytes(invoice.id);
+      final dir = await getTemporaryDirectory();
+      final path = '${dir.path}/${invoice.number}.pdf';
+      final file = File(path);
+      await file.writeAsBytes(bytes, flush: true);
+      if (!context.mounted) return;
+      await Share.shareXFiles(
+        [XFile(path, mimeType: 'application/pdf', name: '${invoice.number}.pdf')],
+        subject: 'Facture ${invoice.number}',
       );
-      if (!ok && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir le PDF.')),
-        );
-      }
     } catch (e) {
-      debugPrint('invoice pdf launch failed: $e');
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible d\'ouvrir le PDF.')),
-        );
-      }
+      debugPrint('invoice pdf download failed: $e');
+      if (!context.mounted) return;
+      messenger?.showSnackBar(
+        const SnackBar(content: Text("Impossible de télécharger le PDF.")),
+      );
     }
   }
 }

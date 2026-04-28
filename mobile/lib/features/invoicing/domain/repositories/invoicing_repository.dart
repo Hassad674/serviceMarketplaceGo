@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../entities/billing_profile.dart';
 import '../entities/billing_profile_snapshot.dart';
 import '../entities/current_month_aggregate.dart';
@@ -45,6 +47,13 @@ abstract class InvoicingRepository {
   /// endpoint itself responds with a 302 to a 5-minute presigned URL,
   /// so the platform layer simply needs to be handed the redirect URL.
   String getInvoicePDFURL(String id);
+
+  /// Downloads invoice [id]'s PDF as raw bytes through the
+  /// authenticated [ApiClient]. Used by the mobile UI to save the file
+  /// locally and share it via the system "open / save" sheet — the
+  /// previous launchUrl flow opened the PDF URL in the system browser
+  /// which has no session cookie / bearer token and bounced with 401.
+  Future<Uint8List> downloadInvoicePDFBytes(String id);
 
   /// Live preview of the not-yet-issued monthly commission invoice for
   /// the current calendar month. Empty months resolve to a zeroed
