@@ -683,7 +683,8 @@ func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error {
 // the call so the test can assert "no Stripe transfer happened" alongside
 // "no DB write happened".
 type mockPaymentProcessor struct {
-	canProviderReceiveFn  func(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
+	canProviderReceiveFn   func(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
+	hasAutoPayoutConsentFn func() (bool, error)
 	transferMilestoneCalls int
 	transferProposalCalls  int
 }
@@ -713,6 +714,12 @@ func (m *mockPaymentProcessor) CanProviderReceivePayouts(ctx context.Context, pr
 		return m.canProviderReceiveFn(ctx, providerOrgID)
 	}
 	return true, nil
+}
+func (m *mockPaymentProcessor) HasAutoPayoutConsent(_ context.Context, _ uuid.UUID) (bool, error) {
+	if m.hasAutoPayoutConsentFn != nil {
+		return m.hasAutoPayoutConsentFn()
+	}
+	return false, nil
 }
 
 var _ service.PaymentProcessor = (*mockPaymentProcessor)(nil)

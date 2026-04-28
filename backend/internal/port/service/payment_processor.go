@@ -51,6 +51,15 @@ type PaymentProcessor interface {
 	// — giving the client a "milestone paid" notification while the
 	// money never leaves the platform.
 	CanProviderReceivePayouts(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
+
+	// HasAutoPayoutConsent reports whether the org has previously
+	// completed a successful manual payout via the wallet. Once true,
+	// milestone releases auto-transfer instead of waiting on another
+	// explicit "Retirer" click. False (the default) keeps every record
+	// in TransferPending until the provider clicks themselves — exactly
+	// the right posture for a fresh provider whose Stripe account has
+	// not been proven to work yet.
+	HasAutoPayoutConsent(ctx context.Context, providerOrgID uuid.UUID) (bool, error)
 }
 
 type PaymentIntentInput struct {

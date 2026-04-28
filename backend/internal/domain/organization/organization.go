@@ -64,6 +64,14 @@ type Organization struct {
 	KYCFirstEarningAt        *time.Time
 	KYCRestrictionNotifiedAt map[string]time.Time // tier → notified timestamp
 
+	// AutoPayoutEnabledAt records when the org first successfully
+	// completed a manual payout via /wallet/payout. From that point on
+	// (provided KYC + billing are still complete), released milestones
+	// auto-transfer instead of waiting on another explicit click. NULL
+	// means consent has not been given yet — every transfer stays in
+	// TransferPending until the provider clicks "Retirer" themselves.
+	AutoPayoutEnabledAt *time.Time
+
 	PendingTransferToUserID    *uuid.UUID
 	PendingTransferInitiatedAt *time.Time
 	PendingTransferExpiresAt   *time.Time
@@ -195,6 +203,25 @@ func (o *Organization) IsKYCBlocked() bool {
 		return false
 	}
 	return time.Since(*o.KYCFirstEarningAt) >= 14*24*time.Hour
+}
+
+// HasAutoPayoutConsent reports whether the org has previously completed
+// a manual payout, which we treat as the consent + the proof that
+// Stripe payouts work for them. Subsequent milestone releases auto-
+// transfer when this is true AND KYC + billing remain complete.
+func (o *Organization) HasAutoPayoutConsent() bool {
+	return o.AutoPayoutEnabledAt != nil
+}
+
+// MarkAutoPayoutEnabled stamps the consent timestamp the first time it
+// is set. Subsequent calls are no-ops so we keep the original moment
+// for audit. The caller is responsible for persisting the change.
+func (o *Organization) MarkAutoPayoutEnabled(at time.Time) {
+	if o.AutoPayoutEnabledAt != nil {
+		return
+	}
+	o.AutoPayoutEnabledAt = &at
+	o.UpdatedAt = time.Now()
 }
 
 // KYCDaysRemaining returns the number of days before restriction kicks

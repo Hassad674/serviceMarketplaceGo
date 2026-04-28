@@ -317,6 +317,9 @@ func (m *mockPaymentProcessor) RefundToClient(_ context.Context, _ uuid.UUID, _ 
 func (m *mockPaymentProcessor) CanProviderReceivePayouts(_ context.Context, _ uuid.UUID) (bool, error) {
 	return true, nil
 }
+func (m *mockPaymentProcessor) HasAutoPayoutConsent(_ context.Context, _ uuid.UUID) (bool, error) {
+	return false, nil
+}
 
 // ---------------------------------------------------------------------------
 // mockAIAnalyzer

@@ -740,6 +740,23 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 	slog.Info("payout: bank transfer initiated",
 		"org_id", orgID, "payout_id", payoutID, "amount", transferred)
 
+	// First-payout consent: subsequent milestone releases auto-transfer
+	// without waiting on another explicit click. Idempotent on the
+	// domain side — only the first call stamps the timestamp. Failures
+	// here are logged but never break the (already successful) payout.
+	if org, err := s.orgs.FindByID(ctx, orgID); err == nil && org != nil {
+		if !org.HasAutoPayoutConsent() {
+			org.MarkAutoPayoutEnabled(time.Now())
+			if uErr := s.orgs.Update(ctx, org); uErr != nil {
+				slog.Warn("payout: failed to record auto-payout consent",
+					"org_id", orgID, "error", uErr)
+			} else {
+				slog.Info("payout: auto-payout consent recorded — future milestones will release without manual click",
+					"org_id", orgID)
+			}
+		}
+	}
+
 	return &PayoutResult{
 		Status:  "transferred",
 		Message: fmt.Sprintf("Transferred %d centimes to your account", transferred),
@@ -790,14 +807,28 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, record
 	// Admin-override is handled at the handler level via RequireRole.
 	providerOrg, err := s.orgs.FindByUserID(ctx, record.ProviderID)
 	if err != nil || providerOrg == nil {
+		slog.Warn("retry: provider org lookup failed",
+			"payment_record_id", record.ID,
+			"provider_user_id", record.ProviderID,
+			"requesting_org_id", orgID,
+			"error", err)
 		return nil, domain.ErrTransferNotRetriable
 	}
 	if providerOrg.ID != orgID {
+		slog.Warn("retry: provider org mismatch",
+			"payment_record_id", record.ID,
+			"provider_user_id", record.ProviderID,
+			"resolved_provider_org", providerOrg.ID,
+			"requesting_org_id", orgID)
 		return nil, domain.ErrTransferNotRetriable
 	}
 	_ = userID // audit hook — user is already authenticated via middleware
 
 	if record.Status != domain.RecordStatusSucceeded || record.TransferStatus != domain.TransferFailed {
+		slog.Warn("retry: record state invalid for retry",
+			"payment_record_id", record.ID,
+			"record_status", record.Status,
+			"transfer_status", record.TransferStatus)
 		return nil, domain.ErrTransferNotRetriable
 	}
 
@@ -809,6 +840,10 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, record
 			return nil, fmt.Errorf("lookup proposal status: %w", sErr)
 		}
 		if status != "completed" {
+			slog.Warn("retry: proposal not completed",
+				"payment_record_id", record.ID,
+				"proposal_id", record.ProposalID,
+				"proposal_status", status)
 			return nil, domain.ErrTransferNotRetriable
 		}
 	}
@@ -878,6 +913,21 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, record
 	}
 	if uErr := s.records.Update(ctx, record); uErr != nil {
 		return nil, fmt.Errorf("persist retried transfer: %w", uErr)
+	}
+
+	// Treat a successful retry as the same "first payout" consent as
+	// RequestPayout — the user explicitly clicked to release the funds
+	// and Stripe accepted, so subsequent milestone releases on this org
+	// can auto-transfer.
+	if !providerOrg.HasAutoPayoutConsent() {
+		providerOrg.MarkAutoPayoutEnabled(time.Now())
+		if uErr := s.orgs.Update(ctx, providerOrg); uErr != nil {
+			slog.Warn("retry: failed to record auto-payout consent",
+				"org_id", providerOrg.ID, "error", uErr)
+		} else {
+			slog.Info("retry: auto-payout consent recorded — future milestones will release without manual click",
+				"org_id", providerOrg.ID)
+		}
 	}
 
 	return &PayoutResult{
@@ -1050,5 +1100,22 @@ func (s *Service) CanProviderReceivePayouts(ctx context.Context, providerOrgID u
 		return false, nil
 	}
 	return info.PayoutsEnabled, nil
+}
+
+// HasAutoPayoutConsent implements service.PaymentProcessor. Reads the
+// AutoPayoutEnabledAt timestamp from the organization. The first
+// successful RequestPayout / RetryFailedTransfer stamps the column;
+// from that point on, callers can transfer milestone funds without
+// waiting on another explicit click. Returns false (with nil error)
+// when the org cannot be found so a missing record fails closed.
+func (s *Service) HasAutoPayoutConsent(ctx context.Context, providerOrgID uuid.UUID) (bool, error) {
+	org, err := s.orgs.FindByID(ctx, providerOrgID)
+	if err != nil {
+		return false, fmt.Errorf("find org for auto-payout consent: %w", err)
+	}
+	if org == nil {
+		return false, nil
+	}
+	return org.HasAutoPayoutConsent(), nil
 }
 

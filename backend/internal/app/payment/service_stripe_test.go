@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,10 @@ func (f *fakeRecords) Update(_ context.Context, r *domain.PaymentRecord) error {
 // is exercised by the payment service tests.
 type fakeOrgs struct {
 	repository.OrganizationRepository
-	stripeAccountID string
+	stripeAccountID    string
+	hasConsent         bool
+	updateCalls        int
+	consentStampedHere bool
 }
 
 func (f *fakeOrgs) GetStripeAccountByUserID(_ context.Context, _ uuid.UUID) (string, string, error) {
@@ -45,6 +49,29 @@ func (f *fakeOrgs) GetStripeAccountByUserID(_ context.Context, _ uuid.UUID) (str
 }
 func (f *fakeOrgs) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
 	return f.stripeAccountID, "FR", nil
+}
+func (f *fakeOrgs) FindByID(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+	org := &organization.Organization{ID: id}
+	if f.hasConsent {
+		now := time.Now()
+		org.AutoPayoutEnabledAt = &now
+	}
+	return org, nil
+}
+func (f *fakeOrgs) FindByUserID(_ context.Context, userID uuid.UUID) (*organization.Organization, error) {
+	org := &organization.Organization{ID: userID}
+	if f.hasConsent {
+		now := time.Now()
+		org.AutoPayoutEnabledAt = &now
+	}
+	return org, nil
+}
+func (f *fakeOrgs) Update(_ context.Context, org *organization.Organization) error {
+	f.updateCalls++
+	if org.AutoPayoutEnabledAt != nil {
+		f.consentStampedHere = true
+	}
+	return nil
 }
 
 // fakeStripe stubs StripeService; only CreateTransfer and CreateRefund are
@@ -530,6 +557,14 @@ type retryOrgs struct {
 
 func (o *retryOrgs) FindByUserID(_ context.Context, _ uuid.UUID) (*organization.Organization, error) {
 	return &organization.Organization{ID: o.providerOrgID}, nil
+}
+
+func (o *retryOrgs) FindByID(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+	return &organization.Organization{ID: id}, nil
+}
+
+func (o *retryOrgs) Update(_ context.Context, _ *organization.Organization) error {
+	return nil
 }
 
 func (o *retryOrgs) GetStripeAccountByUserID(_ context.Context, _ uuid.UUID) (string, string, error) {

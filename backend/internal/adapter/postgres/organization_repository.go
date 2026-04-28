@@ -54,6 +54,7 @@ const orgColumns = `
 	kyc_first_earning_at, kyc_restriction_notified_at,
 	pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 	role_overrides,
+	auto_payout_enabled_at,
 	created_at, updated_at`
 
 // Create inserts a new organization row. Returns ErrOrgAlreadyExists-style
@@ -85,10 +86,11 @@ func (r *OrganizationRepository) Create(ctx context.Context, org *organization.O
 			kyc_first_earning_at, kyc_restriction_notified_at,
 			pending_transfer_to_user_id, pending_transfer_initiated_at, pending_transfer_expires_at,
 			role_overrides,
+			auto_payout_enabled_at,
 			application_credits, credits_last_reset_at,
 			created_at, updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`
 
 	_, err = r.db.ExecContext(ctx, query,
 		org.ID, org.OwnerUserID, string(org.Type), org.Name,
@@ -96,6 +98,7 @@ func (r *OrganizationRepository) Create(ctx context.Context, org *organization.O
 		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 		overridesJSON,
+		org.AutoPayoutEnabledAt,
 		r.starterApplicationCredits, org.CreatedAt,
 		org.CreatedAt, org.UpdatedAt,
 	)
@@ -130,7 +133,16 @@ func (r *OrganizationRepository) FindByOwnerUserID(ctx context.Context, ownerUse
 }
 
 // FindByUserID returns the organization the given user currently
-// belongs to. Single JOIN: users.organization_id → organizations.
+// belongs to.
+//
+// Resolution path: organization_members → organizations, mirroring
+// GetStripeAccountByUserID and ResolveContext (the JWT issuance
+// path). The legacy users.organization_id join can drift out of sync
+// with organization_members on team membership changes or partial
+// backfills, which previously caused RetryFailedTransfer to
+// resolve a stale org and reject a legitimate retry with
+// transfer_not_retriable while the wallet UI happily showed the
+// payout as ready.
 func (r *OrganizationRepository) FindByUserID(ctx context.Context, userID uuid.UUID) (*organization.Organization, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -138,8 +150,10 @@ func (r *OrganizationRepository) FindByUserID(ctx context.Context, userID uuid.U
 	query := `
 		SELECT ` + orgColumns + `
 		FROM organizations o
-		JOIN users u ON u.organization_id = o.id
-		WHERE u.id = $1`
+		JOIN organization_members om ON om.organization_id = o.id
+		WHERE om.user_id = $1
+		ORDER BY om.joined_at DESC
+		LIMIT 1`
 	return r.scanOne(r.db.QueryRowContext(ctx, query, userID))
 }
 
@@ -184,6 +198,7 @@ func (r *OrganizationRepository) Update(ctx context.Context, org *organization.O
 		    pending_transfer_initiated_at = $11,
 		    pending_transfer_expires_at   = $12,
 		    role_overrides                = $13,
+		    auto_payout_enabled_at        = $14,
 		    updated_at                    = now()
 		WHERE id = $1`
 
@@ -193,6 +208,7 @@ func (r *OrganizationRepository) Update(ctx context.Context, org *organization.O
 		org.KYCFirstEarningAt, kycNotified,
 		org.PendingTransferToUserID, org.PendingTransferInitiatedAt, org.PendingTransferExpiresAt,
 		overridesJSON,
+		org.AutoPayoutEnabledAt,
 	)
 	if err != nil {
 		return fmt.Errorf("update organization: %w", err)
@@ -476,6 +492,7 @@ func (r *OrganizationRepository) scanRow(s orgRowScanner) (*organization.Organiz
 		&org.KYCFirstEarningAt, &kycNotified,
 		&org.PendingTransferToUserID, &org.PendingTransferInitiatedAt, &org.PendingTransferExpiresAt,
 		&roleOverrides,
+		&org.AutoPayoutEnabledAt,
 		&org.CreatedAt, &org.UpdatedAt,
 	)
 	if err != nil {
