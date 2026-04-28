@@ -259,6 +259,22 @@ func (s *Service) TransferMilestone(ctx context.Context, milestoneID uuid.UUID) 
 
 	stripeAccountID, _, err := s.orgs.GetStripeAccountByUserID(ctx, record.ProviderID)
 	if err != nil || stripeAccountID == "" {
+		// Diagnostic — print every input to the resolution chain so a
+		// post-mortem on a "provider has no Stripe connected account"
+		// failure can be done without re-running with extra debug
+		// instrumentation. Critical when the wallet UI reports the
+		// account as ready (resolved through the JWT org id) but the
+		// transfer path resolves through the provider user id and lands
+		// on a different / empty mapping.
+		slog.Warn("transfer: provider stripe account resolution returned empty",
+			"payment_record_id", record.ID,
+			"proposal_id", record.ProposalID,
+			"milestone_id", record.MilestoneID,
+			"provider_user_id", record.ProviderID,
+			"client_user_id", record.ClientID,
+			"resolved_stripe_account_id", stripeAccountID,
+			"resolution_error", err,
+		)
 		return domain.ErrStripeAccountNotFound
 	}
 
@@ -745,6 +761,19 @@ func (s *Service) RetryFailedTransfer(ctx context.Context, userID, orgID, record
 
 	stripeAccountID, _, accErr := s.orgs.GetStripeAccountByUserID(ctx, record.ProviderID)
 	if accErr != nil || stripeAccountID == "" {
+		// Same diagnostic as TransferMilestone — when a retry surfaces
+		// "no Stripe account" we need the full resolution chain in the
+		// logs to debug the gap between this lookup and the wallet UI's
+		// /payment-info/account-status which resolves via the JWT org id.
+		slog.Warn("retry: provider stripe account resolution returned empty",
+			"payment_record_id", record.ID,
+			"proposal_id", record.ProposalID,
+			"milestone_id", record.MilestoneID,
+			"provider_user_id", record.ProviderID,
+			"requesting_org_id", orgID,
+			"resolved_stripe_account_id", stripeAccountID,
+			"resolution_error", accErr,
+		)
 		return nil, domain.ErrStripeAccountNotFound
 	}
 

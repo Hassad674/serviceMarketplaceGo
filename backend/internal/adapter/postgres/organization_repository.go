@@ -565,6 +565,16 @@ func (r *OrganizationRepository) GetStripeAccount(ctx context.Context, orgID uui
 // given user currently belongs to. Used by payment flows that carry a
 // user_id (proposal.client_id / provider_id) and need to resolve the
 // merchant-of-record in one query.
+//
+// Resolution path: organization_members (the same source of truth used
+// at login/JWT issuance time by ResolveContext) → organizations. The
+// older path joined through users.organization_id, which can drift
+// out of sync with organization_members on team membership changes
+// or partial backfills — leaving the wallet UI happily showing
+// "compte Stripe prêt" while a TransferMilestone resolved through
+// users.organization_id returned an empty account id and bounced with
+// "provider has no Stripe connected account". Aligning on
+// organization_members ensures both readers agree.
 func (r *OrganizationRepository) GetStripeAccountByUserID(ctx context.Context, userID uuid.UUID) (string, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -573,8 +583,10 @@ func (r *OrganizationRepository) GetStripeAccountByUserID(ctx context.Context, u
 	err := r.db.QueryRowContext(ctx, `
 		SELECT o.stripe_account_id, o.stripe_account_country
 		FROM organizations o
-		JOIN users u ON u.organization_id = o.id
-		WHERE u.id = $1`,
+		JOIN organization_members om ON om.organization_id = o.id
+		WHERE om.user_id = $1
+		ORDER BY om.joined_at DESC
+		LIMIT 1`,
 		userID,
 	).Scan(&accountID, &country)
 	if err != nil {

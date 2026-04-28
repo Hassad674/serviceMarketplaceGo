@@ -630,3 +630,40 @@ func TestRetryFailedTransfer_StripeError_MarksFailedAndPropagates(t *testing.T) 
 	assert.NotEmpty(t, records.updates)
 	assert.Equal(t, domain.TransferFailed, records.updates[len(records.updates)-1].TransferStatus)
 }
+
+// Bug: when GetStripeAccountByUserID returns an empty account id (e.g.
+// the lookup path drifted from the JWT/wallet path and no longer points
+// to a KYC-completed org), TransferMilestone must surface the typed
+// ErrStripeAccountNotFound — not panic, not return a generic error —
+// so the outbox worker logs the diagnostic and the wallet shows
+// "Échec — Réessayer" instead of silently dropping the transfer.
+//
+// Pinning this here also guards against accidental regressions in the
+// repository's resolution chain: any future refactor that breaks the
+// "empty account id ⇒ typed sentinel" invariant must update this test.
+func TestTransferMilestone_NoStripeAccount_ReturnsTypedSentinel(t *testing.T) {
+	rec := baseRecord()
+	rec.MilestoneID = uuid.New()
+
+	records := &milestoneRecords{
+		byMilestone: map[uuid.UUID]*domain.PaymentRecord{
+			rec.MilestoneID: rec,
+		},
+	}
+	orgs := &fakeOrgs{stripeAccountID: ""} // resolution returns empty
+	stripe := &fakeStripe{}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+
+	err := svc.TransferMilestone(context.Background(), rec.MilestoneID)
+	assert.ErrorIs(t, err, domain.ErrStripeAccountNotFound,
+		"empty stripe account id must surface as ErrStripeAccountNotFound")
+	assert.Empty(t, stripe.transferCalls,
+		"no Stripe API call must be issued when the destination is unknown")
+	assert.Empty(t, records.updated,
+		"the record must not be mutated when the resolution fails")
+}
