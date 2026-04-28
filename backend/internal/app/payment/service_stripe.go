@@ -686,6 +686,60 @@ func (s *Service) RequestPayout(ctx context.Context, userID, orgID uuid.UUID) (*
 		return &PayoutResult{Status: "nothing_to_transfer", Message: "No funds available for transfer"}, nil
 	}
 
+	// Now that escrow funds have moved platform → connected account,
+	// fire an explicit Stripe payout so the bank transfer happens at
+	// the moment the user clicks Retirer. This is required because
+	// every connected account is created with payout_schedule.interval
+	// = "manual" (see adapter/stripe/account.go) — without this call,
+	// funds would sit on the connected account's Stripe balance and
+	// never reach the user's bank account.
+	//
+	// The currency comes from a record we just transferred — every
+	// payment record on a single connected account shares the same
+	// currency, so picking one is correct. If a future change allows
+	// mixed currencies on a single org, this should be grouped by
+	// currency before issuing payouts.
+	currency := ""
+	for _, r := range records {
+		if r.Status == domain.RecordStatusSucceeded && r.TransferStatus == domain.TransferCompleted && r.Currency != "" {
+			currency = r.Currency
+			break
+		}
+	}
+	if currency == "" {
+		currency = "eur"
+	}
+
+	// Idempotency key: deterministic per-org-per-amount slice so a
+	// duplicate Retirer click cannot double-debit the connected
+	// account balance. Stripe returns the same payout id on replay.
+	idemKey := fmt.Sprintf("payout_%s_%d", orgID, transferred)
+	payoutID, pErr := s.stripe.CreatePayout(ctx, portservice.CreatePayoutInput{
+		ConnectedAccountID: stripeAccountID,
+		Amount:             transferred,
+		Currency:           currency,
+		IdempotencyKey:     idemKey,
+		Description:        "Wallet payout",
+	})
+	if pErr != nil {
+		// The transfers already succeeded — funds are safely on the
+		// connected account. Surface the bank-leg failure but don't
+		// roll back: a later RequestPayout (or the user re-clicking)
+		// can retry, or Stripe Dashboard can issue a manual payout.
+		// ERROR level keeps prod paged.
+		slog.Error("payout: bank transfer failed after platform→connected transfer succeeded",
+			"org_id", orgID,
+			"amount", transferred,
+			"connected_account", stripeAccountID,
+			"error", pErr)
+		return &PayoutResult{
+			Status:  "transferred_pending_bank",
+			Message: fmt.Sprintf("Transferred %d centimes — bank transfer pending", transferred),
+		}, nil
+	}
+	slog.Info("payout: bank transfer initiated",
+		"org_id", orgID, "payout_id", payoutID, "amount", transferred)
+
 	return &PayoutResult{
 		Status:  "transferred",
 		Message: fmt.Sprintf("Transferred %d centimes to your account", transferred),

@@ -53,11 +53,21 @@ func (f *fakeOrgs) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, str
 type fakeStripe struct {
 	service.StripeService
 	transferCalls []service.CreateTransferInput
+	payoutCalls   []service.CreatePayoutInput
+	failPayout    bool
 }
 
 func (f *fakeStripe) CreateTransfer(_ context.Context, in service.CreateTransferInput) (string, error) {
 	f.transferCalls = append(f.transferCalls, in)
 	return "tr_test_" + in.IdempotencyKey, nil
+}
+
+func (f *fakeStripe) CreatePayout(_ context.Context, in service.CreatePayoutInput) (string, error) {
+	f.payoutCalls = append(f.payoutCalls, in)
+	if f.failPayout {
+		return "", errors.New("stripe payout boom")
+	}
+	return "po_test_" + in.IdempotencyKey, nil
 }
 
 func baseRecord() *domain.PaymentRecord {
@@ -265,6 +275,98 @@ func TestRequestPayout_NoStatusReader_FallsBackToLegacyBehaviour(t *testing.T) {
 	_, err := svc.RequestPayout(context.Background(), userID, orgID)
 	assert.NoError(t, err)
 	assert.Len(t, stripe.transferCalls, 1, "fallback mode: transfer still happens")
+}
+
+// Connected accounts are now created on a manual payout schedule (see
+// adapter/stripe/account.go), so RequestPayout must explicitly fire a
+// Stripe payout from the connected account → bank after the
+// platform→connected transfer. Without this call, funds would sit on
+// the connected account's Stripe balance and never reach the user's
+// bank — exactly the surprise-no-payout bug the user reported on /api.
+func TestRequestPayout_FiresExplicitStripePayoutAfterTransfer(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+
+	rec := baseRecord()
+	rec.ProviderPayout = 1500
+	rec.Currency = "eur"
+
+	records := &listingRecords{records: []*domain.PaymentRecord{rec}}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_pay"}
+	stripe := &fakeStripe{}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+
+	res, err := svc.RequestPayout(context.Background(), userID, orgID)
+	assert.NoError(t, err)
+	assert.Equal(t, "transferred", res.Status)
+
+	// The Stripe payout must run on the connected account, in the
+	// record's currency, for exactly the transferred amount, with an
+	// idempotency key so a retry can't double-debit the balance.
+	assert.Len(t, stripe.payoutCalls, 1, "payout must be triggered exactly once")
+	po := stripe.payoutCalls[0]
+	assert.Equal(t, "acct_test_pay", po.ConnectedAccountID)
+	assert.Equal(t, int64(1500), po.Amount)
+	assert.Equal(t, "eur", po.Currency)
+	assert.NotEmpty(t, po.IdempotencyKey, "idempotency key required for safe retries")
+}
+
+// When CreateTransfer never succeeded, there is nothing to bank-pay
+// out, so CreatePayout MUST NOT fire — otherwise we'd debit a balance
+// that never received funds and Stripe would error or worse, succeed
+// from an unrelated balance.
+func TestRequestPayout_SkipsBankPayoutWhenNoTransferSucceeded(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+
+	records := &listingRecords{records: nil} // no records → nothing transferred
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_skip"}
+	stripe := &fakeStripe{}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+
+	res, err := svc.RequestPayout(context.Background(), userID, orgID)
+	assert.NoError(t, err)
+	assert.Equal(t, "nothing_to_transfer", res.Status)
+	assert.Empty(t, stripe.payoutCalls, "no transfer = no bank payout")
+}
+
+// If the bank-leg payout itself fails, the transfers already
+// succeeded — funds sit safely on the connected account. The handler
+// should report a transferred-pending-bank status (informative, not
+// a hard 500) so the user knows the platform side worked and the bank
+// transfer is the part that needs follow-up.
+func TestRequestPayout_PayoutFailureSurfacesAsTransferredPendingBank(t *testing.T) {
+	orgID := uuid.New()
+	userID := uuid.New()
+
+	rec := baseRecord()
+	rec.ProviderPayout = 800
+	rec.Currency = "eur"
+
+	records := &listingRecords{records: []*domain.PaymentRecord{rec}}
+	orgs := &fakeOrgs{stripeAccountID: "acct_test_fail"}
+	stripe := &fakeStripe{failPayout: true}
+
+	svc := NewService(ServiceDeps{
+		Records:       records,
+		Organizations: orgs,
+		Stripe:        stripe,
+	})
+
+	res, err := svc.RequestPayout(context.Background(), userID, orgID)
+	assert.NoError(t, err, "bank-leg failure must not roll back the transfers")
+	assert.Equal(t, "transferred_pending_bank", res.Status)
+	assert.Len(t, stripe.payoutCalls, 1, "payout was attempted")
 }
 
 // milestoneRecords lets us drive TransferMilestone + TransferToProvider

@@ -20,6 +20,19 @@ type StripeService interface {
 	// CreateTransfer sends funds to a connected account.
 	CreateTransfer(ctx context.Context, input CreateTransferInput) (transferID string, err error)
 
+	// CreatePayout triggers a payout from a connected account's Stripe
+	// balance to its external bank account. This is the second leg of
+	// the wallet "Retirer" flow: CreateTransfer moved funds platform →
+	// connected account, CreatePayout completes the bank transfer.
+	// Required because connected accounts run on a manual payout
+	// schedule (see UpdatePayoutSchedule) — Stripe will not auto-pay.
+	CreatePayout(ctx context.Context, input CreatePayoutInput) (payoutID string, err error)
+
+	// UpdatePayoutSchedule changes a connected account's payout schedule.
+	// Used at account creation (interval = "manual") and by the backfill
+	// CLI to bring legacy accounts in line with the manual-only policy.
+	UpdatePayoutSchedule(ctx context.Context, accountID, interval string) error
+
 	// ConstructWebhookEvent verifies and parses a Stripe webhook event.
 	ConstructWebhookEvent(payload []byte, signature string) (*StripeWebhookEvent, error)
 
@@ -72,6 +85,22 @@ type CreateTransferInput struct {
 	DestinationAccount string
 	TransferGroup      string
 	IdempotencyKey     string
+}
+
+// CreatePayoutInput drives a connected-account → bank payout. The
+// Amount is the centimes to send (must not exceed the connected
+// account's available balance). Method is "standard" by default;
+// pass "instant" to use Stripe Instant Payouts when the destination
+// debit card supports it. ConnectedAccountID is the acct_* the
+// payout runs on (Stripe-Account header). IdempotencyKey is required
+// to make Retirer clicks safe to replay.
+type CreatePayoutInput struct {
+	ConnectedAccountID string
+	Amount             int64
+	Currency           string
+	Method             string // "standard" (default) or "instant"
+	IdempotencyKey     string
+	Description        string
 }
 
 type StripeWebhookEvent struct {
