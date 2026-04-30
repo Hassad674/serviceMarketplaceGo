@@ -333,13 +333,15 @@ func groupThousands(n int64, sep rune) string {
 	if pre > 0 {
 		out = append(out, s[:pre]...)
 		if len(s) > pre {
-			out = append(out, byte(sep))
+			// `sep` is a callsite-controlled separator rune (',' or
+			// ' ').  The caller passes ASCII only; byte() is safe.
+			out = append(out, byte(sep)) // #nosec G115 -- ASCII separator only
 		}
 	}
 	for i := pre; i < len(s); i += 3 {
 		out = append(out, s[i:i+3]...)
 		if i+3 < len(s) {
-			out = append(out, byte(sep))
+			out = append(out, byte(sep)) // #nosec G115 -- ASCII separator only
 		}
 	}
 	return string(out)

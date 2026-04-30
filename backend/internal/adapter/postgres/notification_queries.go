@@ -54,16 +54,22 @@ const queryUpsertPreference = `
 	ON CONFLICT (user_id, notification_type) DO UPDATE
 	SET in_app = EXCLUDED.in_app, push = EXCLUDED.push, email = EXCLUDED.email`
 
+// device_tokens are FCM/APNS device push tokens, not authentication
+// credentials. The "token" column name is what triggers gosec G101
+// — these strings are SQL templates, never inlined credentials.
+// #nosec G101 -- SQL template (column name "token" refers to push tokens, not credentials)
 const queryInsertDeviceToken = `
 	INSERT INTO device_tokens (id, user_id, token, platform, created_at)
 	VALUES ($1, $2, $3, $4, $5)
 	ON CONFLICT (user_id, token) DO NOTHING`
 
+// #nosec G101 -- SQL template
 const queryListDeviceTokens = `
 	SELECT id, user_id, token, platform, created_at
 	FROM device_tokens
 	WHERE user_id = $1`
 
+// #nosec G101 -- SQL template
 const queryDeleteDeviceToken = `
 	DELETE FROM device_tokens
 	WHERE user_id = $1 AND token = $2`
