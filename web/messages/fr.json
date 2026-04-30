@@ -924,6 +924,20 @@
     "videoPreview": "Aperçu vidéo",
     "removeVideo": "Supprimer la vidéo"
   },
+  "publicListing": {
+    "agencies": {
+      "title": "Annuaire des agences — {count} agences | Marketplace Service",
+      "description": "Parcourez {count} agences vérifiées sur Marketplace Service. Trouvez le partenaire idéal pour votre projet B2B."
+    },
+    "freelancers": {
+      "title": "Annuaire des freelances — {count} professionnels | Marketplace Service",
+      "description": "Connectez-vous avec {count} freelances vérifiés sur Marketplace Service. Trouvez le professionnel indépendant idéal pour votre projet B2B."
+    },
+    "referrers": {
+      "title": "Annuaire des apporteurs d'affaires — {count} apporteurs | Marketplace Service",
+      "description": "Parcourez {count} apporteurs d'affaires prêts à vous mettre en relation avec la bonne agence ou freelance."
+    }
+  },
   "publicProfile": {
     "agencyProfile": "Profil de l'agence",
     "agencyProfileDesc": "Voir les détails et le portfolio de l'agence",

@@ -14,7 +14,7 @@ import {
 import type {
   SearchDocumentPersona,
 } from "@/shared/lib/search/search-document"
-import { useSearch } from "@/shared/lib/search/use-search"
+import { useSearch, type BackendSearchPage } from "@/shared/lib/search/use-search"
 import { useDebouncedValue } from "@/shared/lib/search/use-debounced-value"
 import { trackSearchClick } from "@/shared/lib/search/track-click"
 import { fromTypesenseDocument } from "@/shared/lib/search/typesense-document-adapter"
@@ -53,9 +53,17 @@ const TYPE_TO_PERSONA: Record<SearchType, SearchDocumentPersona> = {
 
 interface SearchPageProps {
   type: SearchType
+  /**
+   * Optional first-page seed produced by the RSC pass (PERF-W-02).
+   * When present, the hook short-circuits the initial network round
+   * trip and renders the cards from the SSR HTML — Googlebot sees
+   * the listing without waiting for hydration, and users see no
+   * "loading" flash on first paint.
+   */
+  initialFirstPage?: BackendSearchPage
 }
 
-export function SearchPage({ type }: SearchPageProps) {
+export function SearchPage({ type, initialFirstPage }: SearchPageProps) {
   const t = useTranslations("search")
   const [query, setQuery] = useState("")
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS)
@@ -73,6 +81,7 @@ export function SearchPage({ type }: SearchPageProps) {
     filters: filtersToInput(filters),
     sortBy: sortKeyToTypesense(sort),
     perPage: 20,
+    initialFirstPage,
   })
 
   const handleSelect = useCallback(

@@ -194,4 +194,90 @@ describe("useSearch", () => {
     const secondCall = fetchMock.mock.calls[1]?.[0] as string
     expect(secondCall).toContain("cursor=cursor-page-2")
   })
+
+  // ---------------------------------------------------------------------
+  // PERF-W-02 — initialFirstPage seeding (RSC handoff)
+  // ---------------------------------------------------------------------
+  describe("initialFirstPage seed (PERF-W-02)", () => {
+    // Cast: the test fixture builds documents with broad string types
+    // that don't perfectly fit `RawSearchDocument`'s discriminated
+    // unions — using `unknown` as a one-step bridge keeps the test
+    // free of fixture-shape boilerplate without leaking `any`.
+    type SeedShape = ReturnType<typeof seedFromFixture>
+    function seedFromFixture(found: number) {
+      return { ...BACKEND_PAGE_1, found } as unknown as Parameters<
+        typeof useSearch
+      >[0]["initialFirstPage"]
+    }
+    void ({} as SeedShape)
+
+    it("uses the seed and skips the initial fetch in default state", async () => {
+      const seed = seedFromFixture(99)
+      const { result } = renderHook(
+        () =>
+          useSearch({
+            persona: "freelance",
+            query: "",
+            filters: {},
+            initialFirstPage: seed,
+          }),
+        { wrapper },
+      )
+
+      // Found should be the seed's value immediately — no fetch needed.
+      expect(result.current.found).toBe(99)
+      expect(result.current.documents).toHaveLength(1)
+      expect(result.current.documents[0]?.display_name).toBe("Alice")
+
+      // Allow any pending microtasks to settle and assert no fetch was
+      // triggered for the default-state query.
+      await new Promise((r) => setTimeout(r, 30))
+      const searchCalls = fetchMock.mock.calls.filter((c) =>
+        (c[0] as string).includes("/api/v1/search"),
+      )
+      expect(searchCalls).toHaveLength(0)
+    })
+
+    it("ignores the seed when the user provides a query", async () => {
+      const seed = seedFromFixture(99)
+      const { result } = renderHook(
+        () =>
+          useSearch({
+            persona: "freelance",
+            query: "alice", // user typed something — seed must be discarded
+            filters: {},
+            initialFirstPage: seed,
+          }),
+        { wrapper },
+      )
+
+      // The seed's `found` (99) must NOT be visible — a fresh fetch
+      // runs and BACKEND_PAGE_1 (found: 1) wins.
+      await waitFor(() => expect(result.current.found).toBe(1))
+      const searchCalls = fetchMock.mock.calls.filter((c) =>
+        (c[0] as string).includes("/api/v1/search"),
+      )
+      expect(searchCalls.length).toBeGreaterThan(0)
+    })
+
+    it("ignores the seed when filters are non-empty", async () => {
+      const seed = seedFromFixture(99)
+      const { result } = renderHook(
+        () =>
+          useSearch({
+            persona: "freelance",
+            query: "",
+            filters: { skills: ["go"] },
+            initialFirstPage: seed,
+          }),
+        { wrapper },
+      )
+
+      await waitFor(() => expect(result.current.found).toBe(1))
+      const searchCalls = fetchMock.mock.calls.filter((c) =>
+        (c[0] as string).includes("/api/v1/search"),
+      )
+      expect(searchCalls.length).toBeGreaterThan(0)
+    })
+  })
 })

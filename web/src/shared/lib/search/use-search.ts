@@ -35,6 +35,11 @@ import {
 } from "./typesense-client"
 import { buildFilterBy, type SearchFilterInput } from "./build-filter-by"
 import { apiClient } from "../api-client"
+import type { BackendSearchPage } from "./search-types"
+
+// Re-export so existing consumers (search-page.tsx) keep their
+// import paths stable.
+export type { BackendSearchPage }
 
 /** SEARCH_COLLECTION is the alias every persona-scoped key targets. */
 export const SEARCH_COLLECTION = "marketplace_actors"
@@ -78,6 +83,15 @@ export interface UseSearchInput {
   perPage?: number
   /** Disables the query when false. */
   enabled?: boolean
+  /**
+   * Optional first page seed used by RSC (PERF-W-02). When the page
+   * is rendered as a Server Component, the listing pre-fetches the
+   * first 20 documents and hands them to the client `SearchPage` as
+   * `initialFirstPage`. The hook seeds TanStack Query so the first
+   * paint already has cards — no client refetch unless the user
+   * changes the query or filters.
+   */
+  initialFirstPage?: BackendSearchPage
 }
 
 /** UseSearchResult is the shape callers consume. */
@@ -100,20 +114,10 @@ export interface UseSearchResult {
   refetch: () => void
 }
 
-interface BackendSearchPage {
-  search_id: string
-  documents: RawSearchDocument[]
-  highlights: Record<string, string>[]
-  facet_counts: Record<string, Record<string, number>>
-  found: number
-  out_of: number
-  page: number
-  per_page: number
-  search_time_ms: number
-  corrected_query?: string
-  next_cursor?: string
-  has_more: boolean
-}
+// BackendSearchPage moved to ./search-types.ts so the RSC fetcher can
+// import the type without pulling the `"use client"` hook module into
+// the server bundle. Re-exported from this file (above) for backward
+// compatibility.
 
 /**
  * useSearch is the top-level hook for the Typesense-backed listing
@@ -140,10 +144,26 @@ export function useSearch(input: UseSearchInput): UseSearchResult {
     [input.persona, input.query, filterBy, input.sortBy, perPage],
   )
 
+  // initialData seeds the first page with server-rendered results
+  // (PERF-W-02). It only applies when query is empty and no filters
+  // are set — i.e. the listing's default state, which matches what
+  // the RSC fetched server-side. Once the user types or filters, the
+  // seed is ignored and a fresh fetch is triggered automatically by
+  // TanStack Query (the queryKey changes).
+  const isDefaultState = input.query.trim() === "" && filterBy === ""
+  const initialData =
+    isDefaultState && input.initialFirstPage
+      ? {
+          pages: [input.initialFirstPage],
+          pageParams: [""],
+        }
+      : undefined
+
   const query = useInfiniteQuery({
     queryKey,
     enabled,
     initialPageParam: "" as string,
+    initialData,
     queryFn: async ({ pageParam, signal }) => {
       if (!input.persona) {
         throw new Error("useSearch: persona is required")
