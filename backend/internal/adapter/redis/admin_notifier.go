@@ -161,6 +161,14 @@ func parseRedisInt(val interface{}) int64 {
 		return 0
 	}
 	var n int64
-	fmt.Sscanf(s, "%d", &n)
+	if _, err := fmt.Sscanf(s, "%d", &n); err != nil {
+		// Defensive: a non-integer string in a counter slot indicates
+		// an out-of-band write or a corrupted Redis entry. Surface
+		// the failure at WARN so it's visible without breaking the
+		// caller (which still gets a sane zero).
+		slog.Warn("admin notifier: parse counter value failed",
+			"value", s, "error", err)
+		return 0
+	}
 	return n
 }
