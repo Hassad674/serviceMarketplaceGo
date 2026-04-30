@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -1070,4 +1071,291 @@ func TestAuthService_RefreshToken_BannedUser_ReturnsError(t *testing.T) {
 	assert.Nil(t, result)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, user.ErrAccountBanned)
+}
+
+// ---------------------------------------------------------------------
+// SEC-13: audit log emission for auth events
+// ---------------------------------------------------------------------
+
+// newTestServiceWithAudit returns a service with an audit + session
+// service wired in, exposing both mocks so the test can assert on
+// emitted entries / DeleteByUserID calls.
+func newTestServiceWithAudit(
+	userRepo *mockUserRepo,
+	resetRepo *mockPasswordResetRepo,
+	hasher *mockHasher,
+	tokens *mockTokenService,
+	email *mockEmailService,
+) (*Service, *mockAuditRepo, *mockSessionService) {
+	if userRepo == nil {
+		userRepo = &mockUserRepo{}
+	}
+	if resetRepo == nil {
+		resetRepo = &mockPasswordResetRepo{}
+	}
+	if hasher == nil {
+		hasher = &mockHasher{}
+	}
+	if tokens == nil {
+		tokens = &mockTokenService{}
+	}
+	if email == nil {
+		email = &mockEmailService{}
+	}
+	auditRepo := &mockAuditRepo{}
+	sessionSvc := &mockSessionService{}
+	svc := NewServiceWithDeps(ServiceDeps{
+		Users:       userRepo,
+		Resets:      resetRepo,
+		Hasher:      hasher,
+		Tokens:      tokens,
+		Email:       email,
+		Sessions:    sessionSvc,
+		Audits:      auditRepo,
+		FrontendURL: "https://example.com",
+	})
+	return svc, auditRepo, sessionSvc
+}
+
+func TestAuthService_Login_EmitsLoginSuccessAudit(t *testing.T) {
+	existingUser := &user.User{
+		ID:             uuid.New(),
+		Email:          "audit@example.com",
+		HashedPassword: "hashed_CorrectPass1",
+		Role:           user.RoleProvider,
+	}
+	userRepo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return existingUser, nil
+		},
+	}
+
+	svc, auditRepo, _ := newTestServiceWithAudit(userRepo, nil, nil, nil, nil)
+
+	_, err := svc.Login(context.Background(), LoginInput{
+		Email:    "audit@example.com",
+		Password: "CorrectPass1",
+	})
+	require.NoError(t, err)
+
+	entries := auditRepo.snapshot()
+	require.Len(t, entries, 1, "exactly one audit row expected on login success")
+	assert.Equal(t, audit.ActionLoginSuccess, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, existingUser.ID, *entries[0].UserID)
+	assert.Equal(t, "audit@example.com", entries[0].Metadata["email"])
+}
+
+func TestAuthService_Login_FailureEmitsLoginFailureAudit(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func() (*mockUserRepo, LoginInput)
+		wantReason string
+	}{
+		{
+			name: "invalid email format",
+			setup: func() (*mockUserRepo, LoginInput) {
+				return &mockUserRepo{}, LoginInput{Email: "not-an-email", Password: "x"}
+			},
+			wantReason: "invalid_email_format",
+		},
+		{
+			name: "user not found",
+			setup: func() (*mockUserRepo, LoginInput) {
+				repo := &mockUserRepo{
+					getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+						return nil, user.ErrUserNotFound
+					},
+				}
+				return repo, LoginInput{Email: "ghost@example.com", Password: "Password1"}
+			},
+			wantReason: "user_not_found",
+		},
+		{
+			name: "invalid password",
+			setup: func() (*mockUserRepo, LoginInput) {
+				u := &user.User{ID: uuid.New(), Email: "real@example.com", HashedPassword: "hashed_Right1"}
+				repo := &mockUserRepo{
+					getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+						return u, nil
+					},
+				}
+				return repo, LoginInput{Email: "real@example.com", Password: "Wrong1Pass"}
+			},
+			wantReason: "invalid_password",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo, input := tt.setup()
+			svc, auditRepo, _ := newTestServiceWithAudit(repo, nil, nil, nil, nil)
+
+			_, err := svc.Login(context.Background(), input)
+			require.Error(t, err)
+
+			entries := auditRepo.snapshot()
+			require.Len(t, entries, 1)
+			assert.Equal(t, audit.ActionLoginFailure, entries[0].Action)
+			assert.Equal(t, tt.wantReason, entries[0].Metadata["reason"])
+		})
+	}
+}
+
+func TestAuthService_Login_FiveFailuresProduceFiveAuditRows(t *testing.T) {
+	repo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return nil, user.ErrUserNotFound
+		},
+	}
+	svc, auditRepo, _ := newTestServiceWithAudit(repo, nil, nil, nil, nil)
+
+	for i := 0; i < 5; i++ {
+		_, err := svc.Login(context.Background(), LoginInput{
+			Email:    fmt.Sprintf("attempt%d@example.com", i),
+			Password: "BadPassword1",
+		})
+		require.Error(t, err)
+	}
+
+	entries := auditRepo.snapshot()
+	assert.Len(t, entries, 5, "5 failed logins produce 5 audit rows")
+	for _, e := range entries {
+		assert.Equal(t, audit.ActionLoginFailure, e.Action)
+	}
+}
+
+func TestAuthService_RefreshToken_EmitsTokenRefreshAudit(t *testing.T) {
+	u := &user.User{ID: uuid.New(), Email: "ref@example.com", Role: user.RoleProvider}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			return u, nil
+		},
+	}
+	tokens := &mockTokenService{
+		validateRefreshFn: func(_ string) (*service.TokenClaims, error) {
+			return &service.TokenClaims{UserID: u.ID, ExpiresAt: time.Now().Add(time.Hour)}, nil
+		},
+	}
+
+	svc, auditRepo, _ := newTestServiceWithAudit(userRepo, nil, nil, tokens, nil)
+	_, err := svc.RefreshToken(context.Background(), "any-token")
+	require.NoError(t, err)
+
+	entries := auditRepo.snapshot()
+	require.Len(t, entries, 1)
+	assert.Equal(t, audit.ActionTokenRefresh, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, u.ID, *entries[0].UserID)
+}
+
+func TestAuthService_Logout_EmitsLogoutAudit(t *testing.T) {
+	svc, auditRepo, _ := newTestServiceWithAudit(nil, nil, nil, nil, nil)
+	userID := uuid.New()
+	svc.Logout(context.Background(), userID)
+
+	entries := auditRepo.snapshot()
+	require.Len(t, entries, 1)
+	assert.Equal(t, audit.ActionLogout, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, userID, *entries[0].UserID)
+}
+
+func TestAuthService_ForgotPassword_EmitsPasswordResetRequestAudit(t *testing.T) {
+	u := &user.User{ID: uuid.New(), Email: "forgot@example.com"}
+	userRepo := &mockUserRepo{
+		getByEmailFn: func(_ context.Context, _ string) (*user.User, error) {
+			return u, nil
+		},
+	}
+
+	svc, auditRepo, _ := newTestServiceWithAudit(userRepo, nil, nil, nil, nil)
+	err := svc.ForgotPassword(context.Background(), ForgotPasswordInput{Email: "forgot@example.com"})
+	require.NoError(t, err)
+
+	entries := auditRepo.snapshot()
+	require.Len(t, entries, 1)
+	assert.Equal(t, audit.ActionPasswordResetRequest, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, u.ID, *entries[0].UserID)
+	assert.Equal(t, "forgot@example.com", entries[0].Metadata["email"])
+}
+
+// ---------------------------------------------------------------------
+// SEC-16: ResetPassword bumps session_version + purges sessions + audit
+// ---------------------------------------------------------------------
+
+func TestAuthService_ResetPassword_BumpsSessionVersionAndPurgesSessions(t *testing.T) {
+	u := &user.User{ID: uuid.New(), Email: "reset@example.com", HashedPassword: "old_hashed"}
+	resetID := uuid.New()
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) { return u, nil },
+		updateFn:  func(_ context.Context, _ *user.User) error { return nil },
+	}
+	resetRepo := &mockPasswordResetRepo{
+		getByTokenFn: func(_ context.Context, _ string) (*repository.PasswordReset, error) {
+			return &repository.PasswordReset{
+				ID:        resetID,
+				UserID:    u.ID,
+				Token:     "valid-token",
+				ExpiresAt: time.Now().Add(time.Hour),
+			}, nil
+		},
+	}
+
+	svc, auditRepo, sessionSvc := newTestServiceWithAudit(userRepo, resetRepo, nil, nil, nil)
+	err := svc.ResetPassword(context.Background(), ResetPasswordInput{
+		Token:       "valid-token",
+		NewPassword: "NewStrong1Pass!",
+	})
+	require.NoError(t, err)
+
+	// SEC-16 invariant 1: session_version was bumped exactly once
+	bumpCalls := userRepo.snapshotBumpCalls()
+	require.Len(t, bumpCalls, 1, "expected 1 BumpSessionVersion call")
+	assert.Equal(t, u.ID, bumpCalls[0])
+
+	// SEC-16 invariant 2: every Redis session for the user was deleted
+	deleteCalls := sessionSvc.snapshotDeleteCalls()
+	require.Len(t, deleteCalls, 1, "expected 1 DeleteByUserID call")
+	assert.Equal(t, u.ID, deleteCalls[0])
+
+	// SEC-13 invariant: audit row written
+	entries := auditRepo.snapshot()
+	require.Len(t, entries, 1)
+	assert.Equal(t, audit.ActionPasswordResetComplete, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, u.ID, *entries[0].UserID)
+}
+
+// TestAuthService_ResetPassword_BumpFailureDoesNotFailReset documents
+// the policy: a BumpSessionVersion failure is logged but doesn't fail
+// the reset itself — refusing the call would put the user in a worse
+// state ("password is changed but… error?"). This guards the policy
+// against an over-eager refactor that propagates the error.
+func TestAuthService_ResetPassword_BumpFailureDoesNotFailReset(t *testing.T) {
+	u := &user.User{ID: uuid.New(), Email: "r@example.com", HashedPassword: "h"}
+
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*user.User, error) { return u, nil },
+		updateFn:  func(_ context.Context, _ *user.User) error { return nil },
+		bumpErr:   fmt.Errorf("redis cluster down"),
+	}
+	resetRepo := &mockPasswordResetRepo{
+		getByTokenFn: func(_ context.Context, _ string) (*repository.PasswordReset, error) {
+			return &repository.PasswordReset{
+				ID:        uuid.New(),
+				UserID:    u.ID,
+				ExpiresAt: time.Now().Add(time.Hour),
+			}, nil
+		},
+	}
+
+	svc, _, _ := newTestServiceWithAudit(userRepo, resetRepo, nil, nil, nil)
+	err := svc.ResetPassword(context.Background(), ResetPasswordInput{
+		Token:       "x",
+		NewPassword: "NewStrong1Pass!",
+	})
+	assert.NoError(t, err, "reset must succeed even when bump fails")
 }

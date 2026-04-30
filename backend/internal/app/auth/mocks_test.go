@@ -27,6 +27,13 @@ type mockUserRepo struct {
 	existsByEmailFn func(ctx context.Context, email string) (bool, error)
 	listAdminFn     func(ctx context.Context, filters repository.AdminUserFilters) ([]*user.User, string, error)
 	countAdminFn    func(ctx context.Context, filters repository.AdminUserFilters) (int, error)
+
+	// Tracks SEC-16 session_version bumps so the ResetPassword test
+	// can assert the kill-switch fired. Concurrent-safe.
+	bumpMu       sync.Mutex
+	bumpCalls    []uuid.UUID
+	bumpResult   int
+	bumpErr      error
 }
 
 func (m *mockUserRepo) Create(ctx context.Context, u *user.User) error {
@@ -346,15 +353,75 @@ func (m *mockUserRepo) SaveKYCNotificationState(_ context.Context, _ uuid.UUID, 
 }
 
 // --- Session version stubs (migration 056, Phase 3) ---
-func (m *mockUserRepo) BumpSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
-	return 0, nil
+func (m *mockUserRepo) BumpSessionVersion(_ context.Context, userID uuid.UUID) (int, error) {
+	m.bumpMu.Lock()
+	defer m.bumpMu.Unlock()
+	m.bumpCalls = append(m.bumpCalls, userID)
+	return m.bumpResult, m.bumpErr
 }
 func (m *mockUserRepo) GetSessionVersion(_ context.Context, _ uuid.UUID) (int, error) {
 	return 0, nil
+}
+
+// snapshotBumpCalls returns a copy of every userID BumpSessionVersion was called for.
+func (m *mockUserRepo) snapshotBumpCalls() []uuid.UUID {
+	m.bumpMu.Lock()
+	defer m.bumpMu.Unlock()
+	out := make([]uuid.UUID, len(m.bumpCalls))
+	copy(out, m.bumpCalls)
+	return out
 }
 func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid.UUID, _ bool) error {
 	return nil
 }
 func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error {
 	return nil
+}
+
+// snapshot is a lowercase alias of Snapshot() kept so SEC-13 tests
+// in service_test.go don't need to be rewritten. Both spellings call
+// the same underlying state.
+func (m *mockAuditRepo) snapshot() []*audit.Entry {
+	return m.Snapshot()
+}
+
+// --- mockSessionService (SEC-16) ---
+
+type mockSessionService struct {
+	mu                sync.Mutex
+	deleteByUserCalls []uuid.UUID
+	deleteByUserErr   error
+}
+
+var _ service.SessionService = (*mockSessionService)(nil)
+
+func (m *mockSessionService) Create(_ context.Context, _ service.CreateSessionInput) (*service.Session, error) {
+	return &service.Session{ID: "session-id"}, nil
+}
+func (m *mockSessionService) Get(_ context.Context, _ string) (*service.Session, error) {
+	return nil, nil
+}
+func (m *mockSessionService) Delete(_ context.Context, _ string) error {
+	return nil
+}
+func (m *mockSessionService) DeleteByUserID(_ context.Context, userID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.deleteByUserCalls = append(m.deleteByUserCalls, userID)
+	return m.deleteByUserErr
+}
+func (m *mockSessionService) CreateWSToken(_ context.Context, _ uuid.UUID) (string, error) {
+	return "ws-token", nil
+}
+func (m *mockSessionService) ValidateWSToken(_ context.Context, _ string) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+
+// snapshotDeleteCalls returns a copy of every userID DeleteByUserID was called for.
+func (m *mockSessionService) snapshotDeleteCalls() []uuid.UUID {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]uuid.UUID, len(m.deleteByUserCalls))
+	copy(out, m.deleteByUserCalls)
+	return out
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	organizationapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/report"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -232,6 +233,17 @@ func (s *Service) SuspendUser(ctx context.Context, userID uuid.UUID, reason stri
 	}
 
 	s.invalidateAndNotify(ctx, userID, reason)
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &userID,
+		Action:       audit.ActionAdminUserSuspend,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &userID,
+		Metadata: map[string]any{
+			"reason":     reason,
+			"expires_at": stringifyTime(expiresAt),
+		},
+	})
 	return nil
 }
 
@@ -246,6 +258,14 @@ func (s *Service) UnsuspendUser(ctx context.Context, userID uuid.UUID) error {
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("unsuspend user: save: %w", err)
 	}
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &userID,
+		Action:       audit.ActionAdminUserUnsuspend,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &userID,
+		Metadata:     map[string]any{},
+	})
 	return nil
 }
 
@@ -262,12 +282,42 @@ func (s *Service) BanUser(ctx context.Context, userID uuid.UUID, reason string) 
 	}
 
 	s.invalidateAndNotify(ctx, userID, reason)
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &userID,
+		Action:       audit.ActionAdminUserBan,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &userID,
+		Metadata: map[string]any{
+			"reason": reason,
+		},
+	})
 	return nil
 }
 
-// invalidateAndNotify deletes the user's session and broadcasts a WS event
-// so the frontend disconnects immediately after a suspension or ban.
+// invalidateAndNotify deletes the user's session, bumps their session
+// version, and broadcasts a WS event so the frontend disconnects
+// immediately after a suspension or ban.
+//
+// The session_version bump is the SEC-05 fix: without it, mobile JWTs
+// stay valid for up to 15 minutes after a ban (the JWT TTL) because
+// only the cookie session in Redis was being purged. Bumping
+// session_version invalidates every previously-issued JWT on the next
+// request via the auth middleware's version check.
 func (s *Service) invalidateAndNotify(ctx context.Context, userID uuid.UUID, reason string) {
+	// SEC-05: bump the user's session_version BEFORE wiping sessions.
+	// Order matters subtly: a concurrent request that reads the old
+	// version + reaches the auth middleware before the bump persists
+	// is still rejected because the version it reads from the JWT is
+	// strictly less than the new DB value. Best-effort failure is
+	// acceptable — both backends MUST already pass for the user to be
+	// truly locked out, but a transient bump failure leaves the cookie
+	// path still purged, which is strictly better than the pre-fix
+	// state.
+	if _, err := s.users.BumpSessionVersion(ctx, userID); err != nil {
+		slog.Error("admin: bump session_version after suspend/ban",
+			"error", err, "user_id", userID)
+	}
 	if s.sessionSvc != nil {
 		if err := s.sessionSvc.DeleteByUserID(ctx, userID); err != nil {
 			slog.Error("admin: delete sessions after suspension",
@@ -293,7 +343,42 @@ func (s *Service) UnbanUser(ctx context.Context, userID uuid.UUID) error {
 	if err := s.users.Update(ctx, u); err != nil {
 		return fmt.Errorf("unban user: save: %w", err)
 	}
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &userID,
+		Action:       audit.ActionAdminUserUnban,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &userID,
+		Metadata:     map[string]any{},
+	})
 	return nil
+}
+
+// logAudit writes one append-only audit row for the action just taken.
+// Mirrors the auth.Service helper — failures are logged via slog and
+// never returned. Audit emission is best-effort by policy.
+func (s *Service) logAudit(ctx context.Context, in audit.NewEntryInput) {
+	if s.audit == nil {
+		return
+	}
+	entry, err := audit.NewEntry(in)
+	if err != nil {
+		slog.Warn("audit: build entry failed", "action", in.Action, "error", err)
+		return
+	}
+	if err := s.audit.Log(ctx, entry); err != nil {
+		slog.Warn("audit: insert failed", "action", in.Action, "error", err)
+	}
+}
+
+// stringifyTime turns a *time.Time into its RFC3339 representation, or
+// the empty string when nil. Used in audit metadata so the JSON value
+// is always a primitive (jsonb-friendly).
+func stringifyTime(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 func (s *Service) ListConversationReports(ctx context.Context, conversationID uuid.UUID) ([]*report.Report, error) {

@@ -56,6 +56,17 @@ const (
 	ActionMemberRemoved          Action = "team.member_removed"
 	ActionOwnershipTransferred   Action = "team.ownership_transferred"
 
+	// Admin actions on user accounts (SEC-13). Emitted by the admin
+	// service whenever a platform admin alters a user's account state.
+	ActionAdminUserSuspend   Action = "admin.user_suspend"
+	ActionAdminUserUnsuspend Action = "admin.user_unsuspend"
+	ActionAdminUserBan       Action = "admin.user_ban"
+	ActionAdminUserUnban     Action = "admin.user_unban"
+
+	// Admin force-overrides on org ownership (SEC-13). Emitted when an
+	// admin uses the "rescue an org with a missing/abusive Owner" flow.
+	ActionAdminForceTransfer Action = "admin.force_transfer_ownership"
+
 	// Authorization failures
 	ActionAuthorizationDenied Action = "authz.denied"
 )
