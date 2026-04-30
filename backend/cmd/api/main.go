@@ -1118,7 +1118,15 @@ func main() {
 		WithSkillsReader(skillSvc).
 		WithPricingReader(profilePricingSvc).
 		WithClientStatsReader(clientProfileReadSvc)
-	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc)
+	// uploadCtx is cancelled at SIGTERM so in-flight RecordUpload
+	// goroutines (fired by /upload/* endpoints) wind down their
+	// downstream Rekognition / S3 work cleanly. Closes BUG-17 — the
+	// previous detached goroutines were truncated mid-flight and left
+	// orphan media records.
+	uploadCtx, uploadCancel := context.WithCancel(context.Background())
+	defer uploadCancel()
+	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc).
+		WithShutdownContext(uploadCtx)
 	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
 	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
 	healthHandler := handler.NewHealthHandler(db)
@@ -1470,6 +1478,15 @@ func main() {
 
 	if err := srv.Shutdown(ctx); err != nil {
 		slog.Error("server forced to shutdown", "error", err)
+	}
+
+	// BUG-17: drain in-flight upload goroutines (max 30s budget shared
+	// with the HTTP shutdown above). uploadCancel above triggers the
+	// individual goroutine's WithCancel so they observe the shutdown
+	// signal; Stop() then waits for them to exit cleanly.
+	uploadCancel()
+	if err := uploadHandler.Stop(ctx); err != nil {
+		slog.Warn("upload handler shutdown timed out", "error", err)
 	}
 
 	slog.Info("server stopped")
