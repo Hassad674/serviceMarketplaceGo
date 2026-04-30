@@ -12,98 +12,196 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	milestonedomain "marketplace-backend/internal/domain/milestone"
-	paymentdomain "marketplace-backend/internal/domain/payment"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	userdomain "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/request"
-	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
-	"marketplace-backend/pkg/validator"
 
 	res "marketplace-backend/pkg/response"
 )
 
+// ProposalHandler is the legacy wide handler. It now acts as a thin
+// composition facade over four focused handlers (lifecycle / payment /
+// completion / admin) introduced by the Phase 3 SOLID decomposition.
+//
+// SRP rationale (Phase 3): the original handler bundled 22 methods
+// across 4 distinct surfaces (audit QUAL-B SRP). The decomposition
+// introduces:
+//   - ProposalLifecycleHandler  — create / read / accept / decline /
+//     modify / cancel + project listings (no money / no completion).
+//   - ProposalPaymentHandler    — pay / confirm-payment / fund-milestone
+//     (PaymentIntent + activation).
+//   - ProposalCompletionHandler — request-completion / complete /
+//     reject-completion + milestone-explicit submit / approve / reject.
+//   - ProposalAdminHandler       — 5 admin-gated endpoints.
+//
+// The legacy ProposalHandler keeps its public method surface so all
+// existing tests, all router wiring, and all external call sites
+// compile unchanged. Each method is a one-line delegation to the
+// corresponding focused handler.
 type ProposalHandler struct {
+	// Sub-handlers — owned & constructed by NewProposalHandler. The
+	// four pointers cover the entire 22-method surface via delegation.
+	lifecycle  *ProposalLifecycleHandler
+	payment    *ProposalPaymentHandler
+	completion *ProposalCompletionHandler
+	admin      *ProposalAdminHandler
+
+	// proposalSvc is preserved for the helper validateMilestoneMatchesCurrent
+	// (called via the package-level validator helper that takes a
+	// *proposalapp.Service). The public API of ProposalHandler stays
+	// identical to its pre-Phase-3 shape.
 	proposalSvc *proposalapp.Service
-	paymentSvc  *paymentapp.Service // nil if Stripe not configured
 }
 
+// NewProposalHandler wires the four focused sub-handlers and returns a
+// composition facade. Existing callers continue to use the returned
+// *ProposalHandler unchanged.
+//
+// paymentSvc may be nil when Stripe is not configured — only the
+// payment sub-handler uses it, and it degrades gracefully.
 func NewProposalHandler(svc *proposalapp.Service, paymentSvc *paymentapp.Service) *ProposalHandler {
-	return &ProposalHandler{proposalSvc: svc, paymentSvc: paymentSvc}
+	return &ProposalHandler{
+		lifecycle:   NewProposalLifecycleHandler(svc),
+		payment:     NewProposalPaymentHandler(svc, paymentSvc),
+		completion:  NewProposalCompletionHandler(svc),
+		admin:       NewProposalAdminHandler(svc),
+		proposalSvc: svc,
+	}
 }
+
+// ---------------------------------------------------------------------------
+// Sub-handler accessors — for routers / tests that want the focused
+// handler instead of the facade. Production code mostly uses the legacy
+// methods below for backward compat; these accessors enable a future
+// router refactor that wires sub-handlers directly.
+// ---------------------------------------------------------------------------
+
+// Lifecycle returns the lifecycle sub-handler.
+func (h *ProposalHandler) Lifecycle() *ProposalLifecycleHandler { return h.lifecycle }
+
+// Payment returns the payment sub-handler.
+func (h *ProposalHandler) Payment() *ProposalPaymentHandler { return h.payment }
+
+// Completion returns the completion sub-handler.
+func (h *ProposalHandler) Completion() *ProposalCompletionHandler { return h.completion }
+
+// Admin returns the admin sub-handler.
+func (h *ProposalHandler) Admin() *ProposalAdminHandler { return h.admin }
+
+// ---------------------------------------------------------------------------
+// Lifecycle endpoints — delegated to ProposalLifecycleHandler
+// ---------------------------------------------------------------------------
 
 func (h *ProposalHandler) CreateProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-
-	var req request.CreateProposalRequest
-	if err := validator.DecodeJSON(r, &req); err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-
-	recipientID, err := uuid.Parse(req.RecipientID)
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_recipient_id", "recipient_id must be a valid UUID")
-		return
-	}
-
-	convID, err := uuid.Parse(req.ConversationID)
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_conversation_id", "conversation_id must be a valid UUID")
-		return
-	}
-
-	var deadline *time.Time
-	if req.Deadline != "" {
-		t, err := time.Parse(time.RFC3339, req.Deadline)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", req.Deadline)
-			if err != nil {
-				res.Error(w, http.StatusBadRequest, "invalid_deadline", "deadline must be RFC3339 or YYYY-MM-DD")
-				return
-			}
-		}
-		deadline = &t
-	}
-
-	docs := convertDocumentInputs(req.Documents)
-	milestoneInputs, mErr := convertMilestoneInputs(req.Milestones)
-	if mErr != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_milestone", mErr.Error())
-		return
-	}
-
-	p, err := h.proposalSvc.CreateProposal(r.Context(), proposalapp.CreateProposalInput{
-		ConversationID: convID,
-		SenderID:       userID,
-		RecipientID:    recipientID,
-		Title:          req.Title,
-		Description:    req.Description,
-		Amount:         req.Amount,
-		Deadline:       deadline,
-		Documents:      docs,
-		PaymentMode:    req.PaymentMode,
-		Milestones:     milestoneInputs,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	// Fetch the just-persisted milestones so the response reflects the
-	// final shape (synthesised single milestone for one-time mode, or
-	// the full N-milestone batch for milestone mode).
-	createdMilestones, mErr := h.proposalSvc.ListMilestones(r.Context(), p.ID)
-	if mErr != nil {
-		slog.Error("list milestones after create", "proposal_id", p.ID, "error", mErr)
-		createdMilestones = nil
-	}
-	res.JSON(w, http.StatusCreated, response.NewProposalResponseWithMilestones(p, nil, createdMilestones))
+	h.lifecycle.CreateProposal(w, r)
 }
+
+func (h *ProposalHandler) GetProposal(w http.ResponseWriter, r *http.Request) {
+	h.lifecycle.GetProposal(w, r)
+}
+
+func (h *ProposalHandler) AcceptProposal(w http.ResponseWriter, r *http.Request) {
+	h.lifecycle.AcceptProposal(w, r)
+}
+
+func (h *ProposalHandler) DeclineProposal(w http.ResponseWriter, r *http.Request) {
+	h.lifecycle.DeclineProposal(w, r)
+}
+
+func (h *ProposalHandler) ModifyProposal(w http.ResponseWriter, r *http.Request) {
+	h.lifecycle.ModifyProposal(w, r)
+}
+
+func (h *ProposalHandler) CancelProposal(w http.ResponseWriter, r *http.Request) {
+	h.lifecycle.CancelProposal(w, r)
+}
+
+func (h *ProposalHandler) ListActiveProjects(w http.ResponseWriter, r *http.Request) {
+	h.lifecycle.ListActiveProjects(w, r)
+}
+
+// ---------------------------------------------------------------------------
+// Payment endpoints — delegated to ProposalPaymentHandler
+// ---------------------------------------------------------------------------
+
+func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
+	h.payment.PayProposal(w, r)
+}
+
+func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
+	h.payment.ConfirmPayment(w, r)
+}
+
+func (h *ProposalHandler) FundMilestone(w http.ResponseWriter, r *http.Request) {
+	h.payment.FundMilestone(w, r)
+}
+
+// ---------------------------------------------------------------------------
+// Completion endpoints — delegated to ProposalCompletionHandler
+// ---------------------------------------------------------------------------
+
+func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Request) {
+	h.completion.RequestCompletion(w, r)
+}
+
+func (h *ProposalHandler) CompleteProposal(w http.ResponseWriter, r *http.Request) {
+	h.completion.CompleteProposal(w, r)
+}
+
+func (h *ProposalHandler) RejectCompletion(w http.ResponseWriter, r *http.Request) {
+	h.completion.RejectCompletion(w, r)
+}
+
+func (h *ProposalHandler) SubmitMilestone(w http.ResponseWriter, r *http.Request) {
+	h.completion.SubmitMilestone(w, r)
+}
+
+func (h *ProposalHandler) ApproveMilestone(w http.ResponseWriter, r *http.Request) {
+	h.completion.ApproveMilestone(w, r)
+}
+
+func (h *ProposalHandler) RejectMilestone(w http.ResponseWriter, r *http.Request) {
+	h.completion.RejectMilestone(w, r)
+}
+
+// ---------------------------------------------------------------------------
+// Admin endpoints — delegated to ProposalAdminHandler
+// ---------------------------------------------------------------------------
+
+func (h *ProposalHandler) AdminActivateProposal(w http.ResponseWriter, r *http.Request) {
+	h.admin.AdminActivateProposal(w, r)
+}
+
+func (h *ProposalHandler) AdminListBonusLog(w http.ResponseWriter, r *http.Request) {
+	h.admin.AdminListBonusLog(w, r)
+}
+
+func (h *ProposalHandler) AdminListPendingBonusLog(w http.ResponseWriter, r *http.Request) {
+	h.admin.AdminListPendingBonusLog(w, r)
+}
+
+func (h *ProposalHandler) AdminApproveBonusEntry(w http.ResponseWriter, r *http.Request) {
+	h.admin.AdminApproveBonusEntry(w, r)
+}
+
+func (h *ProposalHandler) AdminRejectBonusEntry(w http.ResponseWriter, r *http.Request) {
+	h.admin.AdminRejectBonusEntry(w, r)
+}
+
+// ---------------------------------------------------------------------------
+// Backward-compat: validateMilestoneMatchesCurrent stays on the wide
+// handler so any out-of-tree caller keeps compiling. New code should
+// call the package-level helper.
+// ---------------------------------------------------------------------------
+
+func (h *ProposalHandler) validateMilestoneMatchesCurrent(w http.ResponseWriter, r *http.Request, proposalID, expectedMilestoneID uuid.UUID) bool {
+	return validateMilestoneMatchesCurrent(w, r, h.proposalSvc, proposalID, expectedMilestoneID)
+}
+
+// ---------------------------------------------------------------------------
+// Shared package-level helpers used by every focused sub-handler
+// ---------------------------------------------------------------------------
 
 // convertMilestoneInputs maps the request DTO milestone slice onto the
 // proposal app service's MilestoneInput type. Returns an error if a
@@ -136,499 +234,8 @@ func convertMilestoneInputs(in []request.MilestoneInputRequest) ([]proposalapp.M
 	return out, nil
 }
 
-func (h *ProposalHandler) GetProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	p, docs, err := h.proposalSvc.GetProposal(r.Context(), userID, orgID, proposalID)
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	clientName, providerName := h.proposalSvc.GetParticipantNames(r.Context(), p.ClientID, p.ProviderID)
-
-	// Phase 5: enrich the response with the milestone list so the
-	// frontend can render the tracker without a second round trip.
-	// Failure here is non-blocking — the proposal still ships with
-	// an empty milestones slice and the frontend falls back to the
-	// legacy single-amount UX.
-	milestones, mErr := h.proposalSvc.ListMilestones(r.Context(), p.ID)
-	if mErr != nil {
-		slog.Error("list milestones for proposal", "proposal_id", p.ID, "error", mErr)
-		milestones = nil
-	}
-	res.JSON(w, http.StatusOK, response.NewProposalResponseWithNames(p, docs, milestones, clientName, providerName))
-}
-
-func (h *ProposalHandler) AcceptProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	err = h.proposalSvc.AcceptProposal(r.Context(), proposalapp.AcceptProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "accepted"})
-}
-
-func (h *ProposalHandler) DeclineProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	err = h.proposalSvc.DeclineProposal(r.Context(), proposalapp.DeclineProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "declined"})
-}
-
-func (h *ProposalHandler) ModifyProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	var req request.ModifyProposalRequest
-	if err := validator.DecodeJSON(r, &req); err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
-		return
-	}
-
-	var deadline *time.Time
-	if req.Deadline != "" {
-		t, err := time.Parse(time.RFC3339, req.Deadline)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", req.Deadline)
-			if err != nil {
-				res.Error(w, http.StatusBadRequest, "invalid_deadline", "deadline must be RFC3339 or YYYY-MM-DD")
-				return
-			}
-		}
-		deadline = &t
-	}
-
-	docs := convertDocumentInputs(req.Documents)
-
-	p, err := h.proposalSvc.ModifyProposal(r.Context(), proposalapp.ModifyProposalInput{
-		ProposalID:  proposalID,
-		UserID:      userID,
-		OrgID:       orgID,
-		Title:       req.Title,
-		Description: req.Description,
-		Amount:      req.Amount,
-		Deadline:    deadline,
-		Documents:   docs,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, response.NewProposalResponse(p, nil))
-}
-
-func (h *ProposalHandler) PayProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	result, err := h.proposalSvc.InitiatePayment(r.Context(), proposalapp.PayProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	// Simulation mode: payment completed immediately
-	if result == nil {
-		res.JSON(w, http.StatusOK, map[string]string{"status": "paid"})
-		return
-	}
-
-	// Stripe mode: return client_secret for Elements
-	res.JSON(w, http.StatusOK, response.PaymentIntentResponse{
-		ClientSecret:    result.ClientSecret,
-		PaymentRecordID: result.PaymentRecordID.String(),
-		Amounts: response.PaymentAmounts{
-			ProposalAmount: result.ProposalAmount,
-			StripeFee:      result.StripeFee,
-			PlatformFee:    result.PlatformFee,
-			ClientTotal:    result.ClientTotal,
-			ProviderPayout: result.ProviderPayout,
-		},
-	})
-}
-
-// ConfirmPayment is called by the frontend after stripe.confirmPayment() succeeds.
-// It serves as a fallback to the webhook — ensures the proposal transitions to paid/active.
-// AdminActivateProposal forces a proposal to paid+active state (admin-only, for testing).
-func (h *ProposalHandler) AdminActivateProposal(w http.ResponseWriter, r *http.Request) {
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-	res.JSON(w, http.StatusOK, map[string]string{"status": "activated"})
-}
-
-func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
-	_, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	// Verify the caller's org is on the client side — any operator of
-	// the client org can confirm payment on behalf of their team. Only
-	// the client side is authorized because they are the party who
-	// released the funds. The provider-side org must NOT be able to
-	// bounce the payment record to "succeeded" on its own.
-	if err := h.proposalSvc.AuthorizeClientOrg(r.Context(), proposalID, orgID); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	// Mark the payment record as succeeded — but ONLY if Stripe confirms
-	// the PaymentIntent has actually settled. SEC-02 / BUG-01: a client
-	// could otherwise call this endpoint with no real charge and have the
-	// proposal flipped to `active`, draining escrow on completion.
-	if h.paymentSvc != nil {
-		if err := h.paymentSvc.MarkPaymentSucceeded(r.Context(), proposalID); err != nil {
-			if errors.Is(err, paymentdomain.ErrPaymentNotConfirmed) {
-				slog.Warn("payment confirm denied: stripe verification failed",
-					"proposal_id", proposalID, "org_id", orgID)
-				res.Error(w, http.StatusPaymentRequired, "payment_not_confirmed",
-					"payment intent has not settled with stripe")
-				return
-			}
-			slog.Error("mark payment succeeded", "proposal_id", proposalID, "error", err)
-			res.Error(w, http.StatusInternalServerError, "payment_verification_failed",
-				"could not verify payment intent")
-			return
-		}
-	}
-
-	// Confirm payment and activate the proposal
-	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "active"})
-}
-
-func (h *ProposalHandler) RequestCompletion(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	err = h.proposalSvc.RequestCompletion(r.Context(), proposalapp.RequestCompletionInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "completion_requested"})
-}
-
-func (h *ProposalHandler) CompleteProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	err = h.proposalSvc.CompleteProposal(r.Context(), proposalapp.CompleteProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "completed"})
-}
-
-func (h *ProposalHandler) RejectCompletion(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
-		return
-	}
-
-	err = h.proposalSvc.RejectCompletion(r.Context(), proposalapp.RejectCompletionInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "active"})
-}
-
-func (h *ProposalHandler) ListActiveProjects(w http.ResponseWriter, r *http.Request) {
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-
-	cursorStr := r.URL.Query().Get("cursor")
-	limit := parseLimit(r.URL.Query().Get("limit"), 20)
-
-	proposals, nextCursor, err := h.proposalSvc.ListActiveProjectsByOrganization(r.Context(), orgID, cursorStr, limit)
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	// Batch-fetch milestones for every listed proposal in a single
-	// round trip — see ListByProposals which uses ANY($1::uuid[]) to
-	// sidestep N+1.
-	proposalIDs := make([]uuid.UUID, len(proposals))
-	for i, p := range proposals {
-		proposalIDs[i] = p.ID
-	}
-	milestonesByProposal, mErr := h.proposalSvc.ListMilestonesForProposals(r.Context(), proposalIDs)
-	if mErr != nil {
-		slog.Error("list milestones for proposals batch", "count", len(proposalIDs), "error", mErr)
-		milestonesByProposal = nil
-	}
-
-	data := make([]response.ProposalResponse, len(proposals))
-	for i, p := range proposals {
-		cn, pn := h.proposalSvc.GetParticipantNames(r.Context(), p.ClientID, p.ProviderID)
-		data[i] = response.NewProposalResponseWithNames(p, nil, milestonesByProposal[p.ID], cn, pn)
-	}
-	res.JSON(w, http.StatusOK, response.ProjectListResponse{
-		Data:       data,
-		NextCursor: nextCursor,
-		HasMore:    nextCursor != "",
-	})
-}
-
-// AdminListBonusLog handles GET /api/v1/admin/credits/bonus-log.
-func (h *ProposalHandler) AdminListBonusLog(w http.ResponseWriter, r *http.Request) {
-	cursor := r.URL.Query().Get("cursor")
-	limit := parseLimit(r.URL.Query().Get("limit"), 20)
-
-	entries, nextCursor, err := h.proposalSvc.ListBonusLog(r.Context(), cursor, limit)
-	if err != nil {
-		slog.Error("list bonus log", "error", err)
-		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list bonus log")
-		return
-	}
-
-	items := make([]response.BonusLogResponse, 0, len(entries))
-	for _, e := range entries {
-		items = append(items, response.NewBonusLogResponse(e))
-	}
-
-	res.JSON(w, http.StatusOK, map[string]any{
-		"data":        items,
-		"next_cursor": nextCursor,
-		"has_more":    nextCursor != "",
-	})
-}
-
-// AdminListPendingBonusLog handles GET /api/v1/admin/credits/bonus-log/pending.
-func (h *ProposalHandler) AdminListPendingBonusLog(w http.ResponseWriter, r *http.Request) {
-	cursor := r.URL.Query().Get("cursor")
-	limit := parseLimit(r.URL.Query().Get("limit"), 20)
-
-	entries, nextCursor, err := h.proposalSvc.ListPendingBonusLog(r.Context(), cursor, limit)
-	if err != nil {
-		slog.Error("list pending bonus log", "error", err)
-		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to list pending bonus log")
-		return
-	}
-
-	items := make([]response.BonusLogResponse, 0, len(entries))
-	for _, e := range entries {
-		items = append(items, response.NewBonusLogResponse(e))
-	}
-
-	res.JSON(w, http.StatusOK, map[string]any{
-		"data":        items,
-		"next_cursor": nextCursor,
-		"has_more":    nextCursor != "",
-	})
-}
-
-// AdminApproveBonusEntry handles POST /api/v1/admin/credits/bonus-log/{id}/approve.
-func (h *ProposalHandler) AdminApproveBonusEntry(w http.ResponseWriter, r *http.Request) {
-	entryID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
-		return
-	}
-
-	if err := h.proposalSvc.ApproveBonusEntry(r.Context(), entryID); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "approved"})
-}
-
-// AdminRejectBonusEntry handles POST /api/v1/admin/credits/bonus-log/{id}/reject.
-func (h *ProposalHandler) AdminRejectBonusEntry(w http.ResponseWriter, r *http.Request) {
-	entryID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_id", "id must be a valid UUID")
-		return
-	}
-
-	if err := h.proposalSvc.RejectBonusEntry(r.Context(), entryID); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	res.JSON(w, http.StatusOK, map[string]string{"status": "rejected"})
-}
-
+// convertDocumentInputs maps the request DTO document slice onto the
+// proposal app service's DocumentInput type.
 func convertDocumentInputs(inputs []request.DocumentInput) []proposalapp.DocumentInput {
 	docs := make([]proposalapp.DocumentInput, len(inputs))
 	for i, d := range inputs {
@@ -642,37 +249,16 @@ func convertDocumentInputs(inputs []request.DocumentInput) []proposalapp.Documen
 	return docs
 }
 
-// ---------------------------------------------------------------------------
-// Phase 5: milestone-explicit endpoints
-//
-// These handlers expose URL-level resource hierarchy for the new
-// milestone-aware frontend:
-//
-//	POST /api/v1/proposals/{id}/milestones/{mid}/fund
-//	POST /api/v1/proposals/{id}/milestones/{mid}/submit
-//	POST /api/v1/proposals/{id}/milestones/{mid}/approve
-//	POST /api/v1/proposals/{id}/milestones/{mid}/reject
-//	POST /api/v1/proposals/{id}/cancel
-//
-// The {mid} segment is informational — the server still always operates
-// on the current active milestone (because the strict-sequential rule
-// guarantees there's only one). The mid is validated against
-// GetCurrentActive: a mismatch returns 409 Conflict so a stale client
-// view (someone else has moved the proposal forward) surfaces clearly
-// instead of silently mutating the wrong milestone.
-//
-// The legacy endpoints (/pay, /request-completion, /complete,
-// /reject-completion) keep their signatures and still work — they are
-// thin shims that delegate to the same proposal service methods, just
-// without the milestone-id verification.
-// ---------------------------------------------------------------------------
-
 // validateMilestoneMatchesCurrent fetches the current active milestone
-// of the proposal and asserts that its id matches the one carried in
-// the URL. Returns the milestone on success; on mismatch, writes a 409
-// Conflict to the response and returns nil.
-func (h *ProposalHandler) validateMilestoneMatchesCurrent(w http.ResponseWriter, r *http.Request, proposalID, expectedMilestoneID uuid.UUID) bool {
-	current, err := h.proposalSvc.ListMilestones(r.Context(), proposalID)
+// of the proposal and asserts its id matches the one in the URL.
+// Writes a 409 to the response on mismatch and returns false.
+//
+// Package-level helper because every milestone-explicit sub-handler
+// (FundMilestone, SubmitMilestone, ApproveMilestone, RejectMilestone)
+// runs the same check. Takes the proposal service explicitly so the
+// helper does not need to be a method on a specific handler.
+func validateMilestoneMatchesCurrent(w http.ResponseWriter, r *http.Request, svc *proposalapp.Service, proposalID, expectedMilestoneID uuid.UUID) bool {
+	current, err := svc.ListMilestones(r.Context(), proposalID)
 	if err != nil {
 		handleProposalError(w, err)
 		return false
@@ -690,10 +276,10 @@ func (h *ProposalHandler) validateMilestoneMatchesCurrent(w http.ResponseWriter,
 	return true
 }
 
-// findFirstActiveMilestone is a tiny inline helper to avoid importing
-// the milestone domain package solely for FindCurrentActive — the
-// proposal service exposes ListMilestones which already returns the
-// slice we need to scan. Mirrors milestone.FindCurrentActive.
+// findFirstActiveMilestone returns the lowest-sequence non-terminal
+// milestone, or nil if none. Mirrors milestone.FindCurrentActive
+// without importing the milestone domain helpers (kept local to limit
+// the handler-layer surface).
 func findFirstActiveMilestone(milestones []*milestonedomain.Milestone) *milestonedomain.Milestone {
 	var current *milestonedomain.Milestone
 	for _, m := range milestones {
@@ -707,127 +293,9 @@ func findFirstActiveMilestone(milestones []*milestonedomain.Milestone) *mileston
 	return current
 }
 
-// FundMilestone handles POST /proposals/{id}/milestones/{mid}/fund.
-// Validates that {mid} matches the current active milestone, then
-// calls InitiatePayment which routes through the milestone state
-// machine to create a Stripe PaymentIntent or simulate the payment.
-func (h *ProposalHandler) FundMilestone(w http.ResponseWriter, r *http.Request) {
-	userID, orgID, ok := requireAuthContext(w, r)
-	if !ok {
-		return
-	}
-	proposalID, milestoneID, ok := parseProposalAndMilestoneID(w, r)
-	if !ok {
-		return
-	}
-	if !h.validateMilestoneMatchesCurrent(w, r, proposalID, milestoneID) {
-		return
-	}
-	result, err := h.proposalSvc.InitiatePayment(r.Context(), proposalapp.PayProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	})
-	if err != nil {
-		handleProposalError(w, err)
-		return
-	}
-	if result == nil {
-		res.JSON(w, http.StatusOK, map[string]string{"status": "funded"})
-		return
-	}
-	res.JSON(w, http.StatusOK, response.PaymentIntentResponse{
-		ClientSecret:    result.ClientSecret,
-		PaymentRecordID: result.PaymentRecordID.String(),
-		Amounts: response.PaymentAmounts{
-			ProposalAmount: result.ProposalAmount,
-			StripeFee:      result.StripeFee,
-			PlatformFee:    result.PlatformFee,
-			ClientTotal:    result.ClientTotal,
-			ProviderPayout: result.ProviderPayout,
-		},
-	})
-}
-
-// SubmitMilestone handles POST /proposals/{id}/milestones/{mid}/submit.
-// The provider transitions the milestone from funded → submitted.
-func (h *ProposalHandler) SubmitMilestone(w http.ResponseWriter, r *http.Request) {
-	userID, orgID, ok := requireAuthContext(w, r)
-	if !ok {
-		return
-	}
-	proposalID, milestoneID, ok := parseProposalAndMilestoneID(w, r)
-	if !ok {
-		return
-	}
-	if !h.validateMilestoneMatchesCurrent(w, r, proposalID, milestoneID) {
-		return
-	}
-	if err := h.proposalSvc.RequestCompletion(r.Context(), proposalapp.RequestCompletionInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	}); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-	res.JSON(w, http.StatusOK, map[string]string{"status": "submitted"})
-}
-
-// ApproveMilestone handles POST /proposals/{id}/milestones/{mid}/approve.
-// The client transitions the milestone from submitted → approved → released.
-func (h *ProposalHandler) ApproveMilestone(w http.ResponseWriter, r *http.Request) {
-	userID, orgID, ok := requireAuthContext(w, r)
-	if !ok {
-		return
-	}
-	proposalID, milestoneID, ok := parseProposalAndMilestoneID(w, r)
-	if !ok {
-		return
-	}
-	if !h.validateMilestoneMatchesCurrent(w, r, proposalID, milestoneID) {
-		return
-	}
-	if err := h.proposalSvc.CompleteProposal(r.Context(), proposalapp.CompleteProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	}); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-	res.JSON(w, http.StatusOK, map[string]string{"status": "released"})
-}
-
-// RejectMilestone handles POST /proposals/{id}/milestones/{mid}/reject.
-// The client sends the milestone back from submitted → funded so the
-// provider can iterate.
-func (h *ProposalHandler) RejectMilestone(w http.ResponseWriter, r *http.Request) {
-	userID, orgID, ok := requireAuthContext(w, r)
-	if !ok {
-		return
-	}
-	proposalID, milestoneID, ok := parseProposalAndMilestoneID(w, r)
-	if !ok {
-		return
-	}
-	if !h.validateMilestoneMatchesCurrent(w, r, proposalID, milestoneID) {
-		return
-	}
-	if err := h.proposalSvc.RejectCompletion(r.Context(), proposalapp.RejectCompletionInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	}); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-	res.JSON(w, http.StatusOK, map[string]string{"status": "rejected"})
-}
-
-// requireAuthContext is a tiny helper used by the new milestone-scoped
-// handlers to extract user_id + organization_id from the JWT context
-// in one call. Mirrors the pattern in every existing handler.
+// requireAuthContext is the small helper used by every handler that
+// needs both user_id and organization_id from the JWT context.
+// Centralised here so the sub-handlers all share the same shape.
 func requireAuthContext(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -842,41 +310,9 @@ func requireAuthContext(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid
 	return userID, orgID, true
 }
 
-// CancelProposal handles POST /proposals/{id}/cancel. Either party may
-// initiate cancellation at a milestone boundary (no active milestone in
-// flight). Already-released milestones stay released; pending_funding
-// milestones become cancelled.
-func (h *ProposalHandler) CancelProposal(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "user not found in context")
-		return
-	}
-	orgID, ok := middleware.GetOrganizationID(r.Context())
-	if !ok {
-		res.Error(w, http.StatusUnauthorized, "unauthorized", "organization not found in context")
-		return
-	}
-	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_id", "proposal id must be a valid UUID")
-		return
-	}
-
-	if err := h.proposalSvc.CancelProposal(r.Context(), proposalapp.CancelProposalInput{
-		ProposalID: proposalID,
-		UserID:     userID,
-		OrgID:      orgID,
-	}); err != nil {
-		handleProposalError(w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// parseProposalAndMilestoneID extracts and validates the two URL params.
-// Writes a 400 to the response on parse failure and returns ok=false.
+// parseProposalAndMilestoneID extracts and validates the two URL params
+// shared by every milestone-explicit endpoint. Writes a 400 on parse
+// failure and returns ok=false.
 func parseProposalAndMilestoneID(w http.ResponseWriter, r *http.Request) (uuid.UUID, uuid.UUID, bool) {
 	proposalID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -891,6 +327,9 @@ func parseProposalAndMilestoneID(w http.ResponseWriter, r *http.Request) (uuid.U
 	return proposalID, milestoneID, true
 }
 
+// handleProposalError maps proposal + user domain errors to HTTP
+// responses. Centralised here so every sub-handler shares a single
+// translation table — adding a new domain error means a single edit.
 func handleProposalError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, proposaldomain.ErrProposalNotFound):
