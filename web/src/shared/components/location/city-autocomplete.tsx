@@ -16,7 +16,7 @@ import {
   CITY_SEARCH_MIN_CHARS,
   searchCities,
   type CitySearchResult,
-} from "../lib/city-search"
+} from "@/shared/lib/location/city-search"
 
 // Canonical selection shape persisted on the profile. A null value
 // means "nothing selected yet" — the user has not picked anything.

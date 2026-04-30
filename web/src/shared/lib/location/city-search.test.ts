@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
-import { searchCities, CITY_SEARCH_MIN_CHARS } from "../city-search"
+import { searchCities, CITY_SEARCH_MIN_CHARS } from "./city-search"
 
 const fetchMock = vi.fn()
 
