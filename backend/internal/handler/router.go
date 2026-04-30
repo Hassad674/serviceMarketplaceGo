@@ -84,6 +84,11 @@ type RouterDeps struct {
 	// endpoint is exposed at GET /metrics (public, unauthenticated —
 	// bind this port to an internal-only network in production).
 	Metrics *Metrics
+
+	// RateLimiter is the SEC-11 Redis-backed sliding-window limiter.
+	// Optional for tests; production wiring always passes a non-nil
+	// instance so the global / mutation / upload classes are enforced.
+	RateLimiter *middleware.RateLimiter
 }
 
 func NewRouter(deps RouterDeps) chi.Router {
@@ -99,12 +104,21 @@ func NewRouter(deps RouterDeps) chi.Router {
 	r := chi.NewRouter()
 
 	// Global middleware
-	limiter := middleware.NewRateLimiter(10, 20) // 10 req/s, burst 20
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.CORS(deps.Config.AllowedOrigins))
-	r.Use(limiter.Middleware)
+
+	// SEC-11: global per-IP throttle (100/min). Routes that need a
+	// tighter or per-user policy stack additional limiter middlewares
+	// inside the route definition (mutations: 30/min/user, uploads:
+	// 10/min/user). Auth-class throttling is handled by the dedicated
+	// BruteForceService inside the auth handler, NOT here, so the
+	// /auth/login + /auth/forgot-password endpoints have their own
+	// per-email cap.
+	if deps.RateLimiter != nil {
+		r.Use(deps.RateLimiter.Middleware(middleware.DefaultGlobalPolicy, deps.RateLimiter.IPKey()))
+	}
 
 	// Health routes
 	r.Get("/health", deps.Health.Health)
@@ -120,6 +134,21 @@ func NewRouter(deps RouterDeps) chi.Router {
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
+		// SEC-11: mutation-class limiter (30/min/user) for all
+		// authenticated POST/PUT/PATCH/DELETE. The MutationOnly key
+		// short-circuits read traffic — those are governed by the
+		// global IP-based limiter above. Anonymous mutations (e.g.
+		// /auth/login, /auth/register) also short-circuit because
+		// UserKey returns false without an authenticated context, so
+		// they are governed by the brute-force service inside the
+		// auth handler instead.
+		if deps.RateLimiter != nil {
+			r.Use(deps.RateLimiter.Middleware(
+				middleware.DefaultMutationPolicy,
+				middleware.MutationOnly(middleware.UserKey()),
+			))
+		}
+
 		// Auth routes (public)
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", deps.Auth.Register)
@@ -322,6 +351,12 @@ func NewRouter(deps RouterDeps) chi.Router {
 		r.Route("/upload", func(r chi.Router) {
 			r.Use(auth)
 			r.Use(middleware.NoCache)
+			// SEC-11: upload-class limiter (10/min/user) on top of the
+			// global IP throttle. Stacked here on the whole subtree so
+			// every upload endpoint shares the same quota.
+			if deps.RateLimiter != nil {
+				r.Use(deps.RateLimiter.Middleware(middleware.DefaultUploadPolicy, middleware.UserKey()))
+			}
 			// Profile-related uploads require org profile edit permission
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.RequirePermission(organization.PermOrgProfileEdit))

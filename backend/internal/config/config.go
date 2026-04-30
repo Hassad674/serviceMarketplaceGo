@@ -63,6 +63,14 @@ type Config struct {
 	TypesenseAPIKey       string
 	OpenAIAPIKey          string
 	OpenAIEmbeddingsModel string
+
+	// TrustedProxies is a comma-separated CIDR list. The rate limiter
+	// (SEC-11) honors X-Forwarded-For ONLY when r.RemoteAddr falls
+	// inside one of these CIDRs. In production, set this to your load
+	// balancer's source range. In dev with no proxy, leave it empty —
+	// the limiter will then ignore spoofed XFF headers and key off
+	// r.RemoteAddr directly.
+	TrustedProxies string
 }
 
 func Load() *Config {
@@ -109,6 +117,7 @@ func Load() *Config {
 		TypesenseAPIKey:       getEnv("TYPESENSE_API_KEY", ""),
 		OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
 		OpenAIEmbeddingsModel: getEnv("OPENAI_EMBEDDINGS_MODEL", "text-embedding-3-small"),
+		TrustedProxies:        getEnv("TRUSTED_PROXIES", ""),
 	}
 }
 
