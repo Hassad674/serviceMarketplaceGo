@@ -256,10 +256,16 @@ func (s *Service) checkAutoSuspension(ctx context.Context, m *mediadomain.Media,
 	slog.Warn("media moderation: user auto-suspended",
 		"user_id", m.UploaderID, "rejected_count", count, "threshold", threshold)
 
-	// Notify admins of auto-suspension
+	// Notify admins of auto-suspension. We detach from the moderation
+	// context (which itself runs background-bounded) but keep the
+	// trace identifiers so the admin notification can be correlated
+	// in logs. gosec G118 is closed: the goroutine's parent ctx is
+	// derived from the caller via WithoutCancel — trace is preserved,
+	// request cancellation is not.
 	if s.adminNotifier != nil {
+		bg := context.WithoutCancel(ctx)
 		go func() {
-			nCtx, nCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			nCtx, nCancel := context.WithTimeout(bg, 5*time.Second)
 			defer nCancel()
 			if err := s.adminNotifier.IncrementAll(nCtx, service.AdminNotifUsersSuspended); err != nil {
 				slog.Error("admin notifier: increment users_suspended", "error", err)

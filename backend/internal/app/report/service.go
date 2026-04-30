@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -108,8 +109,16 @@ func (s *Service) CreateReport(ctx context.Context, in CreateReportInput) (*doma
 	}
 
 	if s.adminNotifier != nil {
+		// Detach from the request context so cancellation does not
+		// propagate (admin notification must land even if the user
+		// disconnects after a successful POST), but keep the trace
+		// identifiers so the increment can be correlated. Closes
+		// gosec G118: parent is request-scoped + WithoutCancel.
+		bg := context.WithoutCancel(ctx)
 		go func() {
-			if err := s.adminNotifier.IncrementAll(context.Background(), service.AdminNotifReports); err != nil {
+			nCtx, cancel := context.WithTimeout(bg, 5*time.Second)
+			defer cancel()
+			if err := s.adminNotifier.IncrementAll(nCtx, service.AdminNotifReports); err != nil {
 				slog.Error("admin notifier: increment reports", "error", err)
 			}
 		}()

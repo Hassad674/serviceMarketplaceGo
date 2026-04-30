@@ -80,7 +80,6 @@ func (s *Service) CaptureResultFeatures(
 	results []RankedResult,
 	ltrRepo LTRRepository,
 ) error {
-	_ = ctx
 	if s == nil {
 		return nil
 	}
@@ -99,8 +98,13 @@ func (s *Service) CaptureResultFeatures(
 		return fmt.Errorf("searchanalytics: encode: %w", err)
 	}
 
+	// Detach from the search request context so cancellation does
+	// not propagate, but keep the trace identifiers via WithoutCancel
+	// so the LTR attach can be correlated to the originating search.
+	// gosec G118: parent is request-scoped, not context.Background().
+	parent := context.WithoutCancel(ctx)
 	go func(payload, hash, sID string) {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		bgCtx, cancel := context.WithTimeout(parent, 3*time.Second)
 		defer cancel()
 		if err := ltrRepo.AttachResultFeatures(bgCtx, sID, payload, hash); err != nil {
 			s.logger.Warn("searchanalytics: ltr attach failed",
