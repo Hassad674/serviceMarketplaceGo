@@ -17,7 +17,7 @@ import type { Conversation } from "@/features/messaging/types"
 import {
   searchProfiles,
   type PublicProfileSummary,
-} from "@/features/provider/api/search-api"
+} from "@/shared/lib/search/search-api"
 
 import { PickerModal, PickerTrigger } from "./picker-modal"
 
