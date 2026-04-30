@@ -2,6 +2,8 @@ package notification
 
 import (
 	"context"
+	"sync"
+	"testing"
 	"time"
 
 	"github.com/google/uuid"
@@ -114,34 +116,89 @@ func (m *mockNotificationRepo) DeleteDeviceToken(ctx context.Context, userID uui
 }
 
 // --- mockQueue implements NotificationQueue ---
+//
+// The mockQueue is shared between the main test goroutine (which
+// inspects `jobs`) and the worker's deferred-requeue goroutines, so
+// every field is protected by a mutex. The legacy test setup that
+// relied on append-without-lock is ported below.
 
 type mockQueue struct {
+	mu        sync.Mutex
 	enqueueFn func(ctx context.Context, job DeliveryJob) error
 	dequeueFn func(ctx context.Context) (*DeliveryJob, string, error)
 	ackFn     func(ctx context.Context, messageID string) error
 	jobs      []DeliveryJob // track enqueued jobs
+
+	// enqueued is signalled once per Enqueue call. Tests that
+	// trigger an async re-enqueue use waitForJobs to block until
+	// the expected count has landed, replacing the old
+	// time.Sleep-then-assert pattern.
+	enqueued chan struct{}
 }
 
 func (m *mockQueue) Enqueue(ctx context.Context, job DeliveryJob) error {
+	m.mu.Lock()
 	m.jobs = append(m.jobs, job)
-	if m.enqueueFn != nil {
-		return m.enqueueFn(ctx, job)
+	if m.enqueued != nil {
+		select {
+		case m.enqueued <- struct{}{}:
+		default:
+		}
+	}
+	fn := m.enqueueFn
+	m.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, job)
 	}
 	return nil
 }
 
 func (m *mockQueue) Dequeue(ctx context.Context) (*DeliveryJob, string, error) {
-	if m.dequeueFn != nil {
-		return m.dequeueFn(ctx)
+	m.mu.Lock()
+	fn := m.dequeueFn
+	m.mu.Unlock()
+	if fn != nil {
+		return fn(ctx)
 	}
 	return nil, "", nil
 }
 
 func (m *mockQueue) Ack(ctx context.Context, messageID string) error {
-	if m.ackFn != nil {
-		return m.ackFn(ctx, messageID)
+	m.mu.Lock()
+	fn := m.ackFn
+	m.mu.Unlock()
+	if fn != nil {
+		return fn(ctx, messageID)
 	}
 	return nil
+}
+
+// snapshotJobs returns a copy of the enqueued-jobs slice so the
+// test goroutine can assert without holding the mutex.
+func (m *mockQueue) snapshotJobs() []DeliveryJob {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]DeliveryJob, len(m.jobs))
+	copy(out, m.jobs)
+	return out
+}
+
+// waitForJobs blocks until at least `count` jobs have been
+// enqueued or the timeout elapses. Returns the snapshot.
+func (m *mockQueue) waitForJobs(t *testing.T, count int, timeout time.Duration) []DeliveryJob {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		jobs := m.snapshotJobs()
+		if len(jobs) >= count {
+			return jobs
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %d enqueued jobs (got %d)", count, len(jobs))
+			return jobs
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 // --- mockPresenceService implements service.PresenceService ---

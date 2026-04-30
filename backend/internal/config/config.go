@@ -93,6 +93,13 @@ type Config struct {
 	// the limiter will then ignore spoofed XFF headers and key off
 	// r.RemoteAddr directly.
 	TrustedProxies string
+
+	// NotificationWorkerConcurrency is the number of parallel
+	// processors the notification delivery worker spawns. Defaults
+	// to 5 (BUG-16). Override via NOTIFICATION_WORKER_CONCURRENCY
+	// when sizing for higher load. Setting it to 1 reproduces the
+	// pre-fix single-threaded behaviour for debugging.
+	NotificationWorkerConcurrency int
 }
 
 func Load() *Config {
@@ -140,6 +147,10 @@ func Load() *Config {
 		OpenAIAPIKey:          getEnv("OPENAI_API_KEY", ""),
 		OpenAIEmbeddingsModel: getEnv("OPENAI_EMBEDDINGS_MODEL", "text-embedding-3-small"),
 		TrustedProxies:        getEnv("TRUSTED_PROXIES", ""),
+
+		// BUG-16: parallel notification worker pool size. Zero means
+		// "fall back to the package default" (currently 5).
+		NotificationWorkerConcurrency: parseInt(getEnv("NOTIFICATION_WORKER_CONCURRENCY", "5"), 5),
 	}
 }
 
