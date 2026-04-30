@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -114,11 +115,32 @@ func (h *EmbeddedHandler) CreateAccountSession(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Parse body — optional, only needed on first call
+	// Parse body — optional, only needed on first call.
+	// Closes BUG-12: a malformed JSON body used to be silently swallowed
+	// (the unmarshal error was discarded with `_ = ...`), leaving `req`
+	// empty. The handler then surfaced "country is required" — a 500
+	// that hid the real cause from the client. Empty body is still
+	// allowed (the optional path), but a NON-EMPTY body that fails to
+	// unmarshal now returns 400 invalid_json with a sanitized parser
+	// hint so the client can fix its payload.
 	req := accountSessionRequest{}
 	if r.Body != nil && r.ContentLength > 0 {
-		body, _ := io.ReadAll(io.LimitReader(r.Body, 4096))
-		_ = json.Unmarshal(body, &req)
+		body, readErr := io.ReadAll(io.LimitReader(r.Body, 4096))
+		if readErr != nil {
+			slog.Warn("embedded: read body failed", "org_id", orgID, "error", readErr)
+			res.Error(w, http.StatusBadRequest, "invalid_body", "failed to read request body")
+			return
+		}
+		// Treat a body that is empty after read OR whitespace-only the
+		// same as "no body": the handler's no-body path remains valid.
+		if len(bytes.TrimSpace(body)) > 0 {
+			if jsonErr := json.Unmarshal(body, &req); jsonErr != nil {
+				slog.Warn("embedded: invalid JSON body",
+					"org_id", orgID, "error", jsonErr.Error())
+				res.Error(w, http.StatusBadRequest, "invalid_json", jsonErr.Error())
+				return
+			}
+		}
 	}
 	req.Country = strings.ToUpper(strings.TrimSpace(req.Country))
 

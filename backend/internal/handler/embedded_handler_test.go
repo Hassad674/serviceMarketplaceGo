@@ -356,7 +356,10 @@ func TestCreateAccountSession_DBLookupError_Returns500(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestCreateAccountSession_MalformedJSON_NoExistingAccount_Returns500(t *testing.T) {
+// BUG-12 — malformed JSON body now surfaces a clear 400 invalid_json,
+// instead of being silently swallowed and surfacing as "country is
+// required" 500. The previous behaviour (assertion: 500) was a bug.
+func TestCreateAccountSession_MalformedJSON_Returns400InvalidJSON(t *testing.T) {
 	store := &fakeUserAccountStore{}
 	h := NewEmbeddedHandler(store, "http://localhost:3001")
 
@@ -364,8 +367,86 @@ func TestCreateAccountSession_MalformedJSON_NoExistingAccount_Returns500(t *test
 	rec := httptest.NewRecorder()
 	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
 
-	// Malformed body silently treated as empty → still requires country
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "invalid_json")
+	// Lookup must NOT have run — we exited at body parsing.
+	assert.Equal(t, 0, store.getCalls,
+		"resolveStripeAccount must not run when JSON parsing fails")
+}
+
+// BUG-12 — a well-formed but type-wrong body (e.g. an array where an
+// object is expected) is also invalid_json: json.Unmarshal returns a
+// json.UnmarshalTypeError, which is still a parser failure from the
+// handler's point of view.
+func TestCreateAccountSession_TypeMismatchJSON_Returns400InvalidJSON(t *testing.T) {
+	store := &fakeUserAccountStore{}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+
+	// Well-formed JSON, but an array where an object is expected.
+	body := []byte(`["not", "an", "object"]`)
+	rec := httptest.NewRecorder()
+	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "invalid_json")
+	assert.Equal(t, 0, store.getCalls)
+}
+
+// BUG-12 — whitespace-only body ("    ") is treated like no body. The
+// optional-body legacy path is preserved: the handler still goes
+// looking for an existing account and surfaces "country is required"
+// when it cannot find one.
+func TestCreateAccountSession_WhitespaceOnlyBody_TreatedAsNoBody(t *testing.T) {
+	store := &fakeUserAccountStore{}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+
+	body := []byte(`     `)
+	rec := httptest.NewRecorder()
+	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
+
+	// We made it past parsing — into the "country required" path.
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Contains(t, strings.ToLower(rec.Body.String()), "country is required")
+	// resolveStripeAccount was invoked (passed parsing).
+	assert.Equal(t, 1, store.getCalls)
+}
+
+// BUG-12 — the legacy "no body at all" path must keep working. This
+// is the path mobile clients on existing accounts hit when refreshing
+// their session with a sentinel POST.
+func TestCreateAccountSession_NoBody_PreservesLegacyBehaviour(t *testing.T) {
+	store := &fakeUserAccountStore{accountID: "acct_existing", country: "FR"}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+
+	// No body, but the user has an existing account → resolve should
+	// short-circuit on the lookup. The Stripe API call after will fail
+	// because we have no fixture, surfacing 500. We do NOT assert on
+	// the exact terminal status — only that we never returned
+	// invalid_json or country_required for an existing-account user.
+	rec := httptest.NewRecorder()
+	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", nil, uuid.New()))
+
+	assert.NotContains(t, rec.Body.String(), "invalid_json")
+}
+
+// BUG-12 — a valid JSON body with the expected fields keeps producing
+// the legacy success path (modulo the Stripe API which is mocked at
+// the store layer, not here).
+func TestCreateAccountSession_ValidJSON_ReachesResolveStep(t *testing.T) {
+	// Inject a getErr so we can confirm we made it past parsing.
+	store := &fakeUserAccountStore{getErr: errors.New("post-parse exit")}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+
+	body, _ := json.Marshal(map[string]string{
+		"country":       "FR",
+		"business_type": "individual",
+	})
+	rec := httptest.NewRecorder()
+	h.CreateAccountSession(rec, makeRequestWithUser("POST", "/account-session", body, uuid.New()))
+
+	// Past-parse confirmation.
+	assert.NotContains(t, rec.Body.String(), "invalid_json")
+	assert.Equal(t, 1, store.getCalls)
 }
 
 func TestCreateAccountSession_EmptyBodyLength_NoExistingAccount_Returns500(t *testing.T) {
