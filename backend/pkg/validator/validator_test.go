@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"marketplace-backend/internal/domain/user"
@@ -199,4 +200,190 @@ func TestValidateRole_InvalidRoles(t *testing.T) {
 			assert.ErrorIs(t, err, user.ErrInvalidRole)
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// SEC-19 — Validate() wrapper around go-playground/validator.
+// ---------------------------------------------------------------------------
+
+type sampleDTO struct {
+	Title       string `json:"title" validate:"required,min=1,max=200"`
+	Description string `json:"description" validate:"max=5000"`
+	Email       string `json:"email" validate:"required,email"`
+	UserID      string `json:"user_id" validate:"omitempty,uuid"`
+	URL         string `json:"url" validate:"omitempty,url"`
+	Amount      int64  `json:"amount" validate:"gte=0,lte=999999999"`
+	Status      string `json:"status" validate:"oneof=open closed pending"`
+}
+
+func validSampleDTO() sampleDTO {
+	return sampleDTO{
+		Title:  "A valid title",
+		Email:  "user@example.com",
+		Amount: 1000,
+		Status: "open",
+	}
+}
+
+func TestValidate_HappyPath(t *testing.T) {
+	err := Validate(validSampleDTO())
+	assert.NoError(t, err)
+}
+
+func TestValidate_MissingRequired(t *testing.T) {
+	dto := validSampleDTO()
+	dto.Title = ""
+
+	err := Validate(dto)
+	require.Error(t, err)
+
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	require.Len(t, ve.Fields, 1)
+	assert.Equal(t, "title", ve.Fields[0].Field)
+	assert.Equal(t, "required", ve.Fields[0].Rule)
+}
+
+func TestValidate_TooLong(t *testing.T) {
+	dto := validSampleDTO()
+	dto.Title = strings.Repeat("a", 201) // > 200
+
+	err := Validate(dto)
+	require.Error(t, err)
+
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	require.Len(t, ve.Fields, 1)
+	assert.Equal(t, "title", ve.Fields[0].Field)
+	assert.Equal(t, "max", ve.Fields[0].Rule)
+}
+
+func TestValidate_InvalidEmail(t *testing.T) {
+	dto := validSampleDTO()
+	dto.Email = "not-an-email"
+
+	err := Validate(dto)
+	require.Error(t, err)
+
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	assert.Equal(t, "email", ve.Fields[0].Field)
+	assert.Equal(t, "email", ve.Fields[0].Rule)
+}
+
+func TestValidate_InvalidUUID(t *testing.T) {
+	dto := validSampleDTO()
+	dto.UserID = "not-a-uuid"
+
+	err := Validate(dto)
+	require.Error(t, err)
+
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	assert.Equal(t, "userid", ve.Fields[0].Field)
+	assert.Equal(t, "uuid", ve.Fields[0].Rule)
+}
+
+func TestValidate_InvalidURL(t *testing.T) {
+	dto := validSampleDTO()
+	dto.URL = "not a url"
+
+	err := Validate(dto)
+	require.Error(t, err)
+
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	assert.Equal(t, "url", ve.Fields[0].Field)
+	assert.Equal(t, "url", ve.Fields[0].Rule)
+}
+
+func TestValidate_AmountOutOfRange(t *testing.T) {
+	tests := []struct {
+		name   string
+		amount int64
+		rule   string
+	}{
+		{"negative", -1, "gte"},
+		{"too large", 1_000_000_000, "lte"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dto := validSampleDTO()
+			dto.Amount = tt.amount
+			err := Validate(dto)
+			require.Error(t, err)
+			ve, ok := IsValidationError(err)
+			require.True(t, ok)
+			assert.Equal(t, "amount", ve.Fields[0].Field)
+			assert.Equal(t, tt.rule, ve.Fields[0].Rule)
+		})
+	}
+}
+
+func TestValidate_OneOf(t *testing.T) {
+	dto := validSampleDTO()
+	dto.Status = "unknown"
+
+	err := Validate(dto)
+	require.Error(t, err)
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	assert.Equal(t, "status", ve.Fields[0].Field)
+	assert.Equal(t, "oneof", ve.Fields[0].Rule)
+}
+
+func TestValidate_MultipleErrors(t *testing.T) {
+	dto := sampleDTO{
+		Title:  "",                      // required
+		Email:  "bad",                   // email
+		UserID: "no",                    // uuid
+		Amount: -5,                      // gte
+		Status: "x",                     // oneof
+	}
+
+	err := Validate(dto)
+	require.Error(t, err)
+	ve, ok := IsValidationError(err)
+	require.True(t, ok)
+	assert.GreaterOrEqual(t, len(ve.Fields), 5)
+}
+
+func TestValidate_OmitemptyAllowsEmptyOptional(t *testing.T) {
+	dto := validSampleDTO()
+	dto.UserID = ""
+	dto.URL = ""
+
+	err := Validate(dto)
+	assert.NoError(t, err, "omitempty fields should accept empty strings")
+}
+
+func TestDecodeAndValidate_HappyPath(t *testing.T) {
+	body := `{"title":"hi","email":"u@e.com","user_id":"","url":"","amount":1,"status":"open","description":""}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	var dto sampleDTO
+	err := DecodeAndValidate(req, &dto)
+	assert.NoError(t, err)
+}
+
+func TestDecodeAndValidate_DecodeFailure(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString("{not json}"))
+	var dto sampleDTO
+	err := DecodeAndValidate(req, &dto)
+	require.Error(t, err)
+	_, isVE := IsValidationError(err)
+	assert.False(t, isVE, "decode errors should NOT be ValidationError")
+}
+
+func TestDecodeAndValidate_ValidationFailure(t *testing.T) {
+	body := `{"title":"","email":"bad","user_id":"","url":"","amount":1,"status":"open","description":""}`
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	var dto sampleDTO
+	err := DecodeAndValidate(req, &dto)
+	require.Error(t, err)
+	_, isVE := IsValidationError(err)
+	assert.True(t, isVE, "validation failure should surface as ValidationError")
 }
