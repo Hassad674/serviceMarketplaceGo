@@ -33,7 +33,9 @@ export async function registerProvider(page: Page): Promise<RegisteredUser> {
   const firstName = "Jean"
   const lastName = `Dupont${Date.now()}`
 
-  await page.goto("/register/provider")
+  // Force English locale so the helper's hard-coded labels match.
+  // The site detects FR by default which would otherwise break the test.
+  await page.goto("/en/register/provider")
   await page.getByLabel("First name").fill(firstName)
   await page.getByLabel("Last name", { exact: true }).fill(lastName)
   await page.getByLabel("Email").fill(email)
@@ -53,7 +55,7 @@ export async function registerAgency(page: Page): Promise<RegisteredUser> {
   const email = uniqueEmail("agency")
   const agencyName = `Agency ${Date.now()}`
 
-  await page.goto("/register/agency")
+  await page.goto("/en/register/agency")
   await page.getByLabel("Agency name").fill(agencyName)
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password", { exact: true }).fill(STRONG_PASSWORD)
@@ -72,7 +74,7 @@ export async function registerEnterprise(page: Page): Promise<RegisteredUser> {
   const email = uniqueEmail("enterprise")
   const enterpriseName = `Enterprise ${Date.now()}`
 
-  await page.goto("/register/enterprise")
+  await page.goto("/en/register/enterprise")
   await page.getByLabel("Company name").fill(enterpriseName)
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password", { exact: true }).fill(STRONG_PASSWORD)
