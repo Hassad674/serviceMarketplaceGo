@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -99,7 +100,9 @@ func (s *MembershipService) ForceRemoveMember(
 	}
 
 	if _, err := s.users.BumpSessionVersion(ctx, targetUserID); err != nil {
-		_ = err // non-fatal: stale token expires within 15min anyway
+		// Non-fatal: stale token expires within 15min anyway.
+		slog.Warn("admin force remove: bump session_version failed",
+			"error", err, "user_id", targetUserID, "org_id", orgID)
 	}
 
 	// Notify BEFORE deleting the operator user row so the notifications
@@ -195,12 +198,14 @@ func (s *MembershipService) ForceTransferOwnership(
 		return nil, fmt.Errorf("force transfer: persist org: %w", err)
 	}
 
-	// Step 4: bump both sessions.
+	// Step 4: bump both sessions. Non-fatal; stale tokens expire in 15min.
 	if _, err := s.users.BumpSessionVersion(ctx, oldOwnerID); err != nil {
-		_ = err
+		slog.Warn("admin force transfer: bump session_version failed",
+			"error", err, "user_id", oldOwnerID, "org_id", orgID)
 	}
 	if _, err := s.users.BumpSessionVersion(ctx, newOwnerUserID); err != nil {
-		_ = err
+		slog.Warn("admin force transfer: bump session_version failed",
+			"error", err, "user_id", newOwnerUserID, "org_id", orgID)
 	}
 
 	// Step 5: notify the (former) Owner. The new Owner already knows

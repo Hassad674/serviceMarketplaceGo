@@ -64,7 +64,10 @@ func (s *Service) drainCommission(ctx context.Context, c *referral.Commission, u
 		IdempotencyKey:     fmt.Sprintf("referral_commission_%s", c.ID),
 	})
 	if err != nil {
-		_ = c.MarkFailed(err.Error())
+		if mErr := c.MarkFailed(err.Error()); mErr != nil {
+			slog.Warn("referral drain: MarkFailed state transition failed",
+				"error", mErr, "commission_id", c.ID)
+		}
 		if uerr := s.referrals.UpdateCommission(ctx, c); uerr != nil {
 			slog.Error("referral: drain update-failed failed",
 				"commission_id", c.ID, "error", uerr)
