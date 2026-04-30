@@ -319,4 +319,118 @@ describe("CityAutocomplete", () => {
     // No "Paris" row would be rendered.
     expect(screen.queryByText("Paris")).toBeNull()
   })
+
+  // Clicking outside the component closes the dropdown AND restores
+  // the canonical city — a user who clicked away mid-search must NOT
+  // see their typed-but-uncommitted text persisted.
+  it("closes the dropdown and restores the canonical city when the user clicks outside", async () => {
+    mockedSearchCities.mockResolvedValue([PARIS_RESULT])
+
+    const { container } = renderAutocomplete({
+      value: { city: "Paris", countryCode: "FR", latitude: 1, longitude: 2 },
+    })
+    const input = screen.getByRole("combobox")
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: "Pari" } })
+    await screen.findByText("Paris", undefined, { timeout: 1000 })
+
+    // Click outside the component.
+    fireEvent.mouseDown(container)
+
+    // Dropdown should close; input should restore to canonical city.
+    await waitFor(() => {
+      expect(input).toHaveValue("Paris")
+    })
+  })
+
+  // ArrowDown when the dropdown is closed but results exist would
+  // re-open the dropdown. We verify the closed-dropdown ArrowDown
+  // path takes the early return cleanly (no crash, no commit).
+  it("ArrowDown when no results does not crash and commits nothing", async () => {
+    mockedSearchCities.mockResolvedValue([])
+    const onChange = vi.fn()
+
+    renderAutocomplete({ onChange })
+    const input = screen.getByRole("combobox")
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: "Zzz" } })
+    await waitFor(
+      () => {
+        expect(mockedSearchCities).toHaveBeenCalled()
+      },
+      { timeout: 1000 },
+    )
+    // No results => ArrowDown takes the early return.
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  // Hovering an option moves the active index — covers onHover.
+  it("hovering an option highlights it (moves the active index)", async () => {
+    mockedSearchCities.mockResolvedValue([PARIS_RESULT, LYON_RESULT])
+    const onChange = vi.fn()
+
+    renderAutocomplete({ onChange })
+    const input = screen.getByRole("combobox")
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: "Pa" } })
+    await screen.findByText("Lyon", undefined, { timeout: 1000 })
+
+    // Hover Lyon (index 1) and press Enter.
+    const lyonRow = screen.getByText("Lyon").closest("li")
+    expect(lyonRow).not.toBeNull()
+    fireEvent.mouseEnter(lyonRow as HTMLElement)
+    fireEvent.keyDown(input, { key: "Enter" })
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      city: "Lyon",
+      countryCode: "FR",
+      latitude: 45.764,
+      longitude: 4.8357,
+    })
+  })
+
+  // ArrowUp at index 0 wraps to last; ArrowDown at last wraps to 0.
+  it("ArrowDown wraps from last item back to first", async () => {
+    mockedSearchCities.mockResolvedValue([PARIS_RESULT, LYON_RESULT])
+    const onChange = vi.fn()
+
+    renderAutocomplete({ onChange })
+    const input = screen.getByRole("combobox")
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: "Pa" } })
+    await screen.findByText("Lyon", undefined, { timeout: 1000 })
+
+    // Step to Lyon (index 1).
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    // Wrap back to Paris (index 0).
+    fireEvent.keyDown(input, { key: "ArrowDown" })
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(onChange).toHaveBeenLastCalledWith({
+      city: "Paris",
+      countryCode: "FR",
+      latitude: 48.8566,
+      longitude: 2.3522,
+    })
+  })
+
+  // Pressing other keys (e.g. Tab) when the dropdown is open MUST
+  // pass through without crashing or committing — covers the implicit
+  // default branch in handleKeyDown.
+  it("ignores unrelated keys (Tab) when the dropdown is open", async () => {
+    mockedSearchCities.mockResolvedValue([PARIS_RESULT])
+    const onChange = vi.fn()
+
+    renderAutocomplete({ onChange })
+    const input = screen.getByRole("combobox")
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: "Par" } })
+    await screen.findByText("Paris", undefined, { timeout: 1000 })
+
+    fireEvent.keyDown(input, { key: "Tab" })
+    // Tab should not commit a selection.
+    expect(onChange).not.toHaveBeenCalledWith(
+      expect.objectContaining({ city: "Paris" }),
+    )
+  })
 })
