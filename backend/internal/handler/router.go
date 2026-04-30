@@ -107,6 +107,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recovery)
+	// SecurityHeaders runs AFTER Recovery (so even 500s carry the
+	// headers) and BEFORE CORS (so OPTIONS preflights inherit them too).
+	// HSTS inside the middleware is gated on cfg.IsProduction() to avoid
+	// pinning localhost dev environments for a year.
+	r.Use(middleware.SecurityHeaders(deps.Config))
 	r.Use(middleware.CORS(deps.Config.AllowedOrigins))
 
 	// SEC-11: global per-IP throttle (100/min). Routes that need a
