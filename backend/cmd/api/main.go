@@ -95,6 +95,14 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
 
+	// Fail-fast in production when secrets are missing or use the
+	// open-source fallbacks. In development this only prints loud
+	// warnings — see config.Validate for the policy.
+	if err := cfg.Validate(); err != nil {
+		slog.Error("config validation failed", "error", err)
+		os.Exit(1)
+	}
+
 	// Connect to database
 	db, err := postgres.NewConnection(cfg.DatabaseURL)
 	if err != nil {
@@ -205,8 +213,9 @@ func main() {
 		Tokens:           tokenSvc,
 		Email:            emailSvc,
 		Orgs:             organizationSvc,
-		RefreshBlacklist: refreshBlacklistSvc,
-		Audits:           auditRepo,
+		Sessions:         sessionSvc,         // SEC-16 — purge sessions on password reset
+		RefreshBlacklist: refreshBlacklistSvc, // SEC-06 — refresh token rotation + replay detection
+		Audits:           auditRepo,          // SEC-13 — emit auth audit events
 		FrontendURL:      cfg.FrontendURL,
 	})
 	// Profile service + Tier 1 geocoder (migration 083). The

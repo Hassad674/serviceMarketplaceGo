@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Network Security Config — SEC-08
+
+  By default, all traffic is encrypted (cleartext is denied). This is
+  the production stance: no cleartext to ANY production host, ever.
+
+  Cleartext is permitted ONLY for the loopback / dev-LAN ranges
+  developers use to talk to a backend running on their host machine.
+  Those literals MUST NOT match a real production host.
+
+  - 10.0.2.2     -> Android emulator's bridge to the host loopback
+  - 192.168.x.x  -> typical home/office LAN where the dev backend
+                    runs. Wide subdomain match is acceptable because
+                    RFC1918 addresses are not routable on the public
+                    internet.
+  - 172.16-31.x  -> the other RFC1918 range some developers use.
+  - localhost / 127.0.0.1 -> direct loopback (rare on Android but used
+                    by some adb-reverse setups).
+
+  If a developer needs cleartext to a host outside these ranges they
+  must set up TLS (mkcert / dev cert) instead — we do not relax this
+  config to make life easier.
+-->
+<network-security-config>
+    <!-- Default policy for every domain not listed below: cleartext
+         denied. This is what protects production traffic. -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Dev-only domain overrides. Each entry MUST be a private/loopback
+         literal. No public hostnames here. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <!-- 192.168.0.0/16 — Class C private range. Subdomains:false
+             because IP addresses don't have subdomains. We list common
+             developer LAN prefixes; add a new <domain> line per
+             developer if needed rather than relaxing the base policy. -->
+        <domain includeSubdomains="false">192.168.0.1</domain>
+        <domain includeSubdomains="false">192.168.1.156</domain>
+        <!-- 172.16.0.0/12 — Class B private range. -->
+        <domain includeSubdomains="false">172.16.0.1</domain>
+    </domain-config>
+</network-security-config>

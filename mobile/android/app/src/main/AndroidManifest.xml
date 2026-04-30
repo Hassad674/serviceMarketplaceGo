@@ -1,11 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!--
+      SEC-08 (audit 2026-04-29): the global usesCleartextTraffic="true"
+      was removed. Cleartext is now governed by network_security_config.xml,
+      which only permits HTTP for loopback / RFC1918 dev addresses. All
+      production traffic is forced to HTTPS regardless of build flavour.
+    -->
     <application
         android:label="marketplace_mobile"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"
