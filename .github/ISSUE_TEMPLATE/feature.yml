@@ -1,0 +1,76 @@
+name: Feature request
+description: Propose a new feature or a meaningful change to an existing one.
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a feature. The marketplace prioritises
+        **modularity** — every new feature must be removable without
+        breaking the rest. Please bear that in mind when describing
+        your idea.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user need or workflow gap motivates this?
+      placeholder: |
+        As an Agency owner, I cannot share a draft proposal with my
+        team before sending it to the client. Today the proposal
+        lives only on the author's account, which forces me to copy
+        text into Slack for review.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you would like to see. Sketches, wireframes,
+        or pseudo-code welcome.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: Affected app(s)
+      multiple: true
+      options:
+        - backend (Go API)
+        - web (Next.js)
+        - admin (Vite + React)
+        - mobile (Flutter)
+        - infra (CI / Docker / migrations)
+        - docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you weigh? Why is this
+        proposal better?
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope sketch
+      description: |
+        How would the feature stay isolated from the rest of the
+        codebase? (Reminder: deleting a feature folder must cause
+        zero compile errors elsewhere.)
+        - New domain entities?
+        - New port interfaces?
+        - New migrations?
+        - New screens / routes / endpoints?
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Links to similar prior art, customer feedback, or
+        related issues.

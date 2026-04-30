@@ -1,0 +1,97 @@
+name: Bug report
+description: Report something that is broken or behaves incorrectly.
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. **For security
+        vulnerabilities do not open an issue here** — email
+        `hassad.smara69@gmail.com` per [SECURITY.md](../../SECURITY.md).
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One-paragraph description of what is broken.
+      placeholder: When I do X, Y happens. I expected Z.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: Affected app
+      description: Which app shows the bug? (Pick all that apply.)
+      multiple: true
+      options:
+        - backend (Go API)
+        - web (Next.js)
+        - admin (Vite + React)
+        - mobile (Flutter)
+        - infra (CI / Docker / migrations)
+        - docs
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal sequence to trigger the bug. Copy-paste the
+        exact requests, screen taps, or commands.
+      placeholder: |
+        1. Log in as Provider
+        2. Navigate to /wallet
+        3. Click "Withdraw"
+        4. Observe …
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened? Include any error message,
+        stack trace, browser console output, or backend log line.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit SHA or version
+      description: Output of `git rev-parse HEAD`, or the release tag.
+      placeholder: a0d268a4
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        - OS + browser (or device + OS for mobile)
+        - Whether it is local dev, staging, or prod
+        - Any relevant env vars (do NOT paste secrets)
+      placeholder: |
+        macOS 14.4, Chrome 124
+        Local dev (docker compose up)
+        ENV=development
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, screen recordings, or other context.
