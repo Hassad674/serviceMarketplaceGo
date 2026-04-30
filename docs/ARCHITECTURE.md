@@ -386,10 +386,10 @@ sequenceDiagram
         SVC->>DB: INSERT audit_logs (login_success)
         alt web
             SVC-->>API: session_id (cookie)
-            API-->>FE: Set-Cookie: session=...; HttpOnly; SameSite=Lax; Secure
+            API-->>FE: Set-Cookie session HttpOnly SameSite=Lax Secure
         else mobile
             SVC-->>API: access_jwt (15min) + refresh_jwt (7d)
-            API-->>FE: { access_token, refresh_token }
+            API-->>FE: access_token + refresh_token
         end
     end
 
@@ -401,10 +401,10 @@ sequenceDiagram
         SVC-->>API: ErrTokenReused
         API-->>FE: 401
     else fresh
-        SVC->>RDS: ADD old_jti → blacklist (TTL = old TTL)
+        SVC->>RDS: ADD old_jti to blacklist (TTL = old TTL)
         SVC->>SVC: mint new pair
         SVC-->>API: new access + new refresh
-        API-->>FE: { access_token, refresh_token }
+        API-->>FE: access_token + refresh_token
     end
 ```
 
