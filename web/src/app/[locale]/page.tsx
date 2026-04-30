@@ -2,7 +2,6 @@ import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { Building2, User, Briefcase, ArrowRight } from "lucide-react"
 import { ThemeToggle } from "@/shared/components/theme-toggle"
-import { TestDB } from "./test-db"
 
 export default function HomePage() {
   const t = useTranslations("landing")
@@ -120,9 +119,6 @@ export default function HomePage() {
           )
         })}
       </section>
-
-      {/* Debug: Test DB connectivity */}
-      <TestDB />
     </main>
   )
 }
