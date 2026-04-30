@@ -101,3 +101,30 @@ func TestBcryptHasher_Hash_ProducesValidBcryptFormat(t *testing.T) {
 		"hash should start with $2a$ or $2b$, got: %s", hash[:4],
 	)
 }
+
+// bcrypt's GenerateFromPassword rejects inputs longer than 72 bytes —
+// the err != nil branch in Hash. We use a 73-byte password to surface
+// it. This is the documented bcrypt limit and the only easy way to
+// reach the error path without monkey-patching the standard library.
+func TestBcryptHasher_Hash_PasswordTooLong_Surfaces(t *testing.T) {
+	hasher := NewBcryptHasher()
+
+	tooLong := make([]byte, 73) // 73 > 72-byte bcrypt limit
+	for i := range tooLong {
+		tooLong[i] = 'a'
+	}
+
+	_, err := hasher.Hash(string(tooLong))
+	require.Error(t, err, "bcrypt MUST reject inputs longer than 72 bytes — the error MUST surface, not be swallowed")
+}
+
+// Compare must reject an unparseable hash (corrupt DB row, mismatched
+// hash format) with the user-facing ErrInvalidCredentials so callers
+// don't leak crypto internals upstream.
+func TestBcryptHasher_Compare_CorruptHash_ReturnsCanonicalError(t *testing.T) {
+	hasher := NewBcryptHasher()
+
+	err := hasher.Compare("not-a-bcrypt-hash", "any-password")
+	assert.ErrorIs(t, err, user.ErrInvalidCredentials,
+		"corrupt hash MUST surface as ErrInvalidCredentials, not as a bcrypt-specific error")
+}

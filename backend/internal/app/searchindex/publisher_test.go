@@ -254,3 +254,61 @@ func TestPublisher_NilPublisher_TxMethodsAreSafe(t *testing.T) {
 	assert.NoError(t, p.PublishReindexTx(context.Background(), &sql.Tx{}, uuid.New(), search.PersonaFreelance))
 	assert.NoError(t, p.PublishDeleteTx(context.Background(), &sql.Tx{}, uuid.New()))
 }
+
+// PublishReindexAllPersonas fans out to all three personas
+// (Freelance, Agency, Referrer). One Schedule call per persona.
+func TestPublisher_PublishReindexAllPersonas_FansOutToThree(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	require.NoError(t, pub.PublishReindexAllPersonas(context.Background(), orgID))
+	require.Len(t, events.scheduled, 3,
+		"AllPersonas must schedule exactly 3 events (Freelance + Agency + Referrer)")
+
+	personas := map[search.Persona]int{}
+	for _, ev := range events.scheduled {
+		var payload searchindex.ReindexPayload
+		require.NoError(t, json.Unmarshal(ev.Payload, &payload))
+		assert.Equal(t, orgID, payload.OrganizationID)
+		personas[payload.Persona]++
+	}
+	assert.Equal(t, 1, personas[search.PersonaFreelance])
+	assert.Equal(t, 1, personas[search.PersonaAgency])
+	assert.Equal(t, 1, personas[search.PersonaReferrer])
+}
+
+// AllPersonas must surface the underlying error wrapped with the
+// "publish reindex all personas" prefix so the caller can correlate.
+func TestPublisher_PublishReindexAllPersonas_PropagatesError(t *testing.T) {
+	events := &fakePendingEvents{scheduleErr: errors.New("schedule failed")}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	err = pub.PublishReindexAllPersonas(context.Background(), uuid.New())
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "publish reindex all personas")
+	assert.ErrorContains(t, err, "schedule failed",
+		"the wrapped underlying error message must propagate so logs are actionable")
+}
+
+// AllPersonas on a nil publisher is safe — same contract as the
+// underlying PublishReindex.
+func TestPublisher_PublishReindexAllPersonas_NilPublisher_IsSafe(t *testing.T) {
+	var p *searchindex.Publisher
+	assert.NoError(t, p.PublishReindexAllPersonas(context.Background(), uuid.New()))
+}
+
+// AllPersonas with an invalid (zero) orgID must surface the error
+// without scheduling anything.
+func TestPublisher_PublishReindexAllPersonas_RejectsNilOrgID(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	err = pub.PublishReindexAllPersonas(context.Background(), uuid.Nil)
+	require.Error(t, err)
+	assert.Empty(t, events.scheduled,
+		"a rejected orgID must NOT leak any events to the outbox")
+}
