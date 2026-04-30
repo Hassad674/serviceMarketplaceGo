@@ -93,14 +93,28 @@ func (q *NotificationJobQueue) Dequeue(ctx context.Context) (*notifapp.DeliveryJ
 			jobStr, ok := msg.Values["job"].(string)
 			if !ok {
 				slog.Warn("invalid job payload in stream", "message_id", msg.ID)
-				_ = q.Ack(ctx, msg.ID)
+				// Closes BUG-22: a failed Ack on a discarded message
+				// caused Redis to redeliver it on the next cycle,
+				// doubling the notification fan-out. Surface the
+				// error so the operator can correlate spikes in
+				// double-deliveries with Redis incidents. Future
+				// work: bump a Prometheus counter here.
+				if ackErr := q.Ack(ctx, msg.ID); ackErr != nil {
+					slog.Warn("notification queue: ack failed (invalid payload)",
+						"message_id", msg.ID, "error", ackErr)
+				}
 				continue
 			}
 
 			var job notifapp.DeliveryJob
 			if err := json.Unmarshal([]byte(jobStr), &job); err != nil {
 				slog.Warn("unmarshal job failed", "message_id", msg.ID, "error", err)
-				_ = q.Ack(ctx, msg.ID)
+				// Closes BUG-22: same invariant as above — failed Ack
+				// on a malformed payload would have it redelivered.
+				if ackErr := q.Ack(ctx, msg.ID); ackErr != nil {
+					slog.Warn("notification queue: ack failed (unmarshal)",
+						"message_id", msg.ID, "error", ackErr)
+				}
 				continue
 			}
 
