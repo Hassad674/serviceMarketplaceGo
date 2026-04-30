@@ -120,3 +120,51 @@ func TestIdempotency_MarkSeen_RedisDown_ReturnsCacheError(t *testing.T) {
 	var cacheErr *adapter.CacheError
 	assert.ErrorAs(t, err, &cacheErr)
 }
+
+// TryClaim is the legacy entrypoint used by features other than the
+// stripe webhook handler. It must mirror TryCacheClaim semantics.
+func TestIdempotency_TryClaim_FirstWinsSecondIsNoop(t *testing.T) {
+	store, _ := newIdempotencyTest(t, time.Minute)
+
+	first, err := store.TryClaim(context.Background(), "evt_legacy")
+	require.NoError(t, err)
+	assert.True(t, first)
+
+	second, err := store.TryClaim(context.Background(), "evt_legacy")
+	require.NoError(t, err)
+	assert.False(t, second, "TryClaim must dedup like TryCacheClaim does")
+}
+
+func TestIdempotency_TryClaim_EmptyIDClaims(t *testing.T) {
+	store, _ := newIdempotencyTest(t, time.Minute)
+
+	claimed, err := store.TryClaim(context.Background(), "")
+	require.NoError(t, err)
+	assert.True(t, claimed, "empty event_id MUST NOT be persisted — caller validates downstream")
+}
+
+func TestIdempotency_TryClaim_RedisDown_ReturnsCacheError(t *testing.T) {
+	store, mr := newIdempotencyTest(t, time.Minute)
+	mr.Close()
+
+	claimed, err := store.TryClaim(context.Background(), "evt_legacy_down")
+	require.Error(t, err)
+	assert.False(t, claimed)
+	var cacheErr *adapter.CacheError
+	assert.ErrorAs(t, err, &cacheErr)
+}
+
+// CacheError must be a useful Go error type — both Error() and Unwrap()
+// matter to callers using errors.Is / errors.As to branch on cache vs.
+// other failures.
+func TestCacheError_StringFormatAndUnwrap(t *testing.T) {
+	inner := assert.AnError
+	ce := &adapter.CacheError{Err: inner}
+
+	assert.Contains(t, ce.Error(), "webhook idempotency cache:",
+		"prefix must identify the cache as the failing layer")
+	assert.Contains(t, ce.Error(), inner.Error(),
+		"inner error message must be preserved")
+	assert.ErrorIs(t, ce.Unwrap(), inner,
+		"Unwrap must return the wrapped error so errors.Is can climb the chain")
+}

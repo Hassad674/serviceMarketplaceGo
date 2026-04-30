@@ -266,6 +266,100 @@ func TestBruteForce_CustomPolicyOverridesDefaults(t *testing.T) {
 	assert.True(t, locked, "custom threshold of 2 must lock at second failure")
 }
 
+// SEC-07: every method must surface a wrapped error when Redis is
+// unavailable so the caller can fail-open or fail-closed deliberately.
+// Silent swallowing would let an attacker bypass rate limits during an
+// outage.
+func TestBruteForce_IsLocked_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewBruteForceService(client)
+	locked, err := svc.IsLocked(context.Background(), "user@example.com")
+	require.Error(t, err)
+	assert.False(t, locked, "boolean must be false on error so the caller cannot accidentally trust it")
+	assert.Contains(t, err.Error(), "brute force is_locked")
+}
+
+func TestBruteForce_RecordFailure_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewBruteForceService(client)
+	err = svc.RecordFailure(context.Background(), "user@example.com")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "brute force record_failure")
+}
+
+func TestBruteForce_RecordSuccess_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewBruteForceService(client)
+	err = svc.RecordSuccess(context.Background(), "user@example.com")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "brute force record_success")
+}
+
+func TestBruteForce_RetryAfter_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewBruteForceService(client)
+	dur, err := svc.RetryAfter(context.Background(), "user@example.com")
+	require.Error(t, err)
+	assert.Equal(t, time.Duration(0), dur)
+	assert.Contains(t, err.Error(), "brute force retry_after")
+}
+
+// RetryAfter must treat both "key never set" (-2) and "key has no TTL"
+// (-1) as unlocked. The -1 case shouldn't happen with our setters but
+// we test it defensively because it is part of the documented contract.
+func TestBruteForce_RetryAfter_KeyWithoutTTLReturnsZero(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	defer mr.Close()
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	defer client.Close()
+
+	// Manually create a key with no TTL (no Expire). Redis returns -1
+	// for TTL on such keys.
+	err = client.Set(context.Background(), "login_locked:notexpire@example.com", "1", 0).Err()
+	require.NoError(t, err)
+
+	svc := adapter.NewBruteForceService(client)
+	dur, err := svc.RetryAfter(context.Background(), "notexpire@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, time.Duration(0), dur, "key without TTL must report zero retry-after — defensive contract")
+}
+
+// ErrNoLockout is exported but currently unused. The contract requires
+// it to be a stable sentinel value; assert that it has a string form.
+func TestBruteForce_ErrNoLockout_HasMeaningfulMessage(t *testing.T) {
+	require.NotNil(t, adapter.ErrNoLockout)
+	assert.Contains(t, adapter.ErrNoLockout.Error(), "lockout")
+}
+
 func mustLocked(t *testing.T, svc *adapter.BruteForceService, email string) bool {
 	t.Helper()
 	locked, err := svc.IsLocked(context.Background(), email)
