@@ -924,6 +924,20 @@
     "videoPreview": "Video preview",
     "removeVideo": "Remove video"
   },
+  "publicListing": {
+    "agencies": {
+      "title": "Agency directory — {count} agencies | Marketplace Service",
+      "description": "Browse {count} verified agencies on Marketplace Service. Find the right partner for your B2B project."
+    },
+    "freelancers": {
+      "title": "Freelance directory — {count} professionals | Marketplace Service",
+      "description": "Connect with {count} verified freelancers on Marketplace Service. Find the perfect independent professional for your B2B project."
+    },
+    "referrers": {
+      "title": "Business referrer directory — {count} apporteurs | Marketplace Service",
+      "description": "Browse {count} business referrers ready to connect you with the right agency or freelancer."
+    }
+  },
   "publicProfile": {
     "agencyProfile": "Agency Profile",
     "agencyProfileDesc": "View agency details and portfolio",
