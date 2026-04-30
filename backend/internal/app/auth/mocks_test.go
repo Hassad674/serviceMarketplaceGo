@@ -2,10 +2,12 @@ package auth
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -191,6 +193,101 @@ func (m *mockTokenService) ValidateRefreshToken(token string) (*service.TokenCla
 		return m.validateRefreshFn(token)
 	}
 	return nil, user.ErrUnauthorized
+}
+
+// --- mockRefreshBlacklist ---
+
+// mockRefreshBlacklist is an in-memory implementation of
+// service.RefreshBlacklistService used by the auth service tests. It
+// tracks Add calls + TTLs so the test can assert "blacklist was
+// invoked exactly once after a successful refresh" without relying on
+// Redis or fake clocks.
+type mockRefreshBlacklist struct {
+	mu      sync.Mutex
+	entries map[string]time.Duration
+	hasErr  error
+	addErr  error
+}
+
+func newMockRefreshBlacklist() *mockRefreshBlacklist {
+	return &mockRefreshBlacklist{entries: make(map[string]time.Duration)}
+}
+
+var _ service.RefreshBlacklistService = (*mockRefreshBlacklist)(nil)
+
+func (m *mockRefreshBlacklist) Add(_ context.Context, jti string, ttl time.Duration) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.addErr != nil {
+		return m.addErr
+	}
+	if jti == "" || ttl <= 0 {
+		return nil
+	}
+	m.entries[jti] = ttl
+	return nil
+}
+
+func (m *mockRefreshBlacklist) Has(_ context.Context, jti string) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.hasErr != nil {
+		return false, m.hasErr
+	}
+	if jti == "" {
+		return false, nil
+	}
+	_, ok := m.entries[jti]
+	return ok, nil
+}
+
+func (m *mockRefreshBlacklist) Count() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.entries)
+}
+
+// --- mockAuditRepo ---
+
+// mockAuditRepo records every Log call in memory so tests can assert
+// the action + resource + metadata of audit emissions without touching
+// Postgres.
+type mockAuditRepo struct {
+	mu      sync.Mutex
+	entries []*audit.Entry
+	logErr  error
+}
+
+func newMockAuditRepo() *mockAuditRepo {
+	return &mockAuditRepo{}
+}
+
+var _ repository.AuditRepository = (*mockAuditRepo)(nil)
+
+func (m *mockAuditRepo) Log(_ context.Context, entry *audit.Entry) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.logErr != nil {
+		return m.logErr
+	}
+	m.entries = append(m.entries, entry)
+	return nil
+}
+
+func (m *mockAuditRepo) ListByResource(_ context.Context, _ audit.ResourceType, _ uuid.UUID, _ string, _ int) ([]*audit.Entry, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockAuditRepo) ListByUser(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*audit.Entry, string, error) {
+	return nil, "", nil
+}
+
+func (m *mockAuditRepo) Snapshot() []*audit.Entry {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]*audit.Entry, len(m.entries))
+	copy(out, m.entries)
+	return out
 }
 
 // --- mockEmailService ---

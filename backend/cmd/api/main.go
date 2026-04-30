@@ -138,6 +138,12 @@ func main() {
 		cfg.StorageUseSSL,
 	)
 	sessionSvc := redisadapter.NewSessionService(redisClient, cfg.SessionTTL)
+	// SEC-06: refresh-token rotation. Each /auth/refresh blacklists the
+	// JTI of the consumed token; replays are detected and rejected. The
+	// blacklist is Redis-backed with per-entry TTLs that match the
+	// original token's remaining expiry, so memory use is automatically
+	// bounded as old tokens age out.
+	refreshBlacklistSvc := redisadapter.NewRefreshBlacklistService(redisClient)
 
 	// Cookie configuration
 	// In production (cross-origin: Railway backend + Vercel frontend),
@@ -192,13 +198,15 @@ func main() {
 	// team events (invitation accepted, role changed, transfer, …) can
 	// fire notifications through the same pipeline as the rest of the app.
 	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
-		Users:       userRepo,
-		Resets:      resetRepo,
-		Hasher:      hasher,
-		Tokens:      tokenSvc,
-		Email:       emailSvc,
-		Orgs:        organizationSvc,
-		FrontendURL: cfg.FrontendURL,
+		Users:            userRepo,
+		Resets:           resetRepo,
+		Hasher:           hasher,
+		Tokens:           tokenSvc,
+		Email:            emailSvc,
+		Orgs:             organizationSvc,
+		RefreshBlacklist: refreshBlacklistSvc,
+		Audits:           auditRepo,
+		FrontendURL:      cfg.FrontendURL,
 	})
 	// Profile service + Tier 1 geocoder (migration 083). The
 	// Nominatim adapter is used as-is in every environment because

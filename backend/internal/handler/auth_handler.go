@@ -141,6 +141,20 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		_ = h.sessionSvc.Delete(r.Context(), cookie.Value)
 	}
 	h.cookie.ClearSession(w)
+
+	// SEC-06: mobile clients post their refresh token here so the
+	// backend can blacklist it immediately. Decoding failures and an
+	// absent body are silently ignored — the session cookie was
+	// already cleared above and the access token expires on its own
+	// 15-minute timer. Returning 200 in every branch keeps the client
+	// flow simple (logout never fails from the user's POV).
+	var req struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if err := validator.DecodeJSON(r, &req); err == nil && req.RefreshToken != "" {
+		h.authService.RevokeRefreshToken(r.Context(), req.RefreshToken)
+	}
+
 	res.JSON(w, http.StatusOK, map[string]string{"message": "logged out"})
 }
 

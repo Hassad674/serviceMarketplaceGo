@@ -12,6 +12,7 @@ import (
 
 	appmoderation "marketplace-backend/internal/app/moderation"
 	orgapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/moderation"
 	"marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/port/repository"
@@ -81,21 +82,25 @@ type Service struct {
 	hasher                 service.HasherService
 	tokens                 service.TokenService
 	email                  service.EmailService
-	orgs                   OrgProvisioner // may be nil in unit tests that don't exercise the org path
-	moderationOrchestrator *appmoderation.Service // optional: when nil, display_name moderation is skipped
+	orgs                   OrgProvisioner          // may be nil in unit tests that don't exercise the org path
+	moderationOrchestrator *appmoderation.Service  // optional: when nil, display_name moderation is skipped
+	refreshBlacklist       service.RefreshBlacklistService // optional: when nil, refresh-token rotation defaults to issue-only (legacy behavior)
+	audits                 repository.AuditRepository      // optional: when nil, audit emission is skipped
 	frontendURL            string
 }
 
 // ServiceDeps groups the auth service dependencies to avoid a growing
 // positional constructor (already at 6 args before adding the org provisioner).
 type ServiceDeps struct {
-	Users       repository.UserRepository
-	Resets      repository.PasswordResetRepository
-	Hasher      service.HasherService
-	Tokens      service.TokenService
-	Email       service.EmailService
-	Orgs        OrgProvisioner
-	FrontendURL string
+	Users            repository.UserRepository
+	Resets           repository.PasswordResetRepository
+	Hasher           service.HasherService
+	Tokens           service.TokenService
+	Email            service.EmailService
+	Orgs             OrgProvisioner
+	RefreshBlacklist service.RefreshBlacklistService // SEC-06: when set, refresh tokens rotate single-use through Redis
+	Audits           repository.AuditRepository      // SEC-06: when set, token_reuse_detected events are recorded
+	FrontendURL      string
 }
 
 // NewService returns a fully wired auth service. Prefer NewServiceWithDeps
@@ -123,13 +128,15 @@ func NewService(
 // Accepts the organization provisioner alongside the legacy deps.
 func NewServiceWithDeps(deps ServiceDeps) *Service {
 	return &Service{
-		users:       deps.Users,
-		resets:      deps.Resets,
-		hasher:      deps.Hasher,
-		tokens:      deps.Tokens,
-		email:       deps.Email,
-		orgs:        deps.Orgs,
-		frontendURL: deps.FrontendURL,
+		users:            deps.Users,
+		resets:           deps.Resets,
+		hasher:           deps.Hasher,
+		tokens:           deps.Tokens,
+		email:            deps.Email,
+		orgs:             deps.Orgs,
+		refreshBlacklist: deps.RefreshBlacklist,
+		audits:           deps.Audits,
+		frontendURL:      deps.FrontendURL,
 	}
 }
 
@@ -333,6 +340,23 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, user.ErrUnauthorized
 	}
 
+	// SEC-06: refresh-token rotation. Reject the request if the JTI is
+	// already on the blacklist — that means the token has already been
+	// rotated (legitimate user) or revoked (logout) and the caller is
+	// presenting a stale or stolen credential. A blacklist read failure
+	// fails open (we trust the SessionVersion + token signature checks
+	// to catch a real compromise) so a Redis blip does not lock every
+	// user out of the app.
+	if s.refreshBlacklist != nil && claims.JTI != "" {
+		blacklisted, err := s.refreshBlacklist.Has(ctx, claims.JTI)
+		if err != nil {
+			slog.Warn("refresh blacklist read failed", "jti", claims.JTI, "error", err)
+		} else if blacklisted {
+			s.recordTokenReuse(ctx, claims.UserID, claims.JTI)
+			return nil, user.ErrUnauthorized
+		}
+	}
+
 	u, err := s.users.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, user.ErrUnauthorized
@@ -360,7 +384,74 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	// SEC-06: blacklist the OLD refresh token AFTER generating the new
+	// pair. We use the original token's remaining time-to-expire as
+	// the blacklist TTL so the entry self-evicts once the token would
+	// have failed validation anyway. A blacklist write failure is
+	// logged but not propagated — the caller already has a working
+	// new pair, and the next replay will be blocked by the
+	// SessionVersion check on the next mutation.
+	if s.refreshBlacklist != nil && claims.JTI != "" {
+		ttl := time.Until(claims.ExpiresAt)
+		if err := s.refreshBlacklist.Add(ctx, claims.JTI, ttl); err != nil {
+			slog.Warn("refresh blacklist add failed", "jti", claims.JTI, "error", err)
+		}
+	}
+
 	return buildAuthOutput(u, orgCtx, newAccessToken, newRefreshToken), nil
+}
+
+// RevokeRefreshToken blacklists the supplied refresh token's JTI so any
+// subsequent /auth/refresh call presenting the same token fails with
+// 401 Unauthorized. Used by the logout handler to immediately invalidate
+// the mobile-mode token pair (web mode invalidates the session cookie
+// instead, but we still call this to belt-and-braces the case where the
+// same caller has both a session and a JWT pair).
+//
+// An invalid token, a token without a JTI, or a not-yet-wired blacklist
+// is a silent no-op — the caller's logout intent is honored at the
+// session layer and we do not surface a 500 just because there is
+// nothing to blacklist.
+func (s *Service) RevokeRefreshToken(ctx context.Context, refreshToken string) {
+	if s.refreshBlacklist == nil || refreshToken == "" {
+		return
+	}
+	claims, err := s.tokens.ValidateRefreshToken(refreshToken)
+	if err != nil || claims.JTI == "" {
+		return
+	}
+	ttl := time.Until(claims.ExpiresAt)
+	if err := s.refreshBlacklist.Add(ctx, claims.JTI, ttl); err != nil {
+		slog.Warn("refresh blacklist revoke failed", "jti", claims.JTI, "error", err)
+	}
+}
+
+// recordTokenReuse writes an auth.token_reuse_detected audit row. The
+// best-effort policy applies: any failure is logged at WARN and
+// swallowed. The fact that we got here at all means the request will
+// be rejected with 401, so even a dropped audit row does not affect
+// the user's experience — only the SOC investigation surface.
+func (s *Service) recordTokenReuse(ctx context.Context, userID uuid.UUID, jti string) {
+	if s.audits == nil {
+		return
+	}
+	uid := userID
+	entry, err := audit.NewEntry(audit.NewEntryInput{
+		UserID:       &uid,
+		Action:       audit.ActionTokenReuseDetected,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &uid,
+		Metadata: map[string]any{
+			"jti": jti,
+		},
+	})
+	if err != nil {
+		slog.Warn("audit: build token_reuse_detected entry failed", "error", err)
+		return
+	}
+	if err := s.audits.Log(ctx, entry); err != nil {
+		slog.Warn("audit: insert token_reuse_detected failed", "error", err)
+	}
 }
 
 func (s *Service) GetMe(ctx context.Context, userID uuid.UUID) (*user.User, error) {

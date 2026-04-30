@@ -45,6 +45,12 @@ type TokenClaims struct {
 	IsAdmin   bool
 	ExpiresAt time.Time
 
+	// JTI is the unique token id (UUID v4) embedded in every JWT. The
+	// auth service uses it as the Redis blacklist key when a refresh
+	// token is rotated or revoked (SEC-06). Always populated for
+	// tokens minted by this codebase since Phase 1.
+	JTI string
+
 	// Organization context — nil / empty for solo users (Providers).
 	OrganizationID *uuid.UUID
 	OrgRole        string
