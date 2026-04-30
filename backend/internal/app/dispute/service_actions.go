@@ -461,14 +461,35 @@ func (s *Service) CancelDispute(ctx context.Context, in CancelDisputeInput) (Can
 
 	if cancelled {
 		// Direct cancellation: restore the proposal to active.
+		//
+		// BUG-03: previously this branch swallowed the proposals.Update
+		// error with `_ = s.proposals.Update(...)`. If the UPDATE failed
+		// (DB blip, optimistic concurrency conflict), the dispute was
+		// `cancelled` but the proposal stayed `disputed` — frozen
+		// pair, no automatic recovery, user could not understand why.
+		//
+		// Recovery strategy: surface the error so the HTTP layer can
+		// return 500 and the client can retry. The dispute itself was
+		// already persisted as cancelled (s.disputes.Update above), so
+		// retrying CancelDispute is a no-op on the dispute side and
+		// will re-attempt the proposal restore — eventually consistent.
+		// We log at ERROR level so the operations team sees the
+		// inconsistency before the user retries.
 		p, err := s.proposals.GetByID(ctx, d.ProposalID)
 		if err != nil {
 			return CancelDisputeResult{}, fmt.Errorf("get proposal for restore: %w", err)
 		}
 		if err := p.RestoreFromDispute(proposaldomain.StatusActive); err != nil {
-			slog.Warn("dispute: failed to restore proposal", "error", err)
-		} else {
-			_ = s.proposals.Update(ctx, p)
+			slog.Error("dispute cancel: domain restore rejected",
+				"dispute_id", d.ID, "proposal_id", p.ID, "error", err)
+			return CancelDisputeResult{}, fmt.Errorf("restore proposal from dispute: %w", err)
+		}
+		if err := s.proposals.Update(ctx, p); err != nil {
+			// Dispute is cancelled in DB but proposal is still
+			// disputed in DB — surface so the caller retries.
+			slog.Error("dispute cancel: proposal update failed — pair may be inconsistent until retry",
+				"dispute_id", d.ID, "proposal_id", p.ID, "error", err)
+			return CancelDisputeResult{}, fmt.Errorf("update proposal after dispute cancel: %w", err)
 		}
 
 		s.sendSystemMessage(ctx, d.ConversationID, in.UserID,
@@ -524,14 +545,25 @@ func (s *Service) RespondToCancellation(ctx context.Context, in RespondToCancell
 	}
 
 	if in.Accept {
+		// BUG-03 (mirror of CancelDispute branch): propagate Update
+		// errors rather than swallowing them. The dispute was already
+		// persisted as cancelled by the s.disputes.Update call above,
+		// so a failure here leaves the proposal in `disputed` while the
+		// dispute is `cancelled` — surface the error so the caller can
+		// retry, log at ERROR for ops visibility.
 		p, err := s.proposals.GetByID(ctx, d.ProposalID)
 		if err != nil {
 			return fmt.Errorf("get proposal for restore: %w", err)
 		}
 		if err := p.RestoreFromDispute(proposaldomain.StatusActive); err != nil {
-			slog.Warn("dispute: failed to restore proposal", "error", err)
-		} else {
-			_ = s.proposals.Update(ctx, p)
+			slog.Error("dispute respond: domain restore rejected",
+				"dispute_id", d.ID, "proposal_id", p.ID, "error", err)
+			return fmt.Errorf("restore proposal from dispute: %w", err)
+		}
+		if err := s.proposals.Update(ctx, p); err != nil {
+			slog.Error("dispute respond: proposal update failed — pair may be inconsistent until retry",
+				"dispute_id", d.ID, "proposal_id", p.ID, "error", err)
+			return fmt.Errorf("update proposal after dispute cancellation accepted: %w", err)
 		}
 
 		s.sendSystemMessage(ctx, d.ConversationID, in.UserID,
