@@ -82,6 +82,11 @@ type fakeStripe struct {
 	transferCalls []service.CreateTransferInput
 	payoutCalls   []service.CreatePayoutInput
 	failPayout    bool
+
+	// SEC-02 GetPaymentIntent stubs.
+	getPIErr    error
+	getPIResult *service.PaymentIntentStatus
+	getPICalls  int
 }
 
 func (f *fakeStripe) CreateTransfer(_ context.Context, in service.CreateTransferInput) (string, error) {
@@ -95,6 +100,11 @@ func (f *fakeStripe) CreatePayout(_ context.Context, in service.CreatePayoutInpu
 		return "", errors.New("stripe payout boom")
 	}
 	return "po_test_" + in.IdempotencyKey, nil
+}
+
+func (f *fakeStripe) GetPaymentIntent(_ context.Context, _ string) (*service.PaymentIntentStatus, error) {
+	f.getPICalls++
+	return f.getPIResult, f.getPIErr
 }
 
 func baseRecord() *domain.PaymentRecord {
@@ -861,4 +871,202 @@ func TestWaivePlatformFee_AlreadyZero_NoUpdate(t *testing.T) {
 	err := svc.WaivePlatformFeeOnActiveRecords(context.Background(), orgID)
 	assert.NoError(t, err)
 	assert.Empty(t, records.updated, "no Update call when fee was already zero")
+}
+
+// ---------------------------------------------------------------------------
+// SEC-02 / BUG-01 — MarkPaymentSucceeded must verify Stripe before flipping
+// the local record. Without this check, a client with DevTools can call
+// /confirm-payment and have the proposal activated + the provider paid,
+// without any real Stripe charge ever clearing.
+// ---------------------------------------------------------------------------
+
+// pendingRecord is a fakeRecords variant whose GetByProposalID returns a
+// pending record (not the default Succeeded). MarkPaymentSucceeded only
+// triggers Stripe verification when the record is still Pending.
+type pendingRecords struct {
+	repository.PaymentRecordRepository
+	record   *domain.PaymentRecord
+	updated  *domain.PaymentRecord
+	getCalls int
+}
+
+func (p *pendingRecords) GetByProposalID(_ context.Context, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	p.getCalls++
+	cp := *p.record
+	return &cp, nil
+}
+
+func (p *pendingRecords) Update(_ context.Context, r *domain.PaymentRecord) error {
+	p.updated = r
+	return nil
+}
+
+func TestMarkPaymentSucceeded_StripeVerification(t *testing.T) {
+	tests := []struct {
+		name             string
+		piID             string
+		stripeStatus     string
+		stripeErr        error
+		stripeNilResult  bool
+		recordStatus     domain.PaymentRecordStatus
+		wantErr          error
+		wantUpdate       bool
+		wantStripeCalled bool
+	}{
+		{
+			name:             "stripe says succeeded — record flipped",
+			piID:             "pi_real_123",
+			stripeStatus:     "succeeded",
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          nil,
+			wantUpdate:       true,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "stripe says requires_payment_method — refused",
+			piID:             "pi_real_123",
+			stripeStatus:     "requires_payment_method",
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          domain.ErrPaymentNotConfirmed,
+			wantUpdate:       false,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "stripe says processing — refused (not yet succeeded)",
+			piID:             "pi_real_123",
+			stripeStatus:     "processing",
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          domain.ErrPaymentNotConfirmed,
+			wantUpdate:       false,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "stripe says canceled — refused",
+			piID:             "pi_real_123",
+			stripeStatus:     "canceled",
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          domain.ErrPaymentNotConfirmed,
+			wantUpdate:       false,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "stripe says requires_action — refused",
+			piID:             "pi_real_123",
+			stripeStatus:     "requires_action",
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          domain.ErrPaymentNotConfirmed,
+			wantUpdate:       false,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "missing payment intent id — refused without API call",
+			piID:             "",
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          domain.ErrPaymentNotConfirmed,
+			wantUpdate:       false,
+			wantStripeCalled: false,
+		},
+		{
+			name:             "stripe API error — surfaced wrapped",
+			piID:             "pi_real_123",
+			stripeErr:        errors.New("network blip"),
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          nil, // we check string match below
+			wantUpdate:       false,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "stripe returns nil PI without error — refused",
+			piID:             "pi_real_123",
+			stripeNilResult:  true,
+			recordStatus:     domain.RecordStatusPending,
+			wantErr:          domain.ErrPaymentNotConfirmed,
+			wantUpdate:       false,
+			wantStripeCalled: true,
+		},
+		{
+			name:             "record already succeeded — idempotent no-op, no stripe call",
+			piID:             "pi_real_123",
+			recordStatus:     domain.RecordStatusSucceeded,
+			wantErr:          nil,
+			wantUpdate:       false,
+			wantStripeCalled: false,
+		},
+		{
+			name:             "record refunded — idempotent no-op",
+			piID:             "pi_real_123",
+			recordStatus:     domain.RecordStatusRefunded,
+			wantErr:          nil,
+			wantUpdate:       false,
+			wantStripeCalled: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := baseRecord()
+			rec.Status = tt.recordStatus
+			rec.StripePaymentIntentID = tt.piID
+
+			records := &pendingRecords{record: rec}
+			stripeStub := &fakeStripe{}
+			if tt.stripeErr != nil {
+				stripeStub.getPIErr = tt.stripeErr
+			} else if !tt.stripeNilResult {
+				stripeStub.getPIResult = &service.PaymentIntentStatus{
+					PaymentIntentID: tt.piID,
+					Status:          tt.stripeStatus,
+					Currency:        "eur",
+				}
+			}
+
+			svc := NewService(ServiceDeps{
+				Records: records,
+				Stripe:  stripeStub,
+			})
+
+			err := svc.MarkPaymentSucceeded(context.Background(), rec.ProposalID)
+
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+			} else if tt.stripeErr != nil {
+				// API error gets wrapped, not exposed as ErrPaymentNotConfirmed.
+				assert.Error(t, err)
+				assert.NotErrorIs(t, err, domain.ErrPaymentNotConfirmed)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if tt.wantUpdate {
+				assert.NotNil(t, records.updated, "record should be persisted after Stripe confirms succeeded")
+				if records.updated != nil {
+					assert.Equal(t, domain.RecordStatusSucceeded, records.updated.Status)
+				}
+			} else {
+				assert.Nil(t, records.updated, "record must NOT be persisted when verification fails or is unnecessary")
+			}
+
+			if tt.wantStripeCalled {
+				assert.Equal(t, 1, stripeStub.getPICalls, "GetPaymentIntent should be called exactly once")
+			} else {
+				assert.Equal(t, 0, stripeStub.getPICalls, "no Stripe call expected on this path")
+			}
+		})
+	}
+}
+
+// MarkPaymentSucceeded must fail when Stripe is not configured at all —
+// the legacy "trust the local record" behaviour is gone forever (SEC-02).
+func TestMarkPaymentSucceeded_StripeNotConfigured_Refuses(t *testing.T) {
+	rec := baseRecord()
+	rec.Status = domain.RecordStatusPending
+	rec.StripePaymentIntentID = "pi_real_123"
+
+	records := &pendingRecords{record: rec}
+
+	svc := NewService(ServiceDeps{Records: records})
+
+	err := svc.MarkPaymentSucceeded(context.Background(), rec.ProposalID)
+	assert.Error(t, err, "without Stripe, verification cannot happen — must refuse")
+	assert.Nil(t, records.updated, "record must NOT be flipped without verification")
 }

@@ -24,8 +24,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -54,6 +52,197 @@ func NewUploadHandler(
 const maxPhotoSize = 5 << 20  // 5 MB
 const maxVideoSize = 50 << 20 // 50 MB
 
+// UploadScope tags an upload endpoint with the kind of media it accepts.
+// The magic-bytes detector and extension allowlist are derived from this.
+//
+// Closes SEC-09 + SEC-21: the previous code used the client-declared
+// Content-Type and the client-supplied filename extension verbatim, so
+// an attacker could upload `.html`/`.exe`/`.svg` content with a
+// camouflaged Content-Type and have the file persisted at the bucket
+// origin under that extension — XSS, drive-by download, or worse.
+type UploadScope int
+
+const (
+	ScopePhoto UploadScope = iota
+	ScopeVideo
+	ScopeDocument
+)
+
+// detectMimeFromBytes inspects the first up-to-512 bytes of a file via
+// `http.DetectContentType` and returns the canonical MIME type plus the
+// safe extension (without leading dot) the caller MUST use as the
+// storage key suffix.
+//
+// The third return value `ok` is false when the detected type is not in
+// the allowlist for the given scope — in that case, the caller MUST
+// reject the upload with 415 Unsupported Media Type. Allowlists:
+//
+//   - ScopePhoto    -> image/jpeg, image/png, image/webp
+//   - ScopeVideo    -> video/mp4, video/webm, video/quicktime
+//   - ScopeDocument -> application/pdf, image/jpeg, image/png
+//
+// Notably absent: SVG, HTML, executables, scripts. SVG is excluded even
+// from photo scopes because it can carry inline `<script>` tags.
+//
+// The returned extension is derived from the DETECTED type, never from
+// the client-supplied filename. This prevents the SEC-21 path-control
+// attack where `evil.html` masqueraded as `image/png` was stored at
+// `*.html` in the public bucket.
+func detectMimeFromBytes(b []byte, scope UploadScope) (mimeType, ext string, ok bool) {
+	if len(b) == 0 {
+		return "", "", false
+	}
+	sniff := b
+	if len(sniff) > 512 {
+		sniff = sniff[:512]
+	}
+	detected := http.DetectContentType(sniff)
+	switch scope {
+	case ScopePhoto:
+		switch detected {
+		case "image/jpeg":
+			return detected, "jpg", true
+		case "image/png":
+			return detected, "png", true
+		case "image/webp":
+			return detected, "webp", true
+		}
+	case ScopeVideo:
+		switch detected {
+		case "video/mp4":
+			return detected, "mp4", true
+		case "video/webm":
+			return detected, "webm", true
+		case "video/quicktime":
+			// .mov files — kept for iOS uploads, served as-is.
+			return detected, "mov", true
+		}
+	case ScopeDocument:
+		switch detected {
+		case "application/pdf":
+			return detected, "pdf", true
+		case "image/jpeg":
+			return detected, "jpg", true
+		case "image/png":
+			return detected, "png", true
+		}
+	}
+	return detected, "", false
+}
+
+// readAllBounded reads the multipart file fully into memory, capped at
+// the given size. The size cap is enforced upstream by
+// http.MaxBytesReader; this helper exists so the caller can pass the
+// resulting buffer to detectMimeFromBytes AND to the storage Upload
+// (which needs a Reader). Returns an error on read failure or empty
+// input.
+func readAllBounded(file io.Reader, max int64) ([]byte, error) {
+	buf, err := io.ReadAll(io.LimitReader(file, max+1))
+	if err != nil {
+		return nil, fmt.Errorf("read upload: %w", err)
+	}
+	if int64(len(buf)) > max {
+		return nil, fmt.Errorf("upload exceeds maximum size of %d bytes", max)
+	}
+	if len(buf) == 0 {
+		return nil, fmt.Errorf("upload is empty")
+	}
+	return buf, nil
+}
+
+// uploadResult bundles the validated buffer + computed storage key for
+// reuse across the per-endpoint handlers. Keeping the helper signature
+// flat (no struct in / out) keeps the call sites readable.
+type uploadResult struct {
+	buf []byte
+	key string
+	mimeType string
+}
+
+// validateAndBuildKey is the single choke-point all upload handlers run
+// through. It:
+//
+//  1. Reads the multipart file fully into memory (bounded by max).
+//  2. Detects the real MIME type from the magic bytes — IGNORES the
+//     client-declared Content-Type and filename extension entirely.
+//  3. Cross-checks the magic-detected type against the client-declared
+//     Content-Type. If they disagree, the request is rejected (an
+//     HTML payload claiming `image/png` flunks here).
+//  4. Builds the storage key as `<prefix>/<uuid>.<extFromMagic>` —
+//     the original filename is dropped on the floor.
+//
+// The function does NOT call s.storage.Upload — the caller does, with
+// bytes.NewReader(result.buf). This keeps the helper testable in
+// isolation without a storage mock.
+func validateAndBuildKey(
+	r *http.Request,
+	scope UploadScope,
+	maxSize int64,
+	keyPrefix string,
+) (*uploadResult, int, string, string) {
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		return nil, http.StatusBadRequest, "invalid_file", "no file provided"
+	}
+	defer file.Close()
+
+	buf, err := readAllBounded(file, maxSize)
+	if err != nil {
+		return nil, http.StatusBadRequest, "read_failed", err.Error()
+	}
+
+	detectedMime, ext, ok := detectMimeFromBytes(buf, scope)
+	if !ok {
+		return nil, http.StatusUnsupportedMediaType, "invalid_type",
+			fmt.Sprintf("file type %q is not allowed for this endpoint", detectedMime)
+	}
+
+	// Cross-check against the client-declared Content-Type. The two MUST
+	// agree on the *category* (image vs video) — we don't require an
+	// exact match because some clients send generic `application/octet-stream`
+	// for media uploads. We DO refuse SVG, HTML, scripts even when the
+	// client claims `image/...` because detectMimeFromBytes filters those
+	// out at step 2 above.
+	declaredCT := header.Header.Get("Content-Type")
+	if declaredCT != "" && !contentTypeCategoriesMatch(declaredCT, detectedMime) {
+		return nil, http.StatusUnsupportedMediaType, "invalid_type",
+			fmt.Sprintf("declared content-type %q does not match detected %q",
+				declaredCT, detectedMime)
+	}
+
+	// Storage key — random UUID + extension derived from MAGIC BYTES.
+	// header.Filename is intentionally NOT used: a client cannot
+	// influence the bucket path or the served extension.
+	key := fmt.Sprintf("%s/%s.%s", keyPrefix, uuid.New().String(), ext)
+
+	return &uploadResult{buf: buf, key: key, mimeType: detectedMime}, 0, "", ""
+}
+
+// contentTypeCategoriesMatch returns true when the client-declared
+// Content-Type is in the same category as the magic-bytes-detected type
+// ("image/" vs "image/", "video/" vs "video/", "application/pdf" vs
+// "application/pdf"). The category check is permissive enough to allow
+// `application/octet-stream` clients (which have no useful Content-Type)
+// while still catching the SEC-09 attack where `image/png` is claimed
+// for a `text/html` payload.
+func contentTypeCategoriesMatch(declared, detected string) bool {
+	if declared == "application/octet-stream" {
+		return true
+	}
+	declaredPrefix := categoryPrefix(declared)
+	detectedPrefix := categoryPrefix(detected)
+	return declaredPrefix == detectedPrefix
+}
+
+func categoryPrefix(ct string) string {
+	for i, c := range ct {
+		if c == '/' {
+			return ct[:i]
+		}
+	}
+	return ct
+}
+
 func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -72,23 +261,14 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
-		return
-	}
-	defer file.Close()
-
-	contentType := header.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "image/") {
-		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be an image")
+	prefix := fmt.Sprintf("profiles/%s/photo", orgID.String())
+	result, status, code, msg := validateAndBuildKey(r, ScopePhoto, maxPhotoSize, prefix)
+	if result == nil {
+		res.Error(w, status, code, msg)
 		return
 	}
 
-	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("profiles/%s/photo_%s%s", orgID.String(), uuid.New().String(), ext)
-
-	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	url, err := h.storage.Upload(r.Context(), result.key, bytes.NewReader(result.buf), result.mimeType, int64(len(result.buf)))
 	if err != nil {
 		slog.Error("photo upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload photo")
@@ -110,7 +290,7 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextProfilePhoto)
+		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextProfilePhoto)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
@@ -134,23 +314,14 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
-		return
-	}
-	defer file.Close()
-
-	contentType := header.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "video/") {
-		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video")
+	prefix := fmt.Sprintf("profiles/%s/video", orgID.String())
+	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxVideoSize, prefix)
+	if result == nil {
+		res.Error(w, status, code, msg)
 		return
 	}
 
-	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("profiles/%s/video_%s%s", orgID.String(), uuid.New().String(), ext)
-
-	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	url, err := h.storage.Upload(r.Context(), result.key, bytes.NewReader(result.buf), result.mimeType, int64(len(result.buf)))
 	if err != nil {
 		slog.Error("video upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
@@ -172,7 +343,7 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextProfileVideo)
+		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextProfileVideo)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
@@ -196,23 +367,14 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
-		return
-	}
-	defer file.Close()
-
-	contentType := header.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "video/") {
-		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video")
+	prefix := fmt.Sprintf("profiles/%s/referrer_video", orgID.String())
+	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxVideoSize, prefix)
+	if result == nil {
+		res.Error(w, status, code, msg)
 		return
 	}
 
-	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("profiles/%s/referrer_video_%s%s", orgID.String(), uuid.New().String(), ext)
-
-	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	url, err := h.storage.Upload(r.Context(), result.key, bytes.NewReader(result.buf), result.mimeType, int64(len(result.buf)))
 	if err != nil {
 		slog.Error("referrer video upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
@@ -234,7 +396,7 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 	}
 
 	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextReferrerVideo)
+		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextReferrerVideo)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
@@ -255,23 +417,14 @@ func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
-		return
-	}
-	defer file.Close()
-
-	contentType := header.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "video/") {
-		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video (mp4, webm, mov)")
+	prefix := fmt.Sprintf("reviews/%s/video", userID.String())
+	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxReviewVideoSize, prefix)
+	if result == nil {
+		res.Error(w, status, code, msg)
 		return
 	}
 
-	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("reviews/%s/video_%s%s", userID.String(), uuid.New().String(), ext)
-
-	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	url, err := h.storage.Upload(r.Context(), result.key, bytes.NewReader(result.buf), result.mimeType, int64(len(result.buf)))
 	if err != nil {
 		slog.Error("review video upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
@@ -279,7 +432,7 @@ func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request
 	}
 
 	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextReviewVideo)
+		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextReviewVideo)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
@@ -347,6 +500,11 @@ const maxPortfolioImageSize = 10 << 20  // 10 MB
 const maxPortfolioVideoSize = 100 << 20 // 100 MB
 
 // UploadPortfolioImage handles POST /api/v1/upload/portfolio-image.
+//
+// Magic-byte completeness check (SOI/EOI for JPEG, PNG signature/IEND
+// chunk) is preserved on top of the centralised allowlist so truncated
+// JPEG/PNGs uploaded by buggy clients still surface a clear error
+// instead of a Skia decode failure on the frontend.
 func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
@@ -360,36 +518,18 @@ func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
+	prefix := fmt.Sprintf("portfolios/%s/image", userID.String())
+	result, status, code, msg := validateAndBuildKey(r, ScopePhoto, maxPortfolioImageSize, prefix)
+	if result == nil {
+		res.Error(w, status, code, msg)
 		return
 	}
-	defer file.Close()
-
-	contentType := header.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "image/") {
-		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be an image")
-		return
-	}
-
-	// Buffer the file in memory to validate completeness before uploading.
-	// Truncated images would otherwise pass through and fail to decode in the
-	// frontend (Skia is strict about JPEG/PNG markers).
-	buf, err := io.ReadAll(file)
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "read_failed", "failed to read uploaded file")
-		return
-	}
-	if err := validateImageBytes(buf, contentType); err != nil {
+	if err := validateImageBytes(result.buf, result.mimeType); err != nil {
 		res.Error(w, http.StatusBadRequest, "corrupt_image", err.Error())
 		return
 	}
 
-	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("portfolios/%s/image_%s%s", userID.String(), uuid.New().String(), ext)
-
-	url, err := h.storage.Upload(r.Context(), key, bytes.NewReader(buf), contentType, int64(len(buf)))
+	url, err := h.storage.Upload(r.Context(), result.key, bytes.NewReader(result.buf), result.mimeType, int64(len(result.buf)))
 	if err != nil {
 		slog.Error("portfolio image upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload image")
@@ -397,7 +537,7 @@ func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Requ
 	}
 
 	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, int64(len(buf)), mediadomain.ContextPortfolioImage)
+		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextPortfolioImage)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
@@ -421,8 +561,8 @@ func validateImageBytes(buf []byte, contentType string) error {
 		tail = tail[len(tail)-tailWindow:]
 	}
 
-	switch {
-	case strings.Contains(contentType, "jpeg") || strings.Contains(contentType, "jpg"):
+	switch contentType {
+	case "image/jpeg":
 		// SOI (Start Of Image) must be at the very start.
 		if buf[0] != 0xFF || buf[1] != 0xD8 {
 			return fmt.Errorf("not a valid JPEG (missing SOI marker)")
@@ -431,7 +571,7 @@ func validateImageBytes(buf []byte, contentType string) error {
 		if !bytes.Contains(tail, []byte{0xFF, 0xD9}) {
 			return fmt.Errorf("JPEG file is incomplete (no EOI marker in tail)")
 		}
-	case strings.Contains(contentType, "png"):
+	case "image/png":
 		// PNG signature: 89 50 4E 47 0D 0A 1A 0A
 		if buf[0] != 0x89 || buf[1] != 0x50 || buf[2] != 0x4E || buf[3] != 0x47 {
 			return fmt.Errorf("not a valid PNG (missing signature)")
@@ -441,7 +581,8 @@ func validateImageBytes(buf []byte, contentType string) error {
 			return fmt.Errorf("PNG file is incomplete (no IEND chunk in tail)")
 		}
 	}
-	// For other formats (gif, webp, avif, heic, etc.), accept as-is.
+	// For other formats (webp, etc.), accept as-is — the magic-bytes
+	// detector already vouched for the file type at this point.
 	return nil
 }
 
@@ -459,23 +600,14 @@ func (h *UploadHandler) UploadPortfolioVideo(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
-		return
-	}
-	defer file.Close()
-
-	contentType := header.Header.Get("Content-Type")
-	if !strings.HasPrefix(contentType, "video/") {
-		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video")
+	prefix := fmt.Sprintf("portfolios/%s/video", userID.String())
+	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxPortfolioVideoSize, prefix)
+	if result == nil {
+		res.Error(w, status, code, msg)
 		return
 	}
 
-	ext := filepath.Ext(header.Filename)
-	key := fmt.Sprintf("portfolios/%s/video_%s%s", userID.String(), uuid.New().String(), ext)
-
-	url, err := h.storage.Upload(r.Context(), key, file, contentType, header.Size)
+	url, err := h.storage.Upload(r.Context(), result.key, bytes.NewReader(result.buf), result.mimeType, int64(len(result.buf)))
 	if err != nil {
 		slog.Error("portfolio video upload failed", "error", err, "user_id", userID)
 		res.Error(w, http.StatusInternalServerError, "upload_failed", "failed to upload video")
@@ -483,7 +615,7 @@ func (h *UploadHandler) UploadPortfolioVideo(w http.ResponseWriter, r *http.Requ
 	}
 
 	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, header.Filename, contentType, header.Size, mediadomain.ContextPortfolioVideo)
+		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextPortfolioVideo)
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})

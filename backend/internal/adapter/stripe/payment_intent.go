@@ -10,6 +10,30 @@ import (
 	portservice "marketplace-backend/internal/port/service"
 )
 
+// GetPaymentIntent fetches a PaymentIntent's current status from Stripe.
+// Required by the payment app service to verify a PI is actually
+// `succeeded` before flipping the local record (SEC-02) — without this
+// call, a client could trigger /confirm-payment via DevTools and have
+// the record marked succeeded without any real Stripe charge.
+func (s *Service) GetPaymentIntent(ctx context.Context, paymentIntentID string) (*portservice.PaymentIntentStatus, error) {
+	if paymentIntentID == "" {
+		return nil, fmt.Errorf("payment intent id is empty")
+	}
+	pi, err := paymentintent.Get(paymentIntentID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get payment intent: %w", err)
+	}
+	if pi == nil {
+		return nil, fmt.Errorf("payment intent not found: %s", paymentIntentID)
+	}
+	return &portservice.PaymentIntentStatus{
+		PaymentIntentID: pi.ID,
+		Status:          string(pi.Status),
+		AmountReceived:  pi.AmountReceived,
+		Currency:        string(pi.Currency),
+	}, nil
+}
+
 func (s *Service) CreatePaymentIntent(ctx context.Context, input portservice.CreatePaymentIntentInput) (*portservice.PaymentIntentResult, error) {
 	// Idempotency is scoped to the MILESTONE, not the proposal —
 	// phase 4 lets a single proposal own N payment intents (one per

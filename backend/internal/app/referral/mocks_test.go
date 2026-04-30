@@ -501,6 +501,9 @@ type fakeStripe struct {
 func (f *fakeStripe) CreatePaymentIntent(ctx context.Context, input service.CreatePaymentIntentInput) (*service.PaymentIntentResult, error) {
 	return nil, nil
 }
+func (f *fakeStripe) GetPaymentIntent(ctx context.Context, paymentIntentID string) (*service.PaymentIntentStatus, error) {
+	return nil, nil
+}
 func (f *fakeStripe) CreateTransfer(ctx context.Context, input service.CreateTransferInput) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

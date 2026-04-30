@@ -17,6 +17,13 @@ type StripeService interface {
 	// CreatePaymentIntent creates a PaymentIntent on the platform account.
 	CreatePaymentIntent(ctx context.Context, input CreatePaymentIntentInput) (*PaymentIntentResult, error)
 
+	// GetPaymentIntent retrieves the current Stripe state of a PaymentIntent.
+	// Used by the payment app service to verify a PaymentIntent is actually
+	// `succeeded` before flipping the local record to `succeeded` —
+	// closes SEC-02 (a client could otherwise call /confirm-payment to flip
+	// the record without ever paying Stripe).
+	GetPaymentIntent(ctx context.Context, paymentIntentID string) (*PaymentIntentStatus, error)
+
 	// CreateTransfer sends funds to a connected account.
 	CreateTransfer(ctx context.Context, input CreateTransferInput) (transferID string, err error)
 
@@ -57,6 +64,17 @@ type PaymentIntentResult struct {
 	PaymentIntentID string
 	ClientSecret    string
 	AmountTotal     int64
+}
+
+// PaymentIntentStatus is the minimal view of a PaymentIntent the app
+// layer needs to decide whether escrow can be released. Status mirrors
+// Stripe's enum literals (`requires_payment_method`, `requires_action`,
+// `processing`, `requires_capture`, `succeeded`, `canceled`).
+type PaymentIntentStatus struct {
+	PaymentIntentID string
+	Status          string
+	AmountReceived  int64
+	Currency        string
 }
 
 type CreatePersonInput struct {

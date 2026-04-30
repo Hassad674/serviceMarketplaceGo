@@ -207,6 +207,13 @@ func (e *e2ePaymentStripe) CreatePaymentIntent(_ context.Context, in service.Cre
 		AmountTotal:     in.AmountCentimes,
 	}, nil
 }
+func (e *e2ePaymentStripe) GetPaymentIntent(_ context.Context, paymentIntentID string) (*service.PaymentIntentStatus, error) {
+	return &service.PaymentIntentStatus{
+		PaymentIntentID: paymentIntentID,
+		Status:          "succeeded",
+		Currency:        "eur",
+	}, nil
+}
 func (e *e2ePaymentStripe) CreateTransfer(_ context.Context, _ service.CreateTransferInput) (string, error) {
 	return "tr_e2e", nil
 }

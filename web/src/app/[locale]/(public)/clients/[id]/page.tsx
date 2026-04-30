@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { getTranslations } from "next-intl/server"
 import { PublicClientProfileLoader } from "@/features/client-profile/components/public-client-profile-loader"
 import { fetchPublicClientProfileForMetadata } from "@/features/client-profile/api/client-profile-server"
+import { safeJsonLd } from "@/shared/lib/json-ld"
 
 type PageProps = {
   params: Promise<{ id: string; locale: string }>
@@ -93,10 +94,10 @@ function ClientJsonLd({ profile }: ClientJsonLdProps) {
     <script
       type="application/ld+json"
       // Rendered as raw JSON on purpose — React escaping would break
-      // the structured-data schema. Payload fields come only from
-      // server-trusted backend data; no user-authored HTML can reach
-      // this serialized string.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      // the structured-data schema. `client_description` is user-authored
+      // so we route through safeJsonLd() to neutralize </script>, --> and
+      // U+2028 / U+2029 separators that JSON.stringify leaves intact.
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(payload) }}
     />
   )
 }
