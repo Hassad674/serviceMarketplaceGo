@@ -12,6 +12,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -23,6 +25,17 @@ import (
 	"marketplace-backend/internal/adapter/postgres"
 	"marketplace-backend/internal/domain/milestone"
 )
+
+// atomicCounter is a tiny helper used by the concurrent-updates test
+// below. We avoid a sync.Map / channel because the test only needs
+// counter semantics. Keeping the helper local (test-only) avoids
+// polluting the postgres package public API.
+type atomicCounter struct {
+	v atomic.Int64
+}
+
+func (c *atomicCounter) add(delta int64) { c.v.Add(delta) }
+func (c *atomicCounter) get() int64       { return c.v.Load() }
 
 // newTestProposal inserts a minimal conversation + proposal pair so
 // milestones have a valid FK target. Returns the proposal id.
@@ -177,7 +190,7 @@ func TestMilestoneRepository_Update_HappyPath(t *testing.T) {
 	require.NoError(t, repo.CreateBatch(ctx, batch))
 
 	// Fetch for update, transition to funded, update.
-	m, err := repo.GetByIDForUpdate(ctx, batch[0].ID)
+	m, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
 	require.NoError(t, err)
 	require.NoError(t, m.Fund())
 	require.NoError(t, repo.Update(ctx, m))
@@ -222,6 +235,194 @@ func TestMilestoneRepository_Update_OptimisticConflict(t *testing.T) {
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, milestone.ErrConcurrentUpdate),
 		"expected ErrConcurrentUpdate, got %v", err)
+}
+
+// TestMilestoneRepository_GetByIDWithVersion_ReturnsCurrentVersion is the
+// targeted test for BUG-11: the renamed method (formerly GetByIDForUpdate)
+// must return the milestone with its current Version field populated so
+// the optimistic concurrency check in Update works correctly.
+func TestMilestoneRepository_GetByIDWithVersion_ReturnsCurrentVersion(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewMilestoneRepository(db)
+	ctx := context.Background()
+	proposalID := newTestProposal(t, db)
+
+	batch, _ := milestone.NewMilestoneBatch(proposalID, []milestone.NewMilestoneInput{
+		{Sequence: 1, Title: "Phase 1", Description: "d", Amount: 20000},
+	})
+	require.NoError(t, repo.CreateBatch(ctx, batch))
+
+	// Walk the milestone forward a few transitions; each successful
+	// Update must bump the version. GetByIDWithVersion must reflect
+	// that bump on the next read.
+	m, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, m.Version, "freshly-created milestone is version 0")
+
+	require.NoError(t, m.Fund())
+	require.NoError(t, repo.Update(ctx, m))
+
+	again, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, again.Version, "after one Update, version is 1")
+
+	require.NoError(t, again.Submit())
+	require.NoError(t, repo.Update(ctx, again))
+
+	final, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, final.Version, "after two Updates, version is 2 — strictly monotonic")
+}
+
+// TestMilestoneRepository_VersionMonotonicity_PropertyTest runs N random
+// successful transitions and asserts the version is strictly monotonic
+// after every successful Update. Covers BUG-11's property test
+// requirement: any sequence of updates → version always strictly
+// increases on success.
+func TestMilestoneRepository_VersionMonotonicity_PropertyTest(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewMilestoneRepository(db)
+	ctx := context.Background()
+	proposalID := newTestProposal(t, db)
+
+	batch, _ := milestone.NewMilestoneBatch(proposalID, []milestone.NewMilestoneInput{
+		{Sequence: 1, Title: "Phase 1", Description: "d", Amount: 20000},
+	})
+	require.NoError(t, repo.CreateBatch(ctx, batch))
+
+	// Walk the milestone through a deterministic happy-path sequence:
+	// pending_funding → funded → submitted → approved → released.
+	// At each step verify the version increased by exactly 1.
+	prev := 0
+	steps := []func(*milestone.Milestone) error{
+		(*milestone.Milestone).Fund,
+		(*milestone.Milestone).Submit,
+		(*milestone.Milestone).Approve,
+		(*milestone.Milestone).Release,
+	}
+	for i, step := range steps {
+		m, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, prev, m.Version, "step %d: version reflects committed history", i)
+
+		require.NoError(t, step(m))
+		require.NoError(t, repo.Update(ctx, m))
+
+		// In-memory version was bumped by Update too — must match
+		// what the next read will report.
+		require.Equal(t, prev+1, m.Version)
+
+		reloaded, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, prev+1, reloaded.Version,
+			"step %d: persisted version must equal in-memory version after Update", i)
+
+		prev++
+	}
+}
+
+// TestMilestoneRepository_ConcurrentUpdates_OnlyOneWins is a
+// stress version of the OptimisticConflict test: 10 concurrent
+// goroutines fetch the same milestone at version V and try to
+// Update. Exactly ONE must succeed (post-condition: version = V+1)
+// and the other 9 must get ErrConcurrentUpdate.
+//
+// This proves BUG-11's optimistic-concurrency contract: even
+// without a DB-level lock (the FOR UPDATE was a no-op), the
+// version check in the SQL serialises writers correctly.
+//
+// To make the race deterministic, every goroutine fetches the
+// milestone AND prepares the in-memory mutation BEFORE any of
+// them calls Update — otherwise late goroutines would fetch the
+// milestone in StatusFunded (after another goroutine's Update
+// committed) and Fund() would reject locally instead of the SQL
+// version check firing.
+func TestMilestoneRepository_ConcurrentUpdates_OnlyOneWins(t *testing.T) {
+	db := testDB(t)
+	repo := postgres.NewMilestoneRepository(db)
+	ctx := context.Background()
+	proposalID := newTestProposal(t, db)
+
+	batch, _ := milestone.NewMilestoneBatch(proposalID, []milestone.NewMilestoneInput{
+		{Sequence: 1, Title: "Phase 1", Description: "d", Amount: 20000},
+	})
+	require.NoError(t, repo.CreateBatch(ctx, batch))
+
+	const goroutines = 10
+	successes := atomicCounter{}
+	concurrentUpdateErrs := atomicCounter{}
+	otherErrs := atomicCounter{}
+
+	// Phase 1: all goroutines fetch + mutate locally, then signal
+	// ready. Phase 2: every goroutine simultaneously calls Update.
+	// This isolates the race to the DB-level version check (BUG-11
+	// is about) — local Fund() failures cannot pollute the result.
+	type prepared struct {
+		m   *milestone.Milestone
+		err error
+	}
+	prepCh := make(chan prepared, goroutines)
+	startCh := make(chan struct{})
+
+	var wg sync.WaitGroup
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			m, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+			if err != nil {
+				prepCh <- prepared{nil, err}
+				<-startCh
+				return
+			}
+			if err := m.Fund(); err != nil {
+				prepCh <- prepared{nil, err}
+				<-startCh
+				return
+			}
+			prepCh <- prepared{m, nil}
+			<-startCh
+
+			err = repo.Update(ctx, m)
+			switch {
+			case err == nil:
+				successes.add(1)
+			case errors.Is(err, milestone.ErrConcurrentUpdate):
+				concurrentUpdateErrs.add(1)
+			default:
+				otherErrs.add(1)
+			}
+		}()
+	}
+
+	// Wait until every goroutine is prepared (fetched + mutated).
+	// Any goroutine that errored on fetch / Fund counts as a setup
+	// failure rather than a concurrency outcome — fail the test
+	// with detail rather than silently absorbing it.
+	preparedCount := 0
+	for preparedCount < goroutines {
+		p := <-prepCh
+		require.NoError(t, p.err, "setup error in worker")
+		preparedCount++
+	}
+
+	// Release all goroutines simultaneously to maximise the
+	// concurrency window on the DB-level version check.
+	close(startCh)
+	wg.Wait()
+
+	assert.EqualValues(t, 1, successes.get(),
+		"exactly one goroutine must win the optimistic version race")
+	assert.EqualValues(t, goroutines-1, concurrentUpdateErrs.get(),
+		"the other 9 must get ErrConcurrentUpdate")
+	assert.EqualValues(t, 0, otherErrs.get(),
+		"no spurious errors expected — failure mode is exclusively ErrConcurrentUpdate")
+
+	// Verify the final state: version is exactly 1, status is funded.
+	final, err := repo.GetByIDWithVersion(ctx, batch[0].ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, final.Version, "version is V+1 after the single winning Update")
+	assert.Equal(t, milestone.StatusFunded, final.Status)
 }
 
 func TestMilestoneRepository_GetCurrentActive(t *testing.T) {

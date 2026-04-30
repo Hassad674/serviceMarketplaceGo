@@ -232,16 +232,18 @@ func (s *Service) DeleteDeliverable(ctx context.Context, milestoneID, deliverabl
 	return s.repo.DeleteDeliverable(ctx, deliverableID)
 }
 
-// withLocked is the common read-lock-mutate-write pattern used by
-// every transition method. It fetches with a row-level lock, runs the
+// withLocked is the common read-fetch-mutate-write pattern used by
+// every transition method. It fetches the current version, runs the
 // caller's mutation, and persists with an optimistic version check.
 //
-// Callers should treat ErrConcurrentUpdate as a transient error and
-// retry once from the top (including GetByIDForUpdate) — a second
-// conflict in a tight loop indicates a hot contention point and is
-// surfaced to the user.
+// "Locked" in the name is historical — there is no DB-level lock
+// (BUG-11): protection comes from Update's optimistic version check
+// (`WHERE id = $1 AND version = $2`). Callers should treat
+// ErrConcurrentUpdate as a transient error and retry once from the
+// top (including GetByIDWithVersion) — a second conflict in a tight
+// loop indicates a hot contention point and is surfaced to the user.
 func (s *Service) withLocked(ctx context.Context, milestoneID uuid.UUID, mutate func(*milestone.Milestone) error) error {
-	m, err := s.repo.GetByIDForUpdate(ctx, milestoneID)
+	m, err := s.repo.GetByIDWithVersion(ctx, milestoneID)
 	if err != nil {
 		return err
 	}

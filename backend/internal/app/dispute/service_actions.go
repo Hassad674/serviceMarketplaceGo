@@ -20,7 +20,7 @@ import (
 // from the proposal app service while still enforcing the same
 // concurrency guarantees.
 func (s *Service) markMilestoneDisputed(ctx context.Context, milestoneID, disputeID uuid.UUID) error {
-	m, err := s.milestones.GetByIDForUpdate(ctx, milestoneID)
+	m, err := s.milestones.GetByIDWithVersion(ctx, milestoneID)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (s *Service) markMilestoneDisputed(ctx context.Context, milestoneID, disput
 // (funded for partial refund, released for full release, refunded
 // for full refund).
 func (s *Service) restoreMilestoneFromDispute(ctx context.Context, milestoneID uuid.UUID, target milestonedomain.MilestoneStatus) error {
-	m, err := s.milestones.GetByIDForUpdate(ctx, milestoneID)
+	m, err := s.milestones.GetByIDWithVersion(ctx, milestoneID)
 	if err != nil {
 		return err
 	}

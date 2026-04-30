@@ -80,35 +80,34 @@ func (r *MilestoneRepository) GetByID(ctx context.Context, id uuid.UUID) (*miles
 	return m, nil
 }
 
-// GetByIDForUpdate takes a row-level lock via SELECT ... FOR UPDATE. The
-// call opens a short-lived transaction, reads the row, and immediately
-// commits — the lock is released at commit. The version returned MUST be
-// passed back to Update() unchanged except for the domain transition.
+// GetByIDWithVersion fetches a milestone and returns its current Version
+// for optimistic-concurrency control by the caller.
 //
-// The brief transaction window is intentional: we don't hold the lock
-// across app-layer side effects (notifications, Stripe calls). The
-// optimistic version check in Update is what prevents races.
-func (r *MilestoneRepository) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+// BUG-11 (renamed from GetByIDForUpdate): the previous name suggested
+// a pessimistic SELECT FOR UPDATE lock was taken, but the
+// implementation opened a transaction, ran SELECT FOR UPDATE, and
+// committed immediately — which RELEASES the lock. The race protection
+// always came from the WHERE id = $1 AND version = $2 clause in
+// Update, which returns milestone.ErrConcurrentUpdate when zero rows
+// match (the version bumped between fetch and write).
+//
+// The new implementation drops the no-op transaction + FOR UPDATE
+// dance and uses a plain QueryRowContext on the same SELECT statement
+// the read path uses — clearer semantics, identical concurrency
+// behaviour. Two concurrent callers that both fetch version V will
+// both reach Update; the one that lands first bumps the version, the
+// loser gets ErrConcurrentUpdate.
+func (r *MilestoneRepository) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	row := tx.QueryRowContext(ctx, queryGetMilestoneByIDForUpdate, id)
+	row := r.db.QueryRowContext(ctx, queryGetMilestoneByID, id)
 	m, err := scanMilestone(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, milestone.ErrMilestoneNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get milestone for update: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit lock tx: %w", err)
+		return nil, fmt.Errorf("get milestone with version: %w", err)
 	}
 	return m, nil
 }

@@ -14,7 +14,7 @@ import (
 type mockRepo struct {
 	createBatchFn       func(ctx context.Context, milestones []*domain.Milestone) error
 	getByIDFn           func(ctx context.Context, id uuid.UUID) (*domain.Milestone, error)
-	getByIDForUpdateFn  func(ctx context.Context, id uuid.UUID) (*domain.Milestone, error)
+	getByIDWithVersionFn  func(ctx context.Context, id uuid.UUID) (*domain.Milestone, error)
 	listByProposalFn    func(ctx context.Context, proposalID uuid.UUID) ([]*domain.Milestone, error)
 	getCurrentActiveFn  func(ctx context.Context, proposalID uuid.UUID) (*domain.Milestone, error)
 	updateFn            func(ctx context.Context, m *domain.Milestone) error
@@ -38,9 +38,9 @@ func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Milestone
 	return nil, domain.ErrMilestoneNotFound
 }
 
-func (m *mockRepo) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*domain.Milestone, error) {
-	if m.getByIDForUpdateFn != nil {
-		return m.getByIDForUpdateFn(ctx, id)
+func (m *mockRepo) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*domain.Milestone, error) {
+	if m.getByIDWithVersionFn != nil {
+		return m.getByIDWithVersionFn(ctx, id)
 	}
 	// Default: delegate to GetByID so happy-path tests don't need to
 	// wire two separate functions.

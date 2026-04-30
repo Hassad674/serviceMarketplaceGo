@@ -41,7 +41,7 @@ func TestService_Fund_Happy(t *testing.T) {
 	var updated *domain.Milestone
 
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 		getCurrentActiveFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
@@ -72,7 +72,7 @@ func TestService_Fund_RejectsOutOfSequence(t *testing.T) {
 	m2.ProposalID = m1.ProposalID
 
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, id uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, id uuid.UUID) (*domain.Milestone, error) {
 			if id == m2.ID {
 				return m2, nil
 			}
@@ -93,7 +93,7 @@ func TestService_Fund_RejectsOutOfSequence(t *testing.T) {
 func TestService_Fund_PropagatesConcurrentUpdate(t *testing.T) {
 	m := newMilestone(t, 1)
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 		getCurrentActiveFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
@@ -116,7 +116,7 @@ func TestService_Submit_Happy(t *testing.T) {
 	_ = m.Fund() // pre-state: funded
 
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 	}
@@ -136,7 +136,7 @@ func TestService_ApproveAndRelease_Happy(t *testing.T) {
 	_ = m.Submit()
 
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 	}
@@ -156,7 +156,7 @@ func TestService_ApproveAndRelease_Happy(t *testing.T) {
 func TestService_ApproveAndRelease_InvalidFrom(t *testing.T) {
 	m := newMilestone(t, 1) // still pending_funding
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 	}
@@ -174,7 +174,7 @@ func TestService_Reject_BackToFunded(t *testing.T) {
 	_ = m.Submit()
 
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 	}
@@ -194,7 +194,7 @@ func TestService_Reject_BackToFunded(t *testing.T) {
 func TestService_Cancel_Happy(t *testing.T) {
 	m := newMilestone(t, 1)
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 	}
@@ -232,7 +232,7 @@ func TestService_CancelAllPendingFutureMilestones(t *testing.T) {
 		listByProposalFn: func(_ context.Context, _ uuid.UUID) ([]*domain.Milestone, error) {
 			return all, nil
 		},
-		getByIDForUpdateFn: func(_ context.Context, id uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, id uuid.UUID) (*domain.Milestone, error) {
 			return byID[id], nil
 		},
 	}
@@ -267,7 +267,7 @@ func TestService_CancelAllPendingFutureMilestones_SwallowsConcurrent(t *testing.
 		listByProposalFn: func(_ context.Context, _ uuid.UUID) ([]*domain.Milestone, error) {
 			return []*domain.Milestone{m1}, nil
 		},
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m1, nil
 		},
 		updateFn: func(_ context.Context, _ *domain.Milestone) error {
@@ -288,7 +288,7 @@ func TestService_OpenDispute_Happy(t *testing.T) {
 	_ = m.Fund()
 
 	repo := &mockRepo{
-		getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+		getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 			return m, nil
 		},
 	}
@@ -316,7 +316,7 @@ func TestService_RestoreFromDispute_AllTargets(t *testing.T) {
 			_ = m.OpenDispute(uuid.New())
 
 			repo := &mockRepo{
-				getByIDForUpdateFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
+				getByIDWithVersionFn: func(_ context.Context, _ uuid.UUID) (*domain.Milestone, error) {
 					return m, nil
 				},
 			}

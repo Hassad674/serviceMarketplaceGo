@@ -164,7 +164,7 @@ func (s *Service) cancelPendingFundingMilestones(ctx context.Context, proposalID
 			continue
 		}
 		// Refetch with lock to apply the optimistic update cleanly.
-		locked, err := s.milestones.GetByIDForUpdate(ctx, m.ID)
+		locked, err := s.milestones.GetByIDWithVersion(ctx, m.ID)
 		if err != nil {
 			slog.Error("dispute: lock milestone for cancel",
 				"milestone_id", m.ID, "error", err)

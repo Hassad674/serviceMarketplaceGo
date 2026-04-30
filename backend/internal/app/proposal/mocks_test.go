@@ -151,7 +151,7 @@ var _ repository.ProposalRepository = (*mockProposalRepo)(nil)
 type mockMilestoneRepo struct {
 	createBatchFn       func(ctx context.Context, milestones []*milestone.Milestone) error
 	getByIDFn           func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
-	getByIDForUpdateFn  func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
+	getByIDWithVersionFn  func(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
 	listByProposalFn    func(ctx context.Context, proposalID uuid.UUID) ([]*milestone.Milestone, error)
 	getCurrentActiveFn  func(ctx context.Context, proposalID uuid.UUID) (*milestone.Milestone, error)
 	updateFn            func(ctx context.Context, m *milestone.Milestone) error
@@ -211,9 +211,9 @@ func (m *mockMilestoneRepo) GetByID(ctx context.Context, id uuid.UUID) (*milesto
 	return nil, milestone.ErrMilestoneNotFound
 }
 
-func (m *mockMilestoneRepo) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
-	if m.getByIDForUpdateFn != nil {
-		return m.getByIDForUpdateFn(ctx, id)
+func (m *mockMilestoneRepo) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	if m.getByIDWithVersionFn != nil {
+		return m.getByIDWithVersionFn(ctx, id)
 	}
 	return m.GetByID(ctx, id)
 }

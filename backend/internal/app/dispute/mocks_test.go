@@ -378,7 +378,7 @@ func (m *mockMilestoneRepo) GetByID(_ context.Context, id uuid.UUID) (*milestone
 	return synthDisputeMilestone(id), nil
 }
 
-func (m *mockMilestoneRepo) GetByIDForUpdate(_ context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
+func (m *mockMilestoneRepo) GetByIDWithVersion(_ context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
 	return synthDisputeMilestone(id), nil
 }
 
