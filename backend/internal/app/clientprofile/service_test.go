@@ -2,6 +2,7 @@ package clientprofile_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -113,6 +114,19 @@ func (m *mockProfileRepo) UpdateAvailability(context.Context, uuid.UUID, *profil
 	return nil
 }
 func (m *mockProfileRepo) UpdateClientDescription(context.Context, uuid.UUID, string) error {
+	return nil
+}
+
+// Outbox-aware Tx variants (BUG-05) — clientprofile tests don't drive
+// the outbox path, so these are no-op stubs satisfying the interface.
+func (m *mockProfileRepo) UpdateTx(context.Context, *sql.Tx, *profile.Profile) error { return nil }
+func (m *mockProfileRepo) UpdateLocationTx(context.Context, *sql.Tx, uuid.UUID, repository.LocationInput) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateLanguagesTx(context.Context, *sql.Tx, uuid.UUID, []string, []string) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateAvailabilityTx(context.Context, *sql.Tx, uuid.UUID, *profile.AvailabilityStatus, *profile.AvailabilityStatus) error {
 	return nil
 }
 

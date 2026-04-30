@@ -2,6 +2,7 @@ package profileapp
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/search"
 )
 
 // --- mock ---
@@ -26,6 +28,13 @@ type mockProfileRepo struct {
 	updateLanguagesFn         func(ctx context.Context, orgID uuid.UUID, pro, conv []string) error
 	updateAvailabilityFn      func(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 	updateClientDescriptionFn func(ctx context.Context, orgID uuid.UUID, clientDescription string) error
+
+	// Tx variants — wired by the outbox path (BUG-05). Nil delegates
+	// to the corresponding non-tx variant so legacy tests keep passing.
+	updateTxFn             func(ctx context.Context, tx *sql.Tx, p *profile.Profile) error
+	updateLocationTxFn     func(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, input repository.LocationInput) error
+	updateLanguagesTxFn    func(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, pro, conv []string) error
+	updateAvailabilityTxFn func(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 }
 
 func (m *mockProfileRepo) Create(ctx context.Context, p *profile.Profile) error {
@@ -88,6 +97,74 @@ func (m *mockProfileRepo) UpdateAvailability(ctx context.Context, orgID uuid.UUI
 func (m *mockProfileRepo) UpdateClientDescription(ctx context.Context, orgID uuid.UUID, clientDescription string) error {
 	if m.updateClientDescriptionFn != nil {
 		return m.updateClientDescriptionFn(ctx, orgID, clientDescription)
+	}
+	return nil
+}
+
+// --- Tx variants for the outbox path (BUG-05) ---
+
+func (m *mockProfileRepo) UpdateTx(ctx context.Context, tx *sql.Tx, p *profile.Profile) error {
+	if m.updateTxFn != nil {
+		return m.updateTxFn(ctx, tx, p)
+	}
+	return m.Update(ctx, p)
+}
+
+func (m *mockProfileRepo) UpdateLocationTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, input repository.LocationInput) error {
+	if m.updateLocationTxFn != nil {
+		return m.updateLocationTxFn(ctx, tx, orgID, input)
+	}
+	return m.UpdateLocation(ctx, orgID, input)
+}
+
+func (m *mockProfileRepo) UpdateLanguagesTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, pro, conv []string) error {
+	if m.updateLanguagesTxFn != nil {
+		return m.updateLanguagesTxFn(ctx, tx, orgID, pro, conv)
+	}
+	return m.UpdateLanguages(ctx, orgID, pro, conv)
+}
+
+func (m *mockProfileRepo) UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	if m.updateAvailabilityTxFn != nil {
+		return m.updateAvailabilityTxFn(ctx, tx, orgID, direct, referrer)
+	}
+	return m.UpdateAvailability(ctx, orgID, direct, referrer)
+}
+
+// --- search publisher + tx runner stubs for the outbox path ---
+
+type fakeProfileSearchPublisher struct {
+	reindexCalls   int
+	reindexTxCalls int
+	reindexTxErr   error
+}
+
+func (f *fakeProfileSearchPublisher) PublishReindex(_ context.Context, _ uuid.UUID, _ search.Persona) error {
+	f.reindexCalls++
+	return nil
+}
+
+func (f *fakeProfileSearchPublisher) PublishReindexTx(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ search.Persona) error {
+	f.reindexTxCalls++
+	return f.reindexTxErr
+}
+
+type stubProfileTxRunner struct {
+	calls     int
+	commitErr error
+	rollback  bool
+}
+
+func (s *stubProfileTxRunner) RunInTx(_ context.Context, fn func(tx *sql.Tx) error) error {
+	s.calls++
+	tx := &sql.Tx{}
+	if err := fn(tx); err != nil {
+		s.rollback = true
+		return err
+	}
+	if s.commitErr != nil {
+		s.rollback = true
+		return s.commitErr
 	}
 	return nil
 }
@@ -770,4 +847,139 @@ func TestProfileService_WithGeocoder_NilIsNoOp(t *testing.T) {
 	svc := NewService(&mockProfileRepo{}).WithGeocoder(nil)
 	require.NotNil(t, svc)
 	assert.Nil(t, svc.geocoder)
+}
+
+// ---------------------------------------------------------------------------
+// BUG-05 — outbox path: legacy agency profile mutations must run
+// repo.UpdateXxxTx + publisher.PublishReindexTx in the same tx.
+// ---------------------------------------------------------------------------
+
+func TestService_UpdateProfile_Outbox_UsesTxAndScheduleTx(t *testing.T) {
+	orgID := uuid.New()
+	existing := profile.NewProfile(orgID)
+
+	var (
+		updateTxCalls int
+		legacyCalls   int
+	)
+	repo := &mockProfileRepo{
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+			return existing, nil
+		},
+		updateTxFn: func(_ context.Context, _ *sql.Tx, _ *profile.Profile) error {
+			updateTxCalls++
+			return nil
+		},
+		updateFn: func(_ context.Context, _ *profile.Profile) error {
+			legacyCalls++
+			return nil
+		},
+	}
+	pub := &fakeProfileSearchPublisher{}
+	runner := &stubProfileTxRunner{}
+
+	svc := NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateProfile(context.Background(), orgID, UpdateProfileInput{Title: "X"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, runner.calls)
+	assert.Equal(t, 1, updateTxCalls, "tx-aware UpdateTx must be called on the outbox path")
+	assert.Equal(t, 0, legacyCalls, "legacy non-tx Update must NOT fire on the outbox path")
+	assert.Equal(t, 1, pub.reindexTxCalls, "PublishReindexTx must run inside the tx")
+	assert.Equal(t, 0, pub.reindexCalls)
+}
+
+func TestService_UpdateProfile_Outbox_PublishFailureRollsBack(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+			return profile.NewProfile(orgID), nil
+		},
+		updateTxFn: func(_ context.Context, _ *sql.Tx, _ *profile.Profile) error { return nil },
+	}
+	pub := &fakeProfileSearchPublisher{reindexTxErr: errors.New("typesense down")}
+	runner := &stubProfileTxRunner{}
+
+	svc := NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateProfile(context.Background(), orgID, UpdateProfileInput{Title: "X"})
+	require.Error(t, err)
+	assert.True(t, runner.rollback, "publisher failure must roll the whole tx back")
+}
+
+func TestService_UpdateLocation_Outbox_UsesTxPath(t *testing.T) {
+	orgID := uuid.New()
+	var captured repository.LocationInput
+	repo := &mockProfileRepo{
+		updateLocationTxFn: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, input repository.LocationInput) error {
+			captured = input
+			return nil
+		},
+	}
+	pub := &fakeProfileSearchPublisher{}
+	runner := &stubProfileTxRunner{}
+
+	svc := NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	err := svc.UpdateLocation(context.Background(), orgID, UpdateLocationInput{
+		City:        "Paris",
+		CountryCode: "FR",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "Paris", captured.City)
+	assert.Equal(t, "FR", captured.CountryCode)
+	assert.Equal(t, 1, runner.calls)
+	assert.Equal(t, 1, pub.reindexTxCalls)
+}
+
+func TestService_UpdateLanguages_Outbox_UsesTxPath(t *testing.T) {
+	orgID := uuid.New()
+	var capturedPro, capturedConv []string
+	repo := &mockProfileRepo{
+		updateLanguagesTxFn: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, pro, conv []string) error {
+			capturedPro = pro
+			capturedConv = conv
+			return nil
+		},
+	}
+	pub := &fakeProfileSearchPublisher{}
+	runner := &stubProfileTxRunner{}
+
+	svc := NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	err := svc.UpdateLanguages(context.Background(), orgID, []string{"fr"}, []string{"en"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"fr"}, capturedPro)
+	assert.Equal(t, []string{"en"}, capturedConv)
+	assert.Equal(t, 1, runner.calls)
+	assert.Equal(t, 1, pub.reindexTxCalls)
+}
+
+func TestService_UpdateAvailability_Outbox_UsesTxPath(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{
+		updateAvailabilityTxFn: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _, _ *profile.AvailabilityStatus) error {
+			return nil
+		},
+	}
+	pub := &fakeProfileSearchPublisher{}
+	runner := &stubProfileTxRunner{}
+
+	svc := NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	avail := profile.AvailabilityNow
+	err := svc.UpdateAvailability(context.Background(), orgID, &avail, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, runner.calls)
+	assert.Equal(t, 1, pub.reindexTxCalls)
 }

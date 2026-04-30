@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 
@@ -55,15 +56,31 @@ type FreelanceProfileRepository interface {
 	// touch any other column on the row.
 	UpdateCore(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error
 
+	// UpdateCoreTx is the outbox-aware variant of UpdateCore that
+	// runs inside the caller's transaction. Used by the search-index
+	// outbox flow (BUG-05) to commit the profile mutation and the
+	// matching `search.reindex` pending event in a single atomic
+	// boundary, so a Postgres / Typesense drift can never be
+	// produced by a partial commit.
+	UpdateCoreTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, title, about, videoURL string) error
+
 	// UpdateAvailability writes a single availability value. Takes
 	// the validated enum from the domain layer — the repository does
 	// not re-validate.
 	UpdateAvailability(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error
 
+	// UpdateAvailabilityTx mirrors UpdateAvailability but runs inside
+	// the caller's transaction (outbox path).
+	UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, status profile.AvailabilityStatus) error
+
 	// UpdateExpertiseDomains replaces the full expertise list
 	// atomically. The caller is expected to have normalized /
 	// deduplicated the slice — the repository persists it verbatim.
 	UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error
+
+	// UpdateExpertiseDomainsTx mirrors UpdateExpertiseDomains but
+	// runs inside the caller's transaction (outbox path).
+	UpdateExpertiseDomainsTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, domains []string) error
 
 	// UpdateVideo writes the video_url slot in isolation. Used by
 	// the per-persona video upload handler so the upload flow never

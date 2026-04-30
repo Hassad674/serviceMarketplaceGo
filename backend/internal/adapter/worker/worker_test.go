@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -26,6 +27,16 @@ type mockRepo struct {
 }
 
 func (m *mockRepo) Schedule(_ context.Context, e *pendingevent.PendingEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.scheduled = append(m.scheduled, e)
+	return nil
+}
+
+// ScheduleTx mirrors Schedule for the worker package's mock — the
+// worker only consumes Pop/Mark, never schedules, so this stub is
+// purely interface-satisfaction. (BUG-05 outbox path.)
+func (m *mockRepo) ScheduleTx(_ context.Context, _ *sql.Tx, e *pendingevent.PendingEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.scheduled = append(m.scheduled, e)

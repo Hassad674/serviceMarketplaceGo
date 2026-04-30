@@ -2,6 +2,7 @@ package searchindex_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -16,12 +17,14 @@ import (
 	"marketplace-backend/internal/search"
 )
 
-// fakePendingEvents records every Schedule call so tests can
+// fakePendingEvents records every Schedule(Tx) call so tests can
 // assert on the emitted events. Implements only the subset of
 // repository.PendingEventRepository that the publisher uses.
 type fakePendingEvents struct {
-	scheduled []*pendingevent.PendingEvent
-	scheduleErr error
+	scheduled    []*pendingevent.PendingEvent
+	scheduledTx  []*pendingevent.PendingEvent
+	scheduleErr  error
+	scheduleTxErr error
 }
 
 func (f *fakePendingEvents) Schedule(_ context.Context, e *pendingevent.PendingEvent) error {
@@ -29,6 +32,14 @@ func (f *fakePendingEvents) Schedule(_ context.Context, e *pendingevent.PendingE
 		return f.scheduleErr
 	}
 	f.scheduled = append(f.scheduled, e)
+	return nil
+}
+
+func (f *fakePendingEvents) ScheduleTx(_ context.Context, _ *sql.Tx, e *pendingevent.PendingEvent) error {
+	if f.scheduleTxErr != nil {
+		return f.scheduleTxErr
+	}
+	f.scheduledTx = append(f.scheduledTx, e)
 	return nil
 }
 
@@ -150,4 +161,96 @@ func TestPublisher_RepoErrorPropagates(t *testing.T) {
 
 	err = pub.PublishReindex(context.Background(), uuid.New(), search.PersonaFreelance)
 	assert.ErrorContains(t, err, "db down")
+}
+
+// ---------------------------------------------------------------------------
+// BUG-05 — outbox path: PublishReindexTx / PublishDeleteTx must
+// participate in the caller's transaction.
+// ---------------------------------------------------------------------------
+
+func TestPublisher_PublishReindexTx_WritesEventViaTxPath(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	// A nil-but-non-nil tx pointer is not produced here; we use a real
+	// *sql.Tx zero value via &sql.Tx{} so the publisher accepts it as
+	// a non-nil transaction. The fake repo never dereferences the tx.
+	tx := &sql.Tx{}
+	require.NoError(t, pub.PublishReindexTx(context.Background(), tx, orgID, search.PersonaFreelance))
+
+	assert.Empty(t, events.scheduled, "tx path must NOT use the pool-bound Schedule")
+	require.Len(t, events.scheduledTx, 1, "tx path must call ScheduleTx exactly once")
+
+	ev := events.scheduledTx[0]
+	assert.Equal(t, pendingevent.TypeSearchReindex, ev.EventType)
+
+	var payload searchindex.ReindexPayload
+	require.NoError(t, json.Unmarshal(ev.Payload, &payload))
+	assert.Equal(t, orgID, payload.OrganizationID)
+	assert.Equal(t, search.PersonaFreelance, payload.Persona)
+}
+
+func TestPublisher_PublishReindexTx_RejectsNilTx(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	err = pub.PublishReindexTx(context.Background(), nil, uuid.New(), search.PersonaFreelance)
+	assert.ErrorContains(t, err, "tx is required")
+	assert.Empty(t, events.scheduledTx)
+}
+
+func TestPublisher_PublishReindexTx_RepoErrorPropagates(t *testing.T) {
+	events := &fakePendingEvents{scheduleTxErr: errors.New("tx exec failed")}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	err = pub.PublishReindexTx(context.Background(), &sql.Tx{}, uuid.New(), search.PersonaFreelance)
+	assert.ErrorContains(t, err, "tx exec failed")
+}
+
+func TestPublisher_PublishReindexTx_DebouncedSameAsHorsTx(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{
+		Events:   events,
+		Cooldown: time.Hour,
+	})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	tx := &sql.Tx{}
+	require.NoError(t, pub.PublishReindexTx(context.Background(), tx, orgID, search.PersonaFreelance))
+	require.NoError(t, pub.PublishReindexTx(context.Background(), tx, orgID, search.PersonaFreelance))
+	require.NoError(t, pub.PublishReindexTx(context.Background(), tx, orgID, search.PersonaFreelance))
+
+	assert.Len(t, events.scheduledTx, 1, "same {org, persona} within cooldown must dedupe to one tx insert")
+}
+
+func TestPublisher_PublishDeleteTx_WritesEvent(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	orgID := uuid.New()
+	require.NoError(t, pub.PublishDeleteTx(context.Background(), &sql.Tx{}, orgID))
+
+	require.Len(t, events.scheduledTx, 1)
+	assert.Equal(t, pendingevent.TypeSearchDelete, events.scheduledTx[0].EventType)
+}
+
+func TestPublisher_PublishDeleteTx_RejectsNilTx(t *testing.T) {
+	events := &fakePendingEvents{}
+	pub, err := searchindex.NewPublisher(searchindex.PublisherConfig{Events: events})
+	require.NoError(t, err)
+
+	err = pub.PublishDeleteTx(context.Background(), nil, uuid.New())
+	assert.ErrorContains(t, err, "tx is required")
+}
+
+func TestPublisher_NilPublisher_TxMethodsAreSafe(t *testing.T) {
+	var p *searchindex.Publisher
+	assert.NoError(t, p.PublishReindexTx(context.Background(), &sql.Tx{}, uuid.New(), search.PersonaFreelance))
+	assert.NoError(t, p.PublishDeleteTx(context.Background(), &sql.Tx{}, uuid.New()))
 }

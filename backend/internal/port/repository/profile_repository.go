@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 
@@ -36,6 +37,13 @@ type ProfileRepository interface {
 	Create(ctx context.Context, p *profile.Profile) error
 	GetByOrganizationID(ctx context.Context, organizationID uuid.UUID) (*profile.Profile, error)
 	Update(ctx context.Context, p *profile.Profile) error
+
+	// UpdateTx is the outbox-aware variant of Update used by the
+	// search-index outbox flow (BUG-05). Runs the legacy agency
+	// profile mutation inside the caller's transaction so the
+	// matching `search.reindex` pending event commits atomically
+	// with the column writes.
+	UpdateTx(ctx context.Context, tx *sql.Tx, p *profile.Profile) error
 	SearchPublic(ctx context.Context, orgTypeFilter string, referrerOnly bool, cursor string, limit int) ([]*profile.PublicProfile, string, error)
 	GetPublicProfilesByOrgIDs(ctx context.Context, orgIDs []uuid.UUID) ([]*profile.PublicProfile, error)
 
@@ -52,11 +60,19 @@ type ProfileRepository interface {
 	// availability) staying untouched after this call.
 	UpdateLocation(ctx context.Context, orgID uuid.UUID, input LocationInput) error
 
+	// UpdateLocationTx mirrors UpdateLocation but runs inside the
+	// caller's transaction (outbox path).
+	UpdateLocationTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, input LocationInput) error
+
 	// UpdateLanguages replaces the two language arrays atomically.
 	// Both slices are expected to be domain-normalized (ISO 639-1
 	// lowercase, deduped) by the caller — the repository persists
 	// them verbatim.
 	UpdateLanguages(ctx context.Context, orgID uuid.UUID, professional, conversational []string) error
+
+	// UpdateLanguagesTx mirrors UpdateLanguages but runs inside the
+	// caller's transaction (outbox path).
+	UpdateLanguagesTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, professional, conversational []string) error
 
 	// UpdateAvailability patches one or both availability columns.
 	// A nil pointer means "do not touch this column" — implementations
@@ -64,6 +80,10 @@ type ProfileRepository interface {
 	// keep their current value. At least one pointer must be non-nil;
 	// passing both nil is a programmer error.
 	UpdateAvailability(ctx context.Context, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
+
+	// UpdateAvailabilityTx mirrors UpdateAvailability but runs inside
+	// the caller's transaction (outbox path).
+	UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error
 
 	// UpdateClientDescription writes the client-facing description
 	// column in a single SQL UPDATE. Implementations MUST NOT touch

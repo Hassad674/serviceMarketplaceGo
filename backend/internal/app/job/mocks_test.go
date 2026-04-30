@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -247,6 +248,21 @@ func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ *
 }
 
 func (m *mockProfileRepo) UpdateClientDescription(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
+// Outbox-aware Tx stubs (BUG-05) — job tests do not drive the
+// outbox path so these are no-ops.
+func (m *mockProfileRepo) UpdateTx(_ context.Context, _ *sql.Tx, _ *profile.Profile) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateLocationTx(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ repository.LocationInput) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateLanguagesTx(_ context.Context, _ *sql.Tx, _ uuid.UUID, _, _ []string) error {
+	return nil
+}
+func (m *mockProfileRepo) UpdateAvailabilityTx(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
 	return nil
 }
 

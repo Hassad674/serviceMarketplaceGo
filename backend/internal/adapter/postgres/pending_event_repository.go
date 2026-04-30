@@ -27,11 +27,12 @@ func NewPendingEventRepository(db *sql.DB) *PendingEventRepository {
 	return &PendingEventRepository{db: db}
 }
 
-// Schedule inserts a new pending event. Callers typically do this
-// inside their own transaction by passing a tx-bound DB — but the
-// public method takes the pool because the most common caller (the
-// proposal app service) writes a single event after committing its
-// own work.
+// Schedule inserts a new pending event using the repository's own
+// connection pool. Callers that need outbox semantics (event row
+// committed in the same transaction as the domain mutation) must
+// use ScheduleTx instead — losing the atomic boundary on this path
+// is precisely the data-drift class of bug ScheduleTx was added to
+// eliminate (see BUG-05).
 func (r *PendingEventRepository) Schedule(ctx context.Context, e *pendingevent.PendingEvent) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -43,6 +44,29 @@ func (r *PendingEventRepository) Schedule(ctx context.Context, e *pendingevent.P
 	)
 	if err != nil {
 		return fmt.Errorf("insert pending event: %w", err)
+	}
+	return nil
+}
+
+// ScheduleTx inserts a pending event inside an existing transaction.
+// The caller owns the transaction lifecycle — Begin / Commit /
+// Rollback all happen outside this method. We share the same INSERT
+// statement as Schedule so the column list (and any future schema
+// migration) stays in lock-step between the two paths.
+func (r *PendingEventRepository) ScheduleTx(ctx context.Context, tx *sql.Tx, e *pendingevent.PendingEvent) error {
+	if tx == nil {
+		return fmt.Errorf("schedule pending event: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := tx.ExecContext(ctx, queryInsertPendingEvent,
+		e.ID, string(e.EventType), e.Payload, e.FiresAt,
+		string(e.Status), e.Attempts, e.LastError,
+		e.ProcessedAt, e.CreatedAt, e.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("insert pending event in tx: %w", err)
 	}
 	return nil
 }
