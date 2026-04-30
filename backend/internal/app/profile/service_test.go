@@ -169,6 +169,15 @@ func (s *stubProfileTxRunner) RunInTx(_ context.Context, fn func(tx *sql.Tx) err
 	return nil
 }
 
+// RunInTxWithTenant satisfies the new repository.TxRunner contract
+// added by Phase 5 Agent Q (RLS migration 125). The stub ignores the
+// tenant ids — RLS is only enforced by Postgres, not by the stub —
+// and delegates to RunInTx so the existing call-count assertions
+// keep working unchanged.
+func (s *stubProfileTxRunner) RunInTxWithTenant(ctx context.Context, _, _ uuid.UUID, fn func(tx *sql.Tx) error) error {
+	return s.RunInTx(ctx, fn)
+}
+
 // --- mock Geocoder ---
 
 type mockGeocoder struct {
