@@ -201,7 +201,7 @@ func (s *Service) withMilestoneLockAudited(
 	reason string,
 	mutate func(*milestone.Milestone) error,
 ) error {
-	m, err := s.milestones.GetByIDForUpdate(ctx, milestoneID)
+	m, err := s.milestones.GetByIDWithVersion(ctx, milestoneID)
 	if err != nil {
 		return err
 	}

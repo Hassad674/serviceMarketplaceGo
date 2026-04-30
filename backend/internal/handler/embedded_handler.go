@@ -26,10 +26,33 @@ import (
 // handler needs. Defined here so tests can stub it without pulling the
 // full repository. Since phase R5 the Stripe Connect account lives on
 // the organization (the merchant of record), not on an individual user.
+//
+// WithStripeAccountLock serialises concurrent check-and-create flows
+// per org using a PostgreSQL transaction-scoped advisory lock
+// (pg_advisory_xact_lock). Closes BUG-04: two concurrent
+// CreateAccountSession requests from the same org would each see
+// "no account" and create one, leaking an orphan Stripe account
+// while only the second one was persisted in DB. By holding the
+// lock for the entire check + create + persist sequence, only one
+// goroutine ever sees the empty state.
+//
+// The implementation MUST run the callback inside a SQL transaction
+// that takes pg_advisory_xact_lock(hashtext(org_id)) as its first
+// statement so the lock is released exactly when the transaction
+// commits / rolls back. Failures inside the callback are surfaced
+// to the caller; the lock is always released by the transaction
+// boundary regardless of success or panic.
 type orgAccountStore interface {
 	GetStripeAccount(ctx context.Context, orgID uuid.UUID) (accountID, country string, err error)
 	SetStripeAccount(ctx context.Context, orgID uuid.UUID, accountID, country string) error
 	ClearStripeAccount(ctx context.Context, orgID uuid.UUID) error
+
+	// WithStripeAccountLock acquires a PG advisory lock keyed on org_id
+	// for the lifetime of fn and releases it when fn returns. If the
+	// store doesn't support advisory locks (test stubs), it MUST still
+	// serialise concurrent calls per orgID via an in-process lock so
+	// the handler's contract holds. fn's error is propagated as-is.
+	WithStripeAccountLock(ctx context.Context, orgID uuid.UUID, fn func(ctx context.Context) error) error
 }
 
 // EmbeddedHandler serves the Stripe Connect Embedded Components endpoints.
@@ -232,39 +255,64 @@ func (h *EmbeddedHandler) GetAccountStatus(w http.ResponseWriter, r *http.Reques
 // business_profile pre-fill (idempotent) so fields Stripe would
 // otherwise ask (URL, MCC, product description) are filled regardless
 // of when the account was originally created.
+//
+// BUG-04: the entire check-and-create sequence now runs under a
+// PG advisory lock keyed on org_id (via h.orgs.WithStripeAccountLock).
+// Without the lock, two concurrent CreateAccountSession requests on
+// the same org would each see "no account" and each create one — the
+// second persisted overwrote the first, leaking an orphan Stripe
+// account that the platform was billed for but never used.
+//
+// The lock scope is the whole resolveStripeAccount call (lookup +
+// optional create + persist). The fast path "row already had an
+// account id" still benefits from the lock: it makes
+// syncBusinessProfile idempotent under contention without a window
+// where two callers race the same Stripe Update.
 func (h *EmbeddedHandler) resolveStripeAccount(
 	ctx context.Context,
 	orgID uuid.UUID,
 	country, platformURL string,
 ) (string, error) {
-	existing, _, err := h.orgs.GetStripeAccount(ctx, orgID)
-	if err == nil && existing != "" {
-		// Ensure business_profile is always populated on the connected account
-		// so Stripe does not re-ask for website URL / MCC / description.
-		if updErr := syncBusinessProfile(existing, platformURL); updErr != nil {
-			slog.Warn("embedded: sync business_profile failed (non-fatal)",
-				"account_id", existing, "error", updErr)
+	var resolvedAccountID string
+	lockErr := h.orgs.WithStripeAccountLock(ctx, orgID, func(ctx context.Context) error {
+		existing, _, err := h.orgs.GetStripeAccount(ctx, orgID)
+		if err == nil && existing != "" {
+			// Ensure business_profile is always populated on the connected
+			// account so Stripe does not re-ask for website URL / MCC /
+			// description. Inside the lock so a concurrent retry doesn't
+			// race the same Stripe Update.
+			if updErr := syncBusinessProfile(existing, platformURL); updErr != nil {
+				slog.Warn("embedded: sync business_profile failed (non-fatal)",
+					"account_id", existing, "error", updErr)
+			}
+			resolvedAccountID = existing
+			return nil
 		}
-		return existing, nil
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", fmt.Errorf("lookup account: %w", err)
-	}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("lookup account: %w", err)
+		}
 
-	if country == "" {
-		return "", fmt.Errorf("country is required to create a new account")
-	}
+		if country == "" {
+			return fmt.Errorf("country is required to create a new account")
+		}
 
-	accountID, err := createStripeCustomAccount(country, platformURL)
-	if err != nil {
-		return "", fmt.Errorf("create stripe account: %w", err)
-	}
+		accountID, err := createStripeCustomAccount(country, platformURL)
+		if err != nil {
+			return fmt.Errorf("create stripe account: %w", err)
+		}
 
-	if err := h.orgs.SetStripeAccount(ctx, orgID, accountID, country); err != nil {
-		return "", fmt.Errorf("persist account id: %w", err)
+		if err := h.orgs.SetStripeAccount(ctx, orgID, accountID, country); err != nil {
+			return fmt.Errorf("persist account id: %w", err)
+		}
+		resolvedAccountID = accountID
+		return nil
+	})
+	if lockErr != nil {
+		return "", lockErr
 	}
-	return accountID, nil
+	return resolvedAccountID, nil
 }
+
 
 // syncBusinessProfile updates an existing connected account's business_profile
 // to ensure URL/MCC/description are always set. Idempotent.

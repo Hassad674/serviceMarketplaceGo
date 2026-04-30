@@ -127,7 +127,7 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 
 	t.Run("fails from failed", func(t *testing.T) {
 		rec := newFixtureRecord()
-		rec.MarkFailed()
+		require.NoError(t, rec.MarkFailed()) // Pending → Failed
 
 		err := rec.MarkPaid()
 
@@ -138,8 +138,8 @@ func TestPaymentRecord_MarkPaid(t *testing.T) {
 func TestPaymentRecord_MarkFailed(t *testing.T) {
 	rec := newFixtureRecord()
 
-	rec.MarkFailed()
-
+	err := rec.MarkFailed()
+	require.NoError(t, err)
 	assert.Equal(t, RecordStatusFailed, rec.Status)
 }
 

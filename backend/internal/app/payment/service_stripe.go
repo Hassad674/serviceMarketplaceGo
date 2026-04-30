@@ -118,8 +118,23 @@ func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input por
 	}
 
 	if existing.StripePaymentIntentID == "" {
+		// BUG-09: previously this branch did `_ = s.records.Update(...)`
+		// which silently swallowed any DB error. The
+		// StripePaymentIntentID is the link to the live Stripe charge —
+		// if we lose it, future transfer/refund calls target a phantom
+		// PI ID. Surface the error so the caller can retry instead of
+		// returning a working ClientSecret backed by a broken record.
 		existing.StripePaymentIntentID = pi.PaymentIntentID
-		_ = s.records.Update(ctx, existing)
+		if err := s.records.Update(ctx, existing); err != nil {
+			slog.Error("payment: failed to persist new PI id on existing record — record desynced from Stripe",
+				"record_id", existing.ID,
+				"proposal_id", input.ProposalID,
+				"milestone_id", input.MilestoneID,
+				"new_payment_intent_id", pi.PaymentIntentID,
+				"error", err,
+			)
+			return nil, fmt.Errorf("persist new payment intent id: %w", err)
+		}
 	}
 
 	return &portservice.PaymentIntentOutput{
@@ -337,8 +352,28 @@ func (s *Service) TransferMilestone(ctx context.Context, milestoneID uuid.UUID) 
 		IdempotencyKey: fmt.Sprintf("transfer_%s_%s", record.ID, stripeAccountID),
 	})
 	if err != nil {
+		// BUG-09: previously this branch did `_ = s.records.Update(...)`
+		// which lost the MarkTransferFailed state when the DB write
+		// failed. The record then stays as Succeeded+TransferPending
+		// (the wallet shows it ready to retry) but the Stripe transfer
+		// permanently failed — every retry hits the same Stripe error
+		// without the user seeing the failure. Surface the DB error
+		// alongside the Stripe error so the caller knows the record
+		// is desynced from Stripe state.
 		record.MarkTransferFailed()
-		_ = s.records.Update(ctx, record)
+		if uErr := s.records.Update(ctx, record); uErr != nil {
+			slog.Error("payment: failed to persist MarkTransferFailed — record desynced from Stripe",
+				"record_id", record.ID,
+				"proposal_id", record.ProposalID,
+				"milestone_id", record.MilestoneID,
+				"stripe_error", err,
+				"db_error", uErr,
+			)
+			// Both errors matter — combine them so the caller can
+			// decide whether to alert. The Stripe error is the
+			// primary one (the original create-transfer failure).
+			return fmt.Errorf("create stripe transfer: %w (mark failed save also failed: %v)", err, uErr)
+		}
 		return fmt.Errorf("create stripe transfer: %w", err)
 	}
 
@@ -408,7 +443,14 @@ func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid
 	// Full refund to client — nothing to transfer, mark the record as
 	// resolved with zero payout so the wallet removes it from escrow.
 	if amount == 0 {
-		record.ApplyDisputeResolution(0, "")
+		// State guard rejection (BUG-02): the record is no longer in a
+		// state where ApplyDisputeResolution is valid (already
+		// transferred or never succeeded). Surface the error so the
+		// caller can log + skip — overwriting ProviderPayout silently
+		// would lose the provider's money.
+		if err := record.ApplyDisputeResolution(0, ""); err != nil {
+			return fmt.Errorf("apply zero-payout dispute resolution: %w", err)
+		}
 		return s.records.Update(ctx, record)
 	}
 
@@ -454,7 +496,11 @@ func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid
 	}
 
 	// Transfer succeeded — mark completed with the new amount.
-	record.ApplyDisputeResolution(amount, transferID)
+	// State guard rejection (BUG-02) is surfaced so a caller cannot
+	// double-apply the resolution after a webhook replay.
+	if err := record.ApplyDisputeResolution(amount, transferID); err != nil {
+		return fmt.Errorf("apply dispute resolution: %w", err)
+	}
 	return s.records.Update(ctx, record)
 }
 
@@ -478,9 +524,15 @@ func (s *Service) RefundToClient(ctx context.Context, proposalID uuid.UUID, amou
 		return fmt.Errorf("stripe refund: %w", err)
 	}
 
-	// Full refund (provider gets nothing) → mark the entire payment as refunded
+	// Full refund (provider gets nothing) → mark the entire payment as refunded.
+	// State guard rejection (BUG-02): MarkRefunded only accepts a
+	// Succeeded record. A replay on an already-Refunded record returns an
+	// error here; we surface it so the dispute flow can decide whether the
+	// duplicate is benign (idempotent retry) or a true bug.
 	if record.ProviderPayout == 0 {
-		record.MarkRefunded()
+		if err := record.MarkRefunded(); err != nil {
+			return fmt.Errorf("mark record refunded: %w", err)
+		}
 	}
 	return s.records.Update(ctx, record)
 }
