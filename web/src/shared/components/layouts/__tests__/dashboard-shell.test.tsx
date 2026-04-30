@@ -12,13 +12,28 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 
+// We capture the props handed to Sidebar / Header so tests can
+// drive their callbacks (toggleCollapse, onMenuToggle, onClose).
+const sidebarPropsRef: { current: Record<string, unknown> | null } = {
+  current: null,
+}
+const headerPropsRef: { current: Record<string, unknown> | null } = {
+  current: null,
+}
+
 vi.mock("../sidebar", () => ({
-  Sidebar: () => <div data-testid="sidebar" />,
+  Sidebar: (props: Record<string, unknown>) => {
+    sidebarPropsRef.current = props
+    return <div data-testid="sidebar" />
+  },
   SIDEBAR_STORAGE_KEY: "marketplace-sidebar-collapsed",
 }))
 
 vi.mock("../header", () => ({
-  Header: () => <header data-testid="header" />,
+  Header: (props: Record<string, unknown>) => {
+    headerPropsRef.current = props
+    return <header data-testid="header" />
+  },
 }))
 
 vi.mock("@/shared/hooks/use-user", () => ({
@@ -60,6 +75,10 @@ import { DashboardShell } from "../dashboard-shell"
 beforeEach(() => {
   registerCallEventHandler.mockReset()
   delete (globalThis as Record<string, unknown>).__callSlotRegister
+  sidebarPropsRef.current = null
+  headerPropsRef.current = null
+  // Reset localStorage so the collapsed-state init effect runs from scratch.
+  window.localStorage.clear()
 })
 
 describe("DashboardShell — PERF-W-01", () => {
@@ -105,6 +124,86 @@ describe("DashboardShell — PERF-W-01", () => {
     })
     expect(screen.getByTestId("sidebar")).toBeInTheDocument()
     expect(screen.getByTestId("header")).toBeInTheDocument()
+  })
+
+  it("rehydrates the collapsed sidebar from localStorage", async () => {
+    window.localStorage.setItem("marketplace-sidebar-collapsed", "true")
+
+    render(
+      <DashboardShell>
+        <span>x</span>
+      </DashboardShell>,
+    )
+
+    await waitFor(() => {
+      const props = sidebarPropsRef.current
+      expect(props).not.toBeNull()
+      expect(props?.collapsed).toBe(true)
+    })
+  })
+
+  it("toggleCollapse persists the new state to localStorage", async () => {
+    render(
+      <DashboardShell>
+        <span>x</span>
+      </DashboardShell>,
+    )
+
+    await waitFor(() => {
+      expect(sidebarPropsRef.current).not.toBeNull()
+    })
+
+    const toggle = sidebarPropsRef.current?.onToggleCollapse as () => void
+    expect(typeof toggle).toBe("function")
+
+    // Initial state is uncollapsed → toggle should set it to true.
+    await waitFor(() => {
+      expect(sidebarPropsRef.current?.collapsed).toBe(false)
+    })
+
+    // Use act to flush state update.
+    await import("react").then(async ({ act }) => {
+      await act(async () => {
+        toggle()
+      })
+    })
+
+    expect(window.localStorage.getItem("marketplace-sidebar-collapsed")).toBe(
+      "true",
+    )
+  })
+
+  it("Sidebar's onClose closes the mobile drawer", async () => {
+    render(
+      <DashboardShell>
+        <span>x</span>
+      </DashboardShell>,
+    )
+
+    await waitFor(() => {
+      expect(sidebarPropsRef.current).not.toBeNull()
+    })
+
+    // The drawer starts closed; opening it via Header's onMenuToggle
+    // and then calling Sidebar's onClose toggles it back. We test
+    // both callbacks here in sequence to cover the state-machine.
+    const menuToggle = headerPropsRef.current?.onMenuToggle as () => void
+    const close = sidebarPropsRef.current?.onClose as () => void
+    expect(typeof menuToggle).toBe("function")
+    expect(typeof close).toBe("function")
+
+    await import("react").then(async ({ act }) => {
+      await act(async () => {
+        menuToggle()
+      })
+      // After opening, props.open should be true.
+      expect(sidebarPropsRef.current?.open).toBe(true)
+      await act(async () => {
+        close()
+      })
+      // After close, back to false.
+      expect(sidebarPropsRef.current?.open).toBe(false)
+    })
   })
 
   it("does not import livekit-client eagerly (regression guard)", async () => {
