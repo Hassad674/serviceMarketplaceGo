@@ -1,15 +1,39 @@
 package crypto
 
 import (
+	"encoding/base64"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"marketplace-backend/internal/port/service"
 )
+
+// jwtClaims is a generic claim map used by signWithClaims. Tests need
+// to forge specific malformed payloads so they cannot rely on the
+// service's GenerateAccessToken which always produces well-formed UUIDs.
+type jwtClaims map[string]any
+
+// signWithClaims signs the given claims with the shared test secret so
+// validateToken accepts the signature and continues to the claim
+// validation path we want to exercise.
+func signWithClaims(t *testing.T, c jwtClaims) string {
+	t.Helper()
+	mc := jwt.MapClaims(c)
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, mc)
+	signed, err := tok.SignedString([]byte(testSecret))
+	require.NoError(t, err)
+	return signed
+}
+
+func base64URLEncode(s string) string {
+	return base64.URLEncoding.EncodeToString([]byte(s))
+}
 
 const testSecret = "test-secret-key-for-unit-tests-32chars!"
 
@@ -323,4 +347,82 @@ func TestJWTService_AccessToken_WithoutOrganizationContext(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, claims.OrganizationID)
 	assert.Empty(t, claims.OrgRole)
+}
+
+// SEC-06: validateToken must reject any non-HMAC signing algorithm so a
+// malicious caller cannot use the alg=none / RS256 algorithm-confusion
+// attack to forge tokens that the server accepts. We craft a token
+// with the "none" alg and assert the validator rejects it.
+func TestJWTService_ValidateAccessToken_RejectsNoneAlg(t *testing.T) {
+	svc := newTestJWTService()
+
+	// Craft a token signed with `none`. jwt-go refuses this by default
+	// for ParseWithClaims so we build the JWT manually.
+	header := `{"alg":"none","typ":"JWT"}`
+	payload := `{"user_id":"00000000-0000-0000-0000-000000000001","type":"access","exp":99999999999}`
+	encode := func(s string) string {
+		return strings.TrimRight(base64URLEncode(s), "=")
+	}
+	tok := encode(header) + "." + encode(payload) + "."
+
+	claims, err := svc.ValidateAccessToken(tok)
+	require.Error(t, err)
+	assert.Nil(t, claims)
+}
+
+// validateToken returns "invalid user id in token" when the user_id
+// claim is malformed. Hand-craft a token signed with the test secret
+// but with a non-UUID user_id.
+func TestJWTService_ValidateAccessToken_InvalidUserID(t *testing.T) {
+	tok := signWithClaims(t, jwtClaims{
+		"user_id": "not-a-uuid",
+		"type":    "access",
+		"exp":     time.Now().Add(time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+	})
+
+	svc := newTestJWTService()
+	claims, err := svc.ValidateAccessToken(tok)
+	require.Error(t, err)
+	assert.Nil(t, claims)
+	assert.Contains(t, err.Error(), "user id")
+}
+
+// validateToken returns "invalid org id in token" when the org_id
+// claim is present but malformed.
+func TestJWTService_ValidateAccessToken_InvalidOrgID(t *testing.T) {
+	tok := signWithClaims(t, jwtClaims{
+		"user_id": uuid.NewString(),
+		"type":    "access",
+		"org_id":  "not-a-uuid",
+		"exp":     time.Now().Add(time.Hour).Unix(),
+		"iat":     time.Now().Unix(),
+	})
+
+	svc := newTestJWTService()
+	claims, err := svc.ValidateAccessToken(tok)
+	require.Error(t, err)
+	assert.Nil(t, claims)
+	assert.Contains(t, err.Error(), "org id")
+}
+
+// Round-trip with permissions + session_version verifies those fields
+// are preserved end-to-end. Otherwise the auth middleware would lose
+// per-org permission overrides on every refresh.
+func TestJWTService_AccessToken_PermissionsAndSessionVersion(t *testing.T) {
+	svc := newTestJWTService()
+	userID := uuid.New()
+
+	token, err := svc.GenerateAccessToken(service.AccessTokenInput{
+		UserID:         userID,
+		Role:           "agency",
+		Permissions:    []string{"missions.read", "missions.write"},
+		SessionVersion: 7,
+	})
+	require.NoError(t, err)
+
+	claims, err := svc.ValidateAccessToken(token)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"missions.read", "missions.write"}, claims.Permissions)
+	assert.Equal(t, 7, claims.SessionVersion)
 }

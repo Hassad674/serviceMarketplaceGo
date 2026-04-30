@@ -2,6 +2,8 @@ package validator
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -388,4 +390,108 @@ func TestDecodeAndValidate_ValidationFailure(t *testing.T) {
 	require.Error(t, err)
 	_, isVE := IsValidationError(err)
 	assert.True(t, isVE, "validation failure should surface as ValidationError")
+}
+
+// TestValidationError_ErrorString covers the Error() implementation —
+// it must concatenate per-field messages so a top-level log line is
+// still meaningful even without inspecting the Fields slice.
+func TestValidationError_ErrorString(t *testing.T) {
+	ve := &ValidationError{Fields: []FieldError{
+		{Field: "email", Rule: "required", Message: "email is required"},
+		{Field: "password", Rule: "min", Message: "password must be at least 10"},
+	}}
+
+	got := ve.Error()
+	assert.Contains(t, got, "email: email is required")
+	assert.Contains(t, got, "password: password must be at least 10")
+	assert.Contains(t, got, ";", "multiple field errors must be joined")
+}
+
+func TestValidationError_ErrorString_Empty(t *testing.T) {
+	ve := &ValidationError{}
+	assert.Equal(t, "", ve.Error())
+}
+
+// IsValidationError must climb the wrap chain — covers the errors.As
+// path from a wrapped error.
+func TestIsValidationError_UnwrapsWrappedError(t *testing.T) {
+	inner := &ValidationError{Fields: []FieldError{{Field: "x", Rule: "required"}}}
+	wrapped := fmt.Errorf("at boundary: %w", inner)
+
+	got, ok := IsValidationError(wrapped)
+	require.True(t, ok)
+	assert.Equal(t, inner, got)
+}
+
+func TestIsValidationError_OnPlainError_ReturnsFalse(t *testing.T) {
+	plain := errors.New("not a validation error")
+	got, ok := IsValidationError(plain)
+	assert.False(t, ok)
+	assert.Nil(t, got)
+}
+
+// messageFor branches we did not exercise yet: gt, lt, len, gte, lte
+// edge case (extra). Each rule produces a distinct message so the
+// frontend can render localised text without ambiguity.
+type extraDTO struct {
+	A string `json:"a" validate:"len=3"`
+	B int    `json:"b" validate:"gt=10"`
+	C int    `json:"c" validate:"lt=100"`
+	D int    `json:"d" validate:"gte=5,lte=15"`
+}
+
+func TestValidate_LenRuleProducesMessage(t *testing.T) {
+	dto := extraDTO{A: "ab", B: 11, C: 99, D: 10}
+	err := Validate(dto)
+	require.Error(t, err)
+	ve, _ := IsValidationError(err)
+	require.NotNil(t, ve)
+	for _, f := range ve.Fields {
+		if f.Field == "a" {
+			assert.Equal(t, "len", f.Rule)
+			assert.Contains(t, f.Message, "exactly")
+			return
+		}
+	}
+	t.Fatalf("expected an A field error; got %+v", ve.Fields)
+}
+
+func TestValidate_GtAndLtRules(t *testing.T) {
+	dto := extraDTO{A: "abc", B: 5, C: 200, D: 10}
+	err := Validate(dto)
+	require.Error(t, err)
+	ve, _ := IsValidationError(err)
+	require.NotNil(t, ve)
+
+	rules := map[string]string{}
+	for _, f := range ve.Fields {
+		rules[f.Field] = f.Rule
+	}
+	assert.Equal(t, "gt", rules["b"])
+	assert.Equal(t, "lt", rules["c"])
+}
+
+// messageFor unknown tag falls through to the default message format.
+type unknownTagDTO struct {
+	X string `json:"x" validate:"alpha"` // alpha is a known go-playground tag
+}
+
+func TestValidate_AlphaTagFlowsThroughDefault(t *testing.T) {
+	dto := unknownTagDTO{X: "abc123"}
+	err := Validate(dto)
+	require.Error(t, err)
+	ve, _ := IsValidationError(err)
+	require.NotNil(t, ve)
+	require.Len(t, ve.Fields, 1)
+	assert.Equal(t, "alpha", ve.Fields[0].Rule)
+	// Default branch produces the "%s failed %q validation" format.
+	assert.Contains(t, ve.Fields[0].Message, "alpha")
+}
+
+// instance() must return the same singleton across calls — proves the
+// sync.Once contract.
+func TestInstance_IsSingleton(t *testing.T) {
+	a := instance()
+	b := instance()
+	assert.Same(t, a, b, "sync.Once must yield a single instance")
 }
