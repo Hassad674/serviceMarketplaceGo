@@ -11,7 +11,7 @@ import {
 import {
   CityAutocomplete,
   type CitySelection,
-} from "@/features/provider/components/city-autocomplete"
+} from "@/shared/components/location/city-autocomplete"
 import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUpdateOrganizationLocation } from "../hooks/use-update-organization-location"
 import type { WorkMode } from "../api/organization-shared-api"

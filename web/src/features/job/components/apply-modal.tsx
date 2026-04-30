@@ -5,7 +5,7 @@ import { Send, Loader2, X, Upload, Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useApplyToJob } from "../hooks/use-job-applications"
-import { uploadVideo } from "@/features/provider/api/upload-api"
+import { uploadVideo } from "@/shared/lib/upload-api"
 
 interface ApplyModalProps {
   open: boolean

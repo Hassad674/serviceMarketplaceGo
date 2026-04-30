@@ -18,7 +18,7 @@ import { useSearch } from "@/shared/lib/search/use-search"
 import { useDebouncedValue } from "@/shared/lib/search/use-debounced-value"
 import { trackSearchClick } from "@/shared/lib/search/track-click"
 import { fromTypesenseDocument } from "@/shared/lib/search/typesense-document-adapter"
-import type { SearchType } from "../api/search-api"
+import type { SearchType } from "@/shared/lib/search/search-api"
 
 /**
  * SearchPage is the public listings root for freelancers, agencies,

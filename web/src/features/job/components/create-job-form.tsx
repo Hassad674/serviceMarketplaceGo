@@ -9,7 +9,7 @@ import { useUser } from "@/shared/hooks/use-user"
 import type { JobFormData } from "../types"
 import { createDefaultJobFormData } from "../types"
 import { useCreateJob } from "../hooks/use-jobs"
-import { uploadVideo } from "@/features/provider/api/upload-api"
+import { uploadVideo } from "@/shared/lib/upload-api"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
 

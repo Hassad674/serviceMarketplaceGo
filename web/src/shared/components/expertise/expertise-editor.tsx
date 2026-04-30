@@ -10,41 +10,37 @@ import {
   getMaxExpertiseForOrgType,
   isExpertiseDomainKey,
   orgTypeSupportsExpertise,
-} from "../constants/expertise"
-import { useUpdateExpertiseDomains } from "../hooks/use-update-expertise"
+} from "@/shared/lib/profile/expertise"
 
 interface ExpertiseEditorProps {
   domains: string[] | undefined
   orgType: string | undefined
   readOnly?: boolean
-  // Optional override for the save pipeline. When absent the editor
-  // uses the legacy /api/v1/profile/expertise mutation via the
-  // provider hook — that's the agency path. The freelance and
-  // referrer pages pass their own persona-specific mutations through
-  // this prop so a single component surface covers every persona
-  // without cross-feature coupling.
-  onSaveOverride?: (next: string[]) => Promise<void>
-  savingOverride?: boolean
+  // Save pipeline injected by the consumer feature. Each persona
+  // (agency, freelance, referrer) passes its own persona-specific
+  // mutation here so this component stays decoupled from any one
+  // feature. Required even for read-only consumers — pass a no-op if
+  // your persona doesn't support inline editing yet.
+  onSave: (next: string[]) => Promise<void>
+  saving: boolean
 }
 
 // The editor is the single React owner of the "currently picked list"
-// while in edit mode. On Save the value is sent to the backend; the
-// optimistic mutation immediately reflects the new list in the shared
-// profile cache, so sibling views (public profile, read-only display)
-// re-render with the new value without waiting for the network.
+// while in edit mode. On Save the value is sent through `onSave`; the
+// caller decides which API endpoint and which cache to invalidate so
+// the editor stays a pure UI component, free of cross-feature
+// coupling.
 export function ExpertiseEditor({
   domains,
   orgType,
   readOnly = false,
-  onSaveOverride,
-  savingOverride,
+  onSave,
+  saving,
 }: ExpertiseEditorProps) {
   const t = useTranslations("profile.expertise")
   const tCommon = useTranslations("common")
   const maxDomains = getMaxExpertiseForOrgType(orgType)
-  const legacyMutation = useUpdateExpertiseDomains()
-  const saveFn = onSaveOverride ?? ((next: string[]) => legacyMutation.mutateAsync(next))
-  const isSaving = savingOverride ?? legacyMutation.isPending
+  const isSaving = saving
 
   const persisted = useMemo<ExpertiseDomainKey[]>(
     () => (domains ?? []).filter(isExpertiseDomainKey),
@@ -106,11 +102,11 @@ export function ExpertiseEditor({
   const handleSave = useCallback(async () => {
     setErrorMessage(null)
     try {
-      await saveFn(selected)
+      await onSave(selected)
     } catch (caught) {
       setErrorMessage(mapErrorToMessage(caught, t))
     }
-  }, [saveFn, selected, t])
+  }, [onSave, selected, t])
 
   if (readOnly && persisted.length === 0) return null
   if (!orgTypeSupportsExpertise(orgType)) return null

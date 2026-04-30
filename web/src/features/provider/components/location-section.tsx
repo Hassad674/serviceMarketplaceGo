@@ -11,7 +11,7 @@ import {
 } from "../lib/country-options"
 import { useProfile } from "../hooks/use-profile"
 import { useUpdateLocation } from "../hooks/use-update-location"
-import { CityAutocomplete, type CitySelection } from "./city-autocomplete"
+import { CityAutocomplete, type CitySelection } from "@/shared/components/location/city-autocomplete"
 
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 

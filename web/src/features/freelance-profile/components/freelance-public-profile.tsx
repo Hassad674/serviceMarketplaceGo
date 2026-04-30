@@ -12,7 +12,7 @@ import {
   AvailabilityEditorCard,
   type AvailabilityStatus,
 } from "@/shared/components/profile/availability-editor-card"
-import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
+import { ExpertiseEditor } from "@/shared/components/expertise/expertise-editor"
 import type { FreelanceProfile } from "../api/freelance-profile-api"
 import { FreelanceProfileHeader } from "./freelance-profile-header"
 import { FreelancePricingSection } from "./freelance-pricing-section"
@@ -121,8 +121,8 @@ export function FreelancePublicProfile(props: FreelancePublicProfileProps) {
         <ExpertiseEditor
           domains={editable.expertise.value}
           orgType="provider_personal"
-          onSaveOverride={editable.expertise.onSave}
-          savingOverride={editable.expertise.isSaving}
+          onSave={editable.expertise.onSave}
+          saving={editable.expertise.isSaving}
         />
       ) : (
         <ExpertiseDisplay domains={profile.expertise_domains} />
