@@ -298,3 +298,31 @@ func TestClaimer_MarkSeenError_DoesNotFailRequest(t *testing.T) {
 	require.NoError(t, err, "cache populate failures must NEVER bubble up")
 	assert.True(t, claimed)
 }
+
+// BUG-10: a non-CacheError from the cache (an unexpected error class
+// the future adapter might emit) MUST trigger the default fallthrough
+// branch, NOT short-circuit. The test passes a plain error so the
+// switch enters the default arm and falls through to durable.
+func TestClaimer_UnexpectedCacheErrorClass_FallsThroughToDurable(t *testing.T) {
+	// Plain (non-*CacheError) error — covers the `default:` branch.
+	cache := &fakeCache{claimErr: errors.New("a future error class we did not anticipate")}
+	durable := newFakeDurable()
+
+	c, err := webhookidempotency.NewClaimer(durable, cache)
+	require.NoError(t, err)
+
+	claimed, err := c.TryClaim(context.Background(), "evt_unknown_err", "any")
+	require.NoError(t, err, "unknown cache error class must defer to durable, not fail loud")
+	assert.True(t, claimed, "durable layer succeeds → first delivery wins")
+	assert.Equal(t, 1, durable.calls, "durable must be consulted on unknown cache error")
+}
+
+// Empty-string event id error message is part of the contract — pin it.
+func TestClaimer_EmptyEventID_ErrorMessage(t *testing.T) {
+	c, err := webhookidempotency.NewClaimer(newFakeDurable(), &fakeCache{})
+	require.NoError(t, err)
+
+	_, err = c.TryClaim(context.Background(), "", "any")
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "empty event_id")
+}
