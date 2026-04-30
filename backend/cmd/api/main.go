@@ -69,6 +69,7 @@ import (
 	"marketplace-backend/internal/domain/pendingevent"
 	profiledomain "marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/search"
@@ -892,6 +893,16 @@ func main() {
 		redisClient, 3, time.Hour, 30*time.Minute,
 	)
 
+	// SEC-11: Redis-backed sliding-window rate limiter. The same
+	// instance hosts every quota class — the per-route policy and key
+	// extractor are passed at the route definition site.
+	trustedProxies, err := middleware.ParseTrustedProxies(cfg.TrustedProxies)
+	if err != nil {
+		slog.Error("invalid TRUSTED_PROXIES", "error", err)
+		os.Exit(1)
+	}
+	httpRateLimiter := middleware.NewRateLimiter(redisClient, trustedProxies)
+
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg).
 		WithBruteForce(loginBruteForce, passwordResetThrottle)
@@ -1378,6 +1389,7 @@ func main() {
 		UserRepo:             userRepo,
 		OrgOverridesResolver: orgOverridesAdapter{repo: organizationRepo},
 		Metrics:              metrics,
+		RateLimiter:          httpRateLimiter,
 	})
 
 	// Create HTTP server
