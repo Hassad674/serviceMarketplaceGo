@@ -151,7 +151,7 @@ class _EnterpriseRegisterScreenState
                       TextFormField(
                         controller: _passwordController,
                         decoration: InputDecoration(
-                          hintText: 'Minimum 8 characters',
+                          hintText: 'Minimum 10 chars, with upper, lower, digit, special',
                           prefixIcon: const Icon(Icons.lock_outlined),
                           suffixIcon: IconButton(
                             icon: Icon(
@@ -169,11 +169,24 @@ class _EnterpriseRegisterScreenState
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.newPassword],
                         validator: (value) {
+                          // SEC-20: backend requires 10 chars + upper + lower + digit + special.
                           if (value == null || value.isEmpty) {
                             return 'Password is required';
                           }
-                          if (value.length < 8) {
-                            return 'Minimum 8 characters';
+                          if (value.length < 10) {
+                            return 'Minimum 10 characters';
+                          }
+                          if (!RegExp(r'[A-Z]').hasMatch(value)) {
+                            return 'At least one uppercase letter';
+                          }
+                          if (!RegExp(r'[a-z]').hasMatch(value)) {
+                            return 'At least one lowercase letter';
+                          }
+                          if (!RegExp(r'[0-9]').hasMatch(value)) {
+                            return 'At least one digit';
+                          }
+                          if (!RegExp(r'[^A-Za-z0-9]').hasMatch(value)) {
+                            return 'At least one special character';
                           }
                           return null;
                         },

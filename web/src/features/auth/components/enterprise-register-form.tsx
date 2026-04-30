@@ -15,10 +15,11 @@ const enterpriseSchema = z
     email: z.string().email("Invalid email address"),
     password: z
       .string()
-      .min(8, "Minimum 8 characters")
+      .min(10, "Minimum 10 characters")
       .regex(/[A-Z]/, "At least one uppercase letter")
       .regex(/[a-z]/, "At least one lowercase letter")
-      .regex(/[0-9]/, "At least one digit"),
+      .regex(/[0-9]/, "At least one digit")
+      .regex(/[^A-Za-z0-9]/, "At least one special character"),
     confirm_password: z.string(),
   })
   .refine((data) => data.password === data.confirm_password, {

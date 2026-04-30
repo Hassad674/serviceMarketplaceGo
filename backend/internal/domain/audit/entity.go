@@ -41,6 +41,15 @@ const (
 	ActionPasswordResetRequest  Action = "auth.password_reset_request"
 	ActionPasswordResetComplete Action = "auth.password_reset_complete"
 
+	// ActionTokenReuseDetected is recorded when a refresh token whose
+	// JTI is already blacklisted (rotated or revoked) is presented
+	// again to /auth/refresh. This is the canonical signal that a
+	// refresh token was stolen — the legitimate user's next refresh
+	// fails because the attacker rotated the pair first, OR vice
+	// versa. SEC-06: the request returns 401 and this row is the
+	// breadcrumb the SOC needs to start an investigation.
+	ActionTokenReuseDetected Action = "auth.token_reuse_detected"
+
 	// Team / organization
 	ActionRolePermissionsChanged Action = "team.role_permissions_changed"
 	ActionMemberRoleChanged      Action = "team.member_role_changed"

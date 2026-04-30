@@ -73,6 +73,43 @@ func TestJWTService_ValidateAccessToken_ValidToken(t *testing.T) {
 	assert.True(t, claims.ExpiresAt.After(time.Now()))
 }
 
+func TestJWTService_ValidateAccessToken_HasJTI(t *testing.T) {
+	// SEC-06: every JWT MUST embed a non-empty JTI claim so the
+	// refresh-blacklist can use it as the rotation key. Two consecutive
+	// tokens for the same user must carry distinct JTIs.
+	svc := newTestJWTService()
+	userID := uuid.New()
+
+	tokenA, err := svc.GenerateAccessToken(accessInput(userID, "agency"))
+	require.NoError(t, err)
+	tokenB, err := svc.GenerateAccessToken(accessInput(userID, "agency"))
+	require.NoError(t, err)
+
+	claimsA, err := svc.ValidateAccessToken(tokenA)
+	require.NoError(t, err)
+	claimsB, err := svc.ValidateAccessToken(tokenB)
+	require.NoError(t, err)
+
+	assert.NotEmpty(t, claimsA.JTI, "access token must have a JTI claim")
+	assert.NotEmpty(t, claimsB.JTI)
+	assert.NotEqual(t, claimsA.JTI, claimsB.JTI,
+		"distinct tokens must produce distinct JTIs")
+}
+
+func TestJWTService_ValidateRefreshToken_HasJTI(t *testing.T) {
+	// SEC-06: refresh tokens carry the JTI used by RefreshToken to
+	// blacklist after rotation.
+	svc := newTestJWTService()
+	userID := uuid.New()
+
+	token, err := svc.GenerateRefreshToken(userID)
+	require.NoError(t, err)
+
+	claims, err := svc.ValidateRefreshToken(token)
+	require.NoError(t, err)
+	assert.NotEmpty(t, claims.JTI, "refresh token must have a JTI claim")
+}
+
 func TestJWTService_ValidateAccessToken_ExpiredToken(t *testing.T) {
 	// Create a service with 0 expiry to generate already-expired tokens
 	svc := NewJWTService(testSecret, -1*time.Second, 7*24*time.Hour)

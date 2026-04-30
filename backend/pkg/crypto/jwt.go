@@ -134,6 +134,7 @@ func (s *JWTService) validateToken(tokenString string, expectedType string) (*se
 		Role:           claims.Role,
 		IsAdmin:        claims.IsAdmin,
 		ExpiresAt:      claims.ExpiresAt.Time,
+		JTI:            claims.ID,
 		OrgRole:        claims.OrgRole,
 		Permissions:    claims.Permissions,
 		SessionVersion: claims.SessionVersion,

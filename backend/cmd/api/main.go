@@ -69,6 +69,7 @@ import (
 	"marketplace-backend/internal/domain/pendingevent"
 	profiledomain "marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/handler"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/search"
@@ -138,6 +139,12 @@ func main() {
 		cfg.StorageUseSSL,
 	)
 	sessionSvc := redisadapter.NewSessionService(redisClient, cfg.SessionTTL)
+	// SEC-06: refresh-token rotation. Each /auth/refresh blacklists the
+	// JTI of the consumed token; replays are detected and rejected. The
+	// blacklist is Redis-backed with per-entry TTLs that match the
+	// original token's remaining expiry, so memory use is automatically
+	// bounded as old tokens age out.
+	refreshBlacklistSvc := redisadapter.NewRefreshBlacklistService(redisClient)
 
 	// Cookie configuration
 	// In production (cross-origin: Railway backend + Vercel frontend),
@@ -192,13 +199,15 @@ func main() {
 	// team events (invitation accepted, role changed, transfer, …) can
 	// fire notifications through the same pipeline as the rest of the app.
 	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
-		Users:       userRepo,
-		Resets:      resetRepo,
-		Hasher:      hasher,
-		Tokens:      tokenSvc,
-		Email:       emailSvc,
-		Orgs:        organizationSvc,
-		FrontendURL: cfg.FrontendURL,
+		Users:            userRepo,
+		Resets:           resetRepo,
+		Hasher:           hasher,
+		Tokens:           tokenSvc,
+		Email:            emailSvc,
+		Orgs:             organizationSvc,
+		RefreshBlacklist: refreshBlacklistSvc,
+		Audits:           auditRepo,
+		FrontendURL:      cfg.FrontendURL,
 	})
 	// Profile service + Tier 1 geocoder (migration 083). The
 	// Nominatim adapter is used as-is in every environment because
@@ -876,8 +885,27 @@ func main() {
 	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
+	// SEC-07: brute-force protection. Two policies:
+	//   - login: 5 per 15-min window per email, 30-min lockout (default)
+	//   - password reset: 3 per hour per email/token, 30-min lockout
+	loginBruteForce := redisadapter.NewBruteForceService(redisClient)
+	passwordResetThrottle := redisadapter.NewBruteForceServiceWithPolicy(
+		redisClient, 3, time.Hour, 30*time.Minute,
+	)
+
+	// SEC-11: Redis-backed sliding-window rate limiter. The same
+	// instance hosts every quota class — the per-route policy and key
+	// extractor are passed at the route definition site.
+	trustedProxies, err := middleware.ParseTrustedProxies(cfg.TrustedProxies)
+	if err != nil {
+		slog.Error("invalid TRUSTED_PROXIES", "error", err)
+		os.Exit(1)
+	}
+	httpRateLimiter := middleware.NewRateLimiter(redisClient, trustedProxies)
+
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg)
+	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg).
+		WithBruteForce(loginBruteForce, passwordResetThrottle)
 	invitationHandler := handler.NewInvitationHandler(handler.InvitationHandlerDeps{
 		InvitationService: invitationSvc,
 		OrgService:        organizationSvc,
@@ -1361,6 +1389,7 @@ func main() {
 		UserRepo:             userRepo,
 		OrgOverridesResolver: orgOverridesAdapter{repo: organizationRepo},
 		Metrics:              metrics,
+		RateLimiter:          httpRateLimiter,
 	})
 
 	// Create HTTP server
