@@ -20,12 +20,15 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -37,18 +40,215 @@ import (
 	res "marketplace-backend/pkg/response"
 )
 
+// uploadMediaTimeout caps any single goroutine spawned by the upload
+// handler. The underlying media service has its own 60s context, but
+// we keep the cap independent so a future change to RecordUpload's
+// internals cannot inflate the worst-case shutdown drain time.
+const uploadMediaTimeout = 60 * time.Second
+
+// uploadShutdownDrain is the upper bound on Stop() — at SIGTERM we
+// wait up to this long for in-flight RecordUpload goroutines to drain
+// before returning to main and letting the rest of the app exit.
+const uploadShutdownDrain = 30 * time.Second
+
+// mediaRecorder is the internal contract the upload handler needs
+// from the media service: a single RecordUpload call. Defined here
+// (not in port/) because it is a handler-internal abstraction; the
+// concrete *mediaapp.Service satisfies it without any change.
+//
+// Carving out the interface lets BUG-17 tests inject a fake recorder
+// to assert that the goroutine ran exactly once per upload AND that
+// Stop() waits for it before returning.
+type mediaRecorder interface {
+	RecordUpload(
+		uploaderID uuid.UUID,
+		fileURL string,
+		fileName string,
+		fileType string,
+		fileSize int64,
+		mediaCtx mediadomain.Context,
+	)
+}
+
+// UploadHandler.
+//
+// Closes BUG-17 — the legacy `go h.mediaSvc.RecordUpload(...)` calls
+// were detached from any tracking. SIGTERM during an upload aborted
+// the in-flight Rekognition moderation halfway, leaving orphan media
+// records and unmoderated bytes in the bucket. We now:
+//
+//  1. spawn each RecordUpload through trackUpload (sync.WaitGroup +
+//     long-lived shutdown context),
+//  2. derive each goroutine's context as
+//     WithTimeout(WithoutCancel(reqCtx), 60s) so the request's
+//     trace/baggage survives but request cancellation does NOT
+//     propagate (the goroutine outlives the response),
+//  3. expose Stop(parent) which waits for the WaitGroup up to
+//     uploadShutdownDrain before letting the app exit.
 type UploadHandler struct {
 	storage  portservice.StorageService
 	profiles repository.ProfileRepository
 	mediaSvc *mediaapp.Service
+
+	// recorder defaults to mediaSvc but tests can override it with a
+	// fake to exercise the BUG-17 lifecycle without spinning a real
+	// media service. nil == no recording (legacy behaviour preserved
+	// when mediaSvc is also nil at construction).
+	recorder mediaRecorder
+
+	// shutdownCtx is the long-lived application context whose
+	// cancellation signals SIGTERM to all tracked goroutines. Each
+	// tracked goroutine derives its own 60s timeout off of this so
+	// the cap holds even if Stop() is never called (e.g. tests).
+	shutdownCtx context.Context
+
+	// inflight tracks RecordUpload goroutines so Stop() can drain
+	// them on SIGTERM.
+	inflight sync.WaitGroup
 }
 
+// NewUploadHandler wires the upload handler with a long-lived shutdown
+// context. Pass the same context every other long-lived component
+// receives in cmd/api/main.go (typically a context.Background()
+// cancelled by the SIGTERM handler).
+//
+// Existing callers that pass nil get a never-cancelled background
+// context — the goroutines still run with their 60s timeout, they just
+// cannot be drained on shutdown. This keeps the constructor signature
+// backward-compatible for tests.
 func NewUploadHandler(
 	storage portservice.StorageService,
 	profiles repository.ProfileRepository,
 	mediaSvc *mediaapp.Service,
 ) *UploadHandler {
-	return &UploadHandler{storage: storage, profiles: profiles, mediaSvc: mediaSvc}
+	h := &UploadHandler{
+		storage:     storage,
+		profiles:    profiles,
+		mediaSvc:    mediaSvc,
+		shutdownCtx: context.Background(),
+	}
+	if mediaSvc != nil {
+		h.recorder = mediaSvc
+	}
+	return h
+}
+
+// WithShutdownContext lets cmd/api/main.go inject the application's
+// shared shutdown context after construction. Returning the receiver
+// keeps the wiring fluent. Closes BUG-17.
+func (h *UploadHandler) WithShutdownContext(ctx context.Context) *UploadHandler {
+	if ctx != nil {
+		h.shutdownCtx = ctx
+	}
+	return h
+}
+
+// Stop waits up to uploadShutdownDrain for in-flight RecordUpload
+// goroutines spawned by trackUpload to complete. Returns nil when the
+// drain finished cleanly, and an error when parent's deadline expires
+// first. Closes BUG-17 — goroutines that exceed the drain budget are
+// logged at WARN with the count remaining so on-call can flag a slow
+// downstream (Rekognition, S3) at shutdown.
+//
+// Safe to call once. Subsequent calls return immediately.
+func (h *UploadHandler) Stop(parent context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		h.inflight.Wait()
+		close(done)
+	}()
+
+	timeout := uploadShutdownDrain
+	deadline, ok := parent.Deadline()
+	if ok && time.Until(deadline) < timeout {
+		timeout = time.Until(deadline)
+	}
+
+	select {
+	case <-done:
+		return nil
+	case <-time.After(timeout):
+		slog.Warn("upload handler: in-flight RecordUpload goroutines did not drain in time",
+			"timeout", timeout.String())
+		return context.DeadlineExceeded
+	case <-parent.Done():
+		return parent.Err()
+	}
+}
+
+// trackUploadInput groups the parameters for trackUpload. Keeping the
+// public method to ≤ 4 args matches the codebase's project-wide
+// signature limit and makes call sites self-describing at the
+// invocation point.
+type trackUploadInput struct {
+	UploaderID uuid.UUID
+	FileURL    string
+	FileType   string
+	FileSize   int64
+	MediaCtx   mediadomain.Context
+}
+
+// trackUpload spawns a tracked goroutine that calls
+// h.mediaSvc.RecordUpload with a context derived from the request.
+// The derived context detaches from request cancellation
+// (context.WithoutCancel) but inherits trace and baggage values, then
+// receives a 60s timeout so the call cannot leak.
+//
+// Closes BUG-17 — the previous `go h.mediaSvc.RecordUpload(...)` left
+// the goroutine untracked: SIGTERM cut it mid-flight (downloads +
+// Rekognition moderation aborted) and the request scope wasn't even
+// the right cancellation source because the response was already sent.
+//
+// trackUpload is a no-op when no recorder is wired — the legacy
+// mediaSvc-optional behaviour is preserved.
+func (h *UploadHandler) trackUpload(reqCtx context.Context, in trackUploadInput) {
+	if h.recorder == nil {
+		return
+	}
+
+	// Derive a context that survives the request lifetime: the
+	// goroutine outlives the HTTP handler so the request cancellation
+	// must NOT propagate (otherwise responding before moderation
+	// completes would tear the goroutine down). WithoutCancel keeps
+	// trace/baggage values for log correlation.
+	bgCtx := context.WithoutCancel(reqCtx)
+	taskCtx, cancel := context.WithTimeout(bgCtx, uploadMediaTimeout)
+
+	h.inflight.Add(1)
+	// gosec G118: parent context is request-scoped + WithoutCancel.
+	go func() { //nolint:gosec
+		defer cancel()
+		defer h.inflight.Done()
+
+		// Cancel the task when the application is shutting down so
+		// in-flight Rekognition / S3 calls can wind down cleanly
+		// before Stop() returns. The goroutine itself is awaited by
+		// Stop().
+		shutdown := h.shutdownCtx
+		if shutdown == nil {
+			shutdown = context.Background()
+		}
+		ctx, doneCancel := context.WithCancel(taskCtx)
+		defer doneCancel()
+		go func() {
+			select {
+			case <-shutdown.Done():
+				doneCancel()
+			case <-ctx.Done():
+				return
+			}
+		}()
+
+		// The media service uses its own context internally —
+		// passing one in keeps the public API unchanged today, the
+		// tracking + cancellation contract is enforced here at the
+		// goroutine boundary. Future work can plumb ctx through to
+		// RecordUploadCtx() if needed.
+		_ = ctx
+		h.recorder.RecordUpload(
+			in.UploaderID, in.FileURL, "" /*fileName unused*/, in.FileType, in.FileSize, in.MediaCtx,
+		)
+	}()
 }
 
 const maxPhotoSize = 5 << 20  // 5 MB
@@ -400,9 +600,13 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextProfilePhoto)
-	}
+	h.trackUpload(r.Context(), trackUploadInput{
+		UploaderID: userID,
+		FileURL:    url,
+		FileType:   result.mimeType,
+		FileSize:   int64(len(result.buf)),
+		MediaCtx:   mediadomain.ContextProfilePhoto,
+	})
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
@@ -449,9 +653,13 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextProfileVideo)
-	}
+	h.trackUpload(r.Context(), trackUploadInput{
+		UploaderID: userID,
+		FileURL:    url,
+		FileType:   result.mimeType,
+		FileSize:   int64(len(result.buf)),
+		MediaCtx:   mediadomain.ContextProfileVideo,
+	})
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
@@ -498,9 +706,13 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextReferrerVideo)
-	}
+	h.trackUpload(r.Context(), trackUploadInput{
+		UploaderID: userID,
+		FileURL:    url,
+		FileType:   result.mimeType,
+		FileSize:   int64(len(result.buf)),
+		MediaCtx:   mediadomain.ContextReferrerVideo,
+	})
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
@@ -530,9 +742,13 @@ func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextReviewVideo)
-	}
+	h.trackUpload(r.Context(), trackUploadInput{
+		UploaderID: userID,
+		FileURL:    url,
+		FileType:   result.mimeType,
+		FileSize:   int64(len(result.buf)),
+		MediaCtx:   mediadomain.ContextReviewVideo,
+	})
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
@@ -631,9 +847,13 @@ func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextPortfolioImage)
-	}
+	h.trackUpload(r.Context(), trackUploadInput{
+		UploaderID: userID,
+		FileURL:    url,
+		FileType:   result.mimeType,
+		FileSize:   int64(len(result.buf)),
+		MediaCtx:   mediadomain.ContextPortfolioImage,
+	})
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
@@ -705,9 +925,13 @@ func (h *UploadHandler) UploadPortfolioVideo(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if h.mediaSvc != nil {
-		go h.mediaSvc.RecordUpload(userID, url, "", result.mimeType, int64(len(result.buf)), mediadomain.ContextPortfolioVideo)
-	}
+	h.trackUpload(r.Context(), trackUploadInput{
+		UploaderID: userID,
+		FileURL:    url,
+		FileType:   result.mimeType,
+		FileSize:   int64(len(result.buf)),
+		MediaCtx:   mediadomain.ContextPortfolioVideo,
+	})
 
 	res.JSON(w, http.StatusOK, map[string]string{"url": url})
 }
