@@ -21,6 +21,12 @@ var (
 	ErrPaymentAlreadyExists     = errors.New("payment already exists for this proposal")
 	ErrPaymentNotPending        = errors.New("payment is not in pending state")
 	ErrPaymentNotSucceeded      = errors.New("payment has not succeeded")
+	// ErrPaymentNotConfirmed fires when MarkPaymentSucceeded is called for a
+	// payment record whose Stripe PaymentIntent is NOT in the `succeeded`
+	// state. Closes SEC-02: a client cannot trigger /confirm-payment to flip
+	// the record locally without an actual Stripe charge having cleared.
+	// Mapped to HTTP 402 Payment Required at the handler boundary.
+	ErrPaymentNotConfirmed      = errors.New("payment intent is not in succeeded state")
 	ErrTransferAlreadyDone      = errors.New("transfer already completed")
 	ErrTransferNotRetriable     = errors.New("transfer not retriable")
 	ErrStripeAccountNotFound    = errors.New("provider has no Stripe connected account")

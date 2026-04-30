@@ -12,6 +12,7 @@ import (
 	paymentapp "marketplace-backend/internal/app/payment"
 	proposalapp "marketplace-backend/internal/app/proposal"
 	milestonedomain "marketplace-backend/internal/domain/milestone"
+	paymentdomain "marketplace-backend/internal/domain/payment"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	userdomain "marketplace-backend/internal/domain/user"
 	"marketplace-backend/internal/handler/dto/request"
@@ -385,10 +386,23 @@ func (h *ProposalHandler) ConfirmPayment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Mark the payment record as succeeded
+	// Mark the payment record as succeeded — but ONLY if Stripe confirms
+	// the PaymentIntent has actually settled. SEC-02 / BUG-01: a client
+	// could otherwise call this endpoint with no real charge and have the
+	// proposal flipped to `active`, draining escrow on completion.
 	if h.paymentSvc != nil {
 		if err := h.paymentSvc.MarkPaymentSucceeded(r.Context(), proposalID); err != nil {
+			if errors.Is(err, paymentdomain.ErrPaymentNotConfirmed) {
+				slog.Warn("payment confirm denied: stripe verification failed",
+					"proposal_id", proposalID, "org_id", orgID)
+				res.Error(w, http.StatusPaymentRequired, "payment_not_confirmed",
+					"payment intent has not settled with stripe")
+				return
+			}
 			slog.Error("mark payment succeeded", "proposal_id", proposalID, "error", err)
+			res.Error(w, http.StatusInternalServerError, "payment_verification_failed",
+				"could not verify payment intent")
+			return
 		}
 	}
 
