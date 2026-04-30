@@ -144,5 +144,71 @@ void main() {
         reason: '5 concurrent refreshes must collapse into a single attempt',
       );
     });
+
+    test('50 concurrent refreshes collapse into one — stress proof', () async {
+      // BUG-08 stress: a heavily loaded screen could fire dozens of
+      // requests at once. The single-flight guard must hold under
+      // aggressive concurrency without degrading.
+      final storage = _CountingStorage(refreshToken: null);
+      final client = ApiClient(storage: storage);
+
+      final results = await Future.wait<bool>(
+        List.generate(50, (_) => client.refreshNow()),
+      );
+
+      expect(results.length, 50);
+      expect(results.every((r) => r == false), true);
+      expect(
+        storage.refreshTokenReads,
+        1,
+        reason: '50 concurrent refreshes must collapse into exactly 1 attempt',
+      );
+    });
+
+    test('staggered refresh bursts use separate flights', () async {
+      // Two distinct waves of 5 concurrent calls each — the first wave
+      // resolves before the second starts. Each wave must trigger
+      // exactly one refresh, not share with the previous wave.
+      final storage = _CountingStorage(refreshToken: null);
+      final client = ApiClient(storage: storage);
+
+      // Wave 1
+      await Future.wait<bool>(
+        List.generate(5, (_) => client.refreshNow()),
+      );
+      expect(storage.refreshTokenReads, 1, reason: 'wave 1 = 1 attempt');
+
+      // Wave 2 (after wave 1 resolved)
+      await Future.wait<bool>(
+        List.generate(5, (_) => client.refreshNow()),
+      );
+      expect(
+        storage.refreshTokenReads,
+        2,
+        reason: 'wave 2 must allocate a fresh flight, not reuse the resolved one',
+      );
+    });
+
+    test('mid-flight refresh handles immediate-then-delayed pair', () async {
+      // First call kicks off the refresh; second call lands on the
+      // very next microtask while the storage delay is still active.
+      // Both must share the SAME flight.
+      final storage = _CountingStorage(refreshToken: null);
+      final client = ApiClient(storage: storage);
+
+      final first = client.refreshNow();
+      // 1ms is shorter than the storage 5ms delay so the second call
+      // is guaranteed to land while the first is still in storage.
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      final second = client.refreshNow();
+
+      final results = await Future.wait([first, second]);
+      expect(results, [false, false]);
+      expect(
+        storage.refreshTokenReads,
+        1,
+        reason: 'second call landing during the storage delay must share the flight',
+      );
+    });
   });
 }

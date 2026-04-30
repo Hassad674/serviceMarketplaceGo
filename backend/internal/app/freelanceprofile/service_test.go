@@ -176,6 +176,96 @@ func TestService_GetByOrgID_WrapsRepoError(t *testing.T) {
 	assert.ErrorIs(t, err, domainfreelance.ErrProfileNotFound)
 }
 
+// GetPublicByOrgID is the public read path used by the listing pages.
+// Strict: must NEVER lazily create a profile (that path is for the
+// owner's editor only). Must wrap a missing-row error so callers can
+// detect "this org has no public freelance profile".
+func TestService_GetPublicByOrgID_PassesThroughRepoResult(t *testing.T) {
+	orgID := uuid.New()
+	stub := newStubView(orgID)
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID: func(ctx context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			assert.Equal(t, orgID, id, "GetPublicByOrgID must use GetByOrgID, NOT GetOrCreate")
+			return stub, nil
+		},
+	}
+	svc := appfreelance.NewService(repo)
+
+	got, err := svc.GetPublicByOrgID(context.Background(), orgID)
+	require.NoError(t, err)
+	assert.Equal(t, stub, got)
+}
+
+func TestService_GetPublicByOrgID_WrapsNotFoundError(t *testing.T) {
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID: func(ctx context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return nil, domainfreelance.ErrProfileNotFound
+		},
+	}
+	svc := appfreelance.NewService(repo)
+
+	_, err := svc.GetPublicByOrgID(context.Background(), uuid.New())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, domainfreelance.ErrProfileNotFound)
+}
+
+func TestService_GetPublicByOrgID_DoesNotLazilyCreate(t *testing.T) {
+	// Critical contract: GetPublicByOrgID must never call GetOrCreate.
+	// A consumer browsing another org's profile must NOT silently
+	// provision a row for that org — that's a side effect we
+	// definitely don't want from a read endpoint.
+	getOrCreateCalls := 0
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID: func(ctx context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return nil, domainfreelance.ErrProfileNotFound
+		},
+		getOrCreateByOrgID: func(ctx context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			getOrCreateCalls++
+			return newStubView(id), nil
+		},
+	}
+	svc := appfreelance.NewService(repo)
+
+	_, _ = svc.GetPublicByOrgID(context.Background(), uuid.New())
+
+	assert.Equal(t, 0, getOrCreateCalls,
+		"GetPublicByOrgID must NEVER call GetOrCreateByOrgID — it's a public read")
+}
+
+// GetFreelanceProfileIDByOrgID resolves the surrogate profile ID
+// for the pricing handler. Uses the lazy GetOrCreate path because
+// the pricing editor may be opened before the profile row exists.
+func TestService_GetFreelanceProfileIDByOrgID_ReturnsProfileID(t *testing.T) {
+	orgID := uuid.New()
+	stub := newStubView(orgID)
+	repo := &mockFreelanceProfileRepo{
+		getOrCreateByOrgID: func(ctx context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			assert.Equal(t, orgID, id)
+			return stub, nil
+		},
+	}
+	svc := appfreelance.NewService(repo)
+
+	got, err := svc.GetFreelanceProfileIDByOrgID(context.Background(), orgID)
+	require.NoError(t, err)
+	assert.Equal(t, stub.Profile.ID, got)
+}
+
+func TestService_GetFreelanceProfileIDByOrgID_WrapsRepoError(t *testing.T) {
+	boom := errors.New("repo blew up")
+	repo := &mockFreelanceProfileRepo{
+		getOrCreateByOrgID: func(ctx context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return nil, boom
+		},
+	}
+	svc := appfreelance.NewService(repo)
+
+	got, err := svc.GetFreelanceProfileIDByOrgID(context.Background(), uuid.New())
+	require.Error(t, err)
+	assert.ErrorIs(t, err, boom)
+	assert.Equal(t, uuid.Nil, got, "error path must return uuid.Nil so callers can branch on the boundary")
+}
+
 func TestService_UpdateCore_TrimsAndRefetches(t *testing.T) {
 	orgID := uuid.New()
 	var gotTitle, gotAbout, gotVideo string

@@ -51,3 +51,46 @@ func TestPresignedURLRequest_Validation(t *testing.T) {
 func TestMarkAsReadRequest_Validation(t *testing.T) {
 	require.Error(t, validator.Validate(MarkAsReadRequest{Seq: -1}))
 }
+
+// ResolvedContentType returns content_type when present, otherwise
+// falls back to mime_type. Both fields exist for backward
+// compatibility with older mobile builds; the helper centralises the
+// fallback so handlers don't repeat the conditional everywhere.
+func TestPresignedURLRequest_ResolvedContentType(t *testing.T) {
+	cases := []struct {
+		name     string
+		req      PresignedURLRequest
+		expected string
+	}{
+		{
+			name: "content_type wins when set",
+			req: PresignedURLRequest{
+				Filename:    "doc.pdf",
+				ContentType: "application/pdf",
+				MimeType:    "image/jpeg",
+			},
+			expected: "application/pdf",
+		},
+		{
+			name: "falls back to mime_type when content_type is empty",
+			req: PresignedURLRequest{
+				Filename: "img.jpg",
+				MimeType: "image/jpeg",
+			},
+			expected: "image/jpeg",
+		},
+		{
+			name: "empty when both are missing",
+			req: PresignedURLRequest{
+				Filename: "f.bin",
+			},
+			expected: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, tc.req.ResolvedContentType())
+		})
+	}
+}

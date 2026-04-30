@@ -336,6 +336,99 @@ func TestNotificationQueue_AckFailure_OnDeadConnection(t *testing.T) {
 	assert.Error(t, err, "Ack against a closed connection must surface the error")
 }
 
+// EnsureGroup running twice must be idempotent — a second call detects
+// the BUSYGROUP error and returns nil. This is the documented behaviour
+// in the EnsureGroup comment ("Returns nil when the group was freshly
+// created AND when Redis reports BUSYGROUP").
+func TestNotificationQueue_EnsureGroup_IdempotentOnBusyGroup(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	t.Cleanup(mr.Close)
+
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	q := adapter.NewNotificationJobQueue(client, "test-consumer")
+
+	// First call: fresh creation.
+	require.NoError(t, q.EnsureGroup(context.Background()))
+
+	// Second call: must be a no-op even though the group exists.
+	require.NoError(t, q.EnsureGroup(context.Background()),
+		"EnsureGroup must be idempotent — BUSYGROUP from Redis is benign")
+}
+
+// EnsureGroup must surface non-BUSYGROUP errors so they don't get
+// mistaken for the benign duplicate-creation case. Closing the client
+// is the smallest realistic Redis-down repro.
+func TestNotificationQueue_EnsureGroup_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	q := adapter.NewNotificationJobQueue(client, "test-consumer")
+	err = q.EnsureGroup(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "create notification job group")
+}
+
+// Enqueue surfaces a Redis failure as a wrapped error. We tear down
+// miniredis to force XADD to fail.
+func TestNotificationQueue_Enqueue_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	q := adapter.NewNotificationJobQueue(client, "test-consumer")
+	require.NoError(t, q.EnsureGroup(context.Background()))
+
+	mr.Close()
+
+	job := notifapp.DeliveryJob{
+		NotificationID: "fail-1",
+		UserID:         "u",
+		Type:           "info",
+		Title:          "x",
+		Body:           "y",
+		Data:           json.RawMessage(`{}`),
+	}
+	err = q.Enqueue(context.Background(), job)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "enqueue notification job")
+}
+
+// Dequeue surfaces a non-timeout Redis failure as a wrapped error
+// (rather than a goredis.Nil → nil-job result).
+func TestNotificationQueue_Dequeue_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	client := goredis.NewClient(&goredis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+
+	q := adapter.NewNotificationJobQueue(client, "test-consumer")
+	require.NoError(t, q.EnsureGroup(context.Background()))
+
+	mr.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	job, msgID, err := q.Dequeue(ctx)
+	require.Error(t, err)
+	assert.Nil(t, job)
+	assert.Empty(t, msgID)
+	// Either the wrap message or the underlying connection error must
+	// surface — the contract is that the failure is non-silent.
+	if !strings.Contains(err.Error(), "dequeue notification job") {
+		assert.NotEmpty(t, err.Error())
+	}
+}
+
 // BUG-22 — full integration. Enqueue, dequeue, Ack-fail. The legacy
 // behaviour was: Ack failure → message redelivered on the next cycle.
 // We can't directly probe redelivery without a queue-internal hook;

@@ -125,6 +125,44 @@ func TestRefreshBlacklist_ReAddRefreshesTTL(t *testing.T) {
 	assert.True(t, has, "second Add must extend the TTL")
 }
 
+// SEC-06: when Redis is unavailable Add must surface a wrapped error
+// so the caller can either fail closed (security-sensitive logout) or
+// fail open (less critical paths) — the helper must NOT silently
+// swallow the failure.
+func TestRefreshBlacklist_Add_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewRefreshBlacklistService(client)
+	err = svc.Add(context.Background(), "jti-down", time.Hour)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "refresh blacklist add")
+}
+
+// Has must surface a wrapped error so the caller (auth refresh) does
+// not mistake a Redis blip for a missing blacklist entry — that would
+// allow a stolen refresh token to keep working through outages.
+func TestRefreshBlacklist_Has_RedisDown_ReturnsError(t *testing.T) {
+	mr, err := miniredis.Run()
+	require.NoError(t, err)
+	addr := mr.Addr()
+	mr.Close()
+
+	client := goredis.NewClient(&goredis.Options{Addr: addr})
+	t.Cleanup(func() { _ = client.Close() })
+
+	svc := adapter.NewRefreshBlacklistService(client)
+	has, err := svc.Has(context.Background(), "jti-down")
+	require.Error(t, err)
+	assert.False(t, has, "the boolean must be false on error so the caller cannot accidentally trust the result")
+	assert.Contains(t, err.Error(), "refresh blacklist has")
+}
+
 func TestRefreshBlacklist_ConcurrentAddsAreSafe(t *testing.T) {
 	// Race condition smoke test: 10 goroutines blacklist the same JTI
 	// at once. The end state must be a single, valid blacklist entry —
