@@ -363,6 +363,15 @@ func (r *ProfileRepository) UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx
 // buildUpdateAvailabilityQuery assembles the dynamic UPDATE for the
 // availability columns. The pool and tx code paths share this so the
 // SET clause and the placeholder ordering cannot drift.
+//
+// gosec G202 suppression rationale: `sets` contains only literal
+// column-name fragments — `availability_status = $N` and
+// `referrer_availability_status = $N` — built from constants in this
+// function. The two AvailabilityStatus values reach the query via $N
+// positional args, never via the SQL text. The sql_injection_test.go
+// suite proves attempted injection payloads (`'; DROP TABLE…`,
+// `' OR 1=1`, `\x00…`) are bound as opaque text and never executed as
+// SQL.
 func buildUpdateAvailabilityQuery(orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) (string, []any) {
 	sets := make([]string, 0, 2)
 	args := make([]any, 0, 3)
@@ -375,7 +384,7 @@ func buildUpdateAvailabilityQuery(orgID uuid.UUID, direct *profile.AvailabilityS
 		args = append(args, string(*referrer))
 		sets = append(sets, fmt.Sprintf("referrer_availability_status = $%d", len(args)))
 	}
-	return "UPDATE profiles SET " + strings.Join(sets, ", ") + " WHERE organization_id = $1", args
+	return "UPDATE profiles SET " + strings.Join(sets, ", ") + " WHERE organization_id = $1", args //nolint:gosec // G202: column allowlist + parameterised values, tested
 }
 
 // UpdateClientDescription writes the client_description column in a

@@ -184,7 +184,15 @@ func insertExpertiseRows(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, domai
 		if i > 0 {
 			query += ", "
 		}
-		query += clause
+		// gosec G202 (SQL string concatenation) suppression rationale:
+		// `clause` is `fmt.Sprintf("($1, $%d, %d)", placeholder, position)`
+		// — the only variable bits are integer placeholder indices (`$2`,
+		// `$3`, …) and integer positions (0, 1, 2, …). User input arrives
+		// exclusively through `args` and is passed via parameterised
+		// placeholders to ExecContext. There is no path by which a domain
+		// key string can land in the SQL text. The injection-payload tests
+		// in expertise_repository_injection_test.go lock this invariant down.
+		query += clause // #nosec G202 -- placeholder-only concat, tested
 	}
 
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {

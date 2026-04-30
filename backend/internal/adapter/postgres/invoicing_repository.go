@@ -45,6 +45,12 @@ const invoiceColumns = `
 	pdf_r2_key, status, finalized_at, created_at, updated_at
 `
 
+// creditNoteColumns is the canonical column projection for SELECTs
+// against the credit_note table. The string contains only schema
+// names; gosec G101 flags it as a potential hardcoded credential
+// because of the "secret"-like word `_key` (in `stripe_event_id` and
+// `pdf_r2_key`) but those are column identifiers, not credentials.
+// #nosec G101 -- SQL column list, not credentials
 const creditNoteColumns = `
 	id, number, original_invoice_id, recipient_organization_id,
 	recipient_snapshot, issuer_snapshot, issued_at, reason,
@@ -825,6 +831,16 @@ func (r *InvoiceRepository) ListInvoicesAdmin(ctx context.Context, filters repo.
 
 	limitPH := addArg(limit + 1)
 
+	// gosec G202 suppression rationale: the four concatenation sites
+	// below splice strings that contain ONLY $N placeholders. They are
+	// produced by the closure `addArg(value any) string { args = append…
+	// return fmt.Sprintf("$%d", len(args)) }` which never embeds a
+	// caller-supplied value into its return — every value lands in
+	// `args` and reaches Postgres via parameterised binding. The
+	// admin filter sql_injection_test.go drives the function with
+	// classic injection payloads (`'; DROP …`, `' OR 1=1 --`, NUL
+	// bytes, encoded comments) and verifies the resulting query
+	// returns expected rows without executing the malicious clause.
 	query := `
 		WITH combined AS (
 			SELECT
@@ -837,8 +853,8 @@ func (r *InvoiceRepository) ListInvoicesAdmin(ctx context.Context, filters repo.
 				NULL::uuid AS original_invoice_id,
 				i.source_type
 			FROM invoice i
-			WHERE ` + invoiceWhere + `
-			UNION ALL
+			WHERE ` + invoiceWhere + ` ` + // #nosec G202 -- placeholder-only concat, tested
+		`UNION ALL
 			SELECT
 				cn.id, cn.number, TRUE AS is_credit_note,
 				cn.recipient_organization_id,
@@ -849,15 +865,17 @@ func (r *InvoiceRepository) ListInvoicesAdmin(ctx context.Context, filters repo.
 				cn.original_invoice_id,
 				'' AS source_type
 			FROM credit_note cn
-			WHERE ` + creditNoteWhere + `
+			WHERE ` + creditNoteWhere + // #nosec G202 -- placeholder-only concat, tested
+		`
 		)
 		SELECT id, number, is_credit_note, recipient_organization_id,
 		       recipient_legal_name, issued_at, amount_incl_tax_cents, currency,
 		       tax_regime, status, pdf_r2_key, original_invoice_id, source_type
 		FROM combined
-		WHERE TRUE` + cursorPredicate + `
+		WHERE TRUE` + cursorPredicate + // #nosec G202 -- placeholder-only concat, tested
+		`
 		ORDER BY issued_at DESC, id DESC
-		LIMIT ` + limitPH
+		LIMIT ` + limitPH // #nosec G202 -- placeholder-only concat, tested
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {

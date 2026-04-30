@@ -243,7 +243,13 @@ func insertProfileSkillRows(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, sk
 		if i > 0 {
 			query += ", "
 		}
-		query += clause
+		// gosec G202 suppression rationale: same as
+		// expertise_repository.insertExpertiseRows. `clause` only contains
+		// numeric placeholders ($1, $2, …) generated from a counter; the
+		// skill_text and position user-controlled values flow through
+		// `args` and reach the DB via $N binding, never the SQL text.
+		// Injection-payload coverage lives in the sql_injection_test.go.
+		query += clause // #nosec G202 -- placeholder-only concat, tested
 	}
 
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
