@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../storage/secure_storage.dart';
@@ -24,6 +25,29 @@ class ApiClient {
 
   late final Dio _dio;
   final SecureStorageService _storage;
+
+  /// Single-flight guard for `/auth/refresh`.
+  ///
+  /// When several requests in flight all receive 401 at once (typical
+  /// after the access token expires while a screen is loading multiple
+  /// resources), every error interceptor would otherwise call
+  /// `/auth/refresh` in parallel. With refresh-token rotation
+  /// (BUG-08 / SEC-06) only the FIRST call wins — every subsequent
+  /// concurrent call hits the freshly-blacklisted refresh token and
+  /// fails 401, which forces a redirect to login even though the user
+  /// is legitimately signed in.
+  ///
+  /// We collapse concurrent refreshes into a single Future. The first
+  /// 401 stores the in-flight Future here; every other 401 awaits the
+  /// same Future and reuses its outcome. Once the Future completes
+  /// (success or failure) we clear the field so the next 401 wave
+  /// starts a brand-new refresh.
+  ///
+  /// The shared dependency between `_tryRefreshToken` and the error
+  /// handler mutates this field — but because Dart is single-threaded
+  /// the read-then-write is atomic for our purposes (no isolate-level
+  /// concurrency in the request path).
+  Future<bool>? _refreshInFlight;
 
   ApiClient({required SecureStorageService storage}) : _storage = storage {
     _dio = Dio(
@@ -83,10 +107,47 @@ class ApiClient {
     handler.next(error);
   }
 
+  /// Test-only entry point for the single-flight refresh guard. Production
+  /// code paths reach the same logic via [_tryRefreshToken] inside the Dio
+  /// error interceptor — exposing it here lets the unit test simulate
+  /// concurrent 401s without spinning up a real HTTP server.
+  @visibleForTesting
+  Future<bool> refreshNow() => _tryRefreshToken();
+
   /// Attempts to exchange the stored refresh token for a new access token.
   ///
-  /// Uses a fresh [Dio] instance to avoid interceptor loops.
-  Future<bool> _tryRefreshToken() async {
+  /// Uses a fresh [Dio] instance to avoid interceptor loops. Concurrent
+  /// callers share a single in-flight refresh: the second 401 awaits the
+  /// future started by the first 401 instead of issuing its own
+  /// `/auth/refresh` call. This is the BUG-08 / SEC-06 single-flight
+  /// guard — without it, refresh-token rotation would reject every
+  /// concurrent caller after the first.
+  Future<bool> _tryRefreshToken() {
+    // Reuse the in-flight future when one already exists. We capture
+    // the field into a local first so the returned future does not
+    // race with another caller clearing it.
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) {
+      return inFlight;
+    }
+
+    final future = _performRefresh();
+    _refreshInFlight = future;
+    // Clear the slot once the refresh resolves so the next 401 wave
+    // can start a brand-new refresh. We use whenComplete so failures
+    // also reset the slot (otherwise a single failed refresh would
+    // poison every subsequent 401 forever).
+    future.whenComplete(() {
+      if (identical(_refreshInFlight, future)) {
+        _refreshInFlight = null;
+      }
+    });
+    return future;
+  }
+
+  /// Performs the actual `/auth/refresh` call. Always invoked through
+  /// [_tryRefreshToken] so the single-flight slot is honored.
+  Future<bool> _performRefresh() async {
     try {
       final refreshToken = await _storage.getRefreshToken();
       if (refreshToken == null) return false;
