@@ -655,6 +655,78 @@ func (r *OrganizationRepository) ClearStripeAccount(ctx context.Context, orgID u
 	return nil
 }
 
+// WithStripeAccountLock serialises concurrent Stripe account
+// check-and-create flows for the given org via a PostgreSQL
+// transaction-scoped advisory lock. Closes BUG-04: two concurrent
+// CreateAccountSession requests from the same org could each see
+// "no account" → each create one → orphan Stripe-side, only the
+// last persisted in DB.
+//
+// The advisory lock key is hashtext(org_id) to fit Postgres' bigint
+// (advisory locks take int8 keys, not UUIDs). Hash collisions across
+// different orgs are extremely unlikely (32-bit hashtext into 64-bit
+// space) and would only cause minor over-serialisation, never
+// incorrect behaviour. Different orgs lock independently.
+//
+// The lock is held for the lifetime of fn and released exactly when
+// the transaction commits (ROLLBACK / COMMIT — both release advisory
+// locks taken via pg_advisory_xact_lock). fn's error is propagated
+// as-is; the lock scope shields the caller from worrying about
+// partial commits leaking the lock.
+//
+// NOTE: fn receives a context that is the same as the caller's
+// (no per-call sub-context with the tx attached). The tx itself is
+// held privately inside this method; fn must use the standard
+// repository methods which open their own short transactions. That
+// is intentional: this helper provides MUTEX semantics, not "give
+// me a tx handle". Mixing the two would force every caller to know
+// about transactions, which leaks the abstraction.
+func (r *OrganizationRepository) WithStripeAccountLock(
+	ctx context.Context,
+	orgID uuid.UUID,
+	fn func(ctx context.Context) error,
+) error {
+	// queryTimeout caps the lock wait. If contention is high enough
+	// that a caller waits >5s for the lock, surface as an error so
+	// the request fails loudly instead of silently piling up.
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin advisory lock tx: %w", err)
+	}
+	// Roll back unless we explicitly commit on success — so the lock
+	// is always released, even on panic or fn failure.
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// pg_advisory_xact_lock blocks until the lock is acquired. The
+	// lock is automatically released at COMMIT or ROLLBACK — no
+	// pg_advisory_unlock call needed. hashtext converts the UUID
+	// string into a 32-bit int that fits the advisory lock API.
+	if _, err := tx.ExecContext(ctx,
+		`SELECT pg_advisory_xact_lock(hashtext($1))`,
+		orgID.String(),
+	); err != nil {
+		return fmt.Errorf("acquire advisory lock: %w", err)
+	}
+
+	if err := fn(ctx); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit advisory lock tx: %w", err)
+	}
+	committed = true
+	return nil
+}
+
 // GetStripeLastState returns the opaque JSON snapshot of the org's
 // last-seen Stripe account state. Used by the embedded Notifier to
 // diff incoming webhooks.
