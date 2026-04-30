@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 
 	"github.com/google/uuid"
@@ -13,6 +14,20 @@ import (
 	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/pkg/cursor"
 )
+
+// auditMetadataCorruptKey is the sentinel key inserted into a returned
+// Entry.Metadata when the row's metadata JSON failed to unmarshal.
+// Callers can detect a corrupt row without having to peer into the
+// adapter and trigger a follow-up flag (alerting, admin review).
+//
+// Closes BUG-20: previously `_ = json.Unmarshal(metadata, ...)` swallowed
+// every failure silently — a bug in the audit log is exactly the bug we
+// can no longer afford to miss, because the audit log is the very tool
+// that surfaces other bugs. The new path emits a WARN with the entry
+// ID and metadata size so on-call can spot a stream of corruption,
+// while still returning the entry (truncated metadata is better than
+// dropping the row entirely from a list endpoint).
+const auditMetadataCorruptKey = "_metadata_corrupt"
 
 // AuditRepository is the PostgreSQL adapter for the append-only
 // audit_logs table created in migration 078.
@@ -244,12 +259,7 @@ func scanAuditRow(rows *sql.Rows) (*audit.Entry, error) {
 		id := resourceID.UUID
 		entry.ResourceID = &id
 	}
-	if len(metadata) > 0 {
-		_ = json.Unmarshal(metadata, &entry.Metadata)
-	}
-	if entry.Metadata == nil {
-		entry.Metadata = map[string]any{}
-	}
+	entry.Metadata = parseAuditMetadata(entry.ID, metadata)
 	if ipStr.Valid {
 		parsed := net.ParseIP(ipStr.String)
 		if parsed != nil {
@@ -257,6 +267,45 @@ func scanAuditRow(rows *sql.Rows) (*audit.Entry, error) {
 		}
 	}
 	return &entry, nil
+}
+
+// parseAuditMetadata decodes a JSONB metadata column into a map. When
+// the bytes are empty or nil, it returns an empty (non-nil) map — the
+// public Entry contract guarantees Metadata is never nil so callers can
+// `entry.Metadata[k]` without a guard.
+//
+// Closes BUG-20: previously `_ = json.Unmarshal(metadata, &entry.Metadata)`
+// swallowed every failure. Corrupt metadata was returned as an empty
+// map indistinguishable from a row that was logged with no metadata
+// at all. We now:
+//
+//  1. emit a structured WARN with the row id and the byte size so on-call
+//     can detect a corruption stream and confirm the row is corrupt
+//     vs missing,
+//  2. tag the returned map with auditMetadataCorruptKey so admin UIs
+//     can flag the row to the operator without re-querying the DB,
+//  3. still return a usable Entry — dropping the row would leave a
+//     hole in the audit timeline, which is exactly what we are
+//     trying to prevent.
+func parseAuditMetadata(entryID uuid.UUID, raw []byte) map[string]any {
+	if len(raw) == 0 {
+		return map[string]any{}
+	}
+	out := map[string]any{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		slog.Warn("audit: metadata unmarshal failed",
+			"audit_entry_id", entryID,
+			"metadata_size", len(raw),
+			"error", err.Error(),
+		)
+		return map[string]any{
+			auditMetadataCorruptKey: err.Error(),
+		}
+	}
+	if out == nil {
+		return map[string]any{}
+	}
+	return out
 }
 
 // Silence unused import warning for pq — kept for consistency with
