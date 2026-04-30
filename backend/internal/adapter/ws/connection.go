@@ -58,7 +58,12 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 			hub:    deps.Hub,
 		}
 
-		deps.Hub.register <- client
+		// Register synchronously so the user's connection is observable
+		// the instant SetOnline / broadcastPresenceChange fires. The
+		// historical async send-on-channel left a window where a sibling
+		// goroutine could miss the new client and double-broadcast a
+		// stale "offline" state (BUG-07).
+		deps.Hub.Register(client)
 
 		_ = deps.PresenceSvc.SetOnline(r.Context(), userID)
 		// Goroutines below outlive the HTTP handler — using
@@ -114,11 +119,15 @@ func authenticateWS(r *http.Request, _ service.TokenService, sessionSvc service.
 
 func readPump(conn *websocket.Conn, client *Client, deps ConnDeps) {
 	defer func() {
-		// Check connection count BEFORE unregistering so we can detect
-		// if this was the last connection for the user.
-		isLast := deps.Hub.ConnectionCount(client.UserID) <= 1
-
-		deps.Hub.unregister <- client
+		// Closes BUG-07: take the unregister decision under the hub
+		// mutex so concurrent disconnects on the same user observe a
+		// single authoritative wasLast=true signal. The previous code
+		// computed `Hub.ConnectionCount() <= 1` BEFORE the unregister,
+		// allowing two parallel disconnects to each broadcast an
+		// offline event, or — worse — a fresh connection to register
+		// between the count read and the unregister, leaving the user
+		// erroneously marked offline while still online elsewhere.
+		wasLast := deps.Hub.Unregister(client)
 		if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
 			// A close error here is expected when the peer has already
 			// disconnected (broken pipe / connection reset). We log at
@@ -128,20 +137,20 @@ func readPump(conn *websocket.Conn, client *Client, deps ConnDeps) {
 				"error", err, "user_id", client.UserID)
 		}
 
-		if isLast {
+		if wasLast {
 			// readPump runs in its own goroutine that outlives the
 			// HTTP handler — there is no request context to detach
 			// from at this point. Use context.Background() with a
 			// hard timeout for the offline propagation; gosec G118
 			// is acceptable here because the parent goroutine has
 			// already lost its request scope by definition.
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // #nosec G118 -- detached after request lifetime
 			defer cancel()
 			_ = deps.PresenceSvc.SetOffline(ctx, client.UserID)
 			// The presence-change goroutine inherits the timeout
 			// context's lifetime but spawns its own detached one
 			// internally (5s budget) — see broadcastPresenceChange.
-			go broadcastPresenceChange(context.Background(), client.UserID, false, deps)
+			go broadcastPresenceChange(context.Background(), client.UserID, false, deps) // #nosec G118 -- detached after request lifetime
 		}
 	}()
 
@@ -195,10 +204,36 @@ func handleHeartbeat(client *Client, presenceSvc service.PresenceService) {
 		return
 	}
 
+	sendOrDrop(client, pong, TypePong)
+}
+
+// sendOrDrop is the SINGLE blessed way to push a payload onto a
+// Client.Send channel from within the readPump path. It performs a
+// non-blocking send so a slow / wedged writePump can never block the
+// readPump on a full buffer.
+//
+// Closes BUG-06: previously syncSingleConversation and sendError sent
+// synchronously (`client.Send <- envelope`). When the writePump is slow
+// — most commonly a mobile client backgrounded over a flaky link — the
+// 64-slot Send buffer fills up and the readPump blocks until the
+// pongWait timeout (60s) tears down the entire connection. During
+// that 60s the goroutine is wedged, presence is incorrect, and the
+// Client object leaks until the conn finally fails. The select-default
+// pattern matches the existing Hub.SendToUser drop policy and keeps
+// the readPump responsive: a dropped envelope is recoverable (the
+// client can re-sync), a wedged readPump is not.
+//
+// envelopeKind is added to the structured log for triage — operators
+// can grep for which message types are being dropped under load.
+func sendOrDrop(client *Client, payload []byte, envelopeKind string) {
 	select {
-	case client.Send <- pong:
+	case client.Send <- payload:
 	default:
-		slog.Warn("send buffer full on heartbeat pong", "user_id", client.UserID)
+		slog.Warn("ws send buffer full, dropping",
+			"client_user_id", client.UserID,
+			"envelope_type", envelopeKind,
+			"buffer_size", sendBufferSize,
+		)
 	}
 }
 
@@ -289,7 +324,7 @@ func syncSingleConversation(client *Client, convIDStr string, sinceSeq int, deps
 		return
 	}
 
-	client.Send <- envelope
+	sendOrDrop(client, envelope, TypeSyncResult)
 }
 
 // marshalMessageForSync converts a domain Message to a JSON-friendly map
@@ -345,7 +380,7 @@ func sendError(client *Client, errMsg string) {
 		slog.Error("failed to marshal error envelope", "error", err)
 		return
 	}
-	client.Send <- data
+	sendOrDrop(client, data, TypeError)
 }
 
 func writePump(conn *websocket.Conn, client *Client) {
