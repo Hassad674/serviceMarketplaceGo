@@ -213,12 +213,16 @@ describe("BillingProfileForm", () => {
   })
 
   it("renders the error fallback when the query errors out", async () => {
+    // The hook configures retry: 1 — let it run twice before the
+    // error state lands.
     mockFetch.mockRejectedValue(new Error("nope"))
     render(withQueryClient(<BillingProfileForm />))
-    await waitFor(() =>
-      expect(
-        screen.getByText(/Impossible de charger le profil de facturation/),
-      ).toBeInTheDocument(),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(/Impossible de charger le profil de facturation/),
+        ).toBeInTheDocument(),
+      { timeout: 5_000 },
     )
   })
 
