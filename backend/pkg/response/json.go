@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"reflect"
 )
 
 // JSON writes a JSON-encoded response with the given status code.
@@ -18,6 +19,17 @@ import (
 //
 // For all other statuses the body is encoded as JSON. Encoding errors are
 // logged at ERROR level because they indicate a real marshalling bug.
+//
+// BUG-19 (empty-list null vs []) — JSON normalises a nil slice argument
+// to an empty slice of the same element type before encoding so the
+// wire format is `[]` instead of `null`. TS clients across the apps
+// call `.length` / `.map` on list responses; receiving `null` crashes
+// them at runtime. The normalisation only touches top-level slices —
+// nested slices are still rendered as `null` if the caller passes a
+// nil into a struct field, because at that point the contract is
+// per-field and outside the response helper's scope. Handlers wanting
+// nested slices to also normalise can call NilSliceToEmpty on each
+// field before composing the response.
 func JSON(w http.ResponseWriter, status int, data any) {
 	if bodyNotAllowed(status) {
 		w.WriteHeader(status)
@@ -25,9 +37,33 @@ func JSON(w http.ResponseWriter, status int, data any) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(data); err != nil {
+	if err := json.NewEncoder(w).Encode(NilSliceToEmpty(data)); err != nil {
 		slog.Error("failed to encode response", "error", err)
 	}
+}
+
+// NilSliceToEmpty returns an empty slice of the same element type when
+// the argument is a nil slice. For every other input it returns the
+// argument unchanged. Closes BUG-19: nil slices in Go marshal to JSON
+// `null`, breaking TS clients that call `.length` on the response. This
+// helper is exported so callers that build envelopes with nested
+// slices can normalise them explicitly.
+//
+// Implementation note: handlers across the codebase return concrete
+// slice types (`[]*User`, `[]map[string]any`, `[]string`). reflect lets
+// us return an empty slice of the *same element type* without losing
+// the JSON type information — both `[]*User{}` and `[]string{}` encode
+// to the same JSON `[]`, but preserving the element type keeps tools
+// like fmt.Sprintf("%T") informative for log lines.
+func NilSliceToEmpty(v any) any {
+	if v == nil {
+		return v
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Slice || !rv.IsNil() {
+		return v
+	}
+	return reflect.MakeSlice(rv.Type(), 0, 0).Interface()
 }
 
 // bodyNotAllowed reports whether the given HTTP status code forbids a
