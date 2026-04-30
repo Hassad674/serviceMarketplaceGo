@@ -1,0 +1,148 @@
+# Automated dependency updates.
+#
+# Goals:
+#   - Catch CVEs without manual triage. CVE feeds plus our weekly
+#     Security workflow surface them; Dependabot is the channel that
+#     opens the PR.
+#   - Group routine updates so we do not drown the review queue. Each
+#     ecosystem opens at most one PR per week (mobile: per month).
+#   - Open security PRs immediately and outside the group — those
+#     should not wait.
+version: 2
+
+updates:
+  # ------------------------------------------------------------------
+  # Backend — Go modules.
+  # ------------------------------------------------------------------
+  - package-ecosystem: "gomod"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "chore(deps/backend)"
+      include: "scope"
+    groups:
+      backend-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ------------------------------------------------------------------
+  # Web — npm.
+  # ------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "web"
+    commit-message:
+      prefix: "chore(deps/web)"
+      include: "scope"
+    groups:
+      web-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+        patterns:
+          - "*"
+        exclude-patterns:
+          # React, Next.js, and Tailwind majors deserve their own PR.
+          - "react"
+          - "react-dom"
+          - "next"
+          - "tailwindcss"
+      web-react-stack:
+        applies-to: version-updates
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+
+  # ------------------------------------------------------------------
+  # Admin — npm.
+  # ------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/admin"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "admin"
+    commit-message:
+      prefix: "chore(deps/admin)"
+      include: "scope"
+    groups:
+      admin-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ------------------------------------------------------------------
+  # Mobile — pub (Flutter / Dart).
+  #
+  # Monthly cadence: pub releases churn less than npm and Flutter
+  # majors usually require a coordinated bump.
+  # ------------------------------------------------------------------
+  - package-ecosystem: "pub"
+    directory: "/mobile"
+    schedule:
+      interval: "monthly"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "mobile"
+    commit-message:
+      prefix: "chore(deps/mobile)"
+      include: "scope"
+    groups:
+      mobile-minor-and-patch:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ------------------------------------------------------------------
+  # GitHub Actions — workflow YAML.
+  # ------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      time: "06:00"
+      timezone: "Europe/Paris"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(deps/actions)"
+      include: "scope"
+    groups:
+      actions:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
