@@ -95,6 +95,14 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
 	slog.SetDefault(logger)
 
+	// Fail-fast in production when secrets are missing or use the
+	// open-source fallbacks. In development this only prints loud
+	// warnings — see config.Validate for the policy.
+	if err := cfg.Validate(); err != nil {
+		slog.Error("config validation failed", "error", err)
+		os.Exit(1)
+	}
+
 	// Connect to database
 	db, err := postgres.NewConnection(cfg.DatabaseURL)
 	if err != nil {

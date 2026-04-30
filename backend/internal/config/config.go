@@ -1,11 +1,33 @@
 package config
 
 import (
+	"errors"
+	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// devJWTFallback is the JWT_SECRET shipped in .env.example so a fresh
+// `make run` works without manual setup. Because this repo is
+// open-source the value is public — accepting it in production is
+// equivalent to publishing the signing key. Validate() refuses to boot
+// when this exact value is used in production. (SEC-04)
+const devJWTFallback = "dev-secret-change-me"
+
+// minJWTSecretBytes is the lower bound enforced in production. 32
+// bytes (256 bits) matches the security strength of HS256, the JWT
+// algorithm we use. See NIST SP 800-131A for the rationale.
+const minJWTSecretBytes = 32
+
+// devStorageFallback is MinIO's default credential pair shipped in
+// docker-compose.yml. Same open-source-fallback risk as the JWT
+// fallback: anybody with the repo can sign requests against any prod
+// deployment that forgot to override it. Validate() refuses to boot
+// when these defaults are used in production.
+const devStorageFallback = "minioadmin"
 
 type Config struct {
 	Port             string
@@ -137,6 +159,66 @@ func (c *Config) IsDevelopment() bool {
 
 func (c *Config) IsProduction() bool {
 	return c.Env == "production"
+}
+
+// Validate enforces the security-critical invariants required to boot
+// the API. In production it returns an error when:
+//   - JWT_SECRET equals the public dev fallback `dev-secret-change-me`
+//   - JWT_SECRET is shorter than 32 bytes
+//   - STORAGE_SECRET_KEY or STORAGE_ACCESS_KEY equal the MinIO default
+//     `minioadmin`
+//
+// In development the same conditions log a noisy slog.Warn but DO NOT
+// fail the boot — local development typically uses these defaults via
+// docker-compose, and a hard fail would break every "fresh checkout"
+// flow.
+//
+// Callers (cmd/api/main.go) MUST treat any returned error as fatal:
+//
+//	if err := cfg.Validate(); err != nil {
+//	    slog.Error("config validation failed", "error", err)
+//	    os.Exit(1)
+//	}
+//
+// SEC-04 (audit 2026-04-29): closes the "open-source repo with public
+// fallback secrets" attack vector.
+func (c *Config) Validate() error {
+	var errs []string
+
+	addError := func(msg string) {
+		if c.IsProduction() {
+			errs = append(errs, msg)
+		} else {
+			slog.Warn("config: insecure default in non-production env — DO NOT deploy this configuration",
+				"detail", msg)
+		}
+	}
+
+	if c.JWTSecret == devJWTFallback {
+		addError(fmt.Sprintf(
+			"JWT_SECRET is the public dev fallback (%q) — generate a fresh 32+ byte secret",
+			devJWTFallback))
+	} else if len(c.JWTSecret) < minJWTSecretBytes {
+		addError(fmt.Sprintf(
+			"JWT_SECRET is %d bytes; minimum is %d bytes for HS256 (NIST SP 800-131A)",
+			len(c.JWTSecret), minJWTSecretBytes))
+	}
+
+	if c.StorageSecretKey == devStorageFallback {
+		addError(fmt.Sprintf(
+			"STORAGE_SECRET_KEY is the public MinIO default (%q) — set a strong secret in S3/R2",
+			devStorageFallback))
+	}
+	if c.StorageAccessKey == devStorageFallback {
+		addError(fmt.Sprintf(
+			"STORAGE_ACCESS_KEY is the public MinIO default (%q) — set a real access key",
+			devStorageFallback))
+	}
+
+	if len(errs) > 0 {
+		return errors.New("config validation failed: " + strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 func (c *Config) LiveKitConfigured() bool {
