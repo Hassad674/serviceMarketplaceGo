@@ -97,10 +97,17 @@ describe("team-api / invitations", () => {
   })
 
   it("sendInvitation POSTs the payload", () => {
-    sendInvitation("org-1", { email: "x@x.com", role: "member" })
+    const payload = {
+      email: "x@x.com",
+      first_name: "Joe",
+      last_name: "Doe",
+      title: "Dev",
+      role: "member" as const,
+    }
+    sendInvitation("org-1", payload)
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/organizations/org-1/invitations",
-      { method: "POST", body: { email: "x@x.com", role: "member" } },
+      { method: "POST", body: payload },
     )
   })
 
@@ -123,10 +130,10 @@ describe("team-api / invitations", () => {
 
 describe("team-api / ownership transfer", () => {
   it("initiateTransferOwnership POSTs to /transfer", () => {
-    initiateTransferOwnership("org-1", { successor_user_id: "u-2" })
+    initiateTransferOwnership("org-1", { target_user_id: "u-2" })
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/organizations/org-1/transfer",
-      { method: "POST", body: { successor_user_id: "u-2" } },
+      { method: "POST", body: { target_user_id: "u-2" } },
     )
   })
 

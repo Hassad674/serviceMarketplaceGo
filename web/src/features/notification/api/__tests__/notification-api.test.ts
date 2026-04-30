@@ -76,7 +76,7 @@ describe("notification-api", () => {
 
   it("updateNotificationPreferences PUTs the array wrapped in { preferences }", () => {
     const prefs = [
-      { type: "new_message", in_app: true, email: false, push: true },
+      { type: "new_message" as const, in_app: true, email: false, push: true },
     ]
     updateNotificationPreferences(prefs)
     expect(mockApiClient).toHaveBeenCalledWith(

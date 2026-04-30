@@ -28,9 +28,9 @@ describe("referral-api / listMyReferrals", () => {
   })
 
   it("appends status filter as repeated params", async () => {
-    await listMyReferrals({ statuses: ["pending", "accepted"] })
+    await listMyReferrals({ statuses: ["pending_provider", "active"] })
     expect(mockApiClient).toHaveBeenCalledWith(
-      "/api/v1/referrals/me?status=pending&status=accepted",
+      "/api/v1/referrals/me?status=pending_provider&status=active",
     )
   })
 
@@ -57,11 +57,11 @@ describe("referral-api / listIncomingReferrals", () => {
 
   it("appends both statuses and cursor", async () => {
     await listIncomingReferrals({
-      statuses: ["pending"],
+      statuses: ["pending_provider"],
       cursor: "tok",
     })
     const call = mockApiClient.mock.calls[0][0] as string
-    expect(call).toContain("status=pending")
+    expect(call).toContain("status=pending_provider")
     expect(call).toContain("cursor=tok")
   })
 })
@@ -78,9 +78,10 @@ describe("referral-api / createReferral", () => {
     createReferral({
       provider_id: "u-2",
       client_id: "u-3",
-      target_amount: 100000,
-      commission_pct: 10,
-      message: "intro",
+      rate_pct: 10,
+      duration_months: 6,
+      intro_message_provider: "intro",
+      intro_message_client: "intro",
     })
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/referrals",
@@ -95,29 +96,25 @@ describe("referral-api / createReferral", () => {
 describe("referral-api / respondToReferral", () => {
   it("POSTs to /respond with the body", () => {
     respondToReferral("r-1", {
-      accepted: true,
-      counter_amount: undefined,
-      counter_commission_pct: undefined,
+      action: "accept",
       message: "lgtm",
     })
     expect(mockApiClient).toHaveBeenCalledWith(
       "/api/v1/referrals/r-1/respond",
       {
         method: "POST",
-        body: expect.objectContaining({ accepted: true }),
+        body: expect.objectContaining({ action: "accept" }),
       },
     )
   })
 
-  it("supports decline", () => {
+  it("supports reject action", () => {
     respondToReferral("r-1", {
-      accepted: false,
-      counter_amount: undefined,
-      counter_commission_pct: undefined,
+      action: "reject",
       message: "no thanks",
     })
-    const body = (mockApiClient.mock.calls[0][1] as { body: { accepted: boolean } }).body
-    expect(body.accepted).toBe(false)
+    const body = (mockApiClient.mock.calls[0][1] as { body: { action: string } }).body
+    expect(body.action).toBe("reject")
   })
 })
 

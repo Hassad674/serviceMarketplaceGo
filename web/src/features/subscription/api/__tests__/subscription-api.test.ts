@@ -29,10 +29,10 @@ beforeEach(() => {
 
 describe("subscription-api / subscribe", () => {
   it("POSTs to /api/v1/subscriptions with the input", async () => {
-    await subscribe({ billing_cycle: "monthly", return_url: "https://x" })
+    await subscribe({ plan: "freelance", billing_cycle: "monthly", auto_renew: true })
     expect(mockApiClient).toHaveBeenCalledWith("/api/v1/subscriptions", {
       method: "POST",
-      body: { billing_cycle: "monthly", return_url: "https://x" },
+      body: { plan: "freelance", billing_cycle: "monthly", auto_renew: true },
     })
   })
 })
