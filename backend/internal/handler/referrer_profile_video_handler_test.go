@@ -100,7 +100,9 @@ func TestReferrerProfileVideoHandler_Upload_RejectsOversizedFile(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	h.Upload(rec, req)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	// Post-G120 streaming surfaces oversized payloads as 413
+	// Payload Too Large (RFC 7231 §6.5.11).
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 }
 
 func TestReferrerProfileVideoHandler_Upload_StorageFailure(t *testing.T) {

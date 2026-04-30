@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -165,28 +166,53 @@ func readVideoAuthContext(w http.ResponseWriter, r *http.Request) (uuid.UUID, uu
 	return userID, orgID, true
 }
 
-// parseVideoMultipart enforces the 50MB size cap, parses the
-// multipart form, and validates the content type. Returns the
-// opened file and header on success; the caller must close the file.
+// parseVideoMultipart enforces the 50MB size cap by streaming the
+// multipart body via r.MultipartReader and capturing the first part
+// named "file". Closes gosec G120 — the previous implementation
+// called r.ParseMultipartForm which buffers every part of the
+// multipart body in memory before letting the handler pick the file
+// out, trivially OOM'd by a hostile multipart with many small parts.
+//
+// Returns an in-memory multipart.File backed by bytes.Reader so the
+// caller can keep the existing storage.Upload(file, …) signature
+// without a streaming-pipe rewrite. The buffer never exceeds maxVideoSize.
+// The returned header carries the same Filename/Size/Header fields the
+// downstream code (key builder, MIME check) reads.
 func parseVideoMultipart(w http.ResponseWriter, r *http.Request) (multipart.File, *multipart.FileHeader, bool) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxVideoSize)
-	if err := r.ParseMultipartForm(maxVideoSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 50MB")
-		return nil, nil, false
-	}
-	file, header, err := r.FormFile("file")
+
+	buf, header, err := readMultipartFile(r, maxVideoSize)
 	if err != nil {
-		res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
+		switch {
+		case errors.Is(err, errFileFieldNotFound):
+			res.Error(w, http.StatusBadRequest, "invalid_file", "no file provided")
+		case isMaxBytesError(err):
+			res.Error(w, http.StatusRequestEntityTooLarge, "file_too_large", "video must be under 50MB")
+		default:
+			res.Error(w, http.StatusBadRequest, "read_failed", err.Error())
+		}
 		return nil, nil, false
 	}
 	contentType := header.Header.Get("Content-Type")
 	if !strings.HasPrefix(contentType, "video/") {
-		file.Close()
 		res.Error(w, http.StatusBadRequest, "invalid_type", "file must be a video")
 		return nil, nil, false
 	}
-	return file, header, true
+	return inMemoryFile{Reader: bytes.NewReader(buf)}, header, true
 }
+
+// inMemoryFile adapts an in-memory bytes.Reader to the multipart.File
+// interface. ReadAt + Seek + Close are needed for the storage.Upload
+// signature; bytes.Reader provides them out of the box, we only need
+// a Close() that satisfies io.Closer.
+type inMemoryFile struct {
+	*bytes.Reader
+}
+
+// Close satisfies multipart.File. There is no underlying resource to
+// release for an in-memory buffer — the goroutine collecting the
+// reference will GC the bytes when the reference is dropped.
+func (inMemoryFile) Close() error { return nil }
 
 // buildPersonaVideoKey returns the MinIO object key for a newly
 // uploaded persona video. Keeps the freelance and referrer videos

@@ -123,7 +123,10 @@ func TestFreelanceProfileVideoHandler_Upload_RejectsOversizedFile(t *testing.T) 
 	rec := httptest.NewRecorder()
 
 	h.Upload(rec, req)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	// Streaming upload returns 413 Payload Too Large on size cap.
+	// (Previous ParseMultipartForm path returned 400 for the same case;
+	// 413 is RFC 7231 §6.5.11 correct.)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 }
 
 // ---------------------------------------------------------------------------
