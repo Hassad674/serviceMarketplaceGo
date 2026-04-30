@@ -27,10 +27,12 @@ FROM proposal_milestones
 WHERE id = $1
 `
 
-// queryGetMilestoneByIDForUpdate takes a row-level lock. Must be run
-// inside a transaction; the adapter opens a short-lived transaction for
-// each call and commits after Update.
-const queryGetMilestoneByIDForUpdate = queryGetMilestoneByID + ` FOR UPDATE`
+// queryGetMilestoneByIDForUpdate is no longer used — see BUG-11. The
+// previous GetByIDForUpdate adapter opened a transaction, ran SELECT
+// FOR UPDATE, and committed immediately, which released the lock at
+// commit. Race protection has always come from the optimistic version
+// check in queryUpdateMilestone (WHERE id = $1 AND version = $2).
+// The renamed GetByIDWithVersion uses a plain SELECT.
 
 const queryListMilestonesByProposal = `
 SELECT id, proposal_id, sequence, title, description, amount, deadline,

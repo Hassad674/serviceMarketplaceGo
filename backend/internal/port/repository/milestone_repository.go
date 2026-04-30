@@ -11,7 +11,7 @@ import (
 // MilestoneRepository defines persistence operations for proposal milestones.
 //
 // Every mutation that transitions a milestone's status must go through the
-// optimistic-locked Update path: callers fetch with GetByIDForUpdate,
+// optimistic-locked Update path: callers fetch with GetByIDWithVersion,
 // perform the domain transition in memory, then call Update. A concurrent
 // modification causes Update to return milestone.ErrConcurrentUpdate,
 // which the app layer can choose to surface or retry.
@@ -26,11 +26,29 @@ type MilestoneRepository interface {
 	// read-only queries (listings, detail views, projections).
 	GetByID(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
 
-	// GetByIDForUpdate fetches a milestone inside a transaction with
-	// SELECT ... FOR UPDATE, enforcing serialisation of concurrent writers.
-	// The returned milestone carries the current Version; the caller must
-	// pass it back to Update unchanged except for the domain transition.
-	GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
+	// GetByIDWithVersion fetches a milestone and returns its current
+	// Version field for optimistic-concurrency control by the caller.
+	//
+	// CONTRACT: this is a plain SELECT — it does NOT take a row-level
+	// pessimistic lock. The previous name GetByIDForUpdate was misleading
+	// because the implementation opened a transaction, ran SELECT FOR
+	// UPDATE, and immediately committed — which RELEASES the lock at
+	// commit. The actual race protection comes from Update's
+	// `WHERE id = $1 AND version = $2` clause and the
+	// milestone.ErrConcurrentUpdate sentinel.
+	//
+	// Concurrency model: callers fetch with GetByIDWithVersion → mutate
+	// the in-memory copy → call Update. If two callers fetch the same
+	// version, both reach Update; one wins (rows affected = 1) and
+	// bumps the version, the other loses (rows affected = 0) and
+	// receives ErrConcurrentUpdate so it can refetch and retry.
+	//
+	// BUG-11 background: dropping the SELECT FOR UPDATE simplifies the
+	// code and clarifies the semantics — the lock was doing nothing
+	// useful (committed immediately) and the misleading name made
+	// readers believe the concurrency model was pessimistic when it
+	// has always been optimistic.
+	GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
 
 	// ListByProposal returns every milestone of a proposal, ordered by
 	// ascending sequence. Used to render the milestone tracker and compute

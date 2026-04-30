@@ -21,7 +21,7 @@ import (
 // ---------------------------------------------------------------------------
 // mockMilestoneRepo — handler-layer stub for repository.MilestoneRepository.
 //
-// The handler-level tests only need GetByIDForUpdate / Update / ListByProposal
+// The handler-level tests only need GetByIDWithVersion / Update / ListByProposal
 // / GetCurrentActive to drive the milestone state machine, but the compile
 // check forces us to stub the full interface. Methods the tests don't care
 // about return zero values so they stay invisible unless a test actively
@@ -31,7 +31,7 @@ import (
 type mockMilestoneRepo struct {
 	listByProposalFn     func(ctx context.Context, proposalID uuid.UUID) ([]*milestonedomain.Milestone, error)
 	getCurrentActiveFn   func(ctx context.Context, proposalID uuid.UUID) (*milestonedomain.Milestone, error)
-	getByIDForUpdateFn   func(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error)
+	getByIDWithVersionFn   func(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error)
 }
 
 func (m *mockMilestoneRepo) CreateBatch(_ context.Context, _ []*milestonedomain.Milestone) error {
@@ -42,9 +42,9 @@ func (m *mockMilestoneRepo) GetByID(_ context.Context, _ uuid.UUID) (*milestoned
 	return nil, milestonedomain.ErrMilestoneNotFound
 }
 
-func (m *mockMilestoneRepo) GetByIDForUpdate(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
-	if m.getByIDForUpdateFn != nil {
-		return m.getByIDForUpdateFn(ctx, id)
+func (m *mockMilestoneRepo) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
+	if m.getByIDWithVersionFn != nil {
+		return m.getByIDWithVersionFn(ctx, id)
 	}
 	return nil, milestonedomain.ErrMilestoneNotFound
 }
