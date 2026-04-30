@@ -176,7 +176,18 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 	applyUpdates(p, input)
 
 	if s.txRunner != nil && s.searchIndex != nil {
-		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+		// Phase 5 SEC-10 — POC migration to the tenant-aware tx
+		// wrapper. The profiles table itself is not under RLS, but
+		// future cross-feature tx use (e.g. emitting a notification
+		// or audit_log row inside the same tx) will benefit from the
+		// tenant context being set. Cost over RunInTx: one extra
+		// set_config call. Benefit: defense-in-depth against any
+		// future RLS-protected table touched in this tx without
+		// having to remember to add the SET LOCAL. The userID is
+		// not strictly needed here because no per-user RLS table is
+		// involved, but passing uuid.Nil keeps the call site
+		// honest about scope.
+		if err := s.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
 			if err := s.profiles.UpdateTx(ctx, tx, p); err != nil {
 				return err
 			}
