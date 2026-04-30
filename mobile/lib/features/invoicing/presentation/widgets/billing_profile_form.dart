@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
-import '../../../../core/data/stripe_countries.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/billing_profile.dart';
 import '../../domain/entities/billing_profile_snapshot.dart';
-import '../../domain/entities/missing_field.dart';
 import '../providers/invoicing_providers.dart';
-import '_missing_fields_copy.dart';
+import 'billing_form_atoms.dart';
+import 'billing_form_status.dart';
+import 'billing_section_address.dart';
+import 'billing_section_fiscal.dart';
+import 'billing_section_legal_identity.dart';
 
 // EU member states whose VAT numbers can be validated through VIES.
 // Domain predicate kept separate from the country selector list — the
@@ -45,7 +46,8 @@ class BillingProfileForm extends ConsumerStatefulWidget {
   final VoidCallback? onSaved;
 
   @override
-  ConsumerState<BillingProfileForm> createState() => _BillingProfileFormState();
+  ConsumerState<BillingProfileForm> createState() =>
+      _BillingProfileFormState();
 }
 
 class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
@@ -123,8 +125,8 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
   Widget build(BuildContext context) {
     final async = ref.watch(billingProfileProvider);
     return async.when(
-      loading: () => const _Loader(),
-      error: (_, __) => const _LoadError(),
+      loading: () => const BillingFormLoader(),
+      error: (_, __) => const BillingFormLoadError(),
       data: (snapshot) {
         if (!_hydrated) {
           _hydrate(snapshot.profile);
@@ -139,144 +141,68 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     final isFr = _country == 'FR';
     final isEu = _isEuCountry(_country);
     final isBusiness = _profileType == ProfileType.business;
+
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!snapshot.isComplete && snapshot.missingFields.isNotEmpty)
-            _MissingBanner(fields: snapshot.missingFields),
-          if (!snapshot.isComplete && snapshot.missingFields.isNotEmpty)
+          if (!snapshot.isComplete && snapshot.missingFields.isNotEmpty) ...[
+            BillingMissingBanner(fields: snapshot.missingFields),
             const SizedBox(height: 16),
-          _StripeSyncRow(
+          ],
+          BillingStripeSyncRow(
             syncedAt: snapshot.profile.syncedFromKycAt,
             syncing: _syncing,
             onSync: _onSync,
             error: _syncError,
           ),
           const SizedBox(height: 16),
-          _Section(
+          BillingSection(
             title: 'Pays',
             subtitle:
                 "Choisis d'abord ton pays — les autres champs s'adaptent en conséquence (SIRET pour la France, n° TVA intracom pour l'UE, adresse seule ailleurs).",
-            child: _CountryDropdown(
+            child: BillingCountryDropdown(
               value: _country,
               onChanged: (v) => setState(() => _country = v ?? ''),
             ),
           ),
           const SizedBox(height: 12),
-          _Section(
+          BillingSection(
             title: 'Type de profil',
-            child: _ProfileTypeRadio(
+            child: BillingProfileTypeRadio(
               value: _profileType,
               onChanged: (v) => setState(() => _profileType = v),
             ),
           ),
           const SizedBox(height: 12),
-          _Section(
-            title: 'Identité légale',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _LabeledField(
-                  label: 'Raison sociale ou nom légal',
-                  controller: _legalName,
-                  validator: _required,
-                ),
-                if (isBusiness) ...[
-                  const SizedBox(height: 12),
-                  _LabeledField(
-                    label: 'Nom commercial (optionnel)',
-                    controller: _tradingName,
-                  ),
-                  const SizedBox(height: 12),
-                  _LabeledField(
-                    label: 'Forme juridique',
-                    controller: _legalForm,
-                    hint: 'SAS, SARL, EURL, etc.',
-                  ),
-                ],
-              ],
-            ),
+          BillingLegalIdentitySection(
+            isBusiness: isBusiness,
+            legalName: _legalName,
+            tradingName: _tradingName,
+            legalForm: _legalForm,
           ),
           const SizedBox(height: 12),
-          _Section(
-            title: 'Identifiants fiscaux',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (isFr)
-                  _LabeledField(
-                    label: 'Numéro SIRET',
-                    controller: _taxId,
-                    hint: '14 chiffres, sans espace',
-                    keyboardType: TextInputType.number,
-                    maxLength: 14,
-                    validator: _siret,
-                  )
-                else
-                  _LabeledField(
-                    label: 'Identifiant fiscal',
-                    controller: _taxId,
-                  ),
-                if (isEu) ...[
-                  const SizedBox(height: 12),
-                  _VatRow(
-                    controller: _vatNumber,
-                    validatedAt: _vatValidatedAt,
-                    registeredName: _vatRegisteredName,
-                    validating: _validatingVat,
-                    error: _vatError,
-                    onValidate: _onValidateVat,
-                  ),
-                ],
-              ],
-            ),
+          BillingFiscalSection(
+            isFr: isFr,
+            isEu: isEu,
+            taxId: _taxId,
+            vatNumber: _vatNumber,
+            vatValidatedAt: _vatValidatedAt,
+            vatRegisteredName: _vatRegisteredName,
+            validatingVat: _validatingVat,
+            vatError: _vatError,
+            onValidateVat: _onValidateVat,
           ),
           const SizedBox(height: 12),
-          _Section(
-            title: 'Adresse',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _LabeledField(
-                  label: 'Adresse',
-                  controller: _addressLine1,
-                  validator: _required,
-                ),
-                const SizedBox(height: 12),
-                _LabeledField(
-                  label: "Complément d'adresse (optionnel)",
-                  controller: _addressLine2,
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _LabeledField(
-                        label: 'Code postal',
-                        controller: _postalCode,
-                        validator: _required,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _LabeledField(
-                        label: 'Ville',
-                        controller: _city,
-                        validator: _required,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          BillingAddressSection(
+            addressLine1: _addressLine1,
+            addressLine2: _addressLine2,
+            postalCode: _postalCode,
+            city: _city,
           ),
           // The "Email de facturation" section was removed — invoices
-          // default to the org owner's account email server-side. The
-          // backend keeps the column for a future per-recipient
-          // override but the user is no longer prompted for it during
-          // the inline subscribe flow.
+          // default to the org owner's account email server-side.
           const SizedBox(height: 20),
           if (_saveError != null)
             Padding(
@@ -294,10 +220,8 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 _saveSuccess!,
-                style: const TextStyle(
-                  color: Color(0xFF22C55E),
-                  fontSize: 13,
-                ),
+                style:
+                    const TextStyle(color: Color(0xFF22C55E), fontSize: 13),
               ),
             ),
           ElevatedButton(
@@ -329,29 +253,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Validators
-  // ---------------------------------------------------------------------------
-
-  String? _required(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Champ obligatoire';
-    return null;
-  }
-
-  String? _siret(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Champ obligatoire';
-    final digits = v.trim();
-    if (digits.length != 14 ||
-        !RegExp(r'^[0-9]{14}$').hasMatch(digits)) {
-      return 'Le SIRET doit comporter 14 chiffres';
-    }
-    return null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Actions
-  // ---------------------------------------------------------------------------
-
   Future<void> _onSave() async {
     if (_profileType == null) {
       setState(() => _saveError = 'Sélectionne un type de profil');
@@ -381,8 +282,7 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
           city: _city.text.trim(),
           country: _country,
           // Empty: the backend defaults invoicing_email to the org
-          // owner's account email when the row's value is empty. The
-          // form no longer prompts for it.
+          // owner's account email when the row's value is empty.
           invoicingEmail: '',
         ),
       );
@@ -391,9 +291,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
       setState(() {
         _saveSuccess = 'Profil enregistré.';
       });
-      // Notify the wrapper screen only when the just-saved profile is
-      // complete — partial saves keep the user on the page so they can
-      // correct the missing fields before being redirected away.
       if (snapshot.isComplete) {
         widget.onSaved?.call();
       }
@@ -416,9 +313,6 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     try {
       final useCase = ref.read(syncBillingProfileUseCaseProvider);
       final snapshot = await useCase();
-      // Re-hydrate locally so the user sees the synced values without
-      // having to reload the screen — invalidate also so other consumers
-      // refresh.
       _hydrate(snapshot.profile);
       ref.invalidate(billingProfileProvider);
       if (!mounted) return;
@@ -463,512 +357,5 @@ class _BillingProfileFormState extends ConsumerState<BillingProfileForm> {
     } finally {
       if (mounted) setState(() => _validatingVat = false);
     }
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Section + field building blocks
-// ---------------------------------------------------------------------------
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child, this.subtitle});
-
-  final String title;
-  final String? subtitle;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.5),
-        ),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (subtitle != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              subtitle!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _LabeledField extends StatelessWidget {
-  const _LabeledField({
-    required this.label,
-    required this.controller,
-    this.hint,
-    this.validator,
-    this.keyboardType,
-    this.maxLength,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final String? hint;
-  final String? Function(String?)? validator;
-  final TextInputType? keyboardType;
-  final int? maxLength;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          maxLength: maxLength,
-          validator: validator,
-          decoration: InputDecoration(
-            isDense: true,
-            counterText: '',
-            hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileTypeRadio extends StatelessWidget {
-  const _ProfileTypeRadio({required this.value, required this.onChanged});
-
-  final ProfileType? value;
-  final ValueChanged<ProfileType> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _Tile(
-          label: 'Particulier',
-          selected: value == ProfileType.individual,
-          onTap: () => onChanged(ProfileType.individual),
-        ),
-        const SizedBox(height: 8),
-        _Tile(
-          label: 'Entreprise',
-          selected: value == ProfileType.business,
-          onTap: () => onChanged(ProfileType.business),
-        ),
-      ],
-    );
-  }
-}
-
-class _Tile extends StatelessWidget {
-  const _Tile({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFFFFE4E6)
-              : theme.colorScheme.surface,
-          border: Border.all(
-            color: selected
-                ? const Color(0xFFF43F5E)
-                : theme.dividerColor,
-          ),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_unchecked,
-              size: 18,
-              color: selected
-                  ? const Color(0xFFF43F5E)
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected
-                    ? const Color(0xFFBE123C)
-                    : theme.colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CountryDropdown extends StatelessWidget {
-  const _CountryDropdown({required this.value, required this.onChanged});
-
-  final String value;
-  final ValueChanged<String?> onChanged;
-
-  /// Builds [DropdownMenuItem]s grouped by region. Region headers are
-  /// rendered as disabled items so they appear as visual separators —
-  /// Flutter's [DropdownButtonFormField] has no native optgroup
-  /// concept, so this is the standard idiom.
-  List<DropdownMenuItem<String>> _buildItems(BuildContext context) {
-    final theme = Theme.of(context);
-    final List<DropdownMenuItem<String>> items = <DropdownMenuItem<String>>[];
-    for (final region in kStripeRegionOrder) {
-      final entries = stripeCountriesByRegion(region);
-      if (entries.isEmpty) continue;
-      items.add(
-        DropdownMenuItem<String>(
-          enabled: false,
-          value: '__header_${region.name}',
-          child: Text(
-            kStripeRegionLabelsFr[region]!,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-      );
-      for (final c in entries) {
-        items.add(
-          DropdownMenuItem<String>(
-            value: c.code,
-            child: Text('${c.flag}  ${c.labelFr}'),
-          ),
-        );
-      }
-    }
-    return items;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      initialValue: value.isEmpty ? null : value,
-      isExpanded: true,
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: '— Sélectionne ton pays —',
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        ),
-      ),
-      items: _buildItems(context),
-      onChanged: onChanged,
-      validator: (v) =>
-          v == null || v.isEmpty ? 'Champ obligatoire' : null,
-    );
-  }
-}
-
-class _VatRow extends StatelessWidget {
-  const _VatRow({
-    required this.controller,
-    required this.validatedAt,
-    required this.registeredName,
-    required this.validating,
-    required this.error,
-    required this.onValidate,
-  });
-
-  final TextEditingController controller;
-  final DateTime? validatedAt;
-  final String? registeredName;
-  final bool validating;
-  final String? error;
-  final VoidCallback onValidate;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _LabeledField(
-          label: 'Numéro de TVA intracommunautaire',
-          controller: controller,
-          hint: 'FR12345678901',
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            onPressed: validating || controller.text.trim().isEmpty
-                ? null
-                : onValidate,
-            icon: validating
-                ? const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.check_circle_outline, size: 16),
-            label: const Text('Valider mon n° TVA'),
-          ),
-        ),
-        if (validatedAt != null && error == null) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Icon(
-                Icons.check_circle,
-                size: 14,
-                color: Color(0xFF22C55E),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  registeredName != null && registeredName!.isNotEmpty
-                      ? '$registeredName · validé le '
-                          '${DateFormat('dd/MM/yyyy').format(validatedAt!)}'
-                      : 'Validé le ${DateFormat('dd/MM/yyyy').format(validatedAt!)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF15803D),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-        if (error != null) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(
-                Icons.cancel,
-                size: 14,
-                color: theme.colorScheme.error,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                error!,
-                style: TextStyle(
-                  color: theme.colorScheme.error,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _MissingBanner extends StatelessWidget {
-  const _MissingBanner({required this.fields});
-
-  final List<MissingField> fields;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        border: Border.all(
-          color: const Color(0xFFFCD34D),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.warning_amber_rounded,
-            size: 18,
-            color: Color(0xFF92400E),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Quelques informations restent à compléter',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF92400E),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                ...fields.map(
-                  (f) => Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      '• ${describeMissing(f)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: const Color(0xFF92400E).withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StripeSyncRow extends StatelessWidget {
-  const _StripeSyncRow({
-    required this.syncedAt,
-    required this.syncing,
-    required this.onSync,
-    required this.error,
-  });
-
-  final DateTime? syncedAt;
-  final bool syncing;
-  final VoidCallback onSync;
-  final String? error;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: syncedAt == null
-                  ? Text(
-                      'Profil non synchronisé depuis Stripe',
-                      style: theme.textTheme.bodySmall,
-                    )
-                  : Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle,
-                          size: 14,
-                          color: Color(0xFF22C55E),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Synchronisé le '
-                            '${DateFormat('dd/MM/yyyy').format(syncedAt!)}',
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            if (syncedAt == null)
-              OutlinedButton.icon(
-                onPressed: syncing ? null : onSync,
-                icon: syncing
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync, size: 16),
-                label: const Text('Sync depuis Stripe'),
-              ),
-          ],
-        ),
-        if (error != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            error!,
-            style: TextStyle(
-              color: theme.colorScheme.error,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _Loader extends StatelessWidget {
-  const _Loader();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 48),
-      child: Center(child: CircularProgressIndicator()),
-    );
-  }
-}
-
-class _LoadError extends StatelessWidget {
-  const _LoadError();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: theme.dividerColor),
-      ),
-      child: Text(
-        'Impossible de charger le profil de facturation. Réessaie dans '
-        'un instant.',
-        style: theme.textTheme.bodyMedium,
-      ),
-    );
   }
 }
