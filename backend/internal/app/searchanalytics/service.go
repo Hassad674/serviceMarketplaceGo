@@ -117,6 +117,10 @@ type CaptureEvent struct {
 // goroutine so the search request returns immediately while the
 // INSERT runs. A 3-second deadline bounds the detached lifetime so
 // a stuck DB connection cannot leak goroutines.
+//
+// gosec G118: the goroutine inherits a context.WithoutCancel(ctx)
+// derived from the caller — the trace identifiers survive but
+// request cancellation does not propagate.
 func (s *Service) CaptureSearch(ctx context.Context, evt CaptureEvent) {
 	if s == nil || s.repo == nil {
 		return
@@ -129,14 +133,17 @@ func (s *Service) CaptureSearch(ctx context.Context, evt CaptureEvent) {
 		return
 	}
 	row := s.buildRow(evt)
-	go s.persist(row)
+	parent := context.WithoutCancel(ctx)
+	go s.persist(parent, row)
 }
 
-// persist runs the INSERT on a background context with a bounded
-// deadline. Extracted so CaptureSearch stays minimal and so the
-// goroutine body can be tested in isolation via a sync helper.
-func (s *Service) persist(row *SearchRow) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+// persist runs the INSERT on a detached context derived from the
+// caller's request — trace identifiers survive but request
+// cancellation does not. A 3 second deadline bounds the goroutine.
+// Extracted so CaptureSearch stays minimal and so the goroutine
+// body can be tested in isolation via a sync helper.
+func (s *Service) persist(parent context.Context, row *SearchRow) {
+	ctx, cancel := context.WithTimeout(parent, 3*time.Second)
 	defer cancel()
 	if err := s.repo.InsertSearch(ctx, row); err != nil {
 		s.logger.Warn("searchanalytics: insert failed",

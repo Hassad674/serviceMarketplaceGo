@@ -37,8 +37,8 @@ const (
 	ActionLoginSuccess          Action = "auth.login_success"
 	ActionLoginFailure          Action = "auth.login_failure"
 	ActionLogout                Action = "auth.logout"
-	ActionTokenRefresh          Action = "auth.token_refresh"
-	ActionPasswordResetRequest  Action = "auth.password_reset_request"
+	ActionTokenRefresh          Action = "auth.token_refresh"          // #nosec G101 -- audit action label, not a credential
+	ActionPasswordResetRequest  Action = "auth.password_reset_request" // #nosec G101 -- audit action label, not a credential
 	ActionPasswordResetComplete Action = "auth.password_reset_complete"
 
 	// ActionTokenReuseDetected is recorded when a refresh token whose
@@ -48,7 +48,7 @@ const (
 	// fails because the attacker rotated the pair first, OR vice
 	// versa. SEC-06: the request returns 401 and this row is the
 	// breadcrumb the SOC needs to start an investigation.
-	ActionTokenReuseDetected Action = "auth.token_reuse_detected"
+	ActionTokenReuseDetected Action = "auth.token_reuse_detected" // #nosec G101 -- audit action label, not a credential
 
 	// Team / organization
 	ActionRolePermissionsChanged Action = "team.role_permissions_changed"

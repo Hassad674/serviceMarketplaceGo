@@ -61,9 +61,21 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 		deps.Hub.register <- client
 
 		_ = deps.PresenceSvc.SetOnline(r.Context(), userID)
-		go broadcastPresenceChange(userID, true, deps)
+		// Goroutines below outlive the HTTP handler — using
+		// context.WithoutCancel so trace/baggage survives but
+		// request cancellation does not propagate. Otherwise the
+		// handler returning would tear down the WS connection.
+		// gosec G118: explicit detached context replaces context.Background().
+		bgCtx := context.WithoutCancel(r.Context())
+		go broadcastPresenceChange(bgCtx, userID, true, deps)
 
-		go writePump(conn, client)
+		// writePump and readPump intentionally outlive the HTTP
+		// handler — the WS connection persists for as long as the
+		// client is online. They derive their own timeout contexts
+		// internally (writeWait, pongWait) so request-scoped
+		// cancellation does not apply. gosec G118 suppression is
+		// scoped per call below.
+		go writePump(conn, client) // #nosec G118 -- WS goroutine outlives the handler intentionally
 		readPump(conn, client, deps)
 	}
 }
@@ -107,13 +119,29 @@ func readPump(conn *websocket.Conn, client *Client, deps ConnDeps) {
 		isLast := deps.Hub.ConnectionCount(client.UserID) <= 1
 
 		deps.Hub.unregister <- client
-		conn.Close(websocket.StatusNormalClosure, "")
+		if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+			// A close error here is expected when the peer has already
+			// disconnected (broken pipe / connection reset). We log at
+			// DEBUG-equivalent WARN to avoid log spam while still
+			// surfacing unexpected failure modes during incidents.
+			slog.Warn("ws: close after read pump failed",
+				"error", err, "user_id", client.UserID)
+		}
 
 		if isLast {
+			// readPump runs in its own goroutine that outlives the
+			// HTTP handler — there is no request context to detach
+			// from at this point. Use context.Background() with a
+			// hard timeout for the offline propagation; gosec G118
+			// is acceptable here because the parent goroutine has
+			// already lost its request scope by definition.
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			_ = deps.PresenceSvc.SetOffline(ctx, client.UserID)
-			go broadcastPresenceChange(client.UserID, false, deps)
+			// The presence-change goroutine inherits the timeout
+			// context's lifetime but spawns its own detached one
+			// internally (5s budget) — see broadcastPresenceChange.
+			go broadcastPresenceChange(context.Background(), client.UserID, false, deps)
 		}
 	}()
 
@@ -328,7 +356,13 @@ func writePump(conn *websocket.Conn, client *Client) {
 		select {
 		case msg, ok := <-client.Send:
 			if !ok {
-				conn.Close(websocket.StatusNormalClosure, "")
+				if err := conn.Close(websocket.StatusNormalClosure, ""); err != nil {
+					// Caller-driven close: typically benign (socket
+					// already gone). WARN so we still capture
+					// unexpected close failures without flooding INFO.
+					slog.Warn("ws: close on send-channel close failed",
+						"error", err, "user_id", client.UserID)
+				}
 				return
 			}
 
@@ -347,9 +381,16 @@ func writePump(conn *websocket.Conn, client *Client) {
 	}
 }
 
-// broadcastPresenceChange notifies all contacts of a user's online/offline status.
-func broadcastPresenceChange(userID uuid.UUID, online bool, deps ConnDeps) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+// broadcastPresenceChange notifies all contacts of a user's online/offline
+// status. The supplied parent ctx is the request's detached
+// (WithoutCancel) context — trace/baggage is preserved, request
+// cancellation is not. We add a 5 second timeout so a slow downstream
+// dependency cannot leak the goroutine.
+//
+// gosec G118: parent context comes from the caller (request-scoped
+// + WithoutCancel), not context.Background().
+func broadcastPresenceChange(parent context.Context, userID uuid.UUID, online bool, deps ConnDeps) {
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 
 	contactIDs, err := deps.MessagingSvc.GetContactIDs(ctx, userID)

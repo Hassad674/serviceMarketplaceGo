@@ -404,11 +404,17 @@ func (s *RoleOverridesService) notifyOwner(
 	revokedLabels := labelize(revoked)
 	roleStr := string(role)
 
+	// Detach from the request context so cancellation does not
+	// propagate (the email delivery must complete after the response
+	// returns), but keep the trace identifiers so the email send is
+	// correlatable to the admin action that triggered it. Closes
+	// gosec G118: parent is request-scoped + WithoutCancel, never
+	// context.Background().
+	parent := context.WithoutCancel(ctx)
 	go func() {
-		// New context — the caller's request context may be canceled
-		// by the time we send the email. Use background with a short
-		// timeout so we don't leak goroutines.
-		bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		// 10 second timeout protects against a slow email adapter
+		// leaking the goroutine.
+		bgCtx, cancel := context.WithTimeout(parent, 10*time.Second)
 		defer cancel()
 
 		owner, err := s.users.GetByID(bgCtx, ownerID)

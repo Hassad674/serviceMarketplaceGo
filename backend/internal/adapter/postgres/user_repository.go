@@ -338,11 +338,20 @@ func (r *UserRepository) ListAdmin(ctx context.Context, filters repository.Admin
 		argIdx++
 	}
 
-	query := fmt.Sprintf(`
+	// gosec G201 suppression rationale: the only variable parts of
+	// the formatted SQL — `where`, `argIdx`, and `offsetClause` — are
+	// built locally in this function from string constants and counter
+	// integers. `where` is `"WHERE " + strings.Join(<constants>, " AND ")`,
+	// `argIdx` is an int counter, `offsetClause` is either "" or
+	// `" OFFSET $N"`. ALL filter values (role, status, search pattern,
+	// cursor) reach Postgres via the `args` slice and parameterised
+	// $N placeholders. Coverage in sql_injection_test.go.
+	const baseQuery = `
 		SELECT id, email, hashed_password, first_name, last_name, display_name, role, account_type, referrer_enabled, email_notifications_enabled, is_admin, status, suspended_at, suspension_reason, suspension_expires_at, banned_at, ban_reason, organization_id, linkedin_id, google_id, email_verified, created_at, updated_at
 		FROM users %s
 		ORDER BY created_at DESC, id DESC
-		LIMIT $%d%s`, where, argIdx, offsetClause)
+		LIMIT $%d%s`
+	query := fmt.Sprintf(baseQuery, where, argIdx, offsetClause) // #nosec G201 -- placeholder + constant allowlist, tested
 	args = append(args, limit+1)
 
 	rows, err := r.db.QueryContext(ctx, query, args...)

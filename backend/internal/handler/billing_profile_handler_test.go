@@ -99,18 +99,18 @@ func (bpFakeInvoiceRepo) FindCreditNoteByID(_ context.Context, _ uuid.UUID) (*do
 type bpFakeStorage struct{}
 
 func (bpFakeStorage) Upload(_ context.Context, key string, _ io.Reader, _ string, _ int64) (string, error) {
-	return "https://r2.test/" + key, nil
+	return "https://test-bucket.r2.cloudflarestorage.com/" + key, nil
 }
 func (bpFakeStorage) Delete(_ context.Context, _ string) error           { return nil }
-func (bpFakeStorage) GetPublicURL(key string) string                     { return "https://r2.test/" + key }
+func (bpFakeStorage) GetPublicURL(key string) string                     { return "https://test-bucket.r2.cloudflarestorage.com/" + key }
 func (bpFakeStorage) GetPresignedUploadURL(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
-	return "https://r2.test/upload/" + key, nil
+	return "https://test-bucket.r2.cloudflarestorage.com/upload/" + key, nil
 }
 func (bpFakeStorage) GetPresignedDownloadURL(_ context.Context, key string, _ time.Duration) (string, error) {
-	return "https://r2.test/download/" + key, nil
+	return "https://test-bucket.r2.cloudflarestorage.com/download/" + key, nil
 }
 func (bpFakeStorage) GetPresignedDownloadURLAsAttachment(_ context.Context, key string, _ string, _ time.Duration) (string, error) {
-	return "https://r2.test/download/" + key, nil
+	return "https://test-bucket.r2.cloudflarestorage.com/download/" + key, nil
 }
 func (bpFakeStorage) Download(_ context.Context, _ string) ([]byte, error) { return nil, nil }
 

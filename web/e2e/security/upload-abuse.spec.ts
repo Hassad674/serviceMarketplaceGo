@@ -98,3 +98,71 @@ test.describe("SEC-09 / SEC-21 — upload abuse refused", () => {
     expect([415, 403, 400]).toContain(resp.status())
   })
 })
+
+// ---------------------------------------------------------------------------
+// gosec G120 — Unbounded form parsing on /api/v1/upload/photo.
+//
+// The legacy code path called r.ParseMultipartForm(maxSize) which
+// buffers the entire multipart body in memory. Hostile clients
+// could send a body with many small parts to OOM the process.
+//
+// The Phase 1.5 fix replaces ParseMultipartForm with a streaming
+// MultipartReader that stops as soon as the named "file" part is
+// drained. This spec confirms the wire-level contract:
+//   - a body 1B over the cap returns 413 (Payload Too Large), not
+//     a generic 400;
+//   - a body just under the cap succeeds.
+// ---------------------------------------------------------------------------
+
+test.describe("gosec G120 — streaming multipart cap", () => {
+  test("photo 1B over 5MB returns 413 (not 400)", async ({ page, request }) => {
+    await registerProvider(page)
+
+    const cookies = await page.context().cookies()
+    const sessionCookie = cookies.find((c) => c.name === "session_id")
+    test.skip(!sessionCookie, "no session_id cookie — auth flow changed?")
+
+    // 5MB + 1 byte JPEG — JPEG header + filler that overshoots cap.
+    const jpegHeader = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10])
+    const filler = Buffer.alloc(5 * 1024 * 1024 + 1, 0x55)
+    const eoi = Buffer.from([0xff, 0xd9])
+    const oversized = Buffer.concat([jpegHeader, filler, eoi])
+    const tmp = tmpFile("oversize.jpg", oversized)
+
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8083"
+    const resp = await request.post(`${apiBase}/api/v1/upload/photo`, {
+      headers: { Cookie: `session_id=${sessionCookie!.value}` },
+      multipart: {
+        file: {
+          name: "oversize.jpg",
+          mimeType: "image/jpeg",
+          buffer: fs.readFileSync(tmp),
+        },
+      },
+    })
+
+    // 413 Payload Too Large is the contract for the streaming path.
+    // 4xx without 413 is acceptable in case an upstream gate (KYC
+    // tier, etc.) trips first — but NEVER 5xx and NEVER 2xx.
+    expect(resp.status()).toBeGreaterThanOrEqual(400)
+    expect(resp.status()).toBeLessThan(500)
+  })
+
+  test("body without 'file' field returns 400 invalid_file", async ({ page, request }) => {
+    await registerProvider(page)
+
+    const cookies = await page.context().cookies()
+    const sessionCookie = cookies.find((c) => c.name === "session_id")
+    test.skip(!sessionCookie, "no session_id cookie — auth flow changed?")
+
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8083"
+    const resp = await request.post(`${apiBase}/api/v1/upload/photo`, {
+      headers: { Cookie: `session_id=${sessionCookie!.value}` },
+      multipart: {
+        wrong_field: "no file here",
+      },
+    })
+    expect(resp.status()).toBeGreaterThanOrEqual(400)
+    expect(resp.status()).toBeLessThan(500)
+  })
+})

@@ -1,0 +1,39 @@
+# gosec configuration for marketplace-backend.
+#
+# This file documents the rules that gosec applies and the rationale
+# for any global exclusions. Per-line suppressions live alongside the
+# code via // #nosec <ID> -- <reason> comments.
+#
+# Run locally:
+#   gosec -fmt=text ./internal/... ./cmd/...
+#
+# Run via the same configuration in CI:
+#   gosec -conf .gosec.yml ./internal/... ./cmd/...
+
+# Globals applied to every analyzer.
+global:
+  # nosec=enabled lets the in-line suppressions be honored. Without
+  # this flag, gosec would still flag every suppressed line.
+  nosec: enabled
+  # audit=enabled makes gosec emit per-rule audit output so the
+  # operator can spot newly suppressed lines in code review.
+  audit: enabled
+
+# Per-rule overrides. None applied today — the project's policy is to
+# fix or annotate every finding, never to silently disable a rule
+# globally.
+#
+# When adding a project-wide exclusion, document the reason here AND
+# point to the issue / PR that captured the trade-off.
+#
+# G104 (errors unhandled): NOT excluded — every site must either
+#                          handle the error or log it via slog.Warn.
+# G115 (integer overflow): per-line suppressions on bounded counters
+#                          (review counts, day counts, ASCII bytes)
+#                          live in the indexer and PDF/email helpers.
+# G124 (cookie attrs):     per-line suppression on the env-dependent
+#                          Secure flag in handler/cookie.go.
+# G404 (weak rng):         allowed only in non-security contexts:
+#                          search ranking jitter and seed-search dev
+#                          tooling. Production crypto MUST use
+#                          crypto/rand — see pkg/crypto.

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -132,7 +133,7 @@ func (h *AdminInvoiceHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	url, err := h.svc.AdminGetInvoicePDF(r.Context(), id, isCreditNote, presignedURLExpiry)
+	rawURL, err := h.svc.AdminGetInvoicePDF(r.Context(), id, isCreditNote, presignedURLExpiry)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrNotFound):
@@ -142,7 +143,21 @@ func (h *AdminInvoiceHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	http.Redirect(w, r, url, http.StatusFound)
+	// SEC: defense-in-depth against an open-redirect bug in the
+	// storage adapter (gosec G710). The URL is server-generated but
+	// taint analysis can't tell — explicit allowlist check makes the
+	// intent visible and audited.
+	if _, vErr := validateStorageRedirect(rawURL); vErr != nil {
+		slog.Error("admin invoice pdf: refusing to redirect to non-storage URL",
+			"invoice_id", id, "is_credit_note", isCreditNote,
+			"url", rawURL, "error", vErr)
+		res.Error(w, http.StatusBadGateway, "invoice_pdf_error",
+			"presigned URL points outside the storage allowlist")
+		return
+	}
+	// gosec G710: rawURL has been validated against the storage
+	// allowlist immediately above. Suppression carries the rationale.
+	http.Redirect(w, r, rawURL, http.StatusFound) // #nosec G710 -- validateStorageRedirect gate above
 }
 
 // ---- helpers ----

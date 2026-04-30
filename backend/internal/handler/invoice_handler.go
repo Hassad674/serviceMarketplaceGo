@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -130,7 +131,7 @@ func (h *InvoiceHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 		res.Error(w, http.StatusBadRequest, "invalid_invoice_id", "invoice id must be a valid UUID")
 		return
 	}
-	url, err := h.svc.GetInvoicePDFURL(r.Context(), orgID, invoiceID, presignedURLExpiry)
+	rawURL, err := h.svc.GetInvoicePDFURL(r.Context(), orgID, invoiceID, presignedURLExpiry)
 	if err != nil {
 		switch {
 		case errors.Is(err, invoicingapp.ErrCrossOrgInvoiceAccess):
@@ -142,7 +143,21 @@ func (h *InvoiceHandler) GetPDF(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	http.Redirect(w, r, url, http.StatusFound)
+	// SEC: harden against a future bug where the storage adapter
+	// returns a URL outside our control. gosec G710 flagged the
+	// previous unconditional Redirect as an open-redirect taint sink.
+	if _, vErr := validateStorageRedirect(rawURL); vErr != nil {
+		slog.Error("invoice pdf: refusing to redirect to non-storage URL",
+			"invoice_id", invoiceID, "url", rawURL, "error", vErr)
+		res.Error(w, http.StatusBadGateway, "invoice_pdf_error",
+			"presigned URL points outside the storage allowlist")
+		return
+	}
+	// gosec G710: rawURL has been validated against the storage
+	// allowlist immediately above (validateStorageRedirect). The
+	// taint analyzer can't trace through the closure, so we suppress
+	// here with the explicit gate as the rationale.
+	http.Redirect(w, r, rawURL, http.StatusFound) // #nosec G710 -- validateStorageRedirect gate above
 }
 
 // CurrentMonth — GET /api/v1/me/invoicing/current-month

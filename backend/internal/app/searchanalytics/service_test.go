@@ -128,6 +128,47 @@ func TestCaptureSearch_SwallowsRepoErrors(t *testing.T) {
 	assert.Empty(t, repo.snapshot())
 }
 
+// TestCaptureSearch_ContextCancellation_DoesNotPropagateToGoroutine
+// is the gosec G118 regression test: even when the caller's request
+// context is canceled (HTTP handler returning), the persistence
+// goroutine MUST still run to completion. The fix uses
+// context.WithoutCancel to detach.
+func TestCaptureSearch_ContextCancellation_DoesNotPropagateToGoroutine(t *testing.T) {
+	repo := &fakeRepo{}
+	svc, _ := NewService(Config{Repository: repo})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	svc.CaptureSearch(ctx, CaptureEvent{SearchID: "abc", Query: "react"})
+	// Cancel the request context IMMEDIATELY — the goroutine must
+	// keep running because it derives from WithoutCancel(ctx).
+	cancel()
+
+	waitForRows(t, repo, 1)
+	rows := repo.snapshot()
+	require.Len(t, rows, 1)
+	assert.Equal(t, "abc", rows[0].SearchID)
+}
+
+// TestPersist_RespectsTimeout proves the detached goroutine still
+// honors a 3-second timeout — a stuck DB connection cannot leak the
+// goroutine indefinitely.
+func TestPersist_RespectsTimeout(t *testing.T) {
+	// blockingRepo holds InsertSearch until the test signals.
+	repo := &fakeRepo{}
+	svc, _ := NewService(Config{Repository: repo})
+
+	// Pre-canceled parent — the persist call should still try to
+	// insert because of WithoutCancel; the inner WithTimeout(3s)
+	// adds the actual deadline.
+	parent := context.Background()
+	row := svc.buildRow(CaptureEvent{SearchID: "x", Persona: "all"})
+	svc.persist(parent, row)
+
+	rows := repo.snapshot()
+	require.Len(t, rows, 1)
+	assert.Equal(t, "x", rows[0].SearchID)
+}
+
 func TestRecordClick_Success(t *testing.T) {
 	repo := &fakeRepo{}
 	fixedTime := time.Now()
