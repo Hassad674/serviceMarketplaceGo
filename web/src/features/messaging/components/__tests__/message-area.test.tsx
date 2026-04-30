@@ -344,4 +344,80 @@ describe("MessageArea", () => {
     )
     expect(hasOwnLayout).toBe(true)
   })
+
+  // ---------------------------------------------------------------------
+  // Stale "completion_requested" filter — proves the post-split
+  // orchestrator still hides the yellow card once a resolver landed.
+  // ---------------------------------------------------------------------
+  it("filters out completion_requested cards once the proposal is resolved", () => {
+    const requested = createMessage({
+      id: "m1",
+      type: "proposal_completion_requested",
+      metadata: {
+        proposal_id: "p-x",
+        proposal_title: "T",
+        proposal_amount: 0,
+        proposal_status: "active",
+        proposal_deadline: null,
+        proposal_sender_name: "S",
+        proposal_documents_count: 0,
+        proposal_version: 1,
+        proposal_parent_id: null,
+        proposal_client_id: "c1",
+        proposal_provider_id: "pr1",
+      } as Message["metadata"],
+    })
+    const resolver = createMessage({
+      id: "m2",
+      type: "proposal_completed",
+      metadata: {
+        proposal_id: "p-x",
+        proposal_title: "T",
+        proposal_amount: 0,
+        proposal_status: "completed",
+        proposal_deadline: null,
+        proposal_sender_name: "S",
+        proposal_documents_count: 0,
+        proposal_version: 1,
+        proposal_parent_id: null,
+        proposal_client_id: "c1",
+        proposal_provider_id: "pr1",
+      } as Message["metadata"],
+    })
+    render(
+      <MessageArea
+        {...defaultProps({ messages: [requested, resolver] })}
+      />,
+    )
+    // The completion-requested card is filtered out, but the
+    // proposal_completed system message is still rendered.
+    expect(
+      screen.queryByTestId("completion-requested-message"),
+    ).toBeNull()
+    expect(screen.getByTestId("proposal-system-message")).toBeInTheDocument()
+  })
+
+  it("keeps completion_requested cards when no resolver is in the timeline", () => {
+    const requested = createMessage({
+      id: "m1",
+      type: "proposal_completion_requested",
+      metadata: {
+        proposal_id: "p-y",
+        proposal_title: "T",
+        proposal_amount: 0,
+        proposal_status: "active",
+        proposal_deadline: null,
+        proposal_sender_name: "S",
+        proposal_documents_count: 0,
+        proposal_version: 1,
+        proposal_parent_id: null,
+        proposal_client_id: "c1",
+        proposal_provider_id: "pr1",
+      } as Message["metadata"],
+    })
+    render(<MessageArea {...defaultProps({ messages: [requested] })} />)
+    expect(
+      screen.getByTestId("completion-requested-message"),
+    ).toBeInTheDocument()
+  })
 })

@@ -79,12 +79,16 @@ describe("BillingProfileForm", () => {
     fireEvent.change(screen.getByLabelText(/Raison sociale ou nom légal/i), {
       target: { value: "Acme New" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }))
+    // Submit via the form's submit event so RHF runs validation +
+    // delegates to handleSubmit (button click via fireEvent does not
+    // bubble to a real submit in JSDOM-stripped <form>).
+    const saveBtn = screen.getByRole("button", { name: /Enregistrer/i })
+    fireEvent.click(saveBtn)
     await waitFor(() => {
       expect(mockUpdate).toHaveBeenCalledTimes(1)
-      const payload = mockUpdate.mock.calls[0][0] as { legal_name: string }
-      expect(payload.legal_name).toBe("Acme New")
-    })
+    }, { timeout: 5000 })
+    const payload = mockUpdate.mock.calls[0][0] as { legal_name: string }
+    expect(payload.legal_name).toBe("Acme New")
   })
 
   it("renders the missing-fields banner when the snapshot is incomplete", async () => {
@@ -104,6 +108,133 @@ describe("BillingProfileForm", () => {
     expect(
       screen.getByRole("heading", { name: /Identité légale/i }),
     ).toBeInTheDocument()
+  })
+
+  it("triggers the sync mutation when 'Pré-remplir depuis Stripe' is clicked", async () => {
+    mockFetch.mockResolvedValue(SNAPSHOT)
+    mockSync.mockResolvedValue(SNAPSHOT)
+    render(withQueryClient(<BillingProfileForm />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Pré-remplir depuis Stripe/i }))
+    await waitFor(() => expect(mockSync).toHaveBeenCalledTimes(1))
+  })
+
+  it("shows the sync error banner when sync fails", async () => {
+    mockFetch.mockResolvedValue(SNAPSHOT)
+    mockSync.mockRejectedValue(new Error("boom"))
+    render(withQueryClient(<BillingProfileForm />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Pré-remplir depuis Stripe/i }))
+    await waitFor(() =>
+      expect(
+        screen.getByText(/La synchronisation Stripe a échoué/),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it("shows 'Profil enregistré' after a successful save", async () => {
+    mockFetch.mockResolvedValue(SNAPSHOT)
+    mockUpdate.mockResolvedValue({ ...SNAPSHOT, is_complete: true })
+    render(withQueryClient(<BillingProfileForm />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }))
+    await waitFor(() =>
+      expect(screen.getByText(/Profil enregistré/)).toBeInTheDocument(),
+    )
+  })
+
+  it("shows the update error message when save fails", async () => {
+    mockFetch.mockResolvedValue(SNAPSHOT)
+    mockUpdate.mockRejectedValue(new Error("server-error"))
+    render(withQueryClient(<BillingProfileForm />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }))
+    await waitFor(() =>
+      expect(
+        screen.getByText(/L'enregistrement a échoué/),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it("triggers onSaved when the save is successful AND profile is complete", async () => {
+    mockFetch.mockResolvedValue({ ...SNAPSHOT, is_complete: true })
+    mockUpdate.mockResolvedValue({ ...SNAPSHOT, is_complete: true })
+    const onSaved = vi.fn()
+    render(withQueryClient(<BillingProfileForm onSaved={onSaved} />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }))
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
+  })
+
+  it("does NOT trigger onSaved when the saved profile is still incomplete", async () => {
+    mockFetch.mockResolvedValue({
+      ...SNAPSHOT,
+      is_complete: false,
+      missing_fields: [{ field: "tax_id", reason: "required" }],
+    })
+    mockUpdate.mockResolvedValue({ ...SNAPSHOT, is_complete: false })
+    const onSaved = vi.fn()
+    render(withQueryClient(<BillingProfileForm onSaved={onSaved} />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Enregistrer/i }))
+    // Wait briefly to give the effect a chance to fire (it will not).
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(onSaved).not.toHaveBeenCalled()
+  })
+
+  it("renders the FormSkeleton when the query is loading", async () => {
+    mockFetch.mockReturnValue(new Promise(() => {})) // never resolves
+    const { container } = render(withQueryClient(<BillingProfileForm />))
+    expect(container.innerHTML).toContain("animate-shimmer")
+  })
+
+  it("renders the error fallback when the query errors out", async () => {
+    // The hook configures retry: 1 — let it run twice before the
+    // error state lands.
+    mockFetch.mockRejectedValue(new Error("nope"))
+    render(withQueryClient(<BillingProfileForm />))
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText(/Impossible de charger le profil de facturation/),
+        ).toBeInTheDocument(),
+      { timeout: 5_000 },
+    )
+  })
+
+  it("compact variant hides the synced indicator", async () => {
+    mockFetch.mockResolvedValue(SNAPSHOT)
+    render(withQueryClient(<BillingProfileForm variant="compact" />))
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(/Raison sociale ou nom légal/i) as HTMLInputElement).value,
+      ).toBe("Acme SAS"),
+    )
+    expect(screen.queryByText(/Synchronisé depuis Stripe/)).not.toBeInTheDocument()
   })
 
   it("disables the VAT validation button until a number is filled", async () => {
