@@ -1,8 +1,27 @@
 # Roadmap Finale — Préparation Open-Source
 
-**Date** : 2026-04-29
-**Branche** : `main` @ `a0d268a4`
+**Date** : 2026-04-30 (post Phases 1-5Q)
+**Branche** : `main` @ `c8284526`
 **Objectif** : finaliser le repo au niveau « parmi les meilleurs projets open-source mondiaux » avant publication.
+
+## Status snapshot
+
+| Phase | Status | Notes |
+|---|---|---|
+| 0 — Quick wins | ✅ DONE | 8 commits merged Phase 0 |
+| 1 — Sécurité critique | ✅ DONE | PRs #31, #32, #33 (Agents A/B/C) + #34 (gosec sweep) |
+| 1.5 — gosec cleanup | ✅ DONE | PR #34 |
+| 2 D — State machines & races | ✅ DONE | PR #35 |
+| 2 E — Webhook + outbox + LiveKit + FCM nav | ✅ DONE | PR #36 (LiveKit kept off-limits — token grants/maxParticipants flagged for future) |
+| 2.5 — Phase 2 finishers | ✅ DONE | PR #40 (WS races, embedded JSON, upload ctx, NilSliceToEmpty, audit unmarshal, notif Ack) |
+| 3 G — God components web | ✅ DONE | PR #38 |
+| 3 I — Frontend isolation | ✅ DONE | PR #37 |
+| 3 H/J/F/K — Wiring split, mobile cleanup, backend SOLID | ⏳ PENDING | not started |
+| 4 N — Web RSC + admin lazy + boundaries | ✅ DONE | PR #41 (with regressions tracked: BUG-NEW-12, 13) |
+| 4 L/M/O — backend perf + cache + mobile perf | ⏳ PENDING | not started |
+| 5 Q — RLS PostgreSQL | ✅ DONE | PR #39 — but **migration of every read path to RunInTxWithTenant is BLOCKER for prod role rotation** (BUG-NEW-04) |
+| 5 P/R/S/T — Tests + DB cohérence | ⏳ PENDING | not started |
+| 6 — Polish open-source | ⏳ PENDING | not started |
 
 ---
 

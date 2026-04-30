@@ -1,8 +1,26 @@
 # Rapport Tests + Migrations + DB
 
-**Date** : 2026-04-29 (rapport précédent : 2026-04-04, single-feature)
-**Branche** : `main` @ `a0d268a4`
+**Date** : 2026-04-30 (mise à jour post Phases 1-5Q)
+**Branche** : `main` @ `c8284526`
 **Périmètre** : couverture tests par layer + qualité tests + santé migrations + cohérence schéma
+
+## Tests added since 2026-04-29
+
+11 PRs landed → ~80 nouveaux fichiers de test. Détail :
+
+| Phase / PR | Tests added |
+|---|---|
+| Phase 1 (PR #31) | `service_bruteforce_test.go`, `auth/refresh_rotation_test.go`, `mobile/single_flight_test.dart`, ratelimit Redis sliding-window tests, validator DTO tests, password special-char tests |
+| Phase 1 (PR #32) | `security_headers_test.go`, `cors_test.go` (Vary), Android cleartext config test, session_version-bump test in admin/auth services, audit emission tests across auth + admin |
+| Phase 1 (PR #33) | XSS JSON-LD escape unit tests, ConfirmPayment Stripe verify test, magic-byte upload test extended to all upload endpoints, embedded handler invalid_json test, advisory_lock race test for Stripe Connect |
+| Phase 1.5 (PR #34) | gosec sweep tests : SQL injection placeholder coverage, open redirect e2e Playwright, multipart streaming test, cookie SameSite/Secure ClearSession test, fail-fast prod test |
+| Phase 2 D (PR #35) | `service_bug09_test.go` (records.Update error surfacing), payment state machine guards (`payment_record_test.go`, `state_machine_test.go`), dispute restore propagation (`service_actions_test.go:RespondToCancellation`), milestone GetByIDWithVersion test |
+| Phase 2 E (PR #36) | `outbox_integration_test.go` (search outbox tx atomicity), webhook composite idempotency tests (`claimer_test.go`), notification worker pool (`worker_test.go` extended), mobile FCM tap routing (`fcm_service_test.dart`) |
+| Phase 2.5 (PR #40) | WS sendOrDrop + wasLast race (`hub_test.go` extended), embedded JSON unmarshal test, upload goroutine ctx test, NilSliceToEmpty unit tests, audit_repository unmarshal test, notification queue Ack test |
+| Phase 3 G (PR #38) | tests for split wallet/messaging/search-filter components, RHF/zod billing-profile-form tests, refactor-isolation e2e contract test |
+| Phase 3 I (PR #37) | extracted shared/* component tests carry over, cross-feature import lint check (e2e) |
+| Phase 4 N (PR #41) | DashboardShell ≥90% coverage (`9dbcb600`), CSP completeness e2e (Playwright), Vite manualChunks build verification |
+| Phase 5 Q (PR #39) | `rls_isolation_test.go` (cross-tenant denial across 9 tables, table-driven, property-based via testing/quick) |
 
 ## Méthodologie
 
@@ -222,13 +240,13 @@ CI scope = `test/shared/search`, `test/features/search`, `test/features/profile_
 
 | Métrique | Valeur |
 |---|---|
-| Total `.up.sql` | **121** (pas 123) |
-| Down files | 121/121 ✅ |
-| Numbering gaps | **024 et 025 manquants** (sequence saute de 023 à 026) |
-| Latest | `123_org_auto_payout_consent.up.sql` |
+| Total `.up.sql` | **125** (was 121, +124 audit_logs grants, +125 RLS) |
+| Down files | 125/125 ✅ |
+| Numbering gaps | 024 et 025 documentés (Phase 0 PR `4596eb0c`) |
+| Latest | `125_enable_row_level_security.up.sql` |
 | Naming convention | clean (snake_case `create_X` / `add_Y_to_X` / `drop_Z`) ✅ |
-| Idempotency | majoritaire (`IF [NOT] EXISTS`) — **35 up + 13 down sans** |
-| `CREATE INDEX CONCURRENTLY` | **0 sur 183** ⚠️ |
+| Idempotency | majoritaire (`IF [NOT] EXISTS`) — 35 up + 13 down sans (still open) |
+| `CREATE INDEX CONCURRENTLY` | **0 sur 183** ⚠️ (still open) |
 
 `golang-migrate` accepte les gaps de numérotation, mais auditeurs et forks vont stumble.
 
@@ -288,9 +306,11 @@ La règle stricte CLAUDE.md ("only references users(id)") est largement violée.
 
 ## RLS audit
 
-**ZERO tables ont RLS enabled.** `grep -i "ENABLE ROW LEVEL SECURITY" migrations/*.up.sql` = 0. `FORCE ROW LEVEL SECURITY` = 0.
+✅ **9 tables under RLS** as of migration 125 (PR #39). FORCE ROW LEVEL SECURITY enabled on all of them. Cross-tenant denial integration tests in `rls_isolation_test.go` are passing.
 
-Backend/CLAUDE.md prescrit RLS pour `missions, contracts, messages, invoices, reviews, notifications, profiles`. **Application-level `WHERE org_id = ?` est la SEULE ligne de défense aujourd'hui.** Une régression de filtre = fuite cross-tenant.
+⚠️ **Critical deployment dependency**: see BUG-NEW-04 in bugacorriger.md. Today, RLS is bypassed by the migration owner role. The moment production rotates to a dedicated `marketplace_app NOSUPERUSER NOBYPASSRLS` role, EVERY repo read against the 9 RLS tables that doesn't go through `RunInTxWithTenant` will return zero rows (only 1 POC site is migrated). Audit logs INSERT will also fail (BUG-NEW-07).
+
+⚠️ Phase 5 Q is a foundation, but the migration of every repo read path to `RunInTxWithTenant` is **out of scope of phase 5** and tracked as Phase 6 / pre-prod blocker.
 
 ## Migration safety / production risk
 
@@ -356,12 +376,14 @@ Backend/CLAUDE.md prescrit RLS pour `missions, contracts, messages, invoices, re
 
 | Area | Critical | Major | Minor |
 |---|---|---|---|
-| Tests backend | 4 (admin/kyc/referral untested + handlers) | 4 (test files >500, sleeps, testcontainers, mock/ doc drift) | 2 (E2E shell scripts, fixtures sparse) |
+| Tests backend | 4 (admin/kyc/referral untested + handlers) | 3 (test files >500, sleeps, testcontainers) | 2 (E2E shell scripts, fixtures sparse) |
 | Tests web | 2 (4 features 0 + ui/ untested) | 2 (proposal/subscription/wallet thin, Playwright label-gated) | 1 (hooks 31%) |
 | Tests admin | 1 (3% coverage, no CI job) | 0 | 0 |
 | Tests mobile | 2 (9 features 0 + 0 goldens) | 2 (CI scope tiny, integration tests unrun) | 1 (referral/reporting/dispute zero) |
-| Migrations schema | 2 (RLS absent + cross-FK violations) | 2 (gap 024/025, user_id ownership cols survive) | 1 (audit_logs DB-enforce) |
+| Migrations schema | 1 (cross-FK violations) | 1 (user_id ownership cols survive) | 0 |
 | Migrations safety | 0 | 1 (CREATE INDEX never CONCURRENT) | 1 (long-TX backfills) |
-| **Total** | **11** | **11** | **6** |
+| **Total** | **10** | **9** | **5** |
 
-Top priority : **activer PostgreSQL RLS** sur tables tenant-scoped avant open-source — c'est le seul filet contre une régression de filtre `WHERE org_id = ?` qui exposerait toutes les conversations/invoices/proposals d'autres orgs.
+(was 28 → 24 remaining + 4 closed: RLS critical, gap 024/025 minor, mock/ doc drift, audit_logs DB-enforce all closed)
+
+Top priority remains: **migrate every repo read against RLS tables to `RunInTxWithTenant` BEFORE rotating prod DB role to NOSUPERUSER NOBYPASSRLS** (BUG-NEW-04). Otherwise the entire app returns empty under the dedicated role.

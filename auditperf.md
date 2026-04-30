@@ -1,8 +1,8 @@
 # Audit de Performance
 
-**Date** : 2026-04-29 (audit précédent : 2026-03-30, obsolète)
-**Branche** : `main` @ `a0d268a4`
-**Périmètre** : backend Go (~848 fichiers, 123 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+**Date** : 2026-04-30 (mise à jour post Phases 1-5Q ; audit précédent : 2026-04-29)
+**Branche** : `main` @ `c8284526`
+**Périmètre** : backend Go (~860 fichiers, 125 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
 
 ## Méthodologie
 
@@ -14,10 +14,7 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 
 ## HIGH (8)
 
-### PERF-B-01 : `ParseMultipartForm(100MB)` — vidéos chargées en RAM
-- **Location** : `backend/internal/handler/upload_handler.go:131-137, 193-199, 252-258, 357-363, 456-462`
-- **Pattern** : `r.ParseMultipartForm(100<<20)` alloue immédiatement 100 MB en RAM. 10 uploads concurrents = 1 GB transient sur dyno 1 GB Railway → **OOM**.
-- **Fix** : `r.MultipartReader()` puis streamer chaque part directement vers `StorageService.Upload(ctx, key, partReader, mimeType)`. `http.MaxBytesReader` continue d'enforcer la taille. Garder `ParseMultipartForm` uniquement pour photos < 10 MB.
+### ~~PERF-B-01 : ParseMultipartForm(100MB)~~ closed in PR #34 (`6d6dd20c fix(security): stream multipart uploads via MultipartReader`)
 
 ### PERF-B-02 : N+1 sur la liste des propositions actives
 - **Location** : `backend/internal/handler/proposal_handler.go:527-530` (`GetParticipantNames`)
@@ -74,10 +71,7 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 - **Pattern** : `SUM(unread_count) WHERE user_id = $1`. Index partiel `WHERE unread_count > 0` (migration 074) existe mais le filtre n'est pas dans la query.
 - **Fix** : ajouter `AND unread_count > 0` dans le WHERE — le SUM reste correct (rows à 0 contribuent 0).
 
-### PERF-B-12 : Notification worker single-threaded + `time.Sleep(delay)` bloquant
-- **Location** : `backend/internal/app/notification/worker.go:121-143`
-- **Impact** : 1 notif qui timeout 3× bloque la goroutine 7s ; 100 notifs en burst → p99 multi-secondes.
-- **Fix** : ré-enqueue avec `available_at = now() + delay`, ou paralléliser N=3-5 workers.
+### ~~PERF-B-12 : Notification worker single-threaded + time.Sleep~~ closed in PR #36 (`3dbbf747 fix(notification/worker): parallel pool + non-blocking re-enqueue`)
 
 ### PERF-B-13 : Notification worker — `getPrefs` + `users.GetByID` à chaque job
 - **Location** : `backend/internal/app/notification/worker.go:99,193,211-222`
@@ -94,10 +88,7 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 - **Pattern** : signature accepte `ctx` mais `account.GetByID(accountID, nil)` ignore. Annulation impossible.
 - **Fix** : `account.GetByIDWithContext(ctx, ...)` (stripe-go v82) ou `params.Context = ctx`.
 
-### PERF-B-16 : WS `syncSingleConversation` send bloquant
-- **Location** : `backend/internal/adapter/ws/connection.go:261, 317`
-- **Pattern** : `client.Send <- envelope` sans `select { default: drop }`. Buffer 64 → si client suspendu (mobile background), readPump bloque → goroutine leak jusqu'à pongWait timeout (60s).
-- **Fix** : helper `sendOrDrop(client, msg)` (pattern déjà utilisé dans `Hub.SendToUser`).
+### ~~PERF-B-16 : WS sendOrDrop~~ closed in PR #40 (`7306f055 fix(ws): non-blocking sendOrDrop + race-safe wasLast on disconnect`)
 
 ### PERF-B-17 : Search worker tick = 30 s — embeddings différés trop longuement
 - **Location** : `backend/internal/adapter/worker/worker.go:86-87`
@@ -165,25 +156,13 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 
 ## HIGH (11)
 
-### PERF-W-01 : LiveKit (1,3 MB!) chargé sur TOUTES les pages dashboard
-- **Location** : `web/src/shared/components/layouts/dashboard-shell.tsx:11` importe `useCall` qui importe `Room, RoomEvent` de `livekit-client`
-- **Impact** : tous les utilisateurs authentifiés téléchargent 1,3 MB JS même sans jamais passer un appel. Single biggest win bundle.
-- **Fix** : isoler la dépendance LiveKit dans `CallOverlay` chargé via `dynamic()`, exposer `useCall` via event-bus / context provider qui n'instancie LiveKit qu'au premier `startCall` ou `incoming_call` WS event. Supprimer le `useEffect` ligne 78 qui preload.
+### ~~PERF-W-01 : LiveKit lazy~~ closed in PR #41 (`b8f739a7 perf(web): lazy-load LiveKit via CallSlot boundary`)
 
-### PERF-W-02 : Listings publics (`/agencies`, `/freelancers`, `/referrers`) 100% client — 0 SEO content
-- **Location** : `web/src/app/[locale]/(public)/{agencies,freelancers,referrers}/page.tsx`
-- **Impact** : Googlebot voit `<div className="flex flex-col gap-4"></div>` puis JS qui hydrate. Aucun titre, description, JSON-LD `ItemList`. Sur une marketplace B2B, c'est l'asset SEO le plus précieux.
-- **Fix** : RSC qui fait le premier appel Typesense côté serveur, rend les 20 premières cartes en HTML statique, hydrate `SearchPage` au-dessus pour les filtres / load-more. `generateMetadata` + JSON-LD `ItemList`.
+### ~~PERF-W-02 : RSC public listings + JSON-LD~~ closed in PR #41 (`6f41131f perf(web): RSC public listings + JSON-LD for SEO`) — voir BUG-NEW-12 pour la régression API_BASE_URL
 
-### PERF-W-03 : Aucun `loading.tsx` / `error.tsx` / `not-found.tsx` / `global-error.tsx` / `sitemap.ts` / `robots.ts`
-- **Location** : `web/src/app/**`
-- **Impact** : pas de streaming serveur partiel, pas d'error boundary, pas d'indexation pilotée.
-- **Fix** : créer au minimum `(app)/loading.tsx`, `(public)/loading.tsx`, `error.tsx` par groupe + `global-error.tsx` + `not-found.tsx` + `sitemap.ts` (dynamique agrégeant agencies + freelancers + referrers + opportunities) + `robots.ts`.
+### ~~PERF-W-03 : loading/error/not-found/global-error + sitemap/robots~~ closed in PR #41 (`26ebb871 feat(web): loading/error/not-found boundaries` + `1dadac31 feat(web): dynamic sitemap.ts + robots.ts`)
 
-### PERF-W-04 : Composant `<TestDB />` encore en prod sur la home
-- **Location** : `web/src/app/[locale]/page.tsx:125` rend `web/src/app/[locale]/test-db.tsx`
-- **Impact** : home publique = page LCP. Embarque un client component qui fetch deux endpoints au mount, expose `process.env.NEXT_PUBLIC_API_URL`, casse la hiérarchie h1→h2 (pose un `h3` directement après le `h1`), et a du texte non-i18n.
-- **Fix** : supprimer entièrement `test-db.tsx` et son import. Si nécessaire en dev, derrière `process.env.NODE_ENV !== "production"`.
+### ~~PERF-W-04 : TestDB en prod home~~ closed in Phase 0 (`e9c9e325 chore(web): remove TestDB debug component from production home`)
 
 ### PERF-W-05 : `payment-info/page.tsx` fetch + polling dans `useEffect` au lieu de TanStack Query
 - **Location** : `web/src/app/[locale]/(app)/payment-info/page.tsx:94-147`
@@ -205,19 +184,11 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 - **Impact** : chaque `"use client"` au niveau page hydrate tout le sous-arbre, augmente le JS initial route, empêche le streaming serveur partiel.
 - **Fix** : descendre la limite `use client` au composant interactif ; le shell de page reste RSC.
 
-### PERF-W-09 : Cross-feature imports (16 arêtes) — alourdit les bundles transitifs
-- **Location** : `messaging → proposal/referral/reporting/review`, `wallet → invoicing`, `proposal → billing/subscription/messaging`, `provider` consommé par 6+ features
-- **Impact** : un changement dans `provider` recompile tous les chunks qui l'importent ; le transitive est massif.
-- **Fix** : extraire `provider/upload-api`, `expertise-editor`, `city-autocomplete`, `search-api` vers `shared/`. Casse 9 des 16 imports en un coup.
+### ~~PERF-W-09 : Cross-feature imports~~ closed in PR #37 (`refactor(web): move upload-api/expertise-editor/city-autocomplete/search-api to shared/`)
 
-### PERF-W-10 : Deps non utilisées dans `web/package.json`
-- **Location** : `typesense ^3.0.5` (le projet utilise un client maison), `country-region-data ^4.1.0` (332 KB)
-- **Fix** : `npm uninstall typesense country-region-data`.
+### ~~PERF-W-10 : Deps non utilisées~~ closed in Phase 0 (`528668cc chore(web): uninstall unused typesense and country-region-data deps`)
 
-### ADMIN-PERF-01 : Aucun lazy-loading des routes — recharts dans le bundle initial
-- **Location** : `admin/src/app/router.tsx:1-19` (16 imports eager)
-- **Impact** : recharts (~500 KB) chargé même si l'admin ouvre `/users` sans jamais visiter le dashboard. Vite config sans `manualChunks`.
-- **Fix** : `lazy(() => import("..."))` + `Suspense fallback={<RouteSkeleton />}` autour de `<Routes>`. Vite config : `manualChunks: { "react-vendor": [...], "tanstack": [...], "charts": ["recharts"] }`.
+### ~~ADMIN-PERF-01 : Aucun lazy-loading des routes~~ closed in PR #41 (`edcc21da perf(admin): lazy routes + Vite manualChunks`) — voir BUG-NEW-13 pour la régression du fallback Suspense au-dessus de AdminLayout
 
 ## MEDIUM (10)
 
@@ -292,13 +263,7 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 - **Impact** : pas de virtualisation. Pour 100+ items : ~100ms de jank initial + RAM 5x.
 - **Fix** : `ListView.builder` / `ListView.separated` pour toute liste `List<X>.map(...)`.
 
-### PERF-M-07 : 3 dépendances mortes dans pubspec
-- **Location** : `pubspec.yaml`
-  - `lottie ^3.0.0` — 0 imports dans `lib/`
-  - `connectivity_plus ^6.0.1` — 0 imports (pourtant CLAUDE.md exige offline mode)
-  - `wakelock_plus ^1.2.8` — 0 imports
-- **Impact** : ~1 MB APK + signal d'absence d'offline mode.
-- **Fix** : soit supprimer, soit implémenter offline mode (banner + queue retries Dio interceptor pour `connectivity_plus`).
+### ~~PERF-M-07 : 3 dépendances mortes~~ closed in Phase 0 (`e1cabfd4 chore(mobile): remove unused lottie, connectivity_plus, wakelock_plus deps`)
 
 ### PERF-M-08 : 0 `RepaintBoundary` dans tout le code
 - **Location** : `grep -r RepaintBoundary mobile/lib = 0`
@@ -365,11 +330,29 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 
 ---
 
+## Closed in this round
+
+| ID | Closed in |
+|---|---|
+| PERF-B-01 (streaming uploads) | PR #34 |
+| PERF-B-12 (notification worker pool) | PR #36 |
+| PERF-B-16 (WS sendOrDrop) | PR #40 |
+| PERF-W-01 (LiveKit lazy) | PR #41 |
+| PERF-W-02 (RSC public listings) | PR #41 |
+| PERF-W-03 (loading/error/sitemap) | PR #41 |
+| PERF-W-04 (TestDB removed) | Phase 0 |
+| PERF-W-09 (cross-feature imports) | PR #37 |
+| PERF-W-10 (unused web deps) | Phase 0 |
+| ADMIN-PERF-01 (admin lazy routes + Vite manualChunks) | PR #41 |
+| PERF-M-07 (mobile dead deps) | Phase 0 |
+
 ## Summary
 
 | Layer | HIGH | MEDIUM | LOW |
 |---|---|---|---|
-| Backend + DB | 8 | 12 | 10 |
-| Web + Admin | 11 | 10 | 7 |
-| Mobile | 8 | 12 | 8 |
-| **Total** | **27** | **34** | **25** |
+| Backend + DB | 5 | 12 | 10 |
+| Web + Admin | 7 | 10 | 7 |
+| Mobile | 7 | 12 | 8 |
+| **Total** | **19** | **34** | **25** |
+
+(was 86 before this round → 78 remaining + 11 closed; new 8 BUG-NEW-* perf items captured separately in bugacorriger.md)
