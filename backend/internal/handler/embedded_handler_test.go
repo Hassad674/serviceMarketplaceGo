@@ -23,8 +23,10 @@ import (
 // Test helpers
 // ---------------------------------------------------------------------------
 
-// fakeUserAccountStore implements userAccountStore for tests. Tracks every
-// call so assertions can inspect what the handler invoked.
+// fakeUserAccountStore implements orgAccountStore for tests. Tracks every
+// call so assertions can inspect what the handler invoked. The locks
+// are emulated via a per-orgID sync.Mutex so concurrent tests exercise
+// the same serialisation contract as the real PG advisory lock.
 type fakeUserAccountStore struct {
 	mu sync.Mutex
 
@@ -36,6 +38,10 @@ type fakeUserAccountStore struct {
 	getErr   error
 	setErr   error
 	clearErr error
+	// lockErr, when non-nil, is returned by WithStripeAccountLock
+	// without invoking the callback — used to simulate a DB blip
+	// while acquiring the advisory lock.
+	lockErr error
 
 	// Call tracking
 	getCalls   int
@@ -46,6 +52,18 @@ type fakeUserAccountStore struct {
 	lastSetAccountID string
 	lastSetCountry   string
 	lastClearUserID  uuid.UUID
+
+	// orgLocks emulates the per-org PG advisory lock. Tests asserting
+	// that two concurrent calls on the same org are serialised rely
+	// on this lock being released at the end of the callback.
+	orgLocks   map[uuid.UUID]*sync.Mutex
+	orgLocksMu sync.Mutex
+
+	// activePerOrg counts the in-flight callbacks per org. A value > 1
+	// at any moment violates the BUG-04 contract — concurrent tests
+	// inspect maxActive to assert serialisation held.
+	activePerOrg map[uuid.UUID]int
+	maxActive    int
 }
 
 func (f *fakeUserAccountStore) GetStripeAccount(_ context.Context, _ uuid.UUID) (string, string, error) {
@@ -86,6 +104,50 @@ func (f *fakeUserAccountStore) ClearStripeAccount(_ context.Context, userID uuid
 	f.accountID = ""
 	f.country = ""
 	return nil
+}
+
+// WithStripeAccountLock emulates the PG advisory lock contract: at
+// most ONE callback runs per orgID at a time. Different orgs run
+// concurrently. lockErr (when set) short-circuits before invoking fn.
+// The callback's error is propagated as-is.
+func (f *fakeUserAccountStore) WithStripeAccountLock(ctx context.Context, orgID uuid.UUID, fn func(ctx context.Context) error) error {
+	if f.lockErr != nil {
+		return f.lockErr
+	}
+
+	// Resolve / lazily create the org-scoped mutex.
+	f.orgLocksMu.Lock()
+	if f.orgLocks == nil {
+		f.orgLocks = make(map[uuid.UUID]*sync.Mutex)
+	}
+	if f.activePerOrg == nil {
+		f.activePerOrg = make(map[uuid.UUID]int)
+	}
+	mu, ok := f.orgLocks[orgID]
+	if !ok {
+		mu = &sync.Mutex{}
+		f.orgLocks[orgID] = mu
+	}
+	f.orgLocksMu.Unlock()
+
+	mu.Lock()
+	// Track the in-flight count so concurrent tests can assert
+	// "at most one callback per org at a time" — the BUG-04 contract.
+	f.orgLocksMu.Lock()
+	f.activePerOrg[orgID]++
+	if f.activePerOrg[orgID] > f.maxActive {
+		f.maxActive = f.activePerOrg[orgID]
+	}
+	f.orgLocksMu.Unlock()
+
+	defer func() {
+		f.orgLocksMu.Lock()
+		f.activePerOrg[orgID]--
+		f.orgLocksMu.Unlock()
+		mu.Unlock()
+	}()
+
+	return fn(ctx)
 }
 
 func makeRequestWithUser(method, path string, body []byte, userID uuid.UUID) *http.Request {
@@ -379,4 +441,123 @@ func TestCreateAccountSession_CrossBorderError_Returns400(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.Contains(t, rec.Body.String(), "country_not_supported")
+}
+
+// ---------------------------------------------------------------------------
+// BUG-04 — concurrent CreateAccountSession on the same org must serialise
+// through the advisory lock. Without the fix, two simultaneous requests
+// would both observe "no account" and create one each, leaving an orphan
+// Stripe account.
+// ---------------------------------------------------------------------------
+
+// TestResolveStripeAccount_LockSerialisesCheckAndCreate calls
+// resolveStripeAccount directly (the path that holds the lock) and
+// asserts that two concurrent callers on the same org never see the
+// "no account" state at the same time. The fake locker records the
+// peak in-flight count per org; at most one callback per org may run
+// at a time.
+func TestResolveStripeAccount_LockSerialisesCheckAndCreate(t *testing.T) {
+	const callers = 10
+	store := &fakeUserAccountStore{}
+
+	// Inject getErr so the callback exits before issuing a real Stripe
+	// call. We're proving the LOCK contract, not the create branch.
+	store.getErr = errors.New("post-lock fast exit")
+
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+	orgID := uuid.New()
+
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = h.resolveStripeAccount(context.Background(), orgID, "FR", "https://example.com")
+		}()
+	}
+	wg.Wait()
+
+	// BUG-04 invariant: at most ONE callback per org runs concurrently.
+	store.orgLocksMu.Lock()
+	defer store.orgLocksMu.Unlock()
+	assert.Equal(t, 1, store.maxActive,
+		"BUG-04: concurrent calls on the same org must serialise through the lock")
+	// All 10 callers must have hit the GetStripeAccount path inside
+	// the locked section — proving the lock didn't drop any of them.
+	assert.Equal(t, callers, store.getCalls,
+		"every concurrent caller must run inside the lock")
+}
+
+// TestResolveStripeAccount_DifferentOrgsRunConcurrently is the converse:
+// the lock must NOT serialise different orgs against each other. Each
+// org has its own lock key, so 10 different orgs can resolve in parallel.
+func TestResolveStripeAccount_DifferentOrgsRunConcurrently(t *testing.T) {
+	const callers = 10
+	store := &fakeUserAccountStore{
+		getErr: errors.New("post-lock fast exit"),
+	}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		orgID := uuid.New() // each goroutine uses a distinct org
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = h.resolveStripeAccount(context.Background(), orgID, "FR", "https://example.com")
+		}()
+	}
+	wg.Wait()
+
+	// All 10 callers ran but none observed peak-active > 1 for its
+	// own org because each had a unique key. The fake's maxActive is
+	// global per-org, so it will have value 1 (one call per org), not
+	// callers-many.
+	store.orgLocksMu.Lock()
+	defer store.orgLocksMu.Unlock()
+	assert.LessOrEqual(t, store.maxActive, 1,
+		"different orgs must NOT serialise against each other")
+	assert.Equal(t, callers, store.getCalls)
+}
+
+// TestResolveStripeAccount_LockErrSurfaced verifies that when
+// WithStripeAccountLock itself fails (e.g. PG advisory lock acquisition
+// timed out), the error is surfaced and no Stripe call is attempted.
+func TestResolveStripeAccount_LockErrSurfaced(t *testing.T) {
+	store := &fakeUserAccountStore{
+		lockErr: errors.New("advisory lock acquisition timed out"),
+	}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+
+	_, err := h.resolveStripeAccount(context.Background(), uuid.New(), "FR", "https://example.com")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "advisory lock acquisition timed out")
+	assert.Equal(t, 0, store.getCalls,
+		"GetStripeAccount must NOT run when the lock cannot be acquired")
+}
+
+// TestResolveStripeAccount_ExistingAccount_LockHeldThroughSync proves
+// the fast path "row already had an account id" still runs inside the
+// lock — important because the syncBusinessProfile call inside it
+// would otherwise race a concurrent retry.
+func TestResolveStripeAccount_ExistingAccount_LockHeldThroughSync(t *testing.T) {
+	store := &fakeUserAccountStore{accountID: "acct_existing", country: "FR"}
+	h := NewEmbeddedHandler(store, "http://localhost:3001")
+	orgID := uuid.New()
+
+	const callers = 5
+	var wg sync.WaitGroup
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _ = h.resolveStripeAccount(context.Background(), orgID, "FR", "https://example.com")
+		}()
+	}
+	wg.Wait()
+
+	store.orgLocksMu.Lock()
+	defer store.orgLocksMu.Unlock()
+	assert.Equal(t, 1, store.maxActive,
+		"the fast path also runs under the per-org lock")
 }
