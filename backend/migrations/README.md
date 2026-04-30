@@ -13,8 +13,40 @@ The numbering jumps from `023_create_reports` to `026_remove_off_platform_paymen
 3. **Immutability** — once a migration is applied in production it is **never edited**. Mistakes are corrected by a *new* forward migration (e.g. `0NN_fix_xyz.up.sql`).
 4. **Concurrency for index creation** — on tables that grow (`messages`, `proposals`, `payment_records`, `audit_logs`, `notifications`, `search_queries`), use `CREATE INDEX CONCURRENTLY` so the migration does not hold an `ACCESS EXCLUSIVE` lock during the build.
 5. **Long-running backfills** — split bulk `UPDATE` statements into chunks committed separately; do not mix a schema change and a 10M-row backfill in the same transaction.
-6. **No cross-feature foreign keys (revised)** — the original rule was "only reference `users(id)`". The current schema admits a small number of business-driven FK between features (`disputes.proposal_id`, `reviews.proposal_id`, `payment_records.proposal_id`, `proposals.conversation_id`). These are accepted because the linked entities cannot exist independently. Do not add new cross-feature FK casually — only when the ownership relationship is genuinely required by the business model.
-7. **Org-scoped ownership** — new tables holding business state always reference `organizations(id)`, never `users(id)` for ownership. `user_id` columns survive on some legacy tables (`proposals`, `disputes`, `reviews`, `payment_records`, `conversations`) as **write-only authorship** (audit / created_by). Reads must always filter by `organization_id`.
+6. **Cross-feature foreign keys (revised rule, phase 5)** — the original rule was "only reference `users(id)`". The current schema admits a small set of business-driven FK between features because the linked entities cannot exist independently. Do not add new cross-feature FK casually — only when the ownership relationship is genuinely required by the business model. The full list of accepted FKs is below.
+7. **Org-scoped ownership** — new tables holding business state always reference `organizations(id)`, never `users(id)` for ownership. `user_id` columns survive on some legacy tables (`proposals`, `disputes`, `reviews`, `payment_records`, `conversations`) as **write-only authorship** (audit / created_by). Reads must always filter by `organization_id` — enforced by `scripts/ci/lint-org-scoping.sh` on every PR.
+
+## Accepted cross-feature foreign keys
+
+The following cross-feature FKs are explicitly allowed because the linked entities cannot exist without their parent. Anything not on this list requires a written justification in the migration's docstring AND owner sign-off before being added.
+
+| Source table              | FK column            | Target table       | Reason                                                                                  |
+|---------------------------|----------------------|--------------------|-----------------------------------------------------------------------------------------|
+| `disputes`                | `proposal_id`        | `proposals`        | A dispute literally cannot exist without the proposal it disputes.                      |
+| `disputes`                | `job_id` (when set)  | `jobs`             | Job-stage disputes (pre-proposal phase) reference the originating job.                  |
+| `reviews`                 | `proposal_id`        | `proposals`        | A review is the post-mortem of a single proposal/mission.                               |
+| `reports`                 | `conversation_id`    | `conversations`    | Most reports originate from a conversation context. NULL allowed for global reports.    |
+| `reports`                 | `message_id`         | `messages`         | Message-level reports point at the offending message.                                   |
+| `payment_records`         | `proposal_id`        | `proposals`        | A payment record is created per milestone of a proposal.                                |
+| `proposals`               | `conversation_id`    | `conversations`    | Proposals are sent within a conversation thread.                                        |
+| `proposals`               | `parent_id` (self)   | `proposals`        | Modify-flow versioning chain (same feature, listed for completeness).                   |
+| `invoices`                | `payment_record_id`  | `payment_records`  | Invoice is generated when payment_record completes (m.121).                             |
+| `proposal_milestones`     | `proposal_id`        | `proposals`        | Same feature.                                                                           |
+| `dispute_evidence`        | `dispute_id`         | `disputes`         | Same feature.                                                                           |
+| `counter_proposals`       | `dispute_id`         | `disputes`         | Same feature.                                                                           |
+| `dispute_ai_chat_messages`| `dispute_id`         | `disputes`         | Same feature.                                                                           |
+| `messages`                | `conversation_id`    | `conversations`    | Same feature.                                                                           |
+| `messages`                | `reply_to_id` (self) | `messages`         | Same feature.                                                                           |
+| `message_history`         | `message_id`         | `messages`         | Same feature.                                                                           |
+| `conversation_read_state` | `conversation_id`    | `conversations`    | Same feature.                                                                           |
+| `job_applications`        | `job_id`             | `jobs`             | Same feature.                                                                           |
+| `job_views`               | `job_id`             | `jobs`             | Same feature.                                                                           |
+| `milestone_transitions`   | `proposal_id`        | `proposals`        | Same feature.                                                                           |
+
+**To propose a new entry**: open a PR that updates this table together with the migration. Reviewer checklist:
+- confirm the parent entity is required (deleting it should orphan the child),
+- confirm `ON DELETE` semantics are documented,
+- confirm the lint script in `scripts/ci/lint-org-scoping.sh` does not flag the new query patterns.
 
 ## Workflow
 
