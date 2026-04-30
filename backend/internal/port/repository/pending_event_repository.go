@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 
@@ -21,10 +22,21 @@ import (
 // effect (e.g. proposal service schedules milestone_auto_approve
 // when a milestone is submitted).
 type PendingEventRepository interface {
-	// Schedule inserts a new pending event. Idempotency at the
-	// caller level is the writer's responsibility — schedule the
-	// same payload twice and you get two rows.
+	// Schedule inserts a new pending event using the repository's
+	// own connection pool. Idempotency at the caller level is the
+	// writer's responsibility — schedule the same payload twice and
+	// you get two rows.
 	Schedule(ctx context.Context, e *pendingevent.PendingEvent) error
+
+	// ScheduleTx inserts a new pending event inside an existing
+	// transaction. Used by the outbox pattern (BUG-05): callers
+	// committing a domain mutation alongside an `event` (e.g. a
+	// profile UPDATE plus a `search.reindex` row) MUST use this
+	// variant so the two writes share a single atomic boundary.
+	// A rollback on the surrounding tx — for any reason — also
+	// drops the event, guaranteeing Postgres and the downstream
+	// search index never drift.
+	ScheduleTx(ctx context.Context, tx *sql.Tx, e *pendingevent.PendingEvent) error
 
 	// PopDue claims up to `limit` events whose fires_at is in the
 	// past, marks them processing in the same transaction, and

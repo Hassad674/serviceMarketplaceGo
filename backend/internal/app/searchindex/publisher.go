@@ -2,6 +2,7 @@ package searchindex
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -102,15 +103,18 @@ func NewPublisher(cfg PublisherConfig) (*Publisher, error) {
 	}, nil
 }
 
-// PublishReindex schedules a search.reindex event on the outbox.
-// Debounced: if the same orgID was published within the cooldown
-// window, the call is a silent no-op.
+// PublishReindex schedules a search.reindex event on the outbox via
+// the repository's own short-lived transaction.
 //
-// The function is safe to call from any transaction — it inserts
-// the row via the repository.Schedule method which runs in its
-// own short-lived transaction. If a caller wants the event to
-// land inside the caller's own transaction, they should use a
-// transactional variant (planned for phase 2 once the need arises).
+// Use this only when the caller does NOT need the event to share an
+// atomic boundary with the domain mutation that triggered it. For
+// any flow where Postgres-Typesense drift is unacceptable
+// (profile / availability / expertise updates, see BUG-05) prefer
+// PublishReindexTx and run the domain UPDATE + the event INSERT
+// inside the same caller-owned transaction.
+//
+// Debounced: if the same {orgID, persona} pair was published within
+// the cooldown window, the call is a silent no-op.
 func (p *Publisher) PublishReindex(ctx context.Context, orgID uuid.UUID, persona search.Persona) error {
 	if p == nil {
 		// Nil-safe: a feature that receives a nil publisher
@@ -118,16 +122,71 @@ func (p *Publisher) PublishReindex(ctx context.Context, orgID uuid.UUID, persona
 		// clean of optional-chaining.
 		return nil
 	}
+	event, ok, err := p.buildReindexEvent(orgID, persona)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil // suppressed by cooldown
+	}
+	if err := p.events.Schedule(ctx, event); err != nil {
+		return fmt.Errorf("search publisher: schedule reindex: %w", err)
+	}
+	p.recordPublish(debounceKey{OrgID: orgID, Persona: persona})
+	return nil
+}
+
+// PublishReindexTx schedules a search.reindex event inside the
+// caller's transaction. The pending_events row commits or rolls
+// back together with whatever else the caller writes on `tx`.
+//
+// This is the outbox path: combined with the worker that drains
+// pending_events on a forever-retrying loop, it guarantees that
+// once a profile UPDATE commits the search index will eventually
+// catch up — even if Typesense, the worker, or the publisher
+// itself were unavailable when the mutation landed.
+//
+// Debounced exactly like PublishReindex. The cooldown is updated
+// only when the row is successfully inserted; a tx that later
+// rolls back leaves the cooldown stamped — this is acceptable
+// because the cooldown only suppresses redundant work, not
+// correctness, and the next mutation past the cooldown window
+// will re-trigger the indexing.
+func (p *Publisher) PublishReindexTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, persona search.Persona) error {
+	if p == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("search publisher: tx is required for transactional publish")
+	}
+	event, ok, err := p.buildReindexEvent(orgID, persona)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil // suppressed by cooldown
+	}
+	if err := p.events.ScheduleTx(ctx, tx, event); err != nil {
+		return fmt.Errorf("search publisher: schedule reindex tx: %w", err)
+	}
+	p.recordPublish(debounceKey{OrgID: orgID, Persona: persona})
+	return nil
+}
+
+// buildReindexEvent validates the input and produces a pending
+// event ready to insert. ok=false signals the cooldown swallowed
+// the call and the caller should return nil.
+func (p *Publisher) buildReindexEvent(orgID uuid.UUID, persona search.Persona) (*pendingevent.PendingEvent, bool, error) {
 	if orgID == uuid.Nil {
-		return fmt.Errorf("search publisher: orgID is required")
+		return nil, false, fmt.Errorf("search publisher: orgID is required")
 	}
 	if !persona.IsValid() {
-		return fmt.Errorf("search publisher: invalid persona %q", persona)
+		return nil, false, fmt.Errorf("search publisher: invalid persona %q", persona)
 	}
 
 	key := debounceKey{OrgID: orgID, Persona: persona}
 	if p.isWithinCooldown(key) {
-		return nil
+		return nil, false, nil
 	}
 
 	payload, err := json.Marshal(ReindexPayload{
@@ -135,22 +194,17 @@ func (p *Publisher) PublishReindex(ctx context.Context, orgID uuid.UUID, persona
 		Persona:        persona,
 	})
 	if err != nil {
-		return fmt.Errorf("search publisher: marshal reindex payload: %w", err)
+		return nil, false, fmt.Errorf("search publisher: marshal reindex payload: %w", err)
 	}
-
 	event, err := pendingevent.NewPendingEvent(pendingevent.NewPendingEventInput{
 		EventType: pendingevent.TypeSearchReindex,
 		Payload:   payload,
 		FiresAt:   time.Now(),
 	})
 	if err != nil {
-		return fmt.Errorf("search publisher: build pending event: %w", err)
+		return nil, false, fmt.Errorf("search publisher: build pending event: %w", err)
 	}
-	if err := p.events.Schedule(ctx, event); err != nil {
-		return fmt.Errorf("search publisher: schedule reindex: %w", err)
-	}
-	p.recordPublish(key)
-	return nil
+	return event, true, nil
 }
 
 // PublishReindexAllPersonas fires a reindex event for every persona
@@ -184,20 +238,58 @@ func (p *Publisher) PublishReindexAllPersonas(ctx context.Context, orgID uuid.UU
 	return nil
 }
 
-// PublishDelete schedules a search.delete event. Never debounced —
-// user deletions must propagate to the index as fast as possible
-// to satisfy the RGPD right to erasure.
+// PublishDelete schedules a search.delete event using the
+// repository's short-lived transaction. Never debounced — user
+// deletions must propagate to the index as fast as possible to
+// satisfy the RGPD right to erasure.
+//
+// For tx-aware callers (account deletion that wraps several writes
+// in one transaction) prefer PublishDeleteTx so the index removal
+// commits together with the user-data wipe.
 func (p *Publisher) PublishDelete(ctx context.Context, orgID uuid.UUID) error {
 	if p == nil {
 		return nil
 	}
-	if orgID == uuid.Nil {
-		return fmt.Errorf("search publisher: orgID is required")
+	event, err := p.buildDeleteEvent(orgID)
+	if err != nil {
+		return err
 	}
+	if err := p.events.Schedule(ctx, event); err != nil {
+		return fmt.Errorf("search publisher: schedule delete: %w", err)
+	}
+	return nil
+}
 
+// PublishDeleteTx schedules a search.delete event inside the
+// caller's transaction. Mirrors PublishReindexTx for the delete
+// path: a rollback wipes the event row alongside whatever else the
+// caller had already touched, so the index can never end up
+// referring to a wiped organization.
+func (p *Publisher) PublishDeleteTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID) error {
+	if p == nil {
+		return nil
+	}
+	if tx == nil {
+		return fmt.Errorf("search publisher: tx is required for transactional publish")
+	}
+	event, err := p.buildDeleteEvent(orgID)
+	if err != nil {
+		return err
+	}
+	if err := p.events.ScheduleTx(ctx, tx, event); err != nil {
+		return fmt.Errorf("search publisher: schedule delete tx: %w", err)
+	}
+	return nil
+}
+
+// buildDeleteEvent assembles a pending search.delete event.
+func (p *Publisher) buildDeleteEvent(orgID uuid.UUID) (*pendingevent.PendingEvent, error) {
+	if orgID == uuid.Nil {
+		return nil, fmt.Errorf("search publisher: orgID is required")
+	}
 	payload, err := json.Marshal(DeletePayload{OrganizationID: orgID})
 	if err != nil {
-		return fmt.Errorf("search publisher: marshal delete payload: %w", err)
+		return nil, fmt.Errorf("search publisher: marshal delete payload: %w", err)
 	}
 	event, err := pendingevent.NewPendingEvent(pendingevent.NewPendingEventInput{
 		EventType: pendingevent.TypeSearchDelete,
@@ -205,12 +297,9 @@ func (p *Publisher) PublishDelete(ctx context.Context, orgID uuid.UUID) error {
 		FiresAt:   time.Now(),
 	})
 	if err != nil {
-		return fmt.Errorf("search publisher: build pending event: %w", err)
+		return nil, fmt.Errorf("search publisher: build pending event: %w", err)
 	}
-	if err := p.events.Schedule(ctx, event); err != nil {
-		return fmt.Errorf("search publisher: schedule delete: %w", err)
-	}
-	return nil
+	return event, nil
 }
 
 // isWithinCooldown reports whether a reindex event was published

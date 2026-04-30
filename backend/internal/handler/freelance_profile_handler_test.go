@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -71,6 +72,19 @@ func (m *mockFreelanceProfileRepo) GetVideoURL(ctx context.Context, orgID uuid.U
 		return m.getVideoFn(ctx, orgID)
 	}
 	return "", nil
+}
+
+// Tx variants — handler tests don't drive the outbox path so they
+// delegate to the non-tx variants. Outbox-aware integration lives
+// in the postgres adapter test package.
+func (m *mockFreelanceProfileRepo) UpdateCoreTx(ctx context.Context, _ *sql.Tx, orgID uuid.UUID, title, about, videoURL string) error {
+	return m.UpdateCore(ctx, orgID, title, about, videoURL)
+}
+func (m *mockFreelanceProfileRepo) UpdateAvailabilityTx(ctx context.Context, _ *sql.Tx, orgID uuid.UUID, status profile.AvailabilityStatus) error {
+	return m.UpdateAvailability(ctx, orgID, status)
+}
+func (m *mockFreelanceProfileRepo) UpdateExpertiseDomainsTx(ctx context.Context, _ *sql.Tx, orgID uuid.UUID, domains []string) error {
+	return m.UpdateExpertiseDomains(ctx, orgID, domains)
 }
 
 func newFreelanceHandler(repo *mockFreelanceProfileRepo) *FreelanceProfileHandler {

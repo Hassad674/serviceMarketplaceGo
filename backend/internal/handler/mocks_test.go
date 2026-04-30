@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"time"
 
@@ -338,6 +339,23 @@ func (m *mockProfileRepo) UpdateLanguages(_ context.Context, _ uuid.UUID, _, _ [
 }
 func (m *mockProfileRepo) UpdateAvailability(_ context.Context, _ uuid.UUID, _ *profile.AvailabilityStatus, _ *profile.AvailabilityStatus) error {
 	return nil
+}
+
+// Outbox-aware Tx stubs (BUG-05) — handler tests don't drive the
+// outbox path so these delegate to the non-tx variants. The
+// transactional integration tests live in the postgres adapter test
+// package where a real *sql.Tx is available.
+func (m *mockProfileRepo) UpdateTx(ctx context.Context, _ *sql.Tx, p *profile.Profile) error {
+	return m.Update(ctx, p)
+}
+func (m *mockProfileRepo) UpdateLocationTx(ctx context.Context, _ *sql.Tx, orgID uuid.UUID, input repository.LocationInput) error {
+	return m.UpdateLocation(ctx, orgID, input)
+}
+func (m *mockProfileRepo) UpdateLanguagesTx(ctx context.Context, _ *sql.Tx, orgID uuid.UUID, pro, conv []string) error {
+	return m.UpdateLanguages(ctx, orgID, pro, conv)
+}
+func (m *mockProfileRepo) UpdateAvailabilityTx(ctx context.Context, _ *sql.Tx, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	return m.UpdateAvailability(ctx, orgID, direct, referrer)
 }
 
 func (m *mockProfileRepo) UpdateClientDescription(ctx context.Context, orgID uuid.UUID, clientDescription string) error {

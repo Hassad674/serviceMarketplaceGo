@@ -2,6 +2,7 @@ package freelanceprofile_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	domainfreelance "marketplace-backend/internal/domain/freelanceprofile"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/search"
 )
 
 // mockFreelanceProfileRepo is a hand-rolled mock for the tests in
@@ -24,6 +26,13 @@ type mockFreelanceProfileRepo struct {
 	updateCore             func(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error
 	updateAvailability     func(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error
 	updateExpertiseDomains func(ctx context.Context, orgID uuid.UUID, domains []string) error
+
+	// Tx variants — used by the outbox path (BUG-05). Nil means
+	// "delegate to the non-tx variant" so tests written before the
+	// outbox refactor keep passing.
+	updateCoreTx             func(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, title, about, videoURL string) error
+	updateAvailabilityTx     func(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, status profile.AvailabilityStatus) error
+	updateExpertiseDomainsTx func(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, domains []string) error
 }
 
 func (m *mockFreelanceProfileRepo) GetByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error) {
@@ -41,10 +50,28 @@ func (m *mockFreelanceProfileRepo) GetOrCreateByOrgID(ctx context.Context, orgID
 func (m *mockFreelanceProfileRepo) UpdateCore(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error {
 	return m.updateCore(ctx, orgID, title, about, videoURL)
 }
+func (m *mockFreelanceProfileRepo) UpdateCoreTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, title, about, videoURL string) error {
+	if m.updateCoreTx != nil {
+		return m.updateCoreTx(ctx, tx, orgID, title, about, videoURL)
+	}
+	return m.updateCore(ctx, orgID, title, about, videoURL)
+}
 func (m *mockFreelanceProfileRepo) UpdateAvailability(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error {
 	return m.updateAvailability(ctx, orgID, status)
 }
+func (m *mockFreelanceProfileRepo) UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, status profile.AvailabilityStatus) error {
+	if m.updateAvailabilityTx != nil {
+		return m.updateAvailabilityTx(ctx, tx, orgID, status)
+	}
+	return m.updateAvailability(ctx, orgID, status)
+}
 func (m *mockFreelanceProfileRepo) UpdateExpertiseDomains(ctx context.Context, orgID uuid.UUID, domains []string) error {
+	return m.updateExpertiseDomains(ctx, orgID, domains)
+}
+func (m *mockFreelanceProfileRepo) UpdateExpertiseDomainsTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, domains []string) error {
+	if m.updateExpertiseDomainsTx != nil {
+		return m.updateExpertiseDomainsTx(ctx, tx, orgID, domains)
+	}
 	return m.updateExpertiseDomains(ctx, orgID, domains)
 }
 func (m *mockFreelanceProfileRepo) UpdateVideo(_ context.Context, _ uuid.UUID, _ string) error {
@@ -52,6 +79,50 @@ func (m *mockFreelanceProfileRepo) UpdateVideo(_ context.Context, _ uuid.UUID, _
 }
 func (m *mockFreelanceProfileRepo) GetVideoURL(_ context.Context, _ uuid.UUID) (string, error) {
 	return "", nil
+}
+
+// fakeSearchPublisher is a tiny stub for the freelanceprofile.SearchIndexPublisher
+// port. Tracks each call so tests can assert on whether the tx-aware
+// variant was invoked instead of the legacy one.
+type fakeSearchPublisher struct {
+	reindexCalls   int
+	reindexTxCalls int
+	reindexTxErr   error
+}
+
+func (f *fakeSearchPublisher) PublishReindex(_ context.Context, _ uuid.UUID, _ search.Persona) error {
+	f.reindexCalls++
+	return nil
+}
+
+func (f *fakeSearchPublisher) PublishReindexTx(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ search.Persona) error {
+	f.reindexTxCalls++
+	return f.reindexTxErr
+}
+
+// stubTxRunner runs the user fn synchronously with a non-nil *sql.Tx
+// pointer (the publisher only checks for non-nil; the fake repo never
+// dereferences it). When commitErr is set, the runner pretends the
+// commit failed AFTER the fn returned nil — used to simulate a DB
+// blip between fn returning nil and the actual COMMIT.
+type stubTxRunner struct {
+	calls     int
+	commitErr error
+	rollback  bool
+}
+
+func (s *stubTxRunner) RunInTx(ctx context.Context, fn func(tx *sql.Tx) error) error {
+	s.calls++
+	tx := &sql.Tx{}
+	if err := fn(tx); err != nil {
+		s.rollback = true
+		return err
+	}
+	if s.commitErr != nil {
+		s.rollback = true
+		return s.commitErr
+	}
+	return nil
 }
 
 // newStubView returns a minimal FreelanceProfileView suitable for
@@ -208,4 +279,195 @@ func TestService_UpdateExpertise_NilInputYieldsEmptySlice(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, captured)
 	assert.Empty(t, captured)
+}
+
+// ---------------------------------------------------------------------------
+// BUG-05 — outbox path: when a TxRunner + SearchIndexPublisher are
+// both wired, every mutation must run repo.UpdateXxxTx and
+// publisher.PublishReindexTx in the same transaction.
+// ---------------------------------------------------------------------------
+
+func TestService_UpdateCore_Outbox_UsesTxAndScheduleTx(t *testing.T) {
+	orgID := uuid.New()
+	var (
+		updateTxCalls int
+		passedTx      *sql.Tx
+	)
+
+	repo := &mockFreelanceProfileRepo{
+		updateCoreTx: func(_ context.Context, tx *sql.Tx, _ uuid.UUID, _, _, _ string) error {
+			updateTxCalls++
+			passedTx = tx
+			return nil
+		},
+		updateCore: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
+			t.Fatalf("non-tx UpdateCore must NOT be called when outbox is wired")
+			return nil
+		},
+		getByOrgID: func(_ context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return newStubView(id), nil
+		},
+	}
+	pub := &fakeSearchPublisher{}
+	runner := &stubTxRunner{}
+
+	svc := appfreelance.NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateCore(context.Background(), orgID, appfreelance.UpdateCoreInput{
+		Title: "Title", About: "About",
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, runner.calls, "TxRunner.RunInTx must be invoked exactly once")
+	assert.Equal(t, 1, updateTxCalls, "repo.UpdateCoreTx must be called from inside the tx")
+	assert.NotNil(t, passedTx, "repo must receive the live *sql.Tx")
+	assert.Equal(t, 0, pub.reindexCalls, "non-tx Publish must NOT fire on the outbox path")
+	assert.Equal(t, 1, pub.reindexTxCalls, "PublishReindexTx must fire exactly once inside the tx")
+	assert.False(t, runner.rollback, "happy path commits — no rollback")
+}
+
+func TestService_UpdateCore_Outbox_PublishFailureRollsBack(t *testing.T) {
+	orgID := uuid.New()
+	var updateTxCalls int
+
+	repo := &mockFreelanceProfileRepo{
+		updateCoreTx: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _, _, _ string) error {
+			updateTxCalls++
+			return nil
+		},
+	}
+	publishErr := errors.New("typesense down")
+	pub := &fakeSearchPublisher{reindexTxErr: publishErr}
+	runner := &stubTxRunner{}
+
+	svc := appfreelance.NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateCore(context.Background(), orgID, appfreelance.UpdateCoreInput{Title: "X"})
+	require.Error(t, err, "publisher tx error must surface to the caller — outbox guarantee")
+	assert.True(t, runner.rollback, "rollback must be triggered when PublishReindexTx fails")
+	assert.Equal(t, 1, updateTxCalls, "repo write happened, but commit must not reach Postgres")
+}
+
+func TestService_UpdateCore_Outbox_RepoFailureRollsBack(t *testing.T) {
+	repoErr := errors.New("update failed")
+	repo := &mockFreelanceProfileRepo{
+		updateCoreTx: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _, _, _ string) error {
+			return repoErr
+		},
+	}
+	pub := &fakeSearchPublisher{}
+	runner := &stubTxRunner{}
+
+	svc := appfreelance.NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateCore(context.Background(), uuid.New(), appfreelance.UpdateCoreInput{Title: "X"})
+	require.Error(t, err, "repo failure must propagate")
+	assert.ErrorIs(t, err, repoErr)
+	assert.True(t, runner.rollback)
+	assert.Equal(t, 0, pub.reindexTxCalls, "publisher must NOT be invoked after repo error")
+}
+
+func TestService_UpdateCore_Outbox_CommitFailureSurfaces(t *testing.T) {
+	repo := &mockFreelanceProfileRepo{
+		updateCoreTx: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _, _, _ string) error {
+			return nil
+		},
+	}
+	commitErr := errors.New("commit failed")
+	pub := &fakeSearchPublisher{}
+	runner := &stubTxRunner{commitErr: commitErr}
+
+	svc := appfreelance.NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateCore(context.Background(), uuid.New(), appfreelance.UpdateCoreInput{Title: "X"})
+	require.Error(t, err, "commit failure must propagate so the caller knows the write was rolled back")
+}
+
+func TestService_UpdateAvailability_Outbox_UsesTxPath(t *testing.T) {
+	repo := &mockFreelanceProfileRepo{
+		updateAvailabilityTx: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _ profile.AvailabilityStatus) error {
+			return nil
+		},
+		getByOrgID: func(_ context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return newStubView(id), nil
+		},
+	}
+	pub := &fakeSearchPublisher{}
+	runner := &stubTxRunner{}
+
+	svc := appfreelance.NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateAvailability(context.Background(), uuid.New(), "available_now")
+	require.NoError(t, err)
+	assert.Equal(t, 1, runner.calls)
+	assert.Equal(t, 1, pub.reindexTxCalls)
+	assert.Equal(t, 0, pub.reindexCalls)
+}
+
+func TestService_UpdateExpertise_Outbox_UsesTxPath(t *testing.T) {
+	var capturedDomains []string
+	repo := &mockFreelanceProfileRepo{
+		updateExpertiseDomainsTx: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, domains []string) error {
+			capturedDomains = domains
+			return nil
+		},
+		getByOrgID: func(_ context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return newStubView(id), nil
+		},
+	}
+	pub := &fakeSearchPublisher{}
+	runner := &stubTxRunner{}
+
+	svc := appfreelance.NewService(repo).
+		WithSearchIndexPublisher(pub).
+		WithTxRunner(runner)
+
+	_, err := svc.UpdateExpertise(context.Background(), uuid.New(), []string{"  ml ", "ml", "design"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"ml", "design"}, capturedDomains, "normalization happens before tx start")
+	assert.Equal(t, 1, runner.calls)
+	assert.Equal(t, 1, pub.reindexTxCalls)
+}
+
+// Backward-compat: when no TxRunner is wired the legacy hors-tx path
+// remains active so existing tests / dev setups keep working.
+func TestService_UpdateCore_NoTxRunner_FallsBackToLegacyPath(t *testing.T) {
+	var (
+		updateCalls   int
+		updateTxCalls int
+	)
+	repo := &mockFreelanceProfileRepo{
+		updateCore: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
+			updateCalls++
+			return nil
+		},
+		updateCoreTx: func(_ context.Context, _ *sql.Tx, _ uuid.UUID, _, _, _ string) error {
+			updateTxCalls++
+			return nil
+		},
+		getByOrgID: func(_ context.Context, id uuid.UUID) (*repository.FreelanceProfileView, error) {
+			return newStubView(id), nil
+		},
+	}
+	pub := &fakeSearchPublisher{}
+
+	// Publisher attached but no TxRunner → legacy path.
+	svc := appfreelance.NewService(repo).WithSearchIndexPublisher(pub)
+
+	_, err := svc.UpdateCore(context.Background(), uuid.New(), appfreelance.UpdateCoreInput{Title: "X"})
+	require.NoError(t, err)
+	assert.Equal(t, 1, updateCalls, "legacy non-tx Update must run when TxRunner is not wired")
+	assert.Equal(t, 0, updateTxCalls)
+	assert.Equal(t, 1, pub.reindexCalls, "legacy hors-tx publish must run as fallback")
+	assert.Equal(t, 0, pub.reindexTxCalls)
 }

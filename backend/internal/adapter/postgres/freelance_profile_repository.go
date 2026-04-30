@@ -123,15 +123,20 @@ func (r *FreelanceProfileRepository) insertDefault(ctx context.Context, orgID uu
 	return nil
 }
 
+// queryUpdateFreelanceCore is the SQL shared by UpdateCore and
+// UpdateCoreTx. Centralised so the column list cannot drift between
+// the pool-bound and tx-bound execution paths.
+const queryUpdateFreelanceCore = `
+	UPDATE freelance_profiles
+	   SET title = $2, about = $3, video_url = $4
+	 WHERE organization_id = $1`
+
 // UpdateCore writes the title / about / video_url triplet.
 func (r *FreelanceProfileRepository) UpdateCore(ctx context.Context, orgID uuid.UUID, title, about, videoURL string) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, `
-		UPDATE freelance_profiles
-		   SET title = $2, about = $3, video_url = $4
-		 WHERE organization_id = $1`,
+	result, err := r.db.ExecContext(ctx, queryUpdateFreelanceCore,
 		orgID, title, about, videoURL,
 	)
 	if err != nil {
@@ -140,19 +145,60 @@ func (r *FreelanceProfileRepository) UpdateCore(ctx context.Context, orgID uuid.
 	return checkFreelanceRowsAffected(result)
 }
 
+// UpdateCoreTx is the outbox-aware variant of UpdateCore: same SQL,
+// runs inside the caller's transaction so the profile mutation can
+// commit atomically with a search.reindex pending event.
+func (r *FreelanceProfileRepository) UpdateCoreTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, title, about, videoURL string) error {
+	if tx == nil {
+		return fmt.Errorf("update freelance profile core: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := tx.ExecContext(ctx, queryUpdateFreelanceCore,
+		orgID, title, about, videoURL,
+	)
+	if err != nil {
+		return fmt.Errorf("update freelance profile core in tx: %w", err)
+	}
+	return checkFreelanceRowsAffected(result)
+}
+
+// queryUpdateFreelanceAvailability is shared between the pool-bound
+// and tx-bound availability writes — see queryUpdateFreelanceCore.
+const queryUpdateFreelanceAvailability = `
+	UPDATE freelance_profiles
+	   SET availability_status = $2
+	 WHERE organization_id = $1`
+
 // UpdateAvailability writes a single availability_status value.
 func (r *FreelanceProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.UUID, status profile.AvailabilityStatus) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, `
-		UPDATE freelance_profiles
-		   SET availability_status = $2
-		 WHERE organization_id = $1`,
+	result, err := r.db.ExecContext(ctx, queryUpdateFreelanceAvailability,
 		orgID, string(status),
 	)
 	if err != nil {
 		return fmt.Errorf("update freelance profile availability: %w", err)
+	}
+	return checkFreelanceRowsAffected(result)
+}
+
+// UpdateAvailabilityTx is the outbox-aware variant of
+// UpdateAvailability.
+func (r *FreelanceProfileRepository) UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, status profile.AvailabilityStatus) error {
+	if tx == nil {
+		return fmt.Errorf("update freelance profile availability: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := tx.ExecContext(ctx, queryUpdateFreelanceAvailability,
+		orgID, string(status),
+	)
+	if err != nil {
+		return fmt.Errorf("update freelance profile availability in tx: %w", err)
 	}
 	return checkFreelanceRowsAffected(result)
 }
@@ -197,6 +243,13 @@ func (r *FreelanceProfileRepository) GetVideoURL(ctx context.Context, orgID uuid
 	return videoURL, nil
 }
 
+// queryUpdateFreelanceExpertise is shared between the pool-bound
+// and tx-bound expertise writes — see queryUpdateFreelanceCore.
+const queryUpdateFreelanceExpertise = `
+	UPDATE freelance_profiles
+	   SET expertise_domains = $2
+	 WHERE organization_id = $1`
+
 // UpdateExpertiseDomains rewrites the expertise_domains TEXT[] array
 // atomically. A nil slice is coerced to an empty array so the NOT
 // NULL constraint is honored.
@@ -207,14 +260,32 @@ func (r *FreelanceProfileRepository) UpdateExpertiseDomains(ctx context.Context,
 	if domains == nil {
 		domains = []string{}
 	}
-	result, err := r.db.ExecContext(ctx, `
-		UPDATE freelance_profiles
-		   SET expertise_domains = $2
-		 WHERE organization_id = $1`,
+	result, err := r.db.ExecContext(ctx, queryUpdateFreelanceExpertise,
 		orgID, pq.Array(domains),
 	)
 	if err != nil {
 		return fmt.Errorf("update freelance profile expertise domains: %w", err)
+	}
+	return checkFreelanceRowsAffected(result)
+}
+
+// UpdateExpertiseDomainsTx is the outbox-aware variant of
+// UpdateExpertiseDomains.
+func (r *FreelanceProfileRepository) UpdateExpertiseDomainsTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, domains []string) error {
+	if tx == nil {
+		return fmt.Errorf("update freelance profile expertise domains: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if domains == nil {
+		domains = []string{}
+	}
+	result, err := tx.ExecContext(ctx, queryUpdateFreelanceExpertise,
+		orgID, pq.Array(domains),
+	)
+	if err != nil {
+		return fmt.Errorf("update freelance profile expertise domains in tx: %w", err)
 	}
 	return checkFreelanceRowsAffected(result)
 }
