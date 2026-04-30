@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,10 +18,20 @@ import (
 	"marketplace-backend/pkg/crypto"
 )
 
+// devFallbackDatabaseURL mirrors cmd/migrate/main.go — public dev
+// fallback used by docker-compose, fail-fast guarded for prod.
+//
+// #nosec G101 -- public dev fallback, fail-fast guarded for prod
+const devFallbackDatabaseURL = "postgres://postgres:postgres@localhost:5434/marketplace?sslmode=disable"
+
 func main() {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		databaseURL = "postgres://postgres:postgres@localhost:5434/marketplace?sslmode=disable"
+		// SEC: never seed the public dev defaults into a prod DB.
+		if strings.EqualFold(os.Getenv("APP_ENV"), "production") {
+			log.Fatal("seed: DATABASE_URL is required in production — refusing to boot with the public dev fallback")
+		}
+		databaseURL = devFallbackDatabaseURL
 	}
 
 	db, err := postgres.NewConnection(databaseURL)
