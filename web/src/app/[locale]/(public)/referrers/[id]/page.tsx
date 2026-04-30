@@ -7,6 +7,7 @@ import {
 import {
   fetchReferrerProfileForMetadata,
 } from "@/features/referrer-profile/api/referrer-profile-server"
+import { safeJsonLd } from "@/shared/lib/json-ld"
 
 type Props = {
   params: Promise<{ id: string; locale: string }>
@@ -89,10 +90,11 @@ function JsonLd({ profileId, profile }: JsonLdProps) {
   return (
     <script
       type="application/ld+json"
-      // SEO JSON-LD must be rendered as raw JSON; see the freelance
-      // counterpart comment for why dangerouslySetInnerHTML is safe
-      // here — the payload is built from trusted server data.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      // SEO JSON-LD must be rendered as raw JSON; React escaping would
+      // break the schema. `profile.about` is user-authored, so we route
+      // through safeJsonLd() to neutralize </script>, --> and U+2028 /
+      // U+2029 separators that JSON.stringify leaves intact.
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(payload) }}
     />
   )
 }
