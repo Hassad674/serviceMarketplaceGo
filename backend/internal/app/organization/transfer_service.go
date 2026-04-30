@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -228,12 +229,16 @@ func (s *MembershipService) AcceptTransferOwnership(
 	}
 
 	// Step 4: bump session_version on both users so stale tokens are
-	// rejected on next use.
+	// rejected on next use. Bump failure is non-fatal — the transfer
+	// itself committed in step 3 and stale tokens expire within 15min
+	// regardless. Log so the absence of revocation is observable.
 	if _, err := s.users.BumpSessionVersion(ctx, oldOwnerID); err != nil {
-		_ = err
+		slog.Warn("transfer accept: bump session_version failed",
+			"error", err, "user_id", oldOwnerID, "org_id", orgID)
 	}
 	if _, err := s.users.BumpSessionVersion(ctx, userID); err != nil {
-		_ = err
+		slog.Warn("transfer accept: bump session_version failed",
+			"error", err, "user_id", userID, "org_id", orgID)
 	}
 
 	// Notify the previous Owner that the transfer landed. They were
