@@ -27,7 +27,6 @@ package moderation
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -302,6 +301,3 @@ func categoryForContentType(contentType moderation.ContentType, status moderatio
 	}
 }
 
-// Compile-time guard against accidental import cycles via the
-// (extremely unlikely) ErrContentBlocked re-export.
-var _ = errors.Is
