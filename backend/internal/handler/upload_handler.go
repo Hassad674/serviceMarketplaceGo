@@ -20,9 +20,11 @@ package handler
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -150,6 +152,74 @@ func readAllBounded(file io.Reader, max int64) ([]byte, error) {
 	return buf, nil
 }
 
+// errFileFieldNotFound signals that the multipart body finished
+// before a part named "file" was encountered. Surfaces as a 400
+// "no file provided" rather than a 500.
+var errFileFieldNotFound = errors.New("multipart: 'file' field not found")
+
+// readMultipartFile streams the request body via r.MultipartReader,
+// finds the part named "file", and reads it bounded by max. Closes
+// gosec G120 across the seven upload sites: the previous code called
+// r.ParseMultipartForm which buffers EVERY part of the request in
+// memory (or temp files capped at 32MB but allocated in series),
+// trivially OOM'd by a malicious client sending 100 small parts of
+// names the handler does not even read. With MultipartReader, only
+// the bytes of the `file` part are touched, capped by max.
+//
+// Returns:
+//
+//   - the byte buffer (≤ max bytes)
+//   - the part's *multipart.FileHeader-equivalent header (Content-Type,
+//     Content-Disposition filename) so the caller can cross-check
+//     against the magic-bytes-detected MIME
+//   - an error suitable for mapping to 400 / 413
+//
+// The part's reader is closed inside the helper. Callers must NOT
+// hold a reference to it after the call returns.
+func readMultipartFile(r *http.Request, max int64) ([]byte, *multipart.FileHeader, error) {
+	mr, err := r.MultipartReader()
+	if err != nil {
+		return nil, nil, fmt.Errorf("multipart reader: %w", err)
+	}
+	for {
+		part, err := mr.NextPart()
+		if err == io.EOF {
+			return nil, nil, errFileFieldNotFound
+		}
+		if err != nil {
+			// http.MaxBytesReader on r.Body surfaces as a generic
+			// "http: request body too large" through the multipart
+			// machinery — bubble it up so the caller can return 413.
+			return nil, nil, fmt.Errorf("multipart next part: %w", err)
+		}
+		if part.FormName() != "file" {
+			// Ignore other fields rather than read them — the legacy
+			// upload flow only ever consumed the "file" field. Closing
+			// the part discards the bytes without buffering them.
+			_ = part.Close()
+			continue
+		}
+		buf, readErr := readAllBounded(part, max)
+		closeErr := part.Close()
+		if readErr != nil {
+			return nil, nil, readErr
+		}
+		if closeErr != nil {
+			return nil, nil, fmt.Errorf("close multipart part: %w", closeErr)
+		}
+		// Synthesize a FileHeader subset — only the fields the
+		// downstream code reads (Filename, Size, Header). The
+		// multipart.FileHeader struct is the documented shape
+		// callers across the codebase already use.
+		hdr := &multipart.FileHeader{
+			Filename: part.FileName(),
+			Size:     int64(len(buf)),
+			Header:   part.Header,
+		}
+		return buf, hdr, nil
+	}
+}
+
 // uploadResult bundles the validated buffer + computed storage key for
 // reuse across the per-endpoint handlers. Keeping the helper signature
 // flat (no struct in / out) keeps the call sites readable.
@@ -162,7 +232,12 @@ type uploadResult struct {
 // validateAndBuildKey is the single choke-point all upload handlers run
 // through. It:
 //
-//  1. Reads the multipart file fully into memory (bounded by max).
+//  1. Reads the multipart file fully into memory (bounded by max),
+//     STREAMING from r.MultipartReader — the entire request body is
+//     never copied into a temp buffer. Closes gosec G120: only the
+//     bytes of the named "file" part are touched, and they are
+//     bounded by maxSize so a hostile client cannot grow process
+//     memory beyond the documented cap.
 //  2. Detects the real MIME type from the magic bytes — IGNORES the
 //     client-declared Content-Type and filename extension entirely.
 //  3. Cross-checks the magic-detected type against the client-declared
@@ -180,15 +255,22 @@ func validateAndBuildKey(
 	maxSize int64,
 	keyPrefix string,
 ) (*uploadResult, int, string, string) {
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		return nil, http.StatusBadRequest, "invalid_file", "no file provided"
-	}
-	defer file.Close()
+	// Belt-and-suspenders cap on the body. MaxBytesReader rejects
+	// reads past the cap with an explicit error so the multipart
+	// reader can surface the 413 cleanly.
+	r.Body = http.MaxBytesReader(nil, r.Body, maxSize)
 
-	buf, err := readAllBounded(file, maxSize)
+	buf, header, err := readMultipartFile(r, maxSize)
 	if err != nil {
-		return nil, http.StatusBadRequest, "read_failed", err.Error()
+		switch {
+		case errors.Is(err, errFileFieldNotFound):
+			return nil, http.StatusBadRequest, "invalid_file", "no file provided"
+		case isMaxBytesError(err):
+			return nil, http.StatusRequestEntityTooLarge, "file_too_large",
+				fmt.Sprintf("upload exceeds maximum size of %d bytes", maxSize)
+		default:
+			return nil, http.StatusBadRequest, "read_failed", err.Error()
+		}
 	}
 
 	detectedMime, ext, ok := detectMimeFromBytes(buf, scope)
@@ -216,6 +298,39 @@ func validateAndBuildKey(
 	key := fmt.Sprintf("%s/%s.%s", keyPrefix, uuid.New().String(), ext)
 
 	return &uploadResult{buf: buf, key: key, mimeType: detectedMime}, 0, "", ""
+}
+
+// isMaxBytesError returns true when the error chain contains a
+// http.MaxBytesError or matches the string "http: request body too
+// large". The standard library variant on Go 1.21+ exposes the
+// MaxBytesError type, but the multipart reader sometimes wraps that
+// error so we fall back to a string match.
+func isMaxBytesError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var maxErr *http.MaxBytesError
+	if errors.As(err, &maxErr) {
+		return true
+	}
+	return errOrCauseContains(err, "http: request body too large")
+}
+
+// errOrCauseContains walks the error chain checking each message for
+// the substring. Used as a fallback for environments where the
+// MaxBytesError type is wrapped opaquely.
+func errOrCauseContains(err error, substr string) bool {
+	for err != nil {
+		if msg := err.Error(); len(msg) >= len(substr) {
+			for i := 0; i+len(substr) <= len(msg); i++ {
+				if msg[i:i+len(substr)] == substr {
+					return true
+				}
+			}
+		}
+		err = errors.Unwrap(err)
+	}
+	return false
 }
 
 // contentTypeCategoriesMatch returns true when the client-declared
@@ -256,10 +371,6 @@ func (h *UploadHandler) UploadPhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxPhotoSize)
-	if err := r.ParseMultipartForm(maxPhotoSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "photo must be under 5MB")
-		return
-	}
 
 	prefix := fmt.Sprintf("profiles/%s/photo", orgID.String())
 	result, status, code, msg := validateAndBuildKey(r, ScopePhoto, maxPhotoSize, prefix)
@@ -309,10 +420,6 @@ func (h *UploadHandler) UploadVideo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxVideoSize)
-	if err := r.ParseMultipartForm(maxVideoSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 50MB")
-		return
-	}
 
 	prefix := fmt.Sprintf("profiles/%s/video", orgID.String())
 	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxVideoSize, prefix)
@@ -362,10 +469,6 @@ func (h *UploadHandler) UploadReferrerVideo(w http.ResponseWriter, r *http.Reque
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxVideoSize)
-	if err := r.ParseMultipartForm(maxVideoSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 50MB")
-		return
-	}
 
 	prefix := fmt.Sprintf("profiles/%s/referrer_video", orgID.String())
 	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxVideoSize, prefix)
@@ -412,10 +515,6 @@ func (h *UploadHandler) UploadReviewVideo(w http.ResponseWriter, r *http.Request
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxReviewVideoSize)
-	if err := r.ParseMultipartForm(maxReviewVideoSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 100MB")
-		return
-	}
 
 	prefix := fmt.Sprintf("reviews/%s/video", userID.String())
 	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxReviewVideoSize, prefix)
@@ -513,10 +612,6 @@ func (h *UploadHandler) UploadPortfolioImage(w http.ResponseWriter, r *http.Requ
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxPortfolioImageSize)
-	if err := r.ParseMultipartForm(maxPortfolioImageSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "image must be under 10MB")
-		return
-	}
 
 	prefix := fmt.Sprintf("portfolios/%s/image", userID.String())
 	result, status, code, msg := validateAndBuildKey(r, ScopePhoto, maxPortfolioImageSize, prefix)
@@ -595,10 +690,6 @@ func (h *UploadHandler) UploadPortfolioVideo(w http.ResponseWriter, r *http.Requ
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxPortfolioVideoSize)
-	if err := r.ParseMultipartForm(maxPortfolioVideoSize); err != nil {
-		res.Error(w, http.StatusBadRequest, "file_too_large", "video must be under 100MB")
-		return
-	}
 
 	prefix := fmt.Sprintf("portfolios/%s/video", userID.String())
 	result, status, code, msg := validateAndBuildKey(r, ScopeVideo, maxPortfolioVideoSize, prefix)

@@ -525,7 +525,10 @@ func TestUploadHandler_UploadPhoto_FileTooLarge(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	h.UploadPhoto(rec, req)
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	// Streaming upload (post-G120) surfaces oversized payloads as
+	// 413 Payload Too Large (RFC 7231 §6.5.11). The legacy
+	// ParseMultipartForm path returned 400 for the same condition.
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
 }
 
 // ---------------------------------------------------------------------------
