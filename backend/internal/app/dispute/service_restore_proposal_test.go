@@ -323,3 +323,93 @@ func TestRespondToCancellation_RestoreRejectionPropagated(t *testing.T) {
 	require.Error(t, err)
 	assert.False(t, updateCalled, "Update must NOT fire after RestoreFromDispute rejects")
 }
+
+// TestRespondToCancellation_HappyPath_Accept ensures the Accept branch
+// runs cleanly when nothing fails: dispute is updated, proposal is
+// restored to active, system message + notifications are emitted.
+func TestRespondToCancellation_HappyPath_Accept(t *testing.T) {
+	svc, dr, pr, ms, ns, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	proposalID := uuid.New()
+	disputeID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		d := &disputedomain.Dispute{
+			ID: disputeID, ProposalID: proposalID,
+			ConversationID: uuid.New(),
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status: disputedomain.StatusNegotiation, ProposalAmount: 100000,
+			Version: 1,
+		}
+		d.RecordRespondentReply()
+		_, _ = d.Cancel(clientID) // initiator (client) requests cancel
+		return d, nil
+	}
+	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) {
+		return &proposal.Proposal{
+			ID: proposalID, Status: proposal.StatusDisputed,
+			ActiveDisputeID: &disputeID,
+		}, nil
+	}
+
+	var updatedProposal *proposal.Proposal
+	pr.updateFn = func(_ context.Context, p *proposal.Proposal) error {
+		updatedProposal = p
+		return nil
+	}
+
+	err := svc.RespondToCancellation(context.Background(), RespondToCancellationInput{
+		DisputeID: disputeID,
+		UserID:    providerID, // respondent accepts
+		Accept:    true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, updatedProposal, "Update must be called on success")
+	assert.Equal(t, proposal.StatusActive, updatedProposal.Status)
+	assert.Nil(t, updatedProposal.ActiveDisputeID,
+		"ActiveDisputeID must be cleared by RestoreFromDispute")
+	assert.NotNil(t, ms.lastInput, "system message emitted")
+	assert.GreaterOrEqual(t, len(ns.sent), 1, "both parties notified")
+}
+
+// TestRespondToCancellation_Refuse_NoProposalUpdate ensures the
+// Refuse branch doesn't touch the proposal — only the dispute is
+// updated. This guards against a future regression where the refuse
+// path accidentally tries to restore the proposal.
+func TestRespondToCancellation_Refuse_NoProposalUpdate(t *testing.T) {
+	svc, dr, pr, ms, _, _ := newTestService()
+	clientID := uuid.New()
+	providerID := uuid.New()
+	disputeID := uuid.New()
+
+	dr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) {
+		d := &disputedomain.Dispute{
+			ID: disputeID,
+			ConversationID: uuid.New(),
+			InitiatorID:    clientID, RespondentID: providerID,
+			ClientID: clientID, ProviderID: providerID,
+			Status: disputedomain.StatusNegotiation, ProposalAmount: 100000,
+			Version: 1,
+		}
+		d.RecordRespondentReply()
+		_, _ = d.Cancel(clientID) // initiator requests cancel
+		return d, nil
+	}
+
+	updateCalled := false
+	pr.updateFn = func(_ context.Context, _ *proposal.Proposal) error {
+		updateCalled = true
+		return nil
+	}
+
+	err := svc.RespondToCancellation(context.Background(), RespondToCancellationInput{
+		DisputeID: disputeID,
+		UserID:    providerID,
+		Accept:    false, // refuse
+	})
+	require.NoError(t, err)
+	assert.False(t, updateCalled, "refuse branch must NOT touch the proposal")
+	assert.NotNil(t, ms.lastInput, "refusal system message still emitted")
+}
