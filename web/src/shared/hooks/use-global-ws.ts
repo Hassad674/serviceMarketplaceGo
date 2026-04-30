@@ -66,6 +66,20 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
   }, [onCallEvent])
 
   /**
+   * registerCallEventHandler allows a late-mounted consumer (e.g. the
+   * `CallSlot` lazy-loading boundary) to swap the active handler at
+   * runtime without recreating the WebSocket. PERF-W-01: keeps the
+   * LiveKit chunk out of the dashboard shell until a call is needed.
+   * Pass `undefined` to clear the registration.
+   */
+  const registerCallEventHandler = useCallback(
+    (handler: CallEventHandler | undefined) => {
+      callEventHandlerRef.current = handler
+    },
+    [],
+  )
+
+  /**
    * When the messaging page mounts its own WS, it should suppress this
    * hook's connection to avoid duplicate WS connections. The messaging
    * page calls setMessagingPageActive(true) on mount and false on unmount.
@@ -176,5 +190,5 @@ export function useGlobalWS(userId: string | undefined, onCallEvent?: CallEventH
     }
   }, [connect])
 
-  return { setMessagingPageActive }
+  return { setMessagingPageActive, registerCallEventHandler }
 }
