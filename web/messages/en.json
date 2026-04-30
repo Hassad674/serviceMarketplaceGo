@@ -160,6 +160,24 @@
       "saveBarAria": "Unsaved changes bar"
     }
   },
+  "boundary": {
+    "errorTitle": "Something went wrong",
+    "errorDescription": "An unexpected error broke the page. The team has been notified.",
+    "errorRetry": "Try again",
+    "errorHome": "Back to home",
+    "globalErrorTitle": "We hit a snag",
+    "globalErrorDescription": "Refreshing the page usually fixes it. If it persists, please contact support.",
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "We could not find the page you were looking for.",
+    "notFoundCta": "Browse the marketplace",
+    "loadingDashboard": "Loading dashboard...",
+    "loadingListing": "Loading listings...",
+    "loadingAuth": "Loading...",
+    "loadingMessages": "Loading conversations...",
+    "loadingWallet": "Loading wallet...",
+    "loadingPaymentInfo": "Loading payment information...",
+    "loadingSearch": "Loading results..."
+  },
   "common": {
     "loading": "Loading...",
     "save": "Save",
@@ -923,6 +941,20 @@
     "videoUploadButton": "Choose a video",
     "videoPreview": "Video preview",
     "removeVideo": "Remove video"
+  },
+  "publicListing": {
+    "agencies": {
+      "title": "Agency directory — {count} agencies | Marketplace Service",
+      "description": "Browse {count} verified agencies on Marketplace Service. Find the right partner for your B2B project."
+    },
+    "freelancers": {
+      "title": "Freelance directory — {count} professionals | Marketplace Service",
+      "description": "Connect with {count} verified freelancers on Marketplace Service. Find the perfect independent professional for your B2B project."
+    },
+    "referrers": {
+      "title": "Business referrer directory — {count} apporteurs | Marketplace Service",
+      "description": "Browse {count} business referrers ready to connect you with the right agency or freelancer."
+    }
   },
   "publicProfile": {
     "agencyProfile": "Agency Profile",

@@ -160,6 +160,24 @@
       "saveBarAria": "Barre des modifications non enregistrées"
     }
   },
+  "boundary": {
+    "errorTitle": "Une erreur est survenue",
+    "errorDescription": "Une erreur inattendue a interrompu la page. L'équipe a été notifiée.",
+    "errorRetry": "Réessayer",
+    "errorHome": "Retour à l'accueil",
+    "globalErrorTitle": "Petit pépin",
+    "globalErrorDescription": "Actualiser la page résout souvent le problème. Si cela persiste, contactez le support.",
+    "notFoundTitle": "Page introuvable",
+    "notFoundDescription": "Nous n'avons pas trouvé la page que vous cherchez.",
+    "notFoundCta": "Parcourir la marketplace",
+    "loadingDashboard": "Chargement du tableau de bord...",
+    "loadingListing": "Chargement des annonces...",
+    "loadingAuth": "Chargement...",
+    "loadingMessages": "Chargement des conversations...",
+    "loadingWallet": "Chargement du portefeuille...",
+    "loadingPaymentInfo": "Chargement des informations de paiement...",
+    "loadingSearch": "Chargement des résultats..."
+  },
   "common": {
     "loading": "Chargement...",
     "save": "Enregistrer",
@@ -923,6 +941,20 @@
     "videoUploadButton": "Choisir une vidéo",
     "videoPreview": "Aperçu vidéo",
     "removeVideo": "Supprimer la vidéo"
+  },
+  "publicListing": {
+    "agencies": {
+      "title": "Annuaire des agences — {count} agences | Marketplace Service",
+      "description": "Parcourez {count} agences vérifiées sur Marketplace Service. Trouvez le partenaire idéal pour votre projet B2B."
+    },
+    "freelancers": {
+      "title": "Annuaire des freelances — {count} professionnels | Marketplace Service",
+      "description": "Connectez-vous avec {count} freelances vérifiés sur Marketplace Service. Trouvez le professionnel indépendant idéal pour votre projet B2B."
+    },
+    "referrers": {
+      "title": "Annuaire des apporteurs d'affaires — {count} apporteurs | Marketplace Service",
+      "description": "Parcourez {count} apporteurs d'affaires prêts à vous mettre en relation avec la bonne agence ou freelance."
+    }
   },
   "publicProfile": {
     "agencyProfile": "Profil de l'agence",

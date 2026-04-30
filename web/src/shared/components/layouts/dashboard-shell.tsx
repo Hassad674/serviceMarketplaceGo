@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react"
+import { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { Sidebar, SIDEBAR_STORAGE_KEY } from "./sidebar"
 import { Header } from "./header"
@@ -8,8 +8,20 @@ import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import { KYCBanner } from "@/shared/components/kyc-banner"
 import { useGlobalWS } from "@/shared/hooks/use-global-ws"
-import { useCall } from "@/features/call/hooks/use-call"
-import { CallContext } from "@/shared/hooks/use-call-context"
+
+// CallSlot is the lazy-loading boundary for the call feature
+// (PERF-W-01). Importing it directly is safe because CallSlot itself
+// does NOT import `livekit-client` — only the inner `CallRuntime`
+// does, behind a `dynamic(() => import())`. The 1.3 MB LiveKit chunk
+// is loaded only when an incoming call arrives or the user clicks
+// "start call" for the first time in the session.
+const CallSlot = dynamic(
+  () =>
+    import("@/features/call/components/call-slot").then((m) => ({
+      default: m.CallSlot,
+    })),
+  { ssr: false, loading: () => null },
+)
 
 const ChatWidget = dynamic(
   () =>
@@ -19,52 +31,19 @@ const ChatWidget = dynamic(
   { ssr: false },
 )
 
-const IncomingCallOverlay = dynamic(
-  () =>
-    import("@/features/call/components/incoming-call-overlay").then((m) => ({
-      default: m.IncomingCallOverlay,
-    })),
-  { ssr: false },
-)
-
-const CallOverlay = dynamic(
-  () =>
-    import("@/features/call/components/call-overlay").then((m) => ({
-      default: m.CallOverlay,
-    })),
-  { ssr: false },
-)
-
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const { data: user } = useUser()
 
-  // Call feature — global overlay
-  const call = useCall()
-  const recipientNameRef = useRef("")
-
-  const wrappedStartCall = useCallback(
-    async (
-      conversationId: string,
-      recipientId: string,
-      recipientName?: string,
-      callType?: "audio" | "video",
-    ) => {
-      recipientNameRef.current = recipientName ?? ""
-      await call.startCall(conversationId, recipientId, callType ?? "audio")
-    },
-    [call.startCall],
-  )
-
-  const callContextValue = useMemo(
-    () => ({ startCall: wrappedStartCall }),
-    [wrappedStartCall],
-  )
-
   // Maintain a global WS connection so the sidebar unread badge updates
-  // in real time on every page, not just on /messages.
-  useGlobalWS(user?.id, call.handleCallEvent)
+  // in real time on every page, not just on /messages. The call event
+  // handler is registered lazily by `CallSlot` once it mounts — keeping
+  // LiveKit out of the dashboard's eager bundle.
+  // `registerCallEventHandler` is identity-stable across renders
+  // (memoised via useCallback inside useGlobalWS), so passing it
+  // directly to CallSlot is safe.
+  const { registerCallEventHandler } = useGlobalWS(user?.id)
 
   useEffect(() => {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
@@ -73,19 +52,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  useEffect(() => {
-    // Preload call overlay chunk so it's ready when a call starts
-    import("@/features/call/components/call-overlay")
-  }, [])
-
   function toggleCollapse() {
     const next = !collapsed
     setCollapsed(next)
     localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
   }
 
+  // CallSlot wraps the main tree because downstream features (e.g.
+  // messaging) read `useCallContext()` to start outgoing calls. The
+  // slot only mounts the LiveKit runtime on demand — until then it
+  // costs nothing beyond a thin context provider.
   return (
-    <CallContext.Provider value={callContextValue}>
+    <CallSlot registerCallEventHandler={registerCallEventHandler}>
       <div className="flex h-screen bg-gray-50/50 dark:bg-gray-950">
         <Sidebar
           open={sidebarOpen}
@@ -107,33 +85,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <ChatWidget />
-
-        {/* Call overlays */}
-        {call.state === "ringing_incoming" && call.incomingCall && (
-          <IncomingCallOverlay
-            call={call.incomingCall}
-            onAccept={call.acceptIncoming}
-            onDecline={call.declineIncoming}
-          />
-        )}
-
-        {(call.state === "active" || call.state === "ringing_outgoing") && (
-          <CallOverlay
-            state={call.state}
-            callType={call.callType}
-            recipientName={recipientNameRef.current}
-            duration={call.duration}
-            isMuted={call.isMuted}
-            isCameraOff={call.isCameraOff}
-            viewMode={call.viewMode}
-            room={call.room}
-            onToggleMute={call.toggleMute}
-            onToggleCamera={call.toggleCamera}
-            onHangup={call.hangup}
-            onSetViewMode={call.setViewMode}
-          />
-        )}
       </div>
-    </CallContext.Provider>
+    </CallSlot>
   )
 }
