@@ -4,7 +4,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"marketplace-backend/internal/app/auth"
 	orgapp "marketplace-backend/internal/app/organization"
@@ -17,10 +19,12 @@ import (
 )
 
 type AuthHandler struct {
-	authService *auth.Service
-	orgService  *orgapp.Service
-	sessionSvc  service.SessionService
-	cookie      *CookieConfig
+	authService     *auth.Service
+	orgService      *orgapp.Service
+	sessionSvc      service.SessionService
+	cookie          *CookieConfig
+	bruteForce      service.BruteForceService     // SEC-07: optional. nil disables brute-force protection.
+	passwordReset   service.BruteForceService     // SEC-07: throttle password reset requests too. May be the same instance with a tighter policy.
 }
 
 func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessionSvc service.SessionService, cookie *CookieConfig) *AuthHandler {
@@ -30,6 +34,20 @@ func NewAuthHandler(authService *auth.Service, orgService *orgapp.Service, sessi
 		sessionSvc:  sessionSvc,
 		cookie:      cookie,
 	}
+}
+
+// WithBruteForce wires the SEC-07 throttles. Returning the receiver
+// keeps the call site fluent at main.go without forcing every test
+// that constructs an AuthHandler to know about brute-force protection.
+//
+// loginGuard tracks /auth/login attempts (5 per 15min, 30min lockout).
+// passwordReset tracks /auth/forgot-password + /auth/reset-password
+// attempts (3 per hour). Pass the same instance for both when the
+// caller wants identical policies.
+func (h *AuthHandler) WithBruteForce(loginGuard, passwordReset service.BruteForceService) *AuthHandler {
+	h.bruteForce = loginGuard
+	h.passwordReset = passwordReset
+	return h
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -124,16 +142,61 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SEC-07: brute-force protection. Check the lockout BEFORE doing
+	// any password validation so a locked account cannot be probed for
+	// timing differences. A failure to reach Redis fails open (we
+	// trust the on-success short-circuit + the SessionVersion check)
+	// rather than block every login during a Redis blip.
+	if h.bruteForce != nil {
+		if locked, err := h.bruteForce.IsLocked(r.Context(), req.Email); err == nil && locked {
+			h.tooManyAttempts(w, r, h.bruteForce, req.Email)
+			return
+		}
+	}
+
 	output, err := h.authService.Login(r.Context(), auth.LoginInput{
 		Email:    req.Email,
 		Password: req.Password,
 	})
 	if err != nil {
+		// SEC-07: every failed login bumps the per-email counter.
+		// Errors that are NOT credential failures (e.g. account
+		// suspended) still count — a remote attacker should not get
+		// a free pass simply because the target account is suspended.
+		if h.bruteForce != nil {
+			if recordErr := h.bruteForce.RecordFailure(r.Context(), req.Email); recordErr != nil {
+				slog.Warn("brute force record_failure failed", "email", req.Email, "error", recordErr)
+			}
+		}
 		handleAuthError(w, err)
 		return
 	}
 
+	if h.bruteForce != nil {
+		if recordErr := h.bruteForce.RecordSuccess(r.Context(), req.Email); recordErr != nil {
+			slog.Warn("brute force record_success failed", "email", req.Email, "error", recordErr)
+		}
+	}
+
 	h.sendAuthResponse(w, r, http.StatusOK, output)
+}
+
+// tooManyAttempts writes a 429 response with a Retry-After header
+// derived from the lockout TTL. Used by Login + ForgotPassword +
+// ResetPassword so the body shape stays identical across throttled
+// flows.
+func (h *AuthHandler) tooManyAttempts(w http.ResponseWriter, r *http.Request, guard service.BruteForceService, email string) {
+	retry, err := guard.RetryAfter(r.Context(), email)
+	if err != nil {
+		slog.Warn("brute force retry_after failed", "email", email, "error", err)
+	}
+	if retry < time.Second {
+		retry = time.Second
+	}
+	seconds := int(retry.Seconds())
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	res.Error(w, http.StatusTooManyRequests, "too_many_attempts",
+		"Too many failed attempts. Please try again later.")
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -343,6 +406,23 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SEC-07: throttle password-reset requests at 3 per hour per email
+	// so an attacker cannot flood inboxes or brute-force the reset
+	// token endpoint. We check the lockout BEFORE doing any work so
+	// a locked email never sends a fresh reset email.
+	if h.passwordReset != nil {
+		if locked, err := h.passwordReset.IsLocked(r.Context(), req.Email); err == nil && locked {
+			h.tooManyAttempts(w, r, h.passwordReset, req.Email)
+			return
+		}
+		// Always record a failure (= attempt) — we cannot tell whether
+		// the email exists without leaking that information, so every
+		// request counts toward the cap regardless of outcome.
+		if recordErr := h.passwordReset.RecordFailure(r.Context(), req.Email); recordErr != nil {
+			slog.Warn("brute force forgot_password record_failure failed", "email", req.Email, "error", recordErr)
+		}
+	}
+
 	// Always return 200 OK regardless of whether email exists (security)
 	_ = h.authService.ForgotPassword(r.Context(), auth.ForgotPasswordInput{Email: req.Email})
 
@@ -369,13 +449,40 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// SEC-07: throttle reset-token consumption per token so a stolen
+	// token cannot be brute-forced through password attempts. We use
+	// the token as the throttle key (instead of the email) because
+	// the email is not in the request body — and tokens are
+	// single-use anyway, so the cap protects against
+	// password-guessing during the brief window the token is valid.
+	if h.passwordReset != nil {
+		if locked, err := h.passwordReset.IsLocked(r.Context(), req.Token); err == nil && locked {
+			h.tooManyAttempts(w, r, h.passwordReset, req.Token)
+			return
+		}
+	}
+
 	err := h.authService.ResetPassword(r.Context(), auth.ResetPasswordInput{
 		Token:       req.Token,
 		NewPassword: req.NewPassword,
 	})
 	if err != nil {
+		// Bump the per-token counter on failure so a guessing attack
+		// against the new_password field (e.g. trying common
+		// passwords) hits the cap.
+		if h.passwordReset != nil {
+			if recordErr := h.passwordReset.RecordFailure(r.Context(), req.Token); recordErr != nil {
+				slog.Warn("brute force reset_password record_failure failed", "error", recordErr)
+			}
+		}
 		handleAuthError(w, err)
 		return
+	}
+
+	if h.passwordReset != nil {
+		if recordErr := h.passwordReset.RecordSuccess(r.Context(), req.Token); recordErr != nil {
+			slog.Warn("brute force reset_password record_success failed", "error", recordErr)
+		}
 	}
 
 	res.JSON(w, http.StatusOK, map[string]string{

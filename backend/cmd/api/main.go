@@ -884,8 +884,17 @@ func main() {
 	})
 	adminHandler := handler.NewAdminHandler(adminSvc)
 
+	// SEC-07: brute-force protection. Two policies:
+	//   - login: 5 per 15-min window per email, 30-min lockout (default)
+	//   - password reset: 3 per hour per email/token, 30-min lockout
+	loginBruteForce := redisadapter.NewBruteForceService(redisClient)
+	passwordResetThrottle := redisadapter.NewBruteForceServiceWithPolicy(
+		redisClient, 3, time.Hour, 30*time.Minute,
+	)
+
 	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg)
+	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg).
+		WithBruteForce(loginBruteForce, passwordResetThrottle)
 	invitationHandler := handler.NewInvitationHandler(handler.InvitationHandlerDeps{
 		InvitationService: invitationSvc,
 		OrgService:        organizationSvc,
