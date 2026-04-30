@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -250,11 +251,11 @@ func (s *MembershipService) RemoveMember(
 	}
 
 	// Bump session version so any in-flight token is rejected on next use.
+	// Don't fail the whole operation: the membership is already gone.
+	// Worst case the target keeps a stale token until expiry (15 min).
 	if _, err := s.users.BumpSessionVersion(ctx, targetUserID); err != nil {
-		// Logging would be nice, but don't fail the whole operation:
-		// the membership is already gone. Worst case the target keeps a
-		// stale token until expiry (15 min).
-		_ = err
+		slog.Warn("remove member: bump session_version failed",
+			"error", err, "user_id", targetUserID, "actor_id", actorID)
 	}
 
 	// Notify the target BEFORE the operator delete below, so the
@@ -304,7 +305,8 @@ func (s *MembershipService) LeaveOrganization(
 	}
 
 	if _, err := s.users.BumpSessionVersion(ctx, userID); err != nil {
-		_ = err
+		slog.Warn("leave organization: bump session_version failed",
+			"error", err, "user_id", userID, "org_id", orgID)
 	}
 
 	// Notify the Owner that this user walked out. Lookup the leaver

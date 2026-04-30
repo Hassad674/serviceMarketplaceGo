@@ -70,7 +70,9 @@ func TestCORS_OptionsPreflight(t *testing.T) {
 	assert.False(t, nextCalled, "preflight must not reach the next handler")
 	assert.Equal(t, http.StatusNoContent, rec.Code)
 	assert.Equal(t, "https://app.example.com", rec.Header().Get("Access-Control-Allow-Origin"))
-	assert.Equal(t, "86400", rec.Header().Get("Access-Control-Max-Age"))
+	// Audit SEC-36: lowered from 86400 (24h) to 600 (10 min) so allowlist
+	// changes propagate to clients within minutes instead of a full day.
+	assert.Equal(t, "600", rec.Header().Get("Access-Control-Max-Age"))
 }
 
 func TestCORS_NoOriginHeader(t *testing.T) {

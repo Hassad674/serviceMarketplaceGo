@@ -20,7 +20,6 @@ package searchindex
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 
@@ -224,7 +223,3 @@ func indexOfString(haystack, needle string) int {
 	return -1
 }
 
-// Compile-time sanity: the error sentinels we care about (missing
-// orgs) should map through isSoftMissing cleanly. Guard against a
-// regression by referencing the stdlib error in a blank assignment.
-var _ = errors.New

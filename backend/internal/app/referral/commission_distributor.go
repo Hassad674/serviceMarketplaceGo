@@ -63,8 +63,14 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 	// pending so the operator can audit. We could mark it cancelled but
 	// keeping it around is cheaper than reasoning about it later.
 	if commission.CommissionCents == 0 {
-		_ = commission.MarkCancelled()
-		_ = s.referrals.UpdateCommission(ctx, commission)
+		if err := commission.MarkCancelled(); err != nil {
+			slog.Warn("commission distributor: MarkCancelled state transition failed",
+				"error", err, "commission_id", commission.ID)
+		}
+		if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
+			slog.Warn("commission distributor: persist cancelled commission failed",
+				"error", err, "commission_id", commission.ID)
+		}
 		return service.ReferralCommissionSkipped, nil
 	}
 
@@ -83,7 +89,10 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 	}
 
 	if stripeAccount == "" {
-		_ = commission.MarkPendingKYC()
+		if err := commission.MarkPendingKYC(); err != nil {
+			slog.Warn("commission distributor: MarkPendingKYC state transition failed",
+				"error", err, "commission_id", commission.ID)
+		}
 		if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
 			return service.ReferralCommissionFailed, fmt.Errorf("update commission to pending_kyc: %w", err)
 		}
@@ -99,14 +108,23 @@ func (s *Service) DistributeIfApplicable(ctx context.Context, in service.Referra
 		IdempotencyKey:     fmt.Sprintf("referral_commission_%s", commission.ID),
 	})
 	if err != nil {
-		_ = commission.MarkFailed(err.Error())
-		_ = s.referrals.UpdateCommission(ctx, commission)
+		if mErr := commission.MarkFailed(err.Error()); mErr != nil {
+			slog.Warn("commission distributor: MarkFailed state transition failed",
+				"error", mErr, "commission_id", commission.ID)
+		}
+		if uErr := s.referrals.UpdateCommission(ctx, commission); uErr != nil {
+			slog.Warn("commission distributor: persist failed-status commission failed",
+				"error", uErr, "commission_id", commission.ID)
+		}
 		slog.Error("referral: stripe transfer failed",
 			"commission_id", commission.ID, "error", err)
 		return service.ReferralCommissionFailed, err
 	}
 
-	_ = commission.MarkPaid(transferID)
+	if err := commission.MarkPaid(transferID); err != nil {
+		slog.Warn("commission distributor: MarkPaid state transition failed",
+			"error", err, "commission_id", commission.ID)
+	}
 	if err := s.referrals.UpdateCommission(ctx, commission); err != nil {
 		return service.ReferralCommissionFailed, fmt.Errorf("update commission to paid: %w", err)
 	}

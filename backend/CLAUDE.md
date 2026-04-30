@@ -23,7 +23,7 @@ backend/
 │
 ├── pkg/                   -> Public reusable packages
 ├── migrations/            -> SQL migration files (up/down)
-├── mock/                  -> Generated mocks from port interfaces
+│                          (no mock/ dir — mocks live as mocks_test.go next to service_test.go)
 ├── test/                  -> Integration / E2E tests
 ├── Makefile               -> make run, make test, make migrate
 ├── go.mod
@@ -893,9 +893,13 @@ migrations/
 
 - **Migrations are immutable.** Once applied in prod, NEVER edit — create a new migration instead.
 - **Always write the down migration.** Every `up` must be reversible.
-- **Use `IF NOT EXISTS` / `IF EXISTS`** for idempotent migrations.
+- **Idempotent by default.** Every new migration MUST use `IF NOT EXISTS` / `IF EXISTS` clauses on `CREATE TABLE / CREATE INDEX / CREATE TYPE / DROP *`. This makes `make migrate-up` safe to retry on a partially-applied state.
 - **Test locally before prod.** `make migrate-up` locally -> verify -> push -> apply to prod.
-- **No cross-feature foreign keys.** Only `REFERENCES users(id)` is allowed.
+- **CONCURRENTLY for index creation** on growing tables (`messages`, `proposals`, `payment_records`, `audit_logs`, `notifications`, `search_queries`) so `ACCESS EXCLUSIVE` locks do not block writes during the build.
+- **Long-running backfills** must be split into chunked `UPDATE` statements committed separately — never mix a schema change and a 10M-row backfill in the same transaction.
+- **Cross-feature foreign keys (revised rule)** — the original "only `REFERENCES users(id)`" rule is relaxed: a small set of business-driven FKs between features (`disputes.proposal_id`, `reviews.proposal_id`, `payment_records.proposal_id`, `proposals.conversation_id`) are accepted because the linked entities cannot exist without each other. Do not add new ones casually.
+- **Org-scoped ownership** — new tables holding business state always reference `organizations(id)` for ownership, never `users(id)`. Surviving `user_id` columns on legacy tables (`proposals`, `disputes`, `reviews`, `payment_records`, `conversations`) encode authorship only — reads must always filter by `organization_id`.
+- **Numbering gap 024 / 025** is intentional and documented in `backend/migrations/README.md`. Do not retroactively fill these slots.
 
 ### Workflow: local -> prod
 
@@ -924,7 +928,7 @@ Then fix the SQL and re-run `make migrate-up`.
 
 ### Test tools
 - **Assertions**: `github.com/stretchr/testify` — `assert.Equal`, `assert.NoError`, `assert.ErrorIs`
-- **Mocks**: Manual mocks in `backend/mock/` — struct with function fields implementing port interfaces
+- **Mocks**: Hand-written `mocks_test.go` colocated with `service_test.go` in each app package. The struct holds function fields that satisfy a port interface; tests inject closures inline. No `backend/mock/` directory exists — that pattern was tried and abandoned because the inline approach is easier to grep and modify per-test. No code generator is required.
 - **Integration**: `testcontainers-go` for real PostgreSQL/Redis in tests
 - No external mock generators required
 
