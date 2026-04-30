@@ -1,9 +1,37 @@
 import { apiClient } from "@/shared/lib/api-client"
-import type {
-  AvailabilityStatus,
-  Pricing,
-  WorkMode,
-} from "./profile-api"
+
+// Tier 1 taxonomy duplicated here to keep the search API self-
+// contained — it intentionally does NOT import from any feature's
+// profile-api so /search and the directory pages can render without
+// pulling the full profile module into the bundle.
+export type SearchWorkMode = "remote" | "on_site" | "hybrid"
+
+export type SearchAvailabilityStatus =
+  | "available_now"
+  | "available_soon"
+  | "not_available"
+
+export type SearchPricingKind = "direct" | "referral"
+
+export type SearchPricingType =
+  | "daily"
+  | "hourly"
+  | "project_from"
+  | "project_range"
+  | "commission_pct"
+  | "commission_flat"
+
+// SearchPricing matches the backend Pricing row, identical to the full
+// profile's Pricing type. Kept local on purpose (see header comment).
+export type SearchPricing = {
+  kind: SearchPricingKind
+  type: SearchPricingType
+  min_amount: number
+  max_amount: number | null
+  currency: string
+  note: string
+  negotiable: boolean
+}
 
 // PublicProfileSummarySkill matches the compact skill shape returned
 // by the search endpoint — same contract as the full profile, kept
@@ -38,10 +66,10 @@ export type PublicProfileSummary = {
   // optional because older orgs may not have completed Tier 1 yet.
   city?: string
   country_code?: string
-  work_mode?: WorkMode[]
+  work_mode?: SearchWorkMode[]
   languages_professional?: string[]
-  availability_status?: AvailabilityStatus
-  pricing?: Pricing[]
+  availability_status?: SearchAvailabilityStatus
+  pricing?: SearchPricing[]
 }
 
 export type SearchType = "freelancer" | "agency" | "enterprise" | "referrer"

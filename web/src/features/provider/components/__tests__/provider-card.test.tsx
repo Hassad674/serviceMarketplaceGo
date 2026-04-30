@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react"
 import { NextIntlClientProvider } from "next-intl"
 
 import { ProviderCard } from "../provider-card"
-import type { PublicProfileSummary, SearchType } from "../../api/search-api"
+import type { PublicProfileSummary, SearchType } from "@/shared/lib/search/search-api"
 
 const messages = {
   search: {
