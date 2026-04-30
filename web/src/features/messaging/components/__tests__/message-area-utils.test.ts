@@ -171,11 +171,11 @@ describe("computeResolvedCompletionIds", () => {
     "milestone_auto_approved",
     "proposal_cancelled",
     "proposal_auto_closed",
-  ] as const)("marks the proposal as resolved on %s", (type) => {
+  ])("marks the proposal as resolved on %s", (type) => {
     const messages: Message[] = [
       makeMessage({
         id: "1",
-        type,
+        type: type as Message["type"],
         metadata: makeProposalMeta({ proposal_id: "p-x" }),
       }),
     ]

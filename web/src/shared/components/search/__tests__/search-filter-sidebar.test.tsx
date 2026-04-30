@@ -128,6 +128,95 @@ describe("SearchFilterSidebar", () => {
     expect(onApply).toHaveBeenCalledTimes(1)
   })
 
+  // ---------------------------------------------------------------------
+  // Orchestrator → child wiring — make sure each arrow callback in
+  // the SearchFilterSidebar template actually delivers the expected
+  // partial update through `onChange`.
+  // ---------------------------------------------------------------------
+  it("forwards city changes through onChange", () => {
+    const { onChange } = renderSidebar()
+    fireEvent.change(
+      screen.getByLabelText(messages.search.filters.cityPlaceholder),
+      { target: { value: "Lyon" } },
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ city: "Lyon" }),
+    )
+  })
+
+  it("forwards country code changes through onChange", () => {
+    const { onChange } = renderSidebar()
+    fireEvent.change(
+      screen.getByLabelText(messages.search.filters.countryPlaceholder),
+      { target: { value: "es" } },
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ countryCode: "ES" }),
+    )
+  })
+
+  it("forwards radius changes through onChange", () => {
+    const { onChange } = renderSidebar()
+    fireEvent.change(
+      screen.getByLabelText(messages.search.filters.radiusPlaceholder),
+      { target: { value: "50" } },
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ radiusKm: 50 }),
+    )
+  })
+
+  it("forwards skill additions through onChange", () => {
+    const { onChange } = renderSidebar()
+    const input = screen.getByLabelText(
+      messages.search.filters.skillsSearchPlaceholder,
+    )
+    fireEvent.change(input, { target: { value: "Rust" } })
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ skills: ["Rust"] }),
+    )
+  })
+
+  it("forwards minRating star clicks through onChange", () => {
+    const { onChange } = renderSidebar()
+    fireEvent.click(screen.getByRole("radio", { name: "5" }))
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ minRating: 5 }),
+    )
+  })
+
+  it("forwards expertise checkbox clicks through onChange", () => {
+    const { onChange } = renderSidebar()
+    const checkboxes = screen.getAllByRole("checkbox")
+    fireEvent.click(checkboxes[0])
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ expertise: expect.any(Array) }),
+    )
+  })
+
+  it("forwards price min changes through onChange", () => {
+    const { onChange } = renderSidebar({ persona: "freelance" })
+    fireEvent.change(
+      screen.getByLabelText(messages.search.filters.freelancePriceMin),
+      { target: { value: "300" } },
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ priceMin: 300 }),
+    )
+  })
+
+  it("forwards price max changes through onChange", () => {
+    const { onChange } = renderSidebar({ persona: "agency" })
+    fireEvent.change(
+      screen.getByLabelText(messages.search.filters.agencyPriceMax),
+      { target: { value: "10000" } },
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ priceMax: 10000 }),
+    )
+  })
+
   // V1 pricing simplification: the price section must relabel itself
   // per persona so the filter matches the primary pricing shape shown
   // on the cards (TJM / Budget / Commission). Table-driven to stay

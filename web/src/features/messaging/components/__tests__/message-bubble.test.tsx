@@ -179,12 +179,12 @@ describe("MessageBubble — system messages", () => {
     "proposal_modified",
     "milestone_released",
     "milestone_auto_approved",
-  ] as const)("renders ProposalSystemMessage for %s", (type) => {
+  ])("renders ProposalSystemMessage for %s", (type) => {
     render(
       <MessageBubble
         message={makeMessage({
           id: "1",
-          type,
+          type: type as Message["type"],
           metadata: makeProposalMeta(),
         })}
         state={defaultState()}
@@ -305,7 +305,7 @@ describe("MessageBubble — referral system messages", () => {
       <MessageBubble
         message={makeMessage({
           id: "1",
-          type: "referral_intro_sent",
+          type: "referral_intro_sent" as Message["type"],
         })}
         state={defaultState()}
         actions={defaultActions()}
