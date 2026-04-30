@@ -13,6 +13,7 @@ package freelanceprofile
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -32,8 +33,15 @@ import (
 // profile flow. Defined locally to keep this package free of
 // cross-feature imports: it doesn't know about search.Publisher,
 // only about the method it calls.
+//
+// The Tx variant is used by the outbox pattern (BUG-05): the
+// pending_events INSERT must commit alongside the profile UPDATE
+// so a DB blip between the two writes can never produce a
+// permanently-stale Typesense index. The legacy hors-tx
+// PublishReindex is kept for non-mutation paths only.
 type SearchIndexPublisher interface {
 	PublishReindex(ctx context.Context, orgID uuid.UUID, persona search.Persona) error
+	PublishReindexTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, persona search.Persona) error
 }
 
 // Service orchestrates the freelance profile use cases: read,
@@ -41,6 +49,15 @@ type SearchIndexPublisher interface {
 type Service struct {
 	profiles    repository.FreelanceProfileRepository
 	searchIndex SearchIndexPublisher
+
+	// txRunner is required for the outbox-aware mutation flow
+	// (BUG-05). When set, every UpdateXxx method begins a
+	// transaction, calls the tx-bound repo method, schedules the
+	// search.reindex pending event in the same tx, and commits.
+	// When nil, the mutations fall back to the pre-outbox
+	// behaviour (separate writes, hors-tx schedule) — this is
+	// needed for tests that drive the service without a database.
+	txRunner repository.TxRunner
 }
 
 // NewService wires the freelance profile service with its single
@@ -52,9 +69,9 @@ func NewService(profiles repository.FreelanceProfileRepository) *Service {
 
 // WithSearchIndexPublisher returns a copy of the service with a
 // Typesense publisher attached. Every subsequent mutation will
-// emit a `search.reindex` event in a best-effort path (failures
-// are logged, not returned, so a degraded search engine cannot
-// block a profile update).
+// emit a `search.reindex` event in the SAME transaction as the
+// repository UPDATE — see the doc on Service.txRunner — which
+// guarantees Postgres and Typesense never permanently drift apart.
 //
 // Using a builder method instead of a bigger constructor keeps
 // the NewService signature stable for the 6+ call sites that
@@ -68,9 +85,25 @@ func (s *Service) WithSearchIndexPublisher(publisher SearchIndexPublisher) *Serv
 	return &clone
 }
 
-// publishReindex is the best-effort wrapper around the search
-// publisher. We swallow the error (logged only) because a
-// degraded search engine must never block a profile update.
+// WithTxRunner attaches the database transaction runner that wires
+// the outbox pattern (BUG-05). Once set, every mutation runs
+// repo.UpdateXxxTx and publisher.PublishReindexTx inside the same
+// *sql.Tx — so a Schedule failure rolls back the profile UPDATE
+// (and vice versa).
+func (s *Service) WithTxRunner(runner repository.TxRunner) *Service {
+	if s == nil {
+		return nil
+	}
+	clone := *s
+	clone.txRunner = runner
+	return &clone
+}
+
+// publishReindex is the best-effort wrapper around the legacy
+// hors-tx publisher path. Kept for backwards compatibility with
+// non-mutation flows (none today on this service) and for the
+// fallback when no TxRunner is wired (test setup). Failures are
+// logged because we are explicitly outside the atomic boundary.
 func (s *Service) publishReindex(ctx context.Context, orgID uuid.UUID) {
 	if s.searchIndex == nil {
 		return
@@ -137,10 +170,29 @@ type UpdateCoreInput struct {
 // returns the refreshed view. Whitespace is trimmed around every
 // string so stray newlines from a client paste do not survive the
 // round-trip.
+//
+// When a TxRunner is wired, the UPDATE and the matching
+// search.reindex pending event commit in a single transaction so
+// the search index can never drift permanently from Postgres
+// (BUG-05). When the TxRunner is absent (some test setups), the
+// pre-outbox behaviour is preserved: separate writes, best-effort
+// schedule.
 func (s *Service) UpdateCore(ctx context.Context, orgID uuid.UUID, input UpdateCoreInput) (*repository.FreelanceProfileView, error) {
 	title := strings.TrimSpace(input.Title)
 	about := strings.TrimSpace(input.About)
 	videoURL := strings.TrimSpace(input.VideoURL)
+
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateCoreTx(ctx, tx, orgID, title, about, videoURL); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaFreelance)
+		}); err != nil {
+			return nil, fmt.Errorf("update freelance profile core: %w", err)
+		}
+		return s.GetByOrgID(ctx, orgID)
+	}
 
 	if err := s.profiles.UpdateCore(ctx, orgID, title, about, videoURL); err != nil {
 		return nil, fmt.Errorf("update freelance profile core: %w", err)
@@ -152,11 +204,26 @@ func (s *Service) UpdateCore(ctx context.Context, orgID uuid.UUID, input UpdateC
 // UpdateAvailability writes a single availability value. The
 // input is validated via profile.ParseAvailabilityStatus — an
 // empty or unknown string surfaces as profile.ErrInvalidAvailabilityStatus.
+//
+// Outbox-aware: see UpdateCore for the rationale.
 func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, raw string) (*repository.FreelanceProfileView, error) {
 	status, err := profile.ParseAvailabilityStatus(raw)
 	if err != nil {
 		return nil, fmt.Errorf("update freelance profile availability: %w", err)
 	}
+
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateAvailabilityTx(ctx, tx, orgID, status); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaFreelance)
+		}); err != nil {
+			return nil, fmt.Errorf("update freelance profile availability: %w", err)
+		}
+		return s.GetByOrgID(ctx, orgID)
+	}
+
 	if err := s.profiles.UpdateAvailability(ctx, orgID, status); err != nil {
 		return nil, fmt.Errorf("update freelance profile availability: %w", err)
 	}
@@ -170,8 +237,23 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, raw s
 // NOT enforced at this layer — that is the job of the dedicated
 // expertise service when the handler wires it in. This keeps
 // freelanceprofile independent of domain/expertise.
+//
+// Outbox-aware: see UpdateCore for the rationale.
 func (s *Service) UpdateExpertise(ctx context.Context, orgID uuid.UUID, domains []string) (*repository.FreelanceProfileView, error) {
 	normalized := normalizeExpertise(domains)
+
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateExpertiseDomainsTx(ctx, tx, orgID, normalized); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaFreelance)
+		}); err != nil {
+			return nil, fmt.Errorf("update freelance profile expertise: %w", err)
+		}
+		return s.GetByOrgID(ctx, orgID)
+	}
+
 	if err := s.profiles.UpdateExpertiseDomains(ctx, orgID, normalized); err != nil {
 		return nil, fmt.Errorf("update freelance profile expertise: %w", err)
 	}

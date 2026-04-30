@@ -64,6 +64,7 @@ import (
 	"marketplace-backend/internal/app/searchindex"
 	skillapp "marketplace-backend/internal/app/skill"
 	subscriptionapp "marketplace-backend/internal/app/subscription"
+	webhookidempotencyapp "marketplace-backend/internal/app/webhookidempotency"
 	"marketplace-backend/internal/config"
 	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/domain/pendingevent"
@@ -388,7 +389,10 @@ func main() {
 		Queue:         notifQueue,
 	})
 
-	// Start notification delivery worker (processes push + email async)
+	// Start notification delivery worker (processes push + email async).
+	// BUG-16: the worker pool now spawns N parallel processors so a
+	// single slow delivery cannot stall the queue. Concurrency comes
+	// from the config — defaults to 5 when unset / zero.
 	notifWorker := notifapp.NewWorker(notifapp.WorkerDeps{
 		Queue:    notifQueue,
 		Presence: presenceSvc,
@@ -396,6 +400,8 @@ func main() {
 		Email:    emailSvc,
 		Users:    userRepo,
 		Notifs:   notifRepo,
+	}).WithConfig(notifapp.WorkerConfig{
+		Concurrency: cfg.NotificationWorkerConcurrency,
 	})
 	workerCtx, workerCancel := context.WithCancel(context.Background())
 	defer workerCancel()
@@ -497,6 +503,15 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// Outbox transaction runner (BUG-05). Used by the freelance and
+	// legacy profile services to commit a profile mutation and the
+	// matching `search.reindex` pending event in a single atomic
+	// transaction — preventing permanent Postgres / Typesense drift
+	// when the publisher Schedule path would otherwise fail after
+	// the profile UPDATE has already committed. Cheap to construct:
+	// holds only a *sql.DB pointer.
+	txRunner := postgres.NewTxRunner(db)
 
 	// Milestone audit trail (phase 9 — append-only). Every successful
 	// withMilestoneLock writes one row recording from→to status pair,
@@ -985,13 +1000,20 @@ func main() {
 	freelanceProfileRepo := postgres.NewFreelanceProfileRepository(db)
 	freelanceProfileSvc := freelanceprofileapp.NewService(freelanceProfileRepo)
 	if searchPublisher != nil {
-		freelanceProfileSvc = freelanceProfileSvc.WithSearchIndexPublisher(searchPublisher)
+		freelanceProfileSvc = freelanceProfileSvc.
+			WithSearchIndexPublisher(searchPublisher).
+			WithTxRunner(txRunner)
 		// Phase 2 carry-over: the legacy agency profile service
 		// also publishes reindex events. Done via a setter here
 		// because profileSvc is created earlier (line ~191) for
 		// other downstream wiring; this keeps the publisher
 		// dependency optional and isolated.
-		profileSvc = profileSvc.WithSearchIndexPublisher(searchPublisher)
+		//
+		// txRunner is wired in the same place so both services
+		// adopt the outbox pattern simultaneously (BUG-05).
+		profileSvc = profileSvc.
+			WithSearchIndexPublisher(searchPublisher).
+			WithTxRunner(txRunner)
 	}
 	freelancePricingRepo := postgres.NewFreelancePricingRepository(db)
 	freelancePricingSvc := freelancepricingapp.NewService(freelancePricingRepo)
@@ -1189,13 +1211,28 @@ func main() {
 		subscriptionHandler = handler.NewSubscriptionHandler(subscriptionAppSvc)
 
 		// Wire subscription events into the Stripe webhook dispatcher
-		// along with the Redis-backed idempotency guard that dedupes
+		// along with the composite idempotency guard that dedupes
 		// Stripe's own retry behaviour. The cache reader does double
 		// duty as the invalidator the dispatcher flushes on each state
 		// change.
+		//
+		// BUG-10 fix: the idempotency guard now combines a Redis
+		// fast-path with a durable Postgres source of truth, so a
+		// Redis outage no longer opens a hole through which Stripe
+		// can replay the same event. The composite path is wired
+		// here; the handler treats it as a single black-box claimer
+		// (IdempotencyClaimer). The sub-components fail loud — when
+		// both layers are down the handler replies 503 so Stripe
+		// retries instead of silently dropping the event.
 		if stripeHandler != nil {
-			idempotencyStore := redisadapter.NewWebhookIdempotencyStore(redisClient, redisadapter.DefaultWebhookIdempotencyTTL)
-			stripeHandler = stripeHandler.WithSubscription(subscriptionAppSvc, subscriptionReader, idempotencyStore)
+			cacheStore := redisadapter.NewWebhookIdempotencyStore(redisClient, redisadapter.DefaultWebhookIdempotencyTTL)
+			durableStore := postgres.NewWebhookIdempotencyStore(db)
+			compositeClaimer, claimerErr := webhookidempotencyapp.NewClaimer(durableStore, cacheStore)
+			if claimerErr != nil {
+				slog.Error("subscription wiring: failed to build composite webhook idempotency claimer", "error", claimerErr)
+				os.Exit(1)
+			}
+			stripeHandler = stripeHandler.WithSubscription(subscriptionAppSvc, subscriptionReader, compositeClaimer)
 		}
 
 		slog.Info("subscription feature enabled (premium plan)")

@@ -2,6 +2,7 @@ package profileapp
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,8 +24,14 @@ import (
 // mutation. Optional — a nil publisher is treated as a no-op so the
 // search engine can be disabled without breaking the legacy profile
 // flow. Defined locally to avoid cross-feature imports.
+//
+// PublishReindexTx is the outbox-aware variant: it inserts the
+// pending_events row in the same transaction as the profile UPDATE
+// so a DB blip mid-write cannot leave Postgres ahead of Typesense
+// indefinitely (BUG-05).
 type SearchIndexPublisher interface {
 	PublishReindex(ctx context.Context, orgID uuid.UUID, persona search.Persona) error
+	PublishReindexTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, persona search.Persona) error
 }
 
 // Service is the application layer for the organization profile.
@@ -50,6 +57,15 @@ type Service struct {
 	// searchIndex is the optional Typesense reindex publisher. Nil
 	// in tests + when the search engine is disabled.
 	searchIndex SearchIndexPublisher
+
+	// txRunner is the outbox-aware transaction runner (BUG-05).
+	// When set, every mutation method opens a transaction, calls
+	// repo.UpdateXxxTx, schedules the search.reindex pending event
+	// in the SAME transaction, and commits — so a Postgres /
+	// Typesense drift cannot survive a partial commit. When nil,
+	// mutations fall back to the pre-outbox behaviour (separate
+	// writes, hors-tx schedule).
+	txRunner repository.TxRunner
 
 	// moderationOrchestrator runs the synchronous content gate on
 	// title + about updates. Optional: when nil, those fields are
@@ -83,6 +99,16 @@ func (s *Service) WithGeocoder(g service.Geocoder) *Service {
 // nil is allowed and disables publishing.
 func (s *Service) WithSearchIndexPublisher(p SearchIndexPublisher) *Service {
 	s.searchIndex = p
+	return s
+}
+
+// WithTxRunner enables the outbox-aware mutation flow (BUG-05).
+// When set, the profile UPDATE and the matching search.reindex
+// pending event are committed inside the same transaction so a
+// failure between the two writes cannot leave Postgres and
+// Typesense permanently out of sync.
+func (s *Service) WithTxRunner(runner repository.TxRunner) *Service {
+	s.txRunner = runner
 	return s
 }
 
@@ -149,10 +175,21 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 
 	applyUpdates(p, input)
 
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateTx(ctx, tx, p); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaAgency)
+		}); err != nil {
+			return nil, fmt.Errorf("update profile: %w", err)
+		}
+		return p, nil
+	}
+
 	if err := s.profiles.Update(ctx, p); err != nil {
 		return nil, fmt.Errorf("update profile: %w", err)
 	}
-
 	s.publishReindex(ctx, orgID)
 	return p, nil
 }
@@ -269,15 +306,28 @@ func (s *Service) UpdateLocation(ctx context.Context, orgID uuid.UUID, input Upd
 	workMode := profile.NormalizeWorkModes(input.WorkMode)
 
 	lat, lng := s.resolveCoordinates(ctx, orgID, city, country, input.Latitude, input.Longitude)
-
-	if err := s.profiles.UpdateLocation(ctx, orgID, repository.LocationInput{
+	locationInput := repository.LocationInput{
 		City:           city,
 		CountryCode:    country,
 		Latitude:       lat,
 		Longitude:      lng,
 		WorkMode:       workMode,
 		TravelRadiusKm: input.TravelRadiusKm,
-	}); err != nil {
+	}
+
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateLocationTx(ctx, tx, orgID, locationInput); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaAgency)
+		}); err != nil {
+			return fmt.Errorf("update location: persist: %w", err)
+		}
+		return nil
+	}
+
+	if err := s.profiles.UpdateLocation(ctx, orgID, locationInput); err != nil {
 		return fmt.Errorf("update location: persist: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
@@ -330,6 +380,19 @@ func (s *Service) tryGeocode(ctx context.Context, orgID uuid.UUID, city, country
 func (s *Service) UpdateLanguages(ctx context.Context, orgID uuid.UUID, professional, conversational []string) error {
 	pro := profile.NormalizeLanguageCodes(professional)
 	conv := profile.NormalizeLanguageCodes(conversational)
+
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateLanguagesTx(ctx, tx, orgID, pro, conv); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaAgency)
+		}); err != nil {
+			return fmt.Errorf("update languages: %w", err)
+		}
+		return nil
+	}
+
 	if err := s.profiles.UpdateLanguages(ctx, orgID, pro, conv); err != nil {
 		return fmt.Errorf("update languages: %w", err)
 	}
@@ -353,6 +416,19 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direc
 	if referrer != nil && !referrer.IsValid() {
 		return profile.ErrInvalidAvailabilityStatus
 	}
+
+	if s.txRunner != nil && s.searchIndex != nil {
+		if err := s.txRunner.RunInTx(ctx, func(tx *sql.Tx) error {
+			if err := s.profiles.UpdateAvailabilityTx(ctx, tx, orgID, direct, referrer); err != nil {
+				return err
+			}
+			return s.searchIndex.PublishReindexTx(ctx, tx, orgID, search.PersonaAgency)
+		}); err != nil {
+			return fmt.Errorf("update availability: %w", err)
+		}
+		return nil
+	}
+
 	if err := s.profiles.UpdateAvailability(ctx, orgID, direct, referrer); err != nil {
 		return fmt.Errorf("update availability: %w", err)
 	}

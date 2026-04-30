@@ -97,6 +97,13 @@ func (r *ProfileRepository) GetByOrganizationID(ctx context.Context, orgID uuid.
 }
 
 // Update rewrites the "classic" profile fields (title, about,
+// queryUpdateProfile is shared between the pool-bound Update and
+// the tx-bound UpdateTx so the column list cannot drift.
+const queryUpdateProfile = `
+	UPDATE profiles
+	SET title = $2, about = $3, photo_url = $4, presentation_video_url = $5, referrer_about = $6, referrer_video_url = $7
+	WHERE organization_id = $1`
+
 // photo, videos, referrer about). The Tier 1 blocks have their own
 // focused update methods — this function intentionally leaves them
 // alone so a caller saving a new title cannot accidentally clobber
@@ -105,12 +112,7 @@ func (r *ProfileRepository) Update(ctx context.Context, p *profile.Profile) erro
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	query := `
-		UPDATE profiles
-		SET title = $2, about = $3, photo_url = $4, presentation_video_url = $5, referrer_about = $6, referrer_video_url = $7
-		WHERE organization_id = $1`
-
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.ExecContext(ctx, queryUpdateProfile,
 		p.OrganizationID, p.Title, p.About, p.PhotoURL,
 		p.PresentationVideoURL, p.ReferrerAbout, p.ReferrerVideoURL,
 	)
@@ -129,6 +131,43 @@ func (r *ProfileRepository) Update(ctx context.Context, p *profile.Profile) erro
 	return nil
 }
 
+// UpdateTx is the outbox-aware variant of Update.
+func (r *ProfileRepository) UpdateTx(ctx context.Context, tx *sql.Tx, p *profile.Profile) error {
+	if tx == nil {
+		return fmt.Errorf("update profile: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	result, err := tx.ExecContext(ctx, queryUpdateProfile,
+		p.OrganizationID, p.Title, p.About, p.PhotoURL,
+		p.PresentationVideoURL, p.ReferrerAbout, p.ReferrerVideoURL,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile in tx: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected in tx: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
+// queryUpdateProfileLocation is shared between the pool-bound and
+// tx-bound location writes.
+const queryUpdateProfileLocation = `
+	UPDATE profiles
+	SET city              = $2,
+	    country_code      = $3,
+	    latitude          = $4,
+	    longitude         = $5,
+	    work_mode         = $6,
+	    travel_radius_km  = $7
+	WHERE organization_id = $1`
+
 // UpdateLocation writes the entire location block (city, country,
 // coordinates, work modes, travel radius) in a single SQL UPDATE.
 // Every column is always written — a nil pointer clears the column
@@ -138,30 +177,8 @@ func (r *ProfileRepository) UpdateLocation(ctx context.Context, orgID uuid.UUID,
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	workMode := input.WorkMode
-	if workMode == nil {
-		workMode = []string{}
-	}
-
-	query := `
-		UPDATE profiles
-		SET city              = $2,
-		    country_code      = $3,
-		    latitude          = $4,
-		    longitude         = $5,
-		    work_mode         = $6,
-		    travel_radius_km  = $7
-		WHERE organization_id = $1`
-
-	result, err := r.db.ExecContext(ctx, query,
-		orgID,
-		input.City,
-		input.CountryCode,
-		nullFloat(input.Latitude),
-		nullFloat(input.Longitude),
-		pq.Array(workMode),
-		nullInt(input.TravelRadiusKm),
-	)
+	args := buildUpdateLocationArgs(orgID, input)
+	result, err := r.db.ExecContext(ctx, queryUpdateProfileLocation, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update profile location: %w", err)
 	}
@@ -174,6 +191,56 @@ func (r *ProfileRepository) UpdateLocation(ctx context.Context, orgID uuid.UUID,
 	}
 	return nil
 }
+
+// UpdateLocationTx is the outbox-aware variant of UpdateLocation.
+func (r *ProfileRepository) UpdateLocationTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, input repository.LocationInput) error {
+	if tx == nil {
+		return fmt.Errorf("update profile location: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	args := buildUpdateLocationArgs(orgID, input)
+	result, err := tx.ExecContext(ctx, queryUpdateProfileLocation, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update profile location in tx: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for location update in tx: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
+// buildUpdateLocationArgs returns the SQL args for the location
+// UPDATE. Centralised so the pool and tx code paths cannot drift in
+// argument ordering or NULL handling.
+func buildUpdateLocationArgs(orgID uuid.UUID, input repository.LocationInput) []any {
+	workMode := input.WorkMode
+	if workMode == nil {
+		workMode = []string{}
+	}
+	return []any{
+		orgID,
+		input.City,
+		input.CountryCode,
+		nullFloat(input.Latitude),
+		nullFloat(input.Longitude),
+		pq.Array(workMode),
+		nullInt(input.TravelRadiusKm),
+	}
+}
+
+// queryUpdateProfileLanguages is shared between the pool-bound and
+// tx-bound language writes.
+const queryUpdateProfileLanguages = `
+	UPDATE profiles
+	SET languages_professional   = $2,
+	    languages_conversational = $3
+	WHERE organization_id = $1`
 
 // UpdateLanguages replaces the two language arrays atomically. Both
 // slices are persisted verbatim — the caller (app/profile service)
@@ -188,14 +255,7 @@ func (r *ProfileRepository) UpdateLanguages(ctx context.Context, orgID uuid.UUID
 	if conversational == nil {
 		conversational = []string{}
 	}
-
-	query := `
-		UPDATE profiles
-		SET languages_professional   = $2,
-		    languages_conversational = $3
-		WHERE organization_id = $1`
-
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.db.ExecContext(ctx, queryUpdateProfileLanguages,
 		orgID,
 		pq.Array(professional),
 		pq.Array(conversational),
@@ -213,6 +273,38 @@ func (r *ProfileRepository) UpdateLanguages(ctx context.Context, orgID uuid.UUID
 	return nil
 }
 
+// UpdateLanguagesTx is the outbox-aware variant of UpdateLanguages.
+func (r *ProfileRepository) UpdateLanguagesTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, professional, conversational []string) error {
+	if tx == nil {
+		return fmt.Errorf("update profile languages: tx is required")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	if professional == nil {
+		professional = []string{}
+	}
+	if conversational == nil {
+		conversational = []string{}
+	}
+	result, err := tx.ExecContext(ctx, queryUpdateProfileLanguages,
+		orgID,
+		pq.Array(professional),
+		pq.Array(conversational),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update profile languages in tx: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for languages update in tx: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
 // UpdateAvailability patches one or both availability columns. Nil
 // pointers mean "leave this column alone" — the UPDATE is built
 // dynamically so omitted slots keep their current value. This
@@ -223,24 +315,10 @@ func (r *ProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.U
 	if direct == nil && referrer == nil {
 		return profile.ErrInvalidAvailabilityStatus
 	}
-
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	sets := make([]string, 0, 2)
-	args := make([]any, 0, 3)
-	args = append(args, orgID)
-	if direct != nil {
-		args = append(args, string(*direct))
-		sets = append(sets, fmt.Sprintf("availability_status = $%d", len(args)))
-	}
-	if referrer != nil {
-		args = append(args, string(*referrer))
-		sets = append(sets, fmt.Sprintf("referrer_availability_status = $%d", len(args)))
-	}
-
-	query := "UPDATE profiles SET " + strings.Join(sets, ", ") + " WHERE organization_id = $1"
-
+	query, args := buildUpdateAvailabilityQuery(orgID, direct, referrer)
 	result, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update profile availability: %w", err)
@@ -253,6 +331,51 @@ func (r *ProfileRepository) UpdateAvailability(ctx context.Context, orgID uuid.U
 		return profile.ErrProfileNotFound
 	}
 	return nil
+}
+
+// UpdateAvailabilityTx is the outbox-aware variant of
+// UpdateAvailability.
+func (r *ProfileRepository) UpdateAvailabilityTx(ctx context.Context, tx *sql.Tx, orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) error {
+	if tx == nil {
+		return fmt.Errorf("update profile availability: tx is required")
+	}
+	if direct == nil && referrer == nil {
+		return profile.ErrInvalidAvailabilityStatus
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	query, args := buildUpdateAvailabilityQuery(orgID, direct, referrer)
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update profile availability in tx: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for availability update in tx: %w", err)
+	}
+	if rows == 0 {
+		return profile.ErrProfileNotFound
+	}
+	return nil
+}
+
+// buildUpdateAvailabilityQuery assembles the dynamic UPDATE for the
+// availability columns. The pool and tx code paths share this so the
+// SET clause and the placeholder ordering cannot drift.
+func buildUpdateAvailabilityQuery(orgID uuid.UUID, direct *profile.AvailabilityStatus, referrer *profile.AvailabilityStatus) (string, []any) {
+	sets := make([]string, 0, 2)
+	args := make([]any, 0, 3)
+	args = append(args, orgID)
+	if direct != nil {
+		args = append(args, string(*direct))
+		sets = append(sets, fmt.Sprintf("availability_status = $%d", len(args)))
+	}
+	if referrer != nil {
+		args = append(args, string(*referrer))
+		sets = append(sets, fmt.Sprintf("referrer_availability_status = $%d", len(args)))
+	}
+	return "UPDATE profiles SET " + strings.Join(sets, ", ") + " WHERE organization_id = $1", args
 }
 
 // UpdateClientDescription writes the client_description column in a
