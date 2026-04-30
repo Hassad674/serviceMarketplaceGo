@@ -68,8 +68,21 @@ func ServeWS(deps ConnDeps) http.HandlerFunc {
 	}
 }
 
-func authenticateWS(r *http.Request, tokenSvc service.TokenService, sessionSvc service.SessionService) (uuid.UUID, error) {
-	// Strategy 1: Session cookie (web, same-origin)
+// authenticateWS authenticates a WebSocket upgrade request through one
+// of two short-lived credentials:
+//
+//  1. session_id cookie (web, same-origin) — validated against Redis
+//     session store.
+//  2. ws_token query param (web cross-origin AND mobile, since SEC-15)
+//     — validated against the single-use WS-token store.
+//
+// SEC-15: the legacy "?token=<JWT>" strategy was removed in Phase 1.
+// Logging the long-lived JWT in proxies / access logs gave any
+// log-aggregator-with-a-bug a free credentials capture. Mobile must
+// now POST /api/v1/auth/ws-token with its Bearer token and connect
+// using the returned single-use ticket — the same flow web has been
+// using since SEC-15 shipped on web.
+func authenticateWS(r *http.Request, _ service.TokenService, sessionSvc service.SessionService) (uuid.UUID, error) {
 	if cookie, err := r.Cookie("session_id"); err == nil && cookie.Value != "" {
 		session, err := sessionSvc.Get(r.Context(), cookie.Value)
 		if err == nil {
@@ -77,20 +90,10 @@ func authenticateWS(r *http.Request, tokenSvc service.TokenService, sessionSvc s
 		}
 	}
 
-	// Strategy 2: Short-lived WS token as query param (web, cross-origin production)
 	if wsToken := r.URL.Query().Get("ws_token"); wsToken != "" {
 		userID, err := sessionSvc.ValidateWSToken(r.Context(), wsToken)
 		if err == nil {
 			return userID, nil
-		}
-	}
-
-	// Strategy 3: JWT token as query param (mobile)
-	token := r.URL.Query().Get("token")
-	if token != "" {
-		claims, err := tokenSvc.ValidateAccessToken(token)
-		if err == nil {
-			return claims.UserID, nil
 		}
 	}
 

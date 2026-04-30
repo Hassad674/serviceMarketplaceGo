@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -11,21 +12,27 @@ import '../../../core/storage/secure_storage.dart';
 
 /// Provides the singleton [MessagingWsService].
 final messagingWsServiceProvider = Provider<MessagingWsService>((ref) {
+  final apiClient = ref.watch(apiClientProvider);
   final storage = ref.watch(secureStorageProvider);
-  return MessagingWsService(storage: storage);
+  return MessagingWsService(apiClient: apiClient, storage: storage);
 });
 
 /// WebSocket service for real-time messaging events.
 ///
-/// Connects to `ws://{API_URL}/api/v1/ws?token={jwt}` and exposes a stream
-/// of incoming JSON events (new_message, typing, status_update, etc.).
+/// Authenticates via a single-use `ws_token` ticket fetched from
+/// `POST /api/v1/auth/ws-token` (SEC-15) and connects to
+/// `ws://{API_URL}/api/v1/ws?ws_token={ticket}`. The ticket has a
+/// ~30-second TTL — even if it leaks into proxy logs, the credential
+/// is useless almost immediately.
 ///
-/// Handles heartbeat (every 30s) and automatic reconnection with
-/// exponential backoff on disconnect.
+/// Exposes a stream of incoming JSON events (new_message, typing,
+/// status_update, etc.). Handles heartbeat (every 30s) and automatic
+/// reconnection with exponential backoff on disconnect.
 ///
 /// On successful (re)connection, emits a synthetic `{"type":"reconnected"}`
 /// event so that listeners can refresh stale state (e.g. presence).
 class MessagingWsService {
+  final ApiClient _api;
   final SecureStorageService _storage;
 
   WebSocketChannel? _channel;
@@ -44,8 +51,11 @@ class MessagingWsService {
 
   AppLifecycleListener? _lifecycleListener;
 
-  MessagingWsService({required SecureStorageService storage})
-      : _storage = storage {
+  MessagingWsService({
+    required ApiClient apiClient,
+    required SecureStorageService storage,
+  })  : _api = apiClient,
+        _storage = storage {
     _lifecycleListener = AppLifecycleListener(
       onResume: _onAppResumed,
     );
@@ -78,21 +88,34 @@ class MessagingWsService {
 
   /// Establishes the WebSocket connection.
   ///
-  /// Retrieves the JWT from secure storage and connects with it
-  /// as a query parameter. On successful reconnection, emits a
-  /// synthetic `reconnected` event for stale-state refresh.
+  /// SEC-15: fetches a single-use `ws_token` from
+  /// `POST /api/v1/auth/ws-token` (Bearer-authenticated through the
+  /// ApiClient interceptor) and connects with that ticket as a query
+  /// parameter. The long-lived JWT never appears in any URL or
+  /// access log.
+  ///
+  /// On successful reconnection, emits a synthetic `reconnected`
+  /// event for stale-state refresh.
   Future<void> connect() async {
     if (_disposed || _isConnecting || _isConnected) return;
     _isConnecting = true;
 
     try {
-      final token = await _storage.getAccessToken();
-      if (token == null) {
+      // No bearer token = no chance of fetching a ws ticket.
+      final accessToken = await _storage.getAccessToken();
+      if (accessToken == null) {
         _isConnecting = false;
         return;
       }
 
-      final wsUrl = _buildWsUrl(token);
+      final wsTicket = await _fetchWsTicket();
+      if (wsTicket == null) {
+        _isConnecting = false;
+        _scheduleReconnect();
+        return;
+      }
+
+      final wsUrl = _buildWsUrl(wsTicket);
 
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
       await _channel!.ready;
@@ -118,6 +141,26 @@ class MessagingWsService {
     } catch (_) {
       _isConnecting = false;
       _scheduleReconnect();
+    }
+  }
+
+  /// Exchanges the stored Bearer JWT for a short-lived single-use
+  /// WebSocket ticket. Returns null when the request fails — the
+  /// caller schedules a reconnect attempt rather than aborting
+  /// permanently. The `ApiClient` interceptor automatically adds the
+  /// `Authorization: Bearer …` header from secure storage.
+  Future<String?> _fetchWsTicket() async {
+    try {
+      final response = await _api.get<Map<String, dynamic>>('/api/v1/auth/ws-token');
+      final data = response.data;
+      if (data == null) return null;
+      final token = data['token'];
+      if (token is String && token.isNotEmpty) return token;
+      return null;
+    } on DioException {
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -160,29 +203,25 @@ class MessagingWsService {
   // Internal
   // ---------------------------------------------------------------------------
 
-  /// Builds the WebSocket URL with the JWT as a query parameter.
+  /// Builds the WebSocket URL with the single-use ws_token as a
+  /// query parameter.
   ///
-  /// **Security tradeoff**: the token appears in the URL because the
-  /// WebSocket API (RFC 6455) does not support custom headers during
-  /// the initial HTTP upgrade handshake. This means the token may be
-  /// logged by intermediary proxies or show up in server access logs.
+  /// SEC-15: the long-lived JWT no longer appears in the URL — only
+  /// the short-lived (~30s) ws_token does. Even if the URL ends up
+  /// in proxy/access logs the credential is useless almost
+  /// immediately.
   ///
-  /// Mitigations in place:
-  /// - Access tokens are short-lived (15 min TTL).
-  /// - The connection uses WSS (TLS) in production, so the URL is
-  ///   encrypted in transit.
-  ///
-  /// **TODO (planned)**: replace with single-use, short-lived WS
-  /// tickets (POST /api/v1/auth/ws-ticket -> one-time token with
-  /// ~30s TTL) so that the long-lived JWT never appears in the URL.
-  /// Tracked for the next auth iteration.
-  String _buildWsUrl(String token) {
+  /// The WebSocket protocol (RFC 6455) does not support custom
+  /// headers during the upgrade handshake, so a query-string ticket
+  /// is the standard pattern. WSS (TLS) protects the URL in transit
+  /// in production.
+  String _buildWsUrl(String wsTicket) {
     const httpUrl = ApiClient.baseUrl;
     final wsScheme = httpUrl.startsWith('https') ? 'wss' : 'ws';
     final host = httpUrl
         .replaceFirst('http://', '')
         .replaceFirst('https://', '');
-    return '$wsScheme://$host/api/v1/ws?token=$token';
+    return '$wsScheme://$host/api/v1/ws?ws_token=$wsTicket';
   }
 
   void _send(Map<String, dynamic> payload) {
