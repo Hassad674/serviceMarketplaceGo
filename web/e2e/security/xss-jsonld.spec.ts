@@ -33,7 +33,11 @@ test.describe("SEC-01 — JSON-LD XSS on public profile pages", () => {
     await editButton.click()
     const textarea = page.getByRole("textbox", { name: /about/i })
     await textarea.fill(ATTACK_PAYLOAD)
-    await page.getByRole("button", { name: /save/i }).click()
+    // Multiple "Save" buttons live on the profile page (one per
+    // section). Click the first visible enabled one — the others are
+    // disabled until their own section is dirty, so this targets the
+    // about-section save without ambiguity.
+    await page.getByRole("button", { name: /save/i, disabled: false }).first().click()
 
     // 3. Capture the freelance public profile id.
     // The dashboard URL after register is /dashboard; we navigate to
