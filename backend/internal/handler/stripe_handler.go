@@ -30,11 +30,22 @@ import (
 var errMissingOwnerMetadata = errors.New("stripe webhook: subscription metadata is missing organization_id (legacy user_id fallback also empty)")
 
 // IdempotencyClaimer is the narrow interface the Stripe webhook handler
-// consumes to dedupe replays. Implemented by
-// adapter/redis.WebhookIdempotencyStore; kept as a local interface so a
-// test can stub it without pulling the redis SDK.
+// consumes to dedupe replays. Implemented by the composite claimer in
+// app/webhookidempotency, which combines a Redis fast-path with a
+// durable Postgres source of truth (see BUG-10). Kept as a local
+// interface so tests can stub it without pulling either backend.
+//
+// The eventType argument lets the durable adapter populate the
+// `stripe_webhook_events.event_type` column without a second fetch —
+// useful for ad-hoc analytics (which event types we replay most).
+//
+// Contract:
+//   - (true, nil)  → first delivery, caller MUST process the event.
+//   - (false, nil) → already processed, caller MUST skip.
+//   - (_, err)     → both fast-path and durable layer failed, caller
+//                    MUST reply non-2xx so Stripe retries.
 type IdempotencyClaimer interface {
-	TryClaim(ctx context.Context, eventID string) (bool, error)
+	TryClaim(ctx context.Context, eventID, eventType string) (bool, error)
 }
 
 // SubscriptionCacheInvalidator is the narrow interface used after a
@@ -131,13 +142,24 @@ func (h *StripeHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// Idempotency guard. Stripe retries on 5xx, and a transient DB blip
 	// could apply the same subscription transition twice (reactivate,
-	// re-bump StartedAt). TryClaim first-writes a 7-day Redis key keyed
-	// by event.id; repeats return ok=false and are ACK'd without work.
+	// re-bump StartedAt) — or worse, fund a milestone twice. The
+	// composite claimer first checks the Redis fast-path (5-min TTL)
+	// then falls through to the durable `stripe_webhook_events` table
+	// (BUG-10 fix).
+	//
+	// On a hard failure (both layers down) we explicitly reply 503 so
+	// Stripe retries the webhook. The pre-fix code returned 200 here,
+	// which let Stripe drop the event entirely and we silently lost
+	// the state transition. 503 is the right answer: it preserves
+	// the at-least-once delivery contract.
 	if h.idempotencyStore != nil && event.EventID != "" {
-		claimed, cErr := h.idempotencyStore.TryClaim(r.Context(), event.EventID)
+		claimed, cErr := h.idempotencyStore.TryClaim(r.Context(), event.EventID, event.Type)
 		if cErr != nil {
-			slog.Warn("stripe webhook: idempotency claim failed, processing anyway",
-				"event_id", event.EventID, "error", cErr)
+			slog.Error("stripe webhook: idempotency claim failed on both layers, refusing to process",
+				"event_id", event.EventID, "type", event.Type, "error", cErr)
+			res.Error(w, http.StatusServiceUnavailable, "idempotency_unavailable",
+				"both fast-path and durable idempotency layers are down")
+			return
 		}
 		if !claimed {
 			slog.Info("stripe webhook: replay ignored", "event_id", event.EventID, "type", event.Type)
