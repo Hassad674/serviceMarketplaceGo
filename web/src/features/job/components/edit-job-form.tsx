@@ -8,7 +8,7 @@ import { cn } from "@/shared/lib/utils"
 import { useUser } from "@/shared/hooks/use-user"
 import type { JobFormData, JobResponse, DescriptionType, ApplicantType, BudgetType, PaymentFrequency } from "../types"
 import { useUpdateJob } from "../hooks/use-jobs"
-import { uploadVideo } from "@/features/provider/api/upload-api"
+import { uploadVideo } from "@/shared/lib/upload-api"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
 

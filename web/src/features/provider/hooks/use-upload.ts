@@ -7,7 +7,7 @@ import {
   uploadReferrerVideo,
   deleteVideo,
   deleteReferrerVideo,
-} from "../api/upload-api"
+} from "@/shared/lib/upload-api"
 import { profileQueryKey } from "./use-profile"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
