@@ -1,7 +1,7 @@
 # Audit Qualité & Refactoring
 
-**Date** : 2026-04-29 (audit précédent : 2026-03-30, obsolète)
-**Branche** : `main` @ `a0d268a4`
+**Date** : 2026-04-30 (mise à jour post Phases 1-5Q ; audit précédent : 2026-04-29)
+**Branche** : `main` @ `c8284526`
 **Périmètre** : backend Go + web Next.js + admin Vite + mobile Flutter
 
 ## Méthodologie
@@ -20,11 +20,7 @@ Audit statique. Backend : 848 .go files, 121 migrations, 34 modules app. Web : 5
 - **Impact** : c'est la file la plus lue par les nouveaux contributeurs ; le mensonge "hexagonal architecture" est masqué dans 1300 lignes au lieu d'être visible.
 - **Fix** : splitter en `wire_adapters.go`, `wire_services.go`, `wire_router.go`, `wire_workers.go` colocalisés sous `cmd/api/`. `main.go` reste ~150 lignes (config load + lifecycle).
 
-### QUAL-B-02 : SQL injection potentielle dans admin_moderation_queries
-- **Location** : `backend/internal/adapter/postgres/admin_moderation_queries.go:183`
-- **Pattern** : `where += " AND r.target_type = '" + wantType + "'"` où `wantType` trace au query param `?type=` sans allowlist sur le path reports (`shouldIncludeReports` retourne toujours true).
-- **Impact** : admin-gated mais une compromission admin = arbitrary SQL.
-- **Fix** : valider `wantType` contre la même allowlist que `shouldIncludeGeneric`, ou placeholder `$N`.
+### ~~QUAL-B-02 : SQL injection admin_moderation~~ closed in PR #34 (`d882823a test(security): SQL injection coverage for placeholder-only concat sites` + gosec sweep)
 
 ## MAJOR (50)
 
@@ -113,24 +109,22 @@ Pattern : introduire `NewUserInput` / `NewOperatorInput` / `ListAdminConversatio
 
 ### Error handling
 
-- **15 sites `_ = err`** — silence d'erreur. Top sites : `internal/app/organization/membership_service.go:257,307`, `transfer_service.go:233,236`, `admin_overrides.go:200,203`, `referral/commission_distributor.go:67,102,103`, `referral/kyc_listener.go:67`. Au minimum `slog.Warn` + opération.
-- **2 hacks `var _ = errors.New`** — `internal/app/searchindex/service.go:230`, `internal/app/moderation/service.go:307`. Silent unused-import. Remplacer ou supprimer.
-- **`pkg/cursor/Encode` swallow** — `data, _ := json.Marshal(c)`. Convention zéro swallow → retourner `(string, error)`.
-- **`%s` au lieu de `%w`** — `internal/search/embeddings.go:160, 169`. Casse `errors.Is/As`.
+- ~~**15 sites `_ = err`**~~ closed in Phase 0 (`b7f018ae chore(backend): log non-fatal swallowed errors with slog.Warn`)
+- ~~**2 hacks `var _ = errors.New`**~~ closed in Phase 0 (`df671c9d chore(backend): drop dead 'var _ = errors.X' import sentinels`)
+- **`pkg/cursor/Encode` swallow** — `data, _ := json.Marshal(c)`. Convention zéro swallow → retourner `(string, error)`. (still open)
+- **`%s` au lieu de `%w`** — `internal/search/embeddings.go:160, 169`. Casse `errors.Is/As`. (still open)
 - ✅ Sentinel errors centralisés par feature dans `errors.go` (338 sites domain). Excellent.
 
 ### Context handling
 
-- **`context.Background()` override silencieux** — `internal/search/antigaming/pipeline.go:74` (overwrite ctx d'entrée → loss timeout/cancel), `internal/app/proposal/service_scheduler.go:109` (Background dans une méthode qui reçoit ctx).
-- 5 sites fire-and-forget (`searchanalytics/ltr_capture.go:103`, `searchanalytics/service.go:139`, `proposal/service_create.go:173`, `job/service_applications.go:137`) — devraient dériver de `app.shutdownCtx` pas `Background()`.
-- Pas de `WithTimeout` au niveau handlers (les repos en ont).
+- ~~**`context.Background()` override silencieux**~~ closed in PR #34 (`04319934 fix(security): use context.WithoutCancel for fire-and-forget goroutines`) — verified 7 sites migrated to WithoutCancel
+- Pas de `WithTimeout` au niveau handlers (les repos en ont). (still open)
 
 ### Migrations consistency
 
-- **35 `*.up.sql` sans `IF NOT EXISTS`** — re-run sur état partiel = hard fail. Top : `001_create_users`, `045_create_disputes`, `097_create_freelance_profiles`.
-- **13 `*.down.sql` sans `IF EXISTS`** — symétrique.
-- ✅ Up/down complets : 121/121
-- ⚠️ Gap 024/025 toujours là (signalé en mars). Documenter dans `migrations/README.md` ou poser noop.
+- ~~**35 up + 13 down sans `IF [NOT] EXISTS`**~~ deferred — Phase 0 only documented gap 024/025 (`4596eb0c docs(migrations): document numbering gap 024-025 + new conventions`). Idempotency sweep is out-of-scope until a future migration reformat sprint.
+- ✅ Up/down complets : 125/125 (added migrations 124 audit_logs grants + 125 RLS)
+- ✅ Gap 024/025 documenté dans `migrations/README.md` (Phase 0)
 - ✅ Naming conventions cleans (`create_X`, `add_Y_to_X`, `drop_Z`)
 
 ### Naming
@@ -148,15 +142,15 @@ Pattern : introduire `NewUserInput` / `NewOperatorInput` / `ListAdminConversatio
 ### Tests quality (cf. rapportTest.md pour coverage)
 
 - 17 fichiers `mocks_test.go` manuels (function-pointer mocks). Le plus gros : `proposal/mocks_test.go` 725 lignes pour 16 méthodes. Pattern consistant et lightweight ✅.
-- ⚠️ `backend/mock/` n'existe pas — CLAUDE.md le mentionne ("Generated mocks from port interfaces"). Mismatch doc/réalité. Mettre à jour CLAUDE.md.
-- Pas de shared `_test_helpers.go` — fixtures `newTestUser`/`newTestOrg` redéclarées dans chaque service_test.
+- ~~`backend/mock/` doc mismatch~~ closed in Phase 0 (`a7806e9c docs(backend): correct mock pattern + update migration rules`)
+- Pas de shared `_test_helpers.go` — fixtures `newTestUser`/`newTestOrg` redéclarées dans chaque service_test. (still open)
 
 ### TODO / dead code
 
 - **1 seul TODO sur 76k LOC** (`internal/app/referrerprofile/service_reputation.go:129`) — exceptionnel.
 - ✅ Pas de commented-out code blocks
 - ✅ Pas de `fmt.Println` / `log.Println` dans le lib code
-- ⚠️ `MockEmbeddingsClient` dans production file (`internal/search/embeddings.go:195`) — déplacer en `_test.go`
+- ~~`MockEmbeddingsClient` dans production file~~ closed in Phase 0 (sentinel removal)
 
 ## MINOR (resté en log)
 
@@ -178,16 +172,9 @@ Pattern : introduire `NewUserInput` / `NewOperatorInput` / `ListAdminConversatio
 
 ## CRITICAL (3)
 
-### QUAL-W-01 : 0 `error.tsx` / 0 `loading.tsx` / 0 `not-found.tsx` / 0 `global-error.tsx`
-- **Location** : tout `web/src/app/**`
-- **Pattern** : aucun error boundary ni loading state au niveau Next. `web/CLAUDE.md` lignes 167-176 et 471 EXIGENT au moins un par groupe.
-- **Impact** : un crash → écran Next.js par défaut. Aucun skeleton entre arrivée sur route et résolution Server Components.
-- **Fix** : créer au minimum `(app)/loading.tsx`, `(public)/loading.tsx`, `error.tsx` par groupe + `global-error.tsx` + `not-found.tsx`.
+### ~~QUAL-W-01 : 0 error/loading/not-found~~ closed in PR #41 (loading.tsx + error.tsx + not-found.tsx + global-error.tsx for both groups)
 
-### QUAL-W-02 : 33 imports cross-feature dans 17 fichiers
-- **Pattern dominant** : `provider/` agit comme un faux `shared/` — `expertise-editor`, `city-autocomplete`, `upload-api`, `search-api` consommés par `client-profile`, `freelance-profile`, `referrer-profile`, `job`, `organization-shared`, `referral`. `messaging/` est devenu hub pour `proposal`, `referral`, `review`, `reporting`. `wallet → invoicing`. `proposal → billing/subscription`.
-- **Impact** : la promesse "delete folder" est cassée côté web. Bundles transitifs alourdis.
-- **Fix** : extraire vers `web/src/shared/` ou créer `web/src/features/upload/`, `web/src/features/profile-shared/`. **Casse 9 des 33 imports en un coup**.
+### ~~QUAL-W-02 : Cross-feature imports → -7 edges~~ partially closed in PR #37 (`provider/{upload-api, expertise-editor, city-autocomplete, search-api}` extracted to shared/) — 26 imports remaining around `messaging` / `wallet` / `proposal` (still open)
 
 ### QUAL-W-03 : Components dans `app/[locale]/(app)/payment-info/components/`
 - **Location** : 6 fichiers de composants + `lib/` à l'intérieur d'`app/`
@@ -198,12 +185,12 @@ Pattern : introduire `NewUserInput` / `NewOperatorInput` / `ListAdminConversatio
 
 ### File size > 600 lignes (web)
 
-| Fichier | Lignes | Split |
-|---|---|---|
-| `wallet-page.tsx` | 878 | `wallet-overview-card`, `wallet-transactions-list`, `wallet-payout-section`, `wallet-commission-list` |
-| `message-area.tsx` | 797 | extraire `MessageBubble` (13 props) en fichier séparé, hook scroll/intersection |
-| `search-filter-sidebar.tsx` | 758 | un fichier par section de filtre |
-| `billing-profile-form.tsx` | 656 | section identité légale / adresse / fiscal / signataire |
+All 4 god components closed in PR #38 (`refactor(web): split wallet/messaging/search-filter/billing-profile-form god components + RHF/zod migration`):
+
+- ~~`wallet-page.tsx` 878~~ → 5 sub-components (`78ba0bd6`)
+- ~~`message-area.tsx` 797~~ → 4 focused units (`e8ea9565`)
+- ~~`search-filter-sidebar.tsx` 758~~ → 7 focused units (`ea513d76`)
+- ~~`billing-profile-form.tsx` 656~~ → split + RHF migration (`d5e916d1`)
 
 Admin : aucun fichier > 600 (max 413 sur `dispute-detail-page.tsx`). ✅
 
@@ -444,12 +431,25 @@ A11y mobile sous-investie. Aucun `Tooltip` Flutter. Pas de stratégie a11y docum
 
 ---
 
+## Closed in this round
+
+| ID | Closed in |
+|---|---|
+| QUAL-B-02 (SQL injection admin_moderation) | PR #34 |
+| Backend `_ = err` 15 sites + var _ = errors.X 2 sites + MockEmbeddings + CLAUDE.md mock pattern + CORS Max-Age + migration 024/025 docs | Phase 0 |
+| context.Background() override sites | PR #34 |
+| QUAL-W-01 (loading/error/not-found/global-error) | PR #41 |
+| QUAL-W-02 partial (provider/* → shared/) | PR #37 |
+| 4 web god components (wallet/messaging/search-filter/billing-profile) | PR #38 |
+
 ## Summary
 
 | App / Layer | Critical | Major | Minor |
 |---|---|---|---|
-| Backend Go | 2 | 50 | 191 |
-| Web | 3 | 9 | 6 |
+| Backend Go | 1 | 47 | 188 |
+| Web | 1 | 5 | 6 |
 | Admin | 0 | 1 (tests) | 2 |
 | Mobile | 3 | 10 | 5 |
-| **Total** | **8** | **70** | **204** |
+| **Total** | **5** | **63** | **201** |
+
+(was 282 before this round → 269 remaining + 13 closed)
