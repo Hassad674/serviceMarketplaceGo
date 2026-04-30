@@ -11,7 +11,7 @@ import {
   AvailabilityEditorCard,
   type AvailabilityStatus,
 } from "@/shared/components/profile/availability-editor-card"
-import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
+import { ExpertiseEditor } from "@/shared/components/expertise/expertise-editor"
 import type { ReferrerProfile } from "../api/referrer-profile-api"
 import { ReferrerProfileHeader } from "./referrer-profile-header"
 import { ReferrerPricingSection } from "./referrer-pricing-section"
@@ -114,8 +114,8 @@ export function ReferrerPublicProfile(props: ReferrerPublicProfileProps) {
         <ExpertiseEditor
           domains={editable.expertise.value}
           orgType="provider_personal"
-          onSaveOverride={editable.expertise.onSave}
-          savingOverride={editable.expertise.isSaving}
+          onSave={editable.expertise.onSave}
+          saving={editable.expertise.isSaving}
         />
       ) : (
         <ExpertiseDisplay domains={profile.expertise_domains} />

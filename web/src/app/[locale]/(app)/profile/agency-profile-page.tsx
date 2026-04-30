@@ -20,7 +20,8 @@ import { AgencyProfileHeader } from "@/features/provider/components/agency-profi
 import { ProfileSkeleton } from "@/features/provider/components/profile-skeleton"
 import { SocialLinksSection } from "@/features/provider/components/social-links-section"
 import { PortfolioSection } from "@/features/provider/components/portfolio-grid"
-import { ExpertiseEditor } from "@/features/provider/components/expertise-editor"
+import { ExpertiseEditor } from "@/shared/components/expertise/expertise-editor"
+import { useUpdateExpertiseDomains } from "@/features/provider/hooks/use-update-expertise"
 import { AvailabilitySection } from "@/features/provider/components/availability-section"
 import { PricingSection } from "@/features/provider/components/pricing-section"
 import { LocationSection } from "@/features/provider/components/location-section"
@@ -43,6 +44,7 @@ export function AgencyProfilePage() {
   const photoUpload = useUploadPhoto()
   const videoUpload = useUploadVideo()
   const videoDelete = useDeleteVideo()
+  const expertiseUpdate = useUpdateExpertiseDomains()
   const canEditProfile = useHasPermission("org_profile.edit")
   const t = useTranslations("profile")
 
@@ -142,6 +144,10 @@ export function AgencyProfilePage() {
         domains={profile.expertise_domains}
         orgType="agency"
         readOnly={!canEditProfile}
+        onSave={async (next) => {
+          await expertiseUpdate.mutateAsync(next)
+        }}
+        saving={expertiseUpdate.isPending}
       />
 
       <SkillsSection orgType="agency" readOnly={!canEditProfile} />
