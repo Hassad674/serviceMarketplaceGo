@@ -133,12 +133,61 @@ func (s *Service) createPaymentIntentFromExisting(ctx context.Context, input por
 	}, nil
 }
 
-// MarkPaymentSucceeded marks a payment record as paid.
+// MarkPaymentSucceeded marks a payment record as paid AFTER verifying with
+// Stripe that the underlying PaymentIntent has actually settled.
+//
+// Closes SEC-02 / BUG-01: previously, this method trusted the local record
+// blindly — a client with DevTools could POST /proposals/{id}/confirm-payment
+// and have the record flipped to `succeeded`, the proposal activated, and
+// (on completion) funds transferred to the provider — all without any
+// real Stripe charge having cleared.
+//
+// The check fetches the PaymentIntent and asserts pi.Status == "succeeded"
+// before delegating to record.MarkPaid(). Any other status returns
+// domain.ErrPaymentNotConfirmed; missing PI ID or Stripe API error returns
+// the wrapped error so the caller can decide whether to retry. Idempotency
+// (record already in non-pending state) is preserved.
+//
+// TODO(SEC-13): Once audit logging is wired by Agent A, emit
+// `payment_confirm_attempt_unverified` here when ErrPaymentNotConfirmed
+// fires — that is the signal of a possible fraud attempt.
 func (s *Service) MarkPaymentSucceeded(ctx context.Context, proposalID uuid.UUID) error {
 	record, err := s.records.GetByProposalID(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("find record: %w", err)
 	}
+
+	// Idempotent fast-path — already non-pending, nothing to do.
+	if record.Status != domain.RecordStatusPending {
+		return nil
+	}
+
+	// Stripe verification — the heart of the SEC-02 fix.
+	if s.stripe == nil {
+		return errors.New("stripe service not configured")
+	}
+	if record.StripePaymentIntentID == "" {
+		slog.Warn("payment confirm: record has no PaymentIntent id",
+			"proposal_id", proposalID, "record_id", record.ID)
+		return domain.ErrPaymentNotConfirmed
+	}
+	pi, err := s.stripe.GetPaymentIntent(ctx, record.StripePaymentIntentID)
+	if err != nil {
+		return fmt.Errorf("verify payment intent: %w", err)
+	}
+	if pi == nil || pi.Status != "succeeded" {
+		piStatus := ""
+		if pi != nil {
+			piStatus = pi.Status
+		}
+		slog.Warn("payment confirm: stripe says not succeeded",
+			"proposal_id", proposalID,
+			"record_id", record.ID,
+			"payment_intent_id", record.StripePaymentIntentID,
+			"stripe_status", piStatus)
+		return domain.ErrPaymentNotConfirmed
+	}
+
 	if err := record.MarkPaid(); err != nil {
 		// Idempotent — if already in non-pending state, treat as success.
 		if errors.Is(err, domain.ErrPaymentNotPending) {

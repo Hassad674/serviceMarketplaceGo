@@ -7,6 +7,7 @@ import {
 import {
   fetchFreelanceProfileForMetadata,
 } from "@/features/freelance-profile/api/freelance-profile-server"
+import { safeJsonLd } from "@/shared/lib/json-ld"
 
 type Props = {
   params: Promise<{ id: string; locale: string }>
@@ -94,9 +95,11 @@ function JsonLd({ profileId, profile }: JsonLdProps) {
     <script
       type="application/ld+json"
       // SEO JSON-LD must be rendered as raw JSON; React escaping would
-      // break the schema. The payload is built from trusted server
-      // data (no user-authored HTML reaches this string).
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
+      // break the schema. `profile.about` is user-authored text, so we
+      // route through safeJsonLd() to neutralize </script>, --> and the
+      // unicode line/paragraph separators before injecting via
+      // dangerouslySetInnerHTML.
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(payload) }}
     />
   )
 }
