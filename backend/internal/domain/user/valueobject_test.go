@@ -73,11 +73,13 @@ func TestNewPassword_ValidPasswords(t *testing.T) {
 		name  string
 		input string
 	}{
-		{"exact minimum length", "Abcdefg1"},
-		{"longer password", "MySecurePassword123"},
-		{"with special chars", "P@ssw0rd!"},
-		{"very long", "ThisIsAVeryLongPasswordWithUpperLower123"},
-		{"unicode with requirements", "Passw0rdZ"},
+		// SEC-20: minimum length is 10 and a special character is required.
+		{"exact minimum length", "Abcdefgh1!"},
+		{"longer password", "MySecurePassword123!"},
+		{"with multiple specials", "P@ssw0rd!#"},
+		{"very long", "ThisIsAVeryLongPasswordWithUpperLower123!"},
+		{"unicode special — symbol category", "Passw0rdZ$"},
+		{"non-ascii punctuation accepted", "Passw0rdZ¿"},
 	}
 
 	for _, tt := range tests {
@@ -97,7 +99,7 @@ func TestNewPassword_TooShort(t *testing.T) {
 	}{
 		{"empty string", ""},
 		{"single char", "A"},
-		{"seven chars", "Abcde1g"},
+		{"nine chars", "Abcdef1!Z"}, // SEC-20: 9 < 10, must reject
 	}
 
 	for _, tt := range tests {
@@ -111,37 +113,45 @@ func TestNewPassword_TooShort(t *testing.T) {
 }
 
 func TestNewPassword_NoUppercase(t *testing.T) {
-	pw, err := NewPassword("abcdefg1")
+	pw, err := NewPassword("abcdefghi1!")
 	assert.ErrorIs(t, err, ErrWeakPassword)
 	assert.Empty(t, pw.String())
 }
 
 func TestNewPassword_NoLowercase(t *testing.T) {
-	pw, err := NewPassword("ABCDEFG1")
+	pw, err := NewPassword("ABCDEFGHI1!")
 	assert.ErrorIs(t, err, ErrWeakPassword)
 	assert.Empty(t, pw.String())
 }
 
 func TestNewPassword_NoDigit(t *testing.T) {
-	pw, err := NewPassword("Abcdefgh")
+	pw, err := NewPassword("Abcdefghij!")
+	assert.ErrorIs(t, err, ErrWeakPassword)
+	assert.Empty(t, pw.String())
+}
+
+func TestNewPassword_NoSpecial(t *testing.T) {
+	// SEC-20: must reject passwords without a special character even
+	// when every other rule is satisfied.
+	pw, err := NewPassword("Abcdefghi1")
 	assert.ErrorIs(t, err, ErrWeakPassword)
 	assert.Empty(t, pw.String())
 }
 
 func TestNewPassword_AllLowercase(t *testing.T) {
-	pw, err := NewPassword("abcdefgh")
+	pw, err := NewPassword("abcdefghij")
 	assert.ErrorIs(t, err, ErrWeakPassword)
 	assert.Empty(t, pw.String())
 }
 
 func TestNewPassword_AllDigits(t *testing.T) {
-	pw, err := NewPassword("12345678")
+	pw, err := NewPassword("1234567890")
 	assert.ErrorIs(t, err, ErrWeakPassword)
 	assert.Empty(t, pw.String())
 }
 
 func TestPassword_String_ReturnsOriginalValue(t *testing.T) {
-	input := "MyPassword1"
+	input := "MyPassword1!"
 	pw, err := NewPassword(input)
 	require.NoError(t, err)
 	assert.Equal(t, input, pw.String())

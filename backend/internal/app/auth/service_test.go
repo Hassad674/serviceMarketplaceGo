@@ -45,7 +45,7 @@ func newTestService(
 func validRegisterInput() RegisterInput {
 	return RegisterInput{
 		Email:       "test@example.com",
-		Password:    "StrongPass1",
+		Password:    "StrongPass1!",
 		FirstName:   "John",
 		LastName:    "Doe",
 		DisplayName: "John D.",
@@ -128,7 +128,7 @@ func TestAuthService_Register_WeakPassword(t *testing.T) {
 		name     string
 		password string
 	}{
-		{"too short", "Short1"},
+		{"too short", "Short1!"},
 		{"no uppercase", "alllower1"},
 		{"no lowercase", "ALLUPPER1"},
 		{"no digit", "NoDigitsHere"},
@@ -279,7 +279,7 @@ func TestAuthService_Register_TrimsWhitespace(t *testing.T) {
 	svc := newTestService(userRepo, nil, nil, nil, nil)
 	input := RegisterInput{
 		Email:       "test@example.com",
-		Password:    "StrongPass1",
+		Password:    "StrongPass1!",
 		FirstName:   "  John  ",
 		LastName:    "  Doe  ",
 		DisplayName: "  John D.  ",
@@ -300,7 +300,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 	existingUser := &user.User{
 		ID:             uuid.New(),
 		Email:          "login@example.com",
-		HashedPassword: "hashed_CorrectPass1",
+		HashedPassword: "hashed_CorrectPass1!",
 		FirstName:      "Jane",
 		LastName:       "Doe",
 		Role:           user.RoleEnterprise,
@@ -319,7 +319,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "login@example.com",
-		Password: "CorrectPass1",
+		Password: "CorrectPass1!",
 	})
 
 	require.NoError(t, err)
@@ -334,7 +334,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 	existingUser := &user.User{
 		ID:             uuid.New(),
 		Email:          "login@example.com",
-		HashedPassword: "hashed_CorrectPass1",
+		HashedPassword: "hashed_CorrectPass1!",
 		Role:           user.RoleAgency,
 	}
 
@@ -348,7 +348,7 @@ func TestAuthService_Login_WrongPassword(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "login@example.com",
-		Password: "WrongPassword1",
+		Password: "WrongPassword1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrInvalidCredentials)
@@ -366,7 +366,7 @@ func TestAuthService_Login_NonExistentEmail(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "nobody@example.com",
-		Password: "SomePassword1",
+		Password: "SomePassword1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrInvalidCredentials)
@@ -378,7 +378,7 @@ func TestAuthService_Login_InvalidEmailFormat(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "not-an-email",
-		Password: "SomePassword1",
+		Password: "SomePassword1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrInvalidCredentials)
@@ -390,7 +390,7 @@ func TestAuthService_Login_EmptyEmail(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "",
-		Password: "SomePassword1",
+		Password: "SomePassword1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrInvalidCredentials)
@@ -401,7 +401,7 @@ func TestAuthService_Login_TokenGenerationFailure(t *testing.T) {
 	existingUser := &user.User{
 		ID:             uuid.New(),
 		Email:          "login@example.com",
-		HashedPassword: "hashed_CorrectPass1",
+		HashedPassword: "hashed_CorrectPass1!",
 		Role:           user.RoleAgency,
 	}
 
@@ -420,7 +420,7 @@ func TestAuthService_Login_TokenGenerationFailure(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "login@example.com",
-		Password: "CorrectPass1",
+		Password: "CorrectPass1!",
 	})
 
 	assert.Error(t, err)
@@ -699,7 +699,7 @@ func TestAuthService_ResetPassword_Success(t *testing.T) {
 
 	err := svc.ResetPassword(context.Background(), ResetPasswordInput{
 		Token:       "valid-reset-token",
-		NewPassword: "NewStrongPass1",
+		NewPassword: "NewStrongPass1!",
 	})
 
 	assert.NoError(t, err)
@@ -729,7 +729,7 @@ func TestAuthService_ResetPassword_InvalidToken(t *testing.T) {
 
 	err := svc.ResetPassword(context.Background(), ResetPasswordInput{
 		Token:       "invalid-token",
-		NewPassword: "NewStrongPass1",
+		NewPassword: "NewStrongPass1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrUnauthorized)
@@ -752,7 +752,7 @@ func TestAuthService_ResetPassword_ExpiredToken(t *testing.T) {
 
 	err := svc.ResetPassword(context.Background(), ResetPasswordInput{
 		Token:       "expired-token",
-		NewPassword: "NewStrongPass1",
+		NewPassword: "NewStrongPass1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrUnauthorized)
@@ -775,7 +775,7 @@ func TestAuthService_ResetPassword_AlreadyUsedToken(t *testing.T) {
 
 	err := svc.ResetPassword(context.Background(), ResetPasswordInput{
 		Token:       "used-token",
-		NewPassword: "NewStrongPass1",
+		NewPassword: "NewStrongPass1!",
 	})
 
 	assert.ErrorIs(t, err, user.ErrUnauthorized)
@@ -940,7 +940,7 @@ func TestAuthService_Login_SuspendedUser_ReturnsSuspendedError(t *testing.T) {
 	suspendedUser := &user.User{
 		ID:             uuid.New(),
 		Email:          "suspended@example.com",
-		HashedPassword: "hashed_CorrectPass1",
+		HashedPassword: "hashed_CorrectPass1!",
 		Role:           user.RoleProvider,
 		Status:         user.StatusActive,
 	}
@@ -956,7 +956,7 @@ func TestAuthService_Login_SuspendedUser_ReturnsSuspendedError(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "suspended@example.com",
-		Password: "CorrectPass1",
+		Password: "CorrectPass1!",
 	})
 
 	assert.Nil(t, result)
@@ -972,7 +972,7 @@ func TestAuthService_Login_BannedUser_ReturnsBannedError(t *testing.T) {
 	bannedUser := &user.User{
 		ID:             uuid.New(),
 		Email:          "banned@example.com",
-		HashedPassword: "hashed_CorrectPass1",
+		HashedPassword: "hashed_CorrectPass1!",
 		Role:           user.RoleAgency,
 		Status:         user.StatusActive,
 	}
@@ -988,7 +988,7 @@ func TestAuthService_Login_BannedUser_ReturnsBannedError(t *testing.T) {
 
 	result, err := svc.Login(context.Background(), LoginInput{
 		Email:    "banned@example.com",
-		Password: "CorrectPass1",
+		Password: "CorrectPass1!",
 	})
 
 	assert.Nil(t, result)

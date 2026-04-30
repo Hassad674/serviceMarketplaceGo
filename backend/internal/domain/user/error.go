@@ -4,7 +4,7 @@ import "errors"
 
 var (
 	ErrInvalidEmail       = errors.New("invalid email format")
-	ErrWeakPassword       = errors.New("password must be at least 8 characters with uppercase, lowercase, and digit")
+	ErrWeakPassword       = errors.New("password must be at least 10 characters with uppercase, lowercase, digit, and special character")
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrUserNotFound       = errors.New("user not found")
 	ErrInvalidCredentials = errors.New("invalid credentials")

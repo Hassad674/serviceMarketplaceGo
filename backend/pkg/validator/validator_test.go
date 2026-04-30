@@ -157,7 +157,8 @@ func TestValidateEmail_InvalidEmail(t *testing.T) {
 }
 
 func TestValidatePassword_ValidPassword(t *testing.T) {
-	err := ValidatePassword("StrongPass1")
+	// SEC-20: minimum 10 chars + special character required.
+	err := ValidatePassword("StrongPass1!")
 	assert.NoError(t, err)
 }
 
@@ -166,9 +167,10 @@ func TestValidatePassword_WeakPassword(t *testing.T) {
 		name     string
 		password string
 	}{
-		{"too short", "Short1"},
-		{"no uppercase", "alllower1"},
-		{"no digit", "NoDigitsHere"},
+		{"too short", "Short1!"},
+		{"no uppercase", "alllower1!"},
+		{"no digit", "NoDigitsHere!"},
+		{"no special character", "NoSpecial1A"}, // SEC-20 explicit case
 	}
 
 	for _, tt := range tests {
