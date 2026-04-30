@@ -43,10 +43,12 @@ func newTestPendingEvent(t *testing.T, eventType pendingevent.EventType, firesAt
 
 // cleanupPendingEvents removes any test rows the suite may have
 // created in a previous run so the assertions stay deterministic.
+// Includes search.* event types so the BUG-05 outbox integration
+// tests don't leak rows into the broader pending_events suite.
 func cleanupPendingEvents(t *testing.T) {
 	t.Helper()
 	db := testDB(t)
-	_, _ = db.Exec(`DELETE FROM pending_events WHERE event_type IN ('milestone_auto_approve', 'milestone_fund_reminder', 'proposal_auto_close', 'stripe_transfer')`)
+	_, _ = db.Exec(`DELETE FROM pending_events WHERE event_type IN ('milestone_auto_approve', 'milestone_fund_reminder', 'proposal_auto_close', 'stripe_transfer', 'search.reindex', 'search.delete')`)
 }
 
 func TestPendingEventRepository_ScheduleAndGetByID(t *testing.T) {
