@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	organizationapp "marketplace-backend/internal/app/organization"
+	"marketplace-backend/internal/domain/audit"
 	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/port/repository"
 )
@@ -112,6 +113,11 @@ func (s *Service) GetUserOrganizationDetail(
 // admin override. Exposed here so the admin handler does not need to
 // know about the organization app package directly — it composes the
 // admin.Service only.
+//
+// SEC-13: emits an audit row on success. The caller is the admin
+// performing the override; the resource is the org whose ownership
+// changed. The new owner's user_id is captured in metadata for
+// forensic search ("which orgs did admin X take over and reassign?").
 func (s *Service) ForceTransferOwnership(
 	ctx context.Context,
 	orgID, newOwnerUserID uuid.UUID,
@@ -119,7 +125,20 @@ func (s *Service) ForceTransferOwnership(
 	if s.membership == nil {
 		return nil, errors.New("admin organization feature not wired")
 	}
-	return s.membership.ForceTransferOwnership(ctx, orgID, newOwnerUserID)
+	org, err := s.membership.ForceTransferOwnership(ctx, orgID, newOwnerUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		Action:       audit.ActionAdminForceTransfer,
+		ResourceType: audit.ResourceTypeOrganization,
+		ResourceID:   &orgID,
+		Metadata: map[string]any{
+			"new_owner_user_id": newOwnerUserID.String(),
+		},
+	})
+	return org, nil
 }
 
 // ForceUpdateMemberRole delegates to the override method.

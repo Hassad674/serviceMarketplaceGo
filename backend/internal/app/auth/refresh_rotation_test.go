@@ -80,7 +80,13 @@ func TestAuthService_RefreshToken_RotationBlacklistsOldJTI(t *testing.T) {
 	has, err := blacklist.Has(context.Background(), "jti-original")
 	require.NoError(t, err)
 	assert.True(t, has, "old JTI must be blacklisted after a successful rotation")
-	assert.Empty(t, audits.Snapshot(), "successful rotation does NOT emit token_reuse_detected")
+	// SEC-13 emits a token_refresh audit on every successful rotation,
+	// so the snapshot is non-empty. Assert that NO token_reuse_detected
+	// row was written — that is the SEC-06-specific invariant under test.
+	for _, e := range audits.Snapshot() {
+		assert.NotEqual(t, audit.ActionTokenReuseDetected, e.Action,
+			"successful rotation must NOT emit token_reuse_detected")
+	}
 }
 
 func TestAuthService_RefreshToken_ReplayedJTIReturnsUnauthorized(t *testing.T) {
@@ -105,13 +111,22 @@ func TestAuthService_RefreshToken_ReplayedJTIReturnsUnauthorized(t *testing.T) {
 	assert.ErrorIs(t, err, user.ErrUnauthorized)
 	assert.Nil(t, out)
 
-	entries := audits.Snapshot()
-	require.Len(t, entries, 1, "replayed refresh must emit a token_reuse_detected row")
-	assert.Equal(t, audit.ActionTokenReuseDetected, entries[0].Action)
-	assert.Equal(t, audit.ResourceTypeUser, entries[0].ResourceType)
-	require.NotNil(t, entries[0].UserID)
-	assert.Equal(t, u.ID, *entries[0].UserID)
-	assert.Equal(t, "jti-stolen", entries[0].Metadata["jti"])
+	// Find the token_reuse_detected row. SEC-13 may also emit other
+	// audit events on this code path (none expected today, but be
+	// resilient to future additions like e.g. an authentication failure
+	// counter). Filter the snapshot to the action we care about.
+	var reuse *audit.Entry
+	for _, e := range audits.Snapshot() {
+		if e.Action == audit.ActionTokenReuseDetected {
+			reuse = e
+			break
+		}
+	}
+	require.NotNil(t, reuse, "replayed refresh must emit a token_reuse_detected row")
+	assert.Equal(t, audit.ResourceTypeUser, reuse.ResourceType)
+	require.NotNil(t, reuse.UserID)
+	assert.Equal(t, u.ID, *reuse.UserID)
+	assert.Equal(t, "jti-stolen", reuse.Metadata["jti"])
 }
 
 func TestAuthService_RefreshToken_BlacklistReadFailureFailsOpen(t *testing.T) {
@@ -135,8 +150,13 @@ func TestAuthService_RefreshToken_BlacklistReadFailureFailsOpen(t *testing.T) {
 	require.NotNil(t, out)
 	// The blacklist write also fails (same hasErr drives addErr too if
 	// we set it — here addErr is unset so the write succeeds and the
-	// rotation completes). The audit log must remain empty.
-	assert.Empty(t, audits.Snapshot())
+	// rotation completes). The audit log must NOT contain a
+	// token_reuse_detected entry — the legitimate token_refresh audit
+	// emission added by SEC-13 is expected and ignored here.
+	for _, e := range audits.Snapshot() {
+		assert.NotEqual(t, audit.ActionTokenReuseDetected, e.Action,
+			"blacklist read failure must not be misinterpreted as reuse")
+	}
 }
 
 func TestAuthService_RefreshToken_NoBlacklistWiredKeepsLegacyBehavior(t *testing.T) {

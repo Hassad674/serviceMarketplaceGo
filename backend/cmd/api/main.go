@@ -213,8 +213,9 @@ func main() {
 		Tokens:           tokenSvc,
 		Email:            emailSvc,
 		Orgs:             organizationSvc,
-		RefreshBlacklist: refreshBlacklistSvc,
-		Audits:           auditRepo,
+		Sessions:         sessionSvc,         // SEC-16 — purge sessions on password reset
+		RefreshBlacklist: refreshBlacklistSvc, // SEC-06 — refresh token rotation + replay detection
+		Audits:           auditRepo,          // SEC-13 — emit auth audit events
 		FrontendURL:      cfg.FrontendURL,
 	})
 	// Profile service + Tier 1 geocoder (migration 083). The

@@ -205,6 +205,15 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	h.cookie.ClearSession(w)
 
+	// SEC-13: emit logout audit event when we know which user is
+	// signing out. The handler is mounted behind the auth middleware
+	// so userID is normally present in context — anonymous calls (no
+	// auth context) skip the audit row but still receive a 200 to
+	// preserve the legacy semantics.
+	if userID, ok := middleware.GetUserID(r.Context()); ok {
+		h.authService.Logout(r.Context(), userID)
+	}
+
 	// SEC-06: mobile clients post their refresh token here so the
 	// backend can blacklist it immediately. Decoding failures and an
 	// absent body are silently ignored — the session cookie was

@@ -82,11 +82,19 @@ type Service struct {
 	hasher                 service.HasherService
 	tokens                 service.TokenService
 	email                  service.EmailService
-	orgs                   OrgProvisioner          // may be nil in unit tests that don't exercise the org path
-	moderationOrchestrator *appmoderation.Service  // optional: when nil, display_name moderation is skipped
-	refreshBlacklist       service.RefreshBlacklistService // optional: when nil, refresh-token rotation defaults to issue-only (legacy behavior)
-	audits                 repository.AuditRepository      // optional: when nil, audit emission is skipped
-	frontendURL            string
+	orgs                   OrgProvisioner                  // may be nil in unit tests that don't exercise the org path
+	moderationOrchestrator *appmoderation.Service          // optional: when nil, display_name moderation is skipped
+	// sessionSvc is used by ResetPassword to purge any existing
+	// session after a successful reset (SEC-16). May be nil in unit
+	// tests that don't exercise the reset path; production wires the
+	// Redis adapter.
+	sessionSvc       service.SessionService
+	refreshBlacklist service.RefreshBlacklistService // SEC-06: when nil, refresh-token rotation defaults to issue-only (legacy behavior)
+	// audits is the append-only audit log repository (SEC-13). Used
+	// to record every authentication event for forensic purposes.
+	// May be nil in unit tests; production wires the Postgres adapter.
+	audits      repository.AuditRepository
+	frontendURL string
 }
 
 // ServiceDeps groups the auth service dependencies to avoid a growing
@@ -98,8 +106,9 @@ type ServiceDeps struct {
 	Tokens           service.TokenService
 	Email            service.EmailService
 	Orgs             OrgProvisioner
+	Sessions         service.SessionService          // SEC-16: optional, purges sessions on password reset
 	RefreshBlacklist service.RefreshBlacklistService // SEC-06: when set, refresh tokens rotate single-use through Redis
-	Audits           repository.AuditRepository      // SEC-06: when set, token_reuse_detected events are recorded
+	Audits           repository.AuditRepository      // SEC-13: when set, auth events + token_reuse_detected are recorded
 	FrontendURL      string
 }
 
@@ -134,9 +143,31 @@ func NewServiceWithDeps(deps ServiceDeps) *Service {
 		tokens:           deps.Tokens,
 		email:            deps.Email,
 		orgs:             deps.Orgs,
+		sessionSvc:       deps.Sessions,
 		refreshBlacklist: deps.RefreshBlacklist,
 		audits:           deps.Audits,
 		frontendURL:      deps.FrontendURL,
+	}
+}
+
+// logAudit is a fire-and-forget audit emission helper. Failures are
+// logged via slog but never returned to the caller — audit
+// completeness is best-effort by policy (see CLAUDE.md "Audit
+// logging" + port/repository/audit.go interface comment).
+//
+// A nil audits repository is fine and skips the call entirely; this
+// keeps unit tests that don't wire the audit path simple.
+func (s *Service) logAudit(ctx context.Context, in audit.NewEntryInput) {
+	if s.audits == nil {
+		return
+	}
+	entry, err := audit.NewEntry(in)
+	if err != nil {
+		slog.Warn("audit: build entry failed", "action", in.Action, "error", err)
+		return
+	}
+	if err := s.audits.Log(ctx, entry); err != nil {
+		slog.Warn("audit: insert failed", "action", in.Action, "error", err)
 	}
 }
 
@@ -277,22 +308,68 @@ func buildAuthOutput(u *user.User, orgCtx *orgContext, access, refresh string) *
 func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, error) {
 	email, err := user.NewEmail(input.Email)
 	if err != nil {
+		s.logAudit(ctx, audit.NewEntryInput{
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			Metadata: map[string]any{
+				"email":  input.Email,
+				"reason": "invalid_email_format",
+			},
+		})
 		return nil, user.ErrInvalidCredentials
 	}
 
 	u, err := s.users.GetByEmail(ctx, email.String())
 	if err != nil {
+		s.logAudit(ctx, audit.NewEntryInput{
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			Metadata: map[string]any{
+				"email":  email.String(),
+				"reason": "user_not_found",
+			},
+		})
 		return nil, user.ErrInvalidCredentials
 	}
 
 	if err := s.hasher.Compare(u.HashedPassword, input.Password); err != nil {
+		s.logAudit(ctx, audit.NewEntryInput{
+			UserID:       &u.ID,
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			ResourceID:   &u.ID,
+			Metadata: map[string]any{
+				"email":  email.String(),
+				"reason": "invalid_password",
+			},
+		})
 		return nil, user.ErrInvalidCredentials
 	}
 
 	if u.IsSuspended() {
+		s.logAudit(ctx, audit.NewEntryInput{
+			UserID:       &u.ID,
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			ResourceID:   &u.ID,
+			Metadata: map[string]any{
+				"email":  email.String(),
+				"reason": "account_suspended",
+			},
+		})
 		return nil, user.NewSuspendedError(u.SuspensionReason)
 	}
 	if u.IsBanned() {
+		s.logAudit(ctx, audit.NewEntryInput{
+			UserID:       &u.ID,
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			ResourceID:   &u.ID,
+			Metadata: map[string]any{
+				"email":  email.String(),
+				"reason": "account_banned",
+			},
+		})
 		return nil, user.NewBannedError(u.BanReason)
 	}
 
@@ -317,6 +394,16 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 	if err := s.users.TouchLastActive(ctx, u.ID); err != nil {
 		slog.Warn("auth: touch last_active_at on login failed", "user_id", u.ID, "error", err)
 	}
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &u.ID,
+		Action:       audit.ActionLoginSuccess,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &u.ID,
+		Metadata: map[string]any{
+			"email": email.String(),
+		},
+	})
 
 	return buildAuthOutput(u, orgCtx, accessToken, refreshToken), nil
 }
@@ -384,6 +471,15 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	// SEC-13: emit token_refresh audit event.
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &u.ID,
+		Action:       audit.ActionTokenRefresh,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &u.ID,
+		Metadata:     map[string]any{},
+	})
+
 	// SEC-06: blacklist the OLD refresh token AFTER generating the new
 	// pair. We use the original token's remaining time-to-expire as
 	// the blacklist TTL so the entry self-evicts once the token would
@@ -399,6 +495,20 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*AuthO
 	}
 
 	return buildAuthOutput(u, orgCtx, newAccessToken, newRefreshToken), nil
+}
+
+// Logout records a logout audit event for the given user. Used by the
+// auth handler after it has invalidated the session — exposes a method
+// rather than logging from the handler so the audit emission stays in
+// the app layer with the rest of the auth audit calls.
+func (s *Service) Logout(ctx context.Context, userID uuid.UUID) {
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &userID,
+		Action:       audit.ActionLogout,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &userID,
+		Metadata:     map[string]any{},
+	})
 }
 
 // RevokeRefreshToken blacklists the supplied refresh token's JTI so any
@@ -507,6 +617,16 @@ func (s *Service) ForgotPassword(ctx context.Context, input ForgotPasswordInput)
 		return fmt.Errorf("send reset email: %w", err)
 	}
 
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &u.ID,
+		Action:       audit.ActionPasswordResetRequest,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &u.ID,
+		Metadata: map[string]any{
+			"email": u.Email,
+		},
+	})
+
 	return nil
 }
 
@@ -542,6 +662,38 @@ func (s *Service) ResetPassword(ctx context.Context, input ResetPasswordInput) e
 	if err := s.resets.MarkUsed(ctx, pr.ID); err != nil {
 		return fmt.Errorf("mark token used: %w", err)
 	}
+
+	// SEC-16: a successful reset is the user's "kill switch" — every
+	// session that was alive before the reset must be invalidated.
+	// Two complementary mechanisms are used:
+	//   1. Bump session_version so any access token issued before the
+	//      reset fails the middleware version check on its next request
+	//      (mobile-friendly: no shared session storage required).
+	//   2. Delete every session row in Redis so the cookie-based web
+	//      session is gone immediately on the next request.
+	// Failures are logged but do NOT fail the reset itself — the password
+	// is already changed, refusing the call would put the user in a
+	// worse state ("your password is changed but… error?").
+	if _, err := s.users.BumpSessionVersion(ctx, u.ID); err != nil {
+		slog.Warn("auth: reset_password bump session_version failed",
+			"user_id", u.ID, "error", err)
+	}
+	if s.sessionSvc != nil {
+		if err := s.sessionSvc.DeleteByUserID(ctx, u.ID); err != nil {
+			slog.Warn("auth: reset_password delete sessions failed",
+				"user_id", u.ID, "error", err)
+		}
+	}
+
+	s.logAudit(ctx, audit.NewEntryInput{
+		UserID:       &u.ID,
+		Action:       audit.ActionPasswordResetComplete,
+		ResourceType: audit.ResourceTypeUser,
+		ResourceID:   &u.ID,
+		Metadata: map[string]any{
+			"email": u.Email,
+		},
+	})
 
 	return nil
 }
