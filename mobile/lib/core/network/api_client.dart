@@ -50,6 +50,18 @@ class ApiClient {
   Future<bool>? _refreshInFlight;
 
   ApiClient({required SecureStorageService storage}) : _storage = storage {
+    // SEC-08: hard guard against shipping a release build that talks
+    // HTTP to a production backend. In debug mode (`flutter run`) we
+    // still allow http:// so developers can hit a local dev backend
+    // without TLS. In release mode (App Bundle / TestFlight build)
+    // anything other than https:// trips an assert at construction
+    // time — a loud failure that beats a silent MITM in the wild.
+    assert(
+      isApiUrlSafeForReleaseBuild(baseUrl, isDebug: kDebugMode),
+      'API_URL must be https:// in release builds — got "$baseUrl". '
+      'Pass --dart-define=API_URL=https://… when building.',
+    );
+
     _dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -214,4 +226,18 @@ class ApiClient {
       options: Options(contentType: 'multipart/form-data'),
     );
   }
+}
+
+/// Returns true when [apiUrl] is acceptable for the current build mode.
+///
+/// In debug mode any URL is acceptable (developers regularly point at a
+/// local HTTP backend). In release/profile mode only https:// URLs pass.
+///
+/// Extracted as a top-level pure function so the rule can be unit-tested
+/// without standing up an [ApiClient] (which requires platform plugins
+/// like FlutterSecureStorage). See SEC-08 in auditsecurite.md.
+@visibleForTesting
+bool isApiUrlSafeForReleaseBuild(String apiUrl, {required bool isDebug}) {
+  if (isDebug) return true;
+  return apiUrl.startsWith('https://');
 }
