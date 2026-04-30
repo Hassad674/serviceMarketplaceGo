@@ -39,6 +39,16 @@ var (
 	// the handler boundary.
 	ErrProviderPayoutsDisabled = errors.New("provider Stripe payouts are not enabled")
 
+	// ErrInvalidStateTransition fires when a payment_record domain method is
+	// invoked from a state that disallows it (e.g. MarkRefunded on a record
+	// already Failed). Closes BUG-02: previously MarkFailed / MarkRefunded /
+	// ApplyDisputeResolution had no source-state guards, so a webhook replay
+	// or a buggy caller could overwrite ProviderPayout to 0 on an already-
+	// transferred record and "lose" the provider's money. The wrapper
+	// StateTransitionError carries the expected vs actual states for
+	// observability — callers can inspect them via errors.As.
+	ErrInvalidStateTransition = errors.New("invalid payment_record state transition")
+
 	// Identity document errors
 	ErrInvalidDocumentCategory = errors.New("invalid document category")
 	ErrInvalidDocumentType     = errors.New("invalid document type")

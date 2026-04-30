@@ -408,7 +408,14 @@ func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid
 	// Full refund to client — nothing to transfer, mark the record as
 	// resolved with zero payout so the wallet removes it from escrow.
 	if amount == 0 {
-		record.ApplyDisputeResolution(0, "")
+		// State guard rejection (BUG-02): the record is no longer in a
+		// state where ApplyDisputeResolution is valid (already
+		// transferred or never succeeded). Surface the error so the
+		// caller can log + skip — overwriting ProviderPayout silently
+		// would lose the provider's money.
+		if err := record.ApplyDisputeResolution(0, ""); err != nil {
+			return fmt.Errorf("apply zero-payout dispute resolution: %w", err)
+		}
 		return s.records.Update(ctx, record)
 	}
 
@@ -454,7 +461,11 @@ func (s *Service) TransferPartialToProvider(ctx context.Context, proposalID uuid
 	}
 
 	// Transfer succeeded — mark completed with the new amount.
-	record.ApplyDisputeResolution(amount, transferID)
+	// State guard rejection (BUG-02) is surfaced so a caller cannot
+	// double-apply the resolution after a webhook replay.
+	if err := record.ApplyDisputeResolution(amount, transferID); err != nil {
+		return fmt.Errorf("apply dispute resolution: %w", err)
+	}
 	return s.records.Update(ctx, record)
 }
 
@@ -478,9 +489,15 @@ func (s *Service) RefundToClient(ctx context.Context, proposalID uuid.UUID, amou
 		return fmt.Errorf("stripe refund: %w", err)
 	}
 
-	// Full refund (provider gets nothing) → mark the entire payment as refunded
+	// Full refund (provider gets nothing) → mark the entire payment as refunded.
+	// State guard rejection (BUG-02): MarkRefunded only accepts a
+	// Succeeded record. A replay on an already-Refunded record returns an
+	// error here; we surface it so the dispute flow can decide whether the
+	// duplicate is benign (idempotent retry) or a true bug.
 	if record.ProviderPayout == 0 {
-		record.MarkRefunded()
+		if err := record.MarkRefunded(); err != nil {
+			return fmt.Errorf("mark record refunded: %w", err)
+		}
 	}
 	return s.records.Update(ctx, record)
 }
