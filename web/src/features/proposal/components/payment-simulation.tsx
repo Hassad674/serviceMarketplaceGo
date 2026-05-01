@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "next/navigation"
 import { useRouter } from "@i18n/navigation"
-import { Shield, CheckCircle2, Loader2, ArrowLeft, CreditCard } from "lucide-react"
+import { Shield, CheckCircle2, Loader2, ArrowLeft, CreditCard, AlertTriangle, RefreshCw } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { loadStripe } from "@stripe/stripe-js"
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js"
+import { ApiError } from "@/shared/lib/api-client"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-api"
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
@@ -14,6 +15,17 @@ import type { ProposalResponse, PaymentIntentResponse } from "../types"
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
   : null
+
+// PaymentErrorKind discriminates the two terminal failure modes the
+// page can be in. Previously every error collapsed to "Proposal not
+// found", which was misleading (a 500 from /pay made the user think
+// the resource was missing instead of retrying / reporting). The
+// distinction:
+//   - "not_found": the proposal really does not exist (or the id is
+//     missing from the URL). Retry would not help.
+//   - "init_failed": the proposal exists but initiatePayment failed
+//     (5xx, network drop, rate limit). Retry usually fixes it.
+type PaymentErrorKind = "not_found" | "init_failed" | null
 
 export function PaymentSimulation() {
   const t = useTranslations("proposal")
@@ -23,13 +35,34 @@ export function PaymentSimulation() {
 
   const [proposal, setProposal] = useState<ProposalResponse | null>(null)
   const [paymentData, setPaymentData] = useState<PaymentIntentResponse | null>(null)
-  const [fetchError, setFetchError] = useState(false)
+  // errorKind disambiguates "real not found" vs "transient backend
+  // failure" so the UI can pick the right message + retry affordance.
+  const [errorKind, setErrorKind] = useState<PaymentErrorKind>(null)
   const [loading, setLoading] = useState(true)
   const [paid, setPaid] = useState(false)
+  // retryNonce bumps every time the user clicks "Retry" — restarts the
+  // load effect without remounting the page (which would lose the
+  // already-fetched proposal data).
+  const [retryNonce, setRetryNonce] = useState(0)
 
   useEffect(() => {
     if (!proposalId) return
     let cancelled = false
+
+    setLoading(true)
+    setErrorKind(null)
+
+    // Two-phase load with phase-specific error mapping. A 404 on
+    // getProposal collapses to errorKind="not_found"; anything else
+    // (5xx, network, 4xx other than 404) becomes "init_failed" with
+    // a retry button. Same logic for initiatePayment, except a 404
+    // there means the proposal vanished mid-flow — still rare, but
+    // we surface it as "not_found" too so the user lands on the
+    // correct copy.
+    const classify = (err: unknown): PaymentErrorKind => {
+      if (err instanceof ApiError && err.status === 404) return "not_found"
+      return "init_failed"
+    }
 
     getProposal(proposalId)
       .then((p) => {
@@ -62,14 +95,44 @@ export function PaymentSimulation() {
           }
         })
       })
-      .catch(() => { if (!cancelled) setFetchError(true) })
+      .catch((err) => {
+        if (cancelled) return
+        setErrorKind(classify(err))
+      })
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
-  }, [proposalId, router])
+  }, [proposalId, router, retryNonce])
 
-  if (!proposalId || fetchError) {
+  // No id in the URL -> truly not found. Retry would not help.
+  if (!proposalId || errorKind === "not_found") {
     return <CenteredMessage>{t("proposalNotFound")}</CenteredMessage>
+  }
+
+  // Transient backend / network failure on getProposal or
+  // initiatePayment. Show a recoverable error with a Retry button —
+  // the previous behaviour silently masked this as "Proposal not
+  // found", leaving users stuck.
+  if (errorKind === "init_failed") {
+    return (
+      <CenteredMessage>
+        <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" strokeWidth={1.5} />
+        <p className="text-lg font-semibold text-slate-900 dark:text-white">{t("paymentInitFailed")}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{t("paymentInitFailedHint")}</p>
+        <button
+          type="button"
+          onClick={() => setRetryNonce((n) => n + 1)}
+          className={cn(
+            "mt-4 inline-flex items-center gap-2 rounded-xl px-5 py-2.5",
+            "text-sm font-semibold text-white transition-all duration-200",
+            "gradient-primary hover:shadow-glow active:scale-[0.98]",
+          )}
+        >
+          <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
+          {t("paymentRetry")}
+        </button>
+      </CenteredMessage>
+    )
   }
 
   if (loading) {
