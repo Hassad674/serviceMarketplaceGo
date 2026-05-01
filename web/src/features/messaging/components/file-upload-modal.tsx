@@ -373,6 +373,7 @@ export function FileUploadModal({
                   className="flex items-center gap-3 rounded-lg border border-border p-3"
                 >
                   {sf.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- previewUrl is a blob: URL from URL.createObjectURL, not a remote asset
                     <img
                       src={sf.previewUrl}
                       alt={sf.file.name}

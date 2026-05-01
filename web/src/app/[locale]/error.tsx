@@ -26,7 +26,6 @@ export default function LocaleError({
     // to logging without leaking stack traces to the client. We log
     // a single line with the digest so server logs can join with
     // the original traceback.
-    // eslint-disable-next-line no-console
     console.error("[error-boundary]", {
       message: error.message,
       digest: error.digest,

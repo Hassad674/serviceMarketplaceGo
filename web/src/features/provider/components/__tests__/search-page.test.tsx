@@ -42,6 +42,7 @@ vi.mock("next/image", () => ({
     width: number
     height: number
     className?: string
+  // eslint-disable-next-line @next/next/no-img-element -- test mock substituting next/image
   }) => <img src={src} alt={alt} {...rest} />,
 }))
 

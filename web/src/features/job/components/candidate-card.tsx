@@ -63,8 +63,9 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
     >
       {/* Top row: avatar + info + action buttons */}
       <div className="flex items-center gap-3">
-        {/* Avatar */}
+        {/* Avatar — plain <img> for MinIO-hosted uploads (see profile-header.tsx note). */}
         {profile.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={profile.photo_url}
             alt={displayName}

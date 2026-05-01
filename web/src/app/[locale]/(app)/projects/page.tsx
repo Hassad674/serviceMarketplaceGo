@@ -39,7 +39,9 @@ export default function ProjectsListPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("inProgress")
   const [searchQuery, setSearchQuery] = useState("")
 
-  const allProjects = data?.data ?? []
+  // Memo'd so the empty-array fallback doesn't drift across renders and
+  // bust downstream useMemo dep arrays.
+  const allProjects = useMemo(() => data?.data ?? [], [data?.data])
 
   // Filter to mission-relevant statuses only
   const missions = useMemo(

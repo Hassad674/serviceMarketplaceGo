@@ -23,7 +23,6 @@ export function ConversationHeader({
   conversation,
   // Intentionally ignored since the profile gate was removed —
   // kept on the prop interface so existing callers still type-check.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   currentOrgType: _currentOrgType,
   onBack,
   typingUserName,

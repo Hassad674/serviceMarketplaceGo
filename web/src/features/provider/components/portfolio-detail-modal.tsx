@@ -89,6 +89,7 @@ export function PortfolioDetailModal({
                   className="h-full w-full object-contain"
                 />
               ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL, see profile-header.tsx
                 <img
                   src={current?.media_url}
                   alt={`${item.title} — ${currentIndex + 1}`}
@@ -188,6 +189,7 @@ export function PortfolioDetailModal({
                       {m.media_type === "video" ? (
                         <div className="relative h-full w-full bg-slate-900">
                           {m.thumbnail_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- portfolio thumbnail is a MinIO URL
                             <img
                               src={m.thumbnail_url}
                               alt={`Thumb ${i + 1}`}
@@ -207,6 +209,7 @@ export function PortfolioDetailModal({
                           </div>
                         </div>
                       ) : (
+                        // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL
                         <img
                           src={m.media_url}
                           alt={`Thumb ${i + 1}`}

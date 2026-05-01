@@ -104,7 +104,7 @@ export default function PaymentInfoV2Page() {
     } catch {
       return null
     }
-  }, [])
+  }, [apiBase, authHeaders, mobileToken])
 
   /* ---------- Initial load (skip when user lacks kyc.manage) ---------- */
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function PaymentInfoV2Page() {
     }
     const payload = (await res.json()) as AccountSessionResponse
     return payload.client_secret
-  }, [])
+  }, [apiBase, authHeaders, mobileToken])
 
   const initializeConnect = useCallback(() => {
     if (!STRIPE_PUBLISHABLE_KEY) {
