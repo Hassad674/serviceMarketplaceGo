@@ -37,6 +37,10 @@ func newTestProposalLifecycleHandler(
 	svc := proposalapp.NewService(proposalapp.ServiceDeps{
 		Proposals:     pr,
 		Users:         ur,
+		// PERF-B-02: route the batch path through the same fixture so
+		// list endpoints exercise the single-call fast path. mockUserRepo
+		// implements UserBatchReader.
+		UsersBatch:    ur,
 		Messages:      ms,
 		Notifications: ns,
 		Payments:      pp,
@@ -640,6 +644,50 @@ func TestLifecycleHandler_ListActiveProjects_Unauthorized(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.ListActiveProjects(rec, req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+// TestLifecycleHandler_ListActiveProjects_NPlusOneRegression locks in
+// the PERF-B-02 fix: the participant-name lookup MUST issue exactly
+// one batch call against the user repository regardless of page size.
+// Prior to the fix this loop did 2*N sequential GetByID calls (1
+// client + 1 provider per row) — at the default page size of 20 that's
+// 40 round trips per dashboard hit.
+func TestLifecycleHandler_ListActiveProjects_NPlusOneRegression(t *testing.T) {
+	uid := uuid.New()
+
+	const pageSize = 20
+	listed := make([]*proposaldomain.Proposal, pageSize)
+	for i := 0; i < pageSize; i++ {
+		// Distinct client and provider per row so the dedup path
+		// shouldn't hide a regression: 40 unique ids enter the batch.
+		clientID := uuid.New()
+		providerID := uuid.New()
+		listed[i] = sampleProposal(clientID, providerID)
+		listed[i].ClientID = clientID
+		listed[i].ProviderID = providerID
+	}
+
+	pr := &mockProposalRepo{
+		listActiveProjectsFn: func(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*proposaldomain.Proposal, string, error) {
+			return listed, "", nil
+		},
+	}
+	ur := &mockUserRepo{}
+
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects?limit=20", nil)
+	req = proposalCtx(req, &uid, "")
+	rec := httptest.NewRecorder()
+
+	h.ListActiveProjects(rec, req)
+	require.Equalf(t, http.StatusOK, rec.Code, "body: %s", rec.Body.String())
+
+	// Single batch call regardless of how many rows we listed.
+	assert.Equalf(t, 1, ur.getByIDsCalls,
+		"PERF-B-02 regression — expected 1 batch GetByIDs call but got %d (would be 2*N=%d before the fix)",
+		ur.getByIDsCalls, 2*pageSize)
 }
 
 // ---------------------------------------------------------------------------
