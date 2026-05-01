@@ -123,3 +123,35 @@ func (r *TxRunner) RunInTxWithTenant(ctx context.Context, orgID, userID uuid.UUI
 		return fn(tx)
 	})
 }
+
+// RunInTxWithTenantSerializable is the SERIALIZABLE-isolation variant
+// of RunInTxWithTenant. Used by paths that need both the tenant
+// context AND the strongest isolation level — currently
+// FindOrCreateConversation, which must guard against two concurrent
+// requests both deciding to create the same 1:1 conversation.
+//
+// The tenant context (app.current_org_id / app.current_user_id) is
+// set with SET LOCAL inside the tx so it is scoped to the lifetime
+// of this transaction only — the same SAFE-DEFAULT story as the
+// non-serializable variant.
+func (r *TxRunner) RunInTxWithTenantSerializable(ctx context.Context, orgID, userID uuid.UUID, fn func(tx *sql.Tx) error) error {
+	if fn == nil {
+		return fmt.Errorf("tx runner: fn is required")
+	}
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return fmt.Errorf("tx runner: begin: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := SetTenantContext(ctx, tx, orgID, userID); err != nil {
+		return err
+	}
+	if err := fn(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("tx runner: commit: %w", err)
+	}
+	return nil
+}

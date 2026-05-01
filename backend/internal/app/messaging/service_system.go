@@ -12,8 +12,24 @@ import (
 
 // FindOrCreateConversation finds or creates a conversation between two users
 // and sends an initial system message. Returns the conversation ID.
+//
+// Cross-feature callers (referral, job application) hit this from a
+// background context. We resolve UserA's org so the postgres adapter
+// can install RLS tenant context on the underlying transaction. A
+// solo-provider UserA has no org and we fall back to uuid.Nil — the
+// participant escape hatch on the conversations policy still admits
+// the row through app.current_user_id.
 func (s *Service) FindOrCreateConversation(ctx context.Context, input service.FindOrCreateConversationInput) (uuid.UUID, error) {
-	convID, _, err := s.messages.FindOrCreateConversation(ctx, input.UserA, input.UserB)
+	var senderOrgID uuid.UUID
+	if input.UserA != uuid.Nil {
+		resolved, err := s.resolveUserOrgID(ctx, input.UserA)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("resolve userA org: %w", err)
+		}
+		senderOrgID = resolved
+	}
+
+	convID, _, err := s.messages.FindOrCreateConversation(ctx, input.UserA, input.UserB, senderOrgID, input.UserA)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("find or create conversation: %w", err)
 	}
@@ -56,10 +72,6 @@ func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMes
 		return fmt.Errorf("create system message: %w", err)
 	}
 
-	if err := s.messages.CreateMessage(ctx, msg); err != nil {
-		return fmt.Errorf("persist system message: %w", err)
-	}
-
 	// Resolve the sender's org so the +1 unread bump excludes their
 	// whole team. For system-actor sends (uuid.Nil) there is no org
 	// to look up: pass uuid.Nil through and let the repo bump every
@@ -73,6 +85,10 @@ func (s *Service) SendSystemMessage(ctx context.Context, input service.SystemMes
 		if err != nil {
 			return fmt.Errorf("resolve system sender org: %w", err)
 		}
+	}
+
+	if err := s.messages.CreateMessage(ctx, msg, senderOrgID, input.SenderID); err != nil {
+		return fmt.Errorf("persist system message: %w", err)
 	}
 	if err := s.messages.IncrementUnreadForRecipients(ctx, input.ConversationID, input.SenderID, senderOrgID); err != nil {
 		return fmt.Errorf("increment unread: %w", err)
