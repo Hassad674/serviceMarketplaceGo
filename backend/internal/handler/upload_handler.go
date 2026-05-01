@@ -215,8 +215,13 @@ func (h *UploadHandler) trackUpload(reqCtx context.Context, in trackUploadInput)
 	taskCtx, cancel := context.WithTimeout(bgCtx, uploadMediaTimeout)
 
 	h.inflight.Add(1)
-	// gosec G118: parent context is request-scoped + WithoutCancel.
-	go func() { //nolint:gosec
+	// gosec G118: parent context is request-scoped + WithoutCancel — the
+	// goroutine outlives the HTTP handler intentionally so RecordUpload's
+	// Rekognition + S3 work survives the response. shutdownCtx (set in
+	// main.go) is the cancellation source that does propagate, via the
+	// inner select{} below. Switching the suppression marker from
+	// //nolint:gosec to // #nosec to match the project-wide style.
+	go func() { // #nosec G118 -- detached after request lifetime, drained via h.inflight
 		defer cancel()
 		defer h.inflight.Done()
 
