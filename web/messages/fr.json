@@ -1012,7 +1012,11 @@
       "descriptionAriaLabel": "description",
       "amountPlaceholder": "Montant",
       "amountAriaLabel": "montant",
-      "deadlineAriaLabel": "date limite"
+      "deadlineAriaLabel": "date limite",
+      "error": {
+        "not_after_previous": "Cette date doit être postérieure à celle du jalon précédent.",
+        "after_project_deadline": "Cette date ne peut pas dépasser la date limite globale du projet."
+      }
     },
     "milestoneTracker": {
       "title": "Suivi du projet",

@@ -210,6 +210,136 @@ func TestLifecycleHandler_CreateProposal_DateOnlyDeadline_Accepted(t *testing.T)
 }
 
 // ---------------------------------------------------------------------------
+// CreateProposal milestone-mode deadline validation
+//
+// Reproduces the bug where the UI accepted a milestone deadline BEFORE the
+// previous milestone's deadline (milestone 1 = 07/05, milestone 2 = 06/05).
+// The backend must reject such payloads with a 400 + the right error code so
+// any caller (web, mobile, future API consumers) gets the same guarantee.
+// ---------------------------------------------------------------------------
+
+func TestLifecycleHandler_CreateProposal_MilestonesNotSequential(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Multi-step build",
+		"description":     "First milestone before second by mistake",
+		"payment_mode":    "milestone",
+		"milestones": []map[string]any{
+			{"sequence": 1, "title": "Phase 1", "description": "Phase 1 desc", "amount": 100000, "deadline": "2026-05-07"},
+			{"sequence": 2, "title": "Phase 2", "description": "Phase 2 desc", "amount": 100000, "deadline": "2026-05-06"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "milestones_not_sequential")
+}
+
+func TestLifecycleHandler_CreateProposal_MilestonesSameDay(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	// Same-day milestones must be rejected — the contract is "strictly
+	// after", not "after or equal".
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Same day",
+		"description":     "Both milestones on the same day",
+		"payment_mode":    "milestone",
+		"milestones": []map[string]any{
+			{"sequence": 1, "title": "Phase 1", "description": "d", "amount": 100000, "deadline": "2026-05-07"},
+			{"sequence": 2, "title": "Phase 2", "description": "d", "amount": 100000, "deadline": "2026-05-07"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "milestones_not_sequential")
+}
+
+func TestLifecycleHandler_CreateProposal_ValidMilestonesAccepted(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	// Strictly increasing deadlines must pass through end-to-end.
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Valid sequence",
+		"description":     "Valid milestones",
+		"payment_mode":    "milestone",
+		"milestones": []map[string]any{
+			{"sequence": 1, "title": "Phase 1", "description": "d", "amount": 100000, "deadline": "2026-05-07"},
+			{"sequence": 2, "title": "Phase 2", "description": "d", "amount": 100000, "deadline": "2026-05-14"},
+			{"sequence": 3, "title": "Phase 3", "description": "d", "amount": 100000, "deadline": "2026-05-28"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusCreated, rec.Code)
+}
+
+func TestLifecycleHandler_CreateProposal_MilestoneAfterProjectDeadline(t *testing.T) {
+	enterpriseID := uuid.New()
+	providerID := uuid.New()
+	ur := &mockUserRepo{getByIDFn: userByIDLookup(enterpriseID, providerID)}
+	pr := &mockProposalRepo{}
+	h := newTestProposalLifecycleHandler(ur, pr,
+		&mockMessageSender{}, &mockNotificationSender{}, &mockPaymentProcessor{}, &mockStorageService{})
+
+	// Milestone deadline AFTER the proposal-level deadline is rejected.
+	body, _ := json.Marshal(map[string]any{
+		"recipient_id":    providerID.String(),
+		"conversation_id": uuid.New().String(),
+		"title":           "Beyond project bound",
+		"description":     "Milestone past project deadline",
+		"deadline":        "2026-06-01",
+		"payment_mode":    "milestone",
+		"milestones": []map[string]any{
+			{"sequence": 1, "title": "Phase 1", "description": "d", "amount": 100000, "deadline": "2026-05-07"},
+			{"sequence": 2, "title": "Phase 2", "description": "d", "amount": 100000, "deadline": "2026-07-01"},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = proposalCtx(req, &enterpriseID, "")
+	rec := httptest.NewRecorder()
+
+	h.CreateProposal(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Contains(t, rec.Body.String(), "milestone_deadline_after_project")
+}
+
+// ---------------------------------------------------------------------------
 // GetProposal — focused handler tests
 // ---------------------------------------------------------------------------
 
