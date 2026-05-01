@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Loader2, MapPin, Search } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 
+import { Input } from "@/shared/components/ui/input"
 // Free, key-less French government BAN (Base Adresse Nationale)
 // search endpoint. Documented at https://adresse.data.gouv.fr/api-doc/adresse.
 // We keep this client-side because the request is anonymous and
@@ -161,7 +162,7 @@ export function AddressAutocomplete({
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
           aria-hidden="true"
         />
-        <input
+        <Input
           type="text"
           value={query}
           onChange={(e) => {

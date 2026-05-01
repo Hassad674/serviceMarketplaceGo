@@ -9,6 +9,9 @@ import { FileUploadModal } from "@/shared/components/file-upload-modal"
 import { uploadFiles } from "@/shared/lib/upload"
 import { useOpenDispute } from "../hooks/use-disputes"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 interface DisputeFormProps {
   proposalId: string
   proposalAmount: number
@@ -89,7 +92,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
             {t("reasonLabel")}
           </label>
-          <select
+          <Select
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             required
@@ -99,7 +102,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             {reasons.map((r) => (
               <option key={r} value={r}>{t(`reason.${r}`)}</option>
             ))}
-          </select>
+          </Select>
         </div>
 
         {/* Amount */}
@@ -109,7 +112,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           </label>
           <div className="flex flex-col gap-2">
             <label className="flex items-center gap-2 text-sm">
-              <input
+              <Input
                 type="radio"
                 name="amountType"
                 checked={amountType === "total"}
@@ -121,7 +124,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
                 : t("totalRelease", { amount: formatEur(proposalAmount) })}
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input
+              <Input
                 type="radio"
                 name="amountType"
                 checked={amountType === "partial"}
@@ -132,7 +135,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             </label>
             {amountType === "partial" && (
               <div className="ml-6 flex items-center gap-2">
-                <input
+                <Input
                   type="number"
                   min={1}
                   max={proposalAmount / 100}
@@ -163,14 +166,14 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
             className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-xs focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 dark:border-slate-700 dark:bg-slate-800"
           />
           <FileChips files={partyFiles} onRemove={(i) => setPartyFiles((f) => f.filter((_, j) => j !== i))} />
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setPartyModalOpen(true)}
             className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors"
           >
             <Paperclip className="h-3.5 w-3.5" />
             {t("addFiles")}
-          </button>
+          </Button>
         </div>
 
         {/* Detailed description for admin mediation */}
@@ -190,14 +193,14 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           <div className="flex items-center justify-between mt-1">
             <div>
               <FileChips files={mediationFiles} onRemove={(i) => setMediationFiles((f) => f.filter((_, j) => j !== i))} />
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => setMediationModalOpen(true)}
                 className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-300 transition-colors"
               >
                 <Paperclip className="h-3.5 w-3.5" />
                 {t("addFiles")}
-              </button>
+              </Button>
             </div>
             <p className="text-xs text-slate-400">{description.length}/5000</p>
           </div>
@@ -205,14 +208,14 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-2">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onCancel}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors dark:border-slate-600 dark:text-slate-400"
           >
             {t("cancelBtn")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="submit"
             disabled={!reason || !messageToParty || mutation.isPending || uploading}
             className={cn(
@@ -223,7 +226,7 @@ export function DisputeForm({ proposalId, proposalAmount, userRole, onSuccess, o
           >
             {(mutation.isPending || uploading) && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("submitDispute")}
-          </button>
+          </Button>
         </div>
 
         {mutation.isError && (
@@ -264,13 +267,13 @@ function FileChips({ files, onRemove }: { files: File[]; onRemove: (index: numbe
           <FileText className="h-3.5 w-3.5 text-slate-400" />
           <span className="max-w-[150px] truncate text-slate-600 dark:text-slate-400">{f.name}</span>
           <span className="text-slate-400">({(f.size / 1024).toFixed(0)} KB)</span>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onRemove(i)}
             className="ml-0.5 text-slate-400 hover:text-red-500 transition-colors"
           >
             <X className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       ))}
     </div>

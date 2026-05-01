@@ -11,6 +11,7 @@ import { useProfileSkills } from "../hooks/use-profile-skills"
 import { SkillChip } from "./skill-chip"
 import { SkillsEditorModal } from "./skills-editor-modal"
 
+import { Button } from "@/shared/components/ui/button"
 interface SkillsSectionProps {
   orgType: string | undefined
   readOnly?: boolean
@@ -71,14 +72,14 @@ export function SkillsSection({
       </div>
 
       {!readOnly ? (
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => setModalOpen(true)}
           className="inline-flex items-center gap-2 rounded-md border border-border h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
           {t("editButton")}
-        </button>
+        </Button>
       ) : null}
 
       <SkillsEditorModal

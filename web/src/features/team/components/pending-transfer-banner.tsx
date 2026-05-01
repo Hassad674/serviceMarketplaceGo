@@ -4,6 +4,7 @@ import { Crown, Loader2, X } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useAcceptTransfer, useDeclineTransfer, useCancelTransfer } from "../hooks/use-team"
 
+import { Button } from "@/shared/components/ui/button"
 // Banner shown at the top of /team whenever a transfer is pending.
 //
 // Two flavours driven by `viewerRole`:
@@ -51,7 +52,7 @@ export function PendingTransferBanner({
               </p>
             )}
             <div className="mt-4 flex gap-3">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => acceptMutation.mutate()}
                 disabled={acceptMutation.isPending}
@@ -59,8 +60,8 @@ export function PendingTransferBanner({
               >
                 {acceptMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("acceptTransfer")}
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => declineMutation.mutate()}
                 disabled={declineMutation.isPending}
@@ -68,7 +69,7 @@ export function PendingTransferBanner({
               >
                 {declineMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("declineTransfer")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -96,7 +97,7 @@ export function PendingTransferBanner({
             )}
           </div>
         </div>
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => cancelMutation.mutate()}
           disabled={cancelMutation.isPending}
@@ -108,7 +109,7 @@ export function PendingTransferBanner({
             <X className="h-3 w-3" />
           )}
           {t("cancelTransfer")}
-        </button>
+        </Button>
       </div>
     </div>
   )

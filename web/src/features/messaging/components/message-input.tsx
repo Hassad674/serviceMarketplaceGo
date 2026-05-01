@@ -9,7 +9,9 @@ import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { getPresignedURL } from "../api/messaging-api"
 import { FileUploadModal } from "@/shared/components/file-upload-modal"
 import { useVoiceRecorder } from "../hooks/use-voice-recorder"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const TYPING_INTERVAL_MS = 2_000
 
 /** Map an audio MIME type to a file extension the backend allowlist accepts. */
@@ -197,14 +199,14 @@ export function MessageInput({
               {replyTo.content.length > 50 ? replyTo.content.slice(0, 50) + "..." : replyTo.content}
             </p>
           </div>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onCancelReply}
             className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
             aria-label={t("cancelReply")}
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          </Button>
         </div>
       )}
 
@@ -212,7 +214,7 @@ export function MessageInput({
       {isRecording && (
         <div className="flex items-center gap-3 border-t border-gray-100 bg-rose-50 px-4 py-3 dark:border-gray-800 dark:bg-rose-900/20">
           {/* Cancel / trash */}
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={voice.cancelRecording}
             className={cn(
@@ -224,7 +226,7 @@ export function MessageInput({
             aria-label={t("cancelRecording")}
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          </Button>
 
           {/* Red pulsing dot + timer */}
           <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
@@ -235,7 +237,7 @@ export function MessageInput({
           <div className="flex-1" />
 
           {/* Stop and send */}
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleStopAndSend}
             className={cn(
@@ -250,7 +252,7 @@ export function MessageInput({
             ) : (
               <Square className="h-4 w-4" strokeWidth={2} fill="currentColor" />
             )}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -262,7 +264,7 @@ export function MessageInput({
         >
           {/* Desktop: separate buttons for attach + proposal */}
           <div className="hidden items-center gap-1 md:flex">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setModalOpen(true)}
               disabled={isDisabled}
@@ -279,9 +281,9 @@ export function MessageInput({
               ) : (
                 <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.5} />
               )}
-            </button>
+            </Button>
             {canPropose && (
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={handleProposal}
               disabled={isDisabled}
@@ -294,13 +296,13 @@ export function MessageInput({
               aria-label={t("propose")}
             >
               <FileText className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            </button>
+            </Button>
             )}
           </div>
 
           {/* Mobile: "+" menu for attach + proposal */}
           <div className="relative md:hidden">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               disabled={isDisabled}
@@ -314,7 +316,7 @@ export function MessageInput({
               aria-label={t("fileUpload")}
             >
               <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            </button>
+            </Button>
 
             {mobileMenuOpen && (
               <div
@@ -325,30 +327,30 @@ export function MessageInput({
                   "animate-in fade-in slide-in-from-bottom-2 duration-200",
                 )}
               >
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={() => { setModalOpen(true); setMobileMenuOpen(false) }}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <Paperclip className="h-4 w-4" strokeWidth={1.5} />
                   {t("fileUpload")}
-                </button>
+                </Button>
                 {canPropose && (
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={handleProposal}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <FileText className="h-4 w-4" strokeWidth={1.5} />
                   {t("propose")}
-                </button>
+                </Button>
                 )}
               </div>
             )}
           </div>
 
           {/* Input */}
-          <input
+          <Input
             type="text"
             value={value}
             onChange={handleInputChange}
@@ -417,7 +419,7 @@ function PrimaryActionButton({
   // Has text: send button
   if (hasContent) {
     return (
-      <button
+      <Button variant="ghost" size="auto"
         type="submit"
         disabled={isDisabled}
         className={cn(
@@ -433,14 +435,14 @@ function PrimaryActionButton({
         ) : (
           <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
         )}
-      </button>
+      </Button>
     )
   }
 
   // Empty input + voice available: mic button
   if (canVoice) {
     return (
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onMic}
         disabled={isDisabled}
@@ -453,19 +455,19 @@ function PrimaryActionButton({
         aria-label={micLabel}
       >
         <Mic className="h-[18px] w-[18px]" strokeWidth={1.5} />
-      </button>
+      </Button>
     )
   }
 
   // No voice, no text: disabled send
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="submit"
       disabled
       className="shrink-0 rounded-full bg-gray-100 p-2.5 text-gray-300 dark:bg-gray-800 dark:text-gray-600"
       aria-label={sendLabel}
     >
       <Send className="h-[18px] w-[18px]" strokeWidth={1.5} />
-    </button>
+    </Button>
   )
 }

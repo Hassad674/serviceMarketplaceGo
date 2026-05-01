@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react"
 import { useTranslations } from "next-intl"
 
+import { Button } from "@/shared/components/ui/button"
 /**
  * DidYouMeanBanner is the small inline banner shown above the
  * results grid when Typesense returns a corrected query string.
@@ -32,14 +33,14 @@ export function DidYouMeanBanner({ correctedQuery, onApply }: DidYouMeanBannerPr
       <Sparkles className="h-4 w-4 text-rose-600 dark:text-rose-400" aria-hidden />
       <span className="flex-1">
         {t("didYouMean")}{" "}
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => onApply(trimmed)}
           aria-label={t("didYouMeanCta")}
           className="font-semibold text-rose-700 underline-offset-4 transition-colors hover:underline focus:outline-none focus-visible:underline dark:text-rose-300"
         >
           {trimmed}
-        </button>
+        </Button>
         {" ?"}
       </span>
     </div>

@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useMyJobs, useCloseJob, useReopenJob, useDeleteJob } from "../hooks/use-jobs"
 import type { JobWithCountsResponse } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 export function JobList() {
   const t = useTranslations("job")
@@ -138,30 +139,30 @@ function JobCard({ job, canEdit, canDelete, onClose, onReopen, onDelete, isActin
           {/* 3-dot menu — hidden when the user has neither edit nor delete permission */}
           {(canEdit || canDelete) && (
           <div className="relative" ref={menuRef}>
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
               className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             >
               <MoreVertical className="h-4 w-4 text-slate-400" />
-            </button>
+            </Button>
             {menuOpen && (
               <div
                 className="absolute right-0 top-full mt-1 z-10 w-44 rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-600 dark:bg-slate-800 py-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 {canEdit && (
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={() => { setMenuOpen(false); router.push(`/jobs/${job.id}/edit`) }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   <Pencil className="h-4 w-4" />
                   {t("editJob")}
-                </button>
+                </Button>
                 )}
                 {canEdit && (isOpen ? (
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => { setMenuOpen(false); onClose(job.id) }}
                     disabled={isActing}
@@ -169,9 +170,9 @@ function JobCard({ job, canEdit, canDelete, onClose, onReopen, onDelete, isActin
                   >
                     <XCircle className="h-4 w-4" />
                     {t("closeJob")}
-                  </button>
+                  </Button>
                 ) : (
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => { setMenuOpen(false); onReopen(job.id) }}
                     disabled={isActing}
@@ -179,10 +180,10 @@ function JobCard({ job, canEdit, canDelete, onClose, onReopen, onDelete, isActin
                   >
                     <RotateCcw className="h-4 w-4" />
                     {t("reopenJob")}
-                  </button>
+                  </Button>
                 ))}
                 {canDelete && (
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={() => { setMenuOpen(false); onDelete(job.id) }}
                   disabled={isActing}
@@ -190,7 +191,7 @@ function JobCard({ job, canEdit, canDelete, onClose, onReopen, onDelete, isActin
                 >
                   <Trash2 className="h-4 w-4" />
                   {t("deleteJob")}
-                </button>
+                </Button>
                 )}
               </div>
             )}

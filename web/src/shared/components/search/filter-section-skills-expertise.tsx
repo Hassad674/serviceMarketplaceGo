@@ -11,6 +11,8 @@ import {
   toggle,
 } from "./filter-primitives"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const COMMON_LANGUAGES = ["fr", "en", "es", "de", "it", "pt"] as const
 
 // POPULAR_SKILLS is rendered as quick-add chips below the free-text
@@ -140,7 +142,7 @@ function SkillsBlock({
   return (
     <SectionShell title={t("skills")}>
       <SelectedSkillsChips selected={selected} onRemove={removeSkill} />
-      <input
+      <Input
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -172,7 +174,7 @@ function SelectedSkillsChips({
     <ul className="flex flex-wrap gap-1.5" aria-label="selected skills">
       {selected.map((skill) => (
         <li key={skill}>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onRemove(skill)}
             aria-label={`Remove ${skill}`}
@@ -180,7 +182,7 @@ function SelectedSkillsChips({
           >
             <span>{skill}</span>
             <X className="h-3 w-3" aria-hidden strokeWidth={2.5} />
-          </button>
+          </Button>
         </li>
       ))}
     </ul>
@@ -202,14 +204,14 @@ function PopularSkillChips({
   return (
     <div className="flex flex-wrap gap-1.5 pt-1">
       {available.map((skill) => (
-        <button
+        <Button variant="ghost" size="auto"
           key={skill}
           type="button"
           onClick={() => onPick(skill)}
           className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-rose-300 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20 dark:hover:text-rose-300"
         >
           + {skill}
-        </button>
+        </Button>
       ))}
     </div>
   )

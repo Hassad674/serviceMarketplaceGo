@@ -15,6 +15,8 @@ import { useSkillAutocomplete } from "../hooks/use-skill-autocomplete"
 import { useCreateUserSkill } from "../hooks/use-create-user-skill"
 import type { SkillResponse } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface SkillSearchBarProps {
   alreadySelected: Set<string>
   onAdd: (skill: SkillResponse) => void
@@ -162,7 +164,7 @@ export function SkillSearchBar({
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden="true"
         />
-        <input
+        <Input
           id={inputId}
           type="text"
           value={input}
@@ -301,7 +303,7 @@ function SkillSearchRow(props: SkillSearchRowProps) {
 
   if (row.type === "create") {
     return (
-      <button
+      <Button variant="ghost" size="auto"
         id={`${listboxId}-option-${index}`}
         type="button"
         role="option"
@@ -318,14 +320,14 @@ function SkillSearchRow(props: SkillSearchRowProps) {
         {createMutationPending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
         ) : null}
-      </button>
+      </Button>
     )
   }
 
   const skill = row.skill
   if (!skill) return null
   return (
-    <button
+    <Button variant="ghost" size="auto"
       id={`${listboxId}-option-${index}`}
       type="button"
       role="option"
@@ -340,6 +342,6 @@ function SkillSearchRow(props: SkillSearchRowProps) {
       <span className="text-xs text-muted-foreground">
         {t("usageCount", { count: skill.usage_count })}
       </span>
-    </button>
+    </Button>
   )
 }

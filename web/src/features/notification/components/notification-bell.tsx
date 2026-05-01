@@ -5,6 +5,7 @@ import { Bell } from "lucide-react"
 import { useUnreadNotificationCount } from "../hooks/use-unread-notification-count"
 import { NotificationDropdown } from "./notification-dropdown"
 
+import { Button } from "@/shared/components/ui/button"
 export function NotificationBell() {
   const { data: count = 0 } = useUnreadNotificationCount()
   const [open, setOpen] = useState(false)
@@ -24,7 +25,7 @@ export function NotificationBell() {
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <Button variant="ghost" size="auto"
         onClick={() => setOpen((prev) => !prev)}
         className="relative rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
         aria-label="Notifications"
@@ -35,7 +36,7 @@ export function NotificationBell() {
             {count > 99 ? "99+" : count}
           </span>
         )}
-      </button>
+      </Button>
       {open && <NotificationDropdown onClose={() => setOpen(false)} />}
     </div>
   )

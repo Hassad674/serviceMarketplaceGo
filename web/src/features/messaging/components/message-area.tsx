@@ -13,6 +13,7 @@ import {
   isProposalMetadata,
 } from "./message-area-utils"
 
+import { Button } from "@/shared/components/ui/button"
 interface MessageAreaProps {
   messages: Message[]
   currentUserId: string
@@ -116,12 +117,12 @@ export function MessageArea({
       <div className="mx-auto flex max-w-4xl flex-col gap-3">
         {hasMore && (
           <div ref={topSentinelRef} className="flex justify-center py-2">
-            <button
+            <Button variant="ghost" size="auto"
               onClick={onLoadMore}
               className="text-xs text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
             >
               {t("loadMore")}
-            </button>
+            </Button>
           </div>
         )}
 

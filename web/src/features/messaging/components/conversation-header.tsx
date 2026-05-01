@@ -8,6 +8,7 @@ import { Link, useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "../types"
 import { TypingIndicator } from "./typing-indicator"
+import { Button } from "@/shared/components/ui/button"
 
 interface ConversationHeaderProps {
   conversation: Conversation
@@ -89,13 +90,13 @@ export function ConversationHeader({
     <div className="flex items-center gap-3 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
       {/* Back button (mobile only) */}
       {onBack && (
-        <button
+        <Button variant="ghost" size="auto"
           onClick={onBack}
           className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 lg:hidden dark:hover:bg-gray-800 dark:hover:text-gray-300"
           aria-label={t("back")}
         >
           <ArrowLeft className="h-5 w-5" strokeWidth={1.5} />
-        </button>
+        </Button>
       )}
 
       {/* Avatar */}
@@ -137,7 +138,7 @@ export function ConversationHeader({
       </div>
 
       {/* Start project button */}
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={handleStartProject}
         className={cn(
@@ -149,12 +150,12 @@ export function ConversationHeader({
       >
         <FileText className="h-4 w-4" strokeWidth={1.5} />
         {tProposal("startProject")}
-      </button>
+      </Button>
 
       {/* Call buttons */}
       {onStartCall && (
         <div className="flex items-center gap-1">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onStartCall("audio")}
             disabled={!conversation.online}
@@ -168,8 +169,8 @@ export function ConversationHeader({
             title={conversation.online ? tCall("startAudioCall") : tCall("recipientOffline")}
           >
             <Phone className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onStartCall("video")}
             disabled={!conversation.online}
@@ -183,14 +184,14 @@ export function ConversationHeader({
             title={conversation.online ? tCall("startVideoCall") : tCall("recipientOffline")}
           >
             <Video className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          </Button>
         </div>
       )}
 
       {/* More menu (report user) */}
       {onReportUser && (
         <div ref={menuRef} className="relative">
-          <button
+          <Button variant="ghost" size="auto"
             onClick={() => setMenuOpen((prev) => !prev)}
             className={cn(
               "rounded-xl p-2 text-gray-400 transition-all duration-200",
@@ -200,7 +201,7 @@ export function ConversationHeader({
             aria-label="More options"
           >
             <MoreVertical className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          </Button>
           {menuOpen && (
             <div
               className={cn(
@@ -210,7 +211,7 @@ export function ConversationHeader({
                 "animate-in fade-in slide-in-from-top-1 duration-150",
               )}
             >
-              <button
+              <Button variant="ghost" size="auto"
                 onClick={() => {
                   setMenuOpen(false)
                   onReportUser()
@@ -223,7 +224,7 @@ export function ConversationHeader({
               >
                 <Flag className="h-4 w-4" strokeWidth={1.5} />
                 {tReport("reportUser")}
-              </button>
+              </Button>
             </div>
           )}
         </div>

@@ -7,7 +7,9 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { UploadModal } from "@/shared/components/upload-modal"
 import type { Profile } from "../api/profile-api"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 type RoleContext = "agency" | "provider" | "referrer"
 
 interface ProfileHeaderProps {
@@ -110,7 +112,7 @@ export function ProfileHeader({
                 )}
               </div>
             ) : (
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => setPhotoModalOpen(true)}
                 className={cn(
@@ -133,7 +135,7 @@ export function ProfileHeader({
                 ) : (
                   <Camera className="w-7 h-7 text-muted-foreground" aria-hidden="true" />
                 )}
-              </button>
+              </Button>
             )}
             {!readOnly && (
               <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground bg-card px-2">
@@ -161,7 +163,7 @@ export function ProfileHeader({
                 <p className="text-base text-muted-foreground">{profile.title}</p>
               ) : null
             ) : isEditingTitle ? (
-              <input
+              <Input
                 ref={titleInputRef}
                 type="text"
                 value={titleDraft}
@@ -173,7 +175,7 @@ export function ProfileHeader({
                 aria-label={t("professionalTitle")}
               />
             ) : (
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={handleTitleClick}
                 className="group flex items-center gap-2 text-base text-muted-foreground hover:text-foreground transition-colors"
@@ -183,7 +185,7 @@ export function ProfileHeader({
                   {profile?.title || t("addTitle")}
                 </span>
                 <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
-              </button>
+              </Button>
             )}
 
             <p className="text-sm text-muted-foreground">0 {t("completedProjects")}</p>

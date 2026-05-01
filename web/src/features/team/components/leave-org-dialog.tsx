@@ -4,6 +4,7 @@ import { Loader2, X, LogOut } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useLeaveOrganization } from "../hooks/use-team"
 
+import { Button } from "@/shared/components/ui/button"
 // Self-leave confirmation dialog. On success we hard-redirect to
 // /dashboard — the user's session has been invalidated (operator
 // accounts are deleted entirely) so a re-auth may be required.
@@ -45,13 +46,13 @@ export function LeaveOrgDialog({ open, onClose, orgID }: LeaveOrgDialogProps) {
               {t("leaveTitle")}
             </h3>
           </div>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <X className="h-5 w-5 text-slate-400" />
-          </button>
+          </Button>
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -65,15 +66,15 @@ export function LeaveOrgDialog({ open, onClose, orgID }: LeaveOrgDialogProps) {
         )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             disabled={mutation.isPending}
             className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
           >
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleConfirm}
             disabled={mutation.isPending}
@@ -81,7 +82,7 @@ export function LeaveOrgDialog({ open, onClose, orgID }: LeaveOrgDialogProps) {
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("leaveConfirmButton")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

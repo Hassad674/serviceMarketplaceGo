@@ -4,6 +4,7 @@ import { FileText, Trash2, Briefcase, Calendar, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link } from "@i18n/navigation"
 import { useMyApplications, useWithdrawApplication } from "../hooks/use-job-applications"
+import { Button } from "@/shared/components/ui/button"
 
 export function ApplicationList() {
   const t = useTranslations("opportunity")
@@ -50,7 +51,7 @@ export function ApplicationList() {
               </div>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 line-clamp-2">{application.message}</p>
             </div>
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => {
                 if (confirm(t("withdrawConfirm"))) {
@@ -62,7 +63,7 @@ export function ApplicationList() {
             >
               {withdrawMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               {t("withdraw")}
-            </button>
+            </Button>
           </div>
         </div>
       ))}

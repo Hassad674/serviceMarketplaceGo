@@ -5,6 +5,7 @@ import { Check, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 export type AvailabilityStatus =
   | "available_now"
   | "available_soon"
@@ -91,7 +92,7 @@ export function AvailabilityEditorCard({
         {STATUS_VALUES.map((status) => {
           const isSelected = status === draft
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={status}
               type="button"
               role="radio"
@@ -110,7 +111,7 @@ export function AvailabilityEditorCard({
                 <Check className="w-3.5 h-3.5" aria-hidden="true" />
               ) : null}
               {t(statusKey(status))}
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -125,7 +126,7 @@ export function AvailabilityEditorCard({
             {t("saved")}
           </span>
         ) : null}
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={handleSave}
           disabled={!isDirty || isSaving}
@@ -137,7 +138,7 @@ export function AvailabilityEditorCard({
             <Check className="w-4 h-4" aria-hidden="true" />
           )}
           {isSaving ? t("saving") : t("save")}
-        </button>
+        </Button>
       </div>
     </section>
   )

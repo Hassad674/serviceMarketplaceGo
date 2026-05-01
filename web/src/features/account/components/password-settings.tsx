@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl"
 
+import { Input } from "@/shared/components/ui/input"
 export function PasswordSettings() {
   const t = useTranslations("account")
 
@@ -29,7 +30,7 @@ export function PasswordSettings() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 {t(field.labelKey)}
               </label>
-              <input
+              <Input
                 type={field.type}
                 disabled
                 placeholder="••••••••"

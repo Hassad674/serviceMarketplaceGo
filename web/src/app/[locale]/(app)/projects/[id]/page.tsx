@@ -19,6 +19,7 @@ import {
   useRespondToCancellation,
 } from "@/features/dispute/hooks/use-disputes"
 
+import { Button } from "@/shared/components/ui/button"
 export default function ProjectDetailPage({
   params,
 }: {
@@ -113,14 +114,14 @@ export default function ProjectDetailPage({
       {/* "Report a problem" button — shown when no dispute exists on active mission */}
       {canOpenDispute && canRespondProposal && !showDisputeForm && (
         <div className="mx-auto max-w-5xl px-4 pt-8">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setShowDisputeForm(true)}
             className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-medium text-orange-700 hover:bg-orange-100 transition-colors dark:border-orange-500/20 dark:bg-orange-500/10 dark:text-orange-400"
           >
             <AlertTriangle className="h-4 w-4" />
             {t("openDispute")}
-          </button>
+          </Button>
         </div>
       )}
 

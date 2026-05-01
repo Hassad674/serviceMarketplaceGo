@@ -14,6 +14,7 @@ import {
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
 
+import { Button } from "@/shared/components/ui/button"
 // Hero card for the wallet page. Pure presentational component:
 // renders the running total, the Stripe-account readiness line and
 // the "Retirer" call-to-action. The actual payout flow (KYC gate,
@@ -181,7 +182,7 @@ function PayoutButton({
 }) {
   return (
     <div className="flex flex-col items-stretch gap-1 sm:items-end">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onPayout}
         disabled={payoutPending || !canClick}
@@ -203,7 +204,7 @@ function PayoutButton({
           <ArrowDownToLine className="h-4 w-4" />
         )}
         Retirer {formatEur(available)}
-      </button>
+      </Button>
       {available === 0 && (
         <span className="text-xs text-slate-400 dark:text-slate-500 sm:text-right">
           Aucun fonds disponible

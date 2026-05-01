@@ -2,6 +2,8 @@
 
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 // Shared leaf primitives used by every filter section. Lives next to
 // search-filter-sidebar so the section files don't import from each
 // other and the duplication-rule of three is honored once.
@@ -33,7 +35,7 @@ export function PillButton({
   onClick: () => void
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       aria-pressed={selected}
@@ -46,7 +48,7 @@ export function PillButton({
       )}
     >
       {label}
-    </button>
+    </Button>
   )
 }
 
@@ -62,7 +64,7 @@ export function NumberInput({
   ariaLabel: string
 }) {
   return (
-    <input
+    <Input
       type="number"
       min={0}
       inputMode="numeric"
@@ -89,7 +91,7 @@ export function CheckboxRow({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm text-foreground hover:bg-muted/50">
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         onChange={onChange}

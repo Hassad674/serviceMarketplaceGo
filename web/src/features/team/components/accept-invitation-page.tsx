@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl"
 import { ApiError } from "@/shared/lib/api-client"
 import { useInvitationPreview, useAcceptInvitation } from "../hooks/use-team"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 // Public landing page reached from the invitation email link.
 //
 // Flow:
@@ -143,7 +145,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             {t("passwordLabel")}
           </label>
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             value={password}
@@ -171,7 +173,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             {t("confirmPasswordLabel")}
           </label>
-          <input
+          <Input
             type="password"
             autoComplete="new-password"
             value={confirmPassword}
@@ -199,7 +201,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
           </div>
         )}
 
-        <button
+        <Button variant="ghost" size="auto"
           type="submit"
           disabled={!canSubmit}
           className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-600 disabled:opacity-50"
@@ -210,7 +212,7 @@ export function AcceptInvitationPage({ token }: AcceptInvitationPageProps) {
             <CheckCircle2 className="h-4 w-4" />
           )}
           {acceptMutation.isPending ? t("submitting") : t("acceptButton")}
-        </button>
+        </Button>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500">
           {t("expiresOn", { date: new Date(preview.expires_at).toLocaleDateString() })}

@@ -4,6 +4,7 @@ import { FileText, Star, MessageSquare, Bell, CreditCard, CheckCircle, XCircle, 
 import { useMarkAsRead } from "../hooks/use-notification-actions"
 import type { Notification, NotificationType } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 const iconMap: Record<NotificationType, React.ElementType> = {
   proposal_received: FileText,
   proposal_accepted: CheckCircle,
@@ -60,7 +61,7 @@ export function NotificationItem({ notification, onClose }: NotificationItemProp
   }
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       onClick={handleClick}
       className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50 ${
         isUnread ? "bg-rose-50/30 dark:bg-rose-900/10" : ""
@@ -85,6 +86,6 @@ export function NotificationItem({ notification, onClose }: NotificationItemProp
       {isUnread && (
         <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-rose-500" />
       )}
-    </button>
+    </Button>
   )
 }

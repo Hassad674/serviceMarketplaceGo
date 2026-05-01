@@ -4,7 +4,9 @@ import { useState, useRef, useCallback } from "react"
 import { Upload, X, FileIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 interface FileDropZoneProps {
   files: File[]
   onFilesChange: (files: File[]) => void
@@ -93,7 +95,7 @@ export function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
         </p>
       </div>
 
-      <input
+      <Input
         ref={inputRef}
         type="file"
         multiple
@@ -120,7 +122,7 @@ export function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
                 </p>
                 <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
               </div>
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -130,7 +132,7 @@ export function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
                 aria-label={`Remove ${file.name}`}
               >
                 <X className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
+              </Button>
             </div>
           ))}
         </div>

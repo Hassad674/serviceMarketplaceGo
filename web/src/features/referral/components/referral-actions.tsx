@@ -5,7 +5,9 @@ import { Loader2 } from "lucide-react"
 
 import { useRespondToReferral } from "../hooks/use-referrals"
 import type { Referral, ReferralActorRole, RespondReferralInput } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 interface ReferralActionsProps {
   referral: Referral
   viewerRole: ReferralActorRole
@@ -63,7 +65,7 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
             <label className="mb-1.5 block text-sm font-medium text-slate-700">
               Nouveau taux : {counterRate.toFixed(counterRate % 1 === 0 ? 0 : 1)} %
             </label>
-            <input
+            <Input
               type="range"
               min={0}
               max={30}
@@ -85,14 +87,14 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
             />
           </div>
           <div className="flex gap-2">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowNegotiate(false)}
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
               Annuler
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() =>
                 send({ action: "negotiate", new_rate_pct: counterRate, message })
@@ -105,7 +107,7 @@ export function ReferralActions({ referral, viewerRole }: ReferralActionsProps) 
               ) : (
                 "Envoyer la contre-proposition"
               )}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -218,13 +220,13 @@ function ActionButton({
     danger: "border border-rose-200 text-rose-700 hover:bg-rose-50",
   }
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={handlers[action.kind]}
       disabled={loading}
       className={`rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${variantClasses[action.variant]}`}
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : action.label}
-    </button>
+    </Button>
   )
 }

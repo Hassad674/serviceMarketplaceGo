@@ -3,7 +3,9 @@
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { JobFormData, BudgetType, PaymentFrequency } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 type BudgetSectionProps = {
   formData: JobFormData
   updateField: <K extends keyof JobFormData>(field: K, value: JobFormData[K]) => void
@@ -37,7 +39,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
         </label>
         <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
           {BUDGET_TYPES.map((type) => (
-            <button
+            <Button variant="ghost" size="auto"
               key={type}
               type="button"
               onClick={() => updateField("budgetType", type)}
@@ -49,7 +51,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
               )}
             >
               {budgetLabelMap[type]}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -62,7 +64,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
           </label>
           <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
             {PAYMENT_FREQUENCIES.map((freq) => (
-              <button
+              <Button variant="ghost" size="auto"
                 key={freq}
                 type="button"
                 onClick={() => updateField("paymentFrequency", freq)}
@@ -74,7 +76,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
                 )}
               >
                 {frequencyLabelMap[freq]}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -98,7 +100,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
       {isLongTerm && (
         <div className="space-y-3">
           <label className="flex cursor-pointer items-center gap-3">
-            <input
+            <Input
               type="checkbox"
               checked={formData.isIndefinite}
               onChange={(e) => updateField("isIndefinite", e.target.checked)}
@@ -113,7 +115,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 {t("projectDuration")} ({formData.paymentFrequency === "weekly" ? t("durationWeeks") : t("durationMonths")})
               </label>
-              <input
+              <Input
                 type="text"
                 inputMode="numeric"
                 value={formData.durationWeeks}
@@ -151,7 +153,7 @@ function CurrencyInput({ label, value, onChange }: CurrencyInputProps) {
         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400 dark:text-gray-500">
           &euro;
         </span>
-        <input
+        <Input
           type="text"
           inputMode="decimal"
           value={value}

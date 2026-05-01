@@ -3,6 +3,7 @@
 import { X } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 interface SkillChipProps {
   displayText: string
   onRemove?: () => void
@@ -28,7 +29,7 @@ export function SkillChip({
     >
       <span className="truncate max-w-[14rem]">{displayText}</span>
       {onRemove ? (
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onRemove}
           aria-label={removeLabel ?? `Remove ${displayText}`}
@@ -39,7 +40,7 @@ export function SkillChip({
           )}
         >
           <X className="h-3 w-3" aria-hidden="true" />
-        </button>
+        </Button>
       ) : null}
     </span>
   )

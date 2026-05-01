@@ -18,6 +18,7 @@ import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useRetryTransfer } from "../hooks/use-wallet"
 import type { WalletRecord } from "../api/wallet-api"
 
+import { Button } from "@/shared/components/ui/button"
 // Transactions list = "Mes missions" section: 3 balance cards
 // (escrow / available / transferred) + a chronological history of
 // payment records with retry affordance for failed transfers.
@@ -263,7 +264,7 @@ function RetryButton({
   onRetry: () => void
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onRetry}
       disabled={disabled}
@@ -287,7 +288,7 @@ function RetryButton({
         <RefreshCw className="h-3 w-3" aria-hidden="true" />
       )}
       Échec — Réessayer
-    </button>
+    </Button>
   )
 }
 

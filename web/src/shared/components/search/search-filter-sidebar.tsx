@@ -14,6 +14,7 @@ import { FilterSectionLocation } from "./filter-section-location"
 import { FilterSectionSkillsExpertise } from "./filter-section-skills-expertise"
 import { FilterSectionRating } from "./filter-section-rating"
 
+import { Button } from "@/shared/components/ui/button"
 // SearchFilterSidebar renders the Malt-style left rail filter UI. It
 // is intentionally logic-free: every change flows through `onChange`
 // and the parent owns the state. The "Apply" button is a no-op today
@@ -117,21 +118,21 @@ export function SearchFilterSidebar({
       />
 
       <footer className="sticky bottom-0 flex flex-col gap-2 bg-card pt-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onApply}
           className="inline-flex h-10 items-center justify-center rounded-lg bg-rose-500 px-4 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20"
         >
           {t("apply")}
-        </button>
+        </Button>
         {hasFilters ? (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => onChange(EMPTY_SEARCH_FILTERS)}
             className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose-500/20"
           >
             {t("reset")}
-          </button>
+          </Button>
         ) : null}
       </footer>
     </aside>

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { SectionShell } from "./filter-primitives"
 
+import { Button } from "@/shared/components/ui/button"
 // Star-based "minimum rating" filter. Click a filled star to set the
 // floor; click the SAME star to clear back to zero. The brief
 // reserves space here for future verified / top_rated / negotiable
@@ -27,7 +28,7 @@ export function FilterSectionRating({
         {[1, 2, 3, 4, 5].map((star) => {
           const selected = star <= value
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={star}
               type="button"
               role="radio"
@@ -44,7 +45,7 @@ export function FilterSectionRating({
                 className={cn("h-5 w-5", selected && "fill-amber-400")}
                 strokeWidth={1.75}
               />
-            </button>
+            </Button>
           )
         })}
       </div>

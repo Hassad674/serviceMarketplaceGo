@@ -25,6 +25,7 @@ import {
   useDeclineProposal,
 } from "@/features/proposal/hooks/use-proposals"
 
+import { Button } from "@/shared/components/ui/button"
 type ProposalStatus = ProposalMessageMetadata["proposal_status"]
 
 type ProposalCardProps = {
@@ -279,7 +280,7 @@ function ProposalCardActions({
         )}
 
         {showModifyButton && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onModify}
             className={cn(
@@ -293,11 +294,11 @@ function ProposalCardActions({
           >
             <Pencil className="h-4 w-4" strokeWidth={1.5} />
             {t("modify")}
-          </button>
+          </Button>
         )}
 
         {showPayButton && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onPay}
             className={cn(
@@ -309,7 +310,7 @@ function ProposalCardActions({
           >
             <CreditCard className="h-4 w-4" strokeWidth={1.5} />
             {t("pay")}
-          </button>
+          </Button>
         )}
       </div>
     </>
@@ -333,7 +334,7 @@ function PendingActionButtons({
 
   return (
     <>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onDecline}
         disabled={isMutating}
@@ -351,8 +352,8 @@ function PendingActionButtons({
           <XCircle className="h-4 w-4" strokeWidth={1.5} />
         )}
         {t("decline")}
-      </button>
-      <button
+      </Button>
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onAccept}
         disabled={isMutating}
@@ -370,7 +371,7 @@ function PendingActionButtons({
           <CheckCircle2 className="h-4 w-4" strokeWidth={1.5} />
         )}
         {t("accept")}
-      </button>
+      </Button>
     </>
   )
 }

@@ -20,6 +20,9 @@ import {
   type SearchFilters,
 } from "./search-filters"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 // SearchPageLayout is the composition root shared by the three public
 // listing pages (freelancers / agencies / referrers). It assembles:
 //
@@ -227,7 +230,7 @@ function TopBar({
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
           aria-hidden
         />
-        <input
+        <Input
           type="search"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
@@ -238,7 +241,7 @@ function TopBar({
       <div className="flex items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <span className="hidden md:inline">{tSort("label")}</span>
-          <select
+          <Select
             value={sort}
             onChange={(e) => onSortChange(e.target.value as SortKey)}
             className="h-11 rounded-xl border border-border bg-card px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
@@ -248,9 +251,9 @@ function TopBar({
             <option value="priceAsc">{tSort("priceAsc")}</option>
             <option value="priceDesc">{tSort("priceDesc")}</option>
             <option value="recent">{tSort("recent")}</option>
-          </select>
+          </Select>
         </label>
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onOpenDrawer}
           aria-label={t("showFilters")}
@@ -258,7 +261,7 @@ function TopBar({
         >
           <Filter className="h-4 w-4" aria-hidden />
           <span>{t("showFilters")}</span>
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -369,14 +372,14 @@ function InfiniteScrollFooter({
     <>
       <div ref={sentinelRef} aria-hidden className="h-px w-full" />
       <div className="flex justify-center pt-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onLoadMore}
           disabled={isLoadingMore}
           className="rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-rose-600 hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
         >
           {isLoadingMore ? loadingLabel : loadMoreLabel}
-        </button>
+        </Button>
       </div>
     </>
   )
@@ -399,13 +402,13 @@ function EmptyState({ onReset }: { onReset: () => void }) {
       <Users className="h-10 w-10 text-muted-foreground" aria-hidden />
       <p className="text-base font-semibold text-foreground">{t("title")}</p>
       <p className="text-sm text-muted-foreground">{t("description")}</p>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onReset}
         className="mt-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
       >
         {t("cta")}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -423,13 +426,13 @@ function ErrorState({
     <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center dark:border-red-500/30 dark:bg-red-500/10">
       <p className="text-sm text-red-700 dark:text-red-300">{message}</p>
       {onRetry ? (
-        <button
+        <Button variant="destructive" size="auto"
           type="button"
           onClick={onRetry}
-          className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+          className="mt-3 rounded-lg px-4 py-2 text-sm font-medium"
         >
           {retryLabel}
-        </button>
+        </Button>
       ) : null}
     </div>
   )
@@ -463,14 +466,14 @@ function FilterDrawer({
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onClose}
           aria-label={t("hideFilters")}
           className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground"
         >
           <X className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
         {children}
       </div>
     </div>

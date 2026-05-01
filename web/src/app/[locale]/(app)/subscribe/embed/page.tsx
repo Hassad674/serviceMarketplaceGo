@@ -23,6 +23,7 @@ import type {
   SubscribeInput,
 } from "@/features/subscription/types"
 
+import { Button } from "@/shared/components/ui/button"
 /**
  * Single-modal Premium subscribe flow rendered as a full page so the
  * mobile WebView and the desktop modal both reuse the same DOM.
@@ -91,7 +92,7 @@ export default function SubscribeEmbedPage() {
             : "Règle ton abonnement Premium en toute sécurité avec Stripe."}
         </p>
         {step === "payment" && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setStep("billing")}
             className={cn(
@@ -102,7 +103,7 @@ export default function SubscribeEmbedPage() {
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Modifier mes informations
-          </button>
+          </Button>
         )}
       </header>
 
@@ -190,7 +191,7 @@ function CycleTab({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="tab"
       aria-selected={active}
@@ -203,7 +204,7 @@ function CycleTab({
       )}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -371,7 +372,7 @@ function PaymentStep({
             </span>
           )}
         </p>
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => {
             setError(null)
@@ -381,7 +382,7 @@ function PaymentStep({
           className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-500/40 dark:bg-transparent dark:text-red-300"
         >
           Réessayer
-        </button>
+        </Button>
       </div>
     )
   }

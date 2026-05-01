@@ -11,6 +11,7 @@ import {
   type NotificationPreference,
 } from "../hooks/use-notification-preferences"
 
+import { Button } from "@/shared/components/ui/button"
 type Channel = "push" | "email"
 
 const GROUPS = [
@@ -55,7 +56,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="switch"
       aria-checked={checked}
@@ -73,7 +74,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
           checked ? "translate-x-6" : "translate-x-1",
         )}
       />
-    </button>
+    </Button>
   )
 }
 

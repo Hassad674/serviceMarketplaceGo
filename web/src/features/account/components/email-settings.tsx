@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl"
 import { useUser } from "@/shared/hooks/use-user"
 
+import { Input } from "@/shared/components/ui/input"
 export function EmailSettings() {
   const t = useTranslations("account")
   const { data: user } = useUser()
@@ -30,7 +31,7 @@ export function EmailSettings() {
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
             {t("newEmail")}
           </label>
-          <input
+          <Input
             type="email"
             disabled
             placeholder="new@email.com"

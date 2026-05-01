@@ -12,6 +12,8 @@ import {
   validateMilestoneDeadlines,
 } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type MilestoneEditorProps = {
   milestones: MilestoneFormItem[]
   onChange: (milestones: MilestoneFormItem[]) => void
@@ -99,7 +101,7 @@ export function MilestoneEditor({
         ))}
       </div>
 
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={addMilestone}
         disabled={disabled || !canAddMore}
@@ -113,7 +115,7 @@ export function MilestoneEditor({
       >
         <Plus className="h-4 w-4" />
         {t("addMilestone")}
-      </button>
+      </Button>
 
       {/* Sticky total footer */}
       <div
@@ -179,7 +181,7 @@ function MilestoneRow({
           {t("milestone")} {sequence}
         </span>
         {canRemove && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onRemove}
             disabled={disabled}
@@ -192,12 +194,12 @@ function MilestoneRow({
             aria-label={t("remove")}
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
 
       <div className="space-y-3">
-        <input
+        <Input
           type="text"
           value={milestone.title}
           onChange={(e) => onChange({ title: e.target.value })}
@@ -234,7 +236,7 @@ function MilestoneRow({
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500">
               &euro;
             </span>
-            <input
+            <Input
               type="number"
               min="0"
               step="0.01"
@@ -254,7 +256,7 @@ function MilestoneRow({
             />
           </div>
           <div>
-            <input
+            <Input
               type="date"
               value={milestone.deadline}
               min={minDate}

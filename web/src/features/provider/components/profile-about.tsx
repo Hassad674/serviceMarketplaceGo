@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from "react"
 import { Edit2, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { Button } from "@/shared/components/ui/button"
 
 const MAX_CHARS = 1000
 
@@ -67,14 +68,14 @@ export function ProfileAbout({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">{displayLabel}</h2>
         {!editing && !readOnly && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={startEditing}
             aria-label={`${tCommon("edit")} ${displayLabel.toLowerCase()}`}
             className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -94,15 +95,15 @@ export function ProfileAbout({
               {draft.length} / {MAX_CHARS} {t("characters")}
             </span>
             <div className="flex gap-2">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={cancelEditing}
                 disabled={saving}
                 className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
               >
                 {tCommon("cancel")}
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={handleSave}
                 disabled={saving}
@@ -110,7 +111,7 @@ export function ProfileAbout({
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
                 {tCommon("save")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

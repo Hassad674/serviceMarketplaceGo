@@ -11,6 +11,8 @@ import {
   type SupportedCountry,
 } from "@/shared/lib/stripe-countries"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type CountrySelectorProps = {
   value: string | null
   onChange: (code: string) => void
@@ -71,7 +73,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
 
   return (
     <div ref={rootRef} className="relative w-full">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         disabled={disabled}
         onClick={() => setOpen((v) => !v)}
@@ -105,14 +107,14 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
           className={`h-5 w-5 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
           aria-hidden
         />
-      </button>
+      </Button>
 
       {open ? (
         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl animate-scale-in">
           <div className="border-b border-slate-100 p-3">
             <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
               <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-              <input
+              <Input
                 ref={searchRef}
                 type="text"
                 placeholder={t("searchCountry")}
@@ -150,7 +152,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                       const isSelected = value === country.code
                       return (
                         <li key={country.code}>
-                          <button
+                          <Button variant="ghost" size="auto"
                             type="button"
                             onClick={() => {
                               onChange(country.code)
@@ -176,7 +178,7 @@ export function CountrySelector({ value, onChange, disabled }: CountrySelectorPr
                             {isSelected ? (
                               <Check className="h-4 w-4 text-rose-500" aria-hidden />
                             ) : null}
-                          </button>
+                          </Button>
                         </li>
                       )
                     })}

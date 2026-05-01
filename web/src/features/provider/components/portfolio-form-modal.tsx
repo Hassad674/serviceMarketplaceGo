@@ -23,6 +23,8 @@ import {
   useUploadPortfolioVideo,
 } from "../hooks/use-portfolio"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 interface PortfolioFormModalProps {
   item?: PortfolioItem
   open: boolean
@@ -268,13 +270,13 @@ export function PortfolioFormModal({
               {isEdit ? t("editProjectSubtitle") : t("addProjectSubtitle")}
             </p>
           </div>
-          <button
+          <Button variant="ghost" size="auto"
             onClick={onClose}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label={t("close")}
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Form body */}
@@ -289,7 +291,7 @@ export function PortfolioFormModal({
                 {title.length}/{TITLE_MAX}
               </span>
             </label>
-            <input
+            <Input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -333,7 +335,7 @@ export function PortfolioFormModal({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {t("dropZoneSubtitle")}
                 </p>
-                <input
+                <Input
                   type="file"
                   accept="image/*,video/*"
                   multiple
@@ -385,7 +387,7 @@ export function PortfolioFormModal({
                           </div>
                         </div>
                         {/* Custom thumbnail bar — always visible on video thumbs */}
-                        <button
+                        <Button variant="ghost" size="auto"
                           onClick={(e) => {
                             e.stopPropagation()
                             if (m.thumbnail_url) {
@@ -412,7 +414,7 @@ export function PortfolioFormModal({
                               <span>{t("customCover")}</span>
                             </>
                           )}
-                        </button>
+                        </Button>
                       </div>
                     ) : (
                       // Square image media tile — fill + sizes for the
@@ -435,16 +437,16 @@ export function PortfolioFormModal({
                     )}
 
                     {/* Delete button — top right */}
-                    <button
+                    <Button variant="destructive" size="auto"
                       onClick={(e) => {
                         e.stopPropagation()
                         removeMedia(i)
                       }}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 text-white opacity-0 shadow-md backdrop-blur-sm transition-opacity hover:bg-red-600 group-hover/thumb:opacity-100"
+                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/90 opacity-0 shadow-md backdrop-blur-sm transition-opacity group-hover/thumb:opacity-100"
                       title={t("removeMedia")}
                     >
                       <Trash2 className="h-3 w-3" />
-                    </button>
+                    </Button>
 
                   </div>
                 ))}
@@ -460,7 +462,7 @@ export function PortfolioFormModal({
                         <span className="text-[10px] font-medium">{t("addMore")}</span>
                       </>
                     )}
-                    <input
+                    <Input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*,video/*"
@@ -506,7 +508,7 @@ export function PortfolioFormModal({
             </label>
             <div className="relative">
               <Link2 className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
+              <Input
                 type="text"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
@@ -520,24 +522,24 @@ export function PortfolioFormModal({
 
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-muted/20 px-5 py-3 sm:px-7 sm:py-4">
-          <button
+          <Button variant="ghost" size="auto"
             onClick={onClose}
             className="h-10 rounded-xl px-5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             onClick={handleSubmit}
             disabled={!title.trim() || saving}
             className="flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-6 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving && <Loader2 className="h-4 w-4 animate-spin" />}
             {saving ? t("saving") : isEdit ? t("save") : t("create")}
-          </button>
+          </Button>
         </div>
 
         {/* Hidden input for custom video thumbnail uploads */}
-        <input
+        <Input
           ref={customThumbnailInputRef}
           type="file"
           accept="image/*"

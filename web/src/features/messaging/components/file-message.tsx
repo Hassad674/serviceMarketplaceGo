@@ -4,6 +4,7 @@ import Image from "next/image"
 import { FileText, Download } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import type { FileMetadata } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 interface FileMessageProps {
   metadata: FileMetadata
@@ -47,7 +48,7 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
           className="max-h-64 max-w-full rounded-lg object-cover"
           unoptimized
         />
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => downloadFile(metadata.url, metadata.filename)}
           className={cn(
@@ -57,13 +58,13 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
         >
           <Download className="h-3 w-3 shrink-0" strokeWidth={1.5} />
           {metadata.filename} ({formatFileSize(metadata.size)})
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={() => downloadFile(metadata.url, metadata.filename)}
       className={cn(
@@ -112,6 +113,6 @@ export function FileMessage({ metadata, isOwn }: FileMessageProps) {
         )}
         strokeWidth={1.5}
       />
-    </button>
+    </Button>
   )
 }

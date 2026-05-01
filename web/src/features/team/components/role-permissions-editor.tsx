@@ -25,6 +25,7 @@ import {
   groupPermissionsByGroup,
 } from "./role-permissions-editor-parts"
 
+import { Button } from "@/shared/components/ui/button"
 // RolePermissionsEditor is the unified "Roles and permissions" section
 // rendered on /team. It serves TWO audiences through a single UI:
 //
@@ -321,7 +322,7 @@ function EditorHeader({
     ? "rolePermissions.subtitleReadOnly"
     : "rolePermissions.subtitle"
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onToggle}
       className="flex w-full items-center justify-between p-5 text-left"
@@ -351,7 +352,7 @@ function EditorHeader({
           aria-hidden
         />
       </div>
-    </button>
+    </Button>
   )
 }
 
@@ -372,7 +373,7 @@ function RoleTabs({
       {EDITABLE_ROLES.map((role) => {
         const active = role === selectedRole
         return (
-          <button
+          <Button variant="ghost" size="auto"
             key={role}
             type="button"
             role="tab"
@@ -385,7 +386,7 @@ function RoleTabs({
             }`}
           >
             {t(`roles.${role}.label`)}
-          </button>
+          </Button>
         )
       })}
     </div>

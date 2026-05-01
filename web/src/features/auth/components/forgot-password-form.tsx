@@ -8,7 +8,9 @@ import { Link } from "@i18n/navigation"
 import { CheckCircle2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { forgotPassword } from "@/features/auth/api/auth-api"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 })
@@ -74,7 +76,7 @@ export function ForgotPasswordForm() {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -87,13 +89,13 @@ export function ForgotPasswordForm() {
           )}
         </div>
 
-        <button
+        <Button variant="primary" size="auto"
           type="submit"
           disabled={isSubmitting}
-          className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+          className="h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all disabled:opacity-50"
         >
           {isSubmitting ? t("sending") : t("sendResetLink")}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">

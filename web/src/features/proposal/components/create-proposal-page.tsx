@@ -24,7 +24,9 @@ import { FeePreview } from "@/features/billing/components/fee-preview"
 import { UpgradeCta } from "@/features/subscription/components/upgrade-cta"
 import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
 import { useUser } from "@/shared/hooks/use-user"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const TITLE_MAX_LENGTH = 100
 
 export function CreateProposalPage() {
@@ -237,7 +239,7 @@ export function CreateProposalPage() {
           "dark:border-gray-800 dark:bg-gray-900/80",
         )}
       >
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={handleCancel}
           className={cn(
@@ -248,13 +250,13 @@ export function CreateProposalPage() {
           aria-label={t("proposalCancel")}
         >
           <X className="h-5 w-5" strokeWidth={1.5} />
-        </button>
+        </Button>
 
         <h1 className="text-base font-semibold text-gray-900 dark:text-white">
           {modifyId ? t("modify") : t("createProposal")}
         </h1>
 
-        <button
+        <Button variant="ghost" size="auto"
           type="submit"
           form="proposal-form"
           disabled={!isValid || isSubmitting || !canCreate}
@@ -268,7 +270,7 @@ export function CreateProposalPage() {
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {t("proposalSend")}
-        </button>
+        </Button>
       </header>
 
       {/* Body */}
@@ -300,7 +302,7 @@ export function CreateProposalPage() {
                 {t("proposalTitle")} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <input
+                <Input
                   id="proposal-title"
                   type="text"
                   value={formData.title}
@@ -369,7 +371,7 @@ export function CreateProposalPage() {
                   <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">
                     &euro;
                   </span>
-                  <input
+                  <Input
                     id="proposal-amount"
                     type="number"
                     min="0"
@@ -432,7 +434,7 @@ export function CreateProposalPage() {
               >
                 {t("proposalDeadline")}
               </label>
-              <input
+              <Input
                 id="proposal-deadline"
                 type="date"
                 value={formData.deadline}
@@ -462,7 +464,7 @@ export function CreateProposalPage() {
 
             {/* Footer buttons (mobile only, below form) */}
             <div className="flex gap-3 pt-4 lg:hidden">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={handleCancel}
                 className={cn(
@@ -472,8 +474,8 @@ export function CreateProposalPage() {
                 )}
               >
                 {t("proposalCancel")}
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="auto"
                 type="submit"
                 disabled={!isValid || isSubmitting || !canCreate}
                 className={cn(
@@ -486,7 +488,7 @@ export function CreateProposalPage() {
               >
                 {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("proposalSend")}
-              </button>
+              </Button>
             </div>
           </form>
 

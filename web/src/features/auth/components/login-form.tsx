@@ -8,6 +8,8 @@ import { Eye, EyeOff, ShieldAlert } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
 import { login, AuthApiError } from "@/features/auth/api/auth-api"
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -77,48 +79,44 @@ export function LoginForm() {
           </div>
         )}
 
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t("email")}
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder={t("emailPlaceholder")}
-            className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
-            {...registerField("email")}
-          />
-          {errors.email && (
-            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.email.message}</p>
-          )}
-        </div>
+        <Input
+          id="email"
+          type="email"
+          autoComplete="email"
+          label={t("email")}
+          placeholder={t("emailPlaceholder")}
+          size="lg"
+          className="h-12 rounded-xl px-4"
+          error={errors.email?.message}
+          {...registerField("email")}
+        />
 
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("password")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               placeholder={t("passwordPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
+              size="lg"
+              className="h-12 rounded-xl px-4 pr-11"
+              error={errors.password?.message}
               {...registerField("password")}
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
+              className="absolute right-1 top-1 h-10 w-10 px-0 text-gray-400 hover:bg-transparent hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+            </Button>
           </div>
-          {errors.password && (
-            <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.password.message}</p>
-          )}
           <div className="flex justify-end">
             <Link
               href="/forgot-password"
@@ -129,13 +127,15 @@ export function LoginForm() {
           </div>
         </div>
 
-        <button
+        <Button
           type="submit"
+          variant="primary"
+          size="lg"
           disabled={isSubmitting}
-          className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+          className="h-12 w-full rounded-xl text-base font-semibold shadow-md"
         >
           {isSubmitting ? t("signingIn") : t("loginTitle")}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">

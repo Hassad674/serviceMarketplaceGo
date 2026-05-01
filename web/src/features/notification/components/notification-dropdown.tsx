@@ -7,6 +7,7 @@ import { useNotifications } from "../hooks/use-notifications"
 import { useMarkAllAsRead } from "../hooks/use-notification-actions"
 import { NotificationItem } from "./notification-item"
 
+import { Button } from "@/shared/components/ui/button"
 interface NotificationDropdownProps {
   onClose: () => void
 }
@@ -26,14 +27,14 @@ export function NotificationDropdown({ onClose }: NotificationDropdownProps) {
         <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
           {t("title")}
         </h3>
-        <button
+        <Button variant="ghost" size="auto"
           onClick={() => markAllAsRead.mutate()}
           className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-300"
           disabled={markAllAsRead.isPending}
         >
           <Check className="h-3 w-3" />
           {t("markAllAsRead")}
-        </button>
+        </Button>
       </div>
 
       {/* List */}

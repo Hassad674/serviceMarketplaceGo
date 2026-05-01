@@ -6,6 +6,8 @@ import { cn } from "@/shared/lib/utils"
 import { Modal } from "@/shared/components/ui/modal"
 import type { BillingCycle, Plan } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type UpgradeModalProps = {
   open: boolean
   role: "freelance" | "agency"
@@ -137,7 +139,7 @@ function CycleTab({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="tab"
       aria-selected={active}
@@ -150,7 +152,7 @@ function CycleTab({
       )}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -204,7 +206,7 @@ function AutoRenewCheckbox({
 }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:bg-slate-800">
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
@@ -232,7 +234,7 @@ function SubmitButton({
   onSubmit: () => void
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onSubmit}
       disabled={pending}
@@ -244,6 +246,6 @@ function SubmitButton({
       )}
     >
       {pending ? "Redirection…" : `Continuer · ${amountEuros} €`}
-    </button>
+    </Button>
   )
 }

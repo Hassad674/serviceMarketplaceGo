@@ -6,6 +6,7 @@ import { useMemo } from "react"
 
 import type { DisputeResponse } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 interface DisputeBannerProps {
   dispute: DisputeResponse
   currentUserId: string
@@ -174,68 +175,68 @@ export function DisputeBanner({
           {/* Cancellation request actions take priority — respondent must accept or refuse */}
           {canRespondToCancellation && onAcceptCancellation && onRefuseCancellation ? (
             <>
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={onAcceptCancellation}
                 className="inline-flex items-center gap-1 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 transition-colors"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
                 {t("acceptCancellation")}
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={onRefuseCancellation}
                 className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 <XCircle className="h-3.5 w-3.5" aria-hidden />
                 {t("refuseCancellation")}
-              </button>
+              </Button>
             </>
           ) : (
             <>
               {/* Accept/Reject — only when there's a pending proposal from the other party */}
               {canRespond && lastCP && onAcceptProposal && onRejectProposal && (
                 <>
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => onAcceptProposal(lastCP.id)}
                     className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 transition-colors"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
                     {t("acceptCounter")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => onRejectProposal(lastCP.id)}
                     className="inline-flex items-center gap-1 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 transition-colors dark:border-red-600 dark:text-red-400"
                   >
                     <XCircle className="h-3.5 w-3.5" aria-hidden />
                     {t("rejectCounter")}
-                  </button>
+                  </Button>
                 </>
               )}
               {onCounterPropose && (
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={onCounterPropose}
                   className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
                 >
                   {t("counterPropose")}
                   <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                </button>
+                </Button>
               )}
               {/* Cancel button: only shown to initiator. If the respondent has
                   already replied this triggers a cancellation REQUEST;
                   otherwise the dispute is cancelled directly. Hidden when a
                   request is already pending (the requester is waiting). */}
               {onCancel && !hasCancellationRequest && (
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={onCancel}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800"
                 >
                   {t("cancel")}
-                </button>
+                </Button>
               )}
             </>
           )}

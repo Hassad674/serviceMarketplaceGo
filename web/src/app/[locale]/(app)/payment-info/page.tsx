@@ -24,6 +24,7 @@ import { OnboardingWizard } from "./components/onboarding-wizard"
 import { ROSE_APPEARANCE } from "./lib/rose-appearance"
 import { mapAppLocaleToStripe } from "./lib/stripe-locale"
 
+import { Button } from "@/shared/components/ui/button"
 /**
  * Production-ready payment info page using Stripe Connect Embedded Components.
  *
@@ -315,12 +316,12 @@ export default function PaymentInfoV2Page() {
               <p className="text-sm font-semibold text-red-900">{t("errorOccurred")}</p>
               <p className="mt-1 text-sm text-red-700">{errorMessage}</p>
             </div>
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => setErrorMessage("")}
               className="text-xs font-medium text-red-600 hover:text-red-700"
             >
               {t("dismiss")}
-            </button>
+            </Button>
           </div>
         ) : null}
 
@@ -358,13 +359,13 @@ export default function PaymentInfoV2Page() {
                     <h3 className="text-[13px] font-semibold text-slate-900">
                       {t("completeVerification")}
                     </h3>
-                    <button
+                    <Button variant="ghost" size="auto"
                       onClick={handleResetToWizard}
                       className="flex items-center gap-1.5 text-[12px] font-medium text-slate-500 transition-colors hover:text-rose-600"
                     >
                       <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
                       {t("changeCountry")}
-                    </button>
+                    </Button>
                   </div>
                   <div className="sm:p-6">
                     <ConnectAccountOnboarding

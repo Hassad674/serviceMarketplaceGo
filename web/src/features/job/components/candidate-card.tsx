@@ -8,6 +8,7 @@ import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import type { ApplicationWithProfile } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 interface CandidateCardProps {
   item: ApplicationWithProfile
@@ -115,7 +116,7 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
             <User className="h-3 w-3" />
             {t("viewProfile")}
           </Link>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleSendMessage}
             className={cn(
@@ -125,7 +126,7 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
           >
             <Send className="h-3 w-3" />
             {t("sendMessage")}
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -25,6 +25,7 @@ import type { SkillResponse } from "../types"
 import { ExpertisePanel } from "./expertise-panel"
 import { SkillSearchBar } from "./skill-search-bar"
 
+import { Button } from "@/shared/components/ui/button"
 interface SkillsEditorModalProps {
   open: boolean
   onClose: () => void
@@ -218,14 +219,14 @@ function ModalHeader({ onClose }: { onClose: () => void }) {
       >
         {t("modalTitle")}
       </h2>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onClose}
         aria-label={t("close")}
         className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
       >
         <X className="h-5 w-5" aria-hidden="true" />
-      </button>
+      </Button>
     </div>
   )
 }
@@ -280,14 +281,14 @@ function SelectedSkillsList({
               onClick={() => onMove(entry.skill_text, 1)}
               icon={<ArrowDown className="h-4 w-4" aria-hidden="true" />}
             />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => onRemove(entry.skill_text)}
               aria-label={t("remove", { label: entry.display_text })}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
               <X className="h-4 w-4" aria-hidden="true" />
-            </button>
+            </Button>
           </span>
         </li>
       ))}
@@ -360,15 +361,15 @@ function ModalFooter({
         </p>
       ) : null}
       <div className="flex items-center justify-end gap-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onCancel}
           disabled={isSaving}
           className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
         >
           {t("cancel")}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onSave}
           disabled={!isDirty || isSaving}
@@ -380,7 +381,7 @@ function ModalFooter({
             <Check className="h-4 w-4" aria-hidden="true" />
           )}
           {isSaving ? t("saving") : t("save")}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -395,7 +396,7 @@ type IconButtonProps = {
 
 function IconButton({ label, disabled, onClick, icon }: IconButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -403,7 +404,7 @@ function IconButton({ label, disabled, onClick, icon }: IconButtonProps) {
       className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {icon}
-    </button>
+    </Button>
   )
 }
 

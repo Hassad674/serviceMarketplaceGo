@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { useRemoveMember } from "../hooks/use-team"
 import type { TeamMember } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 // Confirmation dialog for the "Retirer" action. Stateless — the
 // mutation + its loading state live in the hook. Operator accounts
 // get deleted server-side; marketplace-owner accounts just lose
@@ -52,13 +53,13 @@ export function RemoveMemberDialog({
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             {t("removeMemberTitle")}
           </h3>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <X className="h-5 w-5 text-slate-400" />
-          </button>
+          </Button>
         </div>
 
         <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -72,15 +73,15 @@ export function RemoveMemberDialog({
         )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             disabled={mutation.isPending}
             className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
           >
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleConfirm}
             disabled={mutation.isPending}
@@ -88,7 +89,7 @@ export function RemoveMemberDialog({
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("remove")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -10,6 +10,8 @@ import {
 import { AddressAutocomplete } from "./address-autocomplete"
 import type { BillingProfileFormValues } from "./billing-profile-form.schema"
 
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 // Address section + country dropdown. The country is bundled here
 // because the address autocomplete provider is country-scoped (the
 // user picks the country first, then the autocomplete narrows by
@@ -69,7 +71,7 @@ export function BillingSectionAddress() {
           htmlFor="address_line1"
           error={errors.address_line1?.message}
         >
-          <input
+          <Input
             id="address_line1"
             type="text"
             {...register("address_line1")}
@@ -78,7 +80,7 @@ export function BillingSectionAddress() {
           />
         </Field>
         <Field label="Complément d'adresse (optionnel)" htmlFor="address_line2">
-          <input
+          <Input
             id="address_line2"
             type="text"
             {...register("address_line2")}
@@ -92,7 +94,7 @@ export function BillingSectionAddress() {
             htmlFor="postal_code"
             error={errors.postal_code?.message}
           >
-            <input
+            <Input
               id="postal_code"
               type="text"
               {...register("postal_code")}
@@ -101,7 +103,7 @@ export function BillingSectionAddress() {
             />
           </Field>
           <Field label="Ville" htmlFor="city" error={errors.city?.message}>
-            <input
+            <Input
               id="city"
               type="text"
               {...register("city")}
@@ -118,7 +120,7 @@ export function BillingSectionAddress() {
 /**
  * Country dropdown grouped by region (EU / Europe / Americas / APAC /
  * MENA), backed by the same Stripe Connect supported list as the
- * payment-info onboarding. Native <select> + <optgroup> keeps the
+ * payment-info onboarding. Native <Select> + <optgroup> keeps the
  * markup screen-reader and mobile-keyboard friendly without pulling a
  * combobox dependency.
  */
@@ -147,7 +149,7 @@ function CountrySelect({
     "mena",
   ]
   return (
-    <select
+    <Select
       id="country"
       value={value}
       onChange={(e) => onChange(e.target.value)}
@@ -166,7 +168,7 @@ function CountrySelect({
           </optgroup>
         ),
       )}
-    </select>
+    </Select>
   )
 }
 

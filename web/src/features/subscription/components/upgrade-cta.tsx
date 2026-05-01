@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 type UpgradeCtaProps = {
   variant: "inline" | "banner"
   onClick: () => void
@@ -50,7 +51,7 @@ function BannerCta({
           {monthlyPrice} €/mois · rentable dès 2 missions
         </p>
       </div>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onClick}
         className={cn(
@@ -60,7 +61,7 @@ function BannerCta({
         )}
       >
         Passer Premium →
-      </button>
+      </Button>
     </div>
   )
 }
@@ -73,7 +74,7 @@ function InlineCta({
   monthlyPrice: number
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       className={cn(
@@ -92,6 +93,6 @@ function InlineCta({
       <span className="text-xs font-semibold text-rose-600 dark:text-rose-300">
         Passer Premium →
       </span>
-    </button>
+    </Button>
   )
 }

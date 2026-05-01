@@ -16,6 +16,7 @@ import type {
   RolePermissionCellState,
 } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 // Extracted presentational sub-components for role-permissions-editor.
 //
 // Kept in a separate file to honour the 600-lines-per-file rule while
@@ -119,7 +120,7 @@ export function PermissionRow({
         </div>
       </div>
 
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         role="switch"
         aria-checked={effectiveGranted}
@@ -143,7 +144,7 @@ export function PermissionRow({
             effectiveGranted ? "translate-x-5" : "translate-x-0.5"
           }`}
         />
-      </button>
+      </Button>
     </li>
   )
 }
@@ -178,7 +179,7 @@ export function StickySaveBar({
         {t("rolePermissions.pendingBadge", { count: pendingCount })}
       </p>
       <div className="flex items-center gap-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onDiscard}
           disabled={saving}
@@ -186,8 +187,8 @@ export function StickySaveBar({
         >
           <RotateCcw className="h-4 w-4" />
           {t("rolePermissions.discard")}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onSave}
           disabled={saving}
@@ -199,7 +200,7 @@ export function StickySaveBar({
             <Check className="h-4 w-4" />
           )}
           {t("rolePermissions.save")}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -259,15 +260,15 @@ export function ConfirmSaveModal({
           </div>
         </div>
         <div className="mt-6 flex items-center justify-end gap-2">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onCancel}
             disabled={saving}
             className="inline-flex items-center rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-slate-600 dark:text-gray-200 dark:hover:bg-slate-700"
           >
             {t("rolePermissions.cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onConfirm}
             disabled={saving}
@@ -279,7 +280,7 @@ export function ConfirmSaveModal({
               <Check className="h-4 w-4" />
             )}
             {t("rolePermissions.confirmButton")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

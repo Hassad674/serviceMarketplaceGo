@@ -12,6 +12,7 @@ import { useCreateJob } from "../hooks/use-jobs"
 import { uploadVideo } from "@/shared/lib/upload-api"
 import { JobDetailsSection } from "./job-details-section"
 import { BudgetSection } from "./budget-section"
+import { Button } from "@/shared/components/ui/button"
 
 type SectionId = "details" | "budget"
 
@@ -140,7 +141,7 @@ export function CreateJobForm() {
           {t("createJob")}
         </h1>
         <div className="flex items-center gap-3">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleCancel}
             className={cn(
@@ -150,8 +151,8 @@ export function CreateJobForm() {
             )}
           >
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleSubmit}
             disabled={createJob.isPending || isSubmitting}
@@ -163,7 +164,7 @@ export function CreateJobForm() {
             )}
           >
             {(createJob.isPending || isSubmitting) ? "..." : t("publish")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -199,7 +200,7 @@ export function CreateJobForm() {
         >
           <BudgetSection formData={formData} updateField={updateField} />
           <div className="mt-6 flex justify-end">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={handleSubmit}
               disabled={createJob.isPending || isSubmitting}
@@ -211,7 +212,7 @@ export function CreateJobForm() {
               )}
             >
               {(createJob.isPending || isSubmitting) ? "..." : t("publish")}
-            </button>
+            </Button>
           </div>
         </AccordionSection>
       </div>
@@ -249,7 +250,7 @@ function AccordionSection({
           : "border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-200 dark:hover:border-gray-700",
       )}
     >
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onToggle}
         className="flex w-full items-center gap-4 px-6 py-5 text-left"
@@ -279,7 +280,7 @@ function AccordionSection({
           )}
           strokeWidth={1.5}
         />
-      </button>
+      </Button>
 
       <div
         className={cn(

@@ -16,7 +16,9 @@ import type { LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { useMySocialLinks, useUpsertSocialLink, useDeleteSocialLink } from "../hooks/use-social-links"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 type PlatformMeta = {
   key: string
   icon: LucideIcon
@@ -86,14 +88,14 @@ export function SocialLinksSection() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-foreground">{t("socialLinks")}</h2>
         {!editing && canEdit && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={startEditing}
             aria-label={t("editSocialLinks")}
             className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
 
@@ -172,7 +174,7 @@ function SocialLinksEditor({ draft, setDraft, saving, onSave, onCancel }: Social
               <Icon className={`h-4 w-4 ${meta.color}`} aria-hidden="true" />
               {t(meta.key as "linkedin" | "instagram" | "youtube" | "twitter" | "github" | "website")}
             </label>
-            <input
+            <Input
               id={`social-${meta.key}`}
               type="url"
               value={draft[meta.key] || ""}
@@ -185,15 +187,15 @@ function SocialLinksEditor({ draft, setDraft, saving, onSave, onCancel }: Social
       })}
 
       <div className="flex justify-end gap-2 pt-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onCancel}
           disabled={saving}
           className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 disabled:opacity-50"
         >
           {tCommon("cancel")}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onSave}
           disabled={saving}
@@ -201,7 +203,7 @@ function SocialLinksEditor({ draft, setDraft, saving, onSave, onCancel }: Social
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
           {tCommon("save")}
-        </button>
+        </Button>
       </div>
     </div>
   )

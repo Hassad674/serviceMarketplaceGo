@@ -16,6 +16,8 @@ import { useUser } from "@/shared/hooks/use-user"
 import { useProjects } from "@/features/proposal/hooks/use-proposals"
 import type { ProposalResponse, ProposalStatus } from "@/features/proposal/types"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 type TabKey = "inProgress" | "completed" | "all"
 
 const MISSION_STATUSES: ProposalStatus[] = [
@@ -232,7 +234,7 @@ function TabBar({ activeTab, onTabChange, inProgressCount, completedCount, allCo
   return (
     <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700" role="tablist">
       {tabs.map((tab) => (
-        <button
+        <Button variant="ghost" size="auto"
           key={tab.key}
           type="button"
           role="tab"
@@ -249,7 +251,7 @@ function TabBar({ activeTab, onTabChange, inProgressCount, completedCount, allCo
           {activeTab === tab.key && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />
           )}
-        </button>
+        </Button>
       ))}
     </div>
   )
@@ -261,7 +263,7 @@ function SearchInput({ value, onChange }: { value: string; onChange: (v: string)
   return (
     <div className="relative">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" strokeWidth={1.5} />
-      <input
+      <Input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}

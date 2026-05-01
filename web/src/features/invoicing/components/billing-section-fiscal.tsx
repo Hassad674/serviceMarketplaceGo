@@ -6,6 +6,8 @@ import { cn, formatDate } from "@/shared/lib/utils"
 import { isEUCountry } from "./eu-countries"
 import type { BillingProfileFormValues } from "./billing-profile-form.schema"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 // "Identifiants fiscaux" — VAT applicability section.
 // Currently only handles the intracom VAT input + VIES validate
 // button (EU non-FR). The brief reserves space here for a future
@@ -57,7 +59,7 @@ export function BillingSectionFiscal({
           htmlFor="vat_number"
           error={errors.vat_number?.message}
         >
-          <input
+          <Input
             id="vat_number"
             type="text"
             {...register("vat_number")}
@@ -67,7 +69,7 @@ export function BillingSectionFiscal({
           />
         </Field>
         <div className="flex flex-wrap items-center gap-2">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onValidate}
             disabled={!canValidate || isValidating}
@@ -83,7 +85,7 @@ export function BillingSectionFiscal({
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             )}
             Valider mon n° TVA
-          </button>
+          </Button>
           {validatedAt && !validateError && (
             <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />

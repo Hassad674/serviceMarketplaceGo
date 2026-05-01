@@ -9,6 +9,7 @@ import type { Profile } from "../api/profile-api"
 import { ProfileSkeleton } from "./profile-skeleton"
 import { useProfileRating } from "../hooks/use-profile-rating"
 import { AgencyPublicProfile } from "./agency-public-profile"
+import { Button } from "@/shared/components/ui/button"
 
 type ProfileType = "agency" | "freelancer" | "referrer"
 
@@ -41,13 +42,13 @@ export function PublicProfile({ orgId, type: _type }: PublicProfileProps) {
     return (
       <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-8 text-center">
         <p className="text-sm text-destructive">{t("profileNotFound")}</p>
-        <button
+        <Button variant="ghost" size="auto"
           onClick={() => router.back()}
           className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:opacity-80 transition-opacity"
         >
           <ArrowLeft className="h-4 w-4" />
           {t("back")}
-        </button>
+        </Button>
       </div>
     )
   }
@@ -56,13 +57,13 @@ export function PublicProfile({ orgId, type: _type }: PublicProfileProps) {
 
   return (
     <div className="space-y-6">
-      <button
+      <Button variant="ghost" size="auto"
         onClick={() => router.back()}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         {t("back")}
-      </button>
+      </Button>
 
       <AgencyPublicProfile
         profile={profile}

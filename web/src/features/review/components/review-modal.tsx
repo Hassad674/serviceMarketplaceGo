@@ -10,6 +10,8 @@ import type { ReviewSide } from "@/shared/types/review"
 import { useCreateReview, useUploadReviewVideo } from "../hooks/use-reviews"
 import { StarRating } from "./star-rating"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
 const MAX_VIDEO_SIZE = 100 * 1024 * 1024 // 100 MB
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"]
 
@@ -271,14 +273,14 @@ function ReviewModalHeader({
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
       </div>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onClose}
         className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted transition-colors"
         aria-label={closeLabel}
       >
         <X className="h-5 w-5" />
-      </button>
+      </Button>
     </div>
   )
 }
@@ -376,21 +378,21 @@ function VideoUploadField({
           className="w-full rounded-lg border border-border"
           style={{ maxHeight: 200 }}
         />
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onRemove}
           className="flex items-center gap-1.5 text-sm text-destructive hover:underline"
         >
           <Trash2 className="h-3.5 w-3.5" />
           {labels.remove}
-        </button>
+        </Button>
       </div>
     )
   }
 
   return (
     <div>
-      <input
+      <Input
         ref={fileInputRef}
         type="file"
         accept="video/mp4,video/webm,video/quicktime"
@@ -398,7 +400,7 @@ function VideoUploadField({
         className="hidden"
         id="review-video-input"
       />
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={() => fileInputRef.current?.click()}
         disabled={isUploading}
@@ -420,7 +422,7 @@ function VideoUploadField({
             {labels.add}
           </>
         )}
-      </button>
+      </Button>
       {videoFile && isUploading && (
         <p className="mt-1 text-xs text-muted-foreground">{videoFile.name}</p>
       )}
@@ -441,7 +443,7 @@ function TitleVisibilityField({
 }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 transition-colors hover:bg-muted/50">
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
@@ -472,7 +474,7 @@ function ReviewModalActions({
 }) {
   return (
     <div className="flex gap-3 pt-2">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onSubmit}
         disabled={isBusy || !canSubmit}
@@ -485,8 +487,8 @@ function ReviewModalActions({
       >
         {isPending && <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />}
         {labels.submit}
-      </button>
-      <button
+      </Button>
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onCancel}
         disabled={isBusy}
@@ -496,7 +498,7 @@ function ReviewModalActions({
         )}
       >
         {labels.cancel}
-      </button>
+      </Button>
     </div>
   )
 }

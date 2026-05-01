@@ -8,7 +8,9 @@ import { Link, useRouter } from "@i18n/navigation"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { register as registerUser } from "@/features/auth/api/auth-api"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const providerSchema = z
   .object({
     first_name: z.string().min(1, "First name is required"),
@@ -77,7 +79,7 @@ export function ProviderRegisterForm() {
             <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("firstName")}
             </label>
-            <input
+            <Input
               id="first_name"
               type="text"
               autoComplete="given-name"
@@ -94,7 +96,7 @@ export function ProviderRegisterForm() {
             <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t("lastName")}
             </label>
-            <input
+            <Input
               id="last_name"
               type="text"
               autoComplete="family-name"
@@ -112,7 +114,7 @@ export function ProviderRegisterForm() {
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("email")}
           </label>
-          <input
+          <Input
             id="email"
             type="email"
             autoComplete="email"
@@ -130,7 +132,7 @@ export function ProviderRegisterForm() {
             {t("password")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="new-password"
@@ -138,14 +140,14 @@ export function ProviderRegisterForm() {
               className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("password")}
             />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+            </Button>
           </div>
           <p className="text-xs text-gray-400 dark:text-gray-500">
             {t("passwordHint")}
@@ -160,7 +162,7 @@ export function ProviderRegisterForm() {
             {t("confirmPassword")}
           </label>
           <div className="relative">
-            <input
+            <Input
               id="confirm_password"
               type={showConfirm ? "text" : "password"}
               autoComplete="new-password"
@@ -168,27 +170,27 @@ export function ProviderRegisterForm() {
               className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("confirm_password")}
             />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+            </Button>
           </div>
           {errors.confirm_password && (
             <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.confirm_password.message}</p>
           )}
         </div>
 
-        <button
+        <Button variant="primary" size="auto"
           type="submit"
           disabled={isSubmitting}
-          className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+          className="h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all disabled:opacity-50"
         >
           {isSubmitting ? t("signingUp") : t("createFreelanceAccount")}
-        </button>
+        </Button>
       </form>
 
       <div className="mt-6 flex flex-col items-center gap-3 text-sm">

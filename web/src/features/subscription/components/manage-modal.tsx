@@ -11,6 +11,7 @@ import { useCyclePreview } from "../hooks/use-cycle-preview"
 import { usePortalURL } from "../hooks/use-portal"
 import type { BillingCycle, CyclePreview, Subscription } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 type ManageModalProps = {
 	open: boolean
 	onClose: () => void
@@ -150,7 +151,7 @@ function SwitchToggle({
   label: string
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="switch"
       aria-checked={checked}
@@ -170,7 +171,7 @@ function SwitchToggle({
           checked ? "translate-x-5" : "translate-x-0.5",
         )}
       />
-    </button>
+    </Button>
   )
 }
 
@@ -232,7 +233,7 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
         />
       ) : (
         <>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setTarget(nextTarget)}
             disabled={disabled}
@@ -245,7 +246,7 @@ function ChangeCycleBlock({ subscription }: { subscription: Subscription }) {
             )}
           >
             {hasPending ? "Changement déjà programmé" : label}
-          </button>
+          </Button>
           {downgradeBlocked ? (
             <p className="mt-2 text-[11px] leading-snug text-amber-700 dark:text-amber-300">
               Active le renouvellement automatique avant de programmer un passage en mensuel.
@@ -286,15 +287,15 @@ function ConfirmCycleChange({
         currentPeriodEnd={currentPeriodEnd}
       />
       <div className="flex gap-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onCancel}
           disabled={pending}
           className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
           Annuler
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onConfirm}
           disabled={pending || loading || error}
@@ -305,7 +306,7 @@ function ConfirmCycleChange({
           )}
         >
           {pending ? "…" : "Confirmer"}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -401,7 +402,7 @@ function PortalButton({
   disabled: boolean
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -413,7 +414,7 @@ function PortalButton({
       )}
     >
       {label}
-    </button>
+    </Button>
   )
 }
 

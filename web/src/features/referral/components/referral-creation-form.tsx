@@ -12,6 +12,9 @@ import {
   type ProviderPickerSelection,
 } from "./provider-picker"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 const DEFAULT_TOGGLES: SnapshotToggles = {
   include_expertise: true,
   include_experience: true,
@@ -112,7 +115,7 @@ export function ReferralCreationForm() {
         <Field
           label={`Commission : ${ratePct.toFixed(ratePct % 1 === 0 ? 0 : 1)} %`}
         >
-          <input
+          <Input
             type="range"
             min={0}
             max={30}
@@ -128,7 +131,7 @@ export function ReferralCreationForm() {
           </div>
         </Field>
         <Field label="Durée d'exclusivité">
-          <select
+          <Select
             value={durationMonths}
             onChange={(e) => setDurationMonths(parseInt(e.target.value, 10))}
             className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-100"
@@ -138,7 +141,7 @@ export function ReferralCreationForm() {
                 {n} mois
               </option>
             ))}
-          </select>
+          </Select>
         </Field>
       </Section>
 
@@ -222,7 +225,7 @@ export function ReferralCreationForm() {
         </div>
       )}
 
-      <button
+      <Button variant="ghost" size="auto"
         type="submit"
         disabled={create.isPending}
         className="inline-flex items-center justify-center gap-2 self-end rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -233,7 +236,7 @@ export function ReferralCreationForm() {
           <Send className="h-4 w-4" aria-hidden="true" />
         )}
         Envoyer l&rsquo;introduction
-      </button>
+      </Button>
     </form>
   )
 }
@@ -281,7 +284,7 @@ interface ToggleRowProps {
 function ToggleRow({ label, checked, onChange }: ToggleRowProps) {
   return (
     <label className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}

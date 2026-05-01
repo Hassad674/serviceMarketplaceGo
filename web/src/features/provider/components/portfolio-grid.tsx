@@ -9,6 +9,7 @@ import { PortfolioItemCard } from "./portfolio-item-card"
 import { PortfolioDetailModal } from "./portfolio-detail-modal"
 import { PortfolioFormModal } from "./portfolio-form-modal"
 import type { PortfolioItem } from "../api/portfolio-api"
+import { Button } from "@/shared/components/ui/button"
 
 const MAX_ITEMS = 30
 
@@ -63,14 +64,14 @@ export function PortfolioSection() {
         </div>
 
         {canEdit && items.length > 0 && items.length < MAX_ITEMS && (
-          <button
+          <Button variant="ghost" size="auto"
             onClick={openCreate}
             aria-label={t("addProject")}
             className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-3 text-sm font-medium text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] sm:px-4"
           >
             <Plus className="h-4 w-4" />
             <span className="hidden sm:inline">{t("addProject")}</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -135,13 +136,13 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground sm:text-sm">
           {t("emptyDescription")}
         </p>
-        <button
+        <Button variant="ghost" size="auto"
           onClick={onCreate}
           className="mt-4 inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 px-4 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg hover:shadow-rose-500/30 active:scale-[0.98] sm:mt-5 sm:px-5"
         >
           <Sparkles className="h-4 w-4" />
           {t("addFirstProject")}
-        </button>
+        </Button>
       </div>
     </div>
   )

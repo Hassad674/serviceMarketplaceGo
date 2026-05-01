@@ -5,6 +5,7 @@ import { cn } from "@/shared/lib/utils"
 import { useSubscription } from "../hooks/use-subscription"
 import type { Subscription } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 type SubscriptionBadgeProps = {
   onClick: () => void
 }
@@ -24,7 +25,7 @@ export function SubscriptionBadge({ onClick }: SubscriptionBadgeProps) {
   const variant = pickVariant(subscription)
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       aria-label={variant.ariaLabel}
@@ -39,7 +40,7 @@ export function SubscriptionBadge({ onClick }: SubscriptionBadgeProps) {
         <Sparkles className="h-3 w-3" aria-hidden="true" strokeWidth={2} />
       ) : null}
       <span>{variant.label}</span>
-    </button>
+    </Button>
   )
 }
 

@@ -18,6 +18,7 @@ import {
   type CitySearchResult,
 } from "@/shared/lib/location/city-search"
 
+import { Input } from "@/shared/components/ui/input"
 // Canonical selection shape persisted on the profile. A null value
 // means "nothing selected yet" — the user has not picked anything.
 export type CitySelection = {
@@ -179,7 +180,7 @@ export function CityAutocomplete({ value, countryCode, onChange, disabled }: Pro
   return (
     <div ref={rootRef} className="relative">
       <div className="relative">
-        <input
+        <Input
           type="text"
           role="combobox"
           aria-expanded={showDropdown}

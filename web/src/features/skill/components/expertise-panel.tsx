@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import { useSkillCatalog } from "../hooks/use-skill-catalog"
 import type { SkillResponse } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 interface ExpertisePanelProps {
   expertiseKey: string
   alreadySelected: Set<string>
@@ -33,7 +34,7 @@ export function ExpertisePanel({
 
   return (
     <div className="rounded-lg border border-border bg-card">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-expanded={isOpen}
@@ -58,7 +59,7 @@ export function ExpertisePanel({
             {tSkills("panelCount", { count })}
           </span>
         ) : null}
-      </button>
+      </Button>
       {isOpen ? (
         <ExpertisePanelBody
           skills={catalog.data?.skills ?? []}
@@ -99,7 +100,7 @@ function ExpertisePanelBody({
       {skills.map((skill) => {
         const isSelected = alreadySelected.has(skill.skill_text)
         return (
-          <button
+          <Button variant="ghost" size="auto"
             key={skill.skill_text}
             type="button"
             onClick={() => onAdd(skill)}
@@ -114,7 +115,7 @@ function ExpertisePanelBody({
             )}
           >
             {skill.display_text}
-          </button>
+          </Button>
         )
       })}
     </div>

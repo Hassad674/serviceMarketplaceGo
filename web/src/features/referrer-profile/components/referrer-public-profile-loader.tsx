@@ -7,6 +7,7 @@ import { useReferrerReputation } from "../hooks/use-referrer-reputation"
 import { usePublicReferrerProfile } from "../hooks/use-referrer-profile"
 import { ReferrerPublicProfile } from "./referrer-public-profile"
 import { PublicReferrerSocialLinks } from "./referrer-social-links-section"
+import { Button } from "@/shared/components/ui/button"
 
 interface ReferrerPublicProfileLoaderProps {
   orgId: string
@@ -39,13 +40,13 @@ export function ReferrerPublicProfileLoader({
         <p className="mt-1 text-xs text-destructive/80">
           {t("notFoundDescription")}
         </p>
-        <button
+        <Button variant="ghost" size="auto"
           onClick={() => router.back()}
           className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary hover:opacity-80 transition-opacity"
         >
           <ArrowLeft className="h-4 w-4" />
           {t("loadError")}
-        </button>
+        </Button>
       </div>
     )
   }

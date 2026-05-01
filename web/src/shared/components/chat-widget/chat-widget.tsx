@@ -9,6 +9,7 @@ import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useChatWidget } from "./use-chat-widget"
 
+import { Button } from "@/shared/components/ui/button"
 const ChatWidgetPanel = dynamic(
   () =>
     import("./chat-widget-panel").then((m) => ({
@@ -54,7 +55,7 @@ export function ChatWidget() {
     <>
       {/* Contra-style bottom bar (closed state) or panel header (open state) */}
       {!isOpen && (
-        <button
+        <Button variant="ghost" size="auto"
           onClick={handleToggle}
           className={cn(
             "fixed bottom-0 right-6 z-50 flex h-12 w-[320px] items-center gap-2.5 px-4",
@@ -85,7 +86,7 @@ export function ChatWidget() {
             className="h-4 w-4 text-gray-400 dark:text-gray-500"
             strokeWidth={1.5}
           />
-        </button>
+        </Button>
       )}
 
       {/* Desktop panel */}

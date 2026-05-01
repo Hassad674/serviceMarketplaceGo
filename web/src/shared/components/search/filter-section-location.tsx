@@ -9,6 +9,7 @@ import {
   toggle,
 } from "./filter-primitives"
 
+import { Input } from "@/shared/components/ui/input"
 const WORK_MODE_OPTIONS: readonly SearchWorkMode[] = [
   "remote",
   "on_site",
@@ -49,7 +50,7 @@ export function FilterSectionLocation({
   return (
     <>
       <SectionShell title={t("location")}>
-        <input
+        <Input
           type="text"
           value={city}
           onChange={(e) => onCityChange(e.target.value)}
@@ -57,7 +58,7 @@ export function FilterSectionLocation({
           aria-label={t("cityPlaceholder")}
           className="h-10 rounded-lg border border-border bg-background px-3 text-sm shadow-xs focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
         />
-        <input
+        <Input
           type="text"
           value={countryCode}
           onChange={(e) =>

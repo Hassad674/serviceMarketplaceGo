@@ -16,6 +16,9 @@ import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUpdateOrganizationLocation } from "../hooks/use-update-organization-location"
 import type { WorkMode } from "../api/organization-shared-api"
 
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Select } from "@/shared/components/ui/select"
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 
 // SharedLocationSection renders the editable "Where you work" card on
@@ -129,7 +132,7 @@ function CountryField({ value, locale, onChange }: CountryFieldProps) {
       >
         {t("countryLabel")}
       </label>
-      <select
+      <Select
         id="shared-location-country"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -141,7 +144,7 @@ function CountryField({ value, locale, onChange }: CountryFieldProps) {
             {getCountryLabel(option.code, locale)}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   )
 }
@@ -166,7 +169,7 @@ function WorkModeField({ selected, onToggle }: WorkModeFieldProps) {
         {ALL_WORK_MODES.map((mode) => {
           const isSelected = selected.includes(mode)
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={mode}
               type="button"
               onClick={() => onToggle(mode)}
@@ -183,7 +186,7 @@ function WorkModeField({ selected, onToggle }: WorkModeFieldProps) {
                 <Check className="w-3.5 h-3.5" aria-hidden="true" />
               ) : null}
               {t(workModeLabelKey(mode))}
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -206,7 +209,7 @@ function RadiusField({ value, onChange }: RadiusFieldProps) {
       >
         {t("travelRadiusLabel")}
       </label>
-      <input
+      <Input
         id="shared-location-radius"
         type="number"
         min={0}
@@ -229,7 +232,7 @@ function SaveRow({ isDirty, isSaving, onSave }: SaveRowProps) {
   const t = useTranslations("profile.location")
   return (
     <div className="mt-5 flex items-center justify-end">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onSave}
         disabled={!isDirty || isSaving}
@@ -241,7 +244,7 @@ function SaveRow({ isDirty, isSaving, onSave }: SaveRowProps) {
           <Check className="w-4 h-4" aria-hidden="true" />
         )}
         {isSaving ? t("saving") : t("save")}
-      </button>
+      </Button>
     </div>
   )
 }

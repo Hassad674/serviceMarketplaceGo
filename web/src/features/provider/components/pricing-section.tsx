@@ -7,6 +7,7 @@ import type { Pricing, PricingKind } from "../api/profile-api"
 import { formatPricing, type PricingLocale } from "../lib/pricing-format"
 import { usePricing } from "../hooks/use-pricing"
 import { PricingEditorModal } from "./pricing-editor-modal"
+import { Button } from "@/shared/components/ui/button"
 
 // PricingVariant determines which kind of pricing the section
 // surfaces. The profile page renders variant="direct" (freelance
@@ -63,14 +64,14 @@ export function PricingSection({
       <PricingRow row={row} locale={locale} />
 
       {!readOnly ? (
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => setModalOpen(true)}
           className="mt-4 inline-flex items-center gap-2 rounded-md border border-border h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
           {t("editButton")}
-        </button>
+        </Button>
       ) : null}
 
       {modalOpen ? (

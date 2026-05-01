@@ -6,7 +6,9 @@ import { Search } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 // Filter values are org types, matching Conversation.other_org_type.
 const ORG_TYPE_FILTERS = [
   { key: "all", labelKey: "allRoles" },
@@ -98,7 +100,7 @@ export const ConversationList = memo(function ConversationList({
       {/* Org-type filter tabs */}
       <div className="flex gap-1.5 px-5 pb-3">
         {ORG_TYPE_FILTERS.map((filter) => (
-          <button
+          <Button variant="ghost" size="auto"
             key={filter.key}
             onClick={() => onOrgTypeFilterChange(filter.key)}
             className={cn(
@@ -109,7 +111,7 @@ export const ConversationList = memo(function ConversationList({
             )}
           >
             {t(filter.labelKey)}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -120,7 +122,7 @@ export const ConversationList = memo(function ConversationList({
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500"
             strokeWidth={1.5}
           />
-          <input
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
@@ -186,7 +188,7 @@ function ConversationItem({
     ORG_BORDER_COLORS[conversation.other_org_type] ?? "border-l-gray-300"
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       onClick={() => onSelect(conversation.id)}
       role="option"
       aria-selected={isActive}
@@ -252,6 +254,6 @@ function ConversationItem({
           )}
         </div>
       </div>
-    </button>
+    </Button>
   )
 }

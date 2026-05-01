@@ -28,6 +28,7 @@ import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { useUnreadCount } from "@/shared/hooks/use-unread-count"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 type NavItem = {
   labelKey: string
   href: string
@@ -198,13 +199,13 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
               </span>
             )}
           </Link>
-          <button
+          <Button variant="ghost" size="auto"
             onClick={onClose}
             className="rounded-lg p-1.5 text-gray-400 dark:text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-600 dark:hover:text-gray-300 lg:hidden"
             aria-label="Close menu"
           >
             <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          </Button>
         </div>
 
         {/* User info */}
@@ -267,7 +268,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
 
         {/* Collapse toggle (desktop only) */}
         <div className="hidden border-t border-gray-100/80 dark:border-gray-800 p-2 lg:block">
-          <button
+          <Button variant="ghost" size="auto"
             onClick={onToggleCollapse}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
@@ -284,12 +285,12 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
                 <span>{t("collapse")}</span>
               </>
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Logout */}
         <div className="border-t border-gray-100/80 dark:border-gray-800 p-2">
-          <button
+          <Button variant="ghost" size="auto"
             onClick={handleLogout}
             className={cn(
               "flex w-full items-center rounded-lg px-3 py-2 text-sm",
@@ -300,7 +301,7 @@ export function Sidebar({ open, onClose, collapsed = false, onToggleCollapse }: 
           >
             <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} />
             {!collapsed && <span>{tCommon("signOut")}</span>}
-          </button>
+          </Button>
         </div>
       </aside>
     </>
@@ -321,19 +322,19 @@ function ReferrerSwitch({
   if (collapsed) {
     const dotColor = isReferrerMode ? "bg-emerald-500" : "bg-amber-500"
     return (
-      <button
+      <Button variant="ghost" size="auto"
         onClick={onToggle}
         className="flex w-full items-center justify-center rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
         aria-label={isReferrerMode ? t("freelanceDashboard") : t("businessReferrer")}
       >
         <span className={cn("h-3 w-3 rounded-full", dotColor)} />
-      </button>
+      </Button>
     )
   }
 
   if (isReferrerMode) {
     return (
-      <button
+      <Button variant="ghost" size="auto"
         onClick={onToggle}
         className={cn(
           "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
@@ -343,12 +344,12 @@ function ReferrerSwitch({
       >
         <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
         {t("freelanceDashboard")}
-      </button>
+      </Button>
     )
   }
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       onClick={onToggle}
       className={cn(
         "flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2",
@@ -358,7 +359,7 @@ function ReferrerSwitch({
     >
       <Sparkles className="h-4 w-4" strokeWidth={1.5} />
       {t("businessReferrer")}
-    </button>
+    </Button>
   )
 }
 

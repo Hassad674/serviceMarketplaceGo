@@ -10,6 +10,7 @@ import { usePricing } from "../hooks/use-pricing"
 import { useUpsertPricing } from "../hooks/use-upsert-pricing"
 import { useDeletePricing } from "../hooks/use-delete-pricing"
 import { PricingKindForm } from "./pricing-kind-form"
+import { Button } from "@/shared/components/ui/button"
 
 interface PricingEditorModalProps {
   open: boolean
@@ -103,14 +104,14 @@ export function PricingEditorModal({
           >
             {title}
           </h2>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             aria-label={t("close")}
             className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             <X className="h-5 w-5" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
 
         <PreviewStrip
@@ -132,13 +133,13 @@ export function PricingEditorModal({
         </div>
 
         <div className="border-t border-border px-6 py-4 flex justify-end">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             {t("close")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

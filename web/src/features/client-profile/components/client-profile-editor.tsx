@@ -7,7 +7,9 @@ import { z } from "zod"
 import { Loader2, Save } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const COMPANY_NAME_MIN = 1
 const COMPANY_NAME_MAX = 120
 const DESCRIPTION_MAX = 2000
@@ -81,7 +83,7 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
         label={t("companyName")}
         error={form.formState.errors.company_name?.message}
       >
-        <input
+        <Input
           id="client-profile-company-name"
           type="text"
           autoComplete="organization"
@@ -141,7 +143,7 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
       ) : null}
 
       <div className="flex justify-end">
-        <button
+        <Button variant="ghost" size="auto"
           type="submit"
           disabled={saving || !form.formState.isDirty}
           className={cn(
@@ -157,7 +159,7 @@ export function ClientProfileEditor(props: ClientProfileEditorProps) {
             <Save className="h-4 w-4" aria-hidden="true" />
           )}
           {saving ? t("saving") : t("saveChanges")}
-        </button>
+        </Button>
       </div>
     </form>
   )

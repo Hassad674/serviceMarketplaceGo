@@ -11,6 +11,8 @@ import {
 import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUpdateOrganizationLanguages } from "../hooks/use-update-organization-languages"
 
+import { Button } from "@/shared/components/ui/button"
+import { Select } from "@/shared/components/ui/select"
 type LanguageBucket = "professional" | "conversational"
 
 // SharedLanguagesSection edits the two language arrays on the org row.
@@ -109,7 +111,7 @@ function LanguageBucketEditor(props: LanguageBucketEditorProps) {
         bucketLabel={t(labelKey)}
       />
 
-      <select
+      <Select
         aria-label={t(labelKey)}
         value=""
         onChange={(e) => {
@@ -123,7 +125,7 @@ function LanguageBucketEditor(props: LanguageBucketEditorProps) {
             {getLanguageLabel(opt.code, locale)}
           </option>
         ))}
-      </select>
+      </Select>
 
       <p className="mt-2 text-xs text-muted-foreground tabular-nums">
         {t("selectionCount", { count: selected.length })}
@@ -161,14 +163,14 @@ function SelectedLanguageChips({
               )}
             >
               {label}
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => onRemove(code)}
                 aria-label={`${t("remove")} ${label}`}
                 className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
               >
                 <X className="h-3 w-3" aria-hidden="true" />
-              </button>
+              </Button>
             </span>
           </li>
         )
@@ -238,7 +240,7 @@ function SaveRow({ isDirty, isSaving, onSave }: SaveRowProps) {
   const t = useTranslations("profile.languages")
   return (
     <div className="flex items-center justify-end">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onSave}
         disabled={!isDirty || isSaving}
@@ -256,7 +258,7 @@ function SaveRow({ isDirty, isSaving, onSave }: SaveRowProps) {
           <Check className="w-4 h-4" aria-hidden="true" />
         )}
         {isSaving ? t("saving") : t("save")}
-      </button>
+      </Button>
     </div>
   )
 }

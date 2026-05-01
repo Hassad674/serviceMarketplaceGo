@@ -13,7 +13,9 @@ import {
 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
+import { Input } from "@/shared/components/ui/input"
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const MAX_FILES = 5
 const BYTES_PER_MB = 1024 * 1024
@@ -298,7 +300,7 @@ export function FileUploadModal({
           <h2 className="text-lg font-semibold text-foreground">
             {t("fileUploadTitle")}
           </h2>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             disabled={uploading}
@@ -311,7 +313,7 @@ export function FileUploadModal({
             aria-label={tCommon("close")}
           >
             <X className="w-5 h-5" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
 
         <p className="text-sm text-muted-foreground mb-4">
@@ -320,7 +322,7 @@ export function FileUploadModal({
 
         {/* Drop zone — show when less than max files */}
         {selectedFiles.length < MAX_FILES && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             onDragOver={handleDragOver}
@@ -359,7 +361,7 @@ export function FileUploadModal({
             <p className="text-xs text-muted-foreground">
               {t("filesMaxInfo")}
             </p>
-          </button>
+          </Button>
         )}
 
         {/* Selected files list */}
@@ -395,7 +397,7 @@ export function FileUploadModal({
                       {formatFileSize(sf.file.size)}
                     </p>
                   </div>
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => removeFile(sf.id)}
                     disabled={uploading}
@@ -408,7 +410,7 @@ export function FileUploadModal({
                     aria-label={tCommon("removeFile")}
                   >
                     <Trash2 className="w-4 h-4" aria-hidden="true" />
-                  </button>
+                  </Button>
                 </div>
               )
             })}
@@ -423,7 +425,7 @@ export function FileUploadModal({
         )}
 
         {/* Hidden file input */}
-        <input
+        <Input
           ref={fileInputRef}
           type="file"
           multiple
@@ -438,7 +440,7 @@ export function FileUploadModal({
             {t("filesCount", { count: selectedFiles.length, max: MAX_FILES })}
           </p>
           <div className="flex items-center gap-3">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={onClose}
               disabled={uploading}
@@ -450,8 +452,8 @@ export function FileUploadModal({
               )}
             >
               {tCommon("cancel")}
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={handleUpload}
               disabled={selectedFiles.length === 0 || uploading}
@@ -471,7 +473,7 @@ export function FileUploadModal({
                 />
               )}
               {uploading ? t("uploadingFiles") : t("sendFiles")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
