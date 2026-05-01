@@ -216,7 +216,15 @@ func (r *ProposalRepository) CreateWithDocumentsAndMilestones(
 // (AutoApproveMilestone, AutoCloseProposal) which run with a
 // privileged DB connection in production OR via a two-step approach
 // (read row then re-read inside tenant tx).
+//
+// SYSTEM-ACTOR: callers MUST tag their context with
+// system.WithSystemActor at the boundary (worker.Run already does
+// this for the pending-events scheduler; user-facing services
+// route through loadProposalForActor which sets the tag on its
+// system branch). A non-tagged caller surfaces a WARN log so the
+// drift is visible in the dashboard.
 func (r *ProposalRepository) GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error) {
+	warnIfNotSystemActor(ctx, "ProposalRepository.GetByID")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
