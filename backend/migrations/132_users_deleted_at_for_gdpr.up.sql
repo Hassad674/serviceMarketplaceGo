@@ -28,4 +28,11 @@ CREATE INDEX IF NOT EXISTS idx_users_pending_deletion
     ON users (deleted_at)
     WHERE deleted_at IS NOT NULL;
 
+-- pgcrypto powers the in-SQL sha256 hashing used by the GDPR purge
+-- cron when it anonymizes audit_logs metadata. Enabled here once so
+-- the cron does not have to call back into Go for per-row hashing.
+-- IF NOT EXISTS makes this idempotent across environments where
+-- pgcrypto was already loaded for another reason.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 COMMIT;
