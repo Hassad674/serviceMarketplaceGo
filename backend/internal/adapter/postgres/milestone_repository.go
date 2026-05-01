@@ -20,8 +20,28 @@ import (
 // This prevents two concurrent transitions from silently clobbering each
 // other — essential for the "client approves" vs "client opens dispute"
 // race that can happen on a submitted milestone.
+//
+// BUG-NEW-04 path 5/8: proposal_milestones is RLS-protected by migration
+// 125 with the policy
+//
+//   USING (EXISTS (
+//     SELECT 1 FROM proposals p
+//     WHERE p.id = proposal_milestones.proposal_id
+//       AND (p.client_organization_id   = current_setting('app.current_org_id', true)::uuid
+//         OR p.provider_organization_id = current_setting('app.current_org_id', true)::uuid)
+//   ))
+//
+// Milestones inherit security from the parent proposal. Strategy:
+//   - Mutations look up the parent proposal's stakeholder orgs via the
+//     legacy db connection (single SELECT — works because callers always
+//     have the proposal id), then open a tenant tx with the client side
+//     org and run the SQL.
+//   - Reads (GetByID / ListByProposal) similarly resolve the parent's
+//     org first. New ForOrg variants take the caller's org explicitly
+//     for paths where the caller is an authenticated org member.
 type MilestoneRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	txRunner *TxRunner
 }
 
 // NewMilestoneRepository wires a milestone repository against the given
@@ -29,6 +49,38 @@ type MilestoneRepository struct {
 // single connection, so the adapter can serve concurrent callers.
 func NewMilestoneRepository(db *sql.DB) *MilestoneRepository {
 	return &MilestoneRepository{db: db}
+}
+
+// WithTxRunner attaches the tenant-aware transaction wrapper. Wired
+// from cmd/api/main.go. Returns the same pointer for fluent chaining.
+func (r *MilestoneRepository) WithTxRunner(runner *TxRunner) *MilestoneRepository {
+	r.txRunner = runner
+	return r
+}
+
+// resolveParentProposalOrg returns one of the parent proposal's
+// stakeholder orgs (preferring client side) so we can install
+// app.current_org_id on the tenant tx. Single SELECT — no policy check
+// at this layer because we read on the legacy db connection.
+func (r *MilestoneRepository) resolveParentProposalOrg(ctx context.Context, proposalID uuid.UUID) (uuid.UUID, error) {
+	var clientOrg, providerOrg uuid.NullUUID
+	err := r.db.QueryRowContext(ctx,
+		`SELECT client_organization_id, provider_organization_id
+		 FROM proposals WHERE id = $1`, proposalID,
+	).Scan(&clientOrg, &providerOrg)
+	if errors.Is(err, sql.ErrNoRows) {
+		return uuid.Nil, milestone.ErrMilestoneNotFound
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("resolve parent proposal org: %w", err)
+	}
+	if clientOrg.Valid {
+		return clientOrg.UUID, nil
+	}
+	if providerOrg.Valid {
+		return providerOrg.UUID, nil
+	}
+	return uuid.Nil, nil
 }
 
 // CreateBatch inserts every milestone of a proposal in a SINGLE round
@@ -79,11 +131,27 @@ func (r *MilestoneRepository) CreateBatch(ctx context.Context, milestones []*mil
 	query := "INSERT INTO proposal_milestones " + queryInsertMilestoneColumns +
 		" VALUES " + strings.Join(placeholders, ", ") // #nosec G201
 
-	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
-		return fmt.Errorf("insert milestones batch: %w", err)
+	doInsert := func(runner sqlExecutor) error {
+		if _, err := runner.ExecContext(ctx, query, args...); err != nil {
+			return fmt.Errorf("insert milestones batch: %w", err)
+		}
+		return nil
 	}
 
-	return nil
+	if r.txRunner != nil {
+		// All milestones in the batch share a single proposal_id (the
+		// caller's domain factory enforces this — milestone.NewMilestoneBatch).
+		// Resolve the parent's stakeholder org for the tenant context.
+		orgID, err := r.resolveParentProposalOrg(ctx, milestones[0].ProposalID)
+		if err != nil {
+			return err
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doInsert(tx)
+		})
+	}
+
+	return doInsert(r.db)
 }
 
 // GetByID fetches a milestone without taking a lock. Suitable for read-only
@@ -195,25 +263,117 @@ func (r *MilestoneRepository) Update(ctx context.Context, m *milestone.Milestone
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, queryUpdateMilestone,
-		m.ID, m.Version, string(m.Status),
-		m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
-		m.DisputedAt, m.CancelledAt,
-		m.ActiveDisputeID, m.LastDisputeID,
-		m.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("update milestone: %w", err)
+	doUpdate := func(runner sqlExecutor) error {
+		result, err := runner.ExecContext(ctx, queryUpdateMilestone,
+			m.ID, m.Version, string(m.Status),
+			m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
+			m.DisputedAt, m.CancelledAt,
+			m.ActiveDisputeID, m.LastDisputeID,
+			m.UpdatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("update milestone: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("rows affected: %w", err)
+		}
+		if affected == 0 {
+			return milestone.ErrConcurrentUpdate
+		}
+		m.Version++
+		return nil
 	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("rows affected: %w", err)
+
+	if r.txRunner != nil {
+		orgID, err := r.resolveParentProposalOrg(ctx, m.ProposalID)
+		if err != nil {
+			return err
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doUpdate(tx)
+		})
 	}
-	if affected == 0 {
-		return milestone.ErrConcurrentUpdate
+
+	return doUpdate(r.db)
+}
+
+// GetByIDForOrg returns a milestone by id under the caller's org tenant
+// context. RLS admits the row only when the caller's org matches one
+// of the parent proposal's stakeholder orgs.
+func (r *MilestoneRepository) GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*milestone.Milestone, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var m *milestone.Milestone
+	doRead := func(runner sqlQuerier) error {
+		row := runner.QueryRowContext(ctx, queryGetMilestoneByID, id)
+		got, err := scanMilestone(row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return milestone.ErrMilestoneNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("get milestone by id for org: %w", err)
+		}
+		m = got
+		return nil
 	}
-	m.Version++
-	return nil
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, callerOrgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doRead(tx)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return m, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ListByProposalForOrg returns every milestone of a proposal under the
+// caller's org tenant context.
+func (r *MilestoneRepository) ListByProposalForOrg(ctx context.Context, proposalID, callerOrgID uuid.UUID) ([]*milestone.Milestone, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var milestones []*milestone.Milestone
+	doRead := func(runner sqlQuerier) error {
+		rows, err := runner.QueryContext(ctx, queryListMilestonesByProposal, proposalID)
+		if err != nil {
+			return fmt.Errorf("list milestones for org: %w", err)
+		}
+		defer rows.Close()
+
+		milestones = nil
+		for rows.Next() {
+			m, err := scanMilestone(rows)
+			if err != nil {
+				return fmt.Errorf("scan milestone: %w", err)
+			}
+			milestones = append(milestones, m)
+		}
+		return rows.Err()
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, callerOrgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doRead(tx)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return milestones, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return nil, err
+	}
+	return milestones, nil
 }
 
 // CreateDeliverable stores a file attached to a milestone.

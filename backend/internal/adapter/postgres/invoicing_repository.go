@@ -26,12 +26,43 @@ import (
 //   - CreateInvoice / CreateCreditNote insert the parent row + items
 //     (invoices only) inside a single transaction so a partial write
 //     never lands.
+//
+// BUG-NEW-04 path 3/8: the invoice table is RLS-protected by migration
+// 125 with the policy
+//
+//   USING (recipient_organization_id = current_setting('app.current_org_id', true)::uuid)
+//
+// Mutations on rows owned by an org (CreateInvoice / CreateCreditNote /
+// MarkInvoiceCredited) wrap the SQL in RunInTxWithTenant with the
+// invoice's recipient org as app.current_org_id. The reads
+// ListInvoicesByOrganization / FindInvoiceByIDForOrg take the caller's
+// org and wrap likewise.
+//
+// Stripe webhook lookups (FindInvoiceByStripeEventID,
+// FindInvoiceByStripePaymentIntentID, FindCreditNoteByStripeEventID)
+// run as system-actor and must look up rows BEFORE knowing the org —
+// idempotency keys are global. Under prod NOSUPERUSER NOBYPASSRLS
+// these reads would return ErrNotFound for every event, breaking
+// idempotency. They stay on the legacy direct-db path; the production
+// deployment must keep the webhook handler on a privileged DB role
+// OR adopt a separate idempotency table that bypasses RLS. This is a
+// DEPLOYMENT-LEVEL CONSTRAINT, flagged in the BUG-NEW-04 follow-ups.
 type InvoiceRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	txRunner *TxRunner
 }
 
 func NewInvoiceRepository(db *sql.DB) *InvoiceRepository {
 	return &InvoiceRepository{db: db}
+}
+
+// WithTxRunner attaches the tenant-aware transaction wrapper. Wired
+// from cmd/api/main.go so every invoice org-scoped read/write fires
+// inside RunInTxWithTenant. Returns the same pointer so the wiring
+// chain stays terse.
+func (r *InvoiceRepository) WithTxRunner(runner *TxRunner) *InvoiceRepository {
+	r.txRunner = runner
+	return r
 }
 
 // invoiceColumns is the canonical projection used by every SELECT scan
@@ -107,6 +138,13 @@ func (r *InvoiceRepository) ReserveNumber(ctx context.Context, scope invoicing.C
 // CreateInvoice persists a finalized invoice and all of its items
 // inside a single transaction. The invoice MUST already carry its
 // number + pdf_r2_key + finalized_at — drafts are rejected.
+//
+// BUG-NEW-04 path 3/8: the parent INSERT into `invoice` is RLS-
+// protected. Under prod NOSUPERUSER NOBYPASSRLS the row is rejected
+// unless app.current_org_id matches inv.RecipientOrganizationID. The
+// txRunner branch wraps the parent + child inserts in
+// RunInTxWithTenant so the org context is set before either insert
+// fires.
 func (r *InvoiceRepository) CreateInvoice(ctx context.Context, inv *invoicing.Invoice) error {
 	if inv == nil {
 		return fmt.Errorf("create invoice: nil invoice")
@@ -127,58 +165,65 @@ func (r *InvoiceRepository) CreateInvoice(ctx context.Context, inv *invoicing.In
 		return fmt.Errorf("create invoice: marshal issuer: %w", err)
 	}
 
+	insertAll := func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO invoice (
+				id, number, recipient_organization_id, recipient_snapshot, issuer_snapshot,
+				issued_at, service_period_start, service_period_end,
+				currency, amount_excl_tax_cents, vat_rate, vat_amount_cents, amount_incl_tax_cents,
+				tax_regime, mentions_rendered, source_type,
+				stripe_event_id, stripe_payment_intent_id, stripe_invoice_id,
+				pdf_r2_key, status, finalized_at, created_at, updated_at
+			) VALUES (
+				$1, $2, $3, $4, $5,
+				$6, $7, $8,
+				$9, $10, $11, $12, $13,
+				$14, $15, $16,
+				$17, $18, $19,
+				$20, $21, $22, $23, $24
+			)`,
+			inv.ID, inv.Number, inv.RecipientOrganizationID, recipientJSON, issuerJSON,
+			inv.IssuedAt, inv.ServicePeriodStart, inv.ServicePeriodEnd,
+			inv.Currency, inv.AmountExclTaxCents, inv.VATRate, inv.VATAmountCents, inv.AmountInclTaxCents,
+			string(inv.TaxRegime), pq.Array(inv.MentionsRendered), string(inv.SourceType),
+			invoiceNullableString(inv.StripeEventID), invoiceNullableString(inv.StripePaymentIntentID), invoiceNullableString(inv.StripeInvoiceID),
+			invoiceNullableString(inv.PDFR2Key), string(inv.Status), inv.FinalizedAt, inv.CreatedAt, inv.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("create invoice: insert invoice: %w", err)
+		}
+
+		for i := range inv.Items {
+			it := &inv.Items[i]
+			if it.ID == uuid.Nil {
+				it.ID = uuid.New()
+			}
+			it.InvoiceID = inv.ID
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO invoice_item (
+					id, invoice_id, description, quantity, unit_price_cents, amount_cents,
+					milestone_id, payment_record_id, created_at
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				it.ID, it.InvoiceID, it.Description, it.Quantity, it.UnitPriceCents, it.AmountCents,
+				it.MilestoneID, it.PaymentRecordID, it.CreatedAt,
+			); err != nil {
+				return fmt.Errorf("create invoice: insert item: %w", err)
+			}
+		}
+		return nil
+	}
+
+	if r.txRunner != nil {
+		return r.txRunner.RunInTxWithTenant(ctx, inv.RecipientOrganizationID, uuid.Nil, insertAll)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("create invoice: begin tx: %w", err)
 	}
 	defer tx.Rollback()
-
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO invoice (
-			id, number, recipient_organization_id, recipient_snapshot, issuer_snapshot,
-			issued_at, service_period_start, service_period_end,
-			currency, amount_excl_tax_cents, vat_rate, vat_amount_cents, amount_incl_tax_cents,
-			tax_regime, mentions_rendered, source_type,
-			stripe_event_id, stripe_payment_intent_id, stripe_invoice_id,
-			pdf_r2_key, status, finalized_at, created_at, updated_at
-		) VALUES (
-			$1, $2, $3, $4, $5,
-			$6, $7, $8,
-			$9, $10, $11, $12, $13,
-			$14, $15, $16,
-			$17, $18, $19,
-			$20, $21, $22, $23, $24
-		)`,
-		inv.ID, inv.Number, inv.RecipientOrganizationID, recipientJSON, issuerJSON,
-		inv.IssuedAt, inv.ServicePeriodStart, inv.ServicePeriodEnd,
-		inv.Currency, inv.AmountExclTaxCents, inv.VATRate, inv.VATAmountCents, inv.AmountInclTaxCents,
-		string(inv.TaxRegime), pq.Array(inv.MentionsRendered), string(inv.SourceType),
-		invoiceNullableString(inv.StripeEventID), invoiceNullableString(inv.StripePaymentIntentID), invoiceNullableString(inv.StripeInvoiceID),
-		invoiceNullableString(inv.PDFR2Key), string(inv.Status), inv.FinalizedAt, inv.CreatedAt, inv.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("create invoice: insert invoice: %w", err)
+	if err := insertAll(tx); err != nil {
+		return err
 	}
-
-	for i := range inv.Items {
-		it := &inv.Items[i]
-		if it.ID == uuid.Nil {
-			it.ID = uuid.New()
-		}
-		it.InvoiceID = inv.ID
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO invoice_item (
-				id, invoice_id, description, quantity, unit_price_cents, amount_cents,
-				milestone_id, payment_record_id, created_at
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			it.ID, it.InvoiceID, it.Description, it.Quantity, it.UnitPriceCents, it.AmountCents,
-			it.MilestoneID, it.PaymentRecordID, it.CreatedAt,
-		)
-		if err != nil {
-			return fmt.Errorf("create invoice: insert item: %w", err)
-		}
-	}
-
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("create invoice: commit: %w", err)
 	}
@@ -187,6 +232,12 @@ func (r *InvoiceRepository) CreateInvoice(ctx context.Context, inv *invoicing.In
 
 // CreateCreditNote persists a finalized credit note. There is no items
 // table for credit notes — the row carries the totals directly.
+//
+// credit_note is NOT directly RLS-protected by migration 125, so this
+// runs on the legacy direct-db path even when a TxRunner is wired.
+// However, callers typically combine credit-note creation with
+// MarkInvoiceCredited (which IS RLS-protected) in the same flow, so
+// the org context is established at the caller's level.
 func (r *InvoiceRepository) CreateCreditNote(ctx context.Context, cn *invoicing.CreditNote) error {
 	if cn == nil {
 		return fmt.Errorf("create credit note: nil credit note")
@@ -326,25 +377,63 @@ func (r *InvoiceRepository) FindInvoiceByStripePaymentIntentID(ctx context.Conte
 // MarkInvoiceCredited flips the invoice status to 'credited'. Bypasses
 // the finalized read-only guard intentionally: status is the ONLY column
 // that may transition after Finalize, and only via this single path.
+//
+// BUG-NEW-04 path 3/8: the UPDATE on `invoice` is RLS-protected. To
+// install app.current_org_id the runner-aware path first reads the
+// row's org via a privileged SELECT (uuid.Nil context — admin-style
+// read), then opens the tenant tx with that org and runs the UPDATE.
+// In production this works because MarkInvoiceCredited is called by
+// the credit-note flow which already holds the original invoice in
+// memory; the lookup here is a defensive fallback for callers that
+// only have the id. When the row is not visible (e.g. the webhook
+// path under non-superuser without privilege), we surface ErrNotFound
+// — same observable behaviour as the legacy path on a missing id.
 func (r *InvoiceRepository) MarkInvoiceCredited(ctx context.Context, invoiceID uuid.UUID) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	res, err := r.db.ExecContext(ctx, `
-		UPDATE invoice
-		SET status = 'credited', updated_at = now()
-		WHERE id = $1`, invoiceID)
-	if err != nil {
-		return fmt.Errorf("mark invoice credited: %w", err)
+	doUpdate := func(runner sqlExecutor) error {
+		res, err := runner.ExecContext(ctx, `
+			UPDATE invoice
+			SET status = 'credited', updated_at = now()
+			WHERE id = $1`, invoiceID)
+		if err != nil {
+			return fmt.Errorf("mark invoice credited: %w", err)
+		}
+		rows, err := res.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("mark invoice credited: rows affected: %w", err)
+		}
+		if rows == 0 {
+			return invoicing.ErrNotFound
+		}
+		return nil
 	}
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("mark invoice credited: rows affected: %w", err)
+
+	if r.txRunner != nil {
+		// Two-step under tenant tx: first SELECT the org from the row
+		// (works because invoice.id is the PK and the row exists), then
+		// open a NEW tenant tx with that org and run the UPDATE. The
+		// SELECT runs on the legacy db connection because we don't yet
+		// know the org; this is OK because under prod the webhook role
+		// is privileged for the lookup. If the row doesn't exist in the
+		// caller's accessible scope, ErrNotFound is the right answer.
+		var orgID uuid.UUID
+		err := r.db.QueryRowContext(ctx, `
+			SELECT recipient_organization_id FROM invoice WHERE id = $1`, invoiceID,
+		).Scan(&orgID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return invoicing.ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("mark invoice credited: lookup org: %w", err)
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doUpdate(tx)
+		})
 	}
-	if rows == 0 {
-		return invoicing.ErrNotFound
-	}
-	return nil
+
+	return doUpdate(r.db)
 }
 
 // FindCreditNoteByStripeEventID is the credit-note analogue used by the
@@ -398,7 +487,10 @@ func decodeInvoiceCursor(s string) (*invoiceCursor, error) {
 
 // ListInvoicesByOrganization returns the org's invoices in (issued_at,
 // id) DESC order with opaque cursor pagination. Items are NOT loaded —
-// callers fetch the detail page via FindInvoiceByID.
+// callers fetch the detail page via FindInvoiceByIDForOrg.
+//
+// BUG-NEW-04 path 3/8: wraps the SELECT in RunInTxWithTenant with the
+// caller's org so the rows return under prod NOSUPERUSER NOBYPASSRLS.
 func (r *InvoiceRepository) ListInvoicesByOrganization(ctx context.Context, organizationID uuid.UUID, cursor string, limit int) ([]*invoicing.Invoice, string, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
@@ -412,47 +504,177 @@ func (r *InvoiceRepository) ListInvoicesByOrganization(ctx context.Context, orga
 		return nil, "", err
 	}
 
-	var rows *sql.Rows
-	if cur == nil {
-		rows, err = r.db.QueryContext(ctx, `
-			SELECT `+invoiceColumns+`
-			FROM invoice
-			WHERE recipient_organization_id = $1
-			ORDER BY issued_at DESC, id DESC
-			LIMIT $2`, organizationID, limit+1)
-	} else {
-		rows, err = r.db.QueryContext(ctx, `
-			SELECT `+invoiceColumns+`
-			FROM invoice
-			WHERE recipient_organization_id = $1
-			  AND (issued_at, id) < ($2, $3)
-			ORDER BY issued_at DESC, id DESC
-			LIMIT $4`, organizationID, cur.IssuedAt, cur.ID, limit+1)
+	var out []*invoicing.Invoice
+	var nextCursor string
+
+	doQuery := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var qerr error
+		if cur == nil {
+			rows, qerr = runner.QueryContext(ctx, `
+				SELECT `+invoiceColumns+`
+				FROM invoice
+				WHERE recipient_organization_id = $1
+				ORDER BY issued_at DESC, id DESC
+				LIMIT $2`, organizationID, limit+1)
+		} else {
+			rows, qerr = runner.QueryContext(ctx, `
+				SELECT `+invoiceColumns+`
+				FROM invoice
+				WHERE recipient_organization_id = $1
+				  AND (issued_at, id) < ($2, $3)
+				ORDER BY issued_at DESC, id DESC
+				LIMIT $4`, organizationID, cur.IssuedAt, cur.ID, limit+1)
+		}
+		if qerr != nil {
+			return fmt.Errorf("list invoices by organization: %w", qerr)
+		}
+		defer rows.Close()
+
+		out = make([]*invoicing.Invoice, 0, limit)
+		for rows.Next() {
+			inv, scanErr := scanInvoiceFromRows(rows)
+			if scanErr != nil {
+				return fmt.Errorf("list invoices by organization: scan: %w", scanErr)
+			}
+			out = append(out, inv)
+		}
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("list invoices by organization: rows: %w", err)
+		}
+
+		if len(out) > limit {
+			last := out[limit-1]
+			nextCursor = encodeInvoiceCursor(last.IssuedAt, last.ID)
+			out = out[:limit]
+		}
+		return nil
 	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, organizationID, uuid.Nil, func(tx *sql.Tx) error {
+			return doQuery(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return out, nextCursor, nil
+	}
+
+	if err := doQuery(r.db); err != nil {
+		return nil, "", err
+	}
+	return out, nextCursor, nil
+}
+
+// FindInvoiceByIDForOrg returns the invoice with all of its items,
+// fetched under the caller's org tenant context. Use this entry
+// point whenever the caller is an authenticated org member —
+// FindInvoiceByID stays for admin tooling and webhook flows that
+// must bypass tenant isolation.
+//
+// Wrapped in RunInTxWithTenant(orgID, uuid.Nil, ...) so the SELECT
+// passes the policy under prod NOSUPERUSER NOBYPASSRLS. When the
+// requested invoice does not belong to the supplied org, the row is
+// filtered out by RLS and the function returns ErrNotFound — the
+// same observable behaviour as the explicit cross-org check at the
+// app layer (ErrCrossOrgInvoiceAccess), but enforced at the database
+// level too.
+func (r *InvoiceRepository) FindInvoiceByIDForOrg(ctx context.Context, id, orgID uuid.UUID) (*invoicing.Invoice, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	var inv *invoicing.Invoice
+
+	doQuery := func(runner sqlQuerier) error {
+		row := runner.QueryRowContext(ctx, `
+			SELECT `+invoiceColumns+`
+			FROM invoice
+			WHERE id = $1`, id)
+		got, err := scanInvoiceFromRowQuery(row)
+		if errors.Is(err, sql.ErrNoRows) {
+			return invoicing.ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("find invoice by id for org: %w", err)
+		}
+		// Loading items goes through the same runner so the SELECT runs
+		// inside the same tenant tx. invoice_item is not RLS-protected,
+		// but using the tx keeps the snapshot consistent with the parent.
+		items, err := loadItemsViaRunner(ctx, runner, got.ID)
+		if err != nil {
+			return fmt.Errorf("find invoice by id for org: load items: %w", err)
+		}
+		got.Items = items
+		inv = got
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doQuery(tx)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return inv, nil
+	}
+
+	if err := doQuery(r.db); err != nil {
+		return nil, err
+	}
+	return inv, nil
+}
+
+// scanInvoiceFromRowQuery is the *sql.Row variant returned by
+// runner.QueryRowContext (where runner is sqlQuerier). It mirrors
+// scanInvoice but takes the interface form so both *sql.DB and *sql.Tx
+// rows scan through the same shared helper.
+func scanInvoiceFromRowQuery(row *sql.Row) (*invoicing.Invoice, error) {
+	return scanInvoiceFrom(row)
+}
+
+// loadItemsViaRunner is the runner-aware variant of (r *InvoiceRepository).loadItems
+// — the closure-passed sqlQuerier may be either *sql.DB or *sql.Tx, so
+// the caller can keep the items SELECT inside the same tenant tx as
+// the parent SELECT.
+func loadItemsViaRunner(ctx context.Context, runner sqlQuerier, invoiceID uuid.UUID) ([]invoicing.InvoiceItem, error) {
+	rows, err := runner.QueryContext(ctx, `
+		SELECT id, invoice_id, description, quantity, unit_price_cents, amount_cents,
+		       milestone_id, payment_record_id, created_at
+		FROM invoice_item
+		WHERE invoice_id = $1
+		ORDER BY created_at ASC, id ASC`, invoiceID)
 	if err != nil {
-		return nil, "", fmt.Errorf("list invoices by organization: %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	out := make([]*invoicing.Invoice, 0, limit)
+	out := make([]invoicing.InvoiceItem, 0)
 	for rows.Next() {
-		inv, scanErr := scanInvoiceFromRows(rows)
-		if scanErr != nil {
-			return nil, "", fmt.Errorf("list invoices by organization: scan: %w", scanErr)
+		var (
+			it              invoicing.InvoiceItem
+			milestoneID     uuid.NullUUID
+			paymentRecordID uuid.NullUUID
+		)
+		if err := rows.Scan(
+			&it.ID, &it.InvoiceID, &it.Description, &it.Quantity,
+			&it.UnitPriceCents, &it.AmountCents,
+			&milestoneID, &paymentRecordID, &it.CreatedAt,
+		); err != nil {
+			return nil, err
 		}
-		out = append(out, inv)
+		if milestoneID.Valid {
+			id := milestoneID.UUID
+			it.MilestoneID = &id
+		}
+		if paymentRecordID.Valid {
+			id := paymentRecordID.UUID
+			it.PaymentRecordID = &id
+		}
+		out = append(out, it)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, "", fmt.Errorf("list invoices by organization: rows: %w", err)
-	}
-
-	nextCursor := ""
-	if len(out) > limit {
-		last := out[limit-1]
-		nextCursor = encodeInvoiceCursor(last.IssuedAt, last.ID)
-		out = out[:limit]
-	}
-	return out, nextCursor, nil
+	return out, rows.Err()
 }
 
 // HasInvoiceItemForPaymentRecord is the idempotency probe used by the

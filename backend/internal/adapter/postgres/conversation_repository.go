@@ -206,6 +206,11 @@ func (r *ConversationRepository) GetConversation(ctx context.Context, id uuid.UU
 	return conv, nil
 }
 
+// ListConversations is wrapped in RunInTxWithTenant when a TxRunner is
+// wired so the JOIN against `conversations` (RLS-protected) returns
+// rows under prod NOSUPERUSER NOBYPASSRLS. The OrganizationID + UserID
+// already on the params struct serve double duty: SQL filter + tenant
+// context.
 func (r *ConversationRepository) ListConversations(ctx context.Context, params repository.ListConversationsParams) ([]repository.ConversationSummary, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -215,30 +220,50 @@ func (r *ConversationRepository) ListConversations(ctx context.Context, params r
 		limit = 20
 	}
 
-	var rows *sql.Rows
-	var err error
+	var results []repository.ConversationSummary
+	var nextCursor string
 
-	if params.Cursor == "" {
-		rows, err = r.db.QueryContext(ctx, queryListConversationsFirst,
-			params.OrganizationID, params.UserID, limit+1)
-	} else {
-		c, cErr := cursor.Decode(params.Cursor)
-		if cErr != nil {
-			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+	doQuery := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var err error
+		if params.Cursor == "" {
+			rows, err = runner.QueryContext(ctx, queryListConversationsFirst,
+				params.OrganizationID, params.UserID, limit+1)
+		} else {
+			c, cErr := cursor.Decode(params.Cursor)
+			if cErr != nil {
+				return fmt.Errorf("decode cursor: %w", cErr)
+			}
+			rows, err = runner.QueryContext(ctx, queryListConversationsWithCursor,
+				params.OrganizationID, params.UserID, c.CreatedAt, c.ID, limit+1)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListConversationsWithCursor,
-			params.OrganizationID, params.UserID, c.CreatedAt, c.ID, limit+1)
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("list conversations: %w", err)
-	}
-	defer rows.Close()
+		if err != nil {
+			return fmt.Errorf("list conversations: %w", err)
+		}
+		defer rows.Close()
 
-	results, nextCursor, err := scanConversationSummaries(rows, limit)
-	if err != nil {
+		out, nc, err := scanConversationSummaries(rows, limit)
+		if err != nil {
+			return err
+		}
+		results = out
+		nextCursor = nc
+		return nil
+	}
+
+	if r.txRunner != nil && (params.OrganizationID != uuid.Nil || params.UserID != uuid.Nil) {
+		err := r.txRunner.RunInTxWithTenant(ctx, params.OrganizationID, params.UserID, func(tx *sql.Tx) error {
+			return doQuery(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return results, nextCursor, nil
+	}
+
+	if err := doQuery(r.db); err != nil {
 		return nil, "", err
 	}
-
 	return results, nextCursor, nil
 }
 
@@ -418,6 +443,17 @@ func (r *ConversationRepository) GetMessage(ctx context.Context, id uuid.UUID) (
 	return msg, nil
 }
 
+// ListMessages is wrapped in RunInTxWithTenant when a TxRunner is wired
+// AND params carries non-zero caller ids (BUG-NEW-04 path 8/8). The
+// messages policy (migration 125) admits the row when its parent
+// conversation matches either app.current_org_id (organization side)
+// or app.current_user_id (participant escape hatch). Setting both
+// covers solo-provider conversations AND org-side reads from a single
+// call site.
+//
+// When caller ids are uuid.Nil OR no runner is wired, the call falls
+// back to the legacy direct-db path — preserved for unit tests that
+// build the repo with only a *sql.DB.
 func (r *ConversationRepository) ListMessages(ctx context.Context, params repository.ListMessagesParams) ([]*message.Message, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -427,25 +463,86 @@ func (r *ConversationRepository) ListMessages(ctx context.Context, params reposi
 		limit = 20
 	}
 
-	var rows *sql.Rows
-	var err error
+	var results []*message.Message
+	var nextCursor string
 
-	if params.Cursor == "" {
-		rows, err = r.db.QueryContext(ctx, queryListMessagesFirst, params.ConversationID, limit+1)
-	} else {
-		c, cErr := cursor.Decode(params.Cursor)
-		if cErr != nil {
-			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+	doQuery := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var err error
+		if params.Cursor == "" {
+			rows, err = runner.QueryContext(ctx, queryListMessagesFirst, params.ConversationID, limit+1)
+		} else {
+			c, cErr := cursor.Decode(params.Cursor)
+			if cErr != nil {
+				return fmt.Errorf("decode cursor: %w", cErr)
+			}
+			rows, err = runner.QueryContext(ctx, queryListMessagesWithCursor,
+				params.ConversationID, c.CreatedAt, c.ID, limit+1)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListMessagesWithCursor,
-			params.ConversationID, c.CreatedAt, c.ID, limit+1)
+		if err != nil {
+			return fmt.Errorf("list messages: %w", err)
+		}
+		defer rows.Close()
+		out, nc, err := scanMessageList(rows, limit)
+		if err != nil {
+			return err
+		}
+		results = out
+		nextCursor = nc
+		return nil
 	}
-	if err != nil {
-		return nil, "", fmt.Errorf("list messages: %w", err)
-	}
-	defer rows.Close()
 
-	return scanMessageList(rows, limit)
+	useTenantTx := r.txRunner != nil && (params.CallerOrgID != uuid.Nil || params.CallerUserID != uuid.Nil)
+	if useTenantTx {
+		err := r.txRunner.RunInTxWithTenant(ctx, params.CallerOrgID, params.CallerUserID, func(tx *sql.Tx) error {
+			return doQuery(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return results, nextCursor, nil
+	}
+
+	if err := doQuery(r.db); err != nil {
+		return nil, "", err
+	}
+	return results, nextCursor, nil
+}
+
+// GetMessageForCaller returns a single message under the caller's
+// tenant context. The caller's orgID + userID are installed before
+// the SELECT so the messages policy admits the row.
+func (r *ConversationRepository) GetMessageForCaller(ctx context.Context, id, callerOrgID, callerUserID uuid.UUID) (*message.Message, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var msg *message.Message
+	doRead := func(runner sqlQuerier) error {
+		got, err := scanMessage(runner.QueryRowContext(ctx, queryGetMessage, id))
+		if errors.Is(err, sql.ErrNoRows) {
+			return message.ErrMessageNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("get message for caller: %w", err)
+		}
+		msg = got
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, callerOrgID, callerUserID, func(tx *sql.Tx) error {
+			return doRead(tx)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return msg, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return nil, err
+	}
+	return msg, nil
 }
 
 func scanMessageList(rows *sql.Rows, limit int) ([]*message.Message, string, error) {
@@ -568,24 +665,50 @@ func (r *ConversationRepository) IncrementUnreadForRecipients(ctx context.Contex
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, queryIncrementUnreadForRecipients, conversationID, senderUserID, senderOrgID)
-	if err != nil {
-		return fmt.Errorf("increment unread for recipients: %w", err)
+	doExec := func(runner sqlExecutor) error {
+		_, err := runner.ExecContext(ctx, queryIncrementUnreadForRecipients, conversationID, senderUserID, senderOrgID)
+		if err != nil {
+			return fmt.Errorf("increment unread for recipients: %w", err)
+		}
+		return nil
 	}
 
-	return nil
+	if r.txRunner != nil {
+		// The sender's org + user serve double duty: SQL filter + tenant
+		// context. The query touches conversations (via implicit policy
+		// check) and conversation_participants — installing both setters
+		// covers both the org-side and the participant escape hatch.
+		return r.txRunner.RunInTxWithTenant(ctx, senderOrgID, senderUserID, func(tx *sql.Tx) error {
+			return doExec(tx)
+		})
+	}
+
+	return doExec(r.db)
 }
 
 func (r *ConversationRepository) MarkAsRead(ctx context.Context, conversationID, userID uuid.UUID, seq int) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, queryMarkAsRead, conversationID, userID, seq)
-	if err != nil {
-		return fmt.Errorf("mark as read: %w", err)
+	doExec := func(runner sqlExecutor) error {
+		_, err := runner.ExecContext(ctx, queryMarkAsRead, conversationID, userID, seq)
+		if err != nil {
+			return fmt.Errorf("mark as read: %w", err)
+		}
+		return nil
 	}
 
-	return nil
+	if r.txRunner != nil {
+		// MarkAsRead writes to message_read_state (NOT directly RLS-
+		// protected) but reads from messages via the JOIN. Install
+		// app.current_user_id so the participant escape hatch on the
+		// messages policy admits the rows.
+		return r.txRunner.RunInTxWithTenant(ctx, uuid.Nil, userID, func(tx *sql.Tx) error {
+			return doExec(tx)
+		})
+	}
+
+	return doExec(r.db)
 }
 
 func (r *ConversationRepository) GetTotalUnread(ctx context.Context, userID uuid.UUID) (int, error) {
@@ -703,12 +826,23 @@ func (r *ConversationRepository) MarkMessagesAsRead(ctx context.Context, convers
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, queryMarkMessagesAsRead, conversationID, readerID, upToSeq)
-	if err != nil {
-		return fmt.Errorf("mark messages as read: %w", err)
+	doExec := func(runner sqlExecutor) error {
+		_, err := runner.ExecContext(ctx, queryMarkMessagesAsRead, conversationID, readerID, upToSeq)
+		if err != nil {
+			return fmt.Errorf("mark messages as read: %w", err)
+		}
+		return nil
 	}
 
-	return nil
+	if r.txRunner != nil {
+		// readerID is the participant — set as app.current_user_id so the
+		// messages policy admits the rows being marked as read.
+		return r.txRunner.RunInTxWithTenant(ctx, uuid.Nil, readerID, func(tx *sql.Tx) error {
+			return doExec(tx)
+		})
+	}
+
+	return doExec(r.db)
 }
 
 func (r *ConversationRepository) GetContactIDs(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error) {

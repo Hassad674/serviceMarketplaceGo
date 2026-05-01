@@ -15,32 +15,119 @@ import (
 	"marketplace-backend/pkg/cursor"
 )
 
+// ProposalRepository implements repository.ProposalRepository against
+// Postgres.
+//
+// BUG-NEW-04 path 4/8: the proposals table is RLS-protected by
+// migration 125 with the policy
+//
+//   USING (
+//       client_organization_id = current_setting('app.current_org_id', true)::uuid
+//       OR provider_organization_id = current_setting('app.current_org_id', true)::uuid
+//   )
+//
+// Both the client and the provider org are stakeholders. Under prod
+// NOSUPERUSER NOBYPASSRLS the SELECT/INSERT/UPDATE all need
+// app.current_org_id to be set to one of the two orgs.
+//
+// Strategy:
+//   - Create / CreateWithDocuments[AndMilestones] derive the tenant
+//     context from the proposal payload. The client_organization_id
+//     and provider_organization_id columns are auto-resolved from the
+//     users table at INSERT time (queryInsertProposal). We set
+//     app.current_org_id to the client side's users.organization_id
+//     (or fall back to the provider side) BEFORE the insert so RLS
+//     accepts the new row.
+//   - GetByID is read-only; without org context it returns ErrNotFound
+//     under non-superuser. The new GetByIDForOrg accepts a callerOrg
+//     and runs inside the tenant tx.
+//   - Update does a two-step under tenant tx (read orgs first, then
+//     update inside a tenant tx with the row's client org).
+//   - List* methods take orgID directly and use it as the tenant ctx.
 type ProposalRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	txRunner *TxRunner
 }
 
 func NewProposalRepository(db *sql.DB) *ProposalRepository {
 	return &ProposalRepository{db: db}
 }
 
+// WithTxRunner attaches the tenant-aware transaction wrapper. Wired
+// from cmd/api/main.go so RLS-protected proposal reads/writes pass
+// under prod NOSUPERUSER NOBYPASSRLS. Returns the same pointer for
+// fluent chaining.
+func (r *ProposalRepository) WithTxRunner(runner *TxRunner) *ProposalRepository {
+	r.txRunner = runner
+	return r
+}
+
+// resolveProposalOrgs reads the client_organization_id and
+// provider_organization_id from the users table for the given
+// client/provider user ids. Returns either side as the tenant org —
+// preferring the client side because that's the org that "owns" the
+// proposal lifecycle. Falls back to provider when client has no org
+// (solo provider client — uncommon but legal).
+//
+// Used by Create paths to install app.current_org_id BEFORE the
+// INSERT fires (the schema's auto-resolution sub-selects from users
+// only fill the columns AFTER the policy is evaluated).
+func (r *ProposalRepository) resolveProposalOrgs(ctx context.Context, clientUserID, providerUserID uuid.UUID) (uuid.UUID, error) {
+	var clientOrg, providerOrg uuid.NullUUID
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT organization_id FROM users WHERE id = $1`, clientUserID,
+	).Scan(&clientOrg); err != nil {
+		return uuid.Nil, fmt.Errorf("resolve client org: %w", err)
+	}
+	if err := r.db.QueryRowContext(ctx,
+		`SELECT organization_id FROM users WHERE id = $1`, providerUserID,
+	).Scan(&providerOrg); err != nil {
+		return uuid.Nil, fmt.Errorf("resolve provider org: %w", err)
+	}
+	if clientOrg.Valid {
+		return clientOrg.UUID, nil
+	}
+	if providerOrg.Valid {
+		return providerOrg.UUID, nil
+	}
+	return uuid.Nil, nil
+}
+
 func (r *ProposalRepository) Create(ctx context.Context, p *proposal.Proposal) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	_, err := r.db.ExecContext(ctx, queryInsertProposal,
-		p.ID, p.ConversationID, p.SenderID, p.RecipientID,
-		p.Title, p.Description, p.Amount, p.Deadline,
-		string(p.Status), p.ParentID, p.Version,
-		p.ClientID, p.ProviderID, p.Metadata,
-		p.ActiveDisputeID, p.LastDisputeID,
-		p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
-		p.CreatedAt, p.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("insert proposal: %w", err)
+	doInsert := func(runner sqlExecutor) error {
+		_, err := runner.ExecContext(ctx, queryInsertProposal,
+			p.ID, p.ConversationID, p.SenderID, p.RecipientID,
+			p.Title, p.Description, p.Amount, p.Deadline,
+			string(p.Status), p.ParentID, p.Version,
+			p.ClientID, p.ProviderID, p.Metadata,
+			p.ActiveDisputeID, p.LastDisputeID,
+			p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
+			p.CreatedAt, p.UpdatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("insert proposal: %w", err)
+		}
+		return nil
 	}
 
-	return nil
+	if r.txRunner != nil {
+		// Resolve the proposal's stakeholder orgs from users so the
+		// tenant tx has app.current_org_id set BEFORE the INSERT —
+		// otherwise the policy rejects the row even though the
+		// auto-resolved client_organization_id matches the org.
+		orgID, err := r.resolveProposalOrgs(ctx, p.ClientID, p.ProviderID)
+		if err != nil {
+			return err
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doInsert(tx)
+		})
+	}
+
+	return doInsert(r.db)
 }
 
 func (r *ProposalRepository) CreateWithDocuments(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument) error {
@@ -64,48 +151,71 @@ func (r *ProposalRepository) CreateWithDocumentsAndMilestones(
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
+	insertAll := func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, queryInsertProposal,
+			p.ID, p.ConversationID, p.SenderID, p.RecipientID,
+			p.Title, p.Description, p.Amount, p.Deadline,
+			string(p.Status), p.ParentID, p.Version,
+			p.ClientID, p.ProviderID, p.Metadata,
+			p.ActiveDisputeID, p.LastDisputeID,
+			p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
+			p.CreatedAt, p.UpdatedAt,
+		); err != nil {
+			return fmt.Errorf("insert proposal: %w", err)
+		}
+
+		for _, doc := range docs {
+			if _, err := tx.ExecContext(ctx, queryInsertProposalDocument,
+				doc.ID, doc.ProposalID, doc.Filename, doc.URL, doc.Size, doc.MimeType, doc.CreatedAt,
+			); err != nil {
+				return fmt.Errorf("insert document: %w", err)
+			}
+		}
+
+		for _, m := range milestones {
+			if _, err := tx.ExecContext(ctx, queryInsertMilestone,
+				m.ID, m.ProposalID, m.Sequence, m.Title, m.Description, m.Amount, m.Deadline,
+				string(m.Status), m.Version,
+				m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
+				m.DisputedAt, m.CancelledAt,
+				m.ActiveDisputeID, m.LastDisputeID,
+				m.CreatedAt, m.UpdatedAt,
+			); err != nil {
+				return fmt.Errorf("insert milestone: %w", err)
+			}
+		}
+		return nil
+	}
+
+	if r.txRunner != nil {
+		orgID, err := r.resolveProposalOrgs(ctx, p.ClientID, p.ProviderID)
+		if err != nil {
+			return err
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, insertAll)
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.ExecContext(ctx, queryInsertProposal,
-		p.ID, p.ConversationID, p.SenderID, p.RecipientID,
-		p.Title, p.Description, p.Amount, p.Deadline,
-		string(p.Status), p.ParentID, p.Version,
-		p.ClientID, p.ProviderID, p.Metadata,
-		p.ActiveDisputeID, p.LastDisputeID,
-		p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
-		p.CreatedAt, p.UpdatedAt,
-	); err != nil {
-		return fmt.Errorf("insert proposal: %w", err)
+	if err := insertAll(tx); err != nil {
+		return err
 	}
-
-	for _, doc := range docs {
-		if _, err := tx.ExecContext(ctx, queryInsertProposalDocument,
-			doc.ID, doc.ProposalID, doc.Filename, doc.URL, doc.Size, doc.MimeType, doc.CreatedAt,
-		); err != nil {
-			return fmt.Errorf("insert document: %w", err)
-		}
-	}
-
-	for _, m := range milestones {
-		if _, err := tx.ExecContext(ctx, queryInsertMilestone,
-			m.ID, m.ProposalID, m.Sequence, m.Title, m.Description, m.Amount, m.Deadline,
-			string(m.Status), m.Version,
-			m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
-			m.DisputedAt, m.CancelledAt,
-			m.ActiveDisputeID, m.LastDisputeID,
-			m.CreatedAt, m.UpdatedAt,
-		); err != nil {
-			return fmt.Errorf("insert milestone: %w", err)
-		}
-	}
-
 	return tx.Commit()
 }
 
+// GetByID returns a proposal by id WITHOUT installing tenant context.
+// Under prod NOSUPERUSER NOBYPASSRLS this returns ErrProposalNotFound
+// for any caller that didn't pre-set app.current_org_id (which the
+// repo cannot do here without knowing the caller's org).
+//
+// New callers should use GetByIDForOrg(id, callerOrgID) instead. The
+// legacy GetByID is preserved for system-actor scheduler paths
+// (AutoApproveMilestone, AutoCloseProposal) which run with a
+// privileged DB connection in production OR via a two-step approach
+// (read row then re-read inside tenant tx).
 func (r *ProposalRepository) GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error) {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
@@ -118,6 +228,44 @@ func (r *ProposalRepository) GetByID(ctx context.Context, id uuid.UUID) (*propos
 		return nil, fmt.Errorf("get proposal by id: %w", err)
 	}
 
+	return p, nil
+}
+
+// GetByIDForOrg returns a proposal by id under the caller's org tenant
+// context. Use this entry point whenever an authenticated org member
+// (client or provider side) reads a proposal — RLS will admit the row
+// only if the caller's org is one of the proposal's two stakeholder
+// orgs.
+func (r *ProposalRepository) GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*proposal.Proposal, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	var p *proposal.Proposal
+	doRead := func(runner sqlQuerier) error {
+		got, err := scanProposal(runner.QueryRowContext(ctx, queryGetProposalByID, id))
+		if errors.Is(err, sql.ErrNoRows) {
+			return proposal.ErrProposalNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("get proposal by id: %w", err)
+		}
+		p = got
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, callerOrgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doRead(tx)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	}
+
+	if err := doRead(r.db); err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -151,24 +299,54 @@ func (r *ProposalRepository) Update(ctx context.Context, p *proposal.Proposal) e
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, queryUpdateProposal,
-		p.ID, string(p.Status),
-		p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
-		p.Metadata, p.ActiveDisputeID, p.LastDisputeID, p.UpdatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("update proposal: %w", err)
+	doUpdate := func(runner sqlExecutor) error {
+		result, err := runner.ExecContext(ctx, queryUpdateProposal,
+			p.ID, string(p.Status),
+			p.AcceptedAt, p.DeclinedAt, p.PaidAt, p.CompletedAt,
+			p.Metadata, p.ActiveDisputeID, p.LastDisputeID, p.UpdatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("update proposal: %w", err)
+		}
+
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("check rows affected: %w", err)
+		}
+		if rows == 0 {
+			return proposal.ErrProposalNotFound
+		}
+		return nil
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("check rows affected: %w", err)
-	}
-	if rows == 0 {
-		return proposal.ErrProposalNotFound
+	if r.txRunner != nil {
+		// Two-step: first SELECT the row's stakeholder orgs via the
+		// legacy db connection (this works because every caller of
+		// Update already holds the proposal's id from a prior read), then
+		// open a tenant tx with the client side org and run the UPDATE.
+		var clientOrg, providerOrg uuid.NullUUID
+		err := r.db.QueryRowContext(ctx,
+			`SELECT client_organization_id, provider_organization_id
+			 FROM proposals WHERE id = $1`, p.ID,
+		).Scan(&clientOrg, &providerOrg)
+		if errors.Is(err, sql.ErrNoRows) {
+			return proposal.ErrProposalNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("update proposal: lookup orgs: %w", err)
+		}
+		orgID := uuid.Nil
+		if clientOrg.Valid {
+			orgID = clientOrg.UUID
+		} else if providerOrg.Valid {
+			orgID = providerOrg.UUID
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doUpdate(tx)
+		})
 	}
 
-	return nil
+	return doUpdate(r.db)
 }
 
 func (r *ProposalRepository) GetLatestVersion(ctx context.Context, rootProposalID uuid.UUID) (*proposal.Proposal, error) {
@@ -207,25 +385,50 @@ func (r *ProposalRepository) ListActiveProjectsByOrganization(ctx context.Contex
 		limit = 20
 	}
 
-	var rows *sql.Rows
-	var err error
+	var results []*proposal.Proposal
+	var nextCursor string
 
-	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListActiveProjectsByOrgFirst, orgID, limit+1)
-	} else {
-		c, cErr := cursor.Decode(cursorStr)
-		if cErr != nil {
-			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+	doQuery := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var err error
+		if cursorStr == "" {
+			rows, err = runner.QueryContext(ctx, queryListActiveProjectsByOrgFirst, orgID, limit+1)
+		} else {
+			c, cErr := cursor.Decode(cursorStr)
+			if cErr != nil {
+				return fmt.Errorf("decode cursor: %w", cErr)
+			}
+			rows, err = runner.QueryContext(ctx, queryListActiveProjectsByOrgWithCursor,
+				orgID, c.CreatedAt, c.ID, limit+1)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListActiveProjectsByOrgWithCursor,
-			orgID, c.CreatedAt, c.ID, limit+1)
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("list active projects by organization: %w", err)
-	}
-	defer rows.Close()
+		if err != nil {
+			return fmt.Errorf("list active projects by organization: %w", err)
+		}
+		defer rows.Close()
 
-	return scanProposalListWithCursor(rows, limit)
+		out, nc, err := scanProposalListWithCursor(rows, limit)
+		if err != nil {
+			return err
+		}
+		results = out
+		nextCursor = nc
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doQuery(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return results, nextCursor, nil
+	}
+
+	if err := doQuery(r.db); err != nil {
+		return nil, "", err
+	}
+	return results, nextCursor, nil
 }
 
 func (r *ProposalRepository) ListCompletedByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*proposal.Proposal, string, error) {
@@ -236,25 +439,50 @@ func (r *ProposalRepository) ListCompletedByOrganization(ctx context.Context, or
 		limit = 20
 	}
 
-	var rows *sql.Rows
-	var err error
+	var results []*proposal.Proposal
+	var nextCursor string
 
-	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, queryListCompletedByOrgFirst, orgID, limit+1)
-	} else {
-		c, cErr := cursor.Decode(cursorStr)
-		if cErr != nil {
-			return nil, "", fmt.Errorf("decode cursor: %w", cErr)
+	doQuery := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var err error
+		if cursorStr == "" {
+			rows, err = runner.QueryContext(ctx, queryListCompletedByOrgFirst, orgID, limit+1)
+		} else {
+			c, cErr := cursor.Decode(cursorStr)
+			if cErr != nil {
+				return fmt.Errorf("decode cursor: %w", cErr)
+			}
+			rows, err = runner.QueryContext(ctx, queryListCompletedByOrgWithCursor,
+				orgID, c.CreatedAt, c.ID, limit+1)
 		}
-		rows, err = r.db.QueryContext(ctx, queryListCompletedByOrgWithCursor,
-			orgID, c.CreatedAt, c.ID, limit+1)
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("list completed by organization: %w", err)
-	}
-	defer rows.Close()
+		if err != nil {
+			return fmt.Errorf("list completed by organization: %w", err)
+		}
+		defer rows.Close()
 
-	return scanCompletedProposalListWithCursor(rows, limit)
+		out, nc, err := scanCompletedProposalListWithCursor(rows, limit)
+		if err != nil {
+			return err
+		}
+		results = out
+		nextCursor = nc
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, orgID, uuid.Nil, func(tx *sql.Tx) error {
+			return doQuery(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return results, nextCursor, nil
+	}
+
+	if err := doQuery(r.db); err != nil {
+		return nil, "", err
+	}
+	return results, nextCursor, nil
 }
 
 func (r *ProposalRepository) GetDocuments(ctx context.Context, proposalID uuid.UUID) ([]*proposal.ProposalDocument, error) {

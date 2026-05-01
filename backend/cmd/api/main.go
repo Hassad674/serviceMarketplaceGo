@@ -134,7 +134,13 @@ func main() {
 	organizationRepo := postgres.NewOrganizationRepository(db, jobdomain.WeeklyQuota)
 	organizationMemberRepo := postgres.NewOrganizationMemberRepository(db)
 	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
+	// BUG-NEW-04 path 2/8: audit_logs is RLS-protected by migration 125
+	// (USING user_id = current_setting('app.current_user_id', true)).
+	// Migration 129 added WITH CHECK (true) so INSERTs pass even without
+	// context, but the explicit txRunner wrap keeps parity with the rest
+	// of the RLS migration and makes the read paths usable when the prod
+	// DB role rotates to NOSUPERUSER NOBYPASSRLS.
+	auditRepo := postgres.NewAuditRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	moderationResultsRepo := postgres.NewModerationResultsRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
@@ -248,13 +254,26 @@ func main() {
 	})
 
 	// Proposal
-	proposalRepo := postgres.NewProposalRepository(db)
+	// BUG-NEW-04 path 4/8: proposals is RLS-protected by migration 125
+	// (USING client_organization_id = current_org OR provider_organization_id
+	// = current_org). The txRunner wrap makes Create / Update /
+	// GetByIDForOrg / List* pass under prod NOSUPERUSER NOBYPASSRLS.
+	// Legacy GetByID stays for system-actor scheduler paths that run
+	// with a privileged DB connection.
+	proposalRepo := postgres.NewProposalRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 
 	// Milestone — per-step funding/delivery sub-aggregate of a proposal.
 	// The proposal app service consumes milestoneSvc to delegate the
 	// Fund/Submit/Approve/Release transitions, and the dispute service
 	// (phase 8) delegates OpenDispute/RestoreFromDispute to it as well.
-	milestoneRepo := postgres.NewMilestoneRepository(db)
+	// BUG-NEW-04 path 5/8: proposal_milestones is RLS-protected by
+	// migration 125 — milestones inherit security from the parent
+	// proposal via a JOIN on the policy. The txRunner wrap makes
+	// CreateBatch / Update / GetByIDForOrg / ListByProposalForOrg pass
+	// under prod NOSUPERUSER NOBYPASSRLS. Each operation resolves the
+	// parent proposal's stakeholder org via a defensive lookup before
+	// opening the tenant tx.
+	milestoneRepo := postgres.NewMilestoneRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	milestoneSvc := milestoneapp.NewService(milestoneapp.ServiceDeps{
 		Milestones: milestoneRepo,
 	})
@@ -359,7 +378,14 @@ func main() {
 	}
 
 	// Payment records (custom KYC repos removed — see migration 040/041)
-	paymentRecordRepo := postgres.NewPaymentRecordRepository(db)
+	// BUG-NEW-04 path 7/8: payment_records is RLS-protected by migration
+	// 125 (USING organization_id = current_setting('app.current_org_id',
+	// true)). The txRunner wrap makes Create / Update / GetByIDForOrg /
+	// ListByOrganization pass under prod NOSUPERUSER NOBYPASSRLS. The
+	// client's org (resolved from organization_members at INSERT time)
+	// is the access boundary; provider-side reads of money received go
+	// through the tenant-isolated proposal path instead.
+	paymentRecordRepo := postgres.NewPaymentRecordRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 
 	// Push notification service (optional — only when FCM is configured)
 	// FCM push notifications are optional — the backend starts with pushSvc
@@ -383,7 +409,14 @@ func main() {
 	}
 
 	// Notification feature
-	notifRepo := postgres.NewNotificationRepository(db)
+	//
+	// BUG-NEW-04 path 1/8: notifications is RLS-protected by migration
+	// 125 with the policy
+	//   USING (user_id = current_setting('app.current_user_id', true)::uuid)
+	// Production rotates the application DB role to NOSUPERUSER
+	// NOBYPASSRLS — without the txRunner wrap, INSERTs into notifications
+	// are rejected and SELECT/UPDATE/DELETE silently return 0 rows.
+	notifRepo := postgres.NewNotificationRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	notifQueue := redisadapter.NewNotificationJobQueue(redisClient, sourceID)
 	if err := notifQueue.EnsureGroup(context.Background()); err != nil {
 		slog.Error("failed to create notification job group", "error", err)
@@ -1344,7 +1377,16 @@ func main() {
 			if pdfErr != nil {
 				slog.Warn("invoicing feature disabled (pdf renderer init failed)", "error", pdfErr)
 			} else {
-				invoiceRepo := postgres.NewInvoiceRepository(db)
+				// BUG-NEW-04 path 3/8: invoice is RLS-protected by migration
+				// 125 (USING recipient_organization_id = current_setting(
+				// 'app.current_org_id', true)). The txRunner wrap makes
+				// CreateInvoice / MarkInvoiceCredited / ListInvoicesByOrganization
+				// / FindInvoiceByIDForOrg pass under prod NOSUPERUSER NOBYPASSRLS.
+				// Stripe webhook lookups (idempotency by stripe_event_id)
+				// stay on the legacy direct-db path — production must keep
+				// that handler on a privileged DB role. Documented in the
+				// repo docstring.
+				invoiceRepo := postgres.NewInvoiceRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 				billingProfileRepo := postgres.NewBillingProfileRepository(db)
 				invoiceDeliverer := emailadapter.NewDeliverer(emailSvc)
 				invoiceIdempotency := redisadapter.NewWebhookIdempotencyStore(
@@ -1404,7 +1446,15 @@ func main() {
 	}
 
 	// Dispute feature
-	disputeRepo := postgres.NewDisputeRepository(db)
+	// BUG-NEW-04 path 6/8: disputes is RLS-protected by migration 125
+	// (USING client_organization_id = current_org OR provider_organization_id
+	// = current_org). The txRunner wrap makes Create / Update /
+	// GetByIDForOrg / ListByOrganization pass under prod NOSUPERUSER
+	// NOBYPASSRLS. Sub-tables (dispute_evidence, dispute_counter_proposals,
+	// dispute_ai_chat_messages) are NOT directly RLS-protected so they
+	// stay on the legacy direct-db path; the application-level
+	// authorization layer enforces access through the parent dispute.
+	disputeRepo := postgres.NewDisputeRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	var aiAnalyzer service.AIAnalyzer
 	if cfg.AnthropicAPIKey != "" {
 		aiAnalyzer = anthropicadapter.NewAnalyzer(cfg.AnthropicAPIKey)
