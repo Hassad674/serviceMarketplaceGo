@@ -238,3 +238,119 @@ The test is running as a superuser (the default `postgres` connection
 from `MARKETPLACE_TEST_DATABASE_URL` is usually `postgres`). Use
 `SET LOCAL ROLE marketplace_rls_test` inside the test transaction to
 drop the superuser bit. See `rls_isolation_test.go` for the pattern.
+
+## System-actor caller pattern
+
+Some code paths legitimately need to read RLS-protected rows
+without an authenticated user / tenant context: the proposal
+scheduler (auto-approve / fund-reminder / auto-close), the
+dispute scheduler (auto-resolve / escalate), the Stripe webhook
+reconciler, the admin force-activate / force-escalate / AI
+chat / resolve endpoints, and the referral cross-tenant
+aggregator. These callers cannot satisfy the
+`current_setting('app.current_org_id')` policy filter because
+they touch rows owned by multiple orgs in sequence.
+
+### Boundary marker
+
+Every system-actor entry point tags its context with
+`system.WithSystemActor(ctx)` from `backend/internal/system`:
+
+```go
+import "marketplace-backend/internal/system"
+
+// Scheduler goroutine entry point.
+go disputeScheduler.Run(system.WithSystemActor(ctx), interval)
+
+// HTTP handler that runs on behalf of an admin (not the tenant).
+func (h *AdminHandler) ResolveDispute(w http.ResponseWriter, r *http.Request) {
+    ctx := system.WithSystemActor(r.Context())
+    h.svc.AdminResolve(ctx, ...)
+}
+```
+
+User-facing app services then branch on the marker when reading
+RLS-protected rows:
+
+```go
+func (s *Service) loadDisputeForActor(ctx context.Context, id uuid.UUID) (*dispute.Dispute, error) {
+    if system.IsSystemActor(ctx) {
+        return s.disputes.GetByID(ctx, id) // legacy non-tenant path
+    }
+    orgID := middleware.MustGetOrgID(ctx)
+    return s.disputes.GetByIDForOrg(ctx, id, orgID) // tenant-aware path
+}
+```
+
+### Adapter-level guard
+
+The legacy `GetByID` methods on the four RLS-protected
+adapters (proposal, dispute, milestone, payment_record) call
+`warnIfNotSystemActor(ctx, op)` as their very first line.
+Reaching `GetByID` from a non-system-actor context surfaces a
+structured WARN log line — the operator sees "unmigrated
+caller drift" in the dashboard before an outage develops.
+
+The guard is intentionally a warning, not a panic, because:
+
+- Under the migration role (BYPASSRLS) the read still works,
+  so promoting to a hard error would convert a latent
+  unmigrated caller into a 5xx.
+- Under NOSUPERUSER NOBYPASSRLS the policy filters every row
+  regardless, so the call already fails closed — the WARN
+  line just points at the right caller to fix.
+
+After the prod role rotation completes and the warn log is
+empty for a sustained period, a follow-up PR can promote the
+guard to `return ErrSystemActorOnly` for defence in depth.
+
+### Production deployment — privileged scheduler pool
+
+In production the application connects through two distinct
+DB roles, both rooted at the same Postgres cluster:
+
+| Pool | Role | Surface |
+|---|---|---|
+| `marketplace_app` | NOSUPERUSER NOBYPASSRLS | every user-facing request, every tenant-scoped repo call |
+| `marketplace_scheduler` | NOSUPERUSER **BYPASSRLS** | the pending-events worker, the dispute scheduler, the Stripe webhook reconciler, the admin override surfaces |
+
+Both roles share the same SCHEMA + GRANTS — the only
+difference is `BYPASSRLS`. The application picks the pool by
+checking `system.IsSystemActor(ctx)` at the adapter boundary
+(today the boundary marker is in place; the dual-pool wiring
+lands in a follow-up infra PR).
+
+Why two roles instead of one: a scheduler that runs as
+NOBYPASSRLS would need to read proposals across every org in
+the system, so it would either have to set the org context
+inside every read (impossible — it doesn't know which orgs to
+target) or leave the context unset (which the policy filters
+to zero rows). Granting BYPASSRLS to the scheduler is the
+narrowest possible escape hatch: it is OFF for every other
+caller and ON only for the explicitly-tagged system-actor
+paths.
+
+### Migration checklist for ops
+
+When rotating the prod role:
+
+1. [ ] Verify `marketplace_app` has the conditions listed in
+       "Production database user requirement" above.
+2. [ ] Verify `marketplace_scheduler` has BYPASSRLS:
+       ```sql
+       SELECT rolname, rolbypassrls FROM pg_roles
+        WHERE rolname IN ('marketplace_app', 'marketplace_scheduler');
+       -- expected: marketplace_app=f, marketplace_scheduler=t
+       ```
+3. [ ] Run `rls_caller_audit_test` against a clone of prod
+       schema to confirm every user-facing GetByIDForOrg path
+       passes:
+       ```sh
+       MARKETPLACE_TEST_DATABASE_URL=<prod-clone-dsn> \
+         go test ./internal/adapter/postgres/ -run TestRLSCallerAudit
+       ```
+4. [ ] Rotate the API process to use `marketplace_app` for the
+       primary pool.
+5. [ ] Watch the structured log stream for
+       `"non-tenant repository entry point reached without
+       system-actor tag"` WARNs — empty for ≥1h means no drift.
