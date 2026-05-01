@@ -111,7 +111,8 @@ func NewMilestone(input NewMilestoneInput) (*Milestone, error) {
 
 // NewMilestoneBatch builds a validated, atomic set of milestones for a
 // single proposal. Sequences must be consecutive starting at 1, count must
-// be between 1 and MaxMilestonesPerProposal.
+// be between 1 and MaxMilestonesPerProposal, and any deadlines provided
+// must be strictly increasing along the sequence order.
 //
 // Returning an error here guarantees the caller never sees a half-valid
 // batch. On success, all milestones are in StatusPendingFunding.
@@ -136,6 +137,14 @@ func NewMilestoneBatch(proposalID uuid.UUID, inputs []NewMilestoneInput) ([]*Mil
 		seen[in.Sequence] = struct{}{}
 	}
 
+	// Validate that any provided deadlines are strictly increasing
+	// along the sequence order. Run this check BEFORE constructing the
+	// individual milestones so the batch fails fast without leaking
+	// intermediate allocations on a clearly invalid payload.
+	if err := ValidateMilestoneDeadlineOrder(inputs); err != nil {
+		return nil, err
+	}
+
 	out := make([]*Milestone, 0, len(inputs))
 	for _, in := range inputs {
 		in.ProposalID = proposalID
@@ -146,6 +155,87 @@ func NewMilestoneBatch(proposalID uuid.UUID, inputs []NewMilestoneInput) ([]*Mil
 		out = append(out, m)
 	}
 	return out, nil
+}
+
+// ValidateMilestoneDeadlineOrder asserts that milestone deadlines are
+// strictly increasing along the sequence order. Milestones without a
+// deadline (Deadline == nil) are allowed and simply skipped — the
+// constraint only applies to deadlines that have actually been set.
+//
+// Strict ordering rationale: two milestones on the same day are rejected
+// (>, not >=). The cleanest contract is "milestone N+1 starts after
+// milestone N is due" — equality would create undefined ordering for
+// scheduler logic and the auto-funding window. The backend is the
+// canonical guard; the frontend mirrors the same rule for the picker
+// UX (min={previous + 1 day}).
+//
+// The function takes the raw NewMilestoneInput slice so it can be called
+// before any *Milestone has been allocated — the typical call site is
+// NewMilestoneBatch, but the app layer can run the same check on a
+// modify flow against the persisted slice (build a synthetic input
+// vector from the existing milestones).
+//
+// Returns ErrMilestonesNotSequential on the FIRST violation found,
+// pointing the caller at "milestone i+1 deadline must be after
+// milestone i deadline" without leaking the offending index — the
+// validation error code at the handler layer is enough for the UI to
+// surface the error inline next to the offending row.
+func ValidateMilestoneDeadlineOrder(inputs []NewMilestoneInput) error {
+	if len(inputs) < 2 {
+		return nil
+	}
+	// Sort by sequence so we walk the deadlines in sequence order
+	// regardless of the caller's input order. We use a small index
+	// permutation rather than mutating inputs to keep the function
+	// pure and side-effect free.
+	bySequence := make([]int, len(inputs))
+	for i := range inputs {
+		bySequence[i] = i
+	}
+	// Insertion sort — N <= 20 (MaxMilestonesPerProposal) so the
+	// constant overhead beats anything fancier.
+	for i := 1; i < len(bySequence); i++ {
+		for j := i; j > 0 && inputs[bySequence[j-1]].Sequence > inputs[bySequence[j]].Sequence; j-- {
+			bySequence[j-1], bySequence[j] = bySequence[j], bySequence[j-1]
+		}
+	}
+
+	var prev *time.Time
+	for _, idx := range bySequence {
+		curr := inputs[idx].Deadline
+		if curr == nil {
+			continue
+		}
+		if prev != nil && !curr.After(*prev) {
+			return ErrMilestonesNotSequential
+		}
+		prev = curr
+	}
+	return nil
+}
+
+// ValidateMilestonesAgainstProjectDeadline asserts that no milestone in
+// the batch has a deadline past the proposal-level overall deadline.
+// Skips when projectDeadline is nil (project has no overall deadline)
+// or when an individual milestone has no deadline.
+//
+// Same-day equality is allowed here (<=), since the project deadline
+// is the natural last day a milestone can be due. The strict-after
+// rule lives between consecutive milestones, not between a milestone
+// and the project bound.
+func ValidateMilestonesAgainstProjectDeadline(inputs []NewMilestoneInput, projectDeadline *time.Time) error {
+	if projectDeadline == nil {
+		return nil
+	}
+	for _, in := range inputs {
+		if in.Deadline == nil {
+			continue
+		}
+		if in.Deadline.After(*projectDeadline) {
+			return ErrMilestoneDeadlineAfterProject
+		}
+	}
+	return nil
 }
 
 // Fund transitions pending_funding -> funded. Called after the Stripe

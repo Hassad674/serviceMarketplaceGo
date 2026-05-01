@@ -8,7 +8,11 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import type { ProposalFormData, MilestoneFormItem } from "../types"
-import { createEmptyProposalForm, sumMilestoneAmounts } from "../types"
+import {
+  createEmptyProposalForm,
+  sumMilestoneAmounts,
+  validateMilestoneDeadlines,
+} from "../types"
 import { ProposalPreview } from "./proposal-preview"
 import { FileDropZone } from "./file-drop-zone"
 import { PaymentModeToggle } from "./payment-mode-toggle"
@@ -103,7 +107,17 @@ export function CreateProposalPage() {
         if (m.description.trim().length === 0) return false
         if (Number(m.amount) <= 0) return false
       }
-      return sumMilestoneAmounts(formData.milestones) > 0
+      if (sumMilestoneAmounts(formData.milestones) <= 0) return false
+      // Block submission while the deadline sequence is invalid —
+      // mirrors the backend's strict-after rule. The MilestoneEditor
+      // surfaces the per-row error inline so the user can see WHICH
+      // row is wrong, but here we just need a global yes/no.
+      const dlErrors = validateMilestoneDeadlines(
+        formData.milestones,
+        formData.deadline || undefined,
+      )
+      if (Object.keys(dlErrors).length > 0) return false
+      return true
     }
     // One-time mode: a single positive amount.
     return Number(formData.amount) > 0
@@ -378,6 +392,7 @@ export function CreateProposalPage() {
                   updateField("milestones", milestones)
                 }
                 disabled={isSubmitting}
+                projectDeadline={formData.deadline || undefined}
               />
             )}
 

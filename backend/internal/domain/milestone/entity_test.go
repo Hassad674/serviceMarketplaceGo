@@ -614,3 +614,208 @@ func TestAnyFunded(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Deadline ordering tests (bug fix: milestone N+1 must come strictly after N)
+// ---------------------------------------------------------------------------
+
+// dl is a tiny helper to build a *time.Time for a given YYYY-MM-DD.
+func dl(t *testing.T, ymd string) *time.Time {
+	t.Helper()
+	parsed, err := time.Parse("2006-01-02", ymd)
+	if err != nil {
+		t.Fatalf("dl(%q): %v", ymd, err)
+	}
+	return &parsed
+}
+
+func TestValidateMilestoneDeadlineOrder_TableDriven(t *testing.T) {
+	cases := []struct {
+		name    string
+		inputs  []milestone.NewMilestoneInput
+		wantErr error
+	}{
+		{
+			name:    "empty list is allowed",
+			inputs:  nil,
+			wantErr: nil,
+		},
+		{
+			name: "single milestone is allowed",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-07")},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "single milestone without deadline is allowed",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "valid increasing sequence",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-07")},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: dl(t, "2026-05-14")},
+				{Sequence: 3, Title: "c", Description: "c", Amount: 100, Deadline: dl(t, "2026-05-28")},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "two milestones on the same day are rejected (strict-after)",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-07")},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: dl(t, "2026-05-07")},
+			},
+			wantErr: milestone.ErrMilestonesNotSequential,
+		},
+		{
+			name: "out-of-order pair (the reported bug)",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-07")},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: dl(t, "2026-05-06")},
+			},
+			wantErr: milestone.ErrMilestonesNotSequential,
+		},
+		{
+			name: "three milestones with middle out of order",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-01")},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: dl(t, "2026-04-25")},
+				{Sequence: 3, Title: "c", Description: "c", Amount: 100, Deadline: dl(t, "2026-05-10")},
+			},
+			wantErr: milestone.ErrMilestonesNotSequential,
+		},
+		{
+			name: "nil deadlines are skipped, the set ones must still be ordered",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-01")},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: nil},
+				{Sequence: 3, Title: "c", Description: "c", Amount: 100, Deadline: dl(t, "2026-05-10")},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "all nil deadlines pass",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100},
+				{Sequence: 3, Title: "c", Description: "c", Amount: 100},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "ordering enforced even when caller passes inputs out of sequence order",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: dl(t, "2026-05-06")},
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-07")},
+			},
+			wantErr: milestone.ErrMilestonesNotSequential,
+		},
+		{
+			name: "sparse deadlines: nil between two strictly-decreasing should still fail",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-10")},
+				{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: nil},
+				{Sequence: 3, Title: "c", Description: "c", Amount: 100, Deadline: dl(t, "2026-05-05")},
+			},
+			wantErr: milestone.ErrMilestonesNotSequential,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := milestone.ValidateMilestoneDeadlineOrder(c.inputs)
+			if c.wantErr == nil {
+				if err != nil {
+					t.Errorf("err = %v, want nil", err)
+				}
+				return
+			}
+			if !errors.Is(err, c.wantErr) {
+				t.Errorf("err = %v, want %v", err, c.wantErr)
+			}
+		})
+	}
+}
+
+func TestNewMilestoneBatch_RejectsBadDeadlineOrder(t *testing.T) {
+	// Verify the validation is wired through NewMilestoneBatch — the
+	// realistic call site that the proposal app service uses.
+	inputs := []milestone.NewMilestoneInput{
+		{Sequence: 1, Title: "a", Description: "a", Amount: 100, Deadline: dl(t, "2026-05-07")},
+		{Sequence: 2, Title: "b", Description: "b", Amount: 100, Deadline: dl(t, "2026-05-06")},
+	}
+	_, err := milestone.NewMilestoneBatch(uuid.New(), inputs)
+	if !errors.Is(err, milestone.ErrMilestonesNotSequential) {
+		t.Errorf("err = %v, want ErrMilestonesNotSequential", err)
+	}
+}
+
+func TestValidateMilestonesAgainstProjectDeadline(t *testing.T) {
+	cases := []struct {
+		name        string
+		inputs      []milestone.NewMilestoneInput
+		projectDead *time.Time
+		wantErr     error
+	}{
+		{
+			name:        "no project deadline -> always passes",
+			inputs:      []milestone.NewMilestoneInput{{Sequence: 1, Deadline: dl(t, "2030-01-01")}},
+			projectDead: nil,
+			wantErr:     nil,
+		},
+		{
+			name: "all milestones before project deadline pass",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Deadline: dl(t, "2026-05-07")},
+				{Sequence: 2, Deadline: dl(t, "2026-05-14")},
+			},
+			projectDead: dl(t, "2026-06-01"),
+			wantErr:     nil,
+		},
+		{
+			name: "milestone equal to project deadline is allowed",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Deadline: dl(t, "2026-05-07")},
+				{Sequence: 2, Deadline: dl(t, "2026-06-01")},
+			},
+			projectDead: dl(t, "2026-06-01"),
+			wantErr:     nil,
+		},
+		{
+			name: "milestone after project deadline is rejected",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Deadline: dl(t, "2026-05-07")},
+				{Sequence: 2, Deadline: dl(t, "2026-07-01")},
+			},
+			projectDead: dl(t, "2026-06-01"),
+			wantErr:     milestone.ErrMilestoneDeadlineAfterProject,
+		},
+		{
+			name: "milestone with nil deadline is skipped",
+			inputs: []milestone.NewMilestoneInput{
+				{Sequence: 1, Deadline: nil},
+				{Sequence: 2, Deadline: dl(t, "2026-05-30")},
+			},
+			projectDead: dl(t, "2026-06-01"),
+			wantErr:     nil,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := milestone.ValidateMilestonesAgainstProjectDeadline(c.inputs, c.projectDead)
+			if c.wantErr == nil {
+				if err != nil {
+					t.Errorf("err = %v, want nil", err)
+				}
+				return
+			}
+			if !errors.Is(err, c.wantErr) {
+				t.Errorf("err = %v, want %v", err, c.wantErr)
+			}
+		})
+	}
+}

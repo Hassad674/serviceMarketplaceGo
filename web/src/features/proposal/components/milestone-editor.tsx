@@ -3,17 +3,25 @@
 import { Plus, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
-import type { MilestoneFormItem } from "../types"
+import type { MilestoneDeadlineErrorKey, MilestoneFormItem } from "../types"
 import {
   MAX_MILESTONES_PER_PROPOSAL,
   createEmptyMilestoneItem,
+  minDateForMilestone,
   sumMilestoneAmounts,
+  validateMilestoneDeadlines,
 } from "../types"
 
 type MilestoneEditorProps = {
   milestones: MilestoneFormItem[]
   onChange: (milestones: MilestoneFormItem[]) => void
   disabled?: boolean
+  /**
+   * Optional proposal-level deadline (YYYY-MM-DD). When provided, every
+   * milestone deadline must be ≤ projectDeadline — the editor surfaces
+   * the violation inline next to the offending row.
+   */
+  projectDeadline?: string
 }
 
 /**
@@ -34,6 +42,7 @@ export function MilestoneEditor({
   milestones,
   onChange,
   disabled = false,
+  projectDeadline,
 }: MilestoneEditorProps) {
   const t = useTranslations("proposal.milestoneEditor")
 
@@ -56,6 +65,12 @@ export function MilestoneEditor({
   const totalEuros = (totalCents / 100).toFixed(2)
   const canAddMore = milestones.length < MAX_MILESTONES_PER_PROPOSAL
 
+  // Compute the per-row deadline errors once per render so each
+  // MilestoneRow doesn't have to redo the full O(N) walk for every
+  // input event. Sparse map: only offending indexes appear.
+  const deadlineErrors = validateMilestoneDeadlines(milestones, projectDeadline)
+  const todayIso = new Date().toISOString().split("T")[0]
+
   return (
     <div className="space-y-4" id="payment-mode-panel-milestone">
       <div className="flex items-baseline justify-between">
@@ -77,6 +92,9 @@ export function MilestoneEditor({
             canRemove={milestones.length > 1}
             onChange={(patch) => updateAt(index, patch)}
             onRemove={() => removeAt(index)}
+            minDate={minDateForMilestone(milestones, index, todayIso)}
+            maxDate={projectDeadline}
+            deadlineError={deadlineErrors[index]}
           />
         ))}
       </div>
@@ -122,6 +140,12 @@ type MilestoneRowProps = {
   canRemove: boolean
   onChange: (patch: Partial<MilestoneFormItem>) => void
   onRemove: () => void
+  /** YYYY-MM-DD lower bound for the date picker. */
+  minDate: string
+  /** YYYY-MM-DD upper bound for the date picker (project deadline). */
+  maxDate?: string
+  /** Inline error for the deadline field, or undefined when valid. */
+  deadlineError?: MilestoneDeadlineErrorKey
 }
 
 function MilestoneRow({
@@ -131,9 +155,11 @@ function MilestoneRow({
   canRemove,
   onChange,
   onRemove,
+  minDate,
+  maxDate,
+  deadlineError,
 }: MilestoneRowProps) {
   const t = useTranslations("proposal.milestoneEditor")
-  const todayIso = new Date().toISOString().split("T")[0]
 
   return (
     <div
@@ -227,21 +253,40 @@ function MilestoneRow({
               aria-label={`${t("milestone")} ${sequence} ${t("amountAriaLabel")}`}
             />
           </div>
-          <input
-            type="date"
-            value={milestone.deadline}
-            min={todayIso}
-            onChange={(e) => onChange({ deadline: e.target.value })}
-            disabled={disabled}
-            className={cn(
-              "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm",
-              "shadow-xs transition-all duration-200",
-              "text-gray-700 dark:text-gray-300",
-              "focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10 focus:outline-none",
-              "dark:border-gray-700 dark:bg-gray-900",
+          <div>
+            <input
+              type="date"
+              value={milestone.deadline}
+              min={minDate}
+              max={maxDate}
+              onChange={(e) => onChange({ deadline: e.target.value })}
+              disabled={disabled}
+              aria-invalid={deadlineError ? "true" : "false"}
+              aria-describedby={
+                deadlineError ? `milestone-${sequence}-deadline-error` : undefined
+              }
+              className={cn(
+                "h-10 w-full rounded-lg border bg-white px-3 text-sm",
+                "shadow-xs transition-all duration-200",
+                "text-gray-700 dark:text-gray-300",
+                "focus:ring-4 focus:outline-none",
+                deadlineError
+                  ? "border-red-500 focus:border-red-500 focus:ring-red-500/10 dark:border-red-500"
+                  : "border-gray-200 focus:border-rose-500 focus:ring-rose-500/10 dark:border-gray-700",
+                "dark:bg-gray-900",
+              )}
+              aria-label={`${t("milestone")} ${sequence} ${t("deadlineAriaLabel")}`}
+            />
+            {deadlineError && (
+              <p
+                id={`milestone-${sequence}-deadline-error`}
+                role="alert"
+                className="mt-1 text-xs text-red-600 dark:text-red-400"
+              >
+                {t(`error.${deadlineError}`)}
+              </p>
             )}
-            aria-label={`${t("milestone")} ${sequence} ${t("deadlineAriaLabel")}`}
-          />
+          </div>
         </div>
       </div>
     </div>
