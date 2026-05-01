@@ -91,6 +91,9 @@ function PhotoPreview({ photoUrl }: PhotoPreviewProps) {
   }
   return (
     <div className="w-20 h-20 rounded-full bg-muted overflow-hidden border border-border">
+      {/* Plain <img>: photoUrl is the freshly uploaded MinIO key, which the
+          Next image optimizer routinely rejects across dev restarts. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photoUrl}
         alt=""

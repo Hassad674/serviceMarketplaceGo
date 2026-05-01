@@ -128,7 +128,6 @@ export function SearchPageLayout(props: SearchPageLayoutProps) {
     // UI-only filter wiring today — the backend does not accept
     // these parameters yet, so clicking Apply just closes the mobile
     // drawer. When Typesense lands this becomes a query invalidation.
-    // eslint-disable-next-line no-console
     console.debug("search filters applied", { filters, sort })
     setDrawerOpen(false)
   }

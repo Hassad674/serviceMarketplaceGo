@@ -96,6 +96,7 @@ export function ProfileHeader({
                 )}
               >
                 {profile?.photo_url && !photoError ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- profile photo is a MinIO URL, see file-level note
                   <img
                     src={profile.photo_url}
                     alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
@@ -121,6 +122,7 @@ export function ProfileHeader({
                 aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
               >
                 {profile?.photo_url && !photoError ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- profile photo is a MinIO URL, see file-level note
                   <img
                     src={profile.photo_url}
                     alt={t("imageAlt", { imageType: imageLabel, name: displayName })}

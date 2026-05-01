@@ -111,6 +111,7 @@ function PhotoBlock({
 
   const inner =
     photoUrl && !errored ? (
+      // eslint-disable-next-line @next/next/no-img-element -- photo is a MinIO URL, see provider profile-header.tsx
       <img
         src={photoUrl}
         alt={photoAlt}

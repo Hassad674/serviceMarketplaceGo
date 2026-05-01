@@ -64,7 +64,12 @@ export function MessagingPage() {
 
   const queryClient = useQueryClient()
 
-  const conversations = conversationsData?.data ?? []
+  // Memo'd so the empty-array fallback keeps a stable identity and the
+  // downstream useEffect/useCallback dep arrays don't churn.
+  const conversations = useMemo(
+    () => conversationsData?.data ?? [],
+    [conversationsData?.data],
+  )
   const activeConversation = conversations.find(
     (c: Conversation) => c.id === activeId,
   )
@@ -79,9 +84,14 @@ export function MessagingPage() {
   // Backend returns messages in DESC order (newest first) for cursor pagination.
   // We reverse pages and each page's data to get chronological order
   // (oldest at top, newest at bottom) for display.
-  const allMessages = messagesQuery.data
-    ? [...messagesQuery.data.pages].reverse().flatMap((page) => [...page.data].reverse())
-    : []
+  // Memo'd by the underlying pages reference so downstream useMemo dep
+  // arrays don't churn on every parent render.
+  const allMessages = useMemo(() => {
+    if (!messagesQuery.data) return []
+    return [...messagesQuery.data.pages]
+      .reverse()
+      .flatMap((page) => [...page.data].reverse())
+  }, [messagesQuery.data])
 
   // Deep-link from query param is now handled entirely via lazy state
   // initializers above (activeId + mobileView read searchParams.get("id")

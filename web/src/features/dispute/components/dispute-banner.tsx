@@ -2,6 +2,7 @@
 
 import { ShieldAlert, Clock, CheckCircle2, XCircle, ArrowRight, Ban } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { useMemo } from "react"
 
 import type { DisputeResponse } from "../types"
 
@@ -37,7 +38,10 @@ export function DisputeBanner({
   const t = useTranslations("disputes")
   const config = STATUS_CONFIG[dispute.status]
   const Icon = config.icon
-  const daysElapsed = Math.floor((Date.now() - new Date(dispute.created_at).getTime()) / (1000 * 60 * 60 * 24))
+  const daysElapsed = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity -- static counter materialised at mount
+    return Math.floor((Date.now() - new Date(dispute.created_at).getTime()) / (1000 * 60 * 60 * 24))
+  }, [dispute.created_at])
   const daysLeft = Math.max(0, 7 - daysElapsed)
 
   const lastCP = dispute.counter_proposals

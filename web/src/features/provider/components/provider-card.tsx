@@ -84,6 +84,7 @@ export function ProviderCard({ profile, type }: ProviderCardProps) {
         {/* Avatar */}
         <div className="shrink-0">
           {profile.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element -- avatar is a MinIO URL
             <img
               src={profile.photo_url}
               alt={profile.name}

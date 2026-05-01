@@ -259,6 +259,7 @@ export function UploadModal({
           <div className="border border-border rounded-lg p-4">
             {isImage && previewUrl ? (
               <div className="relative mb-3">
+                {/* eslint-disable-next-line @next/next/no-img-element -- previewUrl is a blob: URL */}
                 <img
                   src={previewUrl}
                   alt={tCommon("previewFile")}

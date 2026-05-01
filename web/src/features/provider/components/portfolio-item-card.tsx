@@ -41,8 +41,11 @@ export function PortfolioItemCard({
       className="group relative aspect-[4/5] cursor-pointer overflow-hidden rounded-2xl bg-slate-900 shadow-sm transition-all duration-300 ease-out hover:shadow-xl hover:-translate-y-1"
       onClick={onView}
     >
-      {/* Cover — custom thumbnail (videos) > image > video first frame > placeholder */}
+      {/* Cover — custom thumbnail (videos) > image > video first frame > placeholder.
+          Plain <img> for both branches: portfolio media is a MinIO URL,
+          see profile-header.tsx for the rationale. */}
       {coverIsVideo && cover?.thumbnail_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={cover.thumbnail_url}
           alt={item.title}
@@ -57,6 +60,7 @@ export function PortfolioItemCard({
           className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
         />
       ) : cover?.media_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={cover.media_url}
           alt={item.title}

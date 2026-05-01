@@ -320,7 +320,6 @@ function PaymentStep({
     // EmbeddedCheckoutProvider also gets a fresh React key once the
     // new secret arrives (see `key={clientSecret}` below), guaranteeing
     // the iframe actually re-renders with the new price.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional reset before async fetch, see comment block above the effect
     setClientSecret(null)
     const input: SubscribeInput = {
       plan,

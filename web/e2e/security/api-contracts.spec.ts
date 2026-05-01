@@ -72,7 +72,6 @@ test.describe("BUG-19 — list endpoints return [] on empty result", () => {
       if (resp.status() !== 200) {
         // Log to test output so a regression in another endpoint
         // does not silently mask a BUG-19 regression on a 200 path.
-        // eslint-disable-next-line no-console
         console.log(`[bug-19] ${endpoint.name}: status=${resp.status()} skipped`)
         continue
       }

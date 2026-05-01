@@ -360,6 +360,7 @@ export function PortfolioFormModal({
                     {m.media_type === "video" ? (
                       <div className="relative h-full w-full bg-slate-900">
                         {m.thumbnail_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- portfolio thumbnail is a MinIO URL
                           <img
                             src={m.thumbnail_url}
                             alt={`Media ${i + 1}`}
@@ -410,6 +411,7 @@ export function PortfolioFormModal({
                         </button>
                       </div>
                     ) : (
+                      // eslint-disable-next-line @next/next/no-img-element -- portfolio media is a MinIO URL
                       <img
                         src={m.media_url}
                         alt={`Media ${i + 1}`}

@@ -188,6 +188,7 @@ export function CandidateDetailPanel({
           {/* Header: Avatar + Name + Org type + Title */}
           <div className="flex items-start gap-4">
             {profile.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- user-uploaded MinIO URL, see profile-header.tsx
               <img
                 src={profile.photo_url}
                 alt={displayName}

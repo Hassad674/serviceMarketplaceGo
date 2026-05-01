@@ -33,9 +33,11 @@ export function VoiceMessage({ metadata, isOwn }: VoiceMessageProps) {
   }, [])
 
   useEffect(() => {
+    const audio = audioRef.current
+    const anim = animRef
     return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current)
-      audioRef.current?.pause()
+      if (anim.current) cancelAnimationFrame(anim.current)
+      audio?.pause()
     }
   }, [])
 
