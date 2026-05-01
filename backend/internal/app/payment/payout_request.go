@@ -347,8 +347,13 @@ func (p *PayoutService) RetryFailedTransfer(ctx context.Context, userID, orgID, 
 // loadRetryRecord fetches the record + verifies the caller's org owns
 // the provider side. Extracted from RetryFailedTransfer so the orchestrator
 // stays under 50 lines.
+//
+// The read goes through GetByIDForOrg so RLS denies a payment
+// record owned by another tenant — the existing application-level
+// `providerOrg.ID != orgID` check below stays as the redundant
+// defense-in-depth gate.
 func (p *PayoutService) loadRetryRecord(ctx context.Context, orgID, recordID uuid.UUID) (*domain.PaymentRecord, *domainorg.Organization, error) {
-	record, err := p.records.GetByID(ctx, recordID)
+	record, err := p.records.GetByIDForOrg(ctx, recordID, orgID)
 	if err != nil {
 		// Surface "not found" with a typed sentinel so the handler can
 		// return 404 (vs. swallowing into 500). The repository returns
