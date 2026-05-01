@@ -37,6 +37,10 @@ export type CurrentUser = {
   email_verified: boolean
   kyc_status: "none" | "pending" | "restricted" | "completed"
   kyc_deadline?: string
+  /** Set when the user is in their 30-day GDPR cooldown (P5). */
+  deleted_at?: string
+  /** RFC3339 — when the cron will hard-purge if cancel does not land. */
+  hard_delete_at?: string
   created_at: string
 }
 

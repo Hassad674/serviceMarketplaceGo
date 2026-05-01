@@ -7,6 +7,8 @@ import { AccountNav } from "./account-nav"
 import { NotificationSettings } from "./notification-settings"
 import { EmailSettings } from "./email-settings"
 import { PasswordSettings } from "./password-settings"
+import { DeleteAccountCard } from "./delete-account-card"
+import { useUser } from "@/shared/hooks/use-user"
 import { DEFAULT_SECTION, VALID_SECTIONS } from "../types"
 import type { AccountSection } from "../types"
 
@@ -14,6 +16,7 @@ export function AccountSettingsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const t = useTranslations("account")
+  const { data: user } = useUser()
 
   const rawSection = searchParams.get("section") || DEFAULT_SECTION
   const section: AccountSection = VALID_SECTIONS.includes(rawSection as AccountSection)
@@ -38,6 +41,12 @@ export function AccountSettingsPage() {
           {section === "notifications" && <NotificationSettings />}
           {section === "email" && <EmailSettings />}
           {section === "password" && <PasswordSettings />}
+          {section === "data-and-deletion" && (
+            <DeleteAccountCard
+              pendingDeletionAt={user?.deleted_at ?? null}
+              hardDeleteAt={user?.hard_delete_at ?? null}
+            />
+          )}
         </div>
       </div>
     </div>

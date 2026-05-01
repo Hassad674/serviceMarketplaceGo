@@ -1,6 +1,6 @@
 "use client"
 
-import { Bell, Mail, Lock } from "lucide-react"
+import { Bell, Mail, Lock, Shield } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { AccountSection } from "../types"
 import { cn } from "@/shared/lib/utils"
@@ -10,6 +10,7 @@ const NAV_ITEMS: { section: AccountSection; icon: React.ElementType; labelKey: s
   { section: "notifications", icon: Bell, labelKey: "notifications" },
   { section: "email", icon: Mail, labelKey: "email" },
   { section: "password", icon: Lock, labelKey: "password" },
+  { section: "data-and-deletion", icon: Shield, labelKey: "dataAndDeletion" },
 ]
 
 interface AccountNavProps {
