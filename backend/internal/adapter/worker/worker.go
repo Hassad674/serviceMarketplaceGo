@@ -10,6 +10,15 @@
 // Lifecycle: cmd/api/main.go starts the worker via Run(ctx) in a
 // goroutine. Cancelling the context triggers graceful shutdown — the
 // current batch finishes processing, then the loop exits.
+//
+// System-actor boundary: every event handler runs without an
+// authenticated user / org context — the work is system-driven
+// (auto-approve, fund-reminder, auto-close, search reindex,
+// stripe-transfer drain). The worker tags its derived context with
+// system.WithSystemActor at entry so downstream services can
+// distinguish a request-scoped caller (which must satisfy
+// middleware.MustGetOrgID) from a scheduler caller (which uses the
+// non-tenant-aware repository methods on a privileged DB pool).
 package worker
 
 import (
@@ -21,6 +30,7 @@ import (
 
 	"marketplace-backend/internal/domain/pendingevent"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/system"
 )
 
 // EventHandler is the contract a registered handler must satisfy.
@@ -131,6 +141,14 @@ func (w *Worker) Run(ctx context.Context) error {
 		"tick_interval", w.tickInterval,
 		"batch_size", w.batchSize,
 		"handler_count", len(w.handlers))
+
+	// Mark the worker's root context as a system actor — every
+	// event handler dispatched below this point is allowed to
+	// take the non-tenant-aware repository code path. The marker
+	// only applies to ctx; the parent context the caller passes
+	// in is unchanged so cancellation still propagates the same
+	// way.
+	ctx = system.WithSystemActor(ctx)
 
 	ticker := time.NewTicker(w.tickInterval)
 	defer ticker.Stop()
