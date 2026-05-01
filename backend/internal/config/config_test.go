@@ -71,6 +71,19 @@ func TestValidate_ProductionFailsOnDefaultStorageSecretKey(t *testing.T) {
 	assert.Contains(t, err.Error(), "STORAGE_SECRET_KEY")
 }
 
+// TestValidate_ProductionFailsOnDefaultGDPRSalt is the P5 equivalent
+// of the JWT/Storage default-secret check: a salt collision across
+// open-source deployments would let an attacker correlate anonymized
+// audit rows back to the cleartext email via a public dictionary.
+func TestValidate_ProductionFailsOnDefaultGDPRSalt(t *testing.T) {
+	cfg := defaultProductionConfig()
+	cfg.GDPRAnonymizationSalt = "dev-salt-not-for-prod"
+
+	err := cfg.Validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "GDPR_ANONYMIZATION_SALT")
+}
+
 // TestValidate_ProductionFailsOnDefaultStorageAccessKey ensures the
 // access-key half of the default MinIO pair is also caught. Either
 // of the two being the public default is enough to compromise the
@@ -165,10 +178,11 @@ func TestValidate_DevelopmentWithStrongSecretsLogsNothing(t *testing.T) {
 // in isolation.
 func defaultProductionConfig() *Config {
 	return &Config{
-		Env:              "production",
-		JWTSecret:        strings.Repeat("a", 64),
-		StorageSecretKey: "a-strong-secret",
-		StorageAccessKey: "a-strong-access-key",
+		Env:                   "production",
+		JWTSecret:             strings.Repeat("a", 64),
+		StorageSecretKey:      "a-strong-secret",
+		StorageAccessKey:      "a-strong-access-key",
+		GDPRAnonymizationSalt: "a-strong-gdpr-salt-32-bytes-or-more-12345",
 	}
 }
 

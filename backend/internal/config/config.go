@@ -100,6 +100,13 @@ type Config struct {
 	// when sizing for higher load. Setting it to 1 reproduces the
 	// pre-fix single-threaded behaviour for debugging.
 	NotificationWorkerConcurrency int
+
+	// GDPRAnonymizationSalt is the secret salt used by the GDPR
+	// purge cron when computing sha256(email + salt) for audit-log
+	// anonymization. MUST be set in production; the dev fallback is
+	// "dev-salt-not-for-prod" and Validate() refuses to boot in
+	// production with that value.
+	GDPRAnonymizationSalt string
 }
 
 func Load() *Config {
@@ -151,8 +158,16 @@ func Load() *Config {
 		// BUG-16: parallel notification worker pool size. Zero means
 		// "fall back to the package default" (currently 5).
 		NotificationWorkerConcurrency: parseInt(getEnv("NOTIFICATION_WORKER_CONCURRENCY", "5"), 5),
+
+		// P5 (GDPR): anonymization salt for the daily purge cron.
+		// Defaults to the dev fallback so unit tests don't fail; in
+		// production Validate() refuses to boot if the value is
+		// still the fallback.
+		GDPRAnonymizationSalt: getEnv("GDPR_ANONYMIZATION_SALT", devGDPRSaltFallback),
 	}
 }
+
+const devGDPRSaltFallback = "dev-salt-not-for-prod"
 
 // TypesenseConfigured reports whether the backend has enough
 // configuration to talk to a Typesense cluster at all. Used by
@@ -224,6 +239,15 @@ func (c *Config) Validate() error {
 		addError(fmt.Sprintf(
 			"STORAGE_ACCESS_KEY is the public MinIO default (%q) — set a real access key",
 			devStorageFallback))
+	}
+	// P5 (GDPR): a salt collision across deployments would let an
+	// attacker correlate anonymized audit rows back to the cleartext
+	// email via a public dictionary. Refuse to boot in production
+	// when the value is still the dev default.
+	if c.GDPRAnonymizationSalt == devGDPRSaltFallback {
+		addError(fmt.Sprintf(
+			"GDPR_ANONYMIZATION_SALT is the public dev fallback (%q) — generate a fresh 32+ byte secret",
+			devGDPRSaltFallback))
 	}
 
 	if len(errs) > 0 {
