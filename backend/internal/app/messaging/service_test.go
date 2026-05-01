@@ -115,10 +115,10 @@ func TestStartConversation_Success(t *testing.T) {
 
 	var createdMsg *message.Message
 	msgRepo := &mockMessageRepo{
-		findOrCreateConversationFn: func(_ context.Context, a, b uuid.UUID) (uuid.UUID, bool, error) {
+		findOrCreateConversationFn: func(_ context.Context, a, b, _, _ uuid.UUID) (uuid.UUID, bool, error) {
 			return convID, true, nil
 		},
-		createMessageFn: func(_ context.Context, msg *message.Message) error {
+		createMessageFn: func(_ context.Context, msg *message.Message, _, _ uuid.UUID) error {
 			createdMsg = msg
 			return nil
 		},
@@ -865,10 +865,10 @@ func TestStartConversation_ExistingConversation(t *testing.T) {
 
 	var createdMsg *message.Message
 	msgRepo := &mockMessageRepo{
-		findOrCreateConversationFn: func(_ context.Context, a, b uuid.UUID) (uuid.UUID, bool, error) {
+		findOrCreateConversationFn: func(_ context.Context, a, b, _, _ uuid.UUID) (uuid.UUID, bool, error) {
 			return existingConvID, false, nil // false = already existed
 		},
-		createMessageFn: func(_ context.Context, msg *message.Message) error {
+		createMessageFn: func(_ context.Context, msg *message.Message, _, _ uuid.UUID) error {
 			createdMsg = msg
 			return nil
 		},
@@ -1319,7 +1319,7 @@ func TestSendMessage_FileType(t *testing.T) {
 		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
 			return true, nil
 		},
-		createMessageFn: func(_ context.Context, msg *message.Message) error {
+		createMessageFn: func(_ context.Context, msg *message.Message, _, _ uuid.UUID) error {
 			createdMsg = msg
 			return nil
 		},
@@ -1341,4 +1341,168 @@ func TestSendMessage_FileType(t *testing.T) {
 	assert.Equal(t, message.MessageTypeFile, createdMsg.Type)
 	assert.Equal(t, "file.pdf", createdMsg.Content)
 	assert.NotNil(t, createdMsg.Metadata)
+}
+
+// --- RLS tenant-context propagation regression tests ---
+//
+// These tests guard the prod fix for the "fresh enterprise gets
+// permission-denied when sending the first message" bug. The
+// postgres adapter for FindOrCreateConversation / CreateMessage
+// installs app.current_org_id / app.current_user_id on the
+// underlying tx so the conversations / messages RLS policies admit
+// the INSERT. If the application service ever stops forwarding the
+// caller's senderOrgID + senderUserID to the repo, the prod role
+// (NOSUPERUSER NOBYPASSRLS) rejects the INSERT and every message
+// send breaks. The mock asserts the exact propagation.
+
+func TestStartConversation_PropagatesSenderTenantToRepo(t *testing.T) {
+	senderID := uuid.New()
+	senderOrgID := uuid.New()
+	recipientUserID := uuid.New()
+	recipientOrgID := uuid.New()
+	convID := uuid.New()
+
+	var seenFindOrgID, seenFindUserID uuid.UUID
+	var seenCreateOrgID, seenCreateUserID uuid.UUID
+
+	msgRepo := &mockMessageRepo{
+		findOrCreateConversationFn: func(_ context.Context, _, _, orgID, userID uuid.UUID) (uuid.UUID, bool, error) {
+			seenFindOrgID = orgID
+			seenFindUserID = userID
+			return convID, true, nil
+		},
+		createMessageFn: func(_ context.Context, _ *message.Message, orgID, userID uuid.UUID) error {
+			seenCreateOrgID = orgID
+			seenCreateUserID = userID
+			return nil
+		},
+		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+			return []uuid.UUID{senderID, recipientUserID}, nil
+		},
+	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			return &user.User{ID: id}, nil
+		},
+	}
+	orgRepo := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{ID: id, OwnerUserID: recipientUserID}, nil
+		},
+	}
+
+	svc := newTestServiceWithDeps(testServiceDeps{
+		msgRepo:  msgRepo,
+		userRepo: userRepo,
+		orgRepo:  orgRepo,
+	})
+
+	_, _, err := svc.StartConversation(context.Background(), StartConversationInput{
+		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
+		RecipientOrgID: recipientOrgID,
+		Content:        "first contact",
+		Type:           message.MessageTypeText,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, senderOrgID, seenFindOrgID, "FindOrCreateConversation must receive sender org id for RLS context")
+	assert.Equal(t, senderID, seenFindUserID, "FindOrCreateConversation must receive sender user id for RLS context")
+	assert.Equal(t, senderOrgID, seenCreateOrgID, "CreateMessage must receive sender org id for RLS context")
+	assert.Equal(t, senderID, seenCreateUserID, "CreateMessage must receive sender user id for RLS context")
+}
+
+func TestSendMessage_PropagatesSenderTenantToRepo(t *testing.T) {
+	senderID := uuid.New()
+	senderOrgID := uuid.New()
+	convID := uuid.New()
+
+	var seenCreateOrgID, seenCreateUserID uuid.UUID
+
+	msgRepo := &mockMessageRepo{
+		isOrgAuthorizedFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+			return true, nil
+		},
+		createMessageFn: func(_ context.Context, _ *message.Message, orgID, userID uuid.UUID) error {
+			seenCreateOrgID = orgID
+			seenCreateUserID = userID
+			return nil
+		},
+		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+			return []uuid.UUID{senderID, uuid.New()}, nil
+		},
+	}
+
+	svc := newTestServiceWithDeps(testServiceDeps{msgRepo: msgRepo})
+
+	_, err := svc.SendMessage(context.Background(), SendMessageInput{
+		SenderID:       senderID,
+		SenderOrgID:    senderOrgID,
+		ConversationID: convID,
+		Content:        "follow-up",
+		Type:           message.MessageTypeText,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, senderOrgID, seenCreateOrgID, "CreateMessage must receive sender org id for RLS context")
+	assert.Equal(t, senderID, seenCreateUserID, "CreateMessage must receive sender user id for RLS context")
+}
+
+// TestStartConversation_FreshEnterpriseOwner reproduces the production
+// scenario that broke the bug: a freshly registered enterprise user
+// (their org just got created at registration, they own it) opens a
+// conversation with another org's owner. The repo must receive the
+// caller's NEW org id and user id so the RLS policy admits the INSERT.
+// Before the fix the repo received nothing → INSERT was rejected by
+// `conversations_isolation` once the prod DB role was non-superuser.
+func TestStartConversation_FreshEnterpriseOwner_PropagatesNewlyMintedOrg(t *testing.T) {
+	freshUserID := uuid.New()
+	freshOrgID := uuid.New() // just provisioned at registration
+	apporteurUserID := uuid.New()
+	apporteurOrgID := uuid.New()
+
+	var receivedOrgs []uuid.UUID
+	msgRepo := &mockMessageRepo{
+		findOrCreateConversationFn: func(_ context.Context, _, _, orgID, _ uuid.UUID) (uuid.UUID, bool, error) {
+			receivedOrgs = append(receivedOrgs, orgID)
+			return uuid.New(), true, nil
+		},
+		createMessageFn: func(_ context.Context, _ *message.Message, orgID, _ uuid.UUID) error {
+			receivedOrgs = append(receivedOrgs, orgID)
+			return nil
+		},
+		getParticipantIDsFn: func(_ context.Context, _ uuid.UUID) ([]uuid.UUID, error) {
+			return []uuid.UUID{freshUserID, apporteurUserID}, nil
+		},
+	}
+	userRepo := &mockUserRepo{
+		getByIDFn: func(_ context.Context, id uuid.UUID) (*user.User, error) {
+			return &user.User{ID: id}, nil
+		},
+	}
+	orgRepo := &mockOrgRepo{
+		findByIDFn: func(_ context.Context, id uuid.UUID) (*organization.Organization, error) {
+			return &organization.Organization{ID: id, OwnerUserID: apporteurUserID}, nil
+		},
+	}
+
+	svc := newTestServiceWithDeps(testServiceDeps{
+		msgRepo:  msgRepo,
+		userRepo: userRepo,
+		orgRepo:  orgRepo,
+	})
+
+	_, _, err := svc.StartConversation(context.Background(), StartConversationInput{
+		SenderID:       freshUserID,
+		SenderOrgID:    freshOrgID,
+		RecipientOrgID: apporteurOrgID,
+		Content:        "Bonjour, je voudrais discuter d'un projet",
+		Type:           message.MessageTypeText,
+	})
+	require.NoError(t, err)
+
+	require.Len(t, receivedOrgs, 2, "both repo write paths must be invoked")
+	for _, orgID := range receivedOrgs {
+		assert.Equal(t, freshOrgID, orgID, "every repo write must carry the fresh enterprise's org id so the RLS policy passes")
+	}
 }

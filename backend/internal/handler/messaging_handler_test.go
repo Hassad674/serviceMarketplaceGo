@@ -25,12 +25,12 @@ import (
 // --- mock types for messaging tests ---
 
 type mockMessageRepo struct {
-	findOrCreateConversationFn     func(ctx context.Context, a, b uuid.UUID) (uuid.UUID, bool, error)
+	findOrCreateConversationFn     func(ctx context.Context, a, b, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error)
 	getConversationFn              func(ctx context.Context, id uuid.UUID) (*message.Conversation, error)
 	listConversationsFn            func(ctx context.Context, p repository.ListConversationsParams) ([]repository.ConversationSummary, string, error)
 	isParticipantFn                func(ctx context.Context, convID, userID uuid.UUID) (bool, error)
 	isOrgAuthorizedFn              func(ctx context.Context, convID, orgID uuid.UUID) (bool, error)
-	createMessageFn                func(ctx context.Context, m *message.Message) error
+	createMessageFn                func(ctx context.Context, m *message.Message, senderOrgID, senderUserID uuid.UUID) error
 	getMessageFn                   func(ctx context.Context, id uuid.UUID) (*message.Message, error)
 	listMessagesFn                 func(ctx context.Context, p repository.ListMessagesParams) ([]*message.Message, string, error)
 	getMessagesSinceSeqFn          func(ctx context.Context, convID uuid.UUID, seq, limit int) ([]*message.Message, error)
@@ -46,9 +46,9 @@ type mockMessageRepo struct {
 	getContactIDsFn                func(ctx context.Context, userID uuid.UUID) ([]uuid.UUID, error)
 }
 
-func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, a, b uuid.UUID) (uuid.UUID, bool, error) {
+func (m *mockMessageRepo) FindOrCreateConversation(ctx context.Context, a, b, senderOrgID, senderUserID uuid.UUID) (uuid.UUID, bool, error) {
 	if m.findOrCreateConversationFn != nil {
-		return m.findOrCreateConversationFn(ctx, a, b)
+		return m.findOrCreateConversationFn(ctx, a, b, senderOrgID, senderUserID)
 	}
 	return uuid.New(), true, nil
 }
@@ -76,9 +76,9 @@ func (m *mockMessageRepo) IsOrgAuthorizedForConversation(ctx context.Context, co
 	}
 	return true, nil
 }
-func (m *mockMessageRepo) CreateMessage(ctx context.Context, msg *message.Message) error {
+func (m *mockMessageRepo) CreateMessage(ctx context.Context, msg *message.Message, senderOrgID, senderUserID uuid.UUID) error {
 	if m.createMessageFn != nil {
-		return m.createMessageFn(ctx, msg)
+		return m.createMessageFn(ctx, msg, senderOrgID, senderUserID)
 	}
 	return nil
 }
@@ -279,7 +279,7 @@ func TestMessagingHandler_StartConversation(t *testing.T) {
 				ur.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
 					return testUser(recipientUserID, user.RoleProvider), nil
 				}
-				mr.findOrCreateConversationFn = func(_ context.Context, _, _ uuid.UUID) (uuid.UUID, bool, error) {
+				mr.findOrCreateConversationFn = func(_ context.Context, _, _, _, _ uuid.UUID) (uuid.UUID, bool, error) {
 					return convID, true, nil
 				}
 			},

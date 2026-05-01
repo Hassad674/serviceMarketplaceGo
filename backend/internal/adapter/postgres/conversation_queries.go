@@ -11,6 +11,22 @@ const queryInsertConversation = `
 	INSERT INTO conversations (id, created_at, updated_at)
 	VALUES ($1, $2, $3)`
 
+// queryInsertConversationWithOrg inserts a conversation row with its
+// organization_id already populated when known. Used by the
+// tenant-aware FindOrCreateConversation path so the row satisfies the
+// RLS USING expression `organization_id = current_setting('app.current_org_id')`
+// at INSERT time — the previous NULL-then-backfill design was rejected
+// by RLS because `NULL = orgID` is NULL (not true) and the participant
+// escape hatch had nothing to match yet.
+//
+// $1 = conversation id
+// $2 = organization id (NULL when sender is a solo provider)
+// $3 = created_at
+// $4 = updated_at
+const queryInsertConversationWithOrg = `
+	INSERT INTO conversations (id, organization_id, created_at, updated_at)
+	VALUES ($1, $2, $3, $4)`
+
 const queryInsertParticipant = `
 	INSERT INTO conversation_participants (conversation_id, user_id, joined_at)
 	VALUES ($1, $2, $3)`

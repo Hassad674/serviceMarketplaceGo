@@ -171,7 +171,16 @@ func main() {
 	}
 
 	// Messaging adapters
-	messageRepo := postgres.NewConversationRepository(db)
+	// The TxRunner is wired in here so the conversation repository can
+	// install the RLS tenant context (app.current_org_id /
+	// app.current_user_id) on the transactions that INSERT into
+	// conversations and messages. Both tables are RLS-protected by
+	// migration 125 and would otherwise reject INSERTs from a
+	// non-superuser DB role with "new row violates row-level security
+	// policy". The runner itself is allocated again at line ~514 for
+	// other consumers — both calls share the same *sql.DB pool, so
+	// this is just a thin wrapper held twice.
+	messageRepo := postgres.NewConversationRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	presenceSvc := redisadapter.NewPresenceService(redisClient, 45*time.Second)
 	// Use HOSTNAME env var (set by Railway/Docker) or fallback to a fixed name.
 	// This prevents dead consumer accumulation on redeploys.
