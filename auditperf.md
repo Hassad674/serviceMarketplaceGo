@@ -1,217 +1,354 @@
-# Audit de Performance
+# Audit de Performance — Final Deep
 
-**Date** : 2026-04-30 (mise à jour post Phases 1-5Q ; audit précédent : 2026-04-29)
-**Branche** : `main` @ `c8284526`
-**Périmètre** : backend Go (~860 fichiers, 125 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+**Date** : 2026-05-01 (final audit before public showcase)
+**Branche** : `chore/final-audit-deep`
+**Périmètre** : backend Go (~622 .go files prod, 131 migrations) + DB Postgres + web Next.js + admin Vite + mobile Flutter
+**Méthodologie** : Audit statique exhaustif. Lecture du code (pas seulement file names). Cross-référence avec PRs #31-#66 fusionnés. Tout finding cite un fichier:ligne précis et propose un fix concret.
 
-## Méthodologie
+---
 
-Audit statique sans build ni exécution. Lecture de tous les hot paths : messaging, search, proposals/payments, uploads, WebSocket, webhooks Stripe. Vérification des indexes par migration et des plans probables. Bundle web mesuré via les chunks dev générés. Mobile audité côté rebuilds, lists, images, cold start.
+## Snapshot — état actuel après PRs #31-#66
+
+| Layer | CRITICAL | HIGH | MEDIUM | LOW | Total |
+|---|---|---|---|---|---|
+| Backend + DB | 0 | 6 | 11 | 6 | 23 |
+| Web + Admin | 0 | 5 | 8 | 5 | 18 |
+| Mobile | 0 | 4 | 8 | 5 | 17 |
+| **Total** | **0** | **15** | **27** | **16** | **58** |
+
+**Closed since previous round (28 items)** : streaming uploads (PR #34), notification worker pool (PR #36), WS sendOrDrop (PR #40), LiveKit lazy (PR #41), RSC public listings (PR #41), loading/error/sitemap (PR #41), TestDB removed (Phase 0), cross-feature imports partial (PR #37), unused web deps (Phase 0), admin lazy routes (PR #41), mobile dead deps (Phase 0), `GetParticipantNames` N+1 (PERF-B-02 closed), `GetTotalUnread` partial index (PERF-B-11 closed), milestone `CreateBatch` bulk (PERF-B-04 closed), `provider_organization_id` indexes (PERF-B-08 closed via m.131), Firebase deferred (PR #41), FCM post-frame (PR #41 cat F), memCacheWidth (PR #41 cat D), const constructors (PR #41 cat A), unread badge scope (PR #41 cat B), stable keys + cacheExtent (PR #41 cat C), RepaintBoundary (PR #41 cat E), reuse hub (PR #41), search worker tick + Redis pubsub (still open per audit), profile cache infra (Phase 4 M closed), expertise/skill catalog cache (Phase 4 M).
 
 ---
 
 # BACKEND + DB
 
-## HIGH (8)
+## HIGH (6)
 
-### ~~PERF-B-01 : ParseMultipartForm(100MB)~~ closed in PR #34 (`6d6dd20c fix(security): stream multipart uploads via MultipartReader`)
+### PERF-FINAL-B-01 (was PERF-B-07) : `WriteTimeout: 0` + pas de `ReadHeaderTimeout` — Slowloris
+- **Severity**: HIGH
+- **Location** : `backend/cmd/api/main.go:866-874`
+- **Why it matters** : aucun timeout côté HTTP server hors `ReadTimeout: 15s`. Avec `MaxOpenConns=50`, un attaquant peut ouvrir 50 connexions et envoyer des headers byte-par-byte → saturation triviale du pool DB. `WriteTimeout: 0` est commenté "pour les WS long-lived" mais c'est précisément ce qui doit être surchargé localement, pas globalement.
+- **How to fix** : `ReadHeaderTimeout = 5*time.Second`, `WriteTimeout = 60*time.Second`, garder `IdleTimeout = 60s`. Pour SSE/WS, utiliser `http.NewResponseController(w).SetWriteDeadline(time.Time{})` dans le handler concerné (ws.ServeWS et SSE handlers) — c'est l'API Go 1.20+ exactement faite pour ça.
+- **Test required** : `slowloris_test.go` qui démarre le serveur, ouvre 50 connexions, envoie 1 byte/sec, vérifie que le serveur ferme après 5s (`assert.LessOrEqual(connDuration, 6*time.Second)`).
+- **Effort** : XS (30 min)
 
-### PERF-B-02 : N+1 sur la liste des propositions actives
-- **Location** : `backend/internal/handler/proposal_handler.go:527-530` (`GetParticipantNames`)
-- **Pattern** : pour chaque proposal listée, 2 `users.GetByID` séquentiels (client + provider). Page de 20 = 40 queries supplémentaires (~80-200ms p50).
-- **Impact** : utilisé par tous les dashboards. `ListMilestonesForProposals` est correctement batché — la régression `GetParticipantNames` casse le bénéfice.
-- **Fix** : ajouter `UserRepository.GetByIDs(ctx, []uuid.UUID)` (le helper batch existe dans `team_handler.go:147`). 1 seul `WHERE id = ANY($1)`.
+### PERF-FINAL-B-02 (was PERF-B-03) : `payment_records.ListByOrganization` sans LIMIT ni cursor
+- **Severity**: HIGH
+- **Location** : `backend/internal/adapter/postgres/payment_record_repository.go:354-410`
+- **Why it matters** : `WHERE pr.organization_id = $1 OR pr.provider_organization_id = $1 ORDER BY pr.created_at DESC` SANS `LIMIT`. Une agence active 12-24 mois → 10k-50k lignes par requête wallet. ~10 MB RAM Go par appel. Le commentaire dit "nouvelle plan = Index Scan" mais le `ORDER BY ... DESC` non borné force toujours un Sort matériel ou un Index Scan complet. Un user peut DoS un nœud en spammant `/wallet/list`.
+- **How to fix** : cursor pagination `(created_at, id)` standard. Signature `ListByOrganization(ctx, orgID, cursor, limit)`. Utiliser exactement le pattern `pkg/cursor/Encode` qui existe déjà. Pour les rapports historiques, créer un endpoint dédié `/admin/payment-records/export` qui stream en CSV.
+- **Test required** : table-driven `payment_record_repository_test.go::TestListByOrganization_Pagination` avec 250 records, asserte que `len(page1) == 50` ET que `page2 = ListByOrganization(ctx, orgID, page1Cursor, 50)` continue sans dupliquer.
+- **Effort** : S (1-2h)
 
-### PERF-B-03 : `payment_records.ListByOrganization` sans LIMIT ni cursor
-- **Location** : `backend/internal/adapter/postgres/payment_record_repository.go:203-242`
-- **Pattern** : pas de pagination, pas de cursor. `ORDER BY created_at DESC` non borné + LEFT JOIN `users`. Une agence active sur 12-24 mois = 10k-50k lignes par requête wallet. ~10 MB RAM Go par requête.
-- **Fix** : cursor pagination `(created_at, id)` standard, `LIMIT 50+1`. Endpoint dédié export pour les rapports historiques.
+### PERF-FINAL-B-03 (was PERF-B-05) : `service.CacheService` interface absent — pas de cache-aside générique
+- **Severity**: HIGH
+- **Location** : `backend/internal/port/service/` (interface manquante). Adapters individuels existent : `profile_cache.go`, `expertise_cache.go`, `freelance_profile_cache.go`, `skill_catalog_cache.go`, `subscription_cache.go` — mais chacun a sa propre interface ad-hoc.
+- **Why it matters** : pas d'API unifiée signifie : (a) chaque feature qui veut du cache redéfinit ses propres signatures (DRY violation), (b) impossible de tracer les hits/misses globalement, (c) impossible de switcher le backend Redis vers un L1+L2 (in-memory + Redis) sans toucher 5 fichiers. Aucun cache pour `jobapp.ListPublic`, `reviewapp.GetAggregateForOrg`, `searchapp.GetCuratedExpertises` (les rares hot-paths SEO non-cachés).
+- **How to fix** : 
+  1. Port `service.CacheService { Get(ctx, key) ([]byte, error); Set(ctx, key, val, ttl); Delete(ctx, key); InvalidatePrefix(ctx, prefix) }`. 
+  2. Adapter `redis/generic_cache.go` qui l'implémente.
+  3. Migrer les 5 caches existants vers ce port (préserver les wrappers typés en option).
+  4. Métriques `cache_hits_total{key_prefix}` / `cache_misses_total{key_prefix}` pour observabilité.
+- **Test required** : `cache_test.go` table-driven : Get-after-Set retourne la valeur ; Get après TTL retourne miss ; InvalidatePrefix dégage tous les keys d'un prefix ; race test 100 goroutines Get/Set/Delete simultanés.
+- **Effort** : M (½j)
 
-### PERF-B-04 : `CreateBatch` milestones fait des INSERTs en boucle
-- **Location** : `backend/internal/adapter/postgres/milestone_repository.go:36-65`
-- **Pattern** : la fonction s'appelle `CreateBatch` mais émet N `INSERT` séquentiels dans la tx. 5 milestones/proposal × 2 ms RTT local = 10 ms gaspillés ; 20-40 ms cross-AZ.
-- **Fix** : `INSERT INTO milestones (...) VALUES ($1,$2,...), ($n,...)` construit dynamiquement, ou `pq.CopyIn`. Pattern existe déjà dans `expertise_repository.go`.
+### PERF-FINAL-B-04 (was PERF-B-06) : Slow-query logger inexistant
+- **Severity**: HIGH
+- **Location** : pas de `pkg/dbx/` ni `query_logger.go`. Seules traces : `slog.Warn` ad-hoc dans certains repos.
+- **Why it matters** : régressions de plan invisibles en prod. Un nouveau filtre qui casse l'index, un VACUUM ANALYZE qui change le planner, une croissance de table — aucun signal. CLAUDE.md ligne 1166-1181 prescrit son existence.
+- **How to fix** : 
+  1. `pkg/dbx/Wrapper { db *sql.DB; threshold time.Duration }` qui wrappe `QueryContext`/`ExecContext`/`QueryRowContext`.
+  2. Mesure `time.Since(start)` ; si > 50ms (configurable via env `DB_SLOW_THRESHOLD_MS`), `slog.Warn("slow query", "duration_ms", dur, "query", q[:200], "args_count", len(args))`.
+  3. Wirer dans `cmd/api/main.go` : remplacer `db := postgres.Open(cfg)` par `db := dbx.Wrap(postgres.Open(cfg), 50*time.Millisecond)`.
+  4. Métrique `db_query_duration_seconds_bucket{operation}` Prometheus en bonus.
+- **Test required** : `dbx_test.go` : exécute une query lente (sleep 100ms via Postgres `pg_sleep`), capture le slog output, asserte la présence de `"slow query"`. Mock `slog.Default()` avec une `slog.NewTextHandler(buf, ...)`.
+- **Effort** : S (1-2h)
 
-### PERF-B-05 : `service.CacheService` n'existe pas — pas de cache-aside
-- **Location** : `backend/internal/port/service/` (interface absente). Seuls usages Redis : rate limiter, sessions, idempotency Stripe, brute force, subscription cache. Aucun cache pour profils publics, listings, skills, agrégats reviews.
-- **Pattern** : CLAUDE.md spec'e un tableau de TTLs (5min profils, 2min jobs publics, 1h skills, 10min reviews aggregate). Inexistant.
-- **Impact** : SEO public hit `/api/v1/profiles/{id}` à froid → 600 lookups/h pour le même profil populaire. Skills catalog fetché à chaque requête.
-- **Fix** : port `service.CacheService { Get/Set/Delete }` + `adapter/redis/cache.go`. L'injecter dans `profileapp.GetPublicByOrg`, `skillapp.GetCuratedByExpertise`, `jobapp.ListPublic`, `reviewapp.GetAggregateForOrg`. Invalider sur write.
+### PERF-FINAL-B-05 (was PERF-B-09) : Tous les clients HTTP externes utilisent `http.DefaultTransport` (`MaxIdleConnsPerHost=2`)
+- **Severity**: HIGH
+- **Location** : 
+  - `backend/internal/search/embeddings.go:89`
+  - `backend/internal/search/client.go:96`
+  - `backend/internal/adapter/openai/client.go:46`
+  - `backend/internal/adapter/anthropic/analyzer.go:53`
+  - `backend/internal/adapter/vies/client.go:91`
+  - `backend/internal/adapter/nominatim/client.go:39`
+- **Why it matters** : `http.DefaultTransport` plafonne à 2 conns idle par host. Sous burst (100 hits Typesense/s pour un dashboard searchy), 50-100 ms gaspillés par cold connection TLS. Typesense particulièrement touché — c'est le hot-path utilisateur.
+- **How to fix** : créer `pkg/httpx/NewTunedClient(timeout time.Duration) *http.Client` qui wrappe `&http.Transport{ MaxIdleConns: 200, MaxIdleConnsPerHost: 50, MaxConnsPerHost: 100, IdleConnTimeout: 90*time.Second, ForceAttemptHTTP2: true, DialContext: (&net.Dialer{Timeout: 5s, KeepAlive: 30s}).DialContext, TLSHandshakeTimeout: 5s }`. Migrer les 6 sites.
+- **Test required** : `httpx_test.go` benchmark avec 100 requêtes parallèles vers un test server : avant fix → ~10s, après fix → ~2s. Plus un test que le timeout dial est respecté.
+- **Effort** : XS (30 min)
 
-### PERF-B-06 : Slow-query logger inexistant
-- **Location** : `query_logger.go` absent. CLAUDE.md prescrit son implémentation comme outil monitoring obligatoire (lignes 1166-1181).
-- **Impact** : régressions de plan invisibles en prod (changement post-VACUUM, index manquant introduit par un nouveau filtre).
-- **Fix** : wrapper `*sql.DB` ou `pkg/dbx.QueryContext` qui mesure et émet `slog.Warn("slow query", ...)` au-delà de 50 ms. Centralisé.
+### PERF-FINAL-B-06 (was PERF-B-14, PERF-B-15) : Stripe Connect `account.GetByID` jamais caché + ctx ignoré
+- **Severity**: HIGH
+- **Location** : `backend/internal/adapter/stripe/account.go:156, 306, 370, 381, 390, 420, 450` (7 sites)
+- **Why it matters** : 100-300 ms par appel Stripe externe sur chaque endpoint vérifiant ChargesEnabled/PayoutsEnabled. Au checkout, 2-3 appels consécutifs = 600-900 ms gaspillés sur un cold path. De plus, ces appels passent `nil` (line 306 etc.) ou `&stripe.AccountParams{}` sans `Context: ctx` — annulation impossible si le client se déconnecte.
+- **How to fix** : 
+  1. Cache : `redisadapter.AccountStatusCache` clé `stripe:acct:{accountID}`, valeur snapshot des flags (`charges_enabled, payouts_enabled, details_submitted, requirements_count`), TTL 60-120s. Invalider sur webhook `account.updated` (déjà reçu, juste appeler `cache.Delete`).
+  2. Ctx : remplacer `account.GetByID(accountID, nil)` par `account.GetByID(accountID, &stripe.AccountParams{Params: stripe.Params{Context: ctx}})`. Le SDK stripe-go v82 accepte `Params.Context`.
+- **Test required** : `account_cache_test.go` : 1er appel hit Stripe, 2e appel hit cache (vérifier via mock du Stripe SDK call count == 1) ; ctx-cancel test : créer un `context.WithTimeout(ctx, 1ms)`, asserter `account.GetByID` retourne `context.DeadlineExceeded` (avec un Stripe SDK qui sleep).
+- **Effort** : M (½j)
 
-### PERF-B-07 : `WriteTimeout: 0` + pas de `ReadHeaderTimeout` — Slowloris
-- **Location** : `backend/cmd/api/main.go:1370-1374`
-- **Pattern** : timeouts illimités côté HTTP server.
-- **Impact** : connexion ouverte indéfiniment via headers byte-par-byte. Avec `MaxOpenConns=50`, saturation triviale du pool DB.
-- **Fix** : `ReadHeaderTimeout = 5*time.Second`, `WriteTimeout = 60*time.Second`. Pour SSE/WS, override local via `http.NewResponseController(w).SetWriteDeadline`.
+## MEDIUM (11)
 
-### PERF-B-08 : Colonnes `*_organization_id` dénormalisées (migration 115) jamais utilisées
-- **Location** : `backend/internal/adapter/postgres/proposal_queries.go:115, 130`, `payment_record_repository.go:207-217`
-- **Pattern** : `WHERE p.organization_id = $1 OR provider_user.organization_id = $1` → BitmapOr planner, nested loop. À 100k rows : 50-150 ms p50. La migration 115 a ajouté `provider_organization_id` exprès — non utilisé.
-- **Fix** : `WHERE (organization_id = $1 OR provider_organization_id = $1)` + index composite `(provider_organization_id, status, created_at DESC, id DESC)`. Quick win majeur.
+### PERF-FINAL-B-07 (was PERF-B-10) : `ConversationRepository.ListConversations` — 2 LATERAL JOIN par row
+- **Severity**: MEDIUM
+- **Location** : `backend/internal/adapter/postgres/conversation_queries.go:89-141`
+- **Why it matters** : double LATERAL pour `conversation_participants → users` + `last_message`. À 10k+ conversations, 30-50 ms par page p50. C'est l'endpoint le plus chargé de la home dashboard.
+- **How to fix** : dénormaliser `last_message_seq`, `last_message_content_preview` (≤100 chars), `last_message_at`, `last_message_sender_id` directement sur la table `conversations`. Maintenu par trigger `AFTER INSERT ON messages` (atomique) OU par l'app au moment de l'INSERT messages dans la même tx (préféré, contrôle explicite). Migration `132_denormalize_last_message.up.sql` + backfill.
+- **Test required** : `conversation_queries_test.go::TestListConversations_LastMessageDenormalised` — insert 5 conversations + 20 messages, asserter chaque conversation a son last_message correctement, et asserter qu'aucune LATERAL join apparaît dans `EXPLAIN`.
+- **Effort** : M (½j)
 
-## MEDIUM (12)
+### PERF-FINAL-B-08 (was PERF-B-13) : Notification worker — `getPrefs` + `users.GetByID` à chaque job
+- **Severity**: MEDIUM
+- **Location** : `backend/internal/app/notification/worker.go:99, 193, 211-222`
+- **Why it matters** : 2 queries DB par notif × 1000 notifs/min = 2000 queries/min purement administratives. Quand le pool DB est sous pression, ces queries amplifient le contention.
+- **How to fix** : cache LRU local `golang.org/x/sync/singleflight` (déjà transitive dep) + `hashicorp/golang-lru/v2` (à ajouter, ~1KB). TTL 2 min, taille 1000. Clé `prefs:{userID}` et `user:{userID}`. Le cache est process-local, pas de cohérence cross-instance — acceptable car les changements de prefs sont rares (UI manual update).
+- **Test required** : `worker_cache_test.go` : 100 notifs pour le même user, asserter `users.GetByID` mock count == 1 (pas 100). Test TTL : avancer le clock de 3 min, asserter cache invalidée.
+- **Effort** : S (1-2h)
 
-### PERF-B-09 : Tous les clients HTTP externes utilisent `http.DefaultTransport` (`MaxIdleConnsPerHost=2`)
-- **Location** : `internal/search/client.go:96`, `adapter/openai/client.go:46`, `adapter/anthropic/analyzer.go:53`, `adapter/vies/client.go:91`, `adapter/nominatim/client.go:38`
-- **Impact** : sous burst (100 hits Typesense/s), 50-100 ms gaspillés par cold connection TLS. Typesense particulièrement touché.
-- **Fix** : `pkg/httpx.NewTunedClient(timeout)` avec `MaxIdleConnsPerHost: 50, MaxConnsPerHost: 100, IdleConnTimeout: 90s, ForceAttemptHTTP2: true`.
-
-### PERF-B-10 : `ConversationRepository.ListConversations` — 2 LATERAL JOIN par row
-- **Location** : `backend/internal/adapter/postgres/conversation_queries.go:60-141`
-- **Pattern** : double LATERAL pour conversation_participants → users + last_message. À 10k+ conversations, 30-50 ms par page.
-- **Fix** : dénormaliser `last_message_seq + last_message_content + last_message_at` directement sur `conversations`, maintenu par trigger ou app au moment de l'INSERT messages.
-
-### PERF-B-11 : `GetTotalUnread` n'utilise pas le partial index
-- **Location** : `backend/internal/adapter/postgres/conversation_queries.go:281-284`
-- **Pattern** : `SUM(unread_count) WHERE user_id = $1`. Index partiel `WHERE unread_count > 0` (migration 074) existe mais le filtre n'est pas dans la query.
-- **Fix** : ajouter `AND unread_count > 0` dans le WHERE — le SUM reste correct (rows à 0 contribuent 0).
-
-### ~~PERF-B-12 : Notification worker single-threaded + time.Sleep~~ closed in PR #36 (`3dbbf747 fix(notification/worker): parallel pool + non-blocking re-enqueue`)
-
-### PERF-B-13 : Notification worker — `getPrefs` + `users.GetByID` à chaque job
-- **Location** : `backend/internal/app/notification/worker.go:99,193,211-222`
-- **Impact** : 2 queries DB par notif × 1000 notifs/min = 2000 queries/min purement administratives.
-- **Fix** : cache LRU local 2 min TTL taille 1000 sur `users.GetByID(userID)` et `notifs.GetPreferences(userID)`.
-
-### PERF-B-14 : Stripe Connect `account.GetByID` jamais caché
-- **Location** : `backend/internal/adapter/stripe/account.go:156,306,370,381,390,420,450`
-- **Pattern** : appel Stripe externe 100-300 ms sur chaque endpoint vérifiant ChargesEnabled/PayoutsEnabled. Au checkout, 2-3 appels consécutifs.
-- **Fix** : `redis.AccountStatusCache` TTL 60-120s sur les flags. Invalider sur webhook `account.updated`. KYC snapshot complet 5 min.
-
-### PERF-B-15 : Stripe SDK appelé sans propager `ctx`
-- **Location** : `backend/internal/adapter/stripe/account.go:306,370,381,390,420,450,156`
-- **Pattern** : signature accepte `ctx` mais `account.GetByID(accountID, nil)` ignore. Annulation impossible.
-- **Fix** : `account.GetByIDWithContext(ctx, ...)` (stripe-go v82) ou `params.Context = ctx`.
-
-### ~~PERF-B-16 : WS sendOrDrop~~ closed in PR #40 (`7306f055 fix(ws): non-blocking sendOrDrop + race-safe wasLast on disconnect`)
-
-### PERF-B-17 : Search worker tick = 30 s — embeddings différés trop longuement
+### PERF-FINAL-B-09 (was PERF-B-17) : Search worker tick = 30s — embeddings différés trop longuement
+- **Severity**: MEDIUM
 - **Location** : `backend/internal/adapter/worker/worker.go:86-87`
-- **Impact** : profil mis à jour, index Typesense obsolète ~30s.
-- **Fix** : tick 5s + signal Redis pubsub `wake_worker` que le worker écoute en parallèle pour réagir immédiatement après INSERT pendingevent.
+- **Why it matters** : profil mis à jour, index Typesense obsolète ~30s. Le user voit son profil updated dans l'UI mais ne le retrouve pas en search pendant 30s — confusion + signaling tickets.
+- **How to fix** : tick 5s + signal Redis pubsub `wake_search_worker`. Le publisher (PublishReindexTx) `PUBLISH wake_search_worker 1` après commit. Le worker écoute en parallèle de son ticker via `redis.PSubscribe`. Sur réception, drain immédiat. Le ticker reste en backstop pour les events insérés avant que le subscriber soit ready.
+- **Test required** : intégration test avec 1 instance backend + 1 instance Redis : INSERT pendingevent, mesurer le time-to-process (cible < 1s avec pubsub vs 15s en moyenne avec tick 30s).
+- **Effort** : S (1-2h)
 
-### PERF-B-18 : LTR capture INSERT par recherche
+### PERF-FINAL-B-10 (was PERF-B-18) : LTR capture INSERT par recherche
+- **Severity**: MEDIUM
 - **Location** : `backend/internal/app/searchanalytics/ltr_capture.go:102-111`
-- **Impact** : 100 recherches/s = 100 UPDATE/s additionnels.
-- **Fix** : batcher via channel buffered + flush 1×/seconde.
+- **Why it matters** : 100 recherches/s = 100 UPDATE/s additionnels. À l'échelle, c'est de la pression DB pure pour de l'analytics asynchrone.
+- **How to fix** : batcher via `chan SearchEvent` buffered (cap 1024), goroutine dédiée flush 1×/seconde via `INSERT ... VALUES (...), (...), (...)` multi-row. Drop l'event si le channel est full (slog.Warn) — analytics n'est pas critique.
+- **Test required** : load test 1000 events/s, asserter < 5 INSERTs effectifs par seconde + zéro perte d'events sous le throughput nominal.
+- **Effort** : S (1-2h)
 
-### PERF-B-19 : Indexer fan-out 9 goroutines × N actors sans cap
+### PERF-FINAL-B-11 (was PERF-B-19) : Indexer fan-out 9 goroutines × N actors sans cap
+- **Severity**: MEDIUM
 - **Location** : `backend/internal/search/indexer.go:314-364`
-- **Pattern** : 9 reads concurrents par actor reindexed. Reindex full = potentiellement 90k goroutines en rafale.
-- **Fix** : `errgroup.SetLimit(3)` au niveau actor (3 actors parallèles × 9 reads = 27 connections max).
+- **Why it matters** : 9 reads concurrents par actor reindexed. Reindex full = 90k goroutines en rafale → DB pool saturation, OOM Go potentiel.
+- **How to fix** : `golang.org/x/sync/errgroup`+`SetLimit(3)` au niveau actor (3 actors parallèles × 9 reads internes = 27 connections max, raisonnable face au pool de 50). Le pattern `SetLimit` retourne `nil` au dépassement et `Go()` bloque jusqu'à libération d'un slot.
+- **Test required** : `indexer_test.go::TestReindexAllRespectsConcurrencyCap` — avec un mock repo qui sleep 100ms par read, lancer un reindex de 100 actors, asserter `max(active_goroutines) <= 30`.
+- **Effort** : XS (30 min)
 
-### PERF-B-20 : Stripe webhook handlers synchrones inline
-- **Location** : `backend/internal/handler/stripe_handler.go:149-191`
-- **Pattern** : `handleInvoicePaid` peut faire 5+ DB writes + PDF generation (chromedp 2-5s) + email synchrones. Stripe peut retry sur timeout.
-- **Fix** : enqueue dans `pending_events`, retourner 200 immédiatement à Stripe.
+### PERF-FINAL-B-12 (was PERF-B-20) : Stripe webhook handlers synchrones inline
+- **Severity**: MEDIUM
+- **Location** : `backend/internal/handler/stripe_handler.go:225-272` (`dispatch`)
+- **Why it matters** : `handleInvoicePaid` peut faire 5+ DB writes + PDF generation (chromedp 2-5s) + email synchrones. Stripe timeout webhook = 10s. Le BUG-NEW-06 fix renvoie 503 + release claim, mais le timeout natural reste un risque sous load.
+- **How to fix** : enqueuer dans `pending_events` (table existe déjà) avec `event_type='stripe.webhook.dispatch'` + `payload=event.JSON`, retourner 200 immédiatement. Worker `pending_events_worker` poll et exécute `dispatch` async. L'idempotency key reste claim-on-receipt mais release seulement après processing async.
+- **Test required** : webhook handler test avec mock service qui sleep 5s : asserter response < 200ms et que l'event est en `pending_events` à status `pending`.
+- **Effort** : M (½j)
 
-## LOW (10)
+### PERF-FINAL-B-13 (NEW) : `metrics.go` uses `sync.Mutex` for Prometheus counter operations
+- **Severity**: MEDIUM
+- **Location** : `backend/internal/handler/metrics.go:216` (`_, _ = w.Write(...)`)
+- **Why it matters** : metrics scrape endpoint serializes via mutex. Under high scrape frequency (e.g. Prometheus 5s interval × multiple replicas via service discovery), this becomes a contention point. The mutex also protects multiple counters — a long write blocks observability calls.
+- **How to fix** : use `prometheus/client_golang` instead of hand-rolled string-builder. Native counters use atomic ops, no mutex. Drop ~60 lines of code.
+- **Test required** : `metrics_concurrent_test.go` — 100 goroutines incrementing counters + 1 scraping endpoint, asserter no race detected via `-race` and total count is correct.
+- **Effort** : S (1-2h)
 
-- **PERF-B-21** : OFFSET pagination dans 8 admin endpoints (media, review_admin, moderation, user, job_admin, conversation_admin, job_application_admin) — toléré jusqu'à 50k rows
-- **PERF-B-22** : `IncrementUnreadForRecipients` fan-out org × org INSERTs — limite à 5-10 membres/org acceptable
-- **PERF-B-23** : WS hub `register/unregister` channel taille 64 — bumper à 1024 pour deploy / network changes
-- **PERF-B-24** : Pas d'index `(provider_organization_id, completed_at DESC) WHERE status='completed'` sur proposals
-- **PERF-B-25** : `INSERT (SELECT FROM organization_members WHERE user_id=$X LIMIT 1)` à chaque création — 1 index seek par INSERT, négligeable
-- **PERF-B-26** : Migration 074 backfill DO $$ block monolithique — pour les futures migrations bulk-copy splitter en chunks
-- **PERF-B-27** : Slot WS `register` bumper à 1024
-- **PERF-B-28** : Cardinality control logs — `user_id` doit rester attribute slog jamais label Prometheus
-- **PERF-B-29** : `idx_search_queries_search_id` UNIQUE peut bloquer inserts concurrents sur hot search_id — négligeable
-- **PERF-B-30** : `ListPaymentRecords` LEFT JOIN inutilement large — `SELECT DISTINCT` ou pattern UNION
+### PERF-FINAL-B-14 (NEW) : 35 legacy `.GetByID()` callers in app layer bypass tenant context
+- **Severity**: MEDIUM (technical debt that becomes HIGH at prod role rotation)
+- **Location** : `backend/internal/app/{proposal,dispute,review,referral}/*.go` — 35 sites identified by `grep -rn ".GetByID(" backend/internal/app/ | grep -v "GetByIDForOrg|GetByIDWithVersion"`. Examples: `service_actions.go:20, 72, 101, 165, 260, 296` (proposal); `service_actions.go:119, 269, 353, 437, 478, 528, 554, 600, 686, 767, 792, 838, 849` (dispute); `service.go:86, 280` (review).
+- **Why it matters** : these callers use the legacy `GetByID(ctx, id)` signature which doesn't install tenant context via RunInTxWithTenant. Today they work because the migration owner role bypasses RLS. Once the production rotation to `marketplace_app NOSUPERUSER NOBYPASSRLS` is performed (per `backend/docs/rls.md`), every one of these calls returns `ErrProposalNotFound` / `ErrDisputeNotFound` immediately. The 8-path PR series only migrated REPO methods; the APP CALLERS still pass through unguarded GetByID.
+- **How to fix** : two options:
+  - (a) Add `GetByIDForOrg(ctx, id, callerOrgID)` to every repo, migrate every caller. ~3 days of mechanical work.
+  - (b) Keep `GetByID` but document it as "system-actor only" and add a runtime check `if !systemActorContext(ctx) { return ErrSystemActorOnly }`. Faster but uglier.
+  
+  Recommended: (a). Each migration site adds an explicit `orgID := mustGetOrgID(ctx)` at the top of the action method, then threads `orgID` to every call site.
+- **Test required** : `rls_caller_audit_test.go` (integration) — create a `marketplace_test_app` role with NOBYPASSRLS, run every public service method through the role, asserter all return correctly. Currently the test only covers the migrated repos.
+- **Effort** : L (3 jours)
+
+### PERF-FINAL-B-15 (NEW) : `reindex` CLI lacks resume capability
+- **Severity**: MEDIUM
+- **Location** : `backend/cmd/reindex/main.go:155` (`reindexPersona` — 7-param function)
+- **Why it matters** : `reindex` is a 1.5h+ operation on full prod data. Crash mid-run = restart from zero. No checkpoint, no `--resume-from` flag.
+- **How to fix** : write checkpoint to `pending_events` table with `event_type='reindex.checkpoint'` after every 100 actors. On startup, `LoadCheckpoint(ctx, persona)` returns the last completed offset; reindex resumes there. Cleanup checkpoint on completion.
+- **Test required** : `reindex_resume_test.go` — start a reindex, kill mid-batch, restart, asserter total processed == total expected (no duplicates from re-processing, no gaps).
+- **Effort** : S (1-2h)
+
+### PERF-FINAL-B-16 (was PERF-B-22) : `IncrementUnreadForRecipients` fan-out org × org INSERTs
+- **Severity**: MEDIUM
+- **Location** : `backend/internal/adapter/postgres/conversation_queries.go` (queryIncrementUnreadForRecipients)
+- **Why it matters** : pour une org de 50 membres, 50 INSERTs séquentiels par message envoyé. À 100 msgs/min sur 5 grosses orgs = 25k inserts/min purement comptables.
+- **How to fix** : INSERT ... SELECT en une seule query : `INSERT INTO conversation_read_state (conversation_id, user_id, unread_count) SELECT $1, om.user_id, 1 FROM organization_members om WHERE om.organization_id = $2 AND om.user_id != $3 ON CONFLICT (conversation_id, user_id) DO UPDATE SET unread_count = unread_count + 1`.
+- **Test required** : table-driven test : 50 members, 1 message, asserter exactly 1 INSERT statement executed (mock the *sql.DB).
+- **Effort** : S (1-2h)
+
+### PERF-FINAL-B-17 (was PERF-B-29) : `idx_search_queries_search_id` UNIQUE
+- **Severity**: MEDIUM (negligible aujourd'hui, mais à mesurer si search analytics scale)
+- **Location** : migration création `idx_search_queries_search_id`
+- **Why it matters** : peut bloquer inserts concurrents sur hot search_id. À 100+ recherches/s sur le même query, contention de lock.
+- **How to fix** : si LTR capture devient hot, migrer search_queries vers un partitioned table par jour OU utiliser un id généré côté client (UUID v4) sans contrainte unique.
+- **Effort** : S (1-2h)
+
+## LOW (6)
+
+- **PERF-FINAL-B-18** : OFFSET pagination dans 8 admin endpoints (media, review_admin, moderation, user, job_admin, conversation_admin, job_application_admin) — toléré jusqu'à 50k rows mais à migrer en cursor à terme. Pattern `LIMIT %d OFFSET %d` sprintf est sécurisé (`int` typé) mais à parameterer (`LIMIT $N OFFSET $N+1`) pour le linter.
+- **PERF-FINAL-B-19** : WS hub `register/unregister` channel taille 64 — bumper à 1024 pour deploy/network changes.
+- **PERF-FINAL-B-20** : Pas d'index `(provider_organization_id, completed_at DESC) WHERE status='completed'` sur proposals — déjà ajouté en m.131. Verified.
+- **PERF-FINAL-B-21** : `INSERT (SELECT FROM organization_members WHERE user_id=$X LIMIT 1)` à chaque création — 1 index seek par INSERT, négligeable mais pourrait être cached pour les batches.
+- **PERF-FINAL-B-22** : Migration 074 backfill DO $$ block monolithique — pour les futures migrations bulk-copy splitter en chunks.
+- **PERF-FINAL-B-23** : `ListPaymentRecords` LEFT JOIN inutilement large — pattern UNION serait plus rapide sur >10k rows.
 
 ## Index audit (table-by-table)
 
-| Table | Migration(s) | Existing indexes | Likely missing | Priority |
-|---|---|---|---|---|
-| proposals | 008, 062, 115 | (conversation_id), (sender_id), (recipient_id), (client_id), (provider_id), (org) partial, (org, status, created_at) | `(provider_organization_id, status, created_at DESC, id DESC)` partial | **HIGH** (cf. PERF-B-08) |
-| payment_records | 018, 064, 086 | (proposal_id), (client_id), (provider_id), (stripe_pi_id) partial, (org_id) | `(provider_organization_id, created_at DESC, id DESC)` | **MEDIUM** |
-| audit_logs | 078 | (user_id) partial, (action), (created_at), (resource_type, resource_id) partial | composite `(user_id, created_at DESC)` pour list-by-user paginé | LOW |
-| subscriptions | 117, 119 | (organization_id) | composite `(organization_id, status)` | LOW |
-| invoice | 121 | (recipient_org_id, issued_at, id), (stripe_pi_id) partial | `(recipient_org, source_type, issued_at DESC)` | LOW |
-| messages, conversations, notifications, jobs, job_applications, organizations, search_queries, moderation_results | — | composites présents | none material | OK |
+| Table | Status | Notes |
+|---|---|---|
+| proposals | OK after m.115+m.131 | composite indexes for both org sides |
+| payment_records | OK after m.131 | provider_organization_id added |
+| conversations, messages | OK | composites in m.074 |
+| audit_logs | OK | partial indexes |
+| invoice | OK | (recipient_org_id, issued_at, id) composite |
+| pending_events | OK after m.128 | partial idx for stuck rows |
+| jobs, job_applications, organizations, search_queries, moderation_results | OK | composites + partial where applicable |
+| **last gap** | last_message denormalisation pending (PERF-FINAL-B-07) |
 
 ## Connection pools (vérifié)
 
 - **Postgres** : MaxOpenConns=50, MaxIdleConns=25, ConnMaxLifetime=30min — conforme CLAUDE.md ✅
 - **Redis** : pool 50/10/3 — conforme ✅
-- **HTTP clients externes** : default → cf. PERF-B-09
+- **HTTP clients externes** : default → cf. PERF-FINAL-B-05 (still open)
 
 ## Strong points backend
 
 - Cursor pagination omniprésente sur les hot paths
-- Context timeouts à 100% dans tous les repos
+- Context timeouts à 100% dans tous les repos (5s default, configurable)
 - Subscription cache 60s TTL bien fait
 - Pending events outbox `FOR UPDATE SKIP LOCKED` correct
-- Audit logs append-only convention
-- Batch query patterns sur listings (`GetTotalUnreadBatch`, `ListMilestonesForProposals`, `GetProfileSkillsBatch`)
-- WS hub `SendToUser` non-bloquant correct
+- Audit logs append-only convention enforced via REVOKE m.124
+- Batch query patterns sur listings (`GetTotalUnreadBatch`, `ListMilestonesForProposals`, `GetProfileSkillsBatch`, `GetParticipantNamesBatch`)
+- WS hub `SendToUser` non-bloquant (sendOrDrop) ✅
+- 5 cache adapters spécialisés : profile, expertise, freelance_profile, skill_catalog, subscription
+- pending_events stale recovery (m.128) prevents stuck rows after worker crash
 
 ---
 
 # WEB (Next.js 16) + ADMIN (Vite)
 
-## HIGH (11)
+## HIGH (5)
 
-### ~~PERF-W-01 : LiveKit lazy~~ closed in PR #41 (`b8f739a7 perf(web): lazy-load LiveKit via CallSlot boundary`)
+### PERF-FINAL-W-01 : `payment-info/page.tsx` fetch + polling dans `useEffect` au lieu de TanStack Query
+- **Severity**: HIGH
+- **Location** : `web/src/app/[locale]/(app)/payment-info/page.tsx:1-405`. Trois `useEffect` côté ligne 94+ fetchent + polling 10s sans dedupe, callbacks closures avec deps suspectes.
+- **Why it matters** : anti-pattern explicite CLAUDE.md. Pas de cache, double-fetch sur mount strict-mode, race conditions si la page démonte pendant un fetch in-flight (memory leak).
+- **How to fix** : `useQuery({ queryKey: ['payment-info', orgId], queryFn: ..., refetchInterval: mode === 'onboarding' ? 10000 : false })`. Le hook `useAccountStatus` doit vivre dans `features/payment-info/hooks/use-account-status.ts` (pas dans `app/`).
+- **Test required** : `payment-info-page.test.tsx` — render avec MSW mocking `/api/v1/payment-info/account-status`, asserter qu'en mode `onboarding` la query refetch toutes les 10s, qu'en mode `dashboard` elle ne refetch pas.
+- **Effort** : M (½j)
 
-### ~~PERF-W-02 : RSC public listings + JSON-LD~~ closed in PR #41 (`6f41131f perf(web): RSC public listings + JSON-LD for SEO`) — voir BUG-NEW-12 pour la régression API_BASE_URL
+### PERF-FINAL-W-02 : 27 `<img>` raw au lieu de `next/image` (était 7 dans l'audit précédent — régression)
+- **Severity**: HIGH
+- **Location** : 27 sites identifiés via `grep -rn "<img" web/src/ --include="*.tsx" | grep -v __tests__`. Pires offenders :
+  - `web/src/shared/components/ui/profile-identity-header.tsx:115` — composant réutilisé partout
+  - `web/src/features/provider/components/portfolio-item-card.tsx:49, 64` — listings
+  - `web/src/features/provider/components/profile-header.tsx:100, 126` — profile pages
+  - `web/src/features/provider/components/provider-card.tsx:88`, `referrer-profile-card.tsx:84`
+- **Why it matters** : pas d'AVIF/WebP auto, pas de lazy loading optimisé, pas de redimensionnement responsive. CLAUDE.md ligne 200. LCP des listings publics impacté.
+- **How to fix** : `<Image>` avec `width`/`height` ou `fill`+`sizes`. Garder `unoptimized` SEULEMENT pour les avatars MinIO (URL pre-signée temporaire) — et même là, considérer un proxy `/api/v1/media/{id}` pour bénéficier du cache CDN Next.js.
+- **Test required** : Playwright e2e `lighthouse-listings.spec.ts` qui audit `/agencies` et asserte `LCP < 2.5s` sur les images.
+- **Effort** : S (1-2h)
 
-### ~~PERF-W-03 : loading/error/not-found/global-error + sitemap/robots~~ closed in PR #41 (`26ebb871 feat(web): loading/error/not-found boundaries` + `1dadac31 feat(web): dynamic sitemap.ts + robots.ts`)
+### PERF-FINAL-W-03 (was PERF-W-08) : 29/51 pages déclarent `"use client"` — over-hydration
+- **Severity**: HIGH
+- **Location** : 29 occurrences identifiées via `grep -rn '"use client"' web/src/app/`. Pages dashboard, profile, projects, search, referral, wallet, etc.
+- **Why it matters** : chaque `"use client"` au niveau page hydrate tout le sous-arbre, augmente le JS initial route, empêche le streaming serveur partiel. La page `wallet/page.tsx` à elle seule charge ~150KB de JS pour un user qui veut juste voir son solde.
+- **How to fix** : descendre la limite `"use client"` au composant interactif. Le shell de page (header, breadcrumbs, layout) reste RSC. Pattern : `page.tsx` devient un Server Component qui import un `<WalletPageClient />` `"use client"`.
+- **Test required** : bundle analyzer report avant/après — cible -30KB JS initial sur les 5 plus gros routes.
+- **Effort** : M (½j)
 
-### ~~PERF-W-04 : TestDB en prod home~~ closed in Phase 0 (`e9c9e325 chore(web): remove TestDB debug component from production home`)
+### PERF-FINAL-W-04 (was PERF-W-12) : `staleTime: Infinity` + `gcTime: Infinity` sur team permissions
+- **Severity**: HIGH
+- **Location** : `web/src/features/team/hooks/use-team.ts:94-95, 218`
+- **Why it matters** : permissions et workspace cachés indéfiniment → mutations invisibles, cache jamais invalidée. Si l'admin change le rôle d'un user, l'UI du target user reste stale jusqu'à hard refresh. Bug de droit d'accès.
+- **How to fix** : `staleTime: 30_000` (30s) + invalidation explicite `queryClient.invalidateQueries({ queryKey: ['team', 'permissions'] })` dans les `onSuccess` des mutations role-overrides.
+- **Test required** : test handler — modifie role A→B, asserter le hook refetch et reflect le nouveau rôle dans <500ms.
+- **Effort** : S (1-2h)
 
-### PERF-W-05 : `payment-info/page.tsx` fetch + polling dans `useEffect` au lieu de TanStack Query
-- **Location** : `web/src/app/[locale]/(app)/payment-info/page.tsx:94-147`
-- **Impact** : anti-pattern explicite CLAUDE.md. Pas de cache, polling 10s sans dedupe, callbacks closures avec deps manquantes (`useCallback` line 109/171 a `[]` mais lit `apiBase`, `mobileToken`, `authHeaders` — bug latent).
-- **Fix** : `useQuery` avec `refetchInterval` conditionnel selon mode.
+### PERF-FINAL-W-05 (was PERF-W-15) : `experimental.optimizePackageImports` incomplet
+- **Severity**: HIGH (bundle-size impact)
+- **Location** : `web/next.config.ts`
+- **Why it matters** : `next-intl` (~80KB), `@stripe/react-stripe-js` (~120KB), `@stripe/react-connect-js` (~150KB) ne sont pas dans la liste — Next.js ne tree-shake pas leurs imports nominaux.
+- **How to fix** : `experimental.optimizePackageImports: ['next-intl', '@stripe/react-stripe-js', '@stripe/react-connect-js', 'lucide-react', '@tanstack/react-query']`.
+- **Test required** : bundle analyzer avant/après — cible -100KB sur la home.
+- **Effort** : XS (30 min)
 
-### PERF-W-06 : Métadonnées génériques sur des pages publiques importantes
-- **Location** : `agencies/[id]/page.tsx:10-18` (titre fixe « Profil agence »), pas de `generateMetadata` sur les listings, pas de JSON-LD `JobPosting` sur `/opportunities/[id]` (pourtant Google for Jobs)
-- **Impact** : indexation et CTR organiques. CLAUDE.md spec'e tout ligne par ligne.
-- **Fix** : aligner agencies/[id] sur le pattern freelancers/[id] (déjà OK). Implémenter `JobPosting` + `BreadcrumbList`.
+## MEDIUM (8)
 
-### PERF-W-07 : 7 fichiers utilisent `<img>` au lieu de `next/image`
-- **Location** : `provider-card.tsx:87`, `freelance-profile-card.tsx:85`, `referrer-profile-card.tsx:83`, `candidate-card.tsx:68`, `candidate-detail-panel.tsx:191`, `upload-modal.tsx:259`, `profile-identity-header.tsx:114`
-- **Impact** : pas d'AVIF/WebP auto, pas de lazy loading optimisé, pas de redimensionnement responsive. CLAUDE.md ligne 200.
-- **Fix** : `<Image>` avec `width`/`height` ou `fill`+`sizes`. Garder `unoptimized` seulement si strictement nécessaire.
+### PERF-FINAL-W-06 (was PERF-W-16) : `loadStripe` au module level
+- **Severity**: MEDIUM
+- **Location** : `web/src/shared/lib/stripe-client.ts:23` — `export const stripePromise = loadStripe(publishableKey)` exécuté à l'import.
+- **Why it matters** : Stripe.js se charge sur TOUTES les routes qui import depuis ce module, même celles qui n'utilisent pas Stripe. ~30KB ajoutés au bundle initial.
+- **How to fix** : convertir en lazy fonction `getStripe()` qui memoise le résultat (pattern singleton). Les call sites changent peu : `stripePromise` → `getStripe()`.
+- **Test required** : N/A — bundle test.
+- **Effort** : XS (30 min)
 
-### PERF-W-08 : 28/51 pages déclarent `"use client"` — over-hydration
-- **Location** : pages dashboard, profile, projects, search, referral, wallet, etc.
-- **Impact** : chaque `"use client"` au niveau page hydrate tout le sous-arbre, augmente le JS initial route, empêche le streaming serveur partiel.
-- **Fix** : descendre la limite `use client` au composant interactif ; le shell de page reste RSC.
+### PERF-FINAL-W-07 (was PERF-W-17) : `useDebouncedValue` dupliqué
+- **Severity**: MEDIUM (DRY)
+- **Location** : `web/src/features/skill/hooks/use-debounced-value.ts` ET `web/src/shared/lib/search/use-debounced-value.ts`
+- **Why it matters** : règle de trois : 2× n'est pas un problème, mais les fichiers ont divergé sur le nom et la signature.
+- **How to fix** : déplacer en `web/src/shared/hooks/use-debounced-value.ts`, supprimer les copies, mettre à jour les imports.
+- **Effort** : XS (15 min)
 
-### ~~PERF-W-09 : Cross-feature imports~~ closed in PR #37 (`refactor(web): move upload-api/expertise-editor/city-autocomplete/search-api to shared/`)
+### PERF-FINAL-W-08 (was PERF-W-18) : Hex couleurs marque dupliqués 3 fois
+- **Severity**: MEDIUM (DRY)
+- **Location** : 3 sites pour LinkedIn (#0A66C2), Instagram (#E4405F), YouTube (#FF0000)
+- **How to fix** : `web/src/shared/lib/social-brand-colors.ts` exporte un mapping `Record<SocialPlatform, string>`.
+- **Effort** : XS (10 min)
 
-### ~~PERF-W-10 : Deps non utilisées~~ closed in Phase 0 (`528668cc chore(web): uninstall unused typesense and country-region-data deps`)
+### PERF-FINAL-W-09 (was PERF-W-19) : Aucun `priority` prop sur les images LCP candidates
+- **Severity**: MEDIUM
+- **Location** : `web/src/features/search/components/search-result-card.tsx:102` (et autres listings publics)
+- **Why it matters** : LCP des listings est typiquement la première image au-dessus du fold. Sans `priority`, Next.js lazy-load — Web Vitals dégradés.
+- **How to fix** : `<Image priority={index < 2} ... />` dans la carte (le parent passe l'index).
+- **Effort** : XS (15 min)
 
-### ~~ADMIN-PERF-01 : Aucun lazy-loading des routes~~ closed in PR #41 (`edcc21da perf(admin): lazy routes + Vite manualChunks`) — voir BUG-NEW-13 pour la régression du fallback Suspense au-dessus de AdminLayout
+### PERF-FINAL-W-10 (was PERF-W-20) : 209/385 boutons sans `aria-label` (54%)
+- **Severity**: MEDIUM (accessibilité — WCAG 2.1 AA)
+- **Location** : audit ciblé via `grep -rn "<button" web/src/features/ web/src/shared/components/`
+- **Why it matters** : beaucoup ont du contenu textuel et donc OK, mais ~30 sont icon-only (close X, dropdown chevron, action icons). Ces 30 sont les vrais offenders.
+- **How to fix** : 
+  1. Installer `eslint-plugin-jsx-a11y` (gate strict).
+  2. Audit ciblé via le linter.
+  3. Ajouter `aria-label="Close"` etc. là où requis. Préférer un composant `<IconButton aria-label="..." icon={<X />} />` réutilisable.
+- **Test required** : Playwright a11y `axe` scan sur les 5 pages principales, fail si 0 violations.
+- **Effort** : S (1-2h)
 
-## MEDIUM (10)
+### PERF-FINAL-W-11 (was BUG-NEW-13, regression PR #41) : Admin `<Suspense>` wraps `<Routes>` — flash de layout
+- **Severity**: MEDIUM (UX)
+- **Location** : `admin/src/app/router.tsx:96-122`
+- **Why it matters** : `<Suspense fallback={<RouteSkeleton />}>` au-dessus de `<Routes>` inclut `<AdminLayout />`. Navigation /users → /jobs → fallback remplace TOUT le layout pendant le download du chunk. Sur réseau lent c'est très visible.
+- **How to fix** : déplacer `<Suspense>` à l'intérieur de `AdminLayout` autour du `<Outlet />` :
+```tsx
+<main className="flex-1 overflow-y-auto bg-gray-50/50 p-6">
+  <Suspense fallback={<RouteSkeleton />}>
+    <Outlet />
+  </Suspense>
+</main>
+```
+- **Test required** : Playwright `admin-navigation.spec.ts` — throttle réseau "Slow 3G", navigate /users → /jobs, asserter le sidebar reste présent dans le DOM continuellement.
+- **Effort** : XS (10 min)
 
-- **PERF-W-11** : 4 fichiers > 600 lignes (`wallet-page.tsx` 878, `message-area.tsx` 797, `search-filter-sidebar.tsx` 758, `billing-profile-form.tsx` 656) — chaque god component hydrate la page entière
-- **PERF-W-12** : `staleTime: Infinity` + `gcTime: Infinity` sur `team` permissions/workspace (`use-team.ts:94-95, 218`) → mutations invisibles, cache jamais invalidée
-- **PERF-W-13** : 12 inline `style={{}}` (la moitié sont dynamiques OK ; `chat-widget-panel.tsx:219` `height: "calc(100vh - 100px)"` statique → Tailwind `h-[calc(100vh-100px)]`)
-- **PERF-W-14** : Hardcoded text dans placeholders/options (i18n leak) — `billing-profile-form.tsx:198,537`, `referral/provider-picker.tsx:216`, `referral-creation-form.tsx:198,209`
-- **PERF-W-15** : `experimental.optimizePackageImports` incomplet — manque `next-intl`, `@stripe/react-stripe-js`, `@stripe/react-connect-js`
-- **PERF-W-16** : `loadStripe` au module level (`stripe-client.ts:23`) — passer en `getStripe()` lazy-init
-- **PERF-W-17** : `useDebouncedValue` dupliqué dans `features/skill/hooks/` ET `shared/lib/search/` — déplacer en `shared/hooks/`
-- **PERF-W-18** : Hex couleurs marque dupliqués 3 fois (linkedin/instagram/youtube) — extraire en `shared/lib/social-brand-colors.ts`
-- **PERF-W-19** : Aucun `priority` prop sur les images LCP candidates (`search-result-card.tsx:102`) — propager `priority={index < 2}`
-- **PERF-W-20** : 209/385 boutons sans `aria-label` (54%) — beaucoup ont sans doute du contenu textuel mais audit ciblé via `eslint-plugin-jsx-a11y` recommandé
+### PERF-FINAL-W-12 (was BUG-NEW-12, regression PR #41) : RSC public listings fall back to `localhost:8080`
+- **Severity**: MEDIUM
+- **Location** : `web/src/features/provider/api/search-server.ts:64`
+- **Why it matters** : `${API_BASE_URL || "http://localhost:8080"}/api/v1/search?...` — le port backend dev réel est **8083** (per memory `feedback_backend_port.md`). En toute env où `API_BASE_URL` est unset, fetch hits dead port → SEO listings render empty (silent because `try { } catch { return null }`).
+- **How to fix** : changer fallback à `http://localhost:8083` OU throw on missing `API_BASE_URL` au build time.
+- **Test required** : test `search-server.test.ts` — unset `API_BASE_URL`, asserter le fetch fails loud (build-time error) plutôt que silent return.
+- **Effort** : XS (10 min)
 
-## LOW (7)
+### PERF-FINAL-W-13 (NEW) : `app/[locale]/(app)/payment-info/components/` viole "app/ is for routing only"
+- **Severity**: MEDIUM (architecture)
+- **Location** : `web/src/app/[locale]/(app)/payment-info/components/` (6 .tsx) + `lib/` à l'intérieur
+- **Why it matters** : viole CLAUDE.md ligne 274 ("app/ is for routing only"). Le dossier devrait être `web/src/features/payment-info/components/`. Difficile à découvrir, mauvais signal d'organisation.
+- **How to fix** : `git mv web/src/app/[locale]/(app)/payment-info/components/ web/src/features/payment-info/components/`. Mettre à jour les imports dans `page.tsx`.
+- **Effort** : S (1-2h, dont 1h de tests + import paths)
 
-- **PERF-W-21** : Hiérarchie h1→h3 cassée sur la home — pose un `<h2>` au-dessus de la grille features
-- **PERF-W-22** : Pas de `@next/bundle-analyzer` — installer + wrapper `withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" })`
-- **PERF-W-23** : `unoptimized` partout sur les avatars (`messaging`, `chat-widget`, `search-result-card`) — supprimer et tester
-- **PERF-W-24** : Pas d'`eslint-plugin-jsx-a11y` configuré
-- **PERF-W-25** : Admin sans plugin a11y/eslint
-- **PERF-W-26** : Hooks coverage ~31% (27/88) — voir rapportTest.md
-- **PERF-W-27** : Vite admin sans `build.target: "es2022"` ni `chunkSizeWarningLimit`
+## LOW (5)
+
+- **PERF-FINAL-W-14** : 12 inline `style={{}}` (la moitié dynamiques OK ; statiques à extraire en classes Tailwind). `chat-widget-panel.tsx:219` `height: "calc(100vh - 100px)"` statique → `h-[calc(100vh-100px)]`.
+- **PERF-FINAL-W-15** : Hardcoded text dans placeholders/options (i18n leak) — `billing-profile-form.tsx:198,537`, `referral/provider-picker.tsx:216`, `referral-creation-form.tsx:198,209`.
+- **PERF-FINAL-W-16** : Hiérarchie h1→h3 cassée sur la home — pose un `<h2>` au-dessus de la grille features.
+- **PERF-FINAL-W-17** : Pas de `@next/bundle-analyzer` — installer + wrapper `withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" })`.
+- **PERF-FINAL-W-18** : `unoptimized` partout sur les avatars (`messaging`, `chat-widget`, `search-result-card`) — supprimer et tester.
 
 ## Strong points web/admin
 
@@ -221,84 +358,118 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 - Suspense boundaries sur `account/page.tsx` et `search/page.tsx`
 - `generateStaticParams` + `hasLocale` pour SSG locales
 - ISR (`next: { revalidate: 120 }`) sur fetch métadonnées profile
-- Dynamic imports `ChatWidget`, `IncomingCallOverlay`, `CallOverlay` (mais neutralisés par PERF-W-01)
-- Profile pages `freelancers/[id]`, `referrers/[id]`, `clients/[id]` = modèles SEO/RSC corrects à répliquer
+- Dynamic imports `ChatWidget`, `IncomingCallOverlay`, `CallOverlay` ✅
+- Profile pages `freelancers/[id]`, `referrers/[id]`, `clients/[id]` = modèles SEO/RSC corrects
 - Typesense client maison (évite la lib npm de 200+ KB)
 - Strict TypeScript, named exports, design tokens via `@theme`
-- **Admin exemplaire** : 0 cross-feature, 0 `any`, 0 fichier > 600
+- **Admin = exemplaire** : 0 cross-feature, 0 `any`, 0 fichier > 600, design system propre. Module de référence — c'est ce niveau qu'il faut atteindre côté web.
 
 ---
 
 # MOBILE (Flutter)
 
-## HIGH (8)
+## HIGH (4)
 
-### PERF-M-01 : ConsumerWidget root + 0 `.select()` dans tout le repo
-- **Location** : `wallet_screen.dart:249`, `profile_screen.dart:40`, `chat_screen.dart:546`, `proposal_detail_screen.dart`
-- **Impact** : `ref.watch` du root rebuild tout le sous-arbre à chaque tick (typing/auth/WS push). ProfileScreen watch 3 providers + 10 keys d'AsyncValue → 250 lignes de Widget recompilées. **Cause #1 de jank**.
-- **Fix** : `ref.watch(provider.select((s) => s.field))` partout. Ou ConsumerStatelessWidget root + sub-widgets ConsumerWidget feuille.
+### PERF-FINAL-M-01 (was PERF-M-01) : ConsumerWidget root + 0 `.select()` dans tout le repo
+- **Severity**: HIGH
+- **Location** : `wallet_screen.dart`, `profile_screen.dart`, `chat_screen.dart`, `proposal_detail_screen.dart`, etc. — tout le code.
+- **Why it matters** : `ref.watch(provider)` du root rebuild tout le sous-arbre à chaque tick (typing/auth/WS push). ProfileScreen watch 3 providers + 10 keys d'AsyncValue → 250 lignes de Widget recompilées. **Cause #1 de jank**.
+- **How to fix** : `ref.watch(provider.select((s) => s.specificField))` partout. Ou pattern : `ConsumerStatelessWidget` root + sub-widgets `ConsumerWidget` feuille qui watch chacun un slice.
+- **Test required** : widget test avec `WidgetTester.idle()` + `findsNWidgets` après mutation d'un provider — asserter que seuls les widgets feuille rebuild.
+- **Effort** : L (3 jours, c'est du systematic refactoring)
 
-### PERF-M-02 : `app_router.dart` charge 45 ecrans en imports synchrones
-- **Location** : `mobile/lib/core/router/app_router.dart:1-62`
-- **Impact** : tout le graphe d'écrans dans le bundle initial. Cold start +200-500ms ; aucun `import deferred` (`grep -c "deferred" = 0`).
-- **Fix** : deferred imports pour wallet, proposal, portfolio, billing, subscription, dispute. CLAUDE.md le demande explicitement.
+### PERF-FINAL-M-02 (was PERF-M-02) : `app_router.dart` charge 45 écrans en imports synchrones
+- **Severity**: HIGH
+- **Location** : `mobile/lib/core/router/app_router.dart:1-433`. Seulement 3 `deferred` imports identifiés.
+- **Why it matters** : tout le graphe d'écrans dans le bundle initial. Cold start +200-500ms ; aucun `import deferred` pour wallet, proposal, portfolio, billing, subscription, dispute. CLAUDE.md le demande.
+- **How to fix** : `import 'package:.../wallet_screen.dart' deferred as wallet;` puis `await wallet.loadLibrary()` dans le route builder. Le pattern est documenté Flutter — économie typique 1-3MB sur les bundles non-critiques.
+- **Test required** : asserter `Devtools` "deferred libraries" tab montre wallet/proposal/portfolio chargés à la 1ère navigation, pas au boot.
+- **Effort** : M (½j)
 
-### PERF-M-03 : `Firebase.initializeApp()` synchrone avant `runApp()`
-- **Location** : `mobile/lib/main.dart:14-15`
-- **Impact** : bloque le splash 200-500 ms (iOS plus lent). Aucun fallback en cas d'échec.
-- **Fix** : `unawaited(_initFirebase())` après `runApp()`. TTI cible < 1.5s.
+### PERF-FINAL-M-03 (was PERF-M-14) : 196 `dynamic` hors `Map<String, dynamic>` et généré
+- **Severity**: HIGH
+- **Location** : Concentré dans `data/` repos Dio (`_api.get<dynamic>`).
+- **Why it matters** : le projet a Freezed + json_serializable précisément pour éviter ça. `authState.user?['display_name']` runtime check 3× plus lent que classes Freezed. Plus tout l'avantage type-safety perdu.
+- **How to fix** : générer des DTOs Freezed pour chaque réponse API (pattern existe dans `data/`). Le ApiClient doit retourner `T` typé, pas `dynamic`.
+- **Test required** : par feature migrée, asserter qu'`fluter analyze` est clean + un test parsing la réponse JSON typée.
+- **Effort** : L (3 jours)
 
-### PERF-M-04 : `FCMService.initialize` dans `Future.microtask` du `build()`
-- **Location** : `mobile/lib/core/router/app_router.dart:618-621`
-- **Pattern** : `if (!_fcmInitialized) { _fcmInitialized = true; Future.microtask(...) }` dans build → effet de bord, anti-pattern Flutter. Risque double-init si build rappelé avant exécution microtask. Permission FCM bloque le premier frame interactif.
-- **Fix** : `initState()` du shell stateful, ou `ref.listen(authProvider, ...)` dans un Provider dédié.
+### PERF-FINAL-M-04 (was PERF-M-15) : 3 fichiers > 600 lignes (était 17, gros progrès)
+- **Severity**: HIGH (downgrade depuis CRITICAL — la majorité a été splittée)
+- **Location** : `mobile/lib/features/job/presentation/screens/create_job_screen.dart` (593, borderline OK), `chat/message_input_bar.dart` (545), `search/search_result_card.dart` (536). Aucun > 600 LOC restant ! Mais 3 fichiers à 530-595 méritent un split anticipé.
+- **Why it matters** : 600 est la limite ; à 590, on est à 1 PR de le dépasser. Préventivement.
+- **How to fix** : extraire des sub-widgets nommés. `create_job_screen.dart` → `CreateJobForm`, `JobDetailsSection`, `JobBudgetSection`, etc.
+- **Effort** : M (½j)
 
-### PERF-M-05 : Avatars CachedNetworkImage sans `memCacheWidth/Height`
-- **Location** : `search_result_card.dart:119-124`, `portfolio_grid_widget.dart:396,410,627`, `portfolio_detail_sheet.dart:99`
-- **Impact** : avatars rendus à 48-64px décodent l'image originale pleine résolution en RAM. Grille portfolio 30 items 1080p = ~100 MB RAM perdue. **Cause #1 de pic mémoire** Android low-end.
-- **Fix** : `memCacheWidth: 128, memCacheHeight: 128` (avatar), `memCacheHeight: 600` (cards). Ajouter `maxWidthDiskCache`.
+## MEDIUM (8)
 
-### PERF-M-06 : 21 `ListView(children: [...])` non-builder, dont plusieurs sur listes variables
-- **Location** : `team_screen.dart:196` (members.map sur 50+), `referral_dashboard_screen.dart:40`, `referral_detail_screen.dart:72`, `skills_editor_bottom_sheet.dart:228`, etc.
-- **Impact** : pas de virtualisation. Pour 100+ items : ~100ms de jank initial + RAM 5x.
-- **Fix** : `ListView.builder` / `ListView.separated` pour toute liste `List<X>.map(...)`.
+### PERF-FINAL-M-05 (was PERF-M-09) : `Image.network` brut dans portfolio_form_sheet
+- **Severity**: MEDIUM
+- **Location** : `portfolio_form_sheet.dart:587, 589`
+- **Why it matters** : re-download à chaque rebuild. `CachedNetworkImage` est utilisé partout ailleurs.
+- **How to fix** : remplacer par `CachedNetworkImage` avec `memCacheWidth` adapté à la taille rendue.
+- **Effort** : XS (10 min)
 
-### ~~PERF-M-07 : 3 dépendances mortes~~ closed in Phase 0 (`e1cabfd4 chore(mobile): remove unused lottie, connectivity_plus, wakelock_plus deps`)
+### PERF-FINAL-M-06 (was PERF-M-10) : Pas de retry/exponential backoff sur Dio
+- **Severity**: MEDIUM (network resilience)
+- **Location** : `mobile/lib/core/network/api_client.dart` (sauf WS)
+- **Why it matters** : 1 timeout = 1 erreur user-facing. Network mobile est intrinsèquement flaky.
+- **How to fix** : `dio_smart_retry` (3 retries avec backoff exponentiel, retry only on 5xx + network errors, jamais sur 4xx). Ou interceptor maison.
+- **Effort** : S (1-2h)
 
-### PERF-M-08 : 0 `RepaintBoundary` dans tout le code
-- **Location** : `grep -r RepaintBoundary mobile/lib = 0`
-- **Impact** : MessageBubble, cells portfolio, avatars animés, video_renderer LiveKit repeignent le screen entier à chaque tick.
-- **Fix** : envelopper chaque MessageBubble (`chat_screen.dart:633`), cell portfolio_grid_widget, video_renderer LiveKit. Gain : 5-15 ms par frame sur listes denses.
+### PERF-FINAL-M-07 (was PERF-M-11) : `messagingWsService.events` stream — 5+ listeners
+- **Severity**: MEDIUM
+- **Location** : `mobile/lib/features/messaging/data/messaging_ws_service.dart`
+- **Why it matters** : 5+ listeners simultanés invalident leurs providers en cascade sur chaque push WS. Risk de cascade rebuild.
+- **How to fix** : un seul listener "router" qui dispatche vers les providers concernés via Riverpod (pas un bus d'events).
+- **Effort** : S (1-2h)
 
-## MEDIUM (12)
+### PERF-FINAL-M-08 (was PERF-M-13) : Pas d'`IndexedStack` ni `wantKeepAlive`
+- **Severity**: MEDIUM (UX + perf)
+- **Location** : tab navigation `app_router.dart`
+- **Why it matters** : switch tab détruit l'écran et refetch tous ses providers, scroll perdu sur Messaging.
+- **How to fix** : `StatefulShellRoute.indexedStack` (GoRouter natif) maintient les écrans en mémoire.
+- **Effort** : S (1-2h)
 
-- **PERF-M-09** : `Image.network` brut dans `portfolio_form_sheet.dart:587, 589` — re-download à chaque rebuild
-- **PERF-M-10** : Pas de retry/exponential backoff sur Dio (sauf WS) — ajouter `dio_smart_retry` ou interceptor maison
-- **PERF-M-11** : `messagingWsService.events` stream — 5+ listeners simultanés invalident leurs providers en cascade sur chaque push
-- **PERF-M-12** : `unreadNotificationCountProvider` `autoDispose` → thrash à chaque navigation
-- **PERF-M-13** : Pas d'`IndexedStack` ni `wantKeepAlive` → switch tab détruit l'écran et refetch tous ses providers, scroll perdu sur Messaging. Utiliser `StatefulShellRoute.indexedStack`
-- **PERF-M-14** : 638 `dynamic` + 437 `Map<String, dynamic>` dans le code métier — `authState.user?['display_name']` runtime check 3x plus lent que classes Freezed
-- **PERF-M-15** : 16 fichiers > 600 lignes (router 1266, wallet 1168, proposal_detail 1023, billing_profile_form 974, profile 930, portfolio_form 831, app_drawer 744, chat 742, message_bubble 704)
-- **PERF-M-16** : 25+ build methods > 100 lignes (ProfileScreen 253, ProposalDetailScreen 252, WalletScreen 209, RegisterScreen 209)
-- **PERF-M-17** : `flutter_inappwebview ^6.1.5` (~6-10 MB APK) pour 1 seul écran subscription checkout — défer ou évaluer `url_launcher` external
-- **PERF-M-18** : `record_linux ^1.0.0` dans `dependency_overrides` alors que Linux n'est pas une cible déclarée
-- **PERF-M-19** : 13 `ref.read` dans `build()` — anti-pattern Riverpod, casse la réactivité (search_screen, opportunity_detail, team_screen, freelance_profile×2, client_profile, call_screen, profile_screen×2, notification_screen, referral_dashboard)
-- **PERF-M-20** : `chat_screen.dart` crée un Dio standalone avec timeouts hardcodés (30s/120s) qui bypass l'auth interceptor → bug latent
+### PERF-FINAL-M-09 (was PERF-M-19) : 13 `ref.read` dans `build()` — anti-pattern Riverpod
+- **Severity**: MEDIUM
+- **Location** : 13 sites identifiés (search_screen, opportunity_detail, team_screen, freelance_profile×2, client_profile, call_screen, profile_screen×2, notification_screen, referral_dashboard).
+- **Why it matters** : casse la réactivité. Le widget ne rebuild pas quand le provider mute.
+- **How to fix** : `ref.watch` si la valeur doit déclencher rebuild. `ref.read` réservé aux callbacks (`onPressed: () { ref.read(notifier).doSomething(); }`).
+- **Effort** : S (1-2h)
 
-## LOW (8)
+### PERF-FINAL-M-10 (was PERF-M-20) : `chat_screen.dart` Dio standalone bypass auth interceptor
+- **Severity**: MEDIUM
+- **Location** : `chat_screen.dart`
+- **Why it matters** : crée un Dio avec timeouts hardcodés (30s/120s) qui bypass le auth interceptor → bug latent (non-401 sur token expiré).
+- **How to fix** : utiliser le Dio singleton via Riverpod Provider.
+- **Effort** : XS (15 min)
 
-- **PERF-M-21** : `ListView.builder` sans `cacheExtent` ni `addRepaintBoundaries: true` — défaut OK, mesurer avec DevTools avant tuning
-- **PERF-M-22** : Pas de pull-to-refresh sur 14/25 écrans listes (wallet, jobs, opportunities, applications, referrals)
-- **PERF-M-23** : Pas de config globale `imageCache.maximumSizeBytes` — défaut 100 MB / 1000 images, OK mais évict aggressive sur long scroll
-- **PERF-M-24** : Pas de `flutter_svg` precache pour les illustrations
-- **PERF-M-25** : 4 `Timer.periodic` à dispose-auditer (chat_screen, message_input_bar, call_provider, billing_success, incoming_call_overlay)
-- **PERF-M-26** : Pas de bench Flutter DevTools documenté — capturer les timelines cold start / scroll messaging / scroll portfolio dans `docs/perf/`
-- **PERF-M-27** : 7 features avec couches data/domain/presentation incomplètes (dashboard, invoice, mission, payment_info, profile, provider_profile, search) — décider de la stratégie
-- **PERF-M-28** : Generated code (.freezed.dart, .g.dart) absent du repo (gitignored OK) — rappeler `dart run build_runner build` dans README open-source
+### PERF-FINAL-M-11 (was PERF-M-17) : `flutter_inappwebview ^6.1.5` (~6-10 MB APK)
+- **Severity**: MEDIUM (APK size, target <30MB)
+- **Location** : `mobile/pubspec.yaml`
+- **Why it matters** : ~6-10 MB d'APK pour 1 seul écran subscription checkout.
+- **How to fix** : évaluer `url_launcher` external (open dans le browser système) — UX dégradée mais APK -8MB. Ou defer la lib via macros build conditionnels (faisable côté Android via `compileSdk` flavors).
+- **Effort** : M (½j eval + impl si décidé)
+
+### PERF-FINAL-M-12 (was PERF-M-18) : `record_linux ^1.0.0` dans dependency_overrides
+- **Severity**: MEDIUM (cleanup)
+- **Location** : `mobile/pubspec.yaml`
+- **Why it matters** : Linux n'est pas une cible déclarée du projet. Dependency morte.
+- **How to fix** : retirer.
+- **Effort** : XS (5 min)
+
+## LOW (5)
+
+- **PERF-FINAL-M-13** : `ListView.builder` sans `cacheExtent` — défaut OK mais à mesurer.
+- **PERF-FINAL-M-14** : Pas de pull-to-refresh sur 14/25 écrans listes — UX gap.
+- **PERF-FINAL-M-15** : Pas de config globale `imageCache.maximumSizeBytes` — défaut 100 MB OK.
+- **PERF-FINAL-M-16** : Pas de bench Flutter DevTools documenté — capturer les timelines cold start / scroll messaging dans `docs/perf/`.
+- **PERF-FINAL-M-17** : Pas de `flutter_svg` precache pour les illustrations.
 
 ## Strong points mobile
 
-- CachedNetworkImage adopté majoritairement (11 fichiers, 5 occurrences correctes avec placeholder + errorWidget)
+- CachedNetworkImage adopté majoritairement (11 fichiers, 5 occurrences avec placeholder + errorWidget)
 - Dio singleton via Riverpod Provider — pas de Singleton statique
 - Token refresh interceptor avec Dio fresh-instance (évite loops)
 - WebSocket service heartbeat 30s + reconnexion exponentielle + AppLifecycleListener — excellent pattern
@@ -306,53 +477,41 @@ Audit statique sans build ni exécution. Lecture de tous les hot paths : messagi
 - Debouncing dans location_section et create_proposal_screen (fee preview)
 - AnimationController disposal vérifié sur les 3 occurrences
 - Generated code propre (0 .freezed.dart en repo, build_runner standard)
+- Firebase deferred + post-frame FCM init (PR #41 cat F) ✅
+- 17 RepaintBoundary placés (PR #41 cat E)
+- 7 memCacheWidth placés (PR #41 cat D)
 
 ---
 
-# Top 12 fixes prioritaires (cross-stack)
+# Top 15 fixes prioritaires (cross-stack, ordered by ROI)
 
-| # | ID | Effort | Impact |
-|---|---|---|---|
-| 1 | PERF-W-01 (LiveKit lazy) | 4 h | -1,3 MB sur tous les dashboards |
-| 2 | PERF-B-01 (streaming uploads) | 4 h | ferme OOM Railway 1 GB |
-| 3 | PERF-W-02 (RSC listings publics) | 1 j | débloque SEO (asset #1 marketplace) |
-| 4 | PERF-W-03 (loading/error/sitemap) | 1 j | UX + indexation |
-| 5 | PERF-M-02+M-03+M-04 (cold start mobile) | 1 j | -500 ms cold start |
-| 6 | PERF-B-08 (utiliser provider_organization_id) | 4 h | -50-150ms p50 sur proposals/payment_records |
-| 7 | PERF-B-05 (CacheService) | 2 j | -5-10× trafic Postgres SEO |
-| 8 | PERF-B-02 (N+1 GetParticipantNames) | 2 h | -80-200 ms par dashboard |
-| 9 | PERF-W-04 (supprimer TestDB) | 5 min | bundle prod + UX |
-| 10 | PERF-M-07 (3 deps mortes) | 5 min | -1 MB APK |
-| 11 | PERF-M-05 (memCacheWidth avatars) | 1 h | -50 MB RAM peak |
-| 12 | PERF-B-09 (HTTP transport tuned) | 30 min | -50-100 ms par recherche |
+| # | ID | Severity | Effort | Impact |
+|---|---|---|---|---|
+| 1 | PERF-FINAL-B-14 | MEDIUM→HIGH | L (3j) | Pre-prod RLS rotation blocker |
+| 2 | PERF-FINAL-B-01 | HIGH | XS | Slowloris DoS protection |
+| 3 | PERF-FINAL-B-05 | HIGH | XS | -50-100ms par recherche |
+| 4 | PERF-FINAL-B-04 | HIGH | S | Slow query observability |
+| 5 | PERF-FINAL-W-12 | MEDIUM | XS | RSC listings actually work |
+| 6 | PERF-FINAL-W-11 | MEDIUM | XS | Admin layout no flash |
+| 7 | PERF-FINAL-B-02 | HIGH | S | Wallet endpoint DoS protection |
+| 8 | PERF-FINAL-W-02 | HIGH | S | LCP listings publics |
+| 9 | PERF-FINAL-B-06 | HIGH | M | -100-200ms checkout |
+| 10 | PERF-FINAL-W-01 | HIGH | M | Payment-info anti-pattern fix |
+| 11 | PERF-FINAL-W-03 | HIGH | M | -30KB JS initial routes |
+| 12 | PERF-FINAL-B-03 | HIGH | M | Cache infrastructure |
+| 13 | PERF-FINAL-M-02 | HIGH | M | Mobile cold start -300ms |
+| 14 | PERF-FINAL-W-04 | HIGH | S | Team UI permissions stale fix |
+| 15 | PERF-FINAL-W-05 | HIGH | XS | Bundle -100KB |
 
-**Bundle « 1 semaine »** = items 1-12 = transformation mesurable des KPIs (LCP web, cold start mobile, p50 backend, RAM mobile, OOM resilience).
+**Bundle « 1 semaine »** = items 1-15 = transformation mesurable des KPIs (LCP web, cold start mobile, p50 backend, OOM resilience).
 
 ---
-
-## Closed in this round
-
-| ID | Closed in |
-|---|---|
-| PERF-B-01 (streaming uploads) | PR #34 |
-| PERF-B-12 (notification worker pool) | PR #36 |
-| PERF-B-16 (WS sendOrDrop) | PR #40 |
-| PERF-W-01 (LiveKit lazy) | PR #41 |
-| PERF-W-02 (RSC public listings) | PR #41 |
-| PERF-W-03 (loading/error/sitemap) | PR #41 |
-| PERF-W-04 (TestDB removed) | Phase 0 |
-| PERF-W-09 (cross-feature imports) | PR #37 |
-| PERF-W-10 (unused web deps) | Phase 0 |
-| ADMIN-PERF-01 (admin lazy routes + Vite manualChunks) | PR #41 |
-| PERF-M-07 (mobile dead deps) | Phase 0 |
 
 ## Summary
 
 | Layer | HIGH | MEDIUM | LOW |
 |---|---|---|---|
-| Backend + DB | 5 | 12 | 10 |
-| Web + Admin | 7 | 10 | 7 |
-| Mobile | 7 | 12 | 8 |
-| **Total** | **19** | **34** | **25** |
-
-(was 86 before this round → 78 remaining + 11 closed; new 8 BUG-NEW-* perf items captured separately in bugacorriger.md)
+| Backend + DB | 6 | 11 | 6 |
+| Web + Admin | 5 | 8 | 5 |
+| Mobile | 4 | 8 | 5 |
+| **Total** | **15** | **27** | **16** |
