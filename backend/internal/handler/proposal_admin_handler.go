@@ -9,6 +9,7 @@ import (
 
 	proposalapp "marketplace-backend/internal/app/proposal"
 	"marketplace-backend/internal/handler/dto/response"
+	"marketplace-backend/internal/system"
 
 	res "marketplace-backend/pkg/response"
 )
@@ -45,7 +46,12 @@ func (h *ProposalAdminHandler) AdminActivateProposal(w http.ResponseWriter, r *h
 		res.Error(w, http.StatusBadRequest, "invalid_proposal_id", "id must be a valid UUID")
 		return
 	}
-	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
+	// Admin force-activation is a system-actor surface: the admin
+	// is acting on a proposal they are NOT a tenant of. Mark the
+	// context so the proposal service skips the per-tenant gate
+	// inside ConfirmPaymentAndActivate.
+	ctx := system.WithSystemActor(r.Context())
+	if err := h.proposalSvc.ConfirmPaymentAndActivate(ctx, proposalID); err != nil {
 		handleProposalError(w, err)
 		return
 	}
