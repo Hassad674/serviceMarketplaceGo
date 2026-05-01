@@ -8,6 +8,7 @@ import (
 	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/referral"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/system"
 )
 
 // ─── SnapshotProfileLoader adapters ───────────────────────────────────────
@@ -120,13 +121,24 @@ func NewProposalRepoSummaryResolver(
 // refunded milestones are NOT counted — those moved out of escrow.
 // Pending-funding and cancelled milestones are NOT counted — no
 // escrow to speak of.
+//
+// SYSTEM-ACTOR: a referral aggregate cuts across multiple
+// proposals owned by different organizations — the apporteur is
+// authorized at the referral level, not the proposal level, so
+// the per-proposal RLS gate would mistakenly deny the read for
+// every proposal that is not the apporteur's own. We tag the
+// context with system.WithSystemActor so the underlying
+// repository takes the non-tenant-aware GetByID path. The
+// referral service has already validated the caller's right to
+// see this attribution list (see service_list.GetByID).
 func (r *ProposalRepoSummaryResolver) ResolveProposalSummaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*ProposalSummary, error) {
 	out := make(map[uuid.UUID]*ProposalSummary, len(ids))
 	if r.proposals == nil || len(ids) == 0 {
 		return out, nil
 	}
+	systemCtx := system.WithSystemActor(ctx)
 	for _, id := range ids {
-		p, err := r.proposals.GetByID(ctx, id)
+		p, err := r.proposals.GetByID(systemCtx, id)
 		if err != nil || p == nil {
 			continue
 		}

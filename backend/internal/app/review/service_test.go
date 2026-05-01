@@ -47,7 +47,7 @@ func TestService_CreateReview_Success(t *testing.T) {
 		},
 	})
 
-	r, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	r, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   proposalID,
 		ReviewerID:   clientID,
 		GlobalRating: 5,
@@ -90,7 +90,7 @@ func TestService_CreateReview_ProviderSide(t *testing.T) {
 		},
 	})
 
-	r, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	r, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   proposalID,
 		ReviewerID:   providerID,
 		GlobalRating: 4,
@@ -127,7 +127,7 @@ func TestService_CreateReview_ProviderSide_RejectsSubCriteria(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   providerID,
 		GlobalRating: 4,
@@ -169,7 +169,7 @@ func TestService_CreateReview_Reveal_OnSecondSubmission(t *testing.T) {
 		},
 	})
 
-	r, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	r, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   proposalID,
 		ReviewerID:   providerID,
 		GlobalRating: 5,
@@ -204,7 +204,7 @@ func TestService_CreateReview_WindowClosed(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   proposalID,
 		ReviewerID:   clientID,
 		GlobalRating: 5,
@@ -232,7 +232,7 @@ func TestService_CreateReview_WindowMissingCompletedAt(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   clientID,
 		GlobalRating: 4,
@@ -252,7 +252,7 @@ func TestService_CreateReview_NotCompleted(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   uuid.New(),
 		GlobalRating: 4,
@@ -277,7 +277,7 @@ func TestService_CreateReview_NotParticipant(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   uuid.New(), // not a participant
 		GlobalRating: 4,
@@ -308,7 +308,7 @@ func TestService_CreateReview_AlreadyReviewed(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   clientID,
 		GlobalRating: 4,
@@ -345,7 +345,7 @@ func TestService_CreateReview_NotifiesCounterpart(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   clientID,
 		GlobalRating: 5,
@@ -388,7 +388,7 @@ func TestService_CreateReview_Reveal_NotifiesBothParties(t *testing.T) {
 		},
 	})
 
-	_, err := svc.CreateReview(context.Background(), CreateReviewInput{
+	_, err := svc.CreateReview(orgCtx(), CreateReviewInput{
 		ProposalID:   uuid.New(),
 		ReviewerID:   providerID,
 		GlobalRating: 4,
@@ -424,7 +424,7 @@ func TestService_CanReview_Client(t *testing.T) {
 		},
 	})
 
-	can, err := svc.CanReview(context.Background(), proposalID, clientID)
+	can, err := svc.CanReview(orgCtx(), proposalID, clientID)
 	assert.NoError(t, err)
 	assert.True(t, can)
 }
@@ -452,7 +452,7 @@ func TestService_CanReview_ProviderNowAllowed(t *testing.T) {
 		},
 	})
 
-	can, err := svc.CanReview(context.Background(), uuid.New(), providerID)
+	can, err := svc.CanReview(orgCtx(), uuid.New(), providerID)
 	assert.NoError(t, err)
 	assert.True(t, can, "provider must now be able to review the client")
 }
@@ -477,7 +477,7 @@ func TestService_CanReview_WindowClosed(t *testing.T) {
 		},
 	})
 
-	can, err := svc.CanReview(context.Background(), uuid.New(), clientID)
+	can, err := svc.CanReview(orgCtx(), uuid.New(), clientID)
 	assert.NoError(t, err)
 	assert.False(t, can, "window closed: CanReview must return false")
 }
@@ -493,7 +493,7 @@ func TestService_CanReview_NotCompleted(t *testing.T) {
 		},
 	})
 
-	can, err := svc.CanReview(context.Background(), uuid.New(), uuid.New())
+	can, err := svc.CanReview(orgCtx(), uuid.New(), uuid.New())
 	assert.NoError(t, err)
 	assert.False(t, can)
 }

@@ -18,6 +18,7 @@ import (
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // disputeWiring carries the dispute feature's user-facing handlers.
@@ -107,7 +108,12 @@ func wireDispute(deps disputeDeps) disputeWiring {
 	if cfg.Env == "development" {
 		disputeInterval = 1 * time.Minute
 	}
-	go disputeScheduler.Run(ctx, disputeInterval)
+	// The dispute scheduler runs auto-resolve + escalate flows
+	// without an authenticated user — tag its goroutine context
+	// as a system actor so downstream service / repository calls
+	// take the non-tenant-aware code path.
+	schedulerCtx := system.WithSystemActor(ctx)
+	go disputeScheduler.Run(schedulerCtx, disputeInterval)
 	slog.Info("dispute scheduler started", "interval", disputeInterval)
 
 	return disputeWiring{

@@ -23,6 +23,7 @@ type mockProposalRepo struct {
 	createWithDocsFn         func(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument) error
 	createWithDocsAndMilesFn func(ctx context.Context, p *domain.Proposal, docs []*domain.ProposalDocument, milestones []*milestone.Milestone) error
 	getByIDFn                func(ctx context.Context, id uuid.UUID) (*domain.Proposal, error)
+	getByIDForOrgFn          func(ctx context.Context, id, orgID uuid.UUID) (*domain.Proposal, error)
 	updateFn                 func(ctx context.Context, p *domain.Proposal) error
 	getLatestVersionFn       func(ctx context.Context, rootProposalID uuid.UUID) (*domain.Proposal, error)
 	listByConversationFn     func(ctx context.Context, conversationID uuid.UUID) ([]*domain.Proposal, error)
@@ -59,6 +60,22 @@ func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(ctx context.Context,
 }
 
 func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Proposal, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, domain.ErrProposalNotFound
+}
+
+// GetByIDForOrg defaults to delegating to getByIDFn so existing
+// happy-path tests transparently keep working — the migration of
+// service callers from GetByID to GetByIDForOrg becomes a
+// drop-in replacement at the test fixture level. Tests that need
+// to assert the org-scoped path was taken set getByIDForOrgFn
+// explicitly.
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, orgID uuid.UUID) (*domain.Proposal, error) {
+	if m.getByIDForOrgFn != nil {
+		return m.getByIDForOrgFn(ctx, id, orgID)
+	}
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
@@ -209,6 +226,14 @@ func (m *mockMilestoneRepo) GetByID(ctx context.Context, id uuid.UUID) (*milesto
 		return mm, nil
 	}
 	return nil, milestone.ErrMilestoneNotFound
+}
+
+// GetByIDForOrg delegates to GetByID so existing tests that seed
+// the in-memory store keep working transparently after the
+// caller migration. Tests asserting the org-aware path can wrap
+// this method or use the wider mock surface.
+func (m *mockMilestoneRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*milestone.Milestone, error) {
+	return m.GetByID(ctx, id)
 }
 
 func (m *mockMilestoneRepo) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {

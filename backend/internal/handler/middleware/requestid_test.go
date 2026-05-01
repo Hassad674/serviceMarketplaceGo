@@ -1,10 +1,12 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -82,4 +84,47 @@ func TestGetRole_EmptyContext(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	role := GetRole(req.Context())
 	assert.Empty(t, role, "empty context must return empty string")
+}
+
+// TestMustGetOrgID_ReturnsValueWhenSet verifies the happy path
+// where the auth middleware has stamped the org id into the
+// context. This is the canonical user-facing handler scenario.
+func TestMustGetOrgID_ReturnsValueWhenSet(t *testing.T) {
+	orgID := uuid.New()
+	ctx := context.WithValue(context.Background(), ContextKeyOrganizationID, orgID)
+	got := MustGetOrgID(ctx)
+	assert.Equal(t, orgID, got,
+		"MustGetOrgID must return the value stamped by the auth middleware")
+}
+
+// TestMustGetOrgID_PanicsOnEmpty verifies the panic contract.
+// Calling MustGetOrgID without an authenticated org context is a
+// programming bug — the panic surfaces it during unit tests
+// rather than letting the call silently degrade to uuid.Nil.
+func TestMustGetOrgID_PanicsOnEmpty(t *testing.T) {
+	defer func() {
+		r := recover()
+		require.NotNil(t, r, "MustGetOrgID must panic when the org id is missing")
+		msg, ok := r.(string)
+		require.True(t, ok, "panic value must be a string for clarity")
+		assert.Contains(t, msg, "organization id missing",
+			"panic message must point at the missing org id, not be a generic nil deref")
+	}()
+	_ = MustGetOrgID(context.Background())
+}
+
+// TestMustGetOrgID_PanicsOnNilUUID guards the edge case where
+// the auth middleware populated the key but with uuid.Nil — that
+// is legitimate for solo providers without an org, and the
+// MustGet contract is "this code path requires an org", so a
+// solo-provider call here must still panic.
+func TestMustGetOrgID_PanicsOnNilUUID(t *testing.T) {
+	defer func() {
+		r := recover()
+		require.NotNil(t, r,
+			"MustGetOrgID must panic when the org id is uuid.Nil — "+
+				"a solo-provider hitting an org-required code path is a bug")
+	}()
+	ctx := context.WithValue(context.Background(), ContextKeyOrganizationID, uuid.Nil)
+	_ = MustGetOrgID(ctx)
 }

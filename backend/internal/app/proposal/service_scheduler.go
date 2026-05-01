@@ -12,6 +12,7 @@ import (
 	"marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/pendingevent"
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/system"
 )
 
 // MilestoneEventPayload is the typed payload of every milestone-scoped
@@ -34,6 +35,7 @@ func (s *Service) scheduleMilestoneAutoApprove(ctx context.Context, milestoneID 
 		return
 	}
 	event, err := s.buildMilestoneEvent(
+		ctx,
 		pendingevent.TypeMilestoneAutoApprove,
 		milestoneID,
 		time.Now().Add(s.autoApprovalDelay),
@@ -57,6 +59,7 @@ func (s *Service) scheduleMilestoneFundReminder(ctx context.Context, milestoneID
 		return
 	}
 	event, err := s.buildMilestoneEvent(
+		ctx,
 		pendingevent.TypeMilestoneFundReminder,
 		milestoneID,
 		time.Now().Add(s.fundReminderDelay),
@@ -103,10 +106,20 @@ func (s *Service) scheduleProposalAutoClose(ctx context.Context, proposalID uuid
 }
 
 // buildMilestoneEvent is the common factory for milestone-scoped events.
-func (s *Service) buildMilestoneEvent(eventType pendingevent.EventType, milestoneID uuid.UUID, firesAt time.Time) (*pendingevent.PendingEvent, error) {
+//
+// The schedule call originates from a user-driven flow
+// (RequestCompletion / CompleteProposal) but the milestone read here
+// runs after the caller has already authorized the surrounding
+// transition — re-checking the tenant gate would force every
+// schedule path to re-fetch the org id from a context that may have
+// already moved past it. We tag the read with system.WithSystemActor
+// so the milestone repo takes the non-tenant-aware code path; the
+// production deployment routes those reads through a privileged DB
+// pool. The boundary is documented in backend/docs/rls.md.
+func (s *Service) buildMilestoneEvent(ctx context.Context, eventType pendingevent.EventType, milestoneID uuid.UUID, firesAt time.Time) (*pendingevent.PendingEvent, error) {
 	// Resolve the proposal id so the handler doesn't need a second
 	// repo lookup just to know which proposal a milestone belongs to.
-	m, err := s.milestones.GetByID(context.Background(), milestoneID)
+	m, err := s.milestones.GetByID(system.WithSystemActor(ctx), milestoneID)
 	if err != nil {
 		return nil, fmt.Errorf("get milestone for event payload: %w", err)
 	}

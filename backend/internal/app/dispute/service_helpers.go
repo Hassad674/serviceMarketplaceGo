@@ -77,7 +77,7 @@ func (s *Service) notifyBothParties(ctx context.Context, d *disputedomain.Disput
 // fund distribution MUST run even if a downstream message send fails,
 // and vice versa.
 func (s *Service) restoreProposalAndDistribute(ctx context.Context, d *disputedomain.Dispute) {
-	p, err := s.proposals.GetByID(ctx, d.ProposalID)
+	p, err := s.loadProposalForActor(ctx, d.ProposalID)
 	if err != nil {
 		slog.Error("dispute: get proposal for resolution", "error", err)
 		return
@@ -386,7 +386,7 @@ func (s *Service) generateAISummary(ctx context.Context, d *disputedomain.Disput
 // and chat calls. Loads proposal, counter-proposals, post-mission messages,
 // and evidence files; the caller decides what budget to enforce.
 func (s *Service) buildAIInput(ctx context.Context, d *disputedomain.Dispute) (portservice.DisputeAnalysisInput, error) {
-	p, err := s.proposals.GetByID(ctx, d.ProposalID)
+	p, err := s.loadProposalForActor(ctx, d.ProposalID)
 	if err != nil {
 		return portservice.DisputeAnalysisInput{}, fmt.Errorf("get proposal: %w", err)
 	}

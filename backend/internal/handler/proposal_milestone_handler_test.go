@@ -42,6 +42,10 @@ func (m *mockMilestoneRepo) GetByID(_ context.Context, _ uuid.UUID) (*milestoned
 	return nil, milestonedomain.ErrMilestoneNotFound
 }
 
+func (m *mockMilestoneRepo) GetByIDForOrg(_ context.Context, _, _ uuid.UUID) (*milestonedomain.Milestone, error) {
+	return nil, milestonedomain.ErrMilestoneNotFound
+}
+
 func (m *mockMilestoneRepo) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
 	if m.getByIDWithVersionFn != nil {
 		return m.getByIDWithVersionFn(ctx, id)

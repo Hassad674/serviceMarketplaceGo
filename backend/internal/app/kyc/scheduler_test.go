@@ -133,6 +133,9 @@ func (m *kycMockRecordRepo) Create(_ context.Context, _ *payment.PaymentRecord) 
 func (m *kycMockRecordRepo) GetByID(_ context.Context, _ uuid.UUID) (*payment.PaymentRecord, error) {
 	return nil, nil
 }
+func (m *kycMockRecordRepo) GetByIDForOrg(_ context.Context, _, _ uuid.UUID) (*payment.PaymentRecord, error) {
+	return nil, nil
+}
 func (m *kycMockRecordRepo) GetByProposalID(_ context.Context, _ uuid.UUID) (*payment.PaymentRecord, error) {
 	return nil, nil
 }

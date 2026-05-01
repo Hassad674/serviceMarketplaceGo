@@ -230,6 +230,9 @@ func (m *disputeReaderMock) GetByID(_ context.Context, _ uuid.UUID) (*dispute.Di
 	m.getCalls++
 	return &dispute.Dispute{}, nil
 }
+func (m *disputeReaderMock) GetByIDForOrg(_ context.Context, _, _ uuid.UUID) (*dispute.Dispute, error) {
+	return &dispute.Dispute{}, nil
+}
 func (m *disputeReaderMock) GetByProposalID(_ context.Context, _ uuid.UUID) (*dispute.Dispute, error) {
 	return nil, nil
 }
@@ -276,6 +279,9 @@ type proposalReaderMock struct {
 
 func (m *proposalReaderMock) GetByID(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) {
 	m.getByIDCalls++
+	return &proposal.Proposal{}, nil
+}
+func (m *proposalReaderMock) GetByIDForOrg(_ context.Context, _, _ uuid.UUID) (*proposal.Proposal, error) {
 	return &proposal.Proposal{}, nil
 }
 func (m *proposalReaderMock) GetByIDs(_ context.Context, _ []uuid.UUID) ([]*proposal.Proposal, error) {

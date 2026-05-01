@@ -76,6 +76,26 @@ func GetOrganizationID(ctx context.Context) (uuid.UUID, bool) {
 	return uuid.UUID{}, false
 }
 
+// MustGetOrgID is the panic-on-missing variant of GetOrganizationID.
+// It is the contract used by app services that hit RLS-protected
+// reads inside a request whose handler is supposed to have stamped
+// the organization context — if the context is missing it is a
+// programming bug (handler forgot to enforce auth, or a test
+// forgot to populate the context), not a user error.
+//
+// Production code that legitimately runs without an authenticated
+// org (cron schedulers, background workers) MUST instead use the
+// system.WithSystemActor / system.IsSystemActor helpers — never
+// MustGetOrgID with a fallback.
+func MustGetOrgID(ctx context.Context) uuid.UUID {
+	id, ok := GetOrganizationID(ctx)
+	if !ok || id == uuid.Nil {
+		panic("middleware.MustGetOrgID: organization id missing from context — " +
+			"handler must enforce Auth + organization gate before calling this code path")
+	}
+	return id
+}
+
 // GetOrgRole returns the role the authenticated user holds within their
 // organization (owner, admin, member, viewer), or "" if none.
 func GetOrgRole(ctx context.Context) string {

@@ -19,6 +19,21 @@ type ProposalRepository interface {
 	// milestone since phase 4).
 	CreateWithDocumentsAndMilestones(ctx context.Context, p *proposal.Proposal, docs []*proposal.ProposalDocument, milestones []*milestone.Milestone) error
 	GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error)
+	// GetByIDForOrg fetches a proposal by id under the caller's
+	// organization tenant context. The adapter wraps the read in
+	// RunInTxWithTenant so the RLS policy keyed on
+	// app.current_org_id matches the proposal's
+	// client_organization_id or provider_organization_id. Returns
+	// ErrProposalNotFound when the row does not exist OR when the
+	// caller's org is not party to the proposal — RLS does not
+	// distinguish "missing" from "denied" by design.
+	//
+	// All user-facing app callers MUST use this method instead of
+	// the legacy GetByID; system-actor scheduler paths are the only
+	// remaining legitimate consumer of GetByID and they pay for it
+	// with the system.WithSystemActor context guard at the adapter
+	// boundary.
+	GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*proposal.Proposal, error)
 	// GetByIDs batch-loads proposals for a set of ids in a single query.
 	// Returns the slice in no particular order — callers must map by id
 	// if they need a specific ordering. Missing ids are silently dropped

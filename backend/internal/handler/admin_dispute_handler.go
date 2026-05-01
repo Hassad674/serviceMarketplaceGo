@@ -11,6 +11,7 @@ import (
 	"marketplace-backend/internal/handler/dto/response"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
+	"marketplace-backend/internal/system"
 	res "marketplace-backend/pkg/response"
 	"marketplace-backend/pkg/validator"
 )
@@ -53,7 +54,11 @@ func (h *AdminDisputeHandler) GetAdminDispute(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	detail, err := h.svc.GetDisputeForAdmin(r.Context(), disputeID)
+	// Admin read on a dispute the admin is NOT a tenant of —
+	// system-actor surface, gated by RequireRole("admin") on the
+	// route.
+	ctx := system.WithSystemActor(r.Context())
+	detail, err := h.svc.GetDisputeForAdmin(ctx, disputeID)
 	if err != nil {
 		handleDisputeError(w, err)
 		return
@@ -82,7 +87,10 @@ func (h *AdminDisputeHandler) ResolveDispute(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.svc.AdminResolve(r.Context(), disputeapp.AdminResolveInput{
+	// Admin resolve fans out to dispute restore + payout
+	// distribution on a dispute the admin is NOT a tenant of.
+	ctx := system.WithSystemActor(r.Context())
+	if err := h.svc.AdminResolve(ctx, disputeapp.AdminResolveInput{
 		DisputeID:      disputeID,
 		AdminID:        adminID,
 		AmountClient:   req.AmountClient,
@@ -118,7 +126,10 @@ func (h *AdminDisputeHandler) AskAI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out, err := h.svc.AskAI(r.Context(), disputeapp.AskAIInput{
+	// Admin AI chat reads + persists messages on a dispute the
+	// admin is NOT a tenant of — system-actor surface.
+	ctx := system.WithSystemActor(r.Context())
+	out, err := h.svc.AskAI(ctx, disputeapp.AskAIInput{
 		DisputeID: disputeID,
 		Question:  req.Question,
 	})
@@ -143,7 +154,10 @@ func (h *AdminDisputeHandler) IncreaseAIBudget(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err := h.svc.IncreaseAIBudget(r.Context(), disputeID, 0); err != nil {
+	// Admin budget increase is a system-actor surface — the
+	// admin is acting on a dispute they are not party to.
+	ctx := system.WithSystemActor(r.Context())
+	if err := h.svc.IncreaseAIBudget(ctx, disputeID, 0); err != nil {
 		handleDisputeError(w, err)
 		return
 	}
@@ -170,7 +184,12 @@ func (h *AdminDisputeHandler) ForceEscalate(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := h.svc.ForceEscalate(r.Context(), disputeID); err != nil {
+	// Admin force-escalate acts on a dispute the admin is NOT a
+	// tenant of — the dispute service routes through its
+	// system-actor branch so the read goes through the
+	// non-tenant-aware GetByID under a privileged DB role.
+	ctx := system.WithSystemActor(r.Context())
+	if err := h.svc.ForceEscalate(ctx, disputeID); err != nil {
 		handleDisputeError(w, err)
 		return
 	}

@@ -156,7 +156,14 @@ func (r *MilestoneRepository) CreateBatch(ctx context.Context, milestones []*mil
 
 // GetByID fetches a milestone without taking a lock. Suitable for read-only
 // queries (listings, projections, UI detail views).
+//
+// SYSTEM-ACTOR: same contract as ProposalRepository.GetByID. The
+// proposal scheduler's AutoApproveMilestone /
+// FundReminderForMilestone / AutoCloseProposal paths run on a
+// system-actor goroutine (worker.Run tags the root ctx). User-
+// facing callers must use GetByIDForOrg.
 func (r *MilestoneRepository) GetByID(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error) {
+	warnIfNotSystemActor(ctx, "MilestoneRepository.GetByID")
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 

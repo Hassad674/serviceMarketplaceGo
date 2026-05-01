@@ -66,7 +66,7 @@ func TestCancelDispute_ProposalUpdateFailsPropagatesError(t *testing.T) {
 		return dbBlip
 	}
 
-	result, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+	result, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 		DisputeID: disputeID, UserID: clientID,
 	})
 
@@ -117,7 +117,7 @@ func TestRespondToCancellation_ProposalUpdateFailsPropagatesError(t *testing.T) 
 		return dbBlip
 	}
 
-	err := svc.RespondToCancellation(context.Background(), RespondToCancellationInput{
+	err := svc.RespondToCancellation(orgCtx(), RespondToCancellationInput{
 		DisputeID: disputeID,
 		UserID:    providerID,
 		Accept:    true,
@@ -162,7 +162,7 @@ func TestCancelDispute_RestoreFromDisputeRejected(t *testing.T) {
 		return nil
 	}
 
-	_, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+	_, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 		DisputeID: disputeID, UserID: clientID,
 	})
 	require.Error(t, err)
@@ -203,7 +203,7 @@ func TestCancelDispute_HappyPath_StillUpdatesAndCleansUp(t *testing.T) {
 		return nil
 	}
 
-	result, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+	result, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 		DisputeID: disputeID, UserID: clientID,
 	})
 
@@ -261,7 +261,7 @@ func TestCancelRestore_PropertyTest_FinalStateConsistent(t *testing.T) {
 			return nil
 		}
 
-		result, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+		result, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 			DisputeID: disputeID, UserID: clientID,
 		})
 
@@ -315,7 +315,7 @@ func TestRespondToCancellation_RestoreRejectionPropagated(t *testing.T) {
 		return nil
 	}
 
-	err := svc.RespondToCancellation(context.Background(), RespondToCancellationInput{
+	err := svc.RespondToCancellation(orgCtx(), RespondToCancellationInput{
 		DisputeID: disputeID,
 		UserID:    providerID,
 		Accept:    true,
@@ -360,7 +360,7 @@ func TestRespondToCancellation_HappyPath_Accept(t *testing.T) {
 		return nil
 	}
 
-	err := svc.RespondToCancellation(context.Background(), RespondToCancellationInput{
+	err := svc.RespondToCancellation(orgCtx(), RespondToCancellationInput{
 		DisputeID: disputeID,
 		UserID:    providerID, // respondent accepts
 		Accept:    true,
@@ -404,7 +404,7 @@ func TestRespondToCancellation_Refuse_NoProposalUpdate(t *testing.T) {
 		return nil
 	}
 
-	err := svc.RespondToCancellation(context.Background(), RespondToCancellationInput{
+	err := svc.RespondToCancellation(orgCtx(), RespondToCancellationInput{
 		DisputeID: disputeID,
 		UserID:    providerID,
 		Accept:    false, // refuse

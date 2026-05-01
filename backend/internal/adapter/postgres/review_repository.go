@@ -103,6 +103,35 @@ func (r *ReviewRepository) GetByID(ctx context.Context, id uuid.UUID) (*review.R
 	return rv, nil
 }
 
+// GetByIDForOrg fetches a review by id and admits it only when the
+// caller's org matches one of the review's stakeholder orgs
+// (reviewer or reviewed).
+//
+// The reviews table is NOT currently in the migration 125 RLS
+// scope, so the per-tenant filter is enforced in Go rather than at
+// the policy layer. The contract still mirrors the RLS variant
+// elsewhere: not-found and cross-tenant denial both surface as
+// review.ErrNotFound so the handler does not leak existence.
+//
+// When reviews are eventually folded into RLS, swap this for a
+// RunInTxWithTenant wrap; the public contract stays the same.
+func (r *ReviewRepository) GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*review.Review, error) {
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	rv, err := scanReview(r.db.QueryRowContext(ctx, queryGetReviewByID, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, review.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get review by id for org: %w", err)
+	}
+	if rv.ReviewerOrganizationID != callerOrgID && rv.ReviewedOrganizationID != callerOrgID {
+		return nil, review.ErrNotFound
+	}
+	return rv, nil
+}
+
 // ListByReviewedOrganization returns the non-hidden, published client→
 // provider reviews received by the given organization, ordered by
 // created_at DESC. Before running the SELECT it performs a lazy

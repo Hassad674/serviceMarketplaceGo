@@ -549,6 +549,12 @@ func (r *retryRecords) GetByID(_ context.Context, _ uuid.UUID) (*domain.PaymentR
 	return &cp, nil
 }
 
+// GetByIDForOrg delegates to GetByID — same not-found semantics
+// for the migrated loadRetryRecord path.
+func (r *retryRecords) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	return r.GetByID(ctx, id)
+}
+
 func (r *retryRecords) Update(_ context.Context, rec *domain.PaymentRecord) error {
 	cp := *rec
 	r.updates = append(r.updates, &cp)

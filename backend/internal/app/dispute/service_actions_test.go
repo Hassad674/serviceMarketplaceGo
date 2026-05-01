@@ -26,7 +26,7 @@ func TestOpenDispute_Success(t *testing.T) {
 	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) { return p, nil }
 	dr.getByProposalIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) { return nil, nil }
 
-	d, err := svc.OpenDispute(context.Background(), OpenDisputeInput{
+	d, err := svc.OpenDispute(orgCtx(), OpenDisputeInput{
 		ProposalID:      p.ID,
 		InitiatorID:     clientID,
 		Reason:          "work_not_conforming",
@@ -53,7 +53,7 @@ func TestOpenDispute_AlreadyDisputed(t *testing.T) {
 		return &disputedomain.Dispute{ID: uuid.New()}, nil // existing dispute
 	}
 
-	_, err := svc.OpenDispute(context.Background(), OpenDisputeInput{
+	_, err := svc.OpenDispute(orgCtx(), OpenDisputeInput{
 		ProposalID:      p.ID,
 		InitiatorID:     clientID,
 		Reason:          "work_not_conforming",
@@ -72,7 +72,7 @@ func TestOpenDispute_ProposalNotActive(t *testing.T) {
 
 	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) { return p, nil }
 
-	_, err := svc.OpenDispute(context.Background(), OpenDisputeInput{
+	_, err := svc.OpenDispute(orgCtx(), OpenDisputeInput{
 		ProposalID:      p.ID,
 		InitiatorID:     clientID,
 		Reason:          "work_not_conforming",
@@ -91,7 +91,7 @@ func TestOpenDispute_InvalidReasonForRole(t *testing.T) {
 	pr.getByIDFn = func(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) { return p, nil }
 	dr.getByProposalIDFn = func(_ context.Context, _ uuid.UUID) (*disputedomain.Dispute, error) { return nil, nil }
 
-	_, err := svc.OpenDispute(context.Background(), OpenDisputeInput{
+	_, err := svc.OpenDispute(orgCtx(), OpenDisputeInput{
 		ProposalID:      p.ID,
 		InitiatorID:     clientID,
 		Reason:          "client_ghosting", // invalid for client
@@ -121,7 +121,7 @@ func TestCounterPropose_Success(t *testing.T) {
 		}, nil
 	}
 
-	cp, err := svc.CounterPropose(context.Background(), CounterProposeInput{
+	cp, err := svc.CounterPropose(orgCtx(), CounterProposeInput{
 		DisputeID:      disputeID,
 		ProposerID:     providerID,
 		AmountClient:   30000,
@@ -149,7 +149,7 @@ func TestCounterPropose_AmountMismatch(t *testing.T) {
 		}, nil
 	}
 
-	_, err := svc.CounterPropose(context.Background(), CounterProposeInput{
+	_, err := svc.CounterPropose(orgCtx(), CounterProposeInput{
 		DisputeID:      disputeID,
 		ProposerID:     providerID, // must be a participant
 		AmountClient:   30000,
@@ -171,7 +171,7 @@ func TestCounterPropose_InvalidStatus(t *testing.T) {
 		}, nil
 	}
 
-	_, err := svc.CounterPropose(context.Background(), CounterProposeInput{
+	_, err := svc.CounterPropose(orgCtx(), CounterProposeInput{
 		DisputeID:      disputeID,
 		ProposerID:     uuid.New(),
 		AmountClient:   50000,
@@ -209,7 +209,7 @@ func TestCancelDispute_BeforeReply(t *testing.T) {
 		}, nil
 	}
 
-	result, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+	result, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 		DisputeID: disputeID, UserID: clientID,
 	})
 
@@ -243,7 +243,7 @@ func TestCancelDispute_AfterReply_CreatesRequest(t *testing.T) {
 		return nil
 	}
 
-	result, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+	result, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 		DisputeID: disputeID, UserID: clientID,
 	})
 
@@ -282,7 +282,7 @@ func TestCancelDispute_RespondentRequest_SupersedesCPs(t *testing.T) {
 	}
 
 	// Respondent (provider) asks to cancel.
-	result, err := svc.CancelDispute(context.Background(), CancelDisputeInput{
+	result, err := svc.CancelDispute(orgCtx(), CancelDisputeInput{
 		DisputeID: disputeID, UserID: providerID,
 	})
 
@@ -329,7 +329,7 @@ func TestAskAI_Success_RecordsUsage(t *testing.T) {
 		return nil
 	}
 
-	out, err := svc.AskAI(context.Background(), AskAIInput{
+	out, err := svc.AskAI(actorCtx(), AskAIInput{
 		DisputeID: disputeID,
 		Question:  "Is the provider at fault?",
 	})
@@ -381,7 +381,7 @@ func TestAskAI_PersistsBothTurns(t *testing.T) {
 		return nil
 	}
 
-	_, err := svc.AskAI(context.Background(), AskAIInput{
+	_, err := svc.AskAI(actorCtx(), AskAIInput{
 		DisputeID: disputeID,
 		Question:  "Has the provider delivered anything?",
 	})
@@ -439,7 +439,7 @@ func TestAskAI_LoadsPersistedHistory(t *testing.T) {
 		}, nil
 	}
 
-	_, err := svc.AskAI(context.Background(), AskAIInput{
+	_, err := svc.AskAI(actorCtx(), AskAIInput{
 		DisputeID: disputeID,
 		Question:  "Follow-up question",
 	})
@@ -467,7 +467,7 @@ func TestAskAI_BudgetExceeded_Refused(t *testing.T) {
 		}, nil
 	}
 
-	_, err := svc.AskAI(context.Background(), AskAIInput{
+	_, err := svc.AskAI(actorCtx(), AskAIInput{
 		DisputeID: uuid.New(),
 		Question:  "Help",
 	})
@@ -502,7 +502,7 @@ func TestIncreaseAIBudget_AddsBonusAndPersists(t *testing.T) {
 		return nil
 	}
 
-	err := svc.IncreaseAIBudget(context.Background(), disputeID, 0) // 0 → use default
+	err := svc.IncreaseAIBudget(actorCtx(), disputeID, 0) // 0 → use default
 	assert.NoError(t, err)
 	assert.NotNil(t, updatedDispute)
 	assert.Equal(t, AIBudgetBonusIncrement, updatedDispute.AIBudgetBonusTokens)
@@ -538,7 +538,7 @@ func TestAdminResolve_Success(t *testing.T) {
 		}, nil
 	}
 
-	err := svc.AdminResolve(context.Background(), AdminResolveInput{
+	err := svc.AdminResolve(actorCtx(), AdminResolveInput{
 		DisputeID:      disputeID,
 		AdminID:        adminID,
 		AmountClient:   40000,
@@ -567,7 +567,7 @@ func TestAdminResolve_NotEscalated(t *testing.T) {
 		}, nil
 	}
 
-	err := svc.AdminResolve(context.Background(), AdminResolveInput{
+	err := svc.AdminResolve(actorCtx(), AdminResolveInput{
 		DisputeID:      uuid.New(),
 		AdminID:        uuid.New(),
 		AmountClient:   50000,
@@ -588,7 +588,7 @@ func TestAdminResolve_AmountMismatch(t *testing.T) {
 		}, nil
 	}
 
-	err := svc.AdminResolve(context.Background(), AdminResolveInput{
+	err := svc.AdminResolve(actorCtx(), AdminResolveInput{
 		DisputeID:      uuid.New(),
 		AdminID:        uuid.New(),
 		AmountClient:   50000,
@@ -614,7 +614,7 @@ func TestGetDispute_Participant(t *testing.T) {
 		}, nil
 	}
 
-	detail, err := svc.GetDispute(context.Background(), clientID, disputeID)
+	detail, err := svc.GetDispute(orgCtx(), clientID, disputeID)
 	assert.NoError(t, err)
 	assert.NotNil(t, detail)
 }
@@ -630,6 +630,6 @@ func TestGetDispute_NotParticipant(t *testing.T) {
 		}, nil
 	}
 
-	_, err := svc.GetDispute(context.Background(), uuid.New(), disputeID) // random user
+	_, err := svc.GetDispute(orgCtx(), uuid.New(), disputeID) // random user
 	assert.ErrorIs(t, err, disputedomain.ErrNotParticipant)
 }

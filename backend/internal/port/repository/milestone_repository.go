@@ -26,6 +26,21 @@ type MilestoneRepository interface {
 	// read-only queries (listings, detail views, projections).
 	GetByID(ctx context.Context, id uuid.UUID) (*milestone.Milestone, error)
 
+	// GetByIDForOrg fetches a milestone by id under the caller's
+	// organization tenant context. The adapter wraps the read in
+	// RunInTxWithTenant so the RLS policy on proposal_milestones
+	// (which JOINs through to the parent proposal's stakeholder
+	// orgs) admits the row. Returns ErrMilestoneNotFound when the
+	// row does not exist OR when the caller's org is not party to
+	// the parent proposal — RLS does not distinguish "missing"
+	// from "denied".
+	//
+	// User-facing app callers MUST use this method; the legacy
+	// GetByID is retained for the proposal scheduler's
+	// auto-approve / fund-reminder paths which run as system
+	// actors.
+	GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*milestone.Milestone, error)
+
 	// GetByIDWithVersion fetches a milestone and returns its current
 	// Version field for optimistic-concurrency control by the caller.
 	//

@@ -11,8 +11,45 @@ import (
 	"marketplace-backend/internal/domain/message"
 	milestonedomain "marketplace-backend/internal/domain/milestone"
 	proposaldomain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/handler/middleware"
 	portservice "marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
+
+// loadDisputeForActor reads a dispute under the appropriate
+// tenant gate for the calling context. See loadProposalForActor
+// (proposal/service_actions.go) for the rationale; the same
+// system-actor / user-driven boundary applies here.
+//
+// User-facing dispute handlers run with an authenticated org
+// context populated by the auth middleware → GetByIDForOrg, which
+// enforces RLS on the disputes table (USING client_org OR
+// provider_org = current_setting('app.current_org_id')).
+//
+// System-actor callers (the dispute scheduler, the dev-only
+// force-escalate endpoint) tag their context with
+// system.WithSystemActor and take the legacy GetByID path —
+// production bypass-RLS pool selection happens inside the
+// adapter, not here.
+func (s *Service) loadDisputeForActor(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error) {
+	if system.IsSystemActor(ctx) {
+		return s.disputes.GetByID(ctx, id)
+	}
+	orgID := middleware.MustGetOrgID(ctx)
+	return s.disputes.GetByIDForOrg(ctx, id, orgID)
+}
+
+// loadProposalForActor mirrors loadDisputeForActor for the
+// proposal repository — the dispute service touches proposals
+// transitively (e.g. RestoreFromDispute) and the same
+// system-actor / user-driven split applies.
+func (s *Service) loadProposalForActor(ctx context.Context, id uuid.UUID) (*proposaldomain.Proposal, error) {
+	if system.IsSystemActor(ctx) {
+		return s.proposals.GetByID(ctx, id)
+	}
+	orgID := middleware.MustGetOrgID(ctx)
+	return s.proposals.GetByIDForOrg(ctx, id, orgID)
+}
 
 // markMilestoneDisputed transitions the milestone to disputed status
 // inside an optimistic-locked update. Mirrors the proposal service's
@@ -116,7 +153,7 @@ type AdminResolveInput struct {
 // ---------------------------------------------------------------------------
 
 func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disputedomain.Dispute, error) {
-	p, err := s.proposals.GetByID(ctx, in.ProposalID)
+	p, err := s.loadProposalForActor(ctx, in.ProposalID)
 	if err != nil {
 		return nil, fmt.Errorf("get proposal: %w", err)
 	}
@@ -266,7 +303,7 @@ func (s *Service) OpenDispute(ctx context.Context, in OpenDisputeInput) (*disput
 // ---------------------------------------------------------------------------
 
 func (s *Service) CounterPropose(ctx context.Context, in CounterProposeInput) (*disputedomain.CounterProposal, error) {
-	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	d, err := s.loadDisputeForActor(ctx, in.DisputeID)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +387,7 @@ func (s *Service) CounterPropose(ctx context.Context, in CounterProposeInput) (*
 // ---------------------------------------------------------------------------
 
 func (s *Service) RespondToCounter(ctx context.Context, in RespondToCounterInput) error {
-	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	d, err := s.loadDisputeForActor(ctx, in.DisputeID)
 	if err != nil {
 		return err
 	}
@@ -434,7 +471,7 @@ func (s *Service) RespondToCounter(ctx context.Context, in RespondToCounterInput
 // This is symmetric with CounterPropose, which clears pending cancellation
 // requests: the latest intent always wins, so the two flows never coexist.
 func (s *Service) CancelDispute(ctx context.Context, in CancelDisputeInput) (CancelDisputeResult, error) {
-	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	d, err := s.loadDisputeForActor(ctx, in.DisputeID)
 	if err != nil {
 		return CancelDisputeResult{}, err
 	}
@@ -475,7 +512,7 @@ func (s *Service) CancelDispute(ctx context.Context, in CancelDisputeInput) (Can
 		// will re-attempt the proposal restore — eventually consistent.
 		// We log at ERROR level so the operations team sees the
 		// inconsistency before the user retries.
-		p, err := s.proposals.GetByID(ctx, d.ProposalID)
+		p, err := s.loadProposalForActor(ctx, d.ProposalID)
 		if err != nil {
 			return CancelDisputeResult{}, fmt.Errorf("get proposal for restore: %w", err)
 		}
@@ -525,7 +562,7 @@ func (s *Service) CancelDispute(ctx context.Context, in CancelDisputeInput) (Can
 //   - Accept: the dispute is cancelled and the proposal is restored.
 //   - Refuse: the cancellation request is cleared and the dispute continues.
 func (s *Service) RespondToCancellation(ctx context.Context, in RespondToCancellationInput) error {
-	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	d, err := s.loadDisputeForActor(ctx, in.DisputeID)
 	if err != nil {
 		return err
 	}
@@ -551,7 +588,7 @@ func (s *Service) RespondToCancellation(ctx context.Context, in RespondToCancell
 		// so a failure here leaves the proposal in `disputed` while the
 		// dispute is `cancelled` — surface the error so the caller can
 		// retry, log at ERROR for ops visibility.
-		p, err := s.proposals.GetByID(ctx, d.ProposalID)
+		p, err := s.loadProposalForActor(ctx, d.ProposalID)
 		if err != nil {
 			return fmt.Errorf("get proposal for restore: %w", err)
 		}
@@ -597,7 +634,7 @@ func (s *Service) RespondToCancellation(ctx context.Context, in RespondToCancell
 // Internally this is a thin wrapper around escalate(), the same code path
 // the scheduler uses, so the test result is fully identical to production.
 func (s *Service) ForceEscalate(ctx context.Context, disputeID uuid.UUID) error {
-	d, err := s.disputes.GetByID(ctx, disputeID)
+	d, err := s.loadDisputeForActor(ctx, disputeID)
 	if err != nil {
 		return err
 	}
@@ -683,7 +720,7 @@ func (s *Service) AskAI(ctx context.Context, in AskAIInput) (*AskAIOutput, error
 	if s.ai == nil {
 		return nil, fmt.Errorf("AI analyzer not configured")
 	}
-	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	d, err := s.loadDisputeForActor(ctx, in.DisputeID)
 	if err != nil {
 		return nil, err
 	}
@@ -764,7 +801,7 @@ func (s *Service) IncreaseAIBudget(ctx context.Context, disputeID uuid.UUID, amo
 	if amount <= 0 {
 		amount = AIBudgetBonusIncrement
 	}
-	d, err := s.disputes.GetByID(ctx, disputeID)
+	d, err := s.loadDisputeForActor(ctx, disputeID)
 	if err != nil {
 		return err
 	}
@@ -789,7 +826,7 @@ const AIBudgetBonusIncrement = 25000
 // ---------------------------------------------------------------------------
 
 func (s *Service) AdminResolve(ctx context.Context, in AdminResolveInput) error {
-	d, err := s.disputes.GetByID(ctx, in.DisputeID)
+	d, err := s.loadDisputeForActor(ctx, in.DisputeID)
 	if err != nil {
 		return err
 	}
@@ -835,7 +872,7 @@ type DisputeDetail struct {
 }
 
 func (s *Service) GetDispute(ctx context.Context, userID, disputeID uuid.UUID) (*DisputeDetail, error) {
-	d, err := s.disputes.GetByID(ctx, disputeID)
+	d, err := s.loadDisputeForActor(ctx, disputeID)
 	if err != nil {
 		return nil, err
 	}
@@ -845,8 +882,13 @@ func (s *Service) GetDispute(ctx context.Context, userID, disputeID uuid.UUID) (
 	return s.loadDetail(ctx, d)
 }
 
+// GetDisputeForAdmin fetches the dispute under the system-actor
+// path: admins are not party to the dispute and the surface is
+// gated by the admin role + dedicated admin route, not by org
+// tenancy. Callers MUST wrap the request context with
+// system.WithSystemActor (the admin handler does this).
 func (s *Service) GetDisputeForAdmin(ctx context.Context, disputeID uuid.UUID) (*DisputeDetail, error) {
-	d, err := s.disputes.GetByID(ctx, disputeID)
+	d, err := s.loadDisputeForActor(ctx, disputeID)
 	if err != nil {
 		return nil, err
 	}

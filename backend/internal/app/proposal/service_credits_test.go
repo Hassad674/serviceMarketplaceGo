@@ -12,6 +12,7 @@ import (
 
 	jobdomain "marketplace-backend/internal/domain/job"
 	domain "marketplace-backend/internal/domain/proposal"
+	"marketplace-backend/internal/system"
 )
 
 // Phase 4 (user decision F4) moved the bonus award out of
@@ -91,7 +92,11 @@ func TestConfirmPaymentAndActivate_IdempotentSkipsBonus(t *testing.T) {
 
 			svc := newTestServiceWithCredits(repo, nil, nil, nil, credits)
 
-			err := svc.ConfirmPaymentAndActivate(context.Background(), proposalID)
+			// ConfirmPaymentAndActivate is invoked by the Stripe
+			// webhook which runs as a system actor — mark the test
+			// context the same way so the proposal service takes
+			// the system-actor branch of loadProposalForActor.
+			err := svc.ConfirmPaymentAndActivate(system.WithSystemActor(context.Background()), proposalID)
 
 			require.NoError(t, err)
 
@@ -159,7 +164,7 @@ func TestConfirmPaymentAndActivate_NilCreditsRepoNoError(t *testing.T) {
 	// credits is nil — should not panic or error.
 	svc := newTestServiceWithCredits(repo, nil, msgs, nil, nil)
 
-	err := svc.ConfirmPaymentAndActivate(context.Background(), uuid.New())
+	err := svc.ConfirmPaymentAndActivate(system.WithSystemActor(context.Background()), uuid.New())
 
 	require.NoError(t, err)
 	// Proposal should still transition to active and send messages.

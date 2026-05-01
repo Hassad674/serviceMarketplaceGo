@@ -53,6 +53,15 @@ type ReviewRepository interface {
 	// so no explicit locking is needed.
 	CreateAndMaybeReveal(ctx context.Context, r *review.Review) (*review.Review, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*review.Review, error)
+
+	// GetByIDForOrg fetches a review under the caller's
+	// organization tenant context. Returns ErrNotFound when the
+	// row does not exist OR when the caller's org is not party to
+	// the review (neither the reviewer's nor the reviewed
+	// organization). The adapter wraps the read in
+	// RunInTxWithTenant so the RLS policy keyed on
+	// app.current_org_id evaluates correctly.
+	GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*review.Review, error)
 	// ListByReviewedOrganization returns the reviews received by the
 	// given org (provider side), ordered by created_at DESC. Hidden
 	// reviews (moderation_status='hidden' OR published_at IS NULL) are
