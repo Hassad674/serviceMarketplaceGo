@@ -108,7 +108,16 @@ class _Avatar extends StatelessWidget {
     final avatar = CircleAvatar(
       radius: 48,
       backgroundColor: accentColor.withValues(alpha: 0.1),
-      backgroundImage: hasPhoto ? CachedNetworkImageProvider(photoUrl!) : null,
+      // 48 lp radius = 96 lp diameter; 3x DPR = ~288 px. 256 is the
+      // next 2-power that fits and gives crisp rendering on tablets.
+      // Avoids decoding the original full-res JPEG to RAM (PERF-M-05).
+      backgroundImage: hasPhoto
+          ? CachedNetworkImageProvider(
+              photoUrl!,
+              maxWidth: 256,
+              maxHeight: 256,
+            )
+          : null,
       child: hasPhoto
           ? null
           : Text(

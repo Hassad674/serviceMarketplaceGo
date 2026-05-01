@@ -76,35 +76,52 @@ class PortfolioCard extends StatelessWidget {
     );
   }
 
+  /// Decode budget for portfolio cover thumbnails. The grid renders 2
+  /// columns ≈ 180-220 lp wide on phones; 3 DPR × 220 lp = ~660 px is
+  /// the worst-case raster size. Decoding the original 1080-2160 px
+  /// JPEG would chew through 5-6 MB RAM per item × 30+ visible cards
+  /// = the RAM peak called out in PERF-M-05.
+  static const int _coverMemCacheWidth = 480;
+
   Widget _buildCover(
     BuildContext context,
     PortfolioMedia? cover,
     bool coverIsVideo,
   ) {
     if (coverIsVideo && cover != null && cover.hasCustomThumbnail) {
-      return CachedNetworkImage(
-        imageUrl: cover.thumbnailUrl,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => Container(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      // RepaintBoundary keeps the cover decode out of the playback
+      // overlay's repaint scope (PERF-M-08).
+      return RepaintBoundary(
+        child: CachedNetworkImage(
+          imageUrl: cover.thumbnailUrl,
+          fit: BoxFit.cover,
+          memCacheWidth: _coverMemCacheWidth,
+          maxWidthDiskCache: _coverMemCacheWidth,
+          placeholder: (_, __) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          ),
+          // Fall back to extracting the video's first frame if the
+          // custom thumbnail fails to decode.
+          errorWidget: (_, __, ___) =>
+              PortfolioVideoThumbnail(videoUrl: cover.mediaUrl),
         ),
-        // Fall back to extracting the video's first frame if the
-        // custom thumbnail fails to decode.
-        errorWidget: (_, __, ___) =>
-            PortfolioVideoThumbnail(videoUrl: cover.mediaUrl),
       );
     }
     if (coverIsVideo && cover != null) {
       return PortfolioVideoThumbnail(videoUrl: cover.mediaUrl);
     }
     if (cover != null && cover.mediaUrl.isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: cover.mediaUrl,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => Container(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      return RepaintBoundary(
+        child: CachedNetworkImage(
+          imageUrl: cover.mediaUrl,
+          fit: BoxFit.cover,
+          memCacheWidth: _coverMemCacheWidth,
+          maxWidthDiskCache: _coverMemCacheWidth,
+          placeholder: (_, __) => Container(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          ),
+          errorWidget: (_, __, ___) => _placeholderCover(context),
         ),
-        errorWidget: (_, __, ___) => _placeholderCover(context),
       );
     }
     return _placeholderCover(context);
