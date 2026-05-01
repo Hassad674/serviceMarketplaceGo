@@ -116,7 +116,7 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
                 ),
               ),
               const SizedBox(height: 24),
-              _SectionTitle('1 — Parties'),
+              const _SectionTitle('1 — Parties'),
               _PartyTile(
                 label: 'Prestataire',
                 placeholder: 'Rechercher ou choisir depuis une conversation…',
@@ -137,7 +137,7 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
                 onClear: _client != null ? () => setState(() => _client = null) : null,
               ),
               const SizedBox(height: 24),
-              _SectionTitle('2 — Terms'),
+              const _SectionTitle('2 — Terms'),
               Text(
                 'Commission: ${_ratePct.toStringAsFixed(_ratePct % 1 == 0 ? 0 : 1)}%',
                 style: theme.textTheme.bodyMedium,
@@ -163,7 +163,7 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
                 onChanged: (v) => setState(() => _durationMonths = v ?? 6),
               ),
               const SizedBox(height: 24),
-              _SectionTitle('3 — Snapshot fields'),
+              const _SectionTitle('3 — Snapshot fields'),
               Text(
                 'Pick the provider attributes the client will see before accepting.',
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -180,7 +180,7 @@ class _ReferralCreationScreenState extends ConsumerState<ReferralCreationScreen>
                   onChanged: (v) => setState(() => _toggles[entry.key] = v ?? false),
                 ),
               const SizedBox(height: 24),
-              _SectionTitle('4 — Your messages'),
+              const _SectionTitle('4 — Your messages'),
               TextFormField(
                 controller: _pitchProviderCtrl,
                 maxLines: 3,

@@ -153,7 +153,7 @@ Future<ApplyResult> applyToJobAction(
     return ApplyResult(statusCode: e.response?.statusCode);
   } catch (e) {
     debugPrint('[JobProvider] applyToJob error: $e');
-    return ApplyResult();
+    return const ApplyResult();
   }
 }
 

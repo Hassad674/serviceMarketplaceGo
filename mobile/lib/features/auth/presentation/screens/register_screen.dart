@@ -100,7 +100,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ],
 
                       // First name
-                      _FieldLabel(text: 'First name'),
+                      const _FieldLabel(text: 'First name'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _firstNameController,
@@ -123,7 +123,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Last name
-                      _FieldLabel(text: 'Last name'),
+                      const _FieldLabel(text: 'Last name'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _lastNameController,
@@ -146,7 +146,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Email
-                      _FieldLabel(text: 'Email'),
+                      const _FieldLabel(text: 'Email'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailController,
@@ -162,7 +162,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Password
-                      _FieldLabel(text: 'Password'),
+                      const _FieldLabel(text: 'Password'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _passwordController,
@@ -189,7 +189,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Confirm password
-                      _FieldLabel(text: 'Confirm password'),
+                      const _FieldLabel(text: 'Confirm password'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _confirmPasswordController,
