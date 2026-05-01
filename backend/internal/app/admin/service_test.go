@@ -55,13 +55,14 @@ func makeUser(id uuid.UUID) *user.User {
 
 func TestAdminService_SuspendUser_BumpsSessionVersionAndPurgesSessions(t *testing.T) {
 	svc, users, audits, sessions, broadcaster := newTestService()
+	adminID := uuid.New()
 	uid := uuid.New()
 	users.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
 		return makeUser(uid), nil
 	}
 
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
-	err := svc.SuspendUser(context.Background(), uid, "harassment", &expiresAt)
+	err := svc.SuspendUser(context.Background(), adminID, uid, "harassment", &expiresAt)
 	require.NoError(t, err)
 
 	// SEC-05 invariants
@@ -75,23 +76,28 @@ func TestAdminService_SuspendUser_BumpsSessionVersionAndPurgesSessions(t *testin
 
 	assert.Len(t, broadcaster.suspensionCalls, 1, "WS broadcast must fire")
 
-	// SEC-13 invariant
+	// SEC-13 + BUG-NEW-09 invariants
 	entries := audits.snapshot()
 	require.Len(t, entries, 1)
 	assert.Equal(t, audit.ActionAdminUserSuspend, entries[0].Action)
 	require.NotNil(t, entries[0].UserID)
-	assert.Equal(t, uid, *entries[0].UserID)
+	assert.Equal(t, adminID, *entries[0].UserID,
+		"BUG-NEW-09: audit actor MUST be the admin, not the suspended user")
+	require.NotNil(t, entries[0].ResourceID)
+	assert.Equal(t, uid, *entries[0].ResourceID,
+		"BUG-NEW-09: ResourceID MUST be the suspended user")
 	assert.Equal(t, "harassment", entries[0].Metadata["reason"])
 }
 
 func TestAdminService_BanUser_BumpsSessionVersionAndPurgesSessions(t *testing.T) {
 	svc, users, audits, sessions, _ := newTestService()
+	adminID := uuid.New()
 	uid := uuid.New()
 	users.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
 		return makeUser(uid), nil
 	}
 
-	err := svc.BanUser(context.Background(), uid, "fraud")
+	err := svc.BanUser(context.Background(), adminID, uid, "fraud")
 	require.NoError(t, err)
 
 	bumpCalls := users.snapshotBumpCalls()
@@ -105,17 +111,23 @@ func TestAdminService_BanUser_BumpsSessionVersionAndPurgesSessions(t *testing.T)
 	entries := audits.snapshot()
 	require.Len(t, entries, 1)
 	assert.Equal(t, audit.ActionAdminUserBan, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, adminID, *entries[0].UserID,
+		"BUG-NEW-09: audit actor MUST be the admin, not the banned user")
+	require.NotNil(t, entries[0].ResourceID)
+	assert.Equal(t, uid, *entries[0].ResourceID)
 	assert.Equal(t, "fraud", entries[0].Metadata["reason"])
 }
 
 func TestAdminService_UnsuspendUser_EmitsAuditOnly(t *testing.T) {
 	svc, users, audits, sessions, _ := newTestService()
+	adminID := uuid.New()
 	uid := uuid.New()
 	users.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
 		return makeUser(uid), nil
 	}
 
-	err := svc.UnsuspendUser(context.Background(), uid)
+	err := svc.UnsuspendUser(context.Background(), adminID, uid)
 	require.NoError(t, err)
 
 	// Unsuspend doesn't bump or purge — the user is being restored,
@@ -129,17 +141,22 @@ func TestAdminService_UnsuspendUser_EmitsAuditOnly(t *testing.T) {
 	require.Len(t, entries, 1)
 	assert.Equal(t, audit.ActionAdminUserUnsuspend, entries[0].Action)
 	require.NotNil(t, entries[0].UserID)
-	assert.Equal(t, uid, *entries[0].UserID)
+	assert.Equal(t, adminID, *entries[0].UserID,
+		"BUG-NEW-09: actor=admin")
+	require.NotNil(t, entries[0].ResourceID)
+	assert.Equal(t, uid, *entries[0].ResourceID,
+		"BUG-NEW-09: resource=target user")
 }
 
 func TestAdminService_UnbanUser_EmitsAuditOnly(t *testing.T) {
 	svc, users, audits, sessions, _ := newTestService()
+	adminID := uuid.New()
 	uid := uuid.New()
 	users.getByIDFn = func(_ context.Context, _ uuid.UUID) (*user.User, error) {
 		return makeUser(uid), nil
 	}
 
-	err := svc.UnbanUser(context.Background(), uid)
+	err := svc.UnbanUser(context.Background(), adminID, uid)
 	require.NoError(t, err)
 
 	// Same as unsuspend: don't disturb existing sessions on restore.
@@ -149,6 +166,10 @@ func TestAdminService_UnbanUser_EmitsAuditOnly(t *testing.T) {
 	entries := audits.snapshot()
 	require.Len(t, entries, 1)
 	assert.Equal(t, audit.ActionAdminUserUnban, entries[0].Action)
+	require.NotNil(t, entries[0].UserID)
+	assert.Equal(t, adminID, *entries[0].UserID, "BUG-NEW-09: actor=admin")
+	require.NotNil(t, entries[0].ResourceID)
+	assert.Equal(t, uid, *entries[0].ResourceID, "BUG-NEW-09: resource=target")
 }
 
 // TestAdminService_SuspendUser_GetByIDFailureDoesNotEmitAudit guards
@@ -161,7 +182,7 @@ func TestAdminService_SuspendUser_GetByIDFailureDoesNotEmitAudit(t *testing.T) {
 		return nil, user.ErrUserNotFound
 	}
 
-	err := svc.SuspendUser(context.Background(), uuid.New(), "any", nil)
+	err := svc.SuspendUser(context.Background(), uuid.New(), uuid.New(), "any", nil)
 	require.Error(t, err)
 	assert.Empty(t, audits.snapshot(),
 		"failed lookups must not produce audit rows")
@@ -176,7 +197,7 @@ func TestAdminService_SuspendUser_NilExpiresAtSafe(t *testing.T) {
 		return makeUser(uid), nil
 	}
 
-	err := svc.SuspendUser(context.Background(), uid, "indefinite", nil)
+	err := svc.SuspendUser(context.Background(), uuid.New(), uid, "indefinite", nil)
 	require.NoError(t, err)
 
 	entries := audits.snapshot()
@@ -197,7 +218,7 @@ func TestAdminService_SuspendBumpFailureBestEffort(t *testing.T) {
 	}
 	users.bumpErr = assertErr("postgres restarting")
 
-	err := svc.SuspendUser(context.Background(), uid, "x", nil)
+	err := svc.SuspendUser(context.Background(), uuid.New(), uid, "x", nil)
 	assert.NoError(t, err, "suspend must succeed even when bump fails")
 	assert.Len(t, audits.snapshot(), 1)
 }

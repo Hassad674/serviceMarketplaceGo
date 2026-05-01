@@ -220,7 +220,18 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (*user.User, error)
 	return u, nil
 }
 
-func (s *Service) SuspendUser(ctx context.Context, userID uuid.UUID, reason string, expiresAt *time.Time) error {
+// SuspendUser suspends the target user for `reason` until `expiresAt`
+// (nil = indefinite). The audit row records actor=adminUserID and
+// resource=userID — BUG-NEW-09 fix; previously both fields were the
+// suspended user's id, making the trail useless for accountability.
+//
+// adminUserID may be uuid.Nil only when called from a system path
+// (no admin in scope). The handler MUST pass the admin's id from the
+// JWT context (middleware.GetUserID(r.Context())). If callers ever
+// pass uuid.Nil from a real admin request the audit row's UserID is
+// recorded as nil ("system") which is still better than the buggy
+// pre-fix behaviour.
+func (s *Service) SuspendUser(ctx context.Context, adminUserID, userID uuid.UUID, reason string, expiresAt *time.Time) error {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("suspend user: %w", err)
@@ -235,7 +246,7 @@ func (s *Service) SuspendUser(ctx context.Context, userID uuid.UUID, reason stri
 	s.invalidateAndNotify(ctx, userID, reason)
 
 	s.logAudit(ctx, audit.NewEntryInput{
-		UserID:       &userID,
+		UserID:       actorPtr(adminUserID),
 		Action:       audit.ActionAdminUserSuspend,
 		ResourceType: audit.ResourceTypeUser,
 		ResourceID:   &userID,
@@ -247,7 +258,9 @@ func (s *Service) SuspendUser(ctx context.Context, userID uuid.UUID, reason stri
 	return nil
 }
 
-func (s *Service) UnsuspendUser(ctx context.Context, userID uuid.UUID) error {
+// UnsuspendUser lifts a suspension. BUG-NEW-09 fix: the audit row's
+// UserID is the admin's id, ResourceID is the target user.
+func (s *Service) UnsuspendUser(ctx context.Context, adminUserID, userID uuid.UUID) error {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("unsuspend user: %w", err)
@@ -260,7 +273,7 @@ func (s *Service) UnsuspendUser(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	s.logAudit(ctx, audit.NewEntryInput{
-		UserID:       &userID,
+		UserID:       actorPtr(adminUserID),
 		Action:       audit.ActionAdminUserUnsuspend,
 		ResourceType: audit.ResourceTypeUser,
 		ResourceID:   &userID,
@@ -269,7 +282,9 @@ func (s *Service) UnsuspendUser(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
-func (s *Service) BanUser(ctx context.Context, userID uuid.UUID, reason string) error {
+// BanUser permanently bans the target user. BUG-NEW-09 fix: the audit
+// row records the admin as actor and the target as resource.
+func (s *Service) BanUser(ctx context.Context, adminUserID, userID uuid.UUID, reason string) error {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("ban user: %w", err)
@@ -284,7 +299,7 @@ func (s *Service) BanUser(ctx context.Context, userID uuid.UUID, reason string) 
 	s.invalidateAndNotify(ctx, userID, reason)
 
 	s.logAudit(ctx, audit.NewEntryInput{
-		UserID:       &userID,
+		UserID:       actorPtr(adminUserID),
 		Action:       audit.ActionAdminUserBan,
 		ResourceType: audit.ResourceTypeUser,
 		ResourceID:   &userID,
@@ -332,7 +347,8 @@ func (s *Service) invalidateAndNotify(ctx context.Context, userID uuid.UUID, rea
 	}
 }
 
-func (s *Service) UnbanUser(ctx context.Context, userID uuid.UUID) error {
+// UnbanUser lifts a ban. BUG-NEW-09 fix: actor=admin, resource=target.
+func (s *Service) UnbanUser(ctx context.Context, adminUserID, userID uuid.UUID) error {
 	u, err := s.users.GetByID(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("unban user: %w", err)
@@ -345,7 +361,7 @@ func (s *Service) UnbanUser(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	s.logAudit(ctx, audit.NewEntryInput{
-		UserID:       &userID,
+		UserID:       actorPtr(adminUserID),
 		Action:       audit.ActionAdminUserUnban,
 		ResourceType: audit.ResourceTypeUser,
 		ResourceID:   &userID,
@@ -369,6 +385,21 @@ func (s *Service) logAudit(ctx context.Context, in audit.NewEntryInput) {
 	if err := s.audit.Log(ctx, entry); err != nil {
 		slog.Warn("audit: insert failed", "action", in.Action, "error", err)
 	}
+}
+
+// actorPtr converts an admin user id into the *uuid.UUID expected by
+// audit.NewEntryInput.UserID. uuid.Nil → nil pointer (the audit row
+// records "system" actor); any other id → pointer to the value.
+//
+// BUG-NEW-09 — used so admin handlers can safely pass the JWT-derived
+// admin id even when the middleware wasn't wired (tests, system
+// callers); the audit row degrades to a system actor rather than
+// silently recording the suspended user as the actor.
+func actorPtr(adminUserID uuid.UUID) *uuid.UUID {
+	if adminUserID == uuid.Nil {
+		return nil
+	}
+	return &adminUserID
 }
 
 // stringifyTime turns a *time.Time into its RFC3339 representation, or
