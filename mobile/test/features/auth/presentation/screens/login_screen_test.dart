@@ -51,6 +51,7 @@ class FakeApiClient extends ApiClient {
   Future<Response<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Options? options,
   }) async {
     throw DioException(
       requestOptions: RequestOptions(path: path),
