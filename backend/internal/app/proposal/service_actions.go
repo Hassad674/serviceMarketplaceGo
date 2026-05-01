@@ -13,11 +13,13 @@ import (
 	"marketplace-backend/internal/domain/milestone"
 	domain "marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput) error {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -69,7 +71,7 @@ func (s *Service) AcceptProposal(ctx context.Context, input AcceptProposalInput)
 }
 
 func (s *Service) DeclineProposal(ctx context.Context, input DeclineProposalInput) error {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -98,7 +100,7 @@ func (s *Service) DeclineProposal(ctx context.Context, input DeclineProposalInpu
 }
 
 func (s *Service) ModifyProposal(ctx context.Context, input ModifyProposalInput) (*domain.Proposal, error) {
-	original, err := s.proposals.GetByID(ctx, input.ProposalID)
+	original, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return nil, fmt.Errorf("get proposal: %w", err)
 	}
@@ -162,7 +164,7 @@ func (s *Service) ModifyProposal(ctx context.Context, input ModifyProposalInput)
 //
 // Falls back to simulation mode when no PaymentProcessor is configured.
 func (s *Service) InitiatePayment(ctx context.Context, input PayProposalInput) (*service.PaymentIntentOutput, error) {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return nil, fmt.Errorf("get proposal: %w", err)
 	}
@@ -257,7 +259,12 @@ func (s *Service) simulatePayment(ctx context.Context, p *domain.Proposal, curre
 // when the LAST milestone of a proposal is released (i.e. when the
 // macro status transitions to completed), not at first funding.
 func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid.UUID) error {
-	p, err := s.proposals.GetByID(ctx, proposalID)
+	// Hybrid caller: the user-facing client confirm path runs with
+	// an org context populated by the auth middleware, while the
+	// Stripe webhook + admin force-activate paths run as system
+	// actors. Branch on the explicit marker so each path goes
+	// through the right gate.
+	p, err := s.loadProposalForActor(ctx, proposalID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -290,10 +297,41 @@ func (s *Service) ConfirmPaymentAndActivate(ctx context.Context, proposalID uuid
 	return nil
 }
 
-// GetProposalByID returns a proposal without authorization checks.
-// Used by the handler for ownership verification.
+// loadProposalForActor reads a proposal under the appropriate
+// tenant gate for the calling context:
+//
+//   - Request-scoped callers (proposal accept / pay / complete
+//     handlers) carry an org id stamped by the auth middleware —
+//     the read goes through GetByIDForOrg so RLS denies anything
+//     that is not the caller's proposal.
+//
+//   - System-actor callers (Stripe webhook reconciler, admin
+//     force-activate, scheduler entrypoints) run without a
+//     per-tenant context. They tag their context with
+//     system.WithSystemActor at the boundary, and this helper
+//     honors that tag by going through the legacy non-tenant
+//     GetByID path. In production the system-actor connection
+//     pool is expected to use a BYPASSRLS role; the application
+//     code stays the same.
+//
+// Any caller that lands here without an org id AND without the
+// system-actor tag is a programming bug — middleware.MustGetOrgID
+// panics and surfaces it loudly.
+func (s *Service) loadProposalForActor(ctx context.Context, id uuid.UUID) (*domain.Proposal, error) {
+	if system.IsSystemActor(ctx) {
+		return s.proposals.GetByID(ctx, id)
+	}
+	orgID := middleware.MustGetOrgID(ctx)
+	return s.proposals.GetByIDForOrg(ctx, id, orgID)
+}
+
+// GetProposalByID returns a proposal under the caller's
+// organization tenant context. Used by the wallet handler to
+// enrich payment records with proposal status — the org id is
+// always present at the boundary because the wallet endpoint is
+// gated on an authenticated org member.
 func (s *Service) GetProposalByID(ctx context.Context, id uuid.UUID) (*domain.Proposal, error) {
-	return s.proposals.GetByID(ctx, id)
+	return s.loadProposalForActor(ctx, id)
 }
 
 // ListMilestones returns every milestone of a proposal ordered by
@@ -348,7 +386,7 @@ type CancelProposalInput struct {
 // This method does not currently support partial-fund recovery — that
 // path goes through the dispute service (phase 8).
 func (s *Service) CancelProposal(ctx context.Context, input CancelProposalInput) error {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -431,7 +469,7 @@ func (s *Service) requireOrgIsParticipant(ctx context.Context, p *domain.Proposa
 // is exposed as a standalone gate instead of being bundled with the
 // status transition.
 func (s *Service) AuthorizeClientOrg(ctx context.Context, proposalID, orgID uuid.UUID) error {
-	p, err := s.proposals.GetByID(ctx, proposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, proposalID, orgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -443,7 +481,7 @@ func (s *Service) AuthorizeClientOrg(ctx context.Context, proposalID, orgID uuid
 // deliverables are ready for client review — starting the auto-approval
 // timer that the phase-6 scheduler will fire in 7 days (default).
 func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletionInput) error {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -497,7 +535,7 @@ func (s *Service) RequestCompletion(ctx context.Context, input RequestCompletion
 // Otherwise the proposal drops back to "active" (the next milestone
 // now becomes the current one, awaiting funding).
 func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalInput) error {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -617,7 +655,7 @@ func (s *Service) CompleteProposal(ctx context.Context, input CompleteProposalIn
 // RequestCompletion again — which restarts the auto-approval timer
 // because SubmittedAt was cleared by milestone.Reject.
 func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionInput) error {
-	p, err := s.proposals.GetByID(ctx, input.ProposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, input.ProposalID, input.OrgID)
 	if err != nil {
 		return fmt.Errorf("get proposal: %w", err)
 	}
@@ -659,7 +697,7 @@ func (s *Service) RejectCompletion(ctx context.Context, input RejectCompletionIn
 // for the authorization check itself.
 func (s *Service) GetProposal(ctx context.Context, userID, orgID, proposalID uuid.UUID) (*domain.Proposal, []*domain.ProposalDocument, error) {
 	_ = userID // reserved for future audit logging; auth now uses orgID
-	p, err := s.proposals.GetByID(ctx, proposalID)
+	p, err := s.proposals.GetByIDForOrg(ctx, proposalID, orgID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("get proposal: %w", err)
 	}
