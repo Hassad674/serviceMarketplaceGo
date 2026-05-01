@@ -647,6 +647,7 @@
       "loadError": "Could not load this referrer profile. Please try again.",
       "notFoundTitle": "Referrer profile not found",
       "notFoundDescription": "This profile no longer exists or was removed by its owner.",
+      "displayNameFallback": "Business referrer",
       "historyEmptyTitle": "No referred deals yet",
       "historyEmptyDescription": "Deals you bring in will appear here once they are closed.",
       "providerOnly": "This page is reserved for provider accounts.",

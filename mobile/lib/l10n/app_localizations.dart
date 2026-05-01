@@ -5264,6 +5264,12 @@ abstract class AppLocalizations {
   /// **'No deals referred yet'**
   String get referrerProjectHistoryEmpty;
 
+  /// No description provided for @referrerDisplayNameFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Business referrer'**
+  String get referrerDisplayNameFallback;
+
   /// No description provided for @reputationSectionTitle.
   ///
   /// In en, this message translates to:
