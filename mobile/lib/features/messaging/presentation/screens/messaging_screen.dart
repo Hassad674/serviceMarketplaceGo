@@ -120,11 +120,23 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
           ref.read(conversationsProvider.notifier).loadConversations(),
       child: ListView.builder(
         itemCount: filtered.length + (convState.hasMore ? 1 : 0),
+        // Match conversations to their tile by id so a new message
+        // pushing a conversation to the top doesn't re-create every
+        // tile (PERF-M-06).
+        findChildIndexCallback: (key) {
+          if (key is! ValueKey<String>) return null;
+          final id = key.value;
+          final idx = filtered.indexWhere((c) => c.id == id);
+          return idx >= 0 ? idx : null;
+        },
+        cacheExtent: 600,
+        addAutomaticKeepAlives: false,
         itemBuilder: (context, index) {
           if (index >= filtered.length) {
             // Load more trigger.
             ref.read(conversationsProvider.notifier).loadMore();
             return const Padding(
+              key: ValueKey<String>('__messaging_load_more__'),
               padding: EdgeInsets.all(16),
               child: Center(
                 child: SizedBox(
@@ -136,15 +148,18 @@ class _MessagingScreenState extends ConsumerState<MessagingScreen> {
             );
           }
           final conversation = filtered[index];
-          return MessagingConversationTile(
-            conversation: conversation,
-            isTyping: typingUsers.containsKey(conversation.id),
-            onTap: () {
-              ref
-                  .read(conversationsProvider.notifier)
-                  .clearUnread(conversation.id);
-              context.push('/chat/${conversation.id}');
-            },
+          return RepaintBoundary(
+            key: ValueKey<String>(conversation.id),
+            child: MessagingConversationTile(
+              conversation: conversation,
+              isTyping: typingUsers.containsKey(conversation.id),
+              onTap: () {
+                ref
+                    .read(conversationsProvider.notifier)
+                    .clearUnread(conversation.id);
+                context.push('/chat/${conversation.id}');
+              },
+            ),
           );
         },
       ),

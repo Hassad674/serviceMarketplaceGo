@@ -173,9 +173,14 @@ class _ProviderChip extends StatelessWidget {
             radius: 10,
             backgroundColor:
                 theme.colorScheme.primary.withValues(alpha: 0.15),
+            // Tiny avatar: 10 lp = 60 px @ 3x DPR. 64 is enough.
             backgroundImage: provider.avatarUrl != null &&
                     provider.avatarUrl!.isNotEmpty
-                ? CachedNetworkImageProvider(provider.avatarUrl!)
+                ? CachedNetworkImageProvider(
+                    provider.avatarUrl!,
+                    maxWidth: 64,
+                    maxHeight: 64,
+                  )
                 : null,
             child: provider.avatarUrl == null || provider.avatarUrl!.isEmpty
                 ? Text(

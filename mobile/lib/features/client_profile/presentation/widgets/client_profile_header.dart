@@ -167,7 +167,12 @@ class _Avatar extends StatelessWidget {
 
   ImageProvider? _image() {
     if (avatarUrl == null || avatarUrl!.isEmpty) return null;
-    return CachedNetworkImageProvider(avatarUrl!);
+    // 40 lp radius × 3x DPR = ~240 px. Cap at 256 (PERF-M-05).
+    return CachedNetworkImageProvider(
+      avatarUrl!,
+      maxWidth: 256,
+      maxHeight: 256,
+    );
   }
 }
 

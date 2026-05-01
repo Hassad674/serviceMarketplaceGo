@@ -252,7 +252,7 @@ class AppTheme {
     final base = ThemeData.light(useMaterial3: true);
 
     return base.copyWith(
-      colorScheme: ColorScheme.light(
+      colorScheme: const ColorScheme.light(
         primary: _primaryLight,
         onPrimary: _onPrimary,
         secondary: _accentLight,
@@ -348,7 +348,7 @@ class AppTheme {
     final base = ThemeData.dark(useMaterial3: true);
 
     return base.copyWith(
-      colorScheme: ColorScheme.dark(
+      colorScheme: const ColorScheme.dark(
         primary: _primaryDark,
         onPrimary: _onPrimary,
         secondary: _accentDark,

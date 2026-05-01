@@ -310,32 +310,41 @@ class _MessageInputBarState extends State<MessageInputBar>
             ),
           ),
           const SizedBox(width: 12),
-          // Pulsing red dot
-          AnimatedBuilder(
-            animation: _pulseAnimation,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _pulseAnimation.value,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
+          // Pulsing red dot. RepaintBoundary isolates the
+          // 60fps Opacity change from the rest of the recording
+          // chrome (delete button, timer Text) so each frame only
+          // repaints the 10×10 dot layer (PERF-M-08).
+          RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _pulseAnimation.value,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
           const SizedBox(width: 8),
-          // Timer
-          Text(
-            _formatDuration(_recordingDuration),
-            style: TextStyle(
-              fontSize: 15,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w600,
-              color: timerColor,
+          // Timer — re-renders every second. RepaintBoundary
+          // keeps that re-render isolated so the surrounding bar
+          // chrome stays in its own raster layer.
+          RepaintBoundary(
+            child: Text(
+              _formatDuration(_recordingDuration),
+              style: TextStyle(
+                fontSize: 15,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+                color: timerColor,
+              ),
             ),
           ),
           const Spacer(),

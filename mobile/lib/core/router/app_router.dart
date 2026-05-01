@@ -241,7 +241,6 @@ class DashboardShell extends ConsumerStatefulWidget {
 }
 
 class _DashboardShellState extends ConsumerState<DashboardShell> {
-  bool _fcmInitialized = false;
   StreamSubscription<Map<String, dynamic>>? _notifSub;
 
   @override
@@ -249,6 +248,16 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     super.initState();
     final wsSvc = ref.read(messagingWsServiceProvider);
     _notifSub = wsSvc.events.listen(_handleWsNotification);
+
+    // FCM init is heavy (channel setup + permission prompt). Schedule
+    // it after the first frame so the shell renders interactively
+    // before the platform plugin handshake begins. `addPostFrameCallback`
+    // (rather than `Future.microtask`) ensures the user actually sees
+    // the dashboard before the OS-level permission sheet appears.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FCMService.initialize(ref);
+    });
   }
 
   void _handleWsNotification(Map<String, dynamic> event) {
@@ -304,16 +313,12 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final appColors = theme.extension<AppColors>();
-    final l10n = AppLocalizations.of(context)!;
-    final totalUnread = ref.watch(totalUnreadProvider);
-
-    if (!_fcmInitialized) {
-      _fcmInitialized = true;
-      Future.microtask(() => FCMService.initialize(ref));
-    }
-
+    // Build is intentionally lean — we only depend on the location
+    // (for the selected tab index) and pass the unread badge down
+    // to a ConsumerWidget leaf that watches `totalUnreadProvider`
+    // independently. A WS push that changes the unread count no
+    // longer rebuilds KYCBanner / child / drawer / scaffold chrome
+    // (PERF-M-01 / PERF-M-08).
     return Scaffold(
       key: DashboardShell.scaffoldKey,
       drawer: const AppDrawer(),
@@ -323,29 +328,50 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
           Expanded(child: widget.child),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: appColors?.border ?? theme.dividerColor,
-              width: 1,
-            ),
+      bottomNavigationBar: _ShellBottomNav(
+        selectedIndex: _currentIndex(context),
+      ),
+    );
+  }
+}
+
+/// Bottom navigation bar isolated from the [DashboardShell] so the
+/// `totalUnreadProvider` watch only invalidates the navbar subtree,
+/// not the entire shell + child.
+class _ShellBottomNav extends ConsumerWidget {
+  const _ShellBottomNav({required this.selectedIndex});
+
+  final int selectedIndex;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final appColors = theme.extension<AppColors>();
+    final l10n = AppLocalizations.of(context)!;
+    final totalUnread = ref.watch(totalUnreadProvider);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: appColors?.border ?? theme.dividerColor,
+            width: 1,
           ),
         ),
-        child: NavigationBar(
-          selectedIndex: _currentIndex(context),
-          destinations: _buildDestinations(l10n, totalUnread),
-          onDestinationSelected: (index) {
-            const routes = [
-              RoutePaths.dashboard,
-              RoutePaths.messaging,
-              RoutePaths.missions,
-              RoutePaths.profile,
-            ];
-            GoRouter.of(context).go(routes[index]);
-          },
-        ),
+      ),
+      child: NavigationBar(
+        selectedIndex: selectedIndex,
+        destinations: _buildDestinations(l10n, totalUnread),
+        onDestinationSelected: (index) {
+          const routes = [
+            RoutePaths.dashboard,
+            RoutePaths.messaging,
+            RoutePaths.missions,
+            RoutePaths.profile,
+          ];
+          GoRouter.of(context).go(routes[index]);
+        },
       ),
     );
   }

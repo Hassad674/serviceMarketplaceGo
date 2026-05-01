@@ -275,11 +275,23 @@ class _PortfolioMediaThumb extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           child: Container(
             color: const Color(0xFF0F172A),
+            // PERF-M-09: brut Image.network re-downloads on every
+            // rebuild and decodes the original 2-4 MB JPEG. The form
+            // tile is ~120 lp wide on phones — 360 raster pixels is
+            // plenty. cacheWidth gates Flutter's decode pipeline.
             child: media.isVideo
                 ? (media.thumbnailUrl.isNotEmpty
-                    ? Image.network(media.thumbnailUrl, fit: BoxFit.cover)
+                    ? Image.network(
+                        media.thumbnailUrl,
+                        fit: BoxFit.cover,
+                        cacheWidth: 360,
+                      )
                     : PortfolioVideoThumbnail(videoUrl: media.mediaUrl))
-                : Image.network(media.mediaUrl, fit: BoxFit.cover),
+                : Image.network(
+                    media.mediaUrl,
+                    fit: BoxFit.cover,
+                    cacheWidth: 360,
+                  ),
           ),
         ),
         if (isFirst)
