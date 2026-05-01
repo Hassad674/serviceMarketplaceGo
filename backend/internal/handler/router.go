@@ -6,7 +6,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"marketplace-backend/internal/config"
-	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
@@ -54,8 +53,8 @@ type RouterDeps struct {
 	Wallet              *WalletHandler
 	Billing             *BillingHandler
 	Subscription        *SubscriptionHandler
-	BillingProfile      *BillingProfileHandler // optional — nil disables /me/billing-profile routes
-	Invoice             *InvoiceHandler        // optional — nil disables /me/invoices routes
+	BillingProfile      *BillingProfileHandler  // optional — nil disables /me/billing-profile routes
+	Invoice             *InvoiceHandler         // optional — nil disables /me/invoices routes
 	AdminCreditNote     *AdminCreditNoteHandler // optional — nil disables admin credit-note correction endpoint
 	AdminInvoice        *AdminInvoiceHandler    // optional — nil disables admin "all invoices" listing + PDF redirect
 	Admin               *AdminHandler
@@ -91,10 +90,17 @@ type RouterDeps struct {
 	RateLimiter *middleware.RateLimiter
 }
 
+// NewRouter assembles the chi router for the marketplace API.
+//
+// The body delegates each feature's route group to a `mount<Name>`
+// helper that lives in a sibling file (routes_*.go). The orchestrator
+// kept here is intentionally thin — every entry should read as pure
+// composition: build the middleware stack, mount /api/v1 + every
+// feature group inside it. Anything more belongs in a routes_*.go.
 func NewRouter(deps RouterDeps) chi.Router {
 	// Single auth middleware reused on every authenticated route group.
-	// Extracted into a local so the 4-arg call stays in one place and
-	// each `r.Use(auth)` line below reads as pure routing intent.
+	// Constructed once here and passed down to each mount<Name> so the
+	// 4-arg call site is not repeated across the package.
 	auth := middleware.Auth(
 		deps.TokenService,
 		deps.SessionService,
@@ -103,14 +109,45 @@ func NewRouter(deps RouterDeps) chi.Router {
 	)
 	r := chi.NewRouter()
 
-	// Global middleware
+	mountGlobalMiddleware(r, deps)
+	mountTopLevelHealth(r, deps)
+
+	r.Route("/api/v1", func(r chi.Router) {
+		mountV1Middleware(r, deps)
+
+		mountAuthRoutes(r, deps, auth)
+		mountProfileRoutes(r, deps, auth)
+		mountUploadRoutes(r, deps, auth)
+		mountSearchRoutes(r, deps, auth)
+		mountMessagingRoutes(r, deps, auth)
+		mountProposalRoutes(r, deps, auth)
+		mountJobRoutes(r, deps, auth)
+		mountReviewRoutes(r, deps, auth)
+		mountReportRoutes(r, deps, auth)
+		mountSocialLinkRoutes(r, deps, auth)
+		mountPortfolioRoutes(r, deps, auth)
+		mountNotificationRoutes(r, deps, auth)
+		mountBillingRoutes(r, deps, auth)
+		mountReferralRoutes(r, deps, auth)
+		mountDisputeRoutes(r, deps, auth)
+		mountWebSocketRoute(r, deps)
+		mountAdminRoutes(r, deps, auth)
+		mountTestRoutes(r, deps)
+	})
+
+	return r
+}
+
+// mountGlobalMiddleware installs the request-scoped middlewares that
+// run on every endpoint regardless of API version. SecurityHeaders
+// runs AFTER Recovery (so even 500s carry the headers) and BEFORE
+// CORS (so OPTIONS preflights inherit them too). HSTS inside the
+// middleware is gated on cfg.IsProduction() to avoid pinning localhost
+// dev environments for a year.
+func mountGlobalMiddleware(r chi.Router, deps RouterDeps) {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recovery)
-	// SecurityHeaders runs AFTER Recovery (so even 500s carry the
-	// headers) and BEFORE CORS (so OPTIONS preflights inherit them too).
-	// HSTS inside the middleware is gated on cfg.IsProduction() to avoid
-	// pinning localhost dev environments for a year.
 	r.Use(middleware.SecurityHeaders(deps.Config))
 	r.Use(middleware.CORS(deps.Config.AllowedOrigins))
 
@@ -124,8 +161,11 @@ func NewRouter(deps RouterDeps) chi.Router {
 	if deps.RateLimiter != nil {
 		r.Use(deps.RateLimiter.Middleware(middleware.DefaultGlobalPolicy, deps.RateLimiter.IPKey()))
 	}
+}
 
-	// Health routes
+// mountTopLevelHealth registers the unversioned liveness / readiness
+// probes and the Prometheus metrics scrape endpoint.
+func mountTopLevelHealth(r chi.Router, deps RouterDeps) {
 	r.Get("/health", deps.Health.Health)
 	r.Get("/ready", deps.Health.Ready)
 
@@ -136,815 +176,42 @@ func NewRouter(deps RouterDeps) chi.Router {
 	if deps.Metrics != nil {
 		r.Get("/metrics", deps.Metrics.Handler())
 	}
-
-	// API v1
-	r.Route("/api/v1", func(r chi.Router) {
-		// SEC-11: mutation-class limiter (30/min/user) for all
-		// authenticated POST/PUT/PATCH/DELETE. The MutationOnly key
-		// short-circuits read traffic — those are governed by the
-		// global IP-based limiter above. Anonymous mutations (e.g.
-		// /auth/login, /auth/register) also short-circuit because
-		// UserKey returns false without an authenticated context, so
-		// they are governed by the brute-force service inside the
-		// auth handler instead.
-		if deps.RateLimiter != nil {
-			r.Use(deps.RateLimiter.Middleware(
-				middleware.DefaultMutationPolicy,
-				middleware.MutationOnly(middleware.UserKey()),
-			))
-		}
-
-		// Auth routes (public)
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", deps.Auth.Register)
-			r.Post("/login", deps.Auth.Login)
-			r.Post("/refresh", deps.Auth.Refresh)
-			r.Post("/forgot-password", deps.Auth.ForgotPassword)
-			r.Post("/reset-password", deps.Auth.ResetPassword)
-
-			// Protected
-			r.Group(func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/me", deps.Auth.Me)
-				r.Get("/ws-token", deps.Auth.WSToken)
-				r.Post("/web-session", deps.Auth.WebSession)
-				r.Post("/logout", deps.Auth.Logout)
-				r.Put("/referrer-enable", deps.Auth.EnableReferrer)
-			})
-		})
-
-		// Team invitation routes — public acceptance endpoints + protected
-		// management endpoints nested under /organizations/{orgID}/invitations.
-		if deps.Invitation != nil {
-			// Public: validate a token and accept an invitation.
-			r.Get("/invitations/validate", deps.Invitation.Validate)
-			r.Post("/invitations/accept", deps.Invitation.Accept)
-
-			r.Route("/organizations/{orgID}/invitations", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Post("/", deps.Invitation.Send)
-				r.Get("/", deps.Invitation.List)
-				r.Post("/{invID}/resend", deps.Invitation.Resend)
-				r.Delete("/{invID}", deps.Invitation.Cancel)
-			})
-		}
-
-		// Team management routes — list/edit/remove members + transfer
-		// ownership. All protected by auth middleware; each method
-		// enforces its own permission checks at the service layer.
-		if deps.Team != nil {
-			// Static org-scoped routes that do NOT take an orgID URL
-			// param go above the {orgID} route group so chi resolves
-			// them correctly. role-definitions is a global catalogue
-			// (R13: team page "About roles" panel + edit modal preview).
-			r.Group(func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/organizations/role-definitions", deps.Team.RoleDefinitions)
-			})
-
-			r.Route("/organizations/{orgID}", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-
-				r.Get("/members", deps.Team.ListMembers)
-				r.Patch("/members/{userID}", deps.Team.UpdateMember)
-				r.Delete("/members/{userID}", deps.Team.RemoveMember)
-				r.Post("/leave", deps.Team.Leave)
-
-				r.Post("/transfer", deps.Team.InitiateTransfer)
-				r.Delete("/transfer", deps.Team.CancelTransfer)
-				r.Post("/transfer/accept", deps.Team.AcceptTransfer)
-				r.Post("/transfer/decline", deps.Team.DeclineTransfer)
-
-				// Role permissions editor (R17 — per-org customization).
-				// GET is readable by any org member (every role holds
-				// team.view in the defaults). PATCH is Owner-only and
-				// additionally defense-in-depth gated by the service
-				// layer. The middleware fast-path uses the Owner-only
-				// PermTeamManageRolePermissions permission which is
-				// itself non-overridable.
-				if deps.RoleOverrides != nil {
-					r.Get("/role-permissions", deps.RoleOverrides.GetMatrix)
-					r.With(middleware.RequirePermission(organization.PermTeamManageRolePermissions)).
-						Patch("/role-permissions", deps.RoleOverrides.UpdateMatrix)
-				}
-			})
-		}
-
-		// Profile routes (authenticated, permission-gated)
-		r.Route("/profile", func(r chi.Router) {
-			r.Use(auth)
-			r.Use(middleware.NoCache)
-			r.Get("/", deps.Profile.GetMyProfile)
-			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.Profile.UpdateMyProfile)
-			// Expertise domains — same "edit profile" permission as the
-			// main profile fields. The feature is hard-disabled for
-			// enterprise orgs at the service layer (403 forbidden).
-			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.Profile.UpdateMyExpertise)
-			// Profile skills (authenticated). Same permission as expertise
-			// — both are public-profile decorations shared by the whole
-			// org. The feature is hard-disabled for enterprise orgs at
-			// the service layer (403 forbidden).
-			if deps.Skill != nil {
-				r.Get("/skills", deps.Skill.GetMyProfileSkills)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/skills", deps.Skill.PutMyProfileSkills)
-			}
-			// Profile Tier 1 completion (migration 083): location,
-			// languages, availability blocks. Same edit-profile
-			// permission as the main profile fields — all three
-			// are public profile decorations shared by the whole org.
-			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/location", deps.Profile.UpdateMyLocation)
-			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/languages", deps.Profile.UpdateMyLanguages)
-			r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.Profile.UpdateMyAvailability)
-
-			// Profile pricing (migration 083). Wired through a
-			// dedicated handler (ProfilePricingHandler) to preserve
-			// the feature-isolation principle — deleting the
-			// pricing feature means deleting that file + wiring
-			// without touching ProfileHandler.
-			if deps.ProfilePricing != nil {
-				r.Get("/pricing", deps.ProfilePricing.ListMyPricing)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.ProfilePricing.UpsertMyPricing)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing/{kind}", deps.ProfilePricing.DeleteMyPricingByKind)
-			}
-
-			// Client profile (migration 114) — the client-facing facet
-			// of the org's public profile. Gated by a dedicated
-			// permission (org_client_profile.edit) so an operator can
-			// be trusted with the client profile without also having
-			// write access to the provider-facing profile.
-			if deps.ClientProfile != nil {
-				r.With(middleware.RequirePermission(organization.PermOrgClientProfileEdit)).
-					Put("/client", deps.ClientProfile.UpdateMyClientProfile)
-			}
-		})
-
-		// Split-profile routes (migrations 096-104). Mounted in
-		// their own route groups so a worktree without the split
-		// handlers wired in boots cleanly — the `if` guards keep
-		// each feature fully removable.
-		if deps.FreelanceProfile != nil {
-			r.Route("/freelance-profile", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/", deps.FreelanceProfile.GetMy)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceProfile.UpdateMy)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.FreelanceProfile.UpdateMyAvailability)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.FreelanceProfile.UpdateMyExpertise)
-				if deps.FreelanceProfileVideo != nil {
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/video", deps.FreelanceProfileVideo.Upload)
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/video", deps.FreelanceProfileVideo.Delete)
-				}
-				if deps.FreelancePricing != nil {
-					r.Get("/pricing", deps.FreelancePricing.GetMy)
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.FreelancePricing.UpsertMy)
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing", deps.FreelancePricing.DeleteMy)
-				}
-			})
-		}
-		if deps.ReferrerProfile != nil {
-			r.Route("/referrer-profile", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/", deps.ReferrerProfile.GetMy)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerProfile.UpdateMy)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/availability", deps.ReferrerProfile.UpdateMyAvailability)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/expertise", deps.ReferrerProfile.UpdateMyExpertise)
-				if deps.ReferrerProfileVideo != nil {
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/video", deps.ReferrerProfileVideo.Upload)
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/video", deps.ReferrerProfileVideo.Delete)
-				}
-				if deps.ReferrerPricing != nil {
-					r.Get("/pricing", deps.ReferrerPricing.GetMy)
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/pricing", deps.ReferrerPricing.UpsertMy)
-					r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/pricing", deps.ReferrerPricing.DeleteMy)
-				}
-			})
-		}
-		if deps.OrganizationShared != nil {
-			r.Route("/organization", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/shared", deps.OrganizationShared.GetSharedProfile)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/location", deps.OrganizationShared.UpdateLocation)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/languages", deps.OrganizationShared.UpdateLanguages)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/photo", deps.OrganizationShared.UpdatePhoto)
-			})
-		}
-
-		// Skills catalog (mixed: public browse/autocomplete, authenticated create)
-		if deps.Skill != nil {
-			// Public catalog reads — no auth required so the discovery
-			// UI can surface skills to anonymous visitors.
-			r.Get("/skills/catalog", deps.Skill.GetCuratedByExpertise)
-			r.Get("/skills/autocomplete", deps.Skill.Autocomplete)
-
-			// Authenticated: create a new user-contributed skill from
-			// the "Create X" autocomplete option. Permission-gated by
-			// the same edit-profile grant as the profile skills PUT.
-			r.Group(func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Post("/skills", deps.Skill.CreateUserSkill)
-			})
-		}
-
-		// Upload routes (authenticated, permission-gated)
-		r.Route("/upload", func(r chi.Router) {
-			r.Use(auth)
-			r.Use(middleware.NoCache)
-			// SEC-11: upload-class limiter (10/min/user) on top of the
-			// global IP throttle. Stacked here on the whole subtree so
-			// every upload endpoint shares the same quota.
-			if deps.RateLimiter != nil {
-				r.Use(deps.RateLimiter.Middleware(middleware.DefaultUploadPolicy, middleware.UserKey()))
-			}
-			// Profile-related uploads require org profile edit permission
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.RequirePermission(organization.PermOrgProfileEdit))
-				r.Post("/photo", deps.Upload.UploadPhoto)
-				r.Post("/video", deps.Upload.UploadVideo)
-				r.Delete("/video", deps.Upload.DeleteVideo)
-				r.Post("/referrer-video", deps.Upload.UploadReferrerVideo)
-				r.Delete("/referrer-video", deps.Upload.DeleteReferrerVideo)
-				r.Post("/portfolio-image", deps.Upload.UploadPortfolioImage)
-				r.Post("/portfolio-video", deps.Upload.UploadPortfolioVideo)
-			})
-			// Review video upload requires review permission
-			r.With(middleware.RequirePermission(organization.PermReviewsRespond)).Post("/review-video", deps.Upload.UploadReviewVideo)
-		})
-
-		// Public profiles (keyed by organization id since phase R2)
-		r.Get("/profiles/search", deps.Profile.SearchProfiles)
-		r.Get("/profiles/{orgId}", deps.Profile.GetPublicProfile)
-
-		// Public client profile (migration 114). Keyed on organization
-		// id so the URL scheme stays symmetrical with /profiles/{orgId}.
-		// Nil ClientProfile handler disables the route entirely —
-		// feature-isolation rule.
-		if deps.ClientProfile != nil {
-			r.Get("/clients/{orgId}", deps.ClientProfile.GetPublicClientProfile)
-		}
-
-		// Typesense-backed search routes. Both endpoints require an
-		// authenticated user. The legacy /profiles/search SQL path
-		// was retired in phase 4 (30-day grace ended April 2026) —
-		// the only remaining consumer is the referral provider
-		// picker, which uses it as a simple directory read.
-		if deps.Search != nil {
-			r.Group(func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/search/key", deps.Search.ScopedKey)
-				r.Get("/search", deps.Search.Search)
-				// Click-through tracking. GET used instead of POST so
-				// the browser beacon API can fire even on unload.
-				r.Get("/search/track", deps.Search.Track)
-			})
-		}
-		if deps.ProjectHistory != nil {
-			r.Get("/profiles/{orgId}/project-history", deps.ProjectHistory.ListByOrganization)
-		}
-
-		// Public read routes for the split-profile personas
-		// (provider_personal orgs only). Keyed by organization_id
-		// so the URL scheme stays symmetrical with the legacy
-		// /profiles/{orgId} and the frontend's existing routes.
-		if deps.FreelanceProfile != nil {
-			r.Get("/freelance-profiles/{orgID}", deps.FreelanceProfile.GetPublic)
-		}
-		if deps.ReferrerProfile != nil {
-			r.Get("/referrer-profiles/{orgID}", deps.ReferrerProfile.GetPublic)
-			// Apporteur reputation surface — keyed on orgID for URL
-			// symmetry with the rest of the referrer-profile read
-			// surface. The handler translates internally to the
-			// owner user_id because referrals reference users.
-			r.Get("/referrer-profiles/{orgID}/reputation", deps.ReferrerProfile.GetReputation)
-		}
-
-		// Messaging routes (authenticated, permission-gated)
-		if deps.Messaging != nil {
-			r.Route("/messaging", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				// Read operations
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermMessagingView))
-					r.Get("/conversations", deps.Messaging.ListConversations)
-					r.Get("/conversations/{id}/messages", deps.Messaging.ListMessages)
-					r.Post("/conversations/{id}/read", deps.Messaging.MarkAsRead)
-					r.Get("/unread-count", deps.Messaging.GetTotalUnread)
-				})
-				// Write operations
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermMessagingSend))
-					r.Post("/conversations", deps.Messaging.StartConversation)
-					r.Post("/conversations/{id}/messages", deps.Messaging.SendMessage)
-					r.Put("/messages/{id}", deps.Messaging.EditMessage)
-					r.Delete("/messages/{id}", deps.Messaging.DeleteMessage)
-					r.Post("/upload-url", deps.Messaging.GetPresignedURL)
-				})
-			})
-		}
-
-		// Proposal routes (authenticated, permission-gated)
-		if deps.Proposal != nil {
-			r.Route("/proposals", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/{id}", deps.Proposal.GetProposal)
-				r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/", deps.Proposal.CreateProposal)
-				r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/{id}/modify", deps.Proposal.ModifyProposal)
-				// Respond actions (accept, decline, pay, complete flow)
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermProposalsRespond))
-					r.Post("/{id}/accept", deps.Proposal.AcceptProposal)
-					r.Post("/{id}/decline", deps.Proposal.DeclineProposal)
-					// Legacy endpoints (one-time mode shortcut, kept for
-					// backward compatibility — they delegate to the same
-					// proposal service methods as the new milestone-explicit
-					// routes below).
-					r.Post("/{id}/pay", deps.Proposal.PayProposal)
-					r.Post("/{id}/confirm-payment", deps.Proposal.ConfirmPayment)
-					r.Post("/{id}/request-completion", deps.Proposal.RequestCompletion)
-					r.Post("/{id}/complete", deps.Proposal.CompleteProposal)
-					r.Post("/{id}/reject-completion", deps.Proposal.RejectCompletion)
-					// Phase 5: milestone-explicit endpoints. The {mid}
-					// segment is validated against the current active
-					// milestone — a stale client view (someone else has
-					// moved the proposal forward) yields 409 Conflict
-					// instead of silently mutating the wrong milestone.
-					r.Post("/{id}/milestones/{mid}/fund", deps.Proposal.FundMilestone)
-					r.Post("/{id}/milestones/{mid}/submit", deps.Proposal.SubmitMilestone)
-					r.Post("/{id}/milestones/{mid}/approve", deps.Proposal.ApproveMilestone)
-					r.Post("/{id}/milestones/{mid}/reject", deps.Proposal.RejectMilestone)
-					// Boundary cancel (no money in flight). Either side
-					// may initiate — the proposal service's
-					// requireOrgIsParticipant check handles auth.
-					r.Post("/{id}/cancel", deps.Proposal.CancelProposal)
-				})
-			})
-			r.Route("/projects", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Use(middleware.RequirePermission(organization.PermProposalsView))
-				r.Get("/", deps.Proposal.ListActiveProjects)
-			})
-		}
-
-		// Job routes (authenticated, permission-gated)
-		if deps.Job != nil {
-			r.Route("/jobs", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-
-				// View operations
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermJobsView))
-					r.Get("/mine", deps.Job.ListMyJobs)
-					r.Get("/{id}", deps.Job.GetJob)
-					r.Post("/{id}/mark-viewed", deps.Job.MarkApplicationsViewed)
-					if deps.JobApplication != nil {
-						r.Get("/open", deps.JobApplication.ListOpenJobs)
-						r.Get("/credits", deps.JobApplication.GetCredits)
-						r.Get("/{id}/applications", deps.JobApplication.ListJobApplications)
-						r.Get("/{id}/has-applied", deps.JobApplication.HasApplied)
-					}
-				})
-
-				// Create
-				r.With(middleware.RequirePermission(organization.PermJobsCreate)).Post("/", deps.Job.CreateJob)
-
-				// Edit
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermJobsEdit))
-					r.Put("/{id}", deps.Job.UpdateJob)
-					r.Post("/{id}/close", deps.Job.CloseJob)
-					r.Post("/{id}/reopen", deps.Job.ReopenJob)
-				})
-
-				// Delete (Owner/Admin only)
-				r.With(middleware.RequirePermission(organization.PermJobsDelete)).Delete("/{id}", deps.Job.DeleteJob)
-
-				// Application actions (proposal + messaging permissions)
-				if deps.JobApplication != nil {
-					r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/applications/mine", deps.JobApplication.ListMyApplications)
-					r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Post("/{id}/apply", deps.JobApplication.ApplyToJob)
-					r.With(middleware.RequirePermission(organization.PermProposalsCreate)).Delete("/applications/{applicationId}", deps.JobApplication.WithdrawApplication)
-					r.With(middleware.RequirePermission(organization.PermMessagingSend)).Post("/{id}/applications/{applicantId}/contact", deps.JobApplication.ContactApplicant)
-				}
-			})
-		}
-
-		// Review routes (mixed: public reads, authenticated writes)
-		if deps.Review != nil {
-			r.Route("/reviews", func(r chi.Router) {
-				// Public: read reviews and average ratings (keyed by org)
-				r.Get("/org/{orgId}", deps.Review.ListByOrganization)
-				r.Get("/average/{orgId}", deps.Review.GetAverageRating)
-
-				// Authenticated: create reviews and check eligibility
-				r.Group(func(r chi.Router) {
-					r.Use(auth)
-					r.Use(middleware.NoCache)
-					r.With(middleware.RequirePermission(organization.PermReviewsRespond)).Post("/", deps.Review.CreateReview)
-					r.With(middleware.RequirePermission(organization.PermProposalsView)).Get("/can-review/{proposalId}", deps.Review.CanReview)
-				})
-			})
-		}
-
-		// Report routes (authenticated)
-		if deps.Report != nil {
-			r.Route("/reports", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Post("/", deps.Report.CreateReport)
-				r.Get("/mine", deps.Report.ListMyReports)
-			})
-		}
-
-		// Social link routes — legacy agency-scoped path. Kept for
-		// backwards compatibility with the agency profile flow.
-		if deps.SocialLink != nil {
-			// Public: read agency social links
-			r.Get("/profiles/{orgId}/social-links", deps.SocialLink.ListPublicSocialLinks)
-
-			// Authenticated: manage own agency social links
-			r.Route("/profile/social-links", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/", deps.SocialLink.ListMySocialLinks)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.SocialLink.UpsertSocialLink)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.SocialLink.DeleteSocialLink)
-			})
-		}
-
-		// Freelance persona social link routes — independent set
-		// scoped to the freelance identity of provider_personal users.
-		if deps.FreelanceSocialLink != nil {
-			r.Get("/freelance-profiles/{orgId}/social-links", deps.FreelanceSocialLink.ListPublicSocialLinks)
-
-			r.Route("/freelance-profile/social-links", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/", deps.FreelanceSocialLink.ListMySocialLinks)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.FreelanceSocialLink.UpsertSocialLink)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.FreelanceSocialLink.DeleteSocialLink)
-			})
-		}
-
-		// Referrer persona social link routes — independent set
-		// scoped to the apporteur d'affaires identity.
-		if deps.ReferrerSocialLink != nil {
-			r.Get("/referrer-profiles/{orgId}/social-links", deps.ReferrerSocialLink.ListPublicSocialLinks)
-
-			r.Route("/referrer-profile/social-links", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/", deps.ReferrerSocialLink.ListMySocialLinks)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Put("/", deps.ReferrerSocialLink.UpsertSocialLink)
-				r.With(middleware.RequirePermission(organization.PermOrgProfileEdit)).Delete("/{platform}", deps.ReferrerSocialLink.DeleteSocialLink)
-			})
-		}
-
-		// Portfolio routes (mixed: public reads, authenticated writes)
-		if deps.Portfolio != nil {
-			// Public: read portfolio for an organization
-			r.Get("/portfolio/org/{orgId}", deps.Portfolio.ListPortfolioByOrganization)
-			r.Get("/portfolio/{id}", deps.Portfolio.GetPortfolioItem)
-
-			// Authenticated: manage own portfolio (org profile edit permission)
-			r.Route("/portfolio", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Use(middleware.RequirePermission(organization.PermOrgProfileEdit))
-				r.Post("/", deps.Portfolio.CreatePortfolioItem)
-				r.Put("/reorder", deps.Portfolio.ReorderPortfolio)
-				r.Put("/{id}", deps.Portfolio.UpdatePortfolioItem)
-				r.Delete("/{id}", deps.Portfolio.DeletePortfolioItem)
-			})
-		}
-
-		// Call routes (authenticated, permission-gated)
-		if deps.Call != nil {
-			r.Route("/calls", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.With(middleware.RequirePermission(organization.PermMessagingSend)).Post("/initiate", deps.Call.InitiateCall)
-				// Accept/decline/end are receiving-side actions — view permission is sufficient
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermMessagingView))
-					r.Post("/{id}/accept", deps.Call.AcceptCall)
-					r.Post("/{id}/decline", deps.Call.DeclineCall)
-					r.Post("/{id}/end", deps.Call.EndCall)
-				})
-			})
-		}
-
-		// Payment info routes — all served by Embedded Components now.
-		if deps.Embedded != nil {
-			r.Route("/payment-info", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/account-status", deps.Embedded.GetAccountStatus)
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermKYCManage))
-					r.Post("/account-session", deps.Embedded.CreateAccountSession)
-					r.Delete("/account-session", deps.Embedded.ResetAccount)
-				})
-			})
-		}
-
-		// Notification routes (authenticated)
-		if deps.Notification != nil {
-			r.Route("/notifications", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/", deps.Notification.ListNotifications)
-				r.Get("/unread-count", deps.Notification.GetUnreadCount)
-				r.Post("/{id}/read", deps.Notification.MarkAsRead)
-				r.Post("/read-all", deps.Notification.MarkAllAsRead)
-				r.Delete("/{id}", deps.Notification.DeleteNotification)
-				r.Get("/preferences", deps.Notification.GetPreferences)
-				r.Put("/preferences", deps.Notification.UpdatePreferences)
-				r.Patch("/preferences/bulk-email", deps.Notification.BulkUpdateEmailPreferences)
-				r.Post("/device-token", deps.Notification.RegisterDeviceToken)
-			})
-		}
-
-		// Identity documents are now handled by Stripe Embedded Components —
-		// no custom upload/list/delete endpoints needed.
-
-		// Billing — read-only fee preview for the proposal creation flow.
-		// Auth required; the role is resolved from the JWT so a client
-		// cannot forge it via query string. No permission gate: every
-		// authenticated user can see their own applicable fee grid.
-		if deps.Billing != nil {
-			r.Route("/billing", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Get("/fee-preview", deps.Billing.GetFeePreview)
-			})
-		}
-
-		// Subscription — Premium plan lifecycle endpoints. Every handler
-		// requires auth; the role-based access (enterprise can't pay a
-		// prestataire fee) is enforced inside the subscription service
-		// when it rejects invalid plans, so no per-route role gate here.
-		if deps.Subscription != nil {
-			r.Route("/subscriptions", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Post("/", deps.Subscription.Subscribe)
-				r.Get("/me", deps.Subscription.GetMine)
-				r.Patch("/me/auto-renew", deps.Subscription.ToggleAutoRenew)
-				r.Patch("/me/billing-cycle", deps.Subscription.ChangeCycle)
-				r.Get("/me/stats", deps.Subscription.GetStats)
-				r.Get("/me/cycle-preview", deps.Subscription.PreviewCycleChange)
-				r.Get("/portal", deps.Subscription.GetPortal)
-			})
-		}
-
-		// Invoicing — billing profile + invoices for the caller's org.
-		// Mounted on a single /me prefix so the URLs stay symmetrical
-		// with the rest of the org-scoped self routes. Each handler is
-		// optional — nil pointer means "feature not wired" and the
-		// routes simply do not exist.
-		if deps.BillingProfile != nil {
-			r.Route("/me/billing-profile", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				// Read is open to any org member — completeness is part
-				// of the wallet/subscribe self-service UX.
-				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/", deps.BillingProfile.GetMine)
-				// Mutations require billing.manage so a Viewer cannot
-				// edit the recipient identity that ends up on every
-				// invoice.
-				r.With(middleware.RequirePermission(organization.PermBillingManage)).Put("/", deps.BillingProfile.Update)
-				r.With(middleware.RequirePermission(organization.PermBillingManage)).Post("/sync-from-stripe", deps.BillingProfile.SyncFromStripe)
-				r.With(middleware.RequirePermission(organization.PermBillingManage)).Post("/validate-vat", deps.BillingProfile.ValidateVAT)
-			})
-		}
-		if deps.Invoice != nil {
-			r.Route("/me", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Use(middleware.RequirePermission(organization.PermBillingView))
-				r.Get("/invoices", deps.Invoice.List)
-				r.Get("/invoices/{id}/pdf", deps.Invoice.GetPDF)
-				r.Get("/invoicing/current-month", deps.Invoice.CurrentMonth)
-			})
-		}
-
-		// Wallet routes (authenticated, permission-gated)
-		if deps.Wallet != nil {
-			r.Route("/wallet", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.With(middleware.RequirePermission(organization.PermWalletView)).Get("/", deps.Wallet.GetWallet)
-				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/payout", deps.Wallet.RequestPayout)
-				r.With(middleware.RequirePermission(organization.PermWalletWithdraw)).Post("/transfers/{record_id}/retry", deps.Wallet.RetryFailedTransfer)
-			})
-		}
-
-		// Referral (apport d'affaires) routes — authenticated, no per-route
-		// permission middleware: ownership (referrer / provider / client
-		// party of the referral) is enforced inside the service layer by
-		// loadAndAuthorise on every state transition.
-		if deps.Referral != nil {
-			r.Route("/referrals", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.Post("/", deps.Referral.Create)
-				r.Get("/me", deps.Referral.ListMine)
-				r.Get("/incoming", deps.Referral.ListIncoming)
-				r.Get("/{id}", deps.Referral.Get)
-				r.Post("/{id}/respond", deps.Referral.Respond)
-				r.Get("/{id}/negotiations", deps.Referral.ListNegotiations)
-				r.Get("/{id}/attributions", deps.Referral.ListAttributions)
-				r.Get("/{id}/commissions", deps.Referral.ListCommissions)
-			})
-		}
-
-		// Dispute routes (authenticated, permission-gated)
-		if deps.Dispute != nil {
-			r.Route("/disputes", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				// Read
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermProposalsView))
-					r.Get("/mine", deps.Dispute.ListMyDisputes)
-					r.Get("/{id}", deps.Dispute.GetDispute)
-				})
-				// Write (disputes are proposal-level actions)
-				r.Group(func(r chi.Router) {
-					r.Use(middleware.RequirePermission(organization.PermProposalsRespond))
-					r.Post("/", deps.Dispute.OpenDispute)
-					r.Post("/{id}/counter-propose", deps.Dispute.CounterPropose)
-					r.Post("/{id}/counter-proposals/{cpId}/respond", deps.Dispute.RespondToCounter)
-					r.Post("/{id}/cancel", deps.Dispute.CancelDispute)
-					r.Post("/{id}/cancellation/respond", deps.Dispute.RespondToCancellation)
-				})
-			})
-		}
-
-		// Stripe routes
-		if deps.Stripe != nil {
-			r.Route("/stripe", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.NoCache)
-				r.With(middleware.RequirePermission(organization.PermBillingView)).Get("/config", deps.Stripe.GetConfig)
-			})
-			// Webhook: NO auth — Stripe sends directly, verified by signature
-			r.Post("/stripe/webhook", deps.Stripe.HandleWebhook)
-		}
-
-		// WebSocket (auth handled inside the handler)
-		if deps.WSHandler != nil {
-			r.Get("/ws", deps.WSHandler)
-		}
-
-		// Admin routes (authenticated + admin only)
-		if deps.Admin != nil {
-			r.Route("/admin", func(r chi.Router) {
-				r.Use(auth)
-				r.Use(middleware.RequireAdmin())
-				r.Use(middleware.NoCache)
-				r.Get("/dashboard/stats", deps.Admin.GetDashboardStats)
-				r.Get("/users", deps.Admin.ListUsers)
-				r.Get("/users/{id}", deps.Admin.GetUser)
-				r.Post("/users/{id}/suspend", deps.Admin.SuspendUser)
-				r.Post("/users/{id}/unsuspend", deps.Admin.UnsuspendUser)
-				r.Post("/users/{id}/ban", deps.Admin.BanUser)
-				r.Post("/users/{id}/unban", deps.Admin.UnbanUser)
-
-				// Conversation moderation endpoints
-				r.Get("/conversations", deps.Admin.ListConversations)
-				r.Get("/conversations/{id}", deps.Admin.GetConversation)
-				r.Get("/conversations/{id}/messages", deps.Admin.GetConversationMessages)
-				r.Get("/conversations/{id}/reports", deps.Admin.ListConversationReports)
-
-				// Report management endpoints
-				r.Get("/users/{id}/reports", deps.Admin.ListUserReports)
-				r.Post("/reports/{id}/resolve", deps.Admin.ResolveReport)
-
-				// Job admin endpoints
-				r.Get("/jobs", deps.Admin.ListJobs)
-				r.Get("/jobs/{id}", deps.Admin.GetAdminJob)
-				r.Get("/jobs/{id}/reports", deps.Admin.ListJobReports)
-				r.Delete("/jobs/{id}", deps.Admin.DeleteAdminJob)
-				r.Get("/job-applications", deps.Admin.ListJobApplications)
-				r.Delete("/job-applications/{id}", deps.Admin.DeleteJobApplication)
-
-				// Message moderation action endpoints
-				r.Post("/messages/{id}/approve-moderation", deps.Admin.ApproveMessageModeration)
-				r.Post("/messages/{id}/hide", deps.Admin.HideMessage)
-				r.Post("/messages/{id}/restore-moderation", deps.Admin.RestoreMessageModeration)
-
-				// Review admin endpoints
-				r.Get("/reviews", deps.Admin.ListReviews)
-				r.Get("/reviews/{id}", deps.Admin.GetReview)
-				r.Delete("/reviews/{id}", deps.Admin.DeleteReview)
-				r.Get("/reviews/{id}/reports", deps.Admin.ListReviewReports)
-				r.Post("/reviews/{id}/approve-moderation", deps.Admin.ApproveReviewModeration)
-				r.Post("/reviews/{id}/restore-moderation", deps.Admin.RestoreReviewModeration)
-
-				// Unified moderation queue
-				r.Get("/moderation", deps.Admin.ListModerationItems)
-				r.Get("/moderation/count", deps.Admin.ModerationCount)
-				// Generic restore endpoint covering Phase 2 content types
-				// (profile_about, profile_title, job_title, job_description,
-				// proposal_description, job_application_message,
-				// user_display_name). The legacy per-type routes above
-				// (.../messages/{id}/restore-moderation,
-				// .../reviews/{id}/restore-moderation) keep working.
-				r.Post("/moderation/{content_type}/{content_id}/restore", deps.Admin.RestoreModerationGeneric)
-
-				// Admin notification counters
-				r.Get("/notifications", deps.Admin.GetNotificationCounters)
-				r.Post("/notifications/{category}/reset", deps.Admin.ResetNotificationCounter)
-
-				// Media moderation endpoints
-				r.Get("/media", deps.Admin.ListMedia)
-				r.Get("/media/{id}", deps.Admin.GetMediaDetail)
-				r.Post("/media/{id}/approve", deps.Admin.ApproveMedia)
-				r.Post("/media/{id}/reject", deps.Admin.RejectMedia)
-				r.Delete("/media/{id}", deps.Admin.DeleteMedia)
-
-				// Dispute admin endpoints
-				if deps.AdminDispute != nil {
-					r.Get("/disputes", deps.AdminDispute.ListDisputes)
-					r.Get("/disputes/{id}", deps.AdminDispute.GetAdminDispute)
-					r.Post("/disputes/{id}/resolve", deps.AdminDispute.ResolveDispute)
-					r.Post("/disputes/{id}/force-escalate", deps.AdminDispute.ForceEscalate)
-					r.Post("/disputes/{id}/ai-chat", deps.AdminDispute.AskAI)
-					r.Post("/disputes/{id}/ai-budget", deps.AdminDispute.IncreaseAIBudget)
-					r.Get("/disputes/count", deps.AdminDispute.CountDisputes)
-				}
-
-				// Proposal admin endpoints (force activate for testing)
-				if deps.Proposal != nil {
-					r.Post("/proposals/{id}/activate", deps.Proposal.AdminActivateProposal)
-				}
-
-				// Job credit admin endpoints
-				if deps.JobApplication != nil {
-					r.Post("/credits/reset", deps.JobApplication.ResetCredits)
-					r.Post("/credits/reset/{userId}", deps.JobApplication.ResetCreditsForUser)
-				}
-
-				// Team admin endpoints (Phase 6).
-				// All five are gated by the same RequireAdmin middleware
-				// applied to this whole group. Reads live under /users,
-				// mutations live under /organizations.
-				r.Get("/users/{id}/organization", deps.Admin.GetUserOrganization)
-				r.Post("/organizations/{id}/force-transfer", deps.Admin.ForceTransferOwnership)
-				r.Patch("/organizations/{id}/members/{userID}", deps.Admin.ForceUpdateMemberRole)
-				r.Delete("/organizations/{id}/members/{userID}", deps.Admin.ForceRemoveMember)
-				r.Delete("/organizations/{id}/invitations/{invID}", deps.Admin.ForceCancelInvitation)
-
-				// Credit bonus fraud log endpoints
-				if deps.Proposal != nil {
-					r.Get("/credits/bonus-log", deps.Proposal.AdminListBonusLog)
-					r.Get("/credits/bonus-log/pending", deps.Proposal.AdminListPendingBonusLog)
-					r.Post("/credits/bonus-log/{id}/approve", deps.Proposal.AdminApproveBonusEntry)
-					r.Post("/credits/bonus-log/{id}/reject", deps.Proposal.AdminRejectBonusEntry)
-				}
-
-				// Search analytics dashboard — admin-only aggregates over
-				// the search_queries table. Gated by the outer RequireAdmin
-				// middleware; the handler re-checks defensively.
-				if deps.AdminSearchStats != nil {
-					r.Get("/search/stats", deps.AdminSearchStats.GetStats)
-				}
-
-				// Admin invoicing corrections — manual credit-note issuance.
-				// Same RequireAdmin gate as every sibling under /admin.
-				if deps.AdminCreditNote != nil {
-					r.Post("/invoices/{id}/credit-note", deps.AdminCreditNote.Issue)
-				}
-
-				// Admin "all invoices ever emitted" listing + PDF redirect.
-				// Wired separately from the credit-note handler so each
-				// admin surface stays removable in isolation.
-				if deps.AdminInvoice != nil {
-					r.Get("/invoices", deps.AdminInvoice.List)
-					r.Get("/invoices/{id}/pdf", deps.AdminInvoice.GetPDF)
-				}
-			})
-		}
-
-		// Test routes (debug — backend & DB connectivity)
-		r.Route("/test", func(r chi.Router) {
-			r.Get("/health-check", deps.Health.HealthCheck)
-			r.Get("/words", deps.Health.GetWords)
-			r.Post("/words", deps.Health.AddWord)
-		})
+}
+
+// mountV1Middleware installs the /api/v1-scoped mutation throttle.
+// The MutationOnly key short-circuits read traffic — those are
+// governed by the global IP-based limiter above. Anonymous mutations
+// (e.g. /auth/login, /auth/register) also short-circuit because
+// UserKey returns false without an authenticated context, so they
+// are governed by the brute-force service inside the auth handler
+// instead.
+func mountV1Middleware(r chi.Router, deps RouterDeps) {
+	if deps.RateLimiter == nil {
+		return
+	}
+	r.Use(deps.RateLimiter.Middleware(
+		middleware.DefaultMutationPolicy,
+		middleware.MutationOnly(middleware.UserKey()),
+	))
+}
+
+// mountWebSocketRoute exposes the /ws upgrade endpoint. Auth is
+// handled inside the handler closure (because the WebSocket
+// handshake reads the token from a query string the chi auth
+// middleware would not parse).
+func mountWebSocketRoute(r chi.Router, deps RouterDeps) {
+	if deps.WSHandler == nil {
+		return
+	}
+	r.Get("/ws", deps.WSHandler)
+}
+
+// mountTestRoutes wires the debug endpoints used for backend & DB
+// connectivity checks during development.
+func mountTestRoutes(r chi.Router, deps RouterDeps) {
+	r.Route("/test", func(r chi.Router) {
+		r.Get("/health-check", deps.Health.HealthCheck)
+		r.Get("/words", deps.Health.GetWords)
+		r.Post("/words", deps.Health.AddWord)
 	})
-
-	return r
 }
