@@ -57,6 +57,10 @@ func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*reviewdoma
 	return nil, reviewdomain.ErrNotFound
 }
 
+func (m *mockReviewRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*reviewdomain.Review, error) {
+	return m.GetByID(ctx, id)
+}
+
 func (m *mockReviewRepo) ListByReviewedOrganization(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*reviewdomain.Review, string, error) {
 	if m.listByReviewedFn != nil {
 		return m.listByReviewedFn(ctx, userID, cursor, limit)
@@ -152,6 +156,10 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, nil
+}
+
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*proposal.Proposal, error) {
+	return m.GetByID(ctx, id)
 }
 
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposal.Proposal, error) {

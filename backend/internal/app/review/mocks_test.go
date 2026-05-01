@@ -49,6 +49,12 @@ func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Rev
 	return nil, domain.ErrNotFound
 }
 
+// GetByIDForOrg defaults to GetByID — review tests do not yet
+// exercise the org-scoped path but the port requires the method.
+func (m *mockReviewRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.Review, error) {
+	return m.GetByID(ctx, id)
+}
+
 func (m *mockReviewRepo) ListByReviewedOrganization(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error) {
 	if m.listByUserFn != nil {
 		return m.listByUserFn(ctx, userID, cursor, limit)
@@ -124,6 +130,13 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, proposaldomain.ErrProposalNotFound
+}
+
+// GetByIDForOrg delegates to GetByID so the review service's
+// migration to the org-aware variant transparently uses the
+// existing test fixtures.
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*proposaldomain.Proposal, error) {
+	return m.GetByID(ctx, id)
 }
 
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposaldomain.Proposal, error) {

@@ -108,6 +108,9 @@ func (m *clientHandlerProposalRepo) CreateWithDocumentsAndMilestones(context.Con
 func (m *clientHandlerProposalRepo) GetByID(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
 	return nil, nil
 }
+func (m *clientHandlerProposalRepo) GetByIDForOrg(context.Context, uuid.UUID, uuid.UUID) (*proposaldomain.Proposal, error) {
+	return nil, nil
+}
 func (m *clientHandlerProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposaldomain.Proposal, error) {
 	return nil, nil
 }
@@ -150,6 +153,9 @@ func (m *clientHandlerReviewRepo) CreateAndMaybeReveal(_ context.Context, r *rev
 	return r, nil
 }
 func (m *clientHandlerReviewRepo) GetByID(context.Context, uuid.UUID) (*reviewdomain.Review, error) {
+	return nil, nil
+}
+func (m *clientHandlerReviewRepo) GetByIDForOrg(context.Context, uuid.UUID, uuid.UUID) (*reviewdomain.Review, error) {
 	return nil, nil
 }
 func (m *clientHandlerReviewRepo) ListByReviewedOrganization(context.Context, uuid.UUID, string, int) ([]*reviewdomain.Review, string, error) {

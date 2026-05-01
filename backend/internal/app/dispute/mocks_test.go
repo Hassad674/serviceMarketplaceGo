@@ -22,6 +22,7 @@ import (
 type mockDisputeRepo struct {
 	createFn           func(ctx context.Context, d *disputedomain.Dispute) error
 	getByIDFn          func(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error)
+	getByIDForOrgFn    func(ctx context.Context, id, orgID uuid.UUID) (*disputedomain.Dispute, error)
 	getByProposalIDFn  func(ctx context.Context, proposalID uuid.UUID) (*disputedomain.Dispute, error)
 	updateFn           func(ctx context.Context, d *disputedomain.Dispute) error
 	listByOrganizationFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error)
@@ -47,6 +48,19 @@ func (m *mockDisputeRepo) Create(ctx context.Context, d *disputedomain.Dispute) 
 	return nil
 }
 func (m *mockDisputeRepo) GetByID(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, disputedomain.ErrDisputeNotFound
+}
+// GetByIDForOrg defaults to delegating to getByIDFn so the
+// migration of dispute service callers to the org-aware variant
+// is a drop-in replacement at the test fixture level. Tests that
+// must pin the org argument set getByIDForOrgFn explicitly.
+func (m *mockDisputeRepo) GetByIDForOrg(ctx context.Context, id, orgID uuid.UUID) (*disputedomain.Dispute, error) {
+	if m.getByIDForOrgFn != nil {
+		return m.getByIDForOrgFn(ctx, id, orgID)
+	}
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
@@ -170,6 +184,12 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, proposal.ErrProposalNotFound
+}
+// GetByIDForOrg delegates to getByIDFn so the dispute service's
+// migration to GetByIDForOrg is a drop-in replacement at the
+// fixture level.
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*proposal.Proposal, error) {
+	return m.GetByID(ctx, id)
 }
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposal.Proposal, error) {
 	return nil, nil
@@ -375,6 +395,10 @@ func (m *mockMilestoneRepo) CreateBatch(_ context.Context, _ []*milestonedomain.
 }
 
 func (m *mockMilestoneRepo) GetByID(_ context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
+	return synthDisputeMilestone(id), nil
+}
+
+func (m *mockMilestoneRepo) GetByIDForOrg(_ context.Context, id, _ uuid.UUID) (*milestonedomain.Milestone, error) {
 	return synthDisputeMilestone(id), nil
 }
 

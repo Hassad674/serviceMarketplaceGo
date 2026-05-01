@@ -27,6 +27,11 @@ import (
 // documents tables.
 type ProposalReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*proposal.Proposal, error)
+	// GetByIDForOrg is the tenant-aware sibling of GetByID. See the
+	// wide-port doc on ProposalRepository.GetByIDForOrg for the full
+	// contract — segregated reader exposes the same method so a
+	// read-only consumer can switch from the legacy signature.
+	GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*proposal.Proposal, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*proposal.Proposal, error)
 	GetLatestVersion(ctx context.Context, rootProposalID uuid.UUID) (*proposal.Proposal, error)
 	ListByConversation(ctx context.Context, conversationID uuid.UUID) ([]*proposal.Proposal, error)
