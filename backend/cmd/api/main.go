@@ -266,7 +266,14 @@ func main() {
 	// The proposal app service consumes milestoneSvc to delegate the
 	// Fund/Submit/Approve/Release transitions, and the dispute service
 	// (phase 8) delegates OpenDispute/RestoreFromDispute to it as well.
-	milestoneRepo := postgres.NewMilestoneRepository(db)
+	// BUG-NEW-04 path 5/8: proposal_milestones is RLS-protected by
+	// migration 125 — milestones inherit security from the parent
+	// proposal via a JOIN on the policy. The txRunner wrap makes
+	// CreateBatch / Update / GetByIDForOrg / ListByProposalForOrg pass
+	// under prod NOSUPERUSER NOBYPASSRLS. Each operation resolves the
+	// parent proposal's stakeholder org via a defensive lookup before
+	// opening the tenant tx.
+	milestoneRepo := postgres.NewMilestoneRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	milestoneSvc := milestoneapp.NewService(milestoneapp.ServiceDeps{
 		Milestones: milestoneRepo,
 	})
