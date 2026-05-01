@@ -270,6 +270,11 @@ func (s *Service) ListMessages(ctx context.Context, orgID, userID, conversationI
 		ConversationID: conversationID,
 		Cursor:         cursorStr,
 		Limit:          limit,
+		// BUG-NEW-04 path 8/8: thread the caller's tenant context to
+		// the repo so the SELECT runs inside RunInTxWithTenant under
+		// prod NOSUPERUSER NOBYPASSRLS.
+		CallerOrgID:  orgID,
+		CallerUserID: userID,
 	}
 
 	return s.messages.ListMessages(ctx, params)

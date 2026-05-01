@@ -26,6 +26,17 @@ type ListMessagesParams struct {
 	ConversationID uuid.UUID
 	Cursor         string
 	Limit          int
+	// CallerOrgID + CallerUserID are propagated to the repository so it
+	// can install the RLS tenant context (app.current_org_id /
+	// app.current_user_id) on the SELECT transaction. Required once the
+	// production DB role is NOSUPERUSER NOBYPASSRLS (see backend/docs/rls.md
+	// and BUG-NEW-04 path 8/8). Without these, the messages_isolation
+	// policy filters out every row even for legitimate participants.
+	//
+	// Both may be uuid.Nil — the repo falls back to the legacy direct-db
+	// path for unit tests that build the repo without a TxRunner.
+	CallerOrgID  uuid.UUID
+	CallerUserID uuid.UUID
 }
 
 // ConversationSummary is the enriched row returned by ListConversations.

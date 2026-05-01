@@ -37,12 +37,39 @@ const auditMetadataCorruptKey = "_metadata_corrupt"
 // and no aggregation — audit mutations and queries are simple on
 // purpose, and any reporting built on top of this table runs through
 // ad-hoc SQL in admin tooling.
+//
+// BUG-NEW-04 path 2/8: audit_logs is RLS-protected by migration 125
+// with the policy
+//
+//   USING (user_id = current_setting('app.current_user_id', true)::uuid)
+//
+// Migration 129 added WITH CHECK (true) so INSERTs pass even when the
+// tenant context is unset (BUG-NEW-07). The repository now also wraps
+// reads + writes in RunInTxWithTenant when a TxRunner is wired so:
+//   - Log fires under app.current_user_id = entry.UserID (or uuid.Nil
+//     for system-actor paths — WITH CHECK (true) lets those through).
+//   - ListByUser fires under app.current_user_id = userID parameter
+//     so the rows actually return under the non-superuser role.
+//   - ListByResource fires under uuid.Nil (the caller is asking for
+//     ALL actors who touched a resource — admin tooling). Returns the
+//     empty set under non-superuser without a manual privileged path,
+//     which is the safe failure mode.
 type AuditRepository struct {
-	db *sql.DB
+	db       *sql.DB
+	txRunner *TxRunner
 }
 
 func NewAuditRepository(db *sql.DB) *AuditRepository {
 	return &AuditRepository{db: db}
+}
+
+// WithTxRunner attaches the tenant-aware transaction wrapper. Wired
+// from cmd/api/main.go so every audit_log read/write fires inside
+// RunInTxWithTenant. Returns the same pointer so the wiring chain
+// stays terse.
+func (r *AuditRepository) WithTxRunner(runner *TxRunner) *AuditRepository {
+	r.txRunner = runner
+	return r
 }
 
 // Log inserts a new audit row. The caller MUST NOT propagate this
@@ -50,6 +77,13 @@ func NewAuditRepository(db *sql.DB) *AuditRepository {
 // perspective of a business flow. The service layer should wrap
 // Log calls in a goroutine or an error-discarding defer so a DB
 // hiccup does not break the main path.
+//
+// When a TxRunner is wired, the INSERT runs inside
+// RunInTxWithTenant(uuid.Nil, entry.UserID, ...) so app.current_user_id
+// is set to the actor before the write. WITH CHECK (true) from
+// migration 129 means the INSERT would succeed even without context
+// — but the explicit setter is the right defensive default and keeps
+// parity with the rest of the RLS migration (path 2/8 of BUG-NEW-04).
 func (r *AuditRepository) Log(ctx context.Context, entry *audit.Entry) error {
 	if entry == nil {
 		return fmt.Errorf("audit log: nil entry")
@@ -77,30 +111,57 @@ func (r *AuditRepository) Log(ctx context.Context, entry *audit.Entry) error {
 		resourceTypeArg = nil
 	}
 
-	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO audit_logs (
-			id, user_id, action, resource_type, resource_id,
-			metadata, ip_address, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		entry.ID,
-		entry.UserID,
-		string(entry.Action),
-		resourceTypeArg,
-		entry.ResourceID,
-		metadataJSON,
-		ipArg,
-		entry.CreatedAt,
-	)
-	if err != nil {
-		return fmt.Errorf("audit log: insert: %w", err)
+	exec := func(runner sqlExecutor) error {
+		_, err := runner.ExecContext(ctx, `
+			INSERT INTO audit_logs (
+				id, user_id, action, resource_type, resource_id,
+				metadata, ip_address, created_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+			entry.ID,
+			entry.UserID,
+			string(entry.Action),
+			resourceTypeArg,
+			entry.ResourceID,
+			metadataJSON,
+			ipArg,
+			entry.CreatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("audit log: insert: %w", err)
+		}
+		return nil
 	}
-	return nil
+
+	if r.txRunner != nil {
+		// entry.UserID is *uuid.UUID — uuid.Nil when the audit row has
+		// no actor (system worker). SetTenantContext skips the user
+		// setter for uuid.Nil, leaving app.current_user_id unset. WITH
+		// CHECK (true) from migration 129 lets the INSERT through; the
+		// USING expression will only match this row to ITS OWN actor on
+		// later reads (or to no one for system rows — admin tooling
+		// reads those through a privileged path).
+		actor := uuid.Nil
+		if entry.UserID != nil {
+			actor = *entry.UserID
+		}
+		return r.txRunner.RunInTxWithTenant(ctx, uuid.Nil, actor, func(tx *sql.Tx) error {
+			return exec(tx)
+		})
+	}
+	return exec(r.db)
 }
 
 // ListByResource returns the audit entries for a given resource,
 // ordered by created_at DESC, id DESC. Cursor-paginated the same
 // way as other list endpoints so the admin UI can scroll through
 // long histories without OFFSET.
+//
+// Wrapped in tenant tx with uuid.Nil for the user context when a
+// runner is wired: an admin reading a resource's full audit trail
+// has no specific user filter — the policy filters by user_id, so
+// under non-superuser this read returns the empty set, which is the
+// safe failure mode. Admin tooling that needs cross-tenant reads
+// goes through a privileged DB role (out of scope for this round).
 func (r *AuditRepository) ListByResource(
 	ctx context.Context,
 	resourceType audit.ResourceType,
@@ -115,42 +176,70 @@ func (r *AuditRepository) ListByResource(
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	var rows *sql.Rows
-	var err error
-	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, `
-			SELECT id, user_id, action, resource_type, resource_id,
-			       metadata, ip_address, created_at
-			FROM audit_logs
-			WHERE resource_type = $1 AND resource_id = $2
-			ORDER BY created_at DESC, id DESC
-			LIMIT $3`,
-			string(resourceType), resourceID, limit+1)
-	} else {
-		c, decErr := cursor.Decode(cursorStr)
-		if decErr != nil {
-			return nil, "", fmt.Errorf("audit list: decode cursor: %w", decErr)
-		}
-		rows, err = r.db.QueryContext(ctx, `
-			SELECT id, user_id, action, resource_type, resource_id,
-			       metadata, ip_address, created_at
-			FROM audit_logs
-			WHERE resource_type = $1 AND resource_id = $2
-			  AND (created_at, id) < ($3, $4)
-			ORDER BY created_at DESC, id DESC
-			LIMIT $5`,
-			string(resourceType), resourceID, c.CreatedAt, c.ID, limit+1)
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("audit list by resource: %w", err)
-	}
-	defer rows.Close()
+	var entries []*audit.Entry
+	var nextCursor string
 
-	return r.scanAndPaginate(rows, limit)
+	exec := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var err error
+		if cursorStr == "" {
+			rows, err = runner.QueryContext(ctx, `
+				SELECT id, user_id, action, resource_type, resource_id,
+				       metadata, ip_address, created_at
+				FROM audit_logs
+				WHERE resource_type = $1 AND resource_id = $2
+				ORDER BY created_at DESC, id DESC
+				LIMIT $3`,
+				string(resourceType), resourceID, limit+1)
+		} else {
+			c, decErr := cursor.Decode(cursorStr)
+			if decErr != nil {
+				return fmt.Errorf("audit list: decode cursor: %w", decErr)
+			}
+			rows, err = runner.QueryContext(ctx, `
+				SELECT id, user_id, action, resource_type, resource_id,
+				       metadata, ip_address, created_at
+				FROM audit_logs
+				WHERE resource_type = $1 AND resource_id = $2
+				  AND (created_at, id) < ($3, $4)
+				ORDER BY created_at DESC, id DESC
+				LIMIT $5`,
+				string(resourceType), resourceID, c.CreatedAt, c.ID, limit+1)
+		}
+		if err != nil {
+			return fmt.Errorf("audit list by resource: %w", err)
+		}
+		defer rows.Close()
+		es, nc, err := r.scanAndPaginate(rows, limit)
+		if err != nil {
+			return err
+		}
+		entries = es
+		nextCursor = nc
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, uuid.Nil, uuid.Nil, func(tx *sql.Tx) error {
+			return exec(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return entries, nextCursor, nil
+	}
+
+	if err := exec(r.db); err != nil {
+		return nil, "", err
+	}
+	return entries, nextCursor, nil
 }
 
 // ListByUser returns the audit entries attributable to a user,
 // ordered newest-first.
+//
+// Wrapped in tenant tx with the userID parameter as the
+// app.current_user_id setter so the rows return under non-superuser.
 func (r *AuditRepository) ListByUser(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -164,38 +253,63 @@ func (r *AuditRepository) ListByUser(
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	var rows *sql.Rows
-	var err error
-	if cursorStr == "" {
-		rows, err = r.db.QueryContext(ctx, `
-			SELECT id, user_id, action, resource_type, resource_id,
-			       metadata, ip_address, created_at
-			FROM audit_logs
-			WHERE user_id = $1
-			ORDER BY created_at DESC, id DESC
-			LIMIT $2`,
-			userID, limit+1)
-	} else {
-		c, decErr := cursor.Decode(cursorStr)
-		if decErr != nil {
-			return nil, "", fmt.Errorf("audit list: decode cursor: %w", decErr)
-		}
-		rows, err = r.db.QueryContext(ctx, `
-			SELECT id, user_id, action, resource_type, resource_id,
-			       metadata, ip_address, created_at
-			FROM audit_logs
-			WHERE user_id = $1
-			  AND (created_at, id) < ($2, $3)
-			ORDER BY created_at DESC, id DESC
-			LIMIT $4`,
-			userID, c.CreatedAt, c.ID, limit+1)
-	}
-	if err != nil {
-		return nil, "", fmt.Errorf("audit list by user: %w", err)
-	}
-	defer rows.Close()
+	var entries []*audit.Entry
+	var nextCursor string
 
-	return r.scanAndPaginate(rows, limit)
+	exec := func(runner sqlQuerier) error {
+		var rows *sql.Rows
+		var err error
+		if cursorStr == "" {
+			rows, err = runner.QueryContext(ctx, `
+				SELECT id, user_id, action, resource_type, resource_id,
+				       metadata, ip_address, created_at
+				FROM audit_logs
+				WHERE user_id = $1
+				ORDER BY created_at DESC, id DESC
+				LIMIT $2`,
+				userID, limit+1)
+		} else {
+			c, decErr := cursor.Decode(cursorStr)
+			if decErr != nil {
+				return fmt.Errorf("audit list: decode cursor: %w", decErr)
+			}
+			rows, err = runner.QueryContext(ctx, `
+				SELECT id, user_id, action, resource_type, resource_id,
+				       metadata, ip_address, created_at
+				FROM audit_logs
+				WHERE user_id = $1
+				  AND (created_at, id) < ($2, $3)
+				ORDER BY created_at DESC, id DESC
+				LIMIT $4`,
+				userID, c.CreatedAt, c.ID, limit+1)
+		}
+		if err != nil {
+			return fmt.Errorf("audit list by user: %w", err)
+		}
+		defer rows.Close()
+		es, nc, err := r.scanAndPaginate(rows, limit)
+		if err != nil {
+			return err
+		}
+		entries = es
+		nextCursor = nc
+		return nil
+	}
+
+	if r.txRunner != nil {
+		err := r.txRunner.RunInTxWithTenant(ctx, uuid.Nil, userID, func(tx *sql.Tx) error {
+			return exec(tx)
+		})
+		if err != nil {
+			return nil, "", err
+		}
+		return entries, nextCursor, nil
+	}
+
+	if err := exec(r.db); err != nil {
+		return nil, "", err
+	}
+	return entries, nextCursor, nil
 }
 
 // scanAndPaginate walks the result set, extracts one extra row to
