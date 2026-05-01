@@ -9,16 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	"marketplace-backend/internal/adapter/ws"
-	callapp "marketplace-backend/internal/app/call"
 	clientprofileapp "marketplace-backend/internal/app/clientprofile"
 	embeddedapp "marketplace-backend/internal/app/embedded"
-	"marketplace-backend/internal/app/messaging"
-	appmoderation "marketplace-backend/internal/app/moderation"
 	paymentapp "marketplace-backend/internal/app/payment"
 	profileapp "marketplace-backend/internal/app/profile"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
@@ -108,16 +104,19 @@ func main() {
 	// adapter/nominatim/geocoder.go and app/profile/service.go.
 	profileGeocoder := nominatim.NewGeocoder("marketplace-backend/1.0 (contact@marketplace.local)")
 	profileSvc := profileapp.NewService(profileRepo).WithGeocoder(profileGeocoder)
-	messagingSvc := messaging.NewService(messaging.ServiceDeps{
-		Messages:      messageRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		OrgMembers:    organizationMemberRepo,
-		Presence:      presenceSvc,
-		Broadcaster:   streamBroadcaster,
-		Storage:       storageSvc,
-		RateLimiter:   rateLimiter,
-		// MediaRecorder is set below after mediaSvc is created.
+
+	// Messaging service (initial wiring — MediaRecorder + Moderation
+	// orchestrator setters are applied below after their respective
+	// services exist). See wire_uploads_messaging_moderation_kyc.go.
+	messagingSvc := wireMessaging(messagingDeps{
+		MessageRepo:      messageRepo,
+		UserRepo:         userRepo,
+		OrganizationRepo: organizationRepo,
+		OrgMembers:       organizationMemberRepo,
+		Presence:         presenceSvc,
+		Broadcaster:      streamBroadcaster,
+		Storage:          storageSvc,
+		RateLimiter:      rateLimiter,
 	})
 
 	// Proposal feature (early-stage repos + searchPublisher + txRunner).
@@ -174,24 +173,16 @@ func main() {
 	})
 	projectHistoryHandler := projectHistoryWire.Handler
 
-	// Call feature (optional — only when LiveKit is configured)
-	var callHandler *handler.CallHandler
-	if cfg.LiveKitConfigured() {
-		lkClient := livekit.NewClient(cfg.LiveKitURL, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
-		callStateSvc := redisadapter.NewCallStateService(redisClient)
-		callSvc := callapp.NewService(callapp.ServiceDeps{
-			LiveKit:     lkClient,
-			CallState:   callStateSvc,
-			Presence:    presenceSvc,
-			Broadcaster: streamBroadcaster,
-			Messages:    messagingSvc,
-			Users:       userRepo,
-		})
-		callHandler = handler.NewCallHandler(callSvc)
-		slog.Info("call feature enabled (LiveKit configured)")
-	} else {
-		slog.Info("call feature disabled (LiveKit not configured)")
-	}
+	// Call feature (optional — only when LiveKit is configured).
+	// See wire_call.go.
+	callHandler := wireCall(callDeps{
+		Cfg:          cfg,
+		Redis:        redisClient,
+		Presence:     presenceSvc,
+		Broadcaster:  streamBroadcaster,
+		MessagingSvc: messagingSvc,
+		UserRepo:     userRepo,
+	})
 
 	// Stripe payment adapter — see wire_payment.go.
 	stripe := wireStripe(cfg)
@@ -243,12 +234,12 @@ func main() {
 	roleOverridesSvc := team.RoleOverridesSvc
 	_ = roleOverridesSvc // used only via roleOverridesHandler below
 
-	// KYC enforcement scheduler — sends reminders at day 0/3/7/14 for
-	// providers with available funds who haven't completed Stripe KYC.
-	// See startKYCScheduler in wire_notification.go.
+	// KYC enforcement scheduler — see
+	// wire_uploads_messaging_moderation_kyc.go (delegates to
+	// startKYCScheduler in wire_notification.go).
 	kycCtx, kycCancel := context.WithCancel(context.Background())
 	defer kycCancel()
-	startKYCScheduler(kycSchedulerDeps{
+	wireKYC(kycDeps{
 		Ctx:           kycCtx,
 		Cfg:           cfg,
 		Organizations: organizationRepo,
@@ -360,15 +351,15 @@ func main() {
 	// Wire media recorder into messaging so file/voice messages are tracked.
 	messagingSvc.SetMediaRecorder(mediaSvc)
 
-	// Central text moderation orchestrator. One instance fans every
-	// pipeline (messaging, reviews, profile blocking, jobs, …) through
-	// the same analyse → decide → persist → audit → notify chain so
-	// the policy lives in one place.
-	moderationOrchestrator := appmoderation.NewService(appmoderation.Deps{
-		TextModeration: textModerationSvc,
-		Results:        moderationResultsRepo,
-		Audit:          auditRepo,
-		AdminNotifier:  adminNotifierSvc,
+	// Central text moderation orchestrator — see
+	// wire_uploads_messaging_moderation_kyc.go. The 6
+	// SetModerationOrchestrator setters below STAY in main.go because
+	// they cross multiple wire boundaries.
+	moderationOrchestrator := wireModeration(moderationDeps{
+		TextModeration:        textModerationSvc,
+		ModerationResultsRepo: moderationResultsRepo,
+		AuditRepo:             auditRepo,
+		AdminNotifier:         adminNotifierSvc,
 	})
 	messagingSvc.SetModerationOrchestrator(moderationOrchestrator)
 	reviewSvc.SetModerationOrchestrator(moderationOrchestrator)
@@ -596,11 +587,19 @@ func main() {
 	// orphan media records.
 	uploadCtx, uploadCancel := context.WithCancel(context.Background())
 	defer uploadCancel()
-	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc).
-		WithShutdownContext(uploadCtx)
-	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
-	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
-	healthHandler := handler.NewHealthHandler(db)
+	uploadsWire := wireUploads(uploadsDeps{
+		UploadCtx:            uploadCtx,
+		DB:                   db,
+		Storage:              storageSvc,
+		ProfileRepo:          profileRepo,
+		FreelanceProfileRepo: freelanceProfileRepo,
+		ReferrerProfileRepo:  referrerProfileRepo,
+		MediaSvc:             mediaSvc,
+	})
+	uploadHandler := uploadsWire.UploadHandler
+	freelanceProfileVideoHandler := uploadsWire.FreelanceProfileVideoHandler
+	referrerProfileVideoHandler := uploadsWire.ReferrerProfileVideoHandler
+	healthHandler := uploadsWire.HealthHandler
 	if typesenseClient != nil {
 		// Typesense is MANDATORY since phase 4 — the listing pages
 		// have no SQL fallback. A failed ping takes /ready red so
