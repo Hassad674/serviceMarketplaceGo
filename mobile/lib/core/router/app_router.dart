@@ -241,7 +241,6 @@ class DashboardShell extends ConsumerStatefulWidget {
 }
 
 class _DashboardShellState extends ConsumerState<DashboardShell> {
-  bool _fcmInitialized = false;
   StreamSubscription<Map<String, dynamic>>? _notifSub;
 
   @override
@@ -249,6 +248,16 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     super.initState();
     final wsSvc = ref.read(messagingWsServiceProvider);
     _notifSub = wsSvc.events.listen(_handleWsNotification);
+
+    // FCM init is heavy (channel setup + permission prompt). Schedule
+    // it after the first frame so the shell renders interactively
+    // before the platform plugin handshake begins. `addPostFrameCallback`
+    // (rather than `Future.microtask`) ensures the user actually sees
+    // the dashboard before the OS-level permission sheet appears.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FCMService.initialize(ref);
+    });
   }
 
   void _handleWsNotification(Map<String, dynamic> event) {
@@ -308,11 +317,6 @@ class _DashboardShellState extends ConsumerState<DashboardShell> {
     final appColors = theme.extension<AppColors>();
     final l10n = AppLocalizations.of(context)!;
     final totalUnread = ref.watch(totalUnreadProvider);
-
-    if (!_fcmInitialized) {
-      _fcmInitialized = true;
-      Future.microtask(() => FCMService.initialize(ref));
-    }
 
     return Scaffold(
       key: DashboardShell.scaffoldKey,
