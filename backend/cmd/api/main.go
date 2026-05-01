@@ -254,7 +254,13 @@ func main() {
 	})
 
 	// Proposal
-	proposalRepo := postgres.NewProposalRepository(db)
+	// BUG-NEW-04 path 4/8: proposals is RLS-protected by migration 125
+	// (USING client_organization_id = current_org OR provider_organization_id
+	// = current_org). The txRunner wrap makes Create / Update /
+	// GetByIDForOrg / List* pass under prod NOSUPERUSER NOBYPASSRLS.
+	// Legacy GetByID stays for system-actor scheduler paths that run
+	// with a privileged DB connection.
+	proposalRepo := postgres.NewProposalRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 
 	// Milestone — per-step funding/delivery sub-aggregate of a proposal.
 	// The proposal app service consumes milestoneSvc to delegate the
