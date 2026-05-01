@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Send, User } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { Link, useRouter } from "@i18n/navigation"
@@ -63,12 +64,13 @@ export function CandidateCard({ item, isSelected, onClick }: CandidateCardProps)
     >
       {/* Top row: avatar + info + action buttons */}
       <div className="flex items-center gap-3">
-        {/* Avatar — plain <img> for MinIO-hosted uploads (see profile-header.tsx note). */}
+        {/* 40×40 candidate avatar (MinIO/R2 declared in next.config.ts). */}
         {profile.photo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={profile.photo_url}
             alt={displayName}
+            width={40}
+            height={40}
             className="h-10 w-10 shrink-0 rounded-full object-cover"
           />
         ) : (

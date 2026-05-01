@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useRef } from "react"
 import { Camera, Star, Edit2 } from "lucide-react"
 import { useTranslations } from "next-intl"
@@ -96,8 +97,7 @@ export function ProfileHeader({
                 )}
               >
                 {profile?.photo_url && !photoError ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- profile photo is a MinIO URL, see file-level note
-                  <img
+                  <Image
                     src={profile.photo_url}
                     alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
                     width={96}
@@ -122,8 +122,7 @@ export function ProfileHeader({
                 aria-label={t("editPhoto", { imageType: imageLabel.toLowerCase() })}
               >
                 {profile?.photo_url && !photoError ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- profile photo is a MinIO URL, see file-level note
-                  <img
+                  <Image
                     src={profile.photo_url}
                     alt={t("imageAlt", { imageType: imageLabel, name: displayName })}
                     width={96}

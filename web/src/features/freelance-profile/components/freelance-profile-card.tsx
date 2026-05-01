@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Link } from "@i18n/navigation"
 import { useLocale } from "next-intl"
 import {
@@ -81,14 +82,11 @@ function Avatar({ photoUrl, alt }: AvatarProps) {
       <div className="h-12 w-12 rounded-full bg-muted border border-border" />
     )
   }
+  // 48×48 directory avatar — fixed dimensions, AVIF/WebP via next/image
+  // for the SEO-critical /freelancers listing. Hosts (MinIO + R2) are
+  // declared in next.config.ts > images.remotePatterns.
   return (
-    // Plain <img> rather than next/image: avatars come from user
-    // uploads stored in MinIO (e.g. http://localhost:9000/...) which
-    // the Next image optimizer rejects whenever remotePatterns drifts
-    // across dev restarts. The raw <img> always works and the
-    // performance cost is negligible at 48×48.
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
+    <Image
       src={photoUrl}
       alt={alt}
       width={48}

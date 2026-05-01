@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Camera, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useState } from "react"
@@ -111,8 +112,8 @@ function PhotoBlock({
 
   const inner =
     photoUrl && !errored ? (
-      // eslint-disable-next-line @next/next/no-img-element -- photo is a MinIO URL, see provider profile-header.tsx
-      <img
+      // 96×96 identity-header photo. Hosts declared in next.config.ts.
+      <Image
         src={photoUrl}
         alt={photoAlt}
         width={96}
