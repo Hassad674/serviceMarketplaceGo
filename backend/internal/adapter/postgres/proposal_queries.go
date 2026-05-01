@@ -98,10 +98,18 @@ const queryListByConversation = `
 
 // ListActiveProjectsByOrg queries filter by the caller's organization
 // from BOTH perspectives: the client's side (proposals.organization_id
-// denormalized in phase 4) and the provider's side (resolved via a
-// JOIN on users.organization_id, the R1 column). Every operator of
-// the same org sees the same active projects — the Stripe Dashboard
-// shared-workspace model.
+// denormalized in phase 4) and the provider's side (the
+// provider_organization_id column added by migration 115). Every
+// operator of the same org sees the same active projects — the Stripe
+// Dashboard shared-workspace model.
+//
+// PERF-B-08: the previous version of these queries reached the
+// provider's org by JOINing users on provider_id, which forced
+// Postgres into a BitmapOr + nested-loop plan and added 50–150 ms p50
+// once proposals crossed ~100k rows. The denormalized
+// provider_organization_id column was added explicitly to drop that
+// JOIN. Migration 131 adds the matching composite partial index
+// idx_proposals_provider_org_status_created.
 const queryListActiveProjectsByOrgFirst = `
 	SELECT p.id, p.conversation_id, p.sender_id, p.recipient_id,
 		p.title, p.description, p.amount, p.deadline,
@@ -111,8 +119,7 @@ const queryListActiveProjectsByOrgFirst = `
 		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
 		p.created_at, p.updated_at
 	FROM proposals p
-	LEFT JOIN users provider_user ON provider_user.id = p.provider_id
-	WHERE (p.organization_id = $1 OR provider_user.organization_id = $1)
+	WHERE (p.organization_id = $1 OR p.provider_organization_id = $1)
 		AND p.status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')
 	ORDER BY p.created_at DESC, p.id DESC
 	LIMIT $2`
@@ -126,8 +133,7 @@ const queryListActiveProjectsByOrgWithCursor = `
 		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
 		p.created_at, p.updated_at
 	FROM proposals p
-	LEFT JOIN users provider_user ON provider_user.id = p.provider_id
-	WHERE (p.organization_id = $1 OR provider_user.organization_id = $1)
+	WHERE (p.organization_id = $1 OR p.provider_organization_id = $1)
 		AND p.status IN ('paid', 'active', 'completion_requested', 'completed', 'disputed')
 		AND (p.created_at, p.id) < ($2, $3)
 	ORDER BY p.created_at DESC, p.id DESC
@@ -135,7 +141,11 @@ const queryListActiveProjectsByOrgWithCursor = `
 
 // ListCompletedByOrg is provider-side only (the "my completed
 // deliverables" view used by public project-history). Keyed on the
-// provider's org resolved via users.
+// denormalized provider_organization_id column (migration 115).
+//
+// PERF-B-08: dropped the JOIN on users — the new partial index
+// idx_proposals_provider_org_completed (migration 131) backs the
+// completed-at ordering.
 const queryListCompletedByOrgFirst = `
 	SELECT p.id, p.conversation_id, p.sender_id, p.recipient_id,
 		p.title, p.description, p.amount, p.deadline,
@@ -145,8 +155,7 @@ const queryListCompletedByOrgFirst = `
 		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
 		p.created_at, p.updated_at
 	FROM proposals p
-	JOIN users provider_user ON provider_user.id = p.provider_id
-	WHERE provider_user.organization_id = $1
+	WHERE p.provider_organization_id = $1
 		AND p.status = 'completed'
 		AND p.completed_at IS NOT NULL
 	ORDER BY p.completed_at DESC, p.id DESC
@@ -161,8 +170,7 @@ const queryListCompletedByOrgWithCursor = `
 		p.accepted_at, p.declined_at, p.paid_at, p.completed_at,
 		p.created_at, p.updated_at
 	FROM proposals p
-	JOIN users provider_user ON provider_user.id = p.provider_id
-	WHERE provider_user.organization_id = $1
+	WHERE p.provider_organization_id = $1
 		AND p.status = 'completed'
 		AND p.completed_at IS NOT NULL
 		AND (p.completed_at, p.id) < ($2, $3)
@@ -170,18 +178,19 @@ const queryListCompletedByOrgWithCursor = `
 	LIMIT $4`
 
 // queryIsOrgAuthorizedForProposal returns TRUE if the proposal has the
-// given org on either side — client side (via the denormalized
-// proposals.organization_id column) OR provider side (resolved via
-// users.organization_id JOIN on provider_id). Mirrors exactly the
-// two-sided predicate used by queryListActiveProjectsByOrgFirst so
-// the read/list views stay in sync.
+// given org on either side — client side (proposals.organization_id)
+// OR provider side (proposals.provider_organization_id, denormalized
+// in migration 115). Mirrors exactly the two-sided predicate used by
+// queryListActiveProjectsByOrgFirst so the read/list views stay in
+// sync.
+//
+// PERF-B-08: dropped the JOIN on users to use the denormalized column.
 const queryIsOrgAuthorizedForProposal = `
 	SELECT EXISTS (
 		SELECT 1
 		FROM proposals p
-		LEFT JOIN users provider_user ON provider_user.id = p.provider_id
 		WHERE p.id = $1
-			AND (p.organization_id = $2 OR provider_user.organization_id = $2)
+			AND (p.organization_id = $2 OR p.provider_organization_id = $2)
 	)`
 
 const queryGetProposalDocuments = `

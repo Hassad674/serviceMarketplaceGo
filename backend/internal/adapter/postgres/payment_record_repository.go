@@ -28,6 +28,11 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 	// record, Providers stay NULL. Used by the dashboard wallet view for
 	// operators in later phases.
 	//
+	// provider_organization_id (PERF-B-08, migration 131) mirrors the
+	// pattern established for proposals: the provider's users.org_id is
+	// captured at INSERT time so the wallet list query no longer needs
+	// to JOIN users on provider_id.
+	//
 	// milestone_id is phase-4: the payment record is scoped to a single
 	// milestone, enforced NOT NULL by migration 093. Passing a zero UUID
 	// will correctly fail at insert time — rejecting callers that forgot
@@ -40,10 +45,11 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 			client_total_amount, provider_payout,
 			currency, status, transfer_status,
 			paid_at, transferred_at, created_at, updated_at,
-			organization_id
+			organization_id, provider_organization_id
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-			(SELECT organization_id FROM organization_members WHERE user_id = $4 LIMIT 1)
+			(SELECT organization_id FROM organization_members WHERE user_id = $4 LIMIT 1),
+			(SELECT organization_id FROM users WHERE id = $5)
 		)`,
 		rec.ID, rec.ProposalID, rec.MilestoneID, rec.ClientID, rec.ProviderID,
 		ptrString(rec.StripePaymentIntentID), ptrString(rec.StripeTransferID),
@@ -197,9 +203,14 @@ func (r *PaymentRecordRepository) Update(ctx context.Context, rec *payment.Payme
 }
 
 // ListByOrganization returns payment records where the caller's
-// organization is either the client or the provider. Phase 4
-// denormalized payment_records.organization_id to the client side;
-// the provider side is resolved via the user→org link.
+// organization is either the client or the provider.
+//
+// PERF-B-08: previously joined users on provider_id which produced a
+// BitmapOr + nested-loop plan and added 50–150 ms p50 once
+// payment_records crossed ~10k rows for a single org. Migration 131
+// adds provider_organization_id to payment_records and the matching
+// composite partial index idx_payment_records_provider_org_created.
+// The query is now an Index Scan on either side of the OR.
 func (r *PaymentRecordRepository) ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]*payment.PaymentRecord, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -212,8 +223,7 @@ func (r *PaymentRecordRepository) ListByOrganization(ctx context.Context, orgID 
 			pr.currency, pr.status, pr.transfer_status,
 			pr.paid_at, pr.transferred_at, pr.created_at, pr.updated_at
 		FROM payment_records pr
-		LEFT JOIN users provider_user ON provider_user.id = pr.provider_id
-		WHERE pr.organization_id = $1 OR provider_user.organization_id = $1
+		WHERE pr.organization_id = $1 OR pr.provider_organization_id = $1
 		ORDER BY pr.created_at DESC`, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("list payment records: %w", err)

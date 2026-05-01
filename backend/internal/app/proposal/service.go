@@ -16,6 +16,13 @@ type ServiceDeps struct {
 	MilestoneTransitions repository.MilestoneTransitionRepository // optional since phase 9 — when nil, audit writes are no-ops
 	PendingEvents       repository.PendingEventRepository        // optional since phase 6 — when nil, scheduling is a no-op
 	Users               repository.UserRepository
+	// UsersBatch is the bulk-fetch sibling consumed by
+	// GetParticipantNamesBatch (PERF-B-02). Optional — when nil, the
+	// list path falls back to per-id lookups so legacy test setups still
+	// work. In production wiring the concrete *postgres.UserRepository
+	// satisfies both Users (UserRepository) and UsersBatch
+	// (UserBatchReader), so the same instance is passed twice.
+	UsersBatch          repository.UserBatchReader
 	Organizations       repository.OrganizationRepository
 	Messages            service.MessageSender
 	Storage             service.StorageService
@@ -36,6 +43,7 @@ type Service struct {
 	milestoneTransitions repository.MilestoneTransitionRepository
 	pendingEvents        repository.PendingEventRepository
 	users                repository.UserRepository
+	usersBatch           repository.UserBatchReader
 	orgs                 repository.OrganizationRepository
 	messages             service.MessageSender
 	storage              service.StorageService
@@ -91,6 +99,7 @@ func NewService(deps ServiceDeps) *Service {
 		milestoneTransitions: deps.MilestoneTransitions,
 		pendingEvents:        deps.PendingEvents,
 		users:                deps.Users,
+		usersBatch:           deps.UsersBatch,
 		orgs:                 deps.Organizations,
 		messages:             deps.Messages,
 		storage:              deps.Storage,

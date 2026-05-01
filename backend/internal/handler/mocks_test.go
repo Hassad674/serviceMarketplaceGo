@@ -21,6 +21,8 @@ import (
 type mockUserRepo struct {
 	createFn        func(ctx context.Context, u *user.User) error
 	getByIDFn       func(ctx context.Context, id uuid.UUID) (*user.User, error)
+	getByIDsFn      func(ctx context.Context, ids []uuid.UUID) ([]*user.User, error)
+	getByIDsCalls   int // counter for N+1 regression tests
 	getByEmailFn    func(ctx context.Context, email string) (*user.User, error)
 	updateFn        func(ctx context.Context, u *user.User) error
 	deleteFn        func(ctx context.Context, id uuid.UUID) error
@@ -49,6 +51,24 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 	// Tests that want a mismatch override getByIDFn explicitly.
 	stubOrg := id
 	return &user.User{ID: id, OrganizationID: &stubOrg}, nil
+}
+
+// GetByIDs is the batch fetcher used by GetParticipantNamesBatch
+// (PERF-B-02). It is invoked exactly once per list request — tests
+// inspect getByIDsCalls to assert the N+1 fix holds.
+func (m *mockUserRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*user.User, error) {
+	m.getByIDsCalls++
+	if m.getByIDsFn != nil {
+		return m.getByIDsFn(ctx, ids)
+	}
+	// Default: synthesise a user per id, mirroring the GetByID stub so
+	// existing tests keep working transparently.
+	out := make([]*user.User, 0, len(ids))
+	for _, id := range ids {
+		stubOrg := id
+		out = append(out, &user.User{ID: id, OrganizationID: &stubOrg, DisplayName: "User-" + id.String()[:8]})
+	}
+	return out, nil
 }
 
 func (m *mockUserRepo) GetByEmail(ctx context.Context, email string) (*user.User, error) {
