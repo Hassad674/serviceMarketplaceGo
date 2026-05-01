@@ -3,38 +3,14 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
-	"marketplace-backend/internal/adapter/livekit"
 	"marketplace-backend/internal/adapter/nominatim"
 	"marketplace-backend/internal/adapter/postgres"
-	redisadapter "marketplace-backend/internal/adapter/redis"
-	"marketplace-backend/internal/adapter/ws"
-	"marketplace-backend/internal/app/auth"
-	callapp "marketplace-backend/internal/app/call"
-	clientprofileapp "marketplace-backend/internal/app/clientprofile"
-	embeddedapp "marketplace-backend/internal/app/embedded"
-	jobapp "marketplace-backend/internal/app/job"
-	"marketplace-backend/internal/app/messaging"
-	appmoderation "marketplace-backend/internal/app/moderation"
-	milestoneapp "marketplace-backend/internal/app/milestone"
-	organizationapp "marketplace-backend/internal/app/organization"
-	paymentapp "marketplace-backend/internal/app/payment"
-	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
-	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
-	proposalapp "marketplace-backend/internal/app/proposal"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
-	reportapp "marketplace-backend/internal/app/report"
-	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
-	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/handler"
-	"marketplace-backend/internal/handler/middleware"
 )
 
 func main() {
@@ -64,159 +40,112 @@ func main() {
 	infra, closeInfra := wireInfrastructure(infraCtx, cfg)
 	defer closeInfra()
 
-	// Local aliases keep the rest of main.go readable. Each name
-	// matches the variable that lived inline before phase-3-F.
-	db := infra.DB
-	redisClient := infra.Redis
-	userRepo := infra.UserRepo
-	profileRepo := infra.ProfileRepo
-	resetRepo := infra.ResetRepo
-	organizationRepo := infra.OrganizationRepo
-	organizationMemberRepo := infra.OrganizationMemberRepo
-	organizationInvitationRepo := infra.OrganizationInvitationRepo
-	auditRepo := infra.AuditRepo
-	moderationResultsRepo := infra.ModerationResultsRepo
-	hasher := infra.Hasher
-	tokenSvc := infra.TokenSvc
-	emailSvc := infra.EmailSvc
-	storageSvc := infra.StorageSvc
-	sessionSvc := infra.SessionSvc
-	refreshBlacklistSvc := infra.RefreshBlacklistSvc
-	messageRepo := infra.MessageRepo
-	presenceSvc := infra.PresenceSvc
-	streamBroadcaster := infra.StreamBroadcaster
-	rateLimiter := infra.MessagingRateLimiter
-	wsHub := infra.WSHub
-	cookieCfg := infra.CookieCfg
-	sourceID := infra.SourceID
-	invitationRateLimiter := infra.InvitationRateLimiter
-
-	// Initialize application services
-	organizationSvc := organizationapp.NewService(organizationRepo, organizationMemberRepo, organizationInvitationRepo)
-	// invitationSvc and membershipSvc are constructed below, AFTER the
-	// notification feature is set up — they depend on notifSvc so the
-	// team events (invitation accepted, role changed, transfer, …) can
-	// fire notifications through the same pipeline as the rest of the app.
-	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
-		Users:            userRepo,
-		Resets:           resetRepo,
-		Hasher:           hasher,
-		Tokens:           tokenSvc,
-		Email:            emailSvc,
-		Orgs:             organizationSvc,
-		Sessions:         sessionSvc,         // SEC-16 — purge sessions on password reset
-		RefreshBlacklist: refreshBlacklistSvc, // SEC-06 — refresh token rotation + replay detection
-		Audits:           auditRepo,          // SEC-13 — emit auth audit events
-		FrontendURL:      cfg.FrontendURL,
+	// Auth feature — see wire_auth.go.
+	authWire := wireAuth(authDeps{
+		Cfg:                        cfg,
+		Redis:                      infra.Redis,
+		UserRepo:                   infra.UserRepo,
+		ResetRepo:                  infra.ResetRepo,
+		OrganizationRepo:           infra.OrganizationRepo,
+		OrganizationMemberRepo:     infra.OrganizationMemberRepo,
+		OrganizationInvitationRepo: infra.OrganizationInvitationRepo,
+		AuditRepo:                  infra.AuditRepo,
+		Hasher:                     infra.Hasher,
+		TokenSvc:                   infra.TokenSvc,
+		EmailSvc:                   infra.EmailSvc,
+		SessionSvc:                 infra.SessionSvc,
+		RefreshBlacklistSvc:        infra.RefreshBlacklistSvc,
+		CookieCfg:                  infra.CookieCfg,
 	})
+	organizationSvc := authWire.OrganizationSvc
+	authSvc := authWire.AuthSvc
+	authHandler := authWire.AuthHandler
 	// Profile service + Tier 1 geocoder (migration 083). The
 	// Nominatim adapter is used as-is in every environment because
 	// the public endpoint is free and the profile save flow
 	// gracefully degrades on any geocoding failure — see
 	// adapter/nominatim/geocoder.go and app/profile/service.go.
 	profileGeocoder := nominatim.NewGeocoder("marketplace-backend/1.0 (contact@marketplace.local)")
-	profileSvc := profileapp.NewService(profileRepo).WithGeocoder(profileGeocoder)
-	messagingSvc := messaging.NewService(messaging.ServiceDeps{
-		Messages:      messageRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		OrgMembers:    organizationMemberRepo,
-		Presence:      presenceSvc,
-		Broadcaster:   streamBroadcaster,
-		Storage:       storageSvc,
-		RateLimiter:   rateLimiter,
-		// MediaRecorder is set below after mediaSvc is created.
+	profileSvc := profileapp.NewService(infra.ProfileRepo).WithGeocoder(profileGeocoder)
+
+	// Messaging service (initial wiring — MediaRecorder + Moderation
+	// orchestrator setters are applied below after their respective
+	// services exist). See wire_uploads_messaging_moderation_kyc.go.
+	messagingSvc := wireMessaging(messagingDeps{
+		MessageRepo:      infra.MessageRepo,
+		UserRepo:         infra.UserRepo,
+		OrganizationRepo: infra.OrganizationRepo,
+		OrgMembers:       infra.OrganizationMemberRepo,
+		Presence:         infra.PresenceSvc,
+		Broadcaster:      infra.StreamBroadcaster,
+		Storage:          infra.StorageSvc,
+		RateLimiter:      infra.MessagingRateLimiter,
 	})
 
-	// Proposal
-	// BUG-NEW-04 path 4/8: proposals is RLS-protected by migration 125
-	// (USING client_organization_id = current_org OR provider_organization_id
-	// = current_org). The txRunner wrap makes Create / Update /
-	// GetByIDForOrg / List* pass under prod NOSUPERUSER NOBYPASSRLS.
-	// Legacy GetByID stays for system-actor scheduler paths that run
-	// with a privileged DB connection.
-	proposalRepo := postgres.NewProposalRepository(db).WithTxRunner(postgres.NewTxRunner(db))
-
-	// Milestone — per-step funding/delivery sub-aggregate of a proposal.
-	// The proposal app service consumes milestoneSvc to delegate the
-	// Fund/Submit/Approve/Release transitions, and the dispute service
-	// (phase 8) delegates OpenDispute/RestoreFromDispute to it as well.
-	// BUG-NEW-04 path 5/8: proposal_milestones is RLS-protected by
-	// migration 125 — milestones inherit security from the parent
-	// proposal via a JOIN on the policy. The txRunner wrap makes
-	// CreateBatch / Update / GetByIDForOrg / ListByProposalForOrg pass
-	// under prod NOSUPERUSER NOBYPASSRLS. Each operation resolves the
-	// parent proposal's stakeholder org via a defensive lookup before
-	// opening the tenant tx.
-	milestoneRepo := postgres.NewMilestoneRepository(db).WithTxRunner(postgres.NewTxRunner(db))
-	milestoneSvc := milestoneapp.NewService(milestoneapp.ServiceDeps{
-		Milestones: milestoneRepo,
+	// Proposal feature (early-stage repos + searchPublisher + txRunner).
+	// See wire_proposal.go. The matching app service + handler are
+	// wired below by wireProposalService once notification / messaging /
+	// payment have been built.
+	proposalRepos := wireProposalRepos(proposalReposDeps{
+		Cfg: cfg,
+		DB:  infra.DB,
 	})
+	proposalRepo := proposalRepos.ProposalRepo
+	milestoneRepo := proposalRepos.MilestoneRepo
+	milestoneSvc := proposalRepos.MilestoneSvc
+	paymentRecordRepo := proposalRepos.PaymentRecordRepo
+	bonusLogRepo := proposalRepos.BonusLogRepo
+	pendingEventsRepo := proposalRepos.PendingEventsRepo
+	milestoneTransitionsRepo := proposalRepos.MilestoneTransitionsRepo
+	searchPublisher := proposalRepos.SearchPublisher
+	txRunner := proposalRepos.TxRunner
 	_ = milestoneSvc // wired into proposal service deps below
 
-	// Job feature
-	jobRepo := postgres.NewJobRepository(db)
-	jobAppRepo := postgres.NewJobApplicationRepository(db)
-	jobViewRepo := postgres.NewJobViewRepository(db)
-	// The credit repository drives a lazy weekly refill from its
-	// GetOrCreate method — every read on an org whose pool has aged
-	// past RefillPeriod floor-bumps the balance back up to WeeklyQuota
-	// atomically. No cron, no background worker, self-healing after
-	// downtime.
-	jobCreditRepo := postgres.NewJobCreditRepository(db, jobdomain.WeeklyQuota, jobdomain.RefillPeriod)
-	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
-		Jobs:          jobRepo,
-		Applications:  jobAppRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		Profiles:      profileRepo,
-		Messages:      messagingSvc,
-		JobViews:      jobViewRepo,
-		Credits:       jobCreditRepo,
+	// Job feature — see wire_review_jobs_portfolio_report.go.
+	jobsWire := wireJobs(jobsDeps{
+		DB:               infra.DB,
+		UserRepo:         infra.UserRepo,
+		OrganizationRepo: infra.OrganizationRepo,
+		ProfileRepo:      infra.ProfileRepo,
+		MessagingSvc:     messagingSvc,
 	})
+	jobRepo := jobsWire.JobRepo
+	jobAppRepo := jobsWire.JobAppRepo
+	jobCreditRepo := jobsWire.JobCreditRepo
+	jobSvc := jobsWire.JobSvc
 
-	// Review feature
-	reviewRepo := postgres.NewReviewRepository(db)
+	// Review repository (early-stage). The app service is wired below
+	// once the notification feature exists.
+	reviewRepoWire := wireReviewRepo(infra.DB)
+	reviewRepo := reviewRepoWire.Repo
 
 	// Social links — see wire_social.go.
-	socialLinks := wireSocialLinks(db)
+	socialLinks := wireSocialLinks(infra.DB)
 	socialLinkHandler := socialLinks.Agency
 	freelanceSocialLinkHandler := socialLinks.Freelance
 	referrerSocialLinkHandler := socialLinks.Referrer
 
-	// Portfolio feature
-	portfolioRepo := postgres.NewPortfolioRepository(db)
-	portfolioSvc := portfolioapp.NewService(portfolioapp.ServiceDeps{
-		Portfolios: portfolioRepo,
-	})
-	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
+	// Portfolio feature — see wire_review_jobs_portfolio_report.go.
+	portfolioWire := wirePortfolio(infra.DB)
+	portfolioHandler := portfolioWire.Handler
 
-	// Project history feature (orchestrates proposal + review reads for the
-	// public provider profile page).
-	projectHistorySvc := projecthistoryapp.NewService(projecthistoryapp.ServiceDeps{
-		Proposals: proposalRepo,
-		Reviews:   reviewRepo,
+	// Project history feature — see wire_review_jobs_portfolio_report.go.
+	projectHistoryWire := wireProjectHistory(projectHistoryDeps{
+		ProposalRepo: proposalRepo,
+		ReviewRepo:   reviewRepo,
 	})
-	projectHistoryHandler := handler.NewProjectHistoryHandler(projectHistorySvc)
+	projectHistoryHandler := projectHistoryWire.Handler
 
-	// Call feature (optional — only when LiveKit is configured)
-	var callHandler *handler.CallHandler
-	if cfg.LiveKitConfigured() {
-		lkClient := livekit.NewClient(cfg.LiveKitURL, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret)
-		callStateSvc := redisadapter.NewCallStateService(redisClient)
-		callSvc := callapp.NewService(callapp.ServiceDeps{
-			LiveKit:     lkClient,
-			CallState:   callStateSvc,
-			Presence:    presenceSvc,
-			Broadcaster: streamBroadcaster,
-			Messages:    messagingSvc,
-			Users:       userRepo,
-		})
-		callHandler = handler.NewCallHandler(callSvc)
-		slog.Info("call feature enabled (LiveKit configured)")
-	} else {
-		slog.Info("call feature disabled (LiveKit not configured)")
-	}
+	// Call feature (optional — only when LiveKit is configured).
+	// See wire_call.go.
+	callHandler := wireCall(callDeps{
+		Cfg:          cfg,
+		Redis:        infra.Redis,
+		Presence:     infra.PresenceSvc,
+		Broadcaster:  infra.StreamBroadcaster,
+		MessagingSvc: messagingSvc,
+		UserRepo:     infra.UserRepo,
+	})
 
 	// Stripe payment adapter — see wire_payment.go.
 	stripe := wireStripe(cfg)
@@ -224,29 +153,19 @@ func main() {
 	stripeReversalSvc := stripe.Reversals
 	stripeKYCReader := stripe.KYCReader
 
-	// Payment records (custom KYC repos removed — see migration 040/041)
-	// BUG-NEW-04 path 7/8: payment_records is RLS-protected by migration
-	// 125 (USING organization_id = current_setting('app.current_org_id',
-	// true)). The txRunner wrap makes Create / Update / GetByIDForOrg /
-	// ListByOrganization pass under prod NOSUPERUSER NOBYPASSRLS. The
-	// client's org (resolved from organization_members at INSERT time)
-	// is the access boundary; provider-side reads of money received go
-	// through the tenant-isolated proposal path instead.
-	paymentRecordRepo := postgres.NewPaymentRecordRepository(db).WithTxRunner(postgres.NewTxRunner(db))
-
 	// Notification feature (push + email + WS) — see wire_notification.go.
 	notifWorkerCtx, notifWorkerCancel := context.WithCancel(context.Background())
 	defer notifWorkerCancel()
 	notification := wireNotificationFeature(notificationDeps{
 		Ctx:         notifWorkerCtx,
 		Cfg:         cfg,
-		DB:          db,
-		Redis:       redisClient,
-		SourceID:    sourceID,
-		Email:       emailSvc,
-		Users:       userRepo,
-		Presence:    presenceSvc,
-		Broadcaster: streamBroadcaster,
+		DB:          infra.DB,
+		Redis:       infra.Redis,
+		SourceID:    infra.SourceID,
+		Email:       infra.EmailSvc,
+		Users:       infra.UserRepo,
+		Presence:    infra.PresenceSvc,
+		Broadcaster: infra.StreamBroadcaster,
 	})
 	notifSvc := notification.Service
 	notifHandler := notification.Handler
@@ -256,118 +175,78 @@ func main() {
 	// of the app. See wire_team.go for the body.
 	team := wireTeam(teamDeps{
 		Cfg:                   cfg,
-		DB:                    db,
-		Redis:                 redisClient,
-		Orgs:                  organizationRepo,
-		Members:               organizationMemberRepo,
-		Invitations:           organizationInvitationRepo,
-		Users:                 userRepo,
-		UserBatch:             userRepo,
-		Hasher:                hasher,
-		Email:                 emailSvc,
-		Audits:                auditRepo,
+		DB:                    infra.DB,
+		Redis:                 infra.Redis,
+		Orgs:                  infra.OrganizationRepo,
+		Members:               infra.OrganizationMemberRepo,
+		Invitations:           infra.OrganizationInvitationRepo,
+		Users:                 infra.UserRepo,
+		UserBatch:             infra.UserRepo,
+		Hasher:                infra.Hasher,
+		Email:                 infra.EmailSvc,
+		Audits:                infra.AuditRepo,
 		Notifications:         notifSvc,
 		OrganizationSvc:       organizationSvc,
-		SessionService:        sessionSvc,
-		Cookie:                cookieCfg,
-		InvitationRateLimiter: invitationRateLimiter,
-		TokenService:          tokenSvc,
+		SessionService:        infra.SessionSvc,
+		Cookie:                infra.CookieCfg,
+		InvitationRateLimiter: infra.InvitationRateLimiter,
+		TokenService:          infra.TokenSvc,
 	})
 	invitationSvc := team.InvitationSvc
 	membershipSvc := team.MembershipSvc
 	roleOverridesSvc := team.RoleOverridesSvc
 	_ = roleOverridesSvc // used only via roleOverridesHandler below
 
-	// KYC enforcement scheduler — sends reminders at day 0/3/7/14 for
-	// providers with available funds who haven't completed Stripe KYC.
-	// See startKYCScheduler in wire_notification.go.
+	// KYC enforcement scheduler — see
+	// wire_uploads_messaging_moderation_kyc.go (delegates to
+	// startKYCScheduler in wire_notification.go).
 	kycCtx, kycCancel := context.WithCancel(context.Background())
 	defer kycCancel()
-	startKYCScheduler(kycSchedulerDeps{
+	wireKYC(kycDeps{
 		Ctx:           kycCtx,
 		Cfg:           cfg,
-		Organizations: organizationRepo,
+		Organizations: infra.OrganizationRepo,
 		Records:       paymentRecordRepo,
 		Notifications: notifSvc,
 	})
 
-	// Payment service — charge creation + transfers + wallet overview.
-	// KYC onboarding lives in internal/app/embedded (Embedded Components).
-	paymentInfoSvc := paymentapp.NewService(paymentapp.ServiceDeps{
-		Records:       paymentRecordRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		Stripe:        stripeSvc,
-		Notifications: notifSvc,
-		FrontendURL:   cfg.FrontendURL,
+	// Payment service — see wire_payment.go.
+	paymentInfoSvc := wirePayment(paymentDeps{
+		Cfg:               cfg,
+		PaymentRecordRepo: paymentRecordRepo,
+		UserRepo:          infra.UserRepo,
+		OrganizationRepo:  infra.OrganizationRepo,
+		StripeSvc:         stripeSvc,
+		Notifications:     notifSvc,
 	})
 
-	// Credit bonus fraud log
-	bonusLogRepo := postgres.NewCreditBonusLogRepository(db)
-
-	// Pending events queue (phase 6 — unified scheduler + Stripe outbox).
-	// The proposal service writes events here when a milestone is
-	// submitted (auto-approve), released (fund-reminder + auto-close),
-	// or released into the Stripe outbox (phase 7).
-	pendingEventsRepo := postgres.NewPendingEventRepository(db)
-
-	// Search engine publisher — built once so every service that
-	// mutates actor signals (freelance profile, referrer profile,
-	// pricing, skills, etc.) can emit a `search.reindex` event on
-	// the outbox without re-wiring the whole chain. See wire_search.go.
-	searchPublisher := wireSearchPublisher(cfg, pendingEventsRepo)
-
-	// Outbox transaction runner (BUG-05). Used by the freelance and
-	// legacy profile services to commit a profile mutation and the
-	// matching `search.reindex` pending event in a single atomic
-	// transaction — preventing permanent Postgres / Typesense drift
-	// when the publisher Schedule path would otherwise fail after
-	// the profile UPDATE has already committed. Cheap to construct:
-	// holds only a *sql.DB pointer.
-	txRunner := postgres.NewTxRunner(db)
-
-	// Milestone audit trail (phase 9 — append-only). Every successful
-	// withMilestoneLock writes one row recording from→to status pair,
-	// actor id + org, and an optional reason string. The DB user
-	// holds INSERT/SELECT only on this table (Update/Delete are
-	// forbidden so the timeline cannot be rewritten).
-	milestoneTransitionsRepo := postgres.NewMilestoneTransitionRepository(db)
-
-	// Wire services that depend on notifications
-	proposalSvc := proposalapp.NewService(proposalapp.ServiceDeps{
-		Proposals:            proposalRepo,
-		Milestones:           milestoneRepo,
-		MilestoneTransitions: milestoneTransitionsRepo,
-		PendingEvents:        pendingEventsRepo,
-		Users:                userRepo,
-		// Same concrete *postgres.UserRepository — it satisfies both
-		// the wide UserRepository contract and the segregated
-		// UserBatchReader (GetByIDs). The duplicate field exists so
-		// the service can declare the segregated dep without forcing
-		// every other caller to bring it in.
-		UsersBatch:           userRepo,
-		Organizations:        organizationRepo,
-		Messages:             messagingSvc,
-		Storage:              storageSvc,
-		Notifications:        notifSvc,
-		Payments:             paymentProcessor(paymentInfoSvc, cfg),
-		Credits:              jobCreditRepo,
-		BonusLog:             bonusLogRepo,
-		// Phase 6 timer defaults (override via env in production):
-		// 7-day auto-approval, 7-day fund reminder, 14-day auto-close.
+	// Proposal service + worker + handler (late-stage). See
+	// wire_proposal.go. Runs AFTER notification / messaging / payment
+	// because the service deps reach into all three.
+	proposalWire := wireProposalService(proposalServiceDeps{
+		Cfg:                      cfg,
+		ProposalRepo:             proposalRepo,
+		MilestoneRepo:            milestoneRepo,
+		MilestoneTransitionsRepo: milestoneTransitionsRepo,
+		PendingEventsRepo:        pendingEventsRepo,
+		BonusLogRepo:             bonusLogRepo,
+		UserRepo:                 infra.UserRepo,
+		UserBatch:                infra.UserRepo,
+		OrganizationRepo:         infra.OrganizationRepo,
+		JobCreditRepo:            jobCreditRepo,
+		StorageSvc:               infra.StorageSvc,
+		MessagingSvc:             messagingSvc,
+		NotifSvc:                 notifSvc,
+		PaymentInfoSvc:           paymentInfoSvc,
 	})
+	proposalSvc := proposalWire.ProposalSvc
+	pendingEventsWorker := proposalWire.PendingEventsWorker
 
 	// Wire proposal → payment status lookup so RequestPayout only
 	// releases escrow funds for missions whose proposal has reached
 	// "completed". Setter pattern because the dependency runs the wrong
 	// way for constructor injection (payment is built before proposal).
 	paymentInfoSvc.SetProposalStatusReader(newProposalStatusAdapter(proposalSvc))
-
-	// Phase 6: pending_events worker — see wire_pending_events.go.
-	// The worker handles milestone auto-approve, fund reminders, and
-	// proposal auto-close; search reindex/delete handlers are added
-	// later by wireSearchIndexer when Typesense is configured.
-	pendingEventsWorker := newPendingEventsWorker(pendingEventsRepo, proposalSvc)
 
 	// Search engine — Typesense indexer + query service + analytics.
 	// See wire_search.go: wireSearchIndexer brings up the Typesense
@@ -376,8 +255,8 @@ func main() {
 	// admin stats handler. Both return nil products when Typesense
 	// is not configured, which keeps every downstream consumer's
 	// `if x != nil` short-circuit working.
-	typesenseClient := wireSearchIndexer(cfg, db, pendingEventsWorker)
-	searchHandler, adminSearchStatsHandler := wireSearchQuery(cfg, db, typesenseClient)
+	typesenseClient := wireSearchIndexer(cfg, infra.DB, pendingEventsWorker)
+	searchHandler, adminSearchStatsHandler := wireSearchQuery(cfg, infra.DB, typesenseClient)
 	pendingEventsCtx, pendingEventsCancel := context.WithCancel(context.Background())
 	defer pendingEventsCancel()
 	go func() {
@@ -386,38 +265,44 @@ func main() {
 		}
 	}()
 	slog.Info("phase 6: pending events worker started")
-	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
-		Reviews:       reviewRepo,
-		Proposals:     proposalRepo,
-		Users:         userRepo,
+
+	// Review service + handler (late-stage) — see
+	// wire_review_jobs_portfolio_report.go. Runs AFTER notification so
+	// the service can fire submission events through the notif pipeline.
+	reviewServiceWire := wireReviewService(reviewServiceDeps{
+		ReviewRepo:    reviewRepo,
+		ProposalRepo:  proposalRepo,
+		UserRepo:      infra.UserRepo,
 		Notifications: notifSvc,
 	})
+	reviewSvc := reviewServiceWire.Svc
 
-	// Report feature
-	reportRepo := postgres.NewReportRepository(db)
-	reportSvc := reportapp.NewService(reportapp.ServiceDeps{
-		Reports:      reportRepo,
-		Users:        userRepo,
-		Messages:     messageRepo,
-		Jobs:         jobRepo,
-		Applications: jobAppRepo,
+	// Report feature — see wire_review_jobs_portfolio_report.go.
+	reportWire := wireReport(reportDeps{
+		DB:          infra.DB,
+		UserRepo:    infra.UserRepo,
+		MessageRepo: infra.MessageRepo,
+		JobRepo:     jobRepo,
+		JobAppRepo:  jobAppRepo,
 	})
-	reportHandler := handler.NewReportHandler(reportSvc)
+	reportRepo := reportWire.Repo
+	reportSvc := reportWire.Svc
+	reportHandler := reportWire.Handler
 
 	// Media moderation feature — see wire_media.go.
 	mediaWorkerCtx, mediaWorkerCancel := context.WithCancel(context.Background())
 	defer mediaWorkerCancel()
-	mediaRepo := postgres.NewMediaRepository(db)
+	mediaRepo := postgres.NewMediaRepository(infra.DB)
 	media := wireMediaModeration(mediaDeps{
 		Ctx:         mediaWorkerCtx,
 		Cfg:         cfg,
-		DB:          db,
-		Redis:       redisClient,
-		Broadcaster: streamBroadcaster,
-		Email:       emailSvc,
-		SessionSvc:  sessionSvc,
-		Storage:     storageSvc,
-		Users:       userRepo,
+		DB:          infra.DB,
+		Redis:       infra.Redis,
+		Broadcaster: infra.StreamBroadcaster,
+		Email:       infra.EmailSvc,
+		SessionSvc:  infra.SessionSvc,
+		Storage:     infra.StorageSvc,
+		Users:       infra.UserRepo,
 		Reports:     reportSvc,
 		MediaRepo:   mediaRepo,
 	})
@@ -428,15 +313,15 @@ func main() {
 	// Wire media recorder into messaging so file/voice messages are tracked.
 	messagingSvc.SetMediaRecorder(mediaSvc)
 
-	// Central text moderation orchestrator. One instance fans every
-	// pipeline (messaging, reviews, profile blocking, jobs, …) through
-	// the same analyse → decide → persist → audit → notify chain so
-	// the policy lives in one place.
-	moderationOrchestrator := appmoderation.NewService(appmoderation.Deps{
-		TextModeration: textModerationSvc,
-		Results:        moderationResultsRepo,
-		Audit:          auditRepo,
-		AdminNotifier:  adminNotifierSvc,
+	// Central text moderation orchestrator — see
+	// wire_uploads_messaging_moderation_kyc.go. The 6
+	// SetModerationOrchestrator setters below STAY in main.go because
+	// they cross multiple wire boundaries.
+	moderationOrchestrator := wireModeration(moderationDeps{
+		TextModeration:        textModerationSvc,
+		ModerationResultsRepo: infra.ModerationResultsRepo,
+		AuditRepo:             infra.AuditRepo,
+		AdminNotifier:         adminNotifierSvc,
 	})
 	messagingSvc.SetModerationOrchestrator(moderationOrchestrator)
 	reviewSvc.SetModerationOrchestrator(moderationOrchestrator)
@@ -447,48 +332,33 @@ func main() {
 
 	// Admin feature — see wire_admin.go.
 	adminHandler := wireAdmin(adminDeps{
-		DB:                  db,
-		Users:               userRepo,
+		DB:                  infra.DB,
+		Users:               infra.UserRepo,
 		Reports:             reportRepo,
 		Reviews:             reviewRepo,
 		Jobs:                jobRepo,
 		Applications:        jobAppRepo,
 		Proposals:           proposalRepo,
 		Media:               mediaRepo,
-		ModerationResults:   moderationResultsRepo,
-		Audit:               auditRepo,
-		Storage:             storageSvc,
-		Session:             sessionSvc,
-		Broadcaster:         streamBroadcaster,
+		ModerationResults:   infra.ModerationResultsRepo,
+		Audit:               infra.AuditRepo,
+		Storage:             infra.StorageSvc,
+		Session:             infra.SessionSvc,
+		Broadcaster:         infra.StreamBroadcaster,
 		AdminNotifier:       adminNotifierSvc,
-		Organizations:       organizationRepo,
-		OrganizationMembers: organizationMemberRepo,
-		OrganizationInvites: organizationInvitationRepo,
+		Organizations:       infra.OrganizationRepo,
+		OrganizationMembers: infra.OrganizationMemberRepo,
+		OrganizationInvites: infra.OrganizationInvitationRepo,
 		Membership:          membershipSvc,
 		Invitation:          invitationSvc,
 	})
 
-	// SEC-07: brute-force protection. Two policies:
-	//   - login: 5 per 15-min window per email, 30-min lockout (default)
-	//   - password reset: 3 per hour per email/token, 30-min lockout
-	loginBruteForce := redisadapter.NewBruteForceService(redisClient)
-	passwordResetThrottle := redisadapter.NewBruteForceServiceWithPolicy(
-		redisClient, 3, time.Hour, 30*time.Minute,
-	)
+	// SEC-11 HTTP rate limiter — see wire_router.go.
+	httpRateLimiter := wireRateLimiter(rateLimiterDeps{
+		Cfg:   cfg,
+		Redis: infra.Redis,
+	})
 
-	// SEC-11: Redis-backed sliding-window rate limiter. The same
-	// instance hosts every quota class — the per-route policy and key
-	// extractor are passed at the route definition site.
-	trustedProxies, err := middleware.ParseTrustedProxies(cfg.TrustedProxies)
-	if err != nil {
-		slog.Error("invalid TRUSTED_PROXIES", "error", err)
-		os.Exit(1)
-	}
-	httpRateLimiter := middleware.NewRateLimiter(redisClient, trustedProxies)
-
-	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg).
-		WithBruteForce(loginBruteForce, passwordResetThrottle)
 	// Team handlers were wired alongside the team services in
 	// wire_team.go — pull them out of the team wiring struct so the
 	// router builder reads as a flat list of handler bindings below.
@@ -496,7 +366,7 @@ func main() {
 	teamHandler := team.TeamHandler
 	roleOverridesHandler := team.RoleOverridesHandler
 	// Expertise + skills + profile pricing — see wire_skills.go.
-	skills := wireSkillsAndPricing(db, organizationRepo, userRepo, searchPublisher)
+	skills := wireSkillsAndPricing(infra.DB, infra.OrganizationRepo, infra.UserRepo, searchPublisher)
 	expertiseSvc := skills.ExpertiseSvc
 	skillSvc := skills.SkillSvc
 	skillHandler := skills.SkillHandler
@@ -509,7 +379,7 @@ func main() {
 	// setter when the search publisher is wired; main.go must keep
 	// the new pointer for every downstream consumer.
 	personas := wirePersonas(personasDeps{
-		DB:              db,
+		DB:              infra.DB,
 		ProfileSvc:      profileSvc,
 		SearchPublisher: searchPublisher,
 		TxRunner:        txRunner,
@@ -523,60 +393,20 @@ func main() {
 	referrerProfileSvc := personas.ReferrerProfileSvc
 	referrerPricingSvc := personas.ReferrerPricingSvc
 
-	// ---- Phase 4-M: Redis cache-aside on hot read paths ----
-	//
-	// Each cache wraps the underlying app service via the decorator
-	// pattern (see adapter/redis/profile_cache.go for the rationale).
-	// Reads first consult Redis; misses fall through to the service
-	// and back-fill the entry. Writes go through the service directly
-	// — the service fires the cache's Invalidate hook AFTER a
-	// successful DB write (cache-aside contract — DB write succeeds
-	// → cache delete; reverse order opens a split-brain window).
-	//
-	// TTLs are tuned per signal volatility:
-	//   - profile:agency:{org}      60s (operator edits are rare)
-	//   - profile:freelance:{org}   60s (same)
-	//   - expertise:org:{org}       5min (lists change very rarely)
-	//   - skills:curated:{key}:{n}  10min (catalog is curator-seeded)
-	//
-	// Stampede protection: every cache uses a singleflight.Group so
-	// a thundering herd on a cold key triggers exactly one DB call.
-	//
-	// Negative caching: per-org profile caches absorb 404 spam by
-	// caching the not-found signal for 30s.
-	//
-	// Wired here (after wireSkillsAndPricing + wirePersonas) so the
-	// caches see the search-publisher-bound services produced by those
-	// helpers, then re-bind the affected handlers downstream.
-	publicProfileCache := redisadapter.NewCachedPublicProfileReader(
-		redisClient, profileSvc,
-		redisadapter.DefaultPublicProfileCacheTTL,
-		redisadapter.DefaultPublicProfileNegativeTTL,
-	)
-	profileSvc = profileSvc.WithCacheInvalidator(publicProfileCache)
-
-	freelanceProfileSvc := personas.FreelanceProfileSvc
-	publicFreelanceProfileCache := redisadapter.NewCachedPublicFreelanceProfileReader(
-		redisClient, freelanceProfileSvc,
-		redisadapter.DefaultPublicProfileCacheTTL,
-		redisadapter.DefaultPublicProfileNegativeTTL,
-	)
-	freelanceProfileSvc = freelanceProfileSvc.WithCacheInvalidator(publicFreelanceProfileCache)
-
-	expertiseCache := redisadapter.NewCachedExpertiseReader(
-		redisClient, expertiseSvc, redisadapter.DefaultExpertiseCacheTTL,
-	)
-	expertiseSvc = expertiseSvc.WithCacheInvalidator(expertiseCache)
-
-	skillCatalogCache := redisadapter.NewCachedSkillCatalogReader(
-		redisClient, skillSvc, redisadapter.DefaultSkillCatalogCacheTTL,
-	)
-	// The skill handler needs every method on the skill service —
-	// the cache only covers the two highest-traffic catalog reads.
-	// A tiny composite routes the cached methods through Redis and
-	// delegates everything else to the underlying service. See
-	// caching_skill_service.go for the wrapper definition.
-	cachingSkillSvc := newCachingSkillService(skillSvc, skillCatalogCache)
+	// Phase 4-M Redis cache-aside on hot read paths — see wire_caches.go.
+	caches := wireCaches(cachesDeps{
+		Redis:               infra.Redis,
+		ProfileSvc:          profileSvc,
+		FreelanceProfileSvc: personas.FreelanceProfileSvc,
+		ExpertiseSvc:        expertiseSvc,
+		SkillSvc:            skillSvc,
+	})
+	publicProfileCache := caches.PublicProfileCache
+	publicFreelanceProfileCache := caches.PublicFreelanceProfileCache
+	expertiseCache := caches.ExpertiseCache
+	profileSvc = caches.ProfileSvc
+	expertiseSvc = caches.ExpertiseSvc
+	cachingSkillSvc := caches.CachingSkill
 	// Re-wire skillHandler with the cached service (wireSkillsAndPricing
 	// produced it with the uncached service so the search publisher
 	// could be attached; rebuild here so both the cache AND the
@@ -598,10 +428,10 @@ func main() {
 	// into them via setters to break the import cycle.
 	referral := wireReferral(referralDeps{
 		Ctx:              pendingEventsCtx,
-		DB:               db,
-		Users:            userRepo,
-		Organizations:    organizationRepo,
-		OrganizationMems: organizationMemberRepo,
+		DB:               infra.DB,
+		Users:            infra.UserRepo,
+		Organizations:    infra.OrganizationRepo,
+		OrganizationMems: infra.OrganizationMemberRepo,
 		Proposals:        proposalRepo,
 		Milestones:       milestoneRepo,
 		Messaging:        messagingSvc,
@@ -625,49 +455,42 @@ func main() {
 			Referrals: referralRepo,
 			Proposals: proposalRepo,
 			Reviews:   reviewRepo,
-			Users:     userRepo,
+			Users:     infra.UserRepo,
 		},
-		OrgOwnerLookup:  &orgOwnerLookupAdapter{orgs: organizationRepo},
+		OrgOwnerLookup:  &orgOwnerLookupAdapter{orgs: infra.OrganizationRepo},
 		SearchPublisher: searchPublisher,
 	})
 	referrerProfileHandler := referrer.ProfileHandler
 	referrerPricingHandler := referrer.PricingHandler
 	_ = referrer.Service
 
-	// Organization shared-profile handler — writes the photo /
-	// location / languages columns that both personas JOIN at read
-	// time. Reuses the optional Nominatim geocoder from the legacy
-	// profile flow so behaviour stays byte-identical.
-	organizationSharedHandler := handler.
-		NewOrganizationSharedProfileHandler(organizationRepo).
-		WithGeocoder(profileGeocoder)
-	if searchPublisher != nil {
-		organizationSharedHandler = organizationSharedHandler.WithSearchIndexPublisher(searchPublisher)
-	}
-
-	// Client profile (migration 114) — the client-facing facet of the
-	// organization's public profile. Two services orchestrate the
-	// feature: the write path (ClientProfileService, co-located with
-	// the profile aggregate) and the read path (clientprofile.Service,
-	// its own package). Splitting write vs. read keeps each service
-	// under the SRP cap and makes the feature fully removable by
-	// dropping these few lines.
-	clientProfileWriteSvc := profileapp.NewClientProfileService(profileRepo, organizationRepo)
-	clientProfileReadSvc := clientprofileapp.NewService(clientprofileapp.ServiceDeps{
-		Organizations: organizationRepo,
-		Profiles:      profileRepo,
-		Proposals:     proposalRepo,
-		Reviews:       reviewRepo,
+	// Organization shared-profile handler — see wire_late_handlers.go.
+	organizationSharedHandler := wireOrganizationShared(orgSharedDeps{
+		OrganizationRepo: infra.OrganizationRepo,
+		ProfileGeocoder:  profileGeocoder,
+		SearchPublisher:  searchPublisher,
 	})
-	clientProfileHandler := handler.NewClientProfileHandler(clientProfileWriteSvc, clientProfileReadSvc)
 
-	profileHandler := handler.
-		NewProfileHandler(profileSvc, expertiseSvc).
-		WithPublicReader(publicProfileCache).
-		WithExpertiseReader(expertiseCache).
-		WithSkillsReader(skillSvc).
-		WithPricingReader(profilePricingSvc).
-		WithClientStatsReader(clientProfileReadSvc)
+	// Client profile (migration 114) — see wire_late_handlers.go.
+	clientProfile := wireClientProfile(clientProfileDeps{
+		ProfileRepo:      infra.ProfileRepo,
+		OrganizationRepo: infra.OrganizationRepo,
+		ProposalRepo:     proposalRepo,
+		ReviewRepo:       reviewRepo,
+	})
+	clientProfileReadSvc := clientProfile.ReadSvc
+	clientProfileHandler := clientProfile.Handler
+
+	// Unified legacy profile handler — see wire_late_handlers.go.
+	profileHandler := wireProfileHandler(profileHandlerDeps{
+		ProfileSvc:         profileSvc,
+		ExpertiseSvc:       expertiseSvc,
+		PublicProfileCache: publicProfileCache,
+		ExpertiseCache:     expertiseCache,
+		SkillsReader:       skillSvc,
+		ProfilePricingSvc:  profilePricingSvc,
+		ClientStatsReader:  clientProfileReadSvc,
+	})
 	// uploadCtx is cancelled at SIGTERM so in-flight RecordUpload
 	// goroutines (fired by /upload/* endpoints) wind down their
 	// downstream Rekognition / S3 work cleanly. Closes BUG-17 — the
@@ -675,11 +498,19 @@ func main() {
 	// orphan media records.
 	uploadCtx, uploadCancel := context.WithCancel(context.Background())
 	defer uploadCancel()
-	uploadHandler := handler.NewUploadHandler(storageSvc, profileRepo, mediaSvc).
-		WithShutdownContext(uploadCtx)
-	freelanceProfileVideoHandler := handler.NewFreelanceProfileVideoHandler(storageSvc, freelanceProfileRepo, mediaSvc)
-	referrerProfileVideoHandler := handler.NewReferrerProfileVideoHandler(storageSvc, referrerProfileRepo, mediaSvc)
-	healthHandler := handler.NewHealthHandler(db)
+	uploadsWire := wireUploads(uploadsDeps{
+		UploadCtx:            uploadCtx,
+		DB:                   infra.DB,
+		Storage:              infra.StorageSvc,
+		ProfileRepo:          infra.ProfileRepo,
+		FreelanceProfileRepo: freelanceProfileRepo,
+		ReferrerProfileRepo:  referrerProfileRepo,
+		MediaSvc:             mediaSvc,
+	})
+	uploadHandler := uploadsWire.UploadHandler
+	freelanceProfileVideoHandler := uploadsWire.FreelanceProfileVideoHandler
+	referrerProfileVideoHandler := uploadsWire.ReferrerProfileVideoHandler
+	healthHandler := uploadsWire.HealthHandler
 	if typesenseClient != nil {
 		// Typesense is MANDATORY since phase 4 — the listing pages
 		// have no SQL fallback. A failed ping takes /ready red so
@@ -687,47 +518,33 @@ func main() {
 		healthHandler = healthHandler.WithSearchPinger(typesenseClient, true)
 	}
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
-	proposalHandler := handler.NewProposalHandler(proposalSvc, paymentInfoSvc)
-	jobHandler := handler.NewJobHandler(jobSvc)
-	jobAppHandler := handler.NewJobApplicationHandler(jobSvc)
-	reviewHandler := handler.NewReviewHandler(reviewSvc)
+	proposalHandler := proposalWire.ProposalHandler
+	jobHandler := jobsWire.JobHandler
+	jobAppHandler := jobsWire.JobAppHandler
+	reviewHandler := reviewServiceWire.Handler
 
-	// Stripe handler (optional)
-	var stripeHandler *handler.StripeHandler
-	if cfg.StripeConfigured() {
-		stripeHandler = handler.NewStripeHandler(paymentInfoSvc, proposalSvc, cfg.StripePublishableKey)
+	// Stripe HTTP handler — see wire_late_handlers.go.
+	stripeHandler := wireStripeHandler(stripeHandlerDeps{
+		Cfg:              cfg,
+		PaymentInfoSvc:   paymentInfoSvc,
+		ProposalSvc:      proposalSvc,
+		OrganizationRepo: infra.OrganizationRepo,
+		Notifications:    notifSvc,
+		ReferralSvc:      referralSvc,
+	})
 
-		// Embedded Components notifier — diff-based multi-channel notifications
-		// for Stripe account.* webhooks (activation, requirements, docs rejected).
-		// Backed by the organizations table since phase R5 — the Stripe
-		// Connect account lives on the org (the merchant of record).
-		embeddedNotifier := embeddedapp.NewNotifier(
-			embeddedapp.NewNotificationSenderAdapter(notifSvc),
-			organizationRepo,
-			5*time.Minute,
-		)
-		// Wire the referral KYC listener on the embedded notifier so parked
-		// pending_kyc commissions are drained the moment the referrer's
-		// Stripe account becomes payable.
-		embeddedNotifier.SetReferralKYCListener(referralSvc)
-		stripeHandler = stripeHandler.WithEmbeddedNotifier(embeddedNotifier)
-	}
-
-	// Wallet handler
-	walletHandler := handler.NewWalletHandler(paymentInfoSvc, proposalSvc)
-
-	// Billing handler — read-only fee preview endpoint for the proposal
-	// creation flow. Shares the payment service (no new dependencies) so
-	// the fee schedule stays the single source of truth across CreatePaymentIntent
-	// and the client-facing simulator.
-	billingHandler := handler.NewBillingHandler(paymentInfoSvc)
+	// Wallet + billing handlers — see wire_payment.go.
+	walletHandler, billingHandler := wirePaymentHandlers(paymentHandlersDeps{
+		PaymentInfoSvc: paymentInfoSvc,
+		ProposalSvc:    proposalSvc,
+	})
 
 	// Subscription (Premium) feature — see wire_subscription.go.
 	subscription := wireSubscription(subscriptionDeps{
 		Cfg:            cfg,
-		DB:             db,
-		Redis:          redisClient,
-		Users:          userRepo,
+		DB:             infra.DB,
+		Redis:          infra.Redis,
+		Users:          infra.UserRepo,
 		Stripe:         stripeSvc,
 		PaymentInfoSvc: paymentInfoSvc,
 		StripeHandler:  stripeHandler,
@@ -749,12 +566,12 @@ func main() {
 	var adminInvoiceHandler *handler.AdminInvoiceHandler
 	if stripeHandler != nil {
 		invoicing := wireInvoicing(invoicingDeps{
-			DB:              db,
-			Redis:           redisClient,
-			Email:           emailSvc,
-			Storage:         storageSvc,
-			Organizations:   organizationRepo,
-			Users:           userRepo,
+			DB:              infra.DB,
+			Redis:           infra.Redis,
+			Email:           infra.EmailSvc,
+			Storage:         infra.StorageSvc,
+			Organizations:   infra.OrganizationRepo,
+			Users:           infra.UserRepo,
 			StripeKYC:       stripeKYCReader,
 			StripeHandler:   stripeHandler,
 			WalletHandler:   walletHandler,
@@ -774,11 +591,11 @@ func main() {
 	dispute := wireDispute(disputeDeps{
 		Ctx:            disputeCtx,
 		Cfg:            cfg,
-		DB:             db,
+		DB:             infra.DB,
 		Proposals:      proposalRepo,
 		Milestones:     milestoneRepo,
-		Users:          userRepo,
-		MessageRepo:    messageRepo,
+		Users:          infra.UserRepo,
+		MessageRepo:    infra.MessageRepo,
 		Messaging:      messagingSvc,
 		Notifications:  notifSvc,
 		Payments:       paymentInfoSvc,
@@ -787,14 +604,15 @@ func main() {
 	disputeHandler := dispute.Handler
 	adminDisputeHandler := dispute.AdminHandler
 
-	wsHandler := ws.ServeWS(ws.ConnDeps{
-		Hub:              wsHub,
-		MessagingSvc:     messagingSvc,
-		TokenSvc:         tokenSvc,
-		SessionSvc:       sessionSvc,
-		PresenceSvc:      presenceSvc,
-		Broadcaster:      streamBroadcaster,
-		AllowedWSOrigins: wsOriginPatterns(cfg.AllowedOrigins),
+	// WebSocket connection handler — see wire_router.go.
+	wsHandler := wireWSHandler(wsHandlerDeps{
+		Cfg:          cfg,
+		WSHub:        infra.WSHub,
+		MessagingSvc: messagingSvc,
+		TokenSvc:     infra.TokenSvc,
+		SessionSvc:   infra.SessionSvc,
+		PresenceSvc:  infra.PresenceSvc,
+		Broadcaster:  infra.StreamBroadcaster,
 	})
 
 	// Prometheus metrics registry. Exposed at GET /metrics by the
@@ -802,17 +620,15 @@ func main() {
 	// drift-check) receive this pointer via constructor injection.
 	metrics := handler.NewMetrics()
 
-	// Setup router
-	r := handler.NewRouter(handler.RouterDeps{
-		Auth:           authHandler,
-		Invitation:     invitationHandler,
-		Team:           teamHandler,
-		RoleOverrides:  roleOverridesHandler,
-		Profile:        profileHandler,
-		ClientProfile:  clientProfileHandler,
-		ProfilePricing: profilePricingHandler,
-
-		// Split-profile handlers (migrations 096-104).
+	// Setup router — see wire_router.go for the full handler bundle.
+	r := wireRouter(routerDepsBundle{
+		Auth:                  authHandler,
+		Invitation:            invitationHandler,
+		Team:                  teamHandler,
+		RoleOverrides:         roleOverridesHandler,
+		Profile:               profileHandler,
+		ClientProfile:         clientProfileHandler,
+		ProfilePricing:        profilePricingHandler,
 		FreelanceProfile:      freelanceProfileHandler,
 		FreelancePricing:      freelancePricingHandler,
 		FreelanceProfileVideo: freelanceProfileVideoHandler,
@@ -820,90 +636,55 @@ func main() {
 		ReferrerPricing:       referrerPricingHandler,
 		ReferrerProfileVideo:  referrerProfileVideoHandler,
 		OrganizationShared:    organizationSharedHandler,
-
-		Upload:              uploadHandler,
-		Health:              healthHandler,
-		Messaging:           messagingHandler,
-		Proposal:            proposalHandler,
-		Job:                 jobHandler,
-		JobApplication:      jobAppHandler,
-		Review:              reviewHandler,
-		Report:              reportHandler,
-		Call:                callHandler,
-		SocialLink:          socialLinkHandler,
-		FreelanceSocialLink: freelanceSocialLinkHandler,
-		ReferrerSocialLink:  referrerSocialLinkHandler,
-		Embedded:            handler.NewEmbeddedHandler(organizationRepo, cfg.FrontendURL),
-		Notification:        notifHandler,
-		Stripe:              stripeHandler,
-		Wallet:              walletHandler,
-		Billing:             billingHandler,
-		Subscription:        subscriptionHandler,
-		BillingProfile:      billingProfileHandler,
-		Invoice:             invoiceHandler,
-		AdminCreditNote:     adminCreditNoteHandler,
-		AdminInvoice:        adminInvoiceHandler,
-		Admin:               adminHandler,
-		Portfolio:           portfolioHandler,
-		ProjectHistory:      projectHistoryHandler,
-		Dispute:             disputeHandler,
-		AdminDispute:        adminDisputeHandler,
-		Skill:               skillHandler,
-		Referral:            referralHandler,
-		Search:              searchHandler,
-		AdminSearchStats:    adminSearchStatsHandler,
-		WSHandler:           wsHandler,
-		Config:              cfg,
-		TokenService:         tokenSvc,
-		SessionService:       sessionSvc,
-		UserRepo:             userRepo,
-		OrgOverridesResolver: orgOverridesAdapter{repo: organizationRepo},
+		Upload:                uploadHandler,
+		Health:                healthHandler,
+		Messaging:             messagingHandler,
+		Proposal:              proposalHandler,
+		Job:                   jobHandler,
+		JobApplication:        jobAppHandler,
+		Review:                reviewHandler,
+		Report:                reportHandler,
+		Call:                  callHandler,
+		SocialLink:            socialLinkHandler,
+		FreelanceSocialLink:   freelanceSocialLinkHandler,
+		ReferrerSocialLink:    referrerSocialLinkHandler,
+		Embedded: wireEmbeddedHandler(embeddedHandlerDeps{
+			OrganizationRepo: infra.OrganizationRepo,
+			FrontendURL:      cfg.FrontendURL,
+		}),
+		Notification:         notifHandler,
+		Stripe:               stripeHandler,
+		Wallet:               walletHandler,
+		Billing:              billingHandler,
+		Subscription:         subscriptionHandler,
+		BillingProfile:       billingProfileHandler,
+		Invoice:              invoiceHandler,
+		AdminCreditNote:      adminCreditNoteHandler,
+		AdminInvoice:         adminInvoiceHandler,
+		Admin:                adminHandler,
+		Portfolio:            portfolioHandler,
+		ProjectHistory:       projectHistoryHandler,
+		Dispute:              disputeHandler,
+		AdminDispute:         adminDisputeHandler,
+		Skill:                skillHandler,
+		Referral:             referralHandler,
+		Search:               searchHandler,
+		AdminSearchStats:     adminSearchStatsHandler,
+		WSHandler:            wsHandler,
+		Cfg:                  cfg,
+		TokenService:         infra.TokenSvc,
+		SessionService:       infra.SessionSvc,
+		UserRepo:             infra.UserRepo,
+		OrgOverridesResolver: orgOverridesAdapter{repo: infra.OrganizationRepo},
 		Metrics:              metrics,
 		RateLimiter:          httpRateLimiter,
 	})
 
-	// Create HTTP server
-	// WriteTimeout is 0 to allow long-lived WebSocket connections.
-	// Handler-level timeouts protect regular HTTP endpoints instead.
-	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	// Start server in goroutine
-	go func() {
-		slog.Info("server starting", "port", cfg.Port, "env", cfg.Env)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server error", "error", err)
-			os.Exit(1)
-		}
-	}()
-
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	slog.Info("shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		slog.Error("server forced to shutdown", "error", err)
-	}
-
-	// BUG-17: drain in-flight upload goroutines (max 30s budget shared
-	// with the HTTP shutdown above). uploadCancel above triggers the
-	// individual goroutine's WithCancel so they observe the shutdown
-	// signal; Stop() then waits for them to exit cleanly.
-	uploadCancel()
-	if err := uploadHandler.Stop(ctx); err != nil {
-		slog.Warn("upload handler shutdown timed out", "error", err)
-	}
-
-	slog.Info("server stopped")
+	// Run server + drive graceful shutdown — see wire_serve.go.
+	runServer(serveDeps{
+		Cfg:           cfg,
+		Router:        r,
+		UploadCancel:  uploadCancel,
+		UploadHandler: uploadHandler,
+	})
 }
