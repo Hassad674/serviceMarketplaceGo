@@ -3,12 +3,14 @@ package handler
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
+	"marketplace-backend/internal/domain/organization"
 	"marketplace-backend/internal/domain/profile"
 	domainreferrerpricing "marketplace-backend/internal/domain/referrerpricing"
 	"marketplace-backend/internal/domain/referrerprofile"
@@ -182,6 +184,14 @@ func (h *ReferrerProfileHandler) WithOrgOwnerLookup(lookup OrgOwnerLookup) *Refe
 // profile reads. Keyed on orgID for URL symmetry with
 // /referrer-profiles/{orgID}; internally the handler translates to
 // the owner user_id because referrals reference users.
+//
+// Empty-state contract: a referrer with zero attributed projects MUST
+// receive a 200 OK with an empty `history` array — never a 404. The
+// public profile read (GetByOrgID) already auto-creates a default row,
+// so the reputation surface is the natural empty state for that org
+// and a 404 here would render the load-error UI on a perfectly valid
+// fresh referrer profile (the production bug observed on
+// /fr/referrers/{uuid} when the org has no referrals yet).
 func (h *ReferrerProfileHandler) GetReputation(w http.ResponseWriter, r *http.Request) {
 	orgIDParam := chi.URLParam(r, "orgID")
 	orgID, err := uuid.Parse(orgIDParam)
@@ -198,7 +208,24 @@ func (h *ReferrerProfileHandler) GetReputation(w http.ResponseWriter, r *http.Re
 	}
 	userID, err := h.orgOwner.OwnerUserIDForOrg(r.Context(), orgID)
 	if err != nil {
-		res.Error(w, http.StatusNotFound, "referrer_profile_not_found", "no referrer profile for this organization")
+		// Distinguish "the org row genuinely does not exist" from any
+		// other repository error. The former is the normal "no such
+		// referrer" case and we still return 200 + empty payload so
+		// the public profile + reputation surfaces stay symmetrical
+		// (the profile read auto-creates an empty row, so the
+		// reputation read should not 404 just because no referrals
+		// exist yet). Any other error is an actual infrastructure
+		// failure — log it and surface a 500 so it is visible in the
+		// browser network tab AND the structured server logs.
+		if errors.Is(err, organization.ErrOrgNotFound) {
+			res.JSON(w, http.StatusOK, response.NewReferrerReputationResponse(referrerprofileapp.ReferrerReputation{}))
+			return
+		}
+		slog.Error("referrer reputation: org owner lookup failed",
+			"org_id", orgID,
+			"error", err.Error(),
+		)
+		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to resolve referrer organization")
 		return
 	}
 
@@ -207,6 +234,14 @@ func (h *ReferrerProfileHandler) GetReputation(w http.ResponseWriter, r *http.Re
 
 	rep, err := h.svc.GetReferrerReputation(r.Context(), userID, cursor, limit)
 	if err != nil {
+		// Log the underlying error so prod-ops can correlate the
+		// generic 500 the browser sees with a concrete root cause.
+		// Without this, the only signal is the frontend toast.
+		slog.Error("referrer reputation: aggregate load failed",
+			"org_id", orgID,
+			"user_id", userID,
+			"error", err.Error(),
+		)
 		res.Error(w, http.StatusInternalServerError, "internal_error", "failed to load reputation")
 		return
 	}

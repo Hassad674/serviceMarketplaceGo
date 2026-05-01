@@ -1123,6 +1123,7 @@
   "tier1ErrorLocationRequireCity": "City is required",
   "projectHistory": "Project history",
   "referrerProjectHistoryEmpty": "No deals referred yet",
+  "referrerDisplayNameFallback": "Business referrer",
   "reputationSectionTitle": "Referred projects",
   "reputationSectionSubtitle": "Client reviews of the providers you recommended",
   "reputationRatingLabel": "Recommendation rating",

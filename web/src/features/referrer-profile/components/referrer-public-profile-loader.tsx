@@ -50,7 +50,13 @@ export function ReferrerPublicProfileLoader({
     )
   }
 
-  const displayName = profile.title || profile.organization_id
+  // displayName falls back to a localized "Apporteur d'affaires" label
+  // when the referrer has not yet set a title — surfacing the raw
+  // organization id (a UUID) to a public viewer is both ugly and a
+  // privacy leak. The `t("publicTitleSuffix")` already covers the
+  // metadata path; this mirror in the header keeps the two surfaces
+  // consistent.
+  const displayName = profile.title || t("displayNameFallback")
   // The header rating uses the apporteur reputation, not the freelance
   // rating. Undefined until the reputation query settles so the
   // ProfileIdentityHeader hides the rating block during loading.

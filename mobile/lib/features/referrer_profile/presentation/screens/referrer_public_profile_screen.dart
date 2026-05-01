@@ -73,7 +73,17 @@ class _Body extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
     final locale = Localizations.localeOf(context).languageCode;
-    final name = displayName.isNotEmpty ? displayName : 'Referrer';
+    // Display-name resolution mirrors the web fix on
+    // /[locale]/referrers/[id]: prefer the explicit display name
+    // (passed as go_router extra), then the referrer-set title, then
+    // the localized "Apporteur d'affaires" / "Business referrer"
+    // label. The raw organization id (a UUID) is intentionally NEVER
+    // surfaced — same regression the web fix guards against.
+    final name = _resolveDisplayName(
+      explicit: displayName,
+      title: profile.title,
+      fallback: l10n.referrerDisplayNameFallback,
+    );
     final radius = profile.travelRadiusKm;
 
     return SingleChildScrollView(
@@ -195,6 +205,20 @@ class _Body extends StatelessWidget {
     final parts = name.trim().split(RegExp(r'\s+'));
     if (parts.length == 1) return parts[0][0].toUpperCase();
     return '${parts[0][0]}${parts.last[0]}'.toUpperCase();
+  }
+
+  /// Resolves the header display name without ever surfacing a raw
+  /// organization UUID. Order: explicit caller-provided name → the
+  /// referrer-set title → the localized fallback label. Pure helper
+  /// (no Flutter state) so it can be unit-tested in isolation.
+  static String _resolveDisplayName({
+    required String explicit,
+    required String title,
+    required String fallback,
+  }) {
+    if (explicit.trim().isNotEmpty) return explicit;
+    if (title.trim().isNotEmpty) return title;
+    return fallback;
   }
 
   String _workModeLabel(String key, AppLocalizations l10n) {

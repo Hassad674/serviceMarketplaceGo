@@ -2821,6 +2821,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun deal apporté enregistré pour l\'instant';
 
   @override
+  String get referrerDisplayNameFallback => 'Apporteur d\'affaires';
+
+  @override
   String get reputationSectionTitle => 'Projets apportés';
 
   @override

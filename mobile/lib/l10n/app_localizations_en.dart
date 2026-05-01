@@ -2802,6 +2802,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get referrerProjectHistoryEmpty => 'No deals referred yet';
 
   @override
+  String get referrerDisplayNameFallback => 'Business referrer';
+
+  @override
   String get reputationSectionTitle => 'Referred projects';
 
   @override

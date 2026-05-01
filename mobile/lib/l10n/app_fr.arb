@@ -1116,6 +1116,7 @@
   "tier1ErrorLocationRequireCity": "La ville est obligatoire",
   "projectHistory": "Historique de projets",
   "referrerProjectHistoryEmpty": "Aucun deal apporté enregistré pour l'instant",
+  "referrerDisplayNameFallback": "Apporteur d'affaires",
   "reputationSectionTitle": "Projets apportés",
   "reputationSectionSubtitle": "Avis des clients sur les prestataires recommandés",
   "reputationRatingLabel": "Note de recommandation",
