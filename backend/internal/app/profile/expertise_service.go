@@ -3,11 +3,13 @@ package profileapp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/expertise"
 	"marketplace-backend/internal/port/repository"
+	portservice "marketplace-backend/internal/port/service"
 )
 
 // ExpertiseService owns the use cases attached to an organization's
@@ -19,10 +21,13 @@ import (
 // Dependencies: the expertise repository (persistence) and the
 // organization repository (to resolve the org type for the per-type
 // maximum). Both are interfaces from port/, so the service is fully
-// testable with mocks.
+// testable with mocks. The cacheInvalidator is optional: when wired
+// (production), a successful SetExpertise flushes the cached read
+// path so the next list reflects reality immediately.
 type ExpertiseService struct {
-	expertise     repository.ExpertiseRepository
-	organizations repository.OrganizationRepository
+	expertise        repository.ExpertiseRepository
+	organizations    repository.OrganizationRepository
+	cacheInvalidator portservice.CacheInvalidatorByOrgID
 }
 
 // NewExpertiseService wires a new expertise service. It takes the
@@ -36,6 +41,20 @@ func NewExpertiseService(
 		expertise:     expertiseRepo,
 		organizations: orgRepo,
 	}
+}
+
+// WithCacheInvalidator attaches the optional read-cache invalidator
+// fired after every successful SetExpertise. Returns the same
+// service for fluent wiring in main.go. Passing nil is allowed
+// (tests, search engine disabled) and disables invalidation —
+// callers will simply wait for the TTL to age out, which is still
+// correct, only slower.
+func (s *ExpertiseService) WithCacheInvalidator(inv portservice.CacheInvalidatorByOrgID) *ExpertiseService {
+	if s == nil {
+		return nil
+	}
+	s.cacheInvalidator = inv
+	return s
 }
 
 // ListByOrganization returns the ordered list of expertise keys for
@@ -92,6 +111,20 @@ func (s *ExpertiseService) SetExpertise(
 
 	if err := s.expertise.Replace(ctx, orgID, normalized); err != nil {
 		return nil, fmt.Errorf("set expertise: persist: %w", err)
+	}
+
+	// Cache invalidation order: DB write succeeds → cache delete.
+	// The reverse order (cache delete first, then DB write) opens a
+	// split-brain window where a concurrent reader can re-populate
+	// the cache from the OLD DB row before the new one commits.
+	// Best-effort: a failed Del logs but does not unwind the
+	// successful persist; the next read will simply hit the stale
+	// entry until the TTL ages out, which converges to correctness.
+	if s.cacheInvalidator != nil {
+		if invErr := s.cacheInvalidator.Invalidate(ctx, orgID); invErr != nil {
+			slog.Warn("set expertise: cache invalidation failed",
+				"org_id", orgID, "error", invErr)
+		}
 	}
 	return normalized, nil
 }

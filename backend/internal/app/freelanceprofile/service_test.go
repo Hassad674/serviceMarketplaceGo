@@ -570,3 +570,99 @@ func TestService_UpdateCore_NoTxRunner_FallsBackToLegacyPath(t *testing.T) {
 	assert.Equal(t, 1, pub.reindexCalls, "legacy hors-tx publish must run as fallback")
 	assert.Equal(t, 0, pub.reindexTxCalls)
 }
+
+// --- Cache invalidation hook ---
+
+// stubFreelanceInvalidator captures every Invalidate call.
+type stubFreelanceInvalidator struct {
+	calls []uuid.UUID
+	err   error
+}
+
+func (s *stubFreelanceInvalidator) Invalidate(_ context.Context, orgID uuid.UUID) error {
+	s.calls = append(s.calls, orgID)
+	return s.err
+}
+
+func TestFreelance_UpdateCore_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID:         func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		getOrCreateByOrgID: func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		updateCore:         func(_ context.Context, _ uuid.UUID, _, _, _ string) error { return nil },
+	}
+	inv := &stubFreelanceInvalidator{}
+	svc := appfreelance.NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateCore(context.Background(), orgID, appfreelance.UpdateCoreInput{Title: "Hello"})
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+	assert.Equal(t, orgID, inv.calls[0])
+}
+
+func TestFreelance_UpdateAvailability_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID:         func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		getOrCreateByOrgID: func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		updateAvailability: func(_ context.Context, _ uuid.UUID, _ profile.AvailabilityStatus) error { return nil },
+	}
+	inv := &stubFreelanceInvalidator{}
+	svc := appfreelance.NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateAvailability(context.Background(), orgID, "available_now")
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+}
+
+func TestFreelance_UpdateExpertise_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID:             func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		getOrCreateByOrgID:     func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		updateExpertiseDomains: func(_ context.Context, _ uuid.UUID, _ []string) error { return nil },
+	}
+	inv := &stubFreelanceInvalidator{}
+	svc := appfreelance.NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateExpertise(context.Background(), orgID, []string{"development"})
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+}
+
+func TestFreelance_PersistenceFailure_DoesNotInvalidate(t *testing.T) {
+	// A failed DB write must NOT invalidate the cache, otherwise
+	// readers re-populate from a stale row, defeating cache-aside.
+	orgID := uuid.New()
+	repo := &mockFreelanceProfileRepo{
+		updateCore: func(_ context.Context, _ uuid.UUID, _, _, _ string) error {
+			return errors.New("connection lost")
+		},
+	}
+	inv := &stubFreelanceInvalidator{}
+	svc := appfreelance.NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateCore(context.Background(), orgID, appfreelance.UpdateCoreInput{Title: "X"})
+	require.Error(t, err)
+	assert.Empty(t, inv.calls, "failed DB write must NOT invalidate")
+}
+
+func TestFreelance_InvalidatorErrorDoesNotFailWrite(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockFreelanceProfileRepo{
+		getByOrgID:         func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		getOrCreateByOrgID: func(_ context.Context, _ uuid.UUID) (*repository.FreelanceProfileView, error) { return &repository.FreelanceProfileView{}, nil },
+		updateCore:         func(_ context.Context, _ uuid.UUID, _, _, _ string) error { return nil },
+	}
+	inv := &stubFreelanceInvalidator{err: errors.New("redis down")}
+	svc := appfreelance.NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateCore(context.Background(), orgID, appfreelance.UpdateCoreInput{Title: "X"})
+	require.NoError(t, err, "flaky cache must not unwind a successful DB write")
+	assert.Len(t, inv.calls, 1)
+}
+
+func TestFreelance_WithCacheInvalidator_NilReceiver(t *testing.T) {
+	var svc *appfreelance.Service
+	assert.Nil(t, svc.WithCacheInvalidator(nil))
+}

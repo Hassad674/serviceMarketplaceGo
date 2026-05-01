@@ -72,6 +72,15 @@ type Service struct {
 	// persisted unchecked (legacy behaviour pre-Phase-2). Set in
 	// production wiring via WithModerationOrchestrator.
 	moderationOrchestrator *appmoderation.Service
+
+	// cacheInvalidator is fired AFTER every successful write so the
+	// public agency profile cache (Redis) flushes the affected
+	// orgID. Nil-safe: when unset, callers wait for the TTL to age
+	// out instead, which still converges to correctness — only
+	// slower. Order is critical: DB write → cache invalidate. The
+	// reverse opens a split-brain window where a concurrent reader
+	// re-populates the cache with the pre-write row.
+	cacheInvalidator service.CacheInvalidatorByOrgID
 }
 
 // NewService wires the profile service with its mandatory
@@ -115,6 +124,20 @@ func (s *Service) WithTxRunner(runner repository.TxRunner) *Service {
 // WithModerationOrchestrator attaches the synchronous text moderation
 // gate. Returns the same service for fluent wiring. Nil disables the
 // gate (legacy behaviour).
+// WithCacheInvalidator attaches the optional read-cache invalidator
+// fired after every successful UpdateProfile / UpdateLocation /
+// UpdateLanguages / UpdateAvailability. Returns the same service
+// for fluent wiring in main.go. A nil invalidator disables the
+// hook (tests, cache disabled in dev) — reads will simply be
+// up-to-TTL stale, which is still correct.
+func (s *Service) WithCacheInvalidator(inv service.CacheInvalidatorByOrgID) *Service {
+	if s == nil {
+		return nil
+	}
+	s.cacheInvalidator = inv
+	return s
+}
+
 func (s *Service) WithModerationOrchestrator(m *appmoderation.Service) *Service {
 	s.moderationOrchestrator = m
 	return s
@@ -123,6 +146,20 @@ func (s *Service) WithModerationOrchestrator(m *appmoderation.Service) *Service 
 // publishReindex is the best-effort wrapper. Logged but never
 // returned so a degraded search engine cannot block a profile
 // update.
+// invalidateCache fires the optional read-cache invalidator. Best-
+// effort: a failed Del logs but does not unwind the successful DB
+// write — the cache will simply serve a stale entry for at most
+// the TTL window before converging.
+func (s *Service) invalidateCache(ctx context.Context, orgID uuid.UUID) {
+	if s.cacheInvalidator == nil {
+		return
+	}
+	if err := s.cacheInvalidator.Invalidate(ctx, orgID); err != nil {
+		slog.Warn("profile: cache invalidation failed",
+			"org_id", orgID, "error", err)
+	}
+}
+
 func (s *Service) publishReindex(ctx context.Context, orgID uuid.UUID) {
 	if s.searchIndex == nil {
 		return
@@ -195,6 +232,7 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 		}); err != nil {
 			return nil, fmt.Errorf("update profile: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return p, nil
 	}
 
@@ -202,6 +240,7 @@ func (s *Service) UpdateProfile(ctx context.Context, orgID uuid.UUID, input Upda
 		return nil, fmt.Errorf("update profile: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return p, nil
 }
 
@@ -335,6 +374,7 @@ func (s *Service) UpdateLocation(ctx context.Context, orgID uuid.UUID, input Upd
 		}); err != nil {
 			return fmt.Errorf("update location: persist: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return nil
 	}
 
@@ -342,6 +382,7 @@ func (s *Service) UpdateLocation(ctx context.Context, orgID uuid.UUID, input Upd
 		return fmt.Errorf("update location: persist: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return nil
 }
 
@@ -401,6 +442,7 @@ func (s *Service) UpdateLanguages(ctx context.Context, orgID uuid.UUID, professi
 		}); err != nil {
 			return fmt.Errorf("update languages: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return nil
 	}
 
@@ -408,6 +450,7 @@ func (s *Service) UpdateLanguages(ctx context.Context, orgID uuid.UUID, professi
 		return fmt.Errorf("update languages: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return nil
 }
 
@@ -437,6 +480,7 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direc
 		}); err != nil {
 			return fmt.Errorf("update availability: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return nil
 	}
 
@@ -444,5 +488,6 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, direc
 		return fmt.Errorf("update availability: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return nil
 }
