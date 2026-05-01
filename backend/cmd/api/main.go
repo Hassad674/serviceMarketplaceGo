@@ -17,18 +17,12 @@ import (
 	callapp "marketplace-backend/internal/app/call"
 	clientprofileapp "marketplace-backend/internal/app/clientprofile"
 	embeddedapp "marketplace-backend/internal/app/embedded"
-	jobapp "marketplace-backend/internal/app/job"
 	"marketplace-backend/internal/app/messaging"
 	appmoderation "marketplace-backend/internal/app/moderation"
 	paymentapp "marketplace-backend/internal/app/payment"
-	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
-	projecthistoryapp "marketplace-backend/internal/app/projecthistory"
 	referrerprofileapp "marketplace-backend/internal/app/referrerprofile"
-	reportapp "marketplace-backend/internal/app/report"
-	reviewapp "marketplace-backend/internal/app/review"
 	"marketplace-backend/internal/config"
-	jobdomain "marketplace-backend/internal/domain/job"
 	"marketplace-backend/internal/handler"
 	"marketplace-backend/internal/handler/middleware"
 )
@@ -145,29 +139,23 @@ func main() {
 	txRunner := proposalRepos.TxRunner
 	_ = milestoneSvc // wired into proposal service deps below
 
-	// Job feature
-	jobRepo := postgres.NewJobRepository(db)
-	jobAppRepo := postgres.NewJobApplicationRepository(db)
-	jobViewRepo := postgres.NewJobViewRepository(db)
-	// The credit repository drives a lazy weekly refill from its
-	// GetOrCreate method — every read on an org whose pool has aged
-	// past RefillPeriod floor-bumps the balance back up to WeeklyQuota
-	// atomically. No cron, no background worker, self-healing after
-	// downtime.
-	jobCreditRepo := postgres.NewJobCreditRepository(db, jobdomain.WeeklyQuota, jobdomain.RefillPeriod)
-	jobSvc := jobapp.NewService(jobapp.ServiceDeps{
-		Jobs:          jobRepo,
-		Applications:  jobAppRepo,
-		Users:         userRepo,
-		Organizations: organizationRepo,
-		Profiles:      profileRepo,
-		Messages:      messagingSvc,
-		JobViews:      jobViewRepo,
-		Credits:       jobCreditRepo,
+	// Job feature — see wire_review_jobs_portfolio_report.go.
+	jobsWire := wireJobs(jobsDeps{
+		DB:               db,
+		UserRepo:         userRepo,
+		OrganizationRepo: organizationRepo,
+		ProfileRepo:      profileRepo,
+		MessagingSvc:     messagingSvc,
 	})
+	jobRepo := jobsWire.JobRepo
+	jobAppRepo := jobsWire.JobAppRepo
+	jobCreditRepo := jobsWire.JobCreditRepo
+	jobSvc := jobsWire.JobSvc
 
-	// Review feature
-	reviewRepo := postgres.NewReviewRepository(db)
+	// Review repository (early-stage). The app service is wired below
+	// once the notification feature exists.
+	reviewRepoWire := wireReviewRepo(db)
+	reviewRepo := reviewRepoWire.Repo
 
 	// Social links — see wire_social.go.
 	socialLinks := wireSocialLinks(db)
@@ -175,20 +163,16 @@ func main() {
 	freelanceSocialLinkHandler := socialLinks.Freelance
 	referrerSocialLinkHandler := socialLinks.Referrer
 
-	// Portfolio feature
-	portfolioRepo := postgres.NewPortfolioRepository(db)
-	portfolioSvc := portfolioapp.NewService(portfolioapp.ServiceDeps{
-		Portfolios: portfolioRepo,
-	})
-	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
+	// Portfolio feature — see wire_review_jobs_portfolio_report.go.
+	portfolioWire := wirePortfolio(db)
+	portfolioHandler := portfolioWire.Handler
 
-	// Project history feature (orchestrates proposal + review reads for the
-	// public provider profile page).
-	projectHistorySvc := projecthistoryapp.NewService(projecthistoryapp.ServiceDeps{
-		Proposals: proposalRepo,
-		Reviews:   reviewRepo,
+	// Project history feature — see wire_review_jobs_portfolio_report.go.
+	projectHistoryWire := wireProjectHistory(projectHistoryDeps{
+		ProposalRepo: proposalRepo,
+		ReviewRepo:   reviewRepo,
 	})
-	projectHistoryHandler := handler.NewProjectHistoryHandler(projectHistorySvc)
+	projectHistoryHandler := projectHistoryWire.Handler
 
 	// Call feature (optional — only when LiveKit is configured)
 	var callHandler *handler.CallHandler
@@ -328,23 +312,29 @@ func main() {
 		}
 	}()
 	slog.Info("phase 6: pending events worker started")
-	reviewSvc := reviewapp.NewService(reviewapp.ServiceDeps{
-		Reviews:       reviewRepo,
-		Proposals:     proposalRepo,
-		Users:         userRepo,
+
+	// Review service + handler (late-stage) — see
+	// wire_review_jobs_portfolio_report.go. Runs AFTER notification so
+	// the service can fire submission events through the notif pipeline.
+	reviewServiceWire := wireReviewService(reviewServiceDeps{
+		ReviewRepo:    reviewRepo,
+		ProposalRepo:  proposalRepo,
+		UserRepo:      userRepo,
 		Notifications: notifSvc,
 	})
+	reviewSvc := reviewServiceWire.Svc
 
-	// Report feature
-	reportRepo := postgres.NewReportRepository(db)
-	reportSvc := reportapp.NewService(reportapp.ServiceDeps{
-		Reports:      reportRepo,
-		Users:        userRepo,
-		Messages:     messageRepo,
-		Jobs:         jobRepo,
-		Applications: jobAppRepo,
+	// Report feature — see wire_review_jobs_portfolio_report.go.
+	reportWire := wireReport(reportDeps{
+		DB:          db,
+		UserRepo:    userRepo,
+		MessageRepo: messageRepo,
+		JobRepo:     jobRepo,
+		JobAppRepo:  jobAppRepo,
 	})
-	reportHandler := handler.NewReportHandler(reportSvc)
+	reportRepo := reportWire.Repo
+	reportSvc := reportWire.Svc
+	reportHandler := reportWire.Handler
 
 	// Media moderation feature — see wire_media.go.
 	mediaWorkerCtx, mediaWorkerCancel := context.WithCancel(context.Background())
@@ -619,9 +609,9 @@ func main() {
 	}
 	messagingHandler := handler.NewMessagingHandler(messagingSvc)
 	proposalHandler := proposalWire.ProposalHandler
-	jobHandler := handler.NewJobHandler(jobSvc)
-	jobAppHandler := handler.NewJobApplicationHandler(jobSvc)
-	reviewHandler := handler.NewReviewHandler(reviewSvc)
+	jobHandler := jobsWire.JobHandler
+	jobAppHandler := jobsWire.JobAppHandler
+	reviewHandler := reviewServiceWire.Handler
 
 	// Stripe handler (optional)
 	var stripeHandler *handler.StripeHandler
