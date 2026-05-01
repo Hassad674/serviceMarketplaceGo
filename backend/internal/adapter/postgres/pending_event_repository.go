@@ -5,11 +5,23 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
 	"marketplace-backend/internal/domain/pendingevent"
 )
+
+// staleProcessingThreshold is how long a row is allowed to sit in
+// 'processing' before another worker treats it as orphaned and
+// reclaims it. Tuned wider than any reasonable handler runtime — if
+// any single dispatch ever takes longer than this, two workers will
+// race the same row. 5 minutes covers slow Stripe / search-index
+// roundtrips by an order of magnitude.
+//
+// Exported via PopDueWithStaleThreshold so integration tests can drive
+// faster recoveries without waiting 5 real minutes.
+const staleProcessingThreshold = 5 * time.Minute
 
 // PendingEventRepository is the postgres-backed implementation of the
 // scheduler + outbox queue. It is intentionally small: 5 methods, all
@@ -79,14 +91,32 @@ func (r *PendingEventRepository) ScheduleTx(ctx context.Context, tx *sql.Tx, e *
 // Concurrent workers are safe: FOR UPDATE SKIP LOCKED hands disjoint
 // batches to each caller. There is no possibility of double-pop, no
 // row-level deadlock, and no need for an external lock.
+//
+// BUG-NEW-03 — also reclaims rows stuck in 'processing' whose
+// updated_at is older than staleProcessingThreshold. This recovers
+// from worker crashes between claim and MarkDone/Failed.
 func (r *PendingEventRepository) PopDue(ctx context.Context, limit int) ([]*pendingevent.PendingEvent, error) {
+	return r.PopDueWithStaleThreshold(ctx, limit, staleProcessingThreshold)
+}
+
+// PopDueWithStaleThreshold lets callers override the stale-processing
+// recovery window. Used by integration tests to verify the recovery
+// path without waiting the full production threshold (5 minutes).
+// Production code must use PopDue.
+func (r *PendingEventRepository) PopDueWithStaleThreshold(ctx context.Context, limit int, stale time.Duration) ([]*pendingevent.PendingEvent, error) {
 	if limit <= 0 {
 		limit = 10
+	}
+	if stale <= 0 {
+		stale = staleProcessingThreshold
 	}
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	rows, err := r.db.QueryContext(ctx, queryPopDuePendingEvents, limit)
+	// Pass stale as seconds — make_interval(secs => $2) on the SQL
+	// side. Float so sub-second test thresholds round correctly.
+	staleSeconds := stale.Seconds()
+	rows, err := r.db.QueryContext(ctx, queryPopDuePendingEvents, limit, staleSeconds)
 	if err != nil {
 		return nil, fmt.Errorf("pop due pending events: %w", err)
 	}
