@@ -87,6 +87,39 @@ const noRawImgPromoted = {
   },
 };
 
+// P3 — `react/forbid-elements` blocks raw <button>, <input>, <select>
+// outside of the design-system primitives layer. Every site has been
+// migrated to the Button / Input / Select primitives in
+// `src/shared/components/ui/`, which centralise focus-ring styling,
+// disabled states, and the rose-tinted design tokens documented in
+// CLAUDE.md.
+//
+// The rule is configured globally; an override for the primitives
+// folder itself + the LiveKit/call code (off-limits per repo policy)
+// scopes the check appropriately.
+const noRawNativeFormElements = {
+  files: ["src/**/*.{ts,tsx,jsx}"],
+  ignores: [
+    "src/shared/components/ui/**",
+    "src/features/call/**",
+    "src/**/__tests__/**",
+    "src/**/*.test.*",
+    "src/**/*.spec.*",
+  ],
+  rules: {
+    "react/forbid-elements": [
+      "error",
+      {
+        forbid: [
+          { element: "button", message: "Use <Button> from @/shared/components/ui/button" },
+          { element: "input", message: "Use <Input> from @/shared/components/ui/input" },
+          { element: "select", message: "Use <Select> from @/shared/components/ui/select" },
+        ],
+      },
+    ],
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -100,6 +133,7 @@ const eslintConfig = defineConfig([
   liveKitCallOffLimits,
   unusedVarsConvention,
   noRawImgPromoted,
+  noRawNativeFormElements,
 ]);
 
 export default eslintConfig;
