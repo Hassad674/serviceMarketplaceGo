@@ -7,7 +7,6 @@ import {
   DollarSign,
   Download,
   FileText,
-  User,
 } from "lucide-react"
 import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"

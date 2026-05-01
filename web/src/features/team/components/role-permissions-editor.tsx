@@ -109,7 +109,10 @@ export function RolePermissionsEditor({
   // (hard-coded on the backend, always shown in a dedicated section).
   // `cell.locked === true` is the backend's authoritative signal for
   // non-overridable permissions on non-Owner rows.
-  const { editableCells, lockedCells } = useMemo(() => {
+  // `lockedCells` is intentionally kept in the memo result so the
+  // partition stays explicit even if a future render needs it; we
+  // currently only render `editableCells`.
+  const { editableCells, lockedCells: _lockedCells } = useMemo(() => {
     if (!currentRoleRow) {
       return { editableCells: [], lockedCells: [] as RolePermissionCell[] }
     }

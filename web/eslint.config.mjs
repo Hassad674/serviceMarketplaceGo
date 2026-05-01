@@ -39,6 +39,26 @@ const phase5LegacyOverrides = {
   },
 };
 
+// Project-wide convention: variables, parameters, and destructured
+// values prefixed with `_` are intentionally unused (e.g. capture-only
+// destructures, unused params we keep for clarity). Recognising this
+// prefix in @typescript-eslint/no-unused-vars matches the typescript
+// community standard and matches the underscore comments scattered
+// across the codebase.
+const unusedVarsConvention = {
+  rules: {
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+        destructuredArrayIgnorePattern: "^_",
+      },
+    ],
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -49,6 +69,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   phase5LegacyOverrides,
+  unusedVarsConvention,
 ]);
 
 export default eslintConfig;

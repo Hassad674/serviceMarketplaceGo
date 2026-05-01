@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext } from "@playwright/test"
-import { registerProvider, registerEnterprise, clearAuth } from "./helpers/auth"
+import { registerProvider, registerEnterprise } from "./helpers/auth"
 
 // ---------------------------------------------------------------------------
 // Constants

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { registerProvider, login, logout, clearAuth } from "./helpers/auth"
+import { registerProvider, clearAuth } from "./helpers/auth"
 
 // ---------------------------------------------------------------------------
 // Messaging E2E tests
@@ -14,7 +14,7 @@ test.describe("Messaging", () => {
   })
 
   test("messages page loads with conversation list panel", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -26,7 +26,7 @@ test.describe("Messaging", () => {
   })
 
   test("conversation list shows title and search input", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -39,7 +39,7 @@ test.describe("Messaging", () => {
   })
 
   test("click conversation shows messages panel with input", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -59,7 +59,7 @@ test.describe("Messaging", () => {
   })
 
   test("role filter tabs are visible and clickable", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -84,7 +84,7 @@ test.describe("Messaging", () => {
   })
 
   test("search input filters conversations by name", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -104,7 +104,7 @@ test.describe("Messaging", () => {
   })
 
   test("message input accepts text and clears on send", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -117,7 +117,7 @@ test.describe("Messaging", () => {
   })
 
   test("send button disabled when empty, enabled with text", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -142,7 +142,7 @@ test.describe("Messaging", () => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 812 })
 
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -151,7 +151,7 @@ test.describe("Messaging", () => {
   })
 
   test("empty state shown when no conversation selected on desktop", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -166,7 +166,7 @@ test.describe("Messaging", () => {
   })
 
   test("file attachment button is visible in message input", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 
@@ -179,7 +179,7 @@ test.describe("Messaging", () => {
   })
 
   test("page maintains layout after rapid filter switching", async ({ page }) => {
-    const user = await registerProvider(page)
+    const _user = await registerProvider(page)
     await page.goto("/messaging")
     await page.waitForLoadState("networkidle")
 

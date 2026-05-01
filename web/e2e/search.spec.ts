@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test"
+import { test, expect } from "@playwright/test"
 import {
   registerProvider,
   registerAgency,
@@ -59,7 +59,7 @@ test.describe("Search freelancers", () => {
 
   test("freelancer cards have photo/initials, name, and role badge", async ({ page }) => {
     // First register a provider so at least one result exists
-    const { displayName } = await registerProvider(page)
+    const { displayName: _displayName } = await registerProvider(page)
 
     // Now register an enterprise to search
     await clearAuth(page)

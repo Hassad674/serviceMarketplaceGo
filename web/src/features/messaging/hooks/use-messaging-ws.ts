@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import type { WSServerFrame, WSClientFrame, Message, MessageListResponse, ConversationListResponse, Conversation, ProposalMessageMetadata } from "../types"
 import { markAsRead } from "../api/messaging-api"
 import { conversationsQueryKey } from "./use-conversations"
-import { messagesQueryKey, MESSAGES_KEY_BASE } from "./use-messages"
+import { messagesQueryKey } from "./use-messages"
 import { unreadCountQueryKey } from "@/shared/hooks/use-unread-count"
 import { proposalQueryKey } from "@/features/proposal/hooks/use-proposals"
 

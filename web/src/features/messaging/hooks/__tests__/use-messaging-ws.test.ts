@@ -404,7 +404,7 @@ describe("useMessagingWS", () => {
   })
 
   it("sends sync on reconnect when lastSeqMap has entries", async () => {
-    const { result } = renderHook(() => useMessagingWS("user-1"), {
+    const { result: _result } = renderHook(() => useMessagingWS("user-1"), {
       wrapper: createWrapper(),
     })
     await flushWSConnect()

@@ -35,8 +35,6 @@ import { mapAppLocaleToStripe } from "./lib/stripe-locale"
  *  - Polls account-status every 10s when user is actively editing to catch webhook updates.
  */
 
-type BusinessType = "individual" | "company"
-
 type AccountSessionResponse = {
   client_secret: string
   account_id: string

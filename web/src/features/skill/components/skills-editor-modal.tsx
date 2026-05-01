@@ -48,13 +48,27 @@ export function SkillsEditorModal({
   const t = useTranslations("profile.skills")
   const { data: persisted } = useProfileSkills()
   const mutation = useUpdateProfileSkills()
-  const [draft, setDraft] = useState<DraftSkill[]>([])
+
+  // Lazy init seeds the draft from the persisted list when the modal
+  // mounts already-open. Subsequent (open / persisted) changes are
+  // mirrored via the render-time tracker below — this replaces an
+  // earlier setState-in-effect bootstrap.
+  const seedDraft = (
+    source: typeof persisted,
+  ): DraftSkill[] =>
+    (source ?? []).map((entry) => ({
+      skill_text: entry.skill_text,
+      display_text: entry.display_text,
+    }))
+
+  const [draft, setDraft] = useState<DraftSkill[]>(() =>
+    open ? seedDraft(persisted) : [],
+  )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
 
-  // Re-seed the draft whenever the modal opens (or the persisted list
-  // identity changes) so the user always starts from the latest value.
-  // Render-time tracking avoids a setState-in-effect cascade.
+  // Re-seed the draft whenever the modal toggles open or the persisted
+  // list identity changes after mount.
   const [lastOpen, setLastOpen] = useState(open)
   const [lastPersisted, setLastPersisted] = useState(persisted)
   if (open !== lastOpen || persisted !== lastPersisted) {
@@ -62,12 +76,7 @@ export function SkillsEditorModal({
     setLastPersisted(persisted)
     if (open) {
       setErrorMessage(null)
-      setDraft(
-        (persisted ?? []).map((entry) => ({
-          skill_text: entry.skill_text,
-          display_text: entry.display_text,
-        })),
-      )
+      setDraft(seedDraft(persisted))
     }
   }
 

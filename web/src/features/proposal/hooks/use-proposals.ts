@@ -15,7 +15,7 @@ import {
 } from "../api/proposal-api"
 import type { CreateProposalData, ModifyProposalData } from "../api/proposal-api"
 import { conversationsQueryKey } from "@/features/messaging/hooks/use-conversations"
-import { messagesQueryKey, MESSAGES_KEY_BASE } from "@/features/messaging/hooks/use-messages"
+import { messagesQueryKey } from "@/features/messaging/hooks/use-messages"
 import { useCurrentUserId } from "@/shared/hooks/use-current-user-id"
 
 export function projectsQueryKey(uid: string | undefined) {

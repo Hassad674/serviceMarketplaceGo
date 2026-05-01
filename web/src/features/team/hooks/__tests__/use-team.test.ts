@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createElement } from "react"
 import {
   useTeamMembers,
-  useTeamInvitations,
   useSendInvitation,
   useRemoveMember,
   useLeaveOrganization,

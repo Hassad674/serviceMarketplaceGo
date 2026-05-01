@@ -2,7 +2,6 @@
 
 import { Loader2, X, LogOut } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { useRouter } from "@i18n/navigation"
 import { useLeaveOrganization } from "../hooks/use-team"
 
 // Self-leave confirmation dialog. On success we hard-redirect to
@@ -17,7 +16,6 @@ type LeaveOrgDialogProps = {
 
 export function LeaveOrgDialog({ open, onClose, orgID }: LeaveOrgDialogProps) {
   const t = useTranslations("team")
-  const router = useRouter()
   const mutation = useLeaveOrganization(orgID)
 
   if (!open) return null

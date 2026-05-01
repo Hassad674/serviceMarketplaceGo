@@ -47,7 +47,6 @@ export interface ActionsPanelProps {
 }
 
 export function ActionsPanel(props: ActionsPanelProps) {
-  const t = useTranslations("proposal")
   const canRespond = useHasPermission("proposals.respond")
 
   return (
@@ -187,7 +186,7 @@ function ActionButtons({
   proposal,
   currentMilestone,
   isRecipient,
-  isSender,
+  isSender: _isSender,
   isClient,
   isProvider,
   isMutating,

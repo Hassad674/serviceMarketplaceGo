@@ -4,7 +4,6 @@ import type { NextRequest } from "next/server"
 import { routing } from "@i18n/routing"
 
 const LOCALES = routing.locales as readonly string[]
-const DEFAULT_LOCALE = routing.defaultLocale as string
 
 const intlMiddleware = createMiddleware(routing)
 

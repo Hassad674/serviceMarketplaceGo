@@ -1,4 +1,4 @@
-import { test, expect, type Page, type BrowserContext } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
 
 /**
  * E2E tests for the call system (audio + video).
@@ -33,7 +33,8 @@ async function login(page: Page, user: typeof USER_A) {
   await page.waitForURL(/\/dashboard|\/messages/, { timeout: 10000 })
 }
 
-async function navigateToConversation(page: Page, otherUserName: string) {
+// Kept for when this skipped suite is reactivated — see test.skip below.
+async function _navigateToConversation(page: Page, otherUserName: string) {
   await page.goto(`${BASE_URL}/messages`)
   await page.waitForSelector('[data-testid="conversation-list"]', { timeout: 5000 }).catch(() => {})
   // Click on the conversation with the other user
@@ -44,7 +45,8 @@ async function navigateToConversation(page: Page, otherUserName: string) {
   }
 }
 
-async function clearGhostCalls() {
+// Kept for when this skipped suite is reactivated.
+async function _clearGhostCalls() {
   // Clear any stuck call states in Redis via the API
   // This is a best-effort cleanup
   try {

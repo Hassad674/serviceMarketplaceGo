@@ -226,7 +226,7 @@ async function approvePendingBonuses(adminCookie: string): Promise<void> {
  * Complete a full mission cycle: create proposal, accept, activate, approve pending bonus.
  * Returns the provider's credits after the bonus is approved.
  */
-async function completeMissionAndApprovBonus(
+async function _completeMissionAndApprovBonus(
   enterpriseCookie: string,
   providerCookie: string,
   providerId: string,
@@ -262,7 +262,7 @@ test.describe("Credit bonus fraud detection", () => {
     // Step 1: Register enterprise
     await registerEnterprise(page)
     const enterpriseCookie = await getSessionCookie(context)
-    const enterpriseId = await getMyUserID(enterpriseCookie)
+    const _enterpriseId = await getMyUserID(enterpriseCookie)
 
     // Step 2: Register provider
     await context.clearCookies()

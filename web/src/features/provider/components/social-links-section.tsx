@@ -34,7 +34,6 @@ const PLATFORMS: PlatformMeta[] = [
 
 export function SocialLinksSection() {
   const t = useTranslations("profile")
-  const tCommon = useTranslations("common")
   const canEdit = useHasPermission("org_profile.edit")
   const { data: links = [], isLoading } = useMySocialLinks()
   const upsertMutation = useUpsertSocialLink()
