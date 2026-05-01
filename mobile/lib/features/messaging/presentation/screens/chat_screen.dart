@@ -403,39 +403,63 @@ class _MessagesListView extends ConsumerWidget {
       controller: scrollController,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       itemCount: messages.length,
+      // Stable identity per message: a new message inserted at the
+      // top no longer rebuilds every existing bubble below it
+      // (PERF-M-06). Combined with the RepaintBoundary inside
+      // MessageBubble, scroll cost is dominated by the new item only.
+      findChildIndexCallback: (key) {
+        if (key is! ValueKey<String>) return null;
+        final id = key.value;
+        final idx = messages.indexWhere((m) => m.id == id);
+        return idx >= 0 ? idx : null;
+      },
+      // Pre-render ~1 screen above and below the viewport so a fast
+      // flick doesn't reveal a blank tile. 800 lp matches the typical
+      // phone screen height for chat content.
+      cacheExtent: 800,
+      // Chat bubbles don't hold transient state we want to preserve
+      // off-screen — disabling KeepAlive frees the State of every
+      // bubble that scrolls beyond the cache extent.
+      addAutomaticKeepAlives: false,
       itemBuilder: (context, index) {
         final message = messages[index];
         final isOwn = message.senderId == currentUserId;
-        return MessageBubble(
-          message: message,
-          isOwn: isOwn,
-          currentUserId: currentUserId,
-          onReply: !message.isDeleted ? () => onReply(message) : null,
-          onEdit:
-              isOwn && !message.isDeleted ? () => onEdit(message) : null,
-          onDelete:
-              isOwn && !message.isDeleted ? () => onDelete(message) : null,
-          onReport: !isOwn && !message.isDeleted
-              ? () => showReportBottomSheet(
-                    context,
-                    ref,
-                    targetType: 'message',
-                    targetId: message.id,
-                    conversationId: conversationId,
-                  )
-              : null,
-          onAcceptProposal: proposalHandlers.handleAccept,
-          onDeclineProposal: proposalHandlers.handleDecline,
-          onModifyProposal: proposalHandlers.handleModify,
-          onPayProposal: proposalHandlers.handlePay,
-          onReview: (id, title, clientOrgId, providerOrgId) =>
-              proposalHandlers.handleReview(
-            proposalId: id,
-            proposalTitle: title,
-            clientOrganizationId: clientOrgId,
-            providerOrganizationId: providerOrgId,
+        // RepaintBoundary keeps an individual bubble's repaint
+        // (e.g. typing indicator overlay, edit highlight) inside the
+        // bubble's own layer (PERF-M-08).
+        return RepaintBoundary(
+          key: ValueKey<String>(message.id),
+          child: MessageBubble(
+            message: message,
+            isOwn: isOwn,
+            currentUserId: currentUserId,
+            onReply: !message.isDeleted ? () => onReply(message) : null,
+            onEdit:
+                isOwn && !message.isDeleted ? () => onEdit(message) : null,
+            onDelete:
+                isOwn && !message.isDeleted ? () => onDelete(message) : null,
+            onReport: !isOwn && !message.isDeleted
+                ? () => showReportBottomSheet(
+                      context,
+                      ref,
+                      targetType: 'message',
+                      targetId: message.id,
+                      conversationId: conversationId,
+                    )
+                : null,
+            onAcceptProposal: proposalHandlers.handleAccept,
+            onDeclineProposal: proposalHandlers.handleDecline,
+            onModifyProposal: proposalHandlers.handleModify,
+            onPayProposal: proposalHandlers.handlePay,
+            onReview: (id, title, clientOrgId, providerOrgId) =>
+                proposalHandlers.handleReview(
+              proposalId: id,
+              proposalTitle: title,
+              clientOrganizationId: clientOrgId,
+              providerOrganizationId: providerOrgId,
+            ),
+            onViewProposalDetail: proposalHandlers.handleViewDetail,
           ),
-          onViewProposalDetail: proposalHandlers.handleViewDetail,
         );
       },
     );
