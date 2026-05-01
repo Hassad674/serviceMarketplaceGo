@@ -568,6 +568,15 @@ func handleAuthError(w http.ResponseWriter, err error) {
 		if errors.Is(statusErr.Sentinel, user.ErrAccountBanned) {
 			code = "account_banned"
 			message = "Votre compte a \u00e9t\u00e9 banni"
+		} else if errors.Is(statusErr.Sentinel, user.ErrAccountScheduledForDeletion) {
+			// P5 (GDPR): soft-deleted account. 410 Gone tells the
+			// frontend the resource is scheduled for deletion;
+			// `reason` is the RFC3339 deleted_at timestamp so the
+			// UI can compute the 30-day countdown without a
+			// separate fetch.
+			code = "account_scheduled_for_deletion"
+			message = "Votre compte est planifi\u00e9 pour suppression"
+			httpStatus = http.StatusGone
 		}
 		res.JSON(w, httpStatus, map[string]string{
 			"error":   code,

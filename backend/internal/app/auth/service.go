@@ -346,6 +346,27 @@ func (s *Service) Login(ctx context.Context, input LoginInput) (*AuthOutput, err
 		return nil, user.ErrInvalidCredentials
 	}
 
+	if u.IsScheduledForDeletion() {
+		// P5 (GDPR): refuse login for users whose deleted_at is
+		// set. The frontend uses the typed error code to redirect
+		// to /account/cancel-deletion if the user wants to keep
+		// the account.
+		s.logAudit(ctx, audit.NewEntryInput{
+			UserID:       &u.ID,
+			Action:       audit.ActionLoginFailure,
+			ResourceType: audit.ResourceTypeUser,
+			ResourceID:   &u.ID,
+			Metadata: map[string]any{
+				"email":  email.String(),
+				"reason": "account_scheduled_for_deletion",
+			},
+		})
+		reason := ""
+		if u.DeletedAt != nil {
+			reason = u.DeletedAt.Format(time.RFC3339)
+		}
+		return nil, user.NewScheduledForDeletionError(reason)
+	}
 	if u.IsSuspended() {
 		s.logAudit(ctx, audit.NewEntryInput{
 			UserID:       &u.ID,
