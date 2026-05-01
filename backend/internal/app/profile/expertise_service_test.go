@@ -378,3 +378,78 @@ func TestExpertiseService_SetExpertise_PersistenceFailure(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "set expertise: persist")
 }
+
+// --- Cache invalidation hook ---
+
+// stubInvalidator captures every Invalidate call so tests can assert
+// the cache-aside contract: DB write succeeds → cache delete fires
+// exactly once with the right org id.
+type stubInvalidator struct {
+	calls []uuid.UUID
+	err   error
+}
+
+func (s *stubInvalidator) Invalidate(_ context.Context, orgID uuid.UUID) error {
+	s.calls = append(s.calls, orgID)
+	return s.err
+}
+
+func TestExpertiseService_SetExpertise_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	expRepo := &mockExpertiseRepo{
+		replaceFn: func(_ context.Context, _ uuid.UUID, _ []string) error { return nil },
+	}
+	inv := &stubInvalidator{}
+	svc := newTestExpertiseService(expRepo, agencyOrgResolver(orgID)).WithCacheInvalidator(inv)
+
+	_, err := svc.SetExpertise(context.Background(), orgID, []string{"development"})
+	require.NoError(t, err)
+
+	require.Len(t, inv.calls, 1, "cache must be invalidated exactly once on a successful write")
+	assert.Equal(t, orgID, inv.calls[0])
+}
+
+func TestExpertiseService_SetExpertise_PersistenceFailure_DoesNotInvalidate(t *testing.T) {
+	// Critical invariant: a failed DB write must NOT invalidate the
+	// cache, otherwise concurrent readers see a hole and re-populate
+	// from a stale row, defeating the whole point of cache-aside.
+	orgID := uuid.New()
+	expRepo := &mockExpertiseRepo{
+		replaceFn: func(_ context.Context, _ uuid.UUID, _ []string) error {
+			return errors.New("connection lost")
+		},
+	}
+	inv := &stubInvalidator{}
+	svc := newTestExpertiseService(expRepo, agencyOrgResolver(orgID)).WithCacheInvalidator(inv)
+
+	_, err := svc.SetExpertise(context.Background(), orgID, []string{"development"})
+	require.Error(t, err)
+
+	assert.Empty(t, inv.calls, "cache must NOT be invalidated when the DB write failed")
+}
+
+func TestExpertiseService_SetExpertise_InvalidatorErrorDoesNotFailWrite(t *testing.T) {
+	// A flaky cache must not unwind a successful DB write — the
+	// caller's intent (persist new expertise) has already been
+	// satisfied. We accept temporarily-stale cache reads until the
+	// next successful invalidate or the TTL ages out.
+	orgID := uuid.New()
+	expRepo := &mockExpertiseRepo{
+		replaceFn: func(_ context.Context, _ uuid.UUID, _ []string) error { return nil },
+	}
+	inv := &stubInvalidator{err: errors.New("redis down")}
+	svc := newTestExpertiseService(expRepo, agencyOrgResolver(orgID)).WithCacheInvalidator(inv)
+
+	result, err := svc.SetExpertise(context.Background(), orgID, []string{"development"})
+	require.NoError(t, err, "invalidator failure must not fail the write")
+	assert.Equal(t, []string{"development"}, result)
+	assert.Len(t, inv.calls, 1)
+}
+
+func TestExpertiseService_WithCacheInvalidator_NilReceiver(t *testing.T) {
+	// Defensive: WithCacheInvalidator on a nil receiver returns nil
+	// instead of panicking. Mirrors the same nil-tolerant idiom on
+	// freelanceprofile.Service.WithSearchIndexPublisher.
+	var svc *ExpertiseService
+	assert.Nil(t, svc.WithCacheInvalidator(nil))
+}

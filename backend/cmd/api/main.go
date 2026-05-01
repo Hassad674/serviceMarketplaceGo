@@ -1026,8 +1026,68 @@ func main() {
 	}
 	freelancePricingRepo := postgres.NewFreelancePricingRepository(db)
 	freelancePricingSvc := freelancepricingapp.NewService(freelancePricingRepo)
+
+	// ---- Phase 4-M: Redis cache-aside on hot read paths ----
+	//
+	// Each cache wraps the underlying app service via the decorator
+	// pattern (see adapter/redis/profile_cache.go for the rationale).
+	// Reads first consult Redis; misses fall through to the service
+	// and back-fill the entry. Writes go through the service directly
+	// — the service fires the cache's Invalidate hook AFTER a
+	// successful DB write (cache-aside contract — DB write succeeds
+	// → cache delete; reverse order opens a split-brain window).
+	//
+	// TTLs are tuned per signal volatility:
+	//   - profile:agency:{org}      60s (operator edits are rare)
+	//   - profile:freelance:{org}   60s (same)
+	//   - expertise:org:{org}       5min (lists change very rarely)
+	//   - skills:curated:{key}:{n}  10min (catalog is curator-seeded)
+	//
+	// Stampede protection: every cache uses a singleflight.Group so
+	// a thundering herd on a cold key triggers exactly one DB call.
+	//
+	// Negative caching: per-org profile caches absorb 404 spam by
+	// caching the not-found signal for 30s.
+	publicProfileCache := redisadapter.NewCachedPublicProfileReader(
+		redisClient, profileSvc,
+		redisadapter.DefaultPublicProfileCacheTTL,
+		redisadapter.DefaultPublicProfileNegativeTTL,
+	)
+	profileSvc = profileSvc.WithCacheInvalidator(publicProfileCache)
+
+	publicFreelanceProfileCache := redisadapter.NewCachedPublicFreelanceProfileReader(
+		redisClient, freelanceProfileSvc,
+		redisadapter.DefaultPublicProfileCacheTTL,
+		redisadapter.DefaultPublicProfileNegativeTTL,
+	)
+	freelanceProfileSvc = freelanceProfileSvc.WithCacheInvalidator(publicFreelanceProfileCache)
+
+	expertiseCache := redisadapter.NewCachedExpertiseReader(
+		redisClient, expertiseSvc, redisadapter.DefaultExpertiseCacheTTL,
+	)
+	expertiseSvc = expertiseSvc.WithCacheInvalidator(expertiseCache)
+
+	skillCatalogCache := redisadapter.NewCachedSkillCatalogReader(
+		redisClient, skillSvc, redisadapter.DefaultSkillCatalogCacheTTL,
+	)
+	// The skill handler needs every method on the skill service —
+	// the cache only covers the two highest-traffic catalog reads.
+	// A tiny composite routes the cached methods through Redis and
+	// delegates everything else to the underlying service. See
+	// caching_skill_service.go for the wrapper definition.
+	cachingSkillSvc := newCachingSkillService(skillSvc, skillCatalogCache)
+	// Re-wire skillHandler with the cached service (the earlier
+	// construction at line ~981 used the uncached service so the
+	// search publisher could be attached; we re-construct here so
+	// both the cache AND the publisher are in play).
+	skillHandler = handler.NewSkillHandler(cachingSkillSvc)
+	if searchPublisher != nil {
+		skillHandler = skillHandler.WithSearchIndexPublisher(searchPublisher)
+	}
+
 	freelanceProfileHandler := handler.
 		NewFreelanceProfileHandler(freelanceProfileSvc).
+		WithPublicReader(publicFreelanceProfileCache).
 		WithSkillsReader(skillSvc).
 		WithPricingReader(freelancePricingSvc)
 	freelancePricingHandler := handler.NewFreelancePricingHandler(freelancePricingSvc, freelanceProfileSvc)
@@ -1124,6 +1184,8 @@ func main() {
 
 	profileHandler := handler.
 		NewProfileHandler(profileSvc, expertiseSvc).
+		WithPublicReader(publicProfileCache).
+		WithExpertiseReader(expertiseCache).
 		WithSkillsReader(skillSvc).
 		WithPricingReader(profilePricingSvc).
 		WithClientStatsReader(clientProfileReadSvc)

@@ -992,3 +992,116 @@ func TestService_UpdateAvailability_Outbox_UsesTxPath(t *testing.T) {
 	assert.Equal(t, 1, runner.calls)
 	assert.Equal(t, 1, pub.reindexTxCalls)
 }
+
+// --- Cache invalidation hook ---
+
+// stubProfileInvalidator captures every Invalidate call so tests can
+// assert the cache-aside contract: DB write succeeds → cache delete
+// fires exactly once with the right org id, and a failed DB write
+// MUST not invalidate.
+type stubProfileInvalidator struct {
+	calls []uuid.UUID
+	err   error
+}
+
+func (s *stubProfileInvalidator) Invalidate(_ context.Context, orgID uuid.UUID) error {
+	s.calls = append(s.calls, orgID)
+	return s.err
+}
+
+func TestService_UpdateProfile_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+			return profile.NewProfile(orgID), nil
+		},
+	}
+	inv := &stubProfileInvalidator{}
+	svc := NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateProfile(context.Background(), orgID, UpdateProfileInput{
+		Title: "New Title",
+	})
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1, "cache must be invalidated on successful UpdateProfile")
+	assert.Equal(t, orgID, inv.calls[0])
+}
+
+func TestService_UpdateProfile_PersistenceFailure_DoesNotInvalidate(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{
+		getByOrgIDFn: func(_ context.Context, _ uuid.UUID) (*profile.Profile, error) {
+			return profile.NewProfile(orgID), nil
+		},
+		updateFn: func(_ context.Context, _ *profile.Profile) error {
+			return errors.New("connection lost")
+		},
+	}
+	inv := &stubProfileInvalidator{}
+	svc := NewService(repo).WithCacheInvalidator(inv)
+
+	_, err := svc.UpdateProfile(context.Background(), orgID, UpdateProfileInput{Title: "fail"})
+	require.Error(t, err)
+	assert.Empty(t, inv.calls, "cache must NOT be invalidated when DB write fails")
+}
+
+func TestService_UpdateLocation_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{}
+	inv := &stubProfileInvalidator{}
+	svc := NewService(repo).WithCacheInvalidator(inv)
+
+	err := svc.UpdateLocation(context.Background(), orgID, UpdateLocationInput{
+		City:        "Paris",
+		CountryCode: "FR",
+		WorkMode:    []string{"remote"},
+	})
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+	assert.Equal(t, orgID, inv.calls[0])
+}
+
+func TestService_UpdateLanguages_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{}
+	inv := &stubProfileInvalidator{}
+	svc := NewService(repo).WithCacheInvalidator(inv)
+
+	err := svc.UpdateLanguages(context.Background(), orgID, []string{"en"}, []string{"fr"})
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+}
+
+func TestService_UpdateAvailability_FiresCacheInvalidator(t *testing.T) {
+	orgID := uuid.New()
+	repo := &mockProfileRepo{}
+	inv := &stubProfileInvalidator{}
+	svc := NewService(repo).WithCacheInvalidator(inv)
+
+	avail := profile.AvailabilityNow
+	err := svc.UpdateAvailability(context.Background(), orgID, &avail, nil)
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+}
+
+func TestService_InvalidatorErrorDoesNotFailWrite(t *testing.T) {
+	// A flaky cache must not unwind a successful DB write.
+	orgID := uuid.New()
+	repo := &mockProfileRepo{}
+	inv := &stubProfileInvalidator{err: errors.New("redis down")}
+	svc := NewService(repo).WithCacheInvalidator(inv)
+
+	avail := profile.AvailabilityNow
+	err := svc.UpdateAvailability(context.Background(), orgID, &avail, nil)
+	require.NoError(t, err)
+	assert.Len(t, inv.calls, 1, "invalidator was called even though it failed")
+}
+
+func TestService_WithCacheInvalidator_NilReceiver(t *testing.T) {
+	var svc *Service
+	assert.Nil(t, svc.WithCacheInvalidator(nil))
+}
+
+// Compile-time guard: WithCacheInvalidator must accept the
+// service.CacheInvalidatorByOrgID interface.
+var _ service.CacheInvalidatorByOrgID = (*stubProfileInvalidator)(nil)
