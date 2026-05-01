@@ -49,6 +49,11 @@ class FakeSecureStorage extends SecureStorageService {
 ///
 /// Register handlers for specific paths. Unregistered paths throw
 /// [DioException] with connection error type.
+///
+/// The override signatures here MUST stay in lockstep with
+/// `lib/core/network/api_client.dart`. When the production client gains
+/// or renames a parameter, this fake must follow — see
+/// `fake_api_client_test.dart` for the pin tests that catch drift.
 class FakeApiClient extends ApiClient {
   FakeApiClient() : super(storage: FakeSecureStorage());
 
@@ -58,15 +63,24 @@ class FakeApiClient extends ApiClient {
       getHandlers = {};
   final Map<String, Future<Response<dynamic>> Function(dynamic data)>
       putHandlers = {};
+  final Map<String, Future<Response<dynamic>> Function(dynamic data)>
+      patchHandlers = {};
   final Map<String, Future<Response<dynamic>> Function()> deleteHandlers = {};
   final Map<String, Future<Response<dynamic>> Function(FormData data)>
       uploadHandlers = {};
+
+  /// Captures the [Options] argument from the most recent `get` call so
+  /// tests can assert that production code forwarded the right options
+  /// (e.g. `responseType: ResponseType.bytes` on PDF downloads).
+  Options? lastGetOptions;
 
   @override
   Future<Response<T>> get<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
+    Options? options,
   }) async {
+    lastGetOptions = options;
     final handler = getHandlers[path];
     if (handler != null) {
       final response = await handler(queryParameters);
@@ -94,6 +108,19 @@ class FakeApiClient extends ApiClient {
   @override
   Future<Response<T>> put<T>(String path, {dynamic data}) async {
     final handler = putHandlers[path];
+    if (handler != null) {
+      final response = await handler(data);
+      return response as Response<T>;
+    }
+    throw DioException(
+      requestOptions: RequestOptions(path: path),
+      type: DioExceptionType.connectionError,
+    );
+  }
+
+  @override
+  Future<Response<T>> patch<T>(String path, {dynamic data}) async {
+    final handler = patchHandlers[path];
     if (handler != null) {
       final response = await handler(data);
       return response as Response<T>;
