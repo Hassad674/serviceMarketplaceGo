@@ -79,15 +79,45 @@ type ClientStatsReader interface {
 	GetStats(ctx context.Context, orgID uuid.UUID) (*clientprofileapp.ClientStats, error)
 }
 
+// PublicProfileReader is the narrow read contract the handler uses
+// for the cacheable public profile read paths. The concrete
+// *profileapp.Service satisfies it directly; in production the
+// wiring layer wraps the service with a Redis cache decorator that
+// also satisfies this contract — the handler is then completely
+// agnostic of whether a cache is present.
+//
+// Defined locally (not in port/) to keep the handler's
+// dependency graph flat: the only consumer is this file.
+type PublicProfileReader interface {
+	GetProfile(ctx context.Context, orgID uuid.UUID) (*profile.Profile, error)
+}
+
+// ExpertiseReader is the narrow read contract the handler uses for
+// the cacheable expertise list (org's declared specializations).
+// The concrete *profileapp.ExpertiseService satisfies it directly;
+// in production main.go wraps it with a Redis cache decorator.
+type ExpertiseReader interface {
+	ListByOrganization(ctx context.Context, orgID uuid.UUID) ([]string, error)
+}
+
 // ProfileHandler wires the profile-related HTTP endpoints to the
 // profile application services. The expertise service, skills
 // reader, pricing reader, and client stats reader are optional at
 // the struct level so existing unit tests that only care about the
 // main profile flow can pass nil — in production wiring
 // (cmd/api/main.go) they are always non-nil.
+//
+// publicReader is consulted first on read paths (GetPublicProfile /
+// owner self-read after a successful write). It defaults to the
+// profile service itself but can be overridden via WithPublicReader
+// to point at a Redis-backed cache decorator. Writes always go
+// through profileService — the cache invalidates itself via the
+// service's WithCacheInvalidator hook.
 type ProfileHandler struct {
 	profileService    *profileapp.Service
 	expertiseService  *profileapp.ExpertiseService
+	publicReader      PublicProfileReader
+	expertiseReader   ExpertiseReader
 	skillsReader      SkillsReader
 	pricingReader     PricingReader
 	clientStatsReader ClientStatsReader
@@ -102,10 +132,49 @@ func NewProfileHandler(
 	profileService *profileapp.Service,
 	expertiseService *profileapp.ExpertiseService,
 ) *ProfileHandler {
-	return &ProfileHandler{
+	h := &ProfileHandler{
 		profileService:   profileService,
 		expertiseService: expertiseService,
+		// Default the public reader to the service itself so legacy
+		// call sites (tests + main.go before the cache wiring lands)
+		// keep working without a cache. WithPublicReader overrides
+		// this with the Redis-backed decorator in production.
+		publicReader: profileService,
 	}
+	// Default expertise reader: nil-safe assignment — assigning a
+	// typed-nil *ExpertiseService into an interface field would
+	// produce a non-nil interface holding a nil pointer, which then
+	// nil-derefs on call. Only wrap when the concrete is actually
+	// non-nil. Tests that pass nil intentionally still get a clean
+	// "no expertise" path via loadExpertise's nil guard.
+	if expertiseService != nil {
+		h.expertiseReader = expertiseService
+	}
+	return h
+}
+
+// WithExpertiseReader overrides the default expertise reader.
+// Pass a Redis cache decorator that wraps the expertise service.
+// Nil is a no-op.
+func (h *ProfileHandler) WithExpertiseReader(reader ExpertiseReader) *ProfileHandler {
+	if reader != nil {
+		h.expertiseReader = reader
+	}
+	return h
+}
+
+// WithPublicReader overrides the default reader used for public
+// profile reads (GetPublicProfile + the owner self-read after a
+// successful write). Pass a Redis cache decorator that wraps the
+// underlying service, or nil to leave the existing reader in
+// place. The override is applied in main.go after the cache is
+// constructed; in tests this method is rarely needed because the
+// service itself is fast enough.
+func (h *ProfileHandler) WithPublicReader(reader PublicProfileReader) *ProfileHandler {
+	if reader != nil {
+		h.publicReader = reader
+	}
+	return h
 }
 
 // WithSkillsReader sets the skills reader used to decorate public
@@ -151,7 +220,7 @@ func (h *ProfileHandler) GetMyProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, err := h.profileService.GetProfile(r.Context(), orgID)
+	p, err := h.publicReader.GetProfile(r.Context(), orgID)
 	if err != nil {
 		handleProfileError(w, err)
 		return
@@ -340,7 +409,7 @@ func (h *ProfileHandler) UpdateMyAvailability(w http.ResponseWriter, r *http.Req
 // client always receives the canonical post-write shape in one
 // roundtrip.
 func (h *ProfileHandler) writeProfileFromOrg(w http.ResponseWriter, r *http.Request, orgID uuid.UUID) {
-	p, err := h.profileService.GetProfile(r.Context(), orgID)
+	p, err := h.publicReader.GetProfile(r.Context(), orgID)
 	if err != nil {
 		handleProfileError(w, err)
 		return
@@ -417,7 +486,7 @@ func (h *ProfileHandler) GetPublicProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	p, err := h.profileService.GetProfile(r.Context(), orgID)
+	p, err := h.publicReader.GetProfile(r.Context(), orgID)
 	if err != nil {
 		handleProfileError(w, err)
 		return
@@ -483,10 +552,10 @@ func (h *ProfileHandler) UpdateMyExpertise(w http.ResponseWriter, r *http.Reques
 // read failure never fails the whole profile endpoint. The caller
 // gets a guaranteed non-nil empty slice when nothing is declared.
 func (h *ProfileHandler) loadExpertise(r *http.Request, orgID uuid.UUID) []string {
-	if h.expertiseService == nil {
+	if h.expertiseReader == nil {
 		return []string{}
 	}
-	domains, err := h.expertiseService.ListByOrganization(r.Context(), orgID)
+	domains, err := h.expertiseReader.ListByOrganization(r.Context(), orgID)
 	if err != nil {
 		// Do not surface — the profile read succeeded, and the expertise
 		// section is decorative. The error is already logged deep in the

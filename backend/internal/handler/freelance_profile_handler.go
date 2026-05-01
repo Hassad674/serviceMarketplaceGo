@@ -34,13 +34,28 @@ type FreelancePricingReader interface {
 	Get(ctx context.Context, profileID uuid.UUID) (*domainfreelancepricing.Pricing, error)
 }
 
+// PublicFreelanceProfileReader is the narrow read contract the
+// handler uses for the public freelance profile endpoint. The
+// concrete *freelanceprofileapp.Service satisfies it directly; in
+// production the wiring layer wraps the service with a Redis cache
+// decorator that also satisfies this contract.
+type PublicFreelanceProfileReader interface {
+	GetPublicByOrgID(ctx context.Context, orgID uuid.UUID) (*repository.FreelanceProfileView, error)
+}
+
 // FreelanceProfileHandler wires the freelance profile HTTP
 // endpoints to the freelance profile app service. Skills and
 // pricing are optional collaborators wired via fluent builders
 // after construction — passing nil is safe and yields empty
 // decorations.
+//
+// publicReader is consulted on the public read path
+// (GetPublic /freelance-profiles/{id}). It defaults to the service
+// itself but can be overridden via WithPublicReader to point at a
+// Redis-backed cache decorator.
 type FreelanceProfileHandler struct {
 	svc           *freelanceprofileapp.Service
+	publicReader  PublicFreelanceProfileReader
 	skillsReader  SkillsReader
 	pricingReader FreelancePricingReader
 }
@@ -48,7 +63,23 @@ type FreelanceProfileHandler struct {
 // NewFreelanceProfileHandler constructs the handler with the
 // freelance profile service.
 func NewFreelanceProfileHandler(svc *freelanceprofileapp.Service) *FreelanceProfileHandler {
-	return &FreelanceProfileHandler{svc: svc}
+	return &FreelanceProfileHandler{
+		svc: svc,
+		// Default reader is the service itself; main.go overrides
+		// with the Redis cache via WithPublicReader.
+		publicReader: svc,
+	}
+}
+
+// WithPublicReader overrides the default reader used for public
+// freelance profile reads. Pass a Redis cache decorator that wraps
+// the underlying service. Nil is a no-op (preserves the existing
+// reader).
+func (h *FreelanceProfileHandler) WithPublicReader(reader PublicFreelanceProfileReader) *FreelanceProfileHandler {
+	if reader != nil {
+		h.publicReader = reader
+	}
+	return h
 }
 
 // WithSkillsReader attaches the skills decorator. Nil is a no-op.
@@ -180,7 +211,7 @@ func (h *FreelanceProfileHandler) GetPublic(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	view, err := h.svc.GetPublicByOrgID(r.Context(), orgID)
+	view, err := h.publicReader.GetPublicByOrgID(r.Context(), orgID)
 	if err != nil {
 		handleFreelanceProfileError(w, err)
 		return

@@ -23,6 +23,7 @@ import (
 	"marketplace-backend/internal/domain/freelanceprofile"
 	"marketplace-backend/internal/domain/profile"
 	"marketplace-backend/internal/port/repository"
+	portservice "marketplace-backend/internal/port/service"
 	"marketplace-backend/internal/search"
 )
 
@@ -58,6 +59,14 @@ type Service struct {
 	// behaviour (separate writes, hors-tx schedule) — this is
 	// needed for tests that drive the service without a database.
 	txRunner repository.TxRunner
+
+	// cacheInvalidator is fired AFTER every successful write so the
+	// public freelance profile cache (Redis) flushes the affected
+	// orgID. Nil-safe: when unset, callers wait for the TTL to age
+	// out instead. Order is critical: DB write → cache invalidate.
+	// Reverse order opens a split-brain window where a concurrent
+	// reader re-populates from the pre-write row.
+	cacheInvalidator portservice.CacheInvalidatorByOrgID
 }
 
 // NewService wires the freelance profile service with its single
@@ -97,6 +106,33 @@ func (s *Service) WithTxRunner(runner repository.TxRunner) *Service {
 	clone := *s
 	clone.txRunner = runner
 	return &clone
+}
+
+// WithCacheInvalidator attaches the optional read-cache invalidator
+// fired after every UpdateCore / UpdateAvailability / UpdateExpertise
+// success. Returns the same service for fluent wiring. Nil disables
+// the hook — reads will simply be up-to-TTL stale, still correct.
+func (s *Service) WithCacheInvalidator(inv portservice.CacheInvalidatorByOrgID) *Service {
+	if s == nil {
+		return nil
+	}
+	clone := *s
+	clone.cacheInvalidator = inv
+	return &clone
+}
+
+// invalidateCache fires the optional read-cache invalidator. Best-
+// effort: a failed Del logs but never unwinds the successful DB
+// write — the cache will simply serve a stale entry for at most
+// the TTL window before converging.
+func (s *Service) invalidateCache(ctx context.Context, orgID uuid.UUID) {
+	if s.cacheInvalidator == nil {
+		return
+	}
+	if err := s.cacheInvalidator.Invalidate(ctx, orgID); err != nil {
+		slog.Warn("freelance profile: cache invalidation failed",
+			"org_id", orgID, "error", err)
+	}
 }
 
 // publishReindex is the best-effort wrapper around the legacy
@@ -191,6 +227,7 @@ func (s *Service) UpdateCore(ctx context.Context, orgID uuid.UUID, input UpdateC
 		}); err != nil {
 			return nil, fmt.Errorf("update freelance profile core: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return s.GetByOrgID(ctx, orgID)
 	}
 
@@ -198,6 +235,7 @@ func (s *Service) UpdateCore(ctx context.Context, orgID uuid.UUID, input UpdateC
 		return nil, fmt.Errorf("update freelance profile core: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
@@ -221,6 +259,7 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, raw s
 		}); err != nil {
 			return nil, fmt.Errorf("update freelance profile availability: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return s.GetByOrgID(ctx, orgID)
 	}
 
@@ -228,6 +267,7 @@ func (s *Service) UpdateAvailability(ctx context.Context, orgID uuid.UUID, raw s
 		return nil, fmt.Errorf("update freelance profile availability: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
@@ -251,6 +291,7 @@ func (s *Service) UpdateExpertise(ctx context.Context, orgID uuid.UUID, domains 
 		}); err != nil {
 			return nil, fmt.Errorf("update freelance profile expertise: %w", err)
 		}
+		s.invalidateCache(ctx, orgID)
 		return s.GetByOrgID(ctx, orgID)
 	}
 
@@ -258,6 +299,7 @@ func (s *Service) UpdateExpertise(ctx context.Context, orgID uuid.UUID, domains 
 		return nil, fmt.Errorf("update freelance profile expertise: %w", err)
 	}
 	s.publishReindex(ctx, orgID)
+	s.invalidateCache(ctx, orgID)
 	return s.GetByOrgID(ctx, orgID)
 }
 
