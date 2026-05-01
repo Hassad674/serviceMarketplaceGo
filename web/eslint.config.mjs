@@ -74,6 +74,19 @@ const unusedVarsConvention = {
   },
 };
 
+// `@next/next/no-img-element` is promoted from warn (the
+// `next/core-web-vitals` default) to error: every raw <img> in the
+// codebase has been migrated to `next/image`, and the few legitimate
+// exceptions (blob: previews) carry a per-line
+// `eslint-disable-next-line` annotation. New code that introduces a
+// raw <img> should fail CI rather than silently regress LCP on the
+// SEO-critical listing pages.
+const noRawImgPromoted = {
+  rules: {
+    "@next/next/no-img-element": "error",
+  },
+};
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -86,6 +99,7 @@ const eslintConfig = defineConfig([
   phase5LegacyOverrides,
   liveKitCallOffLimits,
   unusedVarsConvention,
+  noRawImgPromoted,
 ]);
 
 export default eslintConfig;
