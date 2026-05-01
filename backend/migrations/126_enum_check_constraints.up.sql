@@ -42,14 +42,14 @@ BEGIN
     END IF;
 END $$;
 
--- counter_proposals.status (in disputes feature)
+-- dispute_counter_proposals.status (in disputes feature)
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'counter_proposals_status_check'
+        SELECT 1 FROM pg_constraint WHERE conname = 'dispute_counter_proposals_status_check'
     ) THEN
-        ALTER TABLE counter_proposals
-            ADD CONSTRAINT counter_proposals_status_check
+        ALTER TABLE dispute_counter_proposals
+            ADD CONSTRAINT dispute_counter_proposals_status_check
             CHECK (status IN (
                 'pending', 'accepted', 'rejected', 'superseded'
             ));
@@ -60,11 +60,11 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'payment_records_payment_status_check'
+        SELECT 1 FROM pg_constraint WHERE conname = 'payment_records_status_check'
     ) THEN
         ALTER TABLE payment_records
-            ADD CONSTRAINT payment_records_payment_status_check
-            CHECK (payment_status IN (
+            ADD CONSTRAINT payment_records_status_check
+            CHECK (status IN (
                 'pending', 'succeeded', 'failed', 'refunded'
             ));
     END IF;
@@ -209,10 +209,10 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'invoices_status_check'
+        SELECT 1 FROM pg_constraint WHERE conname = 'invoice_status_check'
     ) THEN
-        ALTER TABLE invoices
-            ADD CONSTRAINT invoices_status_check
+        ALTER TABLE invoice
+            ADD CONSTRAINT invoice_status_check
             CHECK (status IN ('draft', 'issued', 'credited'));
     END IF;
 END $$;

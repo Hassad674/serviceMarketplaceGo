@@ -8,8 +8,8 @@ BEGIN;
 
 ALTER TABLE proposals                   DROP CONSTRAINT IF EXISTS proposals_status_check;
 ALTER TABLE disputes                    DROP CONSTRAINT IF EXISTS disputes_status_check;
-ALTER TABLE counter_proposals           DROP CONSTRAINT IF EXISTS counter_proposals_status_check;
-ALTER TABLE payment_records             DROP CONSTRAINT IF EXISTS payment_records_payment_status_check;
+ALTER TABLE dispute_counter_proposals           DROP CONSTRAINT IF EXISTS dispute_counter_proposals_status_check;
+ALTER TABLE payment_records             DROP CONSTRAINT IF EXISTS payment_records_status_check;
 ALTER TABLE payment_records             DROP CONSTRAINT IF EXISTS payment_records_transfer_status_check;
 ALTER TABLE proposal_milestones         DROP CONSTRAINT IF EXISTS proposal_milestones_status_check;
 ALTER TABLE jobs                        DROP CONSTRAINT IF EXISTS jobs_status_check;
@@ -20,6 +20,6 @@ ALTER TABLE reports                     DROP CONSTRAINT IF EXISTS reports_status
 ALTER TABLE messages                    DROP CONSTRAINT IF EXISTS messages_status_check;
 ALTER TABLE users                       DROP CONSTRAINT IF EXISTS users_status_check;
 ALTER TABLE organization_invitations    DROP CONSTRAINT IF EXISTS organization_invitations_status_check;
-ALTER TABLE invoices                    DROP CONSTRAINT IF EXISTS invoices_status_check;
+ALTER TABLE invoice                    DROP CONSTRAINT IF EXISTS invoice_status_check;
 
 COMMIT;
