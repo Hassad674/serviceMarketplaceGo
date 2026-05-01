@@ -20,10 +20,10 @@
 
 | # | Plan | Stack | Effort | Tool | Status | PR | Notes |
 |---|---|---|---|---|---|---|---|
-| **P1** | RLS callers migration (38 sites — see `docs/plans/P1_brief.md`) | backend | 3j | agent dispatched | 🔄 in-progress | — | Started 2026-05-01. Brief: `docs/plans/P1_brief.md`. Pre-prod blocker absolu. |
+| **P1** | RLS callers migration (38 sites — voir `docs/plans/P1_brief.md`) | backend | 3j est. / **1h réel** | agent dispatched | ✅ **done 2026-05-01** | **#69** | SEC-FINAL-01 fermé. 11/11 integration tests PASS sous NOSUPERUSER NOBYPASSRLS. 10 commits atomiques. |
 | **P2** | `func main()` 870 → ≤200 + cleanup helpers extraction | backend | ½j | foreground | ⏳ pending | — | CLAUDE.md violation visible. |
-| **P3** | Web shadcn primitives (Button/Input/Card/Modal/Select) + migrate 309 buttons + 95 inputs | web | 1j | `claude -p` | ⏳ pending | — | Asymétrie web vs admin. DRY massif. |
-| **P4** | 27 raw `<img>` → `next/image` + LCP hints | web | ½j | `claude -p` | ⏳ pending | — | Regression flagée (était 7). |
+| **P3** | Web shadcn primitives (Button/Input/Card/Modal/Select) + migrate 309 buttons + 95 inputs | web | 1j | agent dispatched | ⏳ pending | — | Asymétrie web vs admin. DRY massif. |
+| **P4** | 27 raw `<img>` → `next/image` + LCP hints | web | ½j | agent dispatched | 🔄 in-progress | — | Started 2026-05-01. Regression flagée (était 7). |
 | **P5** | GDPR endpoints (`/me/export` + `DELETE /me/account` + cascade tests) | backend | 1j | foreground | ⏳ pending | — | Disqualifying RGPD enterprise EU sans ça. |
 
 ### GATE 1 — après F.1
