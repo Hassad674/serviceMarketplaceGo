@@ -192,3 +192,99 @@ export function sumMilestoneAmounts(items: MilestoneFormItem[]): number {
   }
   return total
 }
+
+// MilestoneDeadlineErrorKey is the i18n key for an inline date-row error.
+// "not_after_previous" — milestone N+1 deadline is not strictly after N's.
+// "after_project_deadline" — milestone deadline exceeds the project deadline.
+// Returned per row index so the form can render the message under the
+// offending date input only (instead of a single global banner).
+export type MilestoneDeadlineErrorKey =
+  | "not_after_previous"
+  | "after_project_deadline"
+
+// validateMilestoneDeadlines mirrors the backend domain rule:
+// milestone N+1's deadline must be STRICTLY after milestone N's
+// (same-day rejected). Milestones without a deadline are skipped —
+// the deadline is optional and only ordered milestones are checked.
+//
+// Optionally enforces a project-level upper bound: if projectDeadline
+// is provided, every set milestone deadline must be ≤ projectDeadline
+// (equality allowed: the project deadline IS the natural last day).
+//
+// Returns a sparse map keyed by row index — only rows that violate a
+// rule appear, so the editor can render one message per offending row.
+// An empty map means "all rows are valid".
+//
+// All inputs are YYYY-MM-DD strings (the format the date picker emits).
+// Empty strings (`""`) mean "no deadline" and are skipped.
+export function validateMilestoneDeadlines(
+  milestones: MilestoneFormItem[],
+  projectDeadline?: string,
+): Record<number, MilestoneDeadlineErrorKey> {
+  const errors: Record<number, MilestoneDeadlineErrorKey> = {}
+
+  // Walk in order and track the last NON-NIL deadline so we can compare
+  // each new one against it. Sparse deadlines (a row with no date in
+  // the middle) skip the check for that row but the next set deadline
+  // still has to come after the LAST set deadline.
+  let lastSetDeadline: string | undefined
+  for (let i = 0; i < milestones.length; i++) {
+    const current = milestones[i].deadline
+    if (!current) continue
+    if (lastSetDeadline && current <= lastSetDeadline) {
+      // YYYY-MM-DD string compare = chronological compare.
+      // <= covers BOTH equal-date AND earlier-date — both invalid
+      // under the strict-after contract.
+      errors[i] = "not_after_previous"
+    } else if (projectDeadline && current > projectDeadline) {
+      errors[i] = "after_project_deadline"
+    }
+    lastSetDeadline = current
+  }
+  return errors
+}
+
+// minDateForMilestone returns the YYYY-MM-DD string the date picker
+// for milestone at `index` should refuse to go below. Computed by
+// finding the latest deadline among the previous milestones (strictly
+// before `index`) and adding one calendar day, falling back to today
+// when no previous deadline is set. The returned string is always a
+// valid YYYY-MM-DD usable directly as the picker's `min` attribute.
+//
+// We add ONE day (not zero) to mirror the backend's strict-after
+// rule — letting the picker land on the same day would silently
+// accept a value that the form-level validator (and the API) will
+// later reject.
+export function minDateForMilestone(
+  milestones: MilestoneFormItem[],
+  index: number,
+  todayIso: string,
+): string {
+  let latestPrev: string | undefined
+  for (let i = 0; i < index; i++) {
+    const d = milestones[i].deadline
+    if (d && (!latestPrev || d > latestPrev)) {
+      latestPrev = d
+    }
+  }
+  if (!latestPrev) return todayIso
+  const next = addOneDay(latestPrev)
+  // Final picker bound is the LATER of (today, prev+1) so the user
+  // can never select a past date even if a previous milestone had a
+  // historical deadline (legacy data, or a buggy resync).
+  return next > todayIso ? next : todayIso
+}
+
+// addOneDay shifts a YYYY-MM-DD string by exactly one calendar day.
+// Returns the result as YYYY-MM-DD. Uses UTC arithmetic to dodge
+// daylight-saving-time edge cases that would otherwise drift the
+// boundary by an hour twice a year.
+function addOneDay(ymd: string): string {
+  const [yStr, mStr, dStr] = ymd.split("-")
+  const date = new Date(Date.UTC(Number(yStr), Number(mStr) - 1, Number(dStr)))
+  date.setUTCDate(date.getUTCDate() + 1)
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0")
+  const d = String(date.getUTCDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}

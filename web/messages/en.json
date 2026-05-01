@@ -1011,7 +1011,11 @@
       "descriptionAriaLabel": "description",
       "amountPlaceholder": "Amount",
       "amountAriaLabel": "amount",
-      "deadlineAriaLabel": "deadline"
+      "deadlineAriaLabel": "deadline",
+      "error": {
+        "not_after_previous": "This deadline must be after the previous milestone's deadline.",
+        "after_project_deadline": "This deadline cannot be after the project's overall deadline."
+      }
     },
     "milestoneTracker": {
       "title": "Project tracker",

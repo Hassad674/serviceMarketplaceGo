@@ -38,6 +38,19 @@ var (
 	// non-consecutive sequence numbers (must be 1, 2, 3, ... without gaps).
 	ErrNonConsecutiveSequence = errors.New("milestone sequences must be consecutive starting at 1")
 
+	// ErrMilestonesNotSequential is returned when a batch of milestones
+	// carries non-strictly-increasing deadlines: each milestone N+1 must
+	// have a deadline strictly AFTER milestone N. Same-day deadlines are
+	// rejected (cleanest contract — see ValidateMilestoneDeadlineOrder).
+	// Milestones without a deadline are allowed and skipped during the
+	// ordering check (deadline is optional).
+	ErrMilestonesNotSequential = errors.New("milestone deadlines must be strictly increasing")
+
+	// ErrMilestoneDeadlineAfterProject is returned when a milestone's
+	// deadline falls after the proposal-level overall deadline. The
+	// project deadline is the outer bound; no milestone can be due past it.
+	ErrMilestoneDeadlineAfterProject = errors.New("milestone deadline cannot be after the project deadline")
+
 	// ErrConcurrentUpdate is returned when an optimistic-locked update finds
 	// a stale version, indicating another transaction has modified the row.
 	ErrConcurrentUpdate = errors.New("milestone was modified by another transaction")
