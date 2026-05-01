@@ -418,7 +418,93 @@
     "passwordDesc": "Modifiez le mot de passe de votre compte.",
     "currentPassword": "Mot de passe actuel",
     "newPassword": "Nouveau mot de passe",
-    "confirmPassword": "Confirmer le nouveau mot de passe"
+    "confirmPassword": "Confirmer le nouveau mot de passe",
+    "dataAndDeletion": "Données et suppression",
+    "gdpr": {
+      "title": "Vos données et votre compte",
+      "subtitle": "Téléchargez une copie de toutes les données que nous détenons sur vous, ou demandez la suppression définitive de votre compte.",
+      "export": {
+        "title": "Exporter mes données",
+        "description": "Téléchargez une archive ZIP contenant toutes les données que la plateforme détient à votre sujet, au format JSON. L'archive inclut votre profil, propositions, messages, factures, avis, notifications, offres, portfolios et journal d'audit.",
+        "button": "Télécharger mes données",
+        "preparing": "Préparation de l'archive...",
+        "error": "Impossible de générer l'export. Réessayez plus tard."
+      },
+      "delete": {
+        "title": "Supprimer mon compte",
+        "description": "Déclenche un délai de 30 jours. Votre compte est verrouillé, vos données conservées. Au bout de 30 jours, vos données sont définitivement effacées.",
+        "button": "Supprimer mon compte",
+        "modal": {
+          "title": "Supprimer mon compte",
+          "intro": "Nous enverrons un lien de confirmation à votre email. Le lien expire dans 24 heures. Une fois confirmé, votre compte sera verrouillé pendant 30 jours. Vous pouvez annuler à tout moment pendant ce délai.",
+          "bullet1": "Vos données seront supprimées dans 30 jours sauf annulation.",
+          "bullet2": "Vous ne pourrez pas vous connecter pendant ce délai.",
+          "bullet3": "Nous vous enverrons un email de confirmation pour valider cette demande.",
+          "passwordLabel": "Votre mot de passe actuel",
+          "confirmCheckbox": "Je comprends que mes données seront supprimées dans 30 jours sauf annulation.",
+          "cancel": "Annuler",
+          "submit": "Demander la suppression",
+          "submitting": "Envoi...",
+          "errors": {
+            "wrongPassword": "La vérification du mot de passe a échoué.",
+            "confirmRequired": "Veuillez confirmer en cochant la case.",
+            "passwordRequired": "Le mot de passe est requis.",
+            "generic": "Une erreur est survenue. Réessayez dans un instant."
+          },
+          "success": {
+            "intro": "Nous avons envoyé un lien de confirmation à :",
+            "ttl": "Le lien expire dans 24 heures.",
+            "close": "Compris"
+          },
+          "blocked": {
+            "intro": "Vous êtes propriétaire d'une ou plusieurs organisations avec des membres actifs. Transférez la propriété ou dissolvez-les avant de supprimer votre compte.",
+            "memberCount": "{count} membres actifs",
+            "actions": {
+              "transfer_ownership": "Transférer la propriété",
+              "dissolve_org": "Dissoudre l'organisation"
+            },
+            "close": "Fermer"
+          }
+        }
+      },
+      "pending": {
+        "title": "Compte planifié pour suppression",
+        "body": "Votre compte sera définitivement supprimé le {date}. Cliquez ci-dessous pour annuler.",
+        "bodyNoDate": "Votre compte est planifié pour suppression. Cliquez ci-dessous pour annuler.",
+        "cancelButton": "Annuler la suppression",
+        "cancelling": "Annulation..."
+      },
+      "cancel": {
+        "error": "Impossible d'annuler la suppression. Réessayez dans un instant."
+      },
+      "confirmPage": {
+        "errors": {
+          "missingToken": "Le lien de confirmation ne contient pas le jeton requis.",
+          "generic": "Nous n'avons pas pu confirmer votre demande de suppression."
+        },
+        "success": {
+          "title": "Suppression confirmée",
+          "body": "Votre compte est planifié pour suppression le {date}. Nous vous enverrons un rappel 5 jours avant cette date.",
+          "cancelHint": "Vous avez changé d'avis ? Vous pouvez annuler à tout moment depuis vos paramètres de compte."
+        },
+        "error": {
+          "title": "Impossible de confirmer la suppression"
+        }
+      },
+      "cancelPage": {
+        "title": "Annuler la suppression",
+        "body": "Annulez votre demande de suppression de compte. Votre compte sera réactivé immédiatement.",
+        "button": "Annuler la suppression",
+        "submitting": "Annulation...",
+        "errors": {
+          "generic": "Impossible d'annuler la suppression. Réessayez dans un instant."
+        },
+        "done": {
+          "title": "Annulation confirmée",
+          "body": "Votre compte est de nouveau actif. Bon retour !"
+        }
+      }
+    }
   },
   "profile": {
     "photo": "Photo",
