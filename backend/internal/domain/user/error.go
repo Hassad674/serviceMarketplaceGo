@@ -15,6 +15,15 @@ var (
 	ErrAccountBanned      = errors.New("account is banned")
 	ErrKYCRestricted      = errors.New("account restricted: payment info not configured within 14 days of first earning")
 
+	// ErrAccountScheduledForDeletion is returned by the auth login
+	// flow when a user whose GDPR soft-delete flag is set
+	// (users.deleted_at IS NOT NULL) tries to authenticate. The
+	// handler maps this to HTTP 410 Gone with code
+	// account_scheduled_for_deletion so the frontend can guide the
+	// user to /account/cancel-deletion if they want to keep the
+	// account.
+	ErrAccountScheduledForDeletion = errors.New("account is scheduled for deletion")
+
 	// ErrDisplayNameInappropriate is returned by the auth service when
 	// the moderation pipeline (Phase 2) refuses the registration because
 	// the supplied display_name / first_name / last_name combination is
@@ -44,4 +53,13 @@ func NewSuspendedError(reason string) *AccountStatusError {
 
 func NewBannedError(reason string) *AccountStatusError {
 	return &AccountStatusError{Sentinel: ErrAccountBanned, Reason: reason}
+}
+
+// NewScheduledForDeletionError builds the account-status error returned
+// when a soft-deleted user tries to log in. The reason carries the
+// scheduled hard-delete date (RFC3339) so the handler can tell the
+// frontend exactly when the cron will purge the account if the user
+// does not cancel the request.
+func NewScheduledForDeletionError(reason string) *AccountStatusError {
+	return &AccountStatusError{Sentinel: ErrAccountScheduledForDeletion, Reason: reason}
 }
