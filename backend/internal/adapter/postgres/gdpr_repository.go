@@ -160,7 +160,7 @@ func (r *GDPRRepository) loadProposals(ctx context.Context, userID uuid.UUID) ([
 
 func (r *GDPRRepository) loadMessages(ctx context.Context, userID uuid.UUID) ([]map[string]any, error) {
 	return r.queryRows(ctx, `
-		SELECT id, conversation_id, sender_id, content, type, created_at
+		SELECT id, conversation_id, sender_id, content, msg_type, created_at
 		FROM messages
 		WHERE sender_id = $1
 		ORDER BY created_at DESC LIMIT 10000`, userID)
@@ -179,7 +179,7 @@ func (r *GDPRRepository) loadInvoices(ctx context.Context, userID uuid.UUID) ([]
 
 func (r *GDPRRepository) loadReviews(ctx context.Context, userID uuid.UUID) ([]map[string]any, error) {
 	return r.queryRows(ctx, `
-		SELECT id, reviewer_id, reviewed_id, rating, comment, created_at
+		SELECT id, reviewer_id, reviewed_id, global_rating, comment, side, created_at
 		FROM reviews
 		WHERE reviewer_id = $1 OR reviewed_id = $1
 		ORDER BY created_at DESC`, userID)
@@ -541,8 +541,8 @@ func (r *GDPRRepository) PurgeUser(ctx context.Context, userID uuid.UUID, before
 		),
 		ip_address = CASE
 			WHEN ip_address IS NULL THEN NULL
-			WHEN family(ip_address) = 4 THEN set_masklen(ip_address, 16)
-			ELSE set_masklen(ip_address, 32)
+			WHEN family(ip_address) = 4 THEN network(set_masklen(ip_address, 16))
+			ELSE network(set_masklen(ip_address, 32))
 		END
 		WHERE user_id = $1`, userID, salt); err != nil {
 		return false, fmt.Errorf("purge anonymize audit: %w", err)
