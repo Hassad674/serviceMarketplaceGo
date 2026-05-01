@@ -14,7 +14,6 @@ import (
 	"marketplace-backend/internal/adapter/postgres"
 	redisadapter "marketplace-backend/internal/adapter/redis"
 	"marketplace-backend/internal/adapter/ws"
-	"marketplace-backend/internal/app/auth"
 	callapp "marketplace-backend/internal/app/call"
 	clientprofileapp "marketplace-backend/internal/app/clientprofile"
 	embeddedapp "marketplace-backend/internal/app/embedded"
@@ -22,7 +21,6 @@ import (
 	"marketplace-backend/internal/app/messaging"
 	appmoderation "marketplace-backend/internal/app/moderation"
 	milestoneapp "marketplace-backend/internal/app/milestone"
-	organizationapp "marketplace-backend/internal/app/organization"
 	paymentapp "marketplace-backend/internal/app/payment"
 	portfolioapp "marketplace-backend/internal/app/portfolio"
 	profileapp "marketplace-backend/internal/app/profile"
@@ -91,24 +89,26 @@ func main() {
 	sourceID := infra.SourceID
 	invitationRateLimiter := infra.InvitationRateLimiter
 
-	// Initialize application services
-	organizationSvc := organizationapp.NewService(organizationRepo, organizationMemberRepo, organizationInvitationRepo)
-	// invitationSvc and membershipSvc are constructed below, AFTER the
-	// notification feature is set up — they depend on notifSvc so the
-	// team events (invitation accepted, role changed, transfer, …) can
-	// fire notifications through the same pipeline as the rest of the app.
-	authSvc := auth.NewServiceWithDeps(auth.ServiceDeps{
-		Users:            userRepo,
-		Resets:           resetRepo,
-		Hasher:           hasher,
-		Tokens:           tokenSvc,
-		Email:            emailSvc,
-		Orgs:             organizationSvc,
-		Sessions:         sessionSvc,         // SEC-16 — purge sessions on password reset
-		RefreshBlacklist: refreshBlacklistSvc, // SEC-06 — refresh token rotation + replay detection
-		Audits:           auditRepo,          // SEC-13 — emit auth audit events
-		FrontendURL:      cfg.FrontendURL,
+	// Auth feature — see wire_auth.go.
+	authWire := wireAuth(authDeps{
+		Cfg:                        cfg,
+		Redis:                      redisClient,
+		UserRepo:                   userRepo,
+		ResetRepo:                  resetRepo,
+		OrganizationRepo:           organizationRepo,
+		OrganizationMemberRepo:     organizationMemberRepo,
+		OrganizationInvitationRepo: organizationInvitationRepo,
+		AuditRepo:                  auditRepo,
+		Hasher:                     hasher,
+		TokenSvc:                   tokenSvc,
+		EmailSvc:                   emailSvc,
+		SessionSvc:                 sessionSvc,
+		RefreshBlacklistSvc:        refreshBlacklistSvc,
+		CookieCfg:                  cookieCfg,
 	})
+	organizationSvc := authWire.OrganizationSvc
+	authSvc := authWire.AuthSvc
+	authHandler := authWire.AuthHandler
 	// Profile service + Tier 1 geocoder (migration 083). The
 	// Nominatim adapter is used as-is in every environment because
 	// the public endpoint is free and the profile save flow
@@ -468,14 +468,6 @@ func main() {
 		Invitation:          invitationSvc,
 	})
 
-	// SEC-07: brute-force protection. Two policies:
-	//   - login: 5 per 15-min window per email, 30-min lockout (default)
-	//   - password reset: 3 per hour per email/token, 30-min lockout
-	loginBruteForce := redisadapter.NewBruteForceService(redisClient)
-	passwordResetThrottle := redisadapter.NewBruteForceServiceWithPolicy(
-		redisClient, 3, time.Hour, 30*time.Minute,
-	)
-
 	// SEC-11: Redis-backed sliding-window rate limiter. The same
 	// instance hosts every quota class — the per-route policy and key
 	// extractor are passed at the route definition site.
@@ -486,9 +478,6 @@ func main() {
 	}
 	httpRateLimiter := middleware.NewRateLimiter(redisClient, trustedProxies)
 
-	// Initialize handlers
-	authHandler := handler.NewAuthHandler(authSvc, organizationSvc, sessionSvc, cookieCfg).
-		WithBruteForce(loginBruteForce, passwordResetThrottle)
 	// Team handlers were wired alongside the team services in
 	// wire_team.go — pull them out of the team wiring struct so the
 	// router builder reads as a flat list of handler bindings below.
