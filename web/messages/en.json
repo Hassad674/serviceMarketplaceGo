@@ -418,7 +418,93 @@
     "passwordDesc": "Change your account password.",
     "currentPassword": "Current password",
     "newPassword": "New password",
-    "confirmPassword": "Confirm new password"
+    "confirmPassword": "Confirm new password",
+    "dataAndDeletion": "Data & deletion",
+    "gdpr": {
+      "title": "Your data and account",
+      "subtitle": "Download a copy of every datum we hold about you, or request the permanent deletion of your account.",
+      "export": {
+        "title": "Export your data",
+        "description": "Download a ZIP archive containing every datum the platform holds about you, in JSON format. The archive includes your profile, proposals, messages, invoices, reviews, notifications, jobs, portfolios, and audit log.",
+        "button": "Download my data",
+        "preparing": "Preparing the archive...",
+        "error": "Could not build the export. Please try again later."
+      },
+      "delete": {
+        "title": "Delete my account",
+        "description": "Triggers a 30-day cooldown. Your account is locked, your data is preserved. After 30 days, your data is permanently erased.",
+        "button": "Delete my account",
+        "modal": {
+          "title": "Delete my account",
+          "intro": "We will send a confirmation link to your email. The link expires in 24 hours. Once confirmed, your account will be locked for 30 days. You can cancel at any time during this window.",
+          "bullet1": "Your data will be deleted in 30 days unless you cancel.",
+          "bullet2": "You will not be able to log in during this period.",
+          "bullet3": "We will send you a confirmation email to validate this request.",
+          "passwordLabel": "Your current password",
+          "confirmCheckbox": "I understand my data will be deleted in 30 days unless I cancel.",
+          "cancel": "Cancel",
+          "submit": "Request deletion",
+          "submitting": "Submitting...",
+          "errors": {
+            "wrongPassword": "Password verification failed.",
+            "confirmRequired": "Please confirm by checking the box.",
+            "passwordRequired": "Password is required.",
+            "generic": "Something went wrong. Try again in a moment."
+          },
+          "success": {
+            "intro": "We sent a confirmation link to:",
+            "ttl": "The link expires in 24 hours.",
+            "close": "Got it"
+          },
+          "blocked": {
+            "intro": "You own one or more organizations with active members. Transfer ownership or dissolve them before deleting your account.",
+            "memberCount": "{count} active members",
+            "actions": {
+              "transfer_ownership": "Transfer ownership",
+              "dissolve_org": "Dissolve organization"
+            },
+            "close": "Close"
+          }
+        }
+      },
+      "pending": {
+        "title": "Account scheduled for deletion",
+        "body": "Your account will be permanently deleted on {date}. Click below to cancel.",
+        "bodyNoDate": "Your account is scheduled for deletion. Click below to cancel.",
+        "cancelButton": "Cancel deletion",
+        "cancelling": "Cancelling..."
+      },
+      "cancel": {
+        "error": "Could not cancel the deletion. Try again in a moment."
+      },
+      "confirmPage": {
+        "errors": {
+          "missingToken": "Confirmation link is missing the required token.",
+          "generic": "We could not confirm your deletion request."
+        },
+        "success": {
+          "title": "Deletion confirmed",
+          "body": "Your account is now scheduled for deletion on {date}. We will send you a reminder 5 days before that date.",
+          "cancelHint": "Changed your mind? You can cancel anytime in your account settings."
+        },
+        "error": {
+          "title": "Could not confirm deletion"
+        }
+      },
+      "cancelPage": {
+        "title": "Cancel account deletion",
+        "body": "Cancel your account deletion request. Your account will be active again immediately.",
+        "button": "Cancel deletion",
+        "submitting": "Cancelling...",
+        "errors": {
+          "generic": "Could not cancel the deletion. Please try again in a moment."
+        },
+        "done": {
+          "title": "Cancellation confirmed",
+          "body": "Your account is active again. Welcome back!"
+        }
+      }
+    }
   },
   "profile": {
     "photo": "Photo",
