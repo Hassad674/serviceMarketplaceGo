@@ -4,15 +4,23 @@ package postgres
 // placeholders and the standard $N ordering. Status strings and sequences
 // flow through the Go domain so the DB is a pure storage layer.
 
-const queryInsertMilestone = `
-INSERT INTO proposal_milestones (
+// queryInsertMilestoneColumns is the column list shared by the
+// single-row queryInsertMilestone (kept for any single-row use case)
+// and the multi-row CreateBatch path that builds N tuples of
+// placeholders. Keeping the column list in one place keeps the two
+// queries in sync and makes a column add/remove a one-line change.
+const queryInsertMilestoneColumns = `(
     id, proposal_id, sequence, title, description, amount, deadline,
     status, version,
     funded_at, submitted_at, approved_at, released_at,
     disputed_at, cancelled_at,
     active_dispute_id, last_dispute_id,
     created_at, updated_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+)`
+
+const queryInsertMilestone = `
+INSERT INTO proposal_milestones ` + queryInsertMilestoneColumns + `
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
     $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 `
 

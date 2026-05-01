@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -30,9 +31,17 @@ func NewMilestoneRepository(db *sql.DB) *MilestoneRepository {
 	return &MilestoneRepository{db: db}
 }
 
-// CreateBatch inserts every milestone of a proposal in a single transaction.
+// CreateBatch inserts every milestone of a proposal in a SINGLE round
+// trip — the function name is now accurate. Pre PERF-B-04 the
+// implementation looped N sequential INSERTs inside a transaction
+// (10–40 ms wasted across an AZ for a 5-jalon proposal). The new
+// path builds a multi-row VALUES tuple ($1..$19), ($20..$38), … so
+// Postgres takes one parse + one network round trip.
+//
 // The slice must come from milestone.NewMilestoneBatch so sequences are
-// consecutive and the 20-milestone cap is enforced.
+// consecutive and the 20-milestone cap is enforced (the cap also
+// keeps the parameter count well under Postgres's 65535-arg limit:
+// 20*19 = 380).
 func (r *MilestoneRepository) CreateBatch(ctx context.Context, milestones []*milestone.Milestone) error {
 	if len(milestones) == 0 {
 		return milestone.ErrEmptyBatch
@@ -41,26 +50,40 @@ func (r *MilestoneRepository) CreateBatch(ctx context.Context, milestones []*mil
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
+	const colsPerRow = 19
+	args := make([]any, 0, len(milestones)*colsPerRow)
+	placeholders := make([]string, 0, len(milestones))
 
-	for _, m := range milestones {
-		if _, err := tx.ExecContext(ctx, queryInsertMilestone,
+	for i, m := range milestones {
+		// Build the placeholder tuple ($N..$N+18) for this row.
+		base := i*colsPerRow + 1
+		placeholders = append(placeholders, fmt.Sprintf(
+			"($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)",
+			base, base+1, base+2, base+3, base+4, base+5, base+6, base+7, base+8,
+			base+9, base+10, base+11, base+12, base+13, base+14, base+15, base+16, base+17, base+18,
+		))
+		args = append(args,
 			m.ID, m.ProposalID, m.Sequence, m.Title, m.Description, m.Amount, m.Deadline,
 			string(m.Status), m.Version,
 			m.FundedAt, m.SubmittedAt, m.ApprovedAt, m.ReleasedAt,
 			m.DisputedAt, m.CancelledAt,
 			m.ActiveDisputeID, m.LastDisputeID,
 			m.CreatedAt, m.UpdatedAt,
-		); err != nil {
-			return fmt.Errorf("insert milestone: %w", err)
-		}
+		)
 	}
 
-	return tx.Commit()
+	// gosec G201: the variable parts of the formatted SQL are static
+	// — `placeholders` is a slice of generated `($N, ..., $N+18)`
+	// tuples whose only inputs are loop counters. Every value reaches
+	// Postgres via the `args` slice and parameterised $N placeholders.
+	query := "INSERT INTO proposal_milestones " + queryInsertMilestoneColumns +
+		" VALUES " + strings.Join(placeholders, ", ") // #nosec G201
+
+	if _, err := r.db.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("insert milestones batch: %w", err)
+	}
+
+	return nil
 }
 
 // GetByID fetches a milestone without taking a lock. Suitable for read-only

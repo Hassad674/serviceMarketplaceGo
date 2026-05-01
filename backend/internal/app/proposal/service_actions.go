@@ -690,6 +690,88 @@ func (s *Service) GetParticipantNames(ctx context.Context, clientID, providerID 
 	return clientName, providerName
 }
 
+// ParticipantNames carries the display names for both sides of a
+// proposal. Pre-populated by GetParticipantNamesBatch and keyed by
+// proposal id in the returned map.
+type ParticipantNames struct {
+	ClientName   string
+	ProviderName string
+}
+
+// GetParticipantNamesBatch resolves the display names of both sides
+// (client + provider) for every proposal in a single batch query —
+// closing the PERF-B-02 N+1: previously the caller looped over a page
+// of N proposals and issued 2*N sequential users.GetByID lookups (~80–
+// 200 ms p50 added on top of an already-loaded list endpoint).
+//
+// The function deduplicates user ids so we ask the DB for the unique
+// set, then maps back to each proposal's pair. The map is keyed by
+// proposal id; missing users (deleted accounts) collapse to "" so
+// the caller renders the legacy fallback string.
+//
+// When usersBatch is nil (legacy test setups predating UsersBatch
+// wiring), we degrade gracefully to per-id GetByID calls — preserving
+// backwards-compatibility for every test that constructs the service
+// without the new dependency. Production wiring always passes the
+// concrete *postgres.UserRepository (which satisfies UserBatchReader)
+// so the fast path is the default.
+func (s *Service) GetParticipantNamesBatch(ctx context.Context, proposals []*domain.Proposal) map[uuid.UUID]ParticipantNames {
+	out := make(map[uuid.UUID]ParticipantNames, len(proposals))
+	if len(proposals) == 0 {
+		return out
+	}
+
+	// Slow fallback: usersBatch unavailable.
+	if s.usersBatch == nil {
+		for _, p := range proposals {
+			cn, pn := s.GetParticipantNames(ctx, p.ClientID, p.ProviderID)
+			out[p.ID] = ParticipantNames{ClientName: cn, ProviderName: pn}
+		}
+		return out
+	}
+
+	// Collect every distinct user id we need to resolve.
+	seen := make(map[uuid.UUID]struct{}, len(proposals)*2)
+	ids := make([]uuid.UUID, 0, len(proposals)*2)
+	for _, p := range proposals {
+		if _, ok := seen[p.ClientID]; !ok {
+			seen[p.ClientID] = struct{}{}
+			ids = append(ids, p.ClientID)
+		}
+		if _, ok := seen[p.ProviderID]; !ok {
+			seen[p.ProviderID] = struct{}{}
+			ids = append(ids, p.ProviderID)
+		}
+	}
+
+	users, err := s.usersBatch.GetByIDs(ctx, ids)
+	if err != nil {
+		// Don't break the list endpoint on a name lookup failure —
+		// every proposal gets empty names, the frontend falls back to
+		// "Unknown user" the same way it does for a deleted account.
+		slog.Warn("get participant names batch failed", "error", err, "proposal_count", len(proposals))
+		for _, p := range proposals {
+			out[p.ID] = ParticipantNames{}
+		}
+		return out
+	}
+
+	byID := make(map[uuid.UUID]string, len(users))
+	for _, u := range users {
+		if u != nil {
+			byID[u.ID] = u.DisplayName
+		}
+	}
+
+	for _, p := range proposals {
+		out[p.ID] = ParticipantNames{
+			ClientName:   byID[p.ClientID],
+			ProviderName: byID[p.ProviderID],
+		}
+	}
+	return out
+}
+
 // ListActiveProjectsByOrganization returns the non-completed/active
 // proposals where the caller's organization is either side.
 func (s *Service) ListActiveProjectsByOrganization(ctx context.Context, orgID uuid.UUID, cursorStr string, limit int) ([]*domain.Proposal, string, error) {

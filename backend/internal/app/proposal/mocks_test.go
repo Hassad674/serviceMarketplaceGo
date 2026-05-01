@@ -433,7 +433,11 @@ var _ repository.OrganizationRepository = (*mockOrgRepo)(nil)
 // --- mockUserRepo ---
 
 type mockUserRepo struct {
-	getByIDFn func(ctx context.Context, id uuid.UUID) (*user.User, error)
+	getByIDFn     func(ctx context.Context, id uuid.UUID) (*user.User, error)
+	getByIDsFn    func(ctx context.Context, ids []uuid.UUID) ([]*user.User, error)
+	// getByIDsCalls counts batch calls for PERF-B-02 N+1 regression
+	// tests so we can assert the page hits the DB once (not 2*N times).
+	getByIDsCalls int
 }
 
 func (m *mockUserRepo) Create(ctx context.Context, u *user.User) error      { return nil }
@@ -449,6 +453,26 @@ func (m *mockUserRepo) GetByID(ctx context.Context, id uuid.UUID) (*user.User, e
 		return m.getByIDFn(ctx, id)
 	}
 	return &user.User{ID: id, Role: user.RoleEnterprise, DisplayName: "Test User"}, nil
+}
+
+// GetByIDs satisfies UserBatchReader so the same fixture can be wired
+// to UsersBatch (PERF-B-02). The default implementation reuses the
+// per-id stub to keep behaviour aligned with GetByID, and increments
+// getByIDsCalls so tests can assert the batch is invoked exactly once.
+func (m *mockUserRepo) GetByIDs(ctx context.Context, ids []uuid.UUID) ([]*user.User, error) {
+	m.getByIDsCalls++
+	if m.getByIDsFn != nil {
+		return m.getByIDsFn(ctx, ids)
+	}
+	out := make([]*user.User, 0, len(ids))
+	for _, id := range ids {
+		u, err := m.GetByID(ctx, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, u)
+	}
+	return out, nil
 }
 
 func (m *mockUserRepo) ListAdmin(_ context.Context, _ repository.AdminUserFilters) ([]*user.User, string, error) {
