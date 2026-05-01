@@ -116,6 +116,7 @@ type routerDepsBundle struct {
 	ProjectHistory        *handler.ProjectHistoryHandler
 	Dispute               *handler.DisputeHandler
 	AdminDispute          *handler.AdminDisputeHandler
+	GDPR                  *handler.GDPRHandler
 	Skill                 *handler.SkillHandler
 	Referral              *handler.ReferralHandler
 	Search                *handler.SearchHandler
@@ -180,6 +181,7 @@ func wireRouter(b routerDepsBundle) chi.Router {
 		ProjectHistory:       b.ProjectHistory,
 		Dispute:              b.Dispute,
 		AdminDispute:         b.AdminDispute,
+		GDPR:                 b.GDPR,
 		Skill:                b.Skill,
 		Referral:             b.Referral,
 		Search:               b.Search,

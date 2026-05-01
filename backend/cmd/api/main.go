@@ -604,6 +604,22 @@ func main() {
 	disputeHandler := dispute.Handler
 	adminDisputeHandler := dispute.AdminHandler
 
+	// GDPR feature (P5) — right-to-erasure + right-to-export.
+	// See wire_gdpr.go. The purge scheduler runs in its own goroutine
+	// on a 24h cadence (1min in development) and stops with the
+	// gdprCtx — same lifecycle pattern as wire_dispute.
+	gdprCtx, gdprCancel := context.WithCancel(context.Background())
+	defer gdprCancel()
+	gdpr := wireGDPR(gdprDeps{
+		Ctx:    gdprCtx,
+		Cfg:    cfg,
+		DB:     infra.DB,
+		Users:  infra.UserRepo,
+		Hasher: infra.Hasher,
+		Email:  infra.EmailSvc,
+	})
+	gdprHandler := gdpr.Handler
+
 	// WebSocket connection handler — see wire_router.go.
 	wsHandler := wireWSHandler(wsHandlerDeps{
 		Cfg:          cfg,
@@ -666,6 +682,7 @@ func main() {
 		ProjectHistory:       projectHistoryHandler,
 		Dispute:              disputeHandler,
 		AdminDispute:         adminDisputeHandler,
+		GDPR:                 gdprHandler,
 		Skill:                skillHandler,
 		Referral:             referralHandler,
 		Search:               searchHandler,
