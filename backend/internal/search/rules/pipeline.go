@@ -124,5 +124,9 @@ type pipelineRun struct {
 
 func (r *BusinessRules) newRun() *pipelineRun {
 	seed := r.seedSource()
-	return &pipelineRun{rng: rand.New(rand.NewSource(seed))}
+	// gosec G404: math/rand is acceptable for search ranking jitter — this
+	// is not a security context, the seed is non-secret, and a deterministic
+	// PRNG is desirable so two requests with the same seed return the same
+	// ranking (cache friendliness). See .gosec.yml for the project policy.
+	return &pipelineRun{rng: rand.New(rand.NewSource(seed))} // #nosec G404 -- search ranking jitter, not crypto
 }

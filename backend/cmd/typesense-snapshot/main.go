@@ -176,8 +176,15 @@ func tarGzDirectory(root string) ([]byte, error) {
 
 // addToTar writes a single file into the tar writer. Extracted to
 // keep the WalkDir callback short.
+//
+// gosec G304 (file inclusion via variable): fullPath comes exclusively
+// from filepath.WalkDir over a `root` directory the operator passes via
+// CLI flag — not from network input. The CLI is run by humans during
+// snapshot/migration windows; if the operator targets a sensitive
+// directory, that is an operator-level decision, not a vulnerability
+// in this code path.
 func addToTar(tw *tar.Writer, fullPath, relPath string) error {
-	f, err := os.Open(fullPath)
+	f, err := os.Open(fullPath) // #nosec G304 -- CLI tool; path comes from WalkDir over operator-supplied root
 	if err != nil {
 		return fmt.Errorf("open %q: %w", fullPath, err)
 	}
