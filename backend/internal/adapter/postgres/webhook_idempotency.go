@@ -67,3 +67,28 @@ func (s *WebhookIdempotencyStore) TryClaim(ctx context.Context, eventID, eventTy
 	// already recorded → this is a replay, the caller must skip.
 	return rows == 1, nil
 }
+
+// Release deletes the row keyed by eventID, reversing a prior TryClaim.
+// BUG-NEW-06 — used by the webhook dispatcher when a downstream handler
+// returns an error AFTER the claim succeeded; without this DELETE the
+// durable claim is permanent and Stripe's next retry would be silently
+// deduped, dropping the state change forever.
+//
+// Idempotent: a missing row returns nil (no error) so a concurrent
+// release on the same id does not surface as a failure.
+func (s *WebhookIdempotencyStore) Release(ctx context.Context, eventID string) error {
+	if eventID == "" {
+		return fmt.Errorf("webhook idempotency: empty event_id on release")
+	}
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM stripe_webhook_events WHERE stripe_event_id = $1`,
+		eventID,
+	)
+	if err != nil {
+		return fmt.Errorf("delete webhook event: %w", err)
+	}
+	return nil
+}
