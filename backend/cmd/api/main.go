@@ -134,7 +134,13 @@ func main() {
 	organizationRepo := postgres.NewOrganizationRepository(db, jobdomain.WeeklyQuota)
 	organizationMemberRepo := postgres.NewOrganizationMemberRepository(db)
 	organizationInvitationRepo := postgres.NewOrganizationInvitationRepository(db)
-	auditRepo := postgres.NewAuditRepository(db)
+	// BUG-NEW-04 path 2/8: audit_logs is RLS-protected by migration 125
+	// (USING user_id = current_setting('app.current_user_id', true)).
+	// Migration 129 added WITH CHECK (true) so INSERTs pass even without
+	// context, but the explicit txRunner wrap keeps parity with the rest
+	// of the RLS migration and makes the read paths usable when the prod
+	// DB role rotates to NOSUPERUSER NOBYPASSRLS.
+	auditRepo := postgres.NewAuditRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	moderationResultsRepo := postgres.NewModerationResultsRepository(db)
 	hasher := crypto.NewBcryptHasher()
 	tokenSvc := crypto.NewJWTService(cfg.JWTSecret, cfg.JWTAccessExpiry, cfg.JWTRefreshExpiry)
