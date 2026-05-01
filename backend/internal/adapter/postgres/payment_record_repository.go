@@ -129,7 +129,13 @@ func (r *PaymentRecordRepository) Create(ctx context.Context, rec *payment.Payme
 }
 
 // GetByID returns a single record by its primary key.
+//
+// SYSTEM-ACTOR: same contract as ProposalRepository.GetByID.
+// User-facing callers MUST use GetByIDForOrg; the legacy
+// signature is preserved only for retry-transfer paths that run
+// from the scheduler.
 func (r *PaymentRecordRepository) GetByID(ctx context.Context, id uuid.UUID) (*payment.PaymentRecord, error) {
+	warnIfNotSystemActor(ctx, "PaymentRecordRepository.GetByID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

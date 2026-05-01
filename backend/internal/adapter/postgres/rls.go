@@ -4,9 +4,47 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
+
+	"marketplace-backend/internal/system"
 )
+
+// warnIfNotSystemActor logs a structured warning when a non-tenant
+// repository entry point (the legacy GetByID variants) is called
+// from a context that has NOT been tagged with system.WithSystemActor.
+//
+// This is the soft guardrail that surfaces accidental
+// regressions: every legitimate consumer of the legacy GetByID
+// (the proposal scheduler worker, the dispute scheduler
+// goroutine, the referral cross-tenant aggregator, the
+// loadProposalForActor / loadDisputeForActor system-actor
+// branches) tags its context. A new caller that lands on
+// GetByID without the tag will:
+//
+//   - Under the migration role (BYPASSRLS): return rows but
+//     log a WARN line so the operator notices the drift in the
+//     dashboard.
+//   - Under NOSUPERUSER NOBYPASSRLS: return ErrXxxNotFound
+//     because the policy filters every row out — same warning
+//     points at the right place to fix it.
+//
+// We deliberately do NOT panic / return ErrSystemActorOnly —
+// flipping prod to a hard error would convert any latent
+// migration miss into a 5xx outage instead of letting the
+// operator triage from logs. Once the integration test in
+// rls_caller_audit_test.go passes against a live NOBYPASSRLS
+// fixture and the audit-team has rotated the prod role, the
+// warning can be promoted to an error in a follow-up PR.
+func warnIfNotSystemActor(ctx context.Context, op string) {
+	if system.IsSystemActor(ctx) {
+		return
+	}
+	slog.Warn("postgres: non-tenant repository entry point reached without system-actor tag — "+
+		"likely an unmigrated caller; under NOSUPERUSER NOBYPASSRLS this read returns NotFound",
+		"operation", op)
+}
 
 // rls.go — tenant-context plumbing for the PostgreSQL RLS policies
 // installed by migration 125 (SEC-10).
