@@ -8,6 +8,7 @@ import { Link } from "@i18n/navigation"
 import { Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { resetPassword } from "@/features/auth/api/auth-api"
+import { Button } from "@/shared/components/ui/button"
 
 const resetPasswordSchema = z
   .object({
@@ -121,14 +122,14 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("password")}
             />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showPassword ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+            </Button>
           </div>
           {errors.password && (
             <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.password.message}</p>
@@ -151,27 +152,27 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               className="h-12 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 pr-11 text-sm text-gray-900 dark:text-white transition-all placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-rose-500 focus:outline-none focus:ring-4 focus:ring-rose-500/10"
               {...registerField("confirmPassword")}
             />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowConfirm(!showConfirm)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-gray-300"
               aria-label={showConfirm ? tCommon("hidePassword") : tCommon("showPassword")}
             >
               {showConfirm ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
+            </Button>
           </div>
           {errors.confirmPassword && (
             <p className="text-sm text-red-500 dark:text-red-400 mt-1">{errors.confirmPassword.message}</p>
           )}
         </div>
 
-        <button
+        <Button variant="primary" size="auto"
           type="submit"
           disabled={isSubmitting}
-          className="gradient-primary h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all hover:shadow-glow active:scale-[0.98] disabled:opacity-50"
+          className="h-12 w-full rounded-xl font-semibold text-white shadow-md transition-all disabled:opacity-50"
         >
           {isSubmitting ? t("resetting") : t("resetPassword")}
-        </button>
+        </Button>
       </form>
     </div>
   )

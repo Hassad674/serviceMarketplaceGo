@@ -12,6 +12,7 @@ import {
   orgTypeSupportsExpertise,
 } from "@/shared/lib/profile/expertise"
 
+import { Button } from "@/shared/components/ui/button"
 interface ExpertiseEditorProps {
   domains: string[] | undefined
   orgType: string | undefined
@@ -238,15 +239,15 @@ function EditableEditorBody({
         </p>
 
         <div className="flex items-center gap-2">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={reset}
             disabled={!isDirty || isSaving}
             className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {tCommon("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={save}
             disabled={!isDirty || isSaving}
@@ -261,7 +262,7 @@ function EditableEditorBody({
               <Check className="w-4 h-4" aria-hidden="true" />
             )}
             {isSaving ? t("saving") : t("save")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -326,7 +327,7 @@ function SelectedDomainsList({
               onClick={() => onMove(key, 1)}
               icon={<ArrowDown className="w-4 h-4" aria-hidden="true" />}
             />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => onToggle(key)}
               aria-label={t("remove", { label: tDomains(key) })}
@@ -335,7 +336,7 @@ function SelectedDomainsList({
               <span aria-hidden="true" className="text-lg leading-none">
                 &times;
               </span>
-            </button>
+            </Button>
           </span>
         </li>
       ))}
@@ -366,7 +367,7 @@ function DomainPickerGrid({
         const isSelected = selected.includes(key)
         const isDisabled = !isSelected && atMax
         return (
-          <button
+          <Button variant="ghost" size="auto"
             key={key}
             type="button"
             onClick={() => onToggle(key)}
@@ -385,7 +386,7 @@ function DomainPickerGrid({
               <Check className="w-3.5 h-3.5" aria-hidden="true" />
             ) : null}
             {tDomains(key)}
-          </button>
+          </Button>
         )
       })}
     </div>
@@ -406,7 +407,7 @@ function IconActionButton({
   icon,
 }: IconActionButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -414,7 +415,7 @@ function IconActionButton({
       className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed"
     >
       {icon}
-    </button>
+    </Button>
   )
 }
 

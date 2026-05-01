@@ -14,6 +14,7 @@ import { ManageModal } from "@/features/subscription/components/manage-modal"
 import { useSubscription } from "@/features/subscription/hooks/use-subscription"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 const ROLE_LABEL_KEYS: Record<string, string> = {
   agency: "roleAgency",
   enterprise: "roleEnterprise",
@@ -69,13 +70,13 @@ export function Header({ onMenuToggle }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-gray-100/50 bg-white/80 px-4 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80 sm:px-5">
       {/* Mobile menu */}
-      <button
+      <Button variant="ghost" size="auto"
         onClick={onMenuToggle}
         className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-200 lg:hidden"
         aria-label="Open menu"
       >
         <Menu className="h-5 w-5" strokeWidth={1.5} />
-      </button>
+      </Button>
 
       {/* Search */}
       <div className="relative hidden flex-1 sm:block sm:max-w-sm">
@@ -106,7 +107,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         {/* User dropdown */}
         {user && (
           <div className="relative" ref={dropdownRef}>
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => setDropdownOpen((prev) => !prev)}
               className="flex items-center gap-2 rounded-lg p-1.5 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-slate-800"
             >
@@ -120,7 +121,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                 )}
                 strokeWidth={1.5}
               />
-            </button>
+            </Button>
 
             {/* Dropdown */}
             {dropdownOpen && (
@@ -147,13 +148,13 @@ export function Header({ onMenuToggle }: HeaderProps) {
                     {tSidebar("myProfile")}
                   </Link>
                   <div className="my-0.5 border-t border-gray-100 dark:border-slate-700" />
-                  <button
+                  <Button variant="ghost" size="auto"
                     onClick={handleLogout}
                     className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-600 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:text-slate-300 dark:hover:bg-rose-900/30 dark:hover:text-rose-400"
                   >
                     <LogOut className="h-4 w-4" strokeWidth={1.5} />
                     {tCommon("signOut")}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

@@ -2,6 +2,7 @@
 
 import { Building2, User } from "lucide-react"
 
+import { Button } from "@/shared/components/ui/button"
 type BusinessType = "individual" | "company"
 
 type BusinessTypeCardProps = {
@@ -52,7 +53,7 @@ export function BusinessTypeCard({
         const isBlocked = individualBlocked && opt.type === "individual"
         const isDisabled = disabled || isBlocked
         return (
-          <button
+          <Button variant="ghost" size="auto"
             key={opt.type}
             type="button"
             role="radio"
@@ -107,7 +108,7 @@ export function BusinessTypeCard({
                 </li>
               ))}
             </ul>
-          </button>
+          </Button>
         )
       })}
     </div>

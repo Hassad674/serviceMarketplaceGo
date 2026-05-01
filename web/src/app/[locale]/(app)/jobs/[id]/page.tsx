@@ -11,6 +11,7 @@ import { getJob } from "@/features/job/api/job-api"
 import { CandidatesList } from "@/features/job/components/candidates-list"
 import { useMarkApplicationsViewed } from "@/features/job/hooks/use-jobs"
 
+import { Button } from "@/shared/components/ui/button"
 type Tab = "details" | "candidates"
 
 export default function JobDetailPage() {
@@ -47,10 +48,10 @@ export default function JobDetailPage() {
 
   return (
     <div className="space-y-6">
-      <button type="button" onClick={() => router.push("/jobs")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+      <Button variant="ghost" size="auto" type="button" onClick={() => router.push("/jobs")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
         <ArrowLeft className="h-4 w-4" />
         {t("title")}
-      </button>
+      </Button>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -87,7 +88,7 @@ export default function JobDetailPage() {
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
         {(["details", "candidates"] as const).map((tab) => (
-          <button
+          <Button variant="ghost" size="auto"
             key={tab}
             type="button"
             onClick={() => setActiveTab(tab)}
@@ -99,7 +100,7 @@ export default function JobDetailPage() {
             )}
           >
             {tab === "details" ? t("jobDetails") : tOpp("candidates")}
-          </button>
+          </Button>
         ))}
       </div>
 

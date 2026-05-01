@@ -20,6 +20,7 @@ import {
 } from "@/shared/lib/search/search-api"
 
 import { PickerModal, PickerTrigger } from "./picker-modal"
+import { Button } from "@/shared/components/ui/button"
 
 export interface ProviderPickerSelection {
   userId: string
@@ -145,7 +146,7 @@ interface TabButtonProps {
 
 function TabButton({ active, onClick, icon, children }: TabButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="tab"
       aria-selected={active}
@@ -163,7 +164,7 @@ function TabButton({ active, onClick, icon, children }: TabButtonProps) {
           className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-rose-500"
         />
       )}
-    </button>
+    </Button>
   )
 }
 
@@ -229,7 +230,7 @@ function SearchTab({ currentValue, onSelect }: SearchTabProps) {
               const selected = currentValue?.orgId === p.organization_id
               return (
                 <li key={p.organization_id}>
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() =>
                       onSelect({
@@ -262,7 +263,7 @@ function SearchTab({ currentValue, onSelect }: SearchTabProps) {
                         aria-hidden="true"
                       />
                     )}
-                  </button>
+                  </Button>
                 </li>
               )
             })}
@@ -316,7 +317,7 @@ function ConversationsTab({ currentValue, onSelect }: ConversationsTabProps) {
               const selected = currentValue?.orgId === c.other_org_id
               return (
                 <li key={c.id}>
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() =>
                       onSelect({
@@ -349,7 +350,7 @@ function ConversationsTab({ currentValue, onSelect }: ConversationsTabProps) {
                         aria-hidden="true"
                       />
                     )}
-                  </button>
+                  </Button>
                 </li>
               )
             })}

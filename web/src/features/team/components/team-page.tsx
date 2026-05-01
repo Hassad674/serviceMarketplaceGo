@@ -15,6 +15,7 @@ import { LeaveOrgDialog } from "./leave-org-dialog"
 import { TeamPageSkeleton } from "./team-page-skeleton"
 import { RolePermissionsEditor } from "./role-permissions-editor"
 
+import { Button } from "@/shared/components/ui/button"
 // Client-side entry point for /team. Pulls the session slice (which
 // carries the current org + permissions + pending transfer) and
 // wires the three list views + all the action modals.
@@ -119,14 +120,14 @@ export function TeamPage() {
             {t("sections.members")}
           </h2>
           {canInvite && !transferIsPending && (
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowInviteModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-rose-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-rose-600"
             >
               <UserPlus className="h-4 w-4" />
               {t("inviteButton")}
-            </button>
+            </Button>
           )}
         </div>
         <TeamMembersList orgID={orgID} members={members} canManage={canManage} />
@@ -169,13 +170,13 @@ export function TeamPage() {
           <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
             {t("sections.transferOwnershipDescription")}
           </p>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setShowTransferModal(true)}
             className="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-400 dark:border-amber-500/50 px-3.5 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-500/10"
           >
             {t("transferButton")}
-          </button>
+          </Button>
         </section>
       )}
 
@@ -188,14 +189,14 @@ export function TeamPage() {
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {t("sections.leaveDescription")}
           </p>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setShowLeaveDialog(true)}
             className="mt-4 inline-flex items-center gap-2 rounded-lg border border-rose-200 dark:border-rose-500/30 px-3.5 py-2 text-sm font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
           >
             <LogOut className="h-4 w-4" />
             {t("leaveButton")}
-          </button>
+          </Button>
         </section>
       )}
 

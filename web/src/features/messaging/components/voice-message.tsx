@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Play, Pause, Mic } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import type { VoiceMetadata } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 interface VoiceMessageProps {
   metadata: VoiceMetadata
@@ -83,7 +84,7 @@ export function VoiceMessage({ metadata, isOwn }: VoiceMessageProps) {
       <audio ref={audioRef} src={metadata.url} preload="metadata" onEnded={handleEnded} />
 
       {/* Play/Pause button */}
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={togglePlay}
         className={cn(
@@ -105,7 +106,7 @@ export function VoiceMessage({ metadata, isOwn }: VoiceMessageProps) {
             strokeWidth={2}
           />
         )}
-      </button>
+      </Button>
 
       {/* Progress bar + duration */}
       <div className="flex min-w-0 flex-1 flex-col gap-1">

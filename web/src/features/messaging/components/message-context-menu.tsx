@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { MoreHorizontal, Pencil, Reply, Trash2, Flag } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
 interface MessageContextMenuProps {
   onReply?: () => void
@@ -31,7 +32,7 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
 
   return (
     <div ref={menuRef} className="relative">
-      <button
+      <Button variant="ghost" size="auto"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
           "rounded-md p-1 text-gray-400 transition-colors",
@@ -42,7 +43,7 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
         aria-label="Message options"
       >
         <MoreHorizontal className="h-4 w-4" strokeWidth={1.5} />
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -54,7 +55,7 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
           )}
         >
           {onReply && (
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => {
                 setOpen(false)
                 onReply()
@@ -67,10 +68,10 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
             >
               <Reply className="h-3.5 w-3.5" strokeWidth={1.5} />
               {t("reply")}
-            </button>
+            </Button>
           )}
           {onEdit && (
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => {
                 setOpen(false)
                 onEdit()
@@ -83,10 +84,10 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
             >
               <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
               {t("editMessage")}
-            </button>
+            </Button>
           )}
           {onDelete && (
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => {
                 setOpen(false)
                 onDelete()
@@ -99,12 +100,12 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
             >
               <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
               {t("deleteMessage")}
-            </button>
+            </Button>
           )}
           {onReport && (
             <>
               <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-              <button
+              <Button variant="ghost" size="auto"
                 onClick={() => {
                   setOpen(false)
                   onReport()
@@ -117,7 +118,7 @@ export function MessageContextMenu({ onReply, onEdit, onDelete, onReport }: Mess
               >
                 <Flag className="h-3.5 w-3.5" strokeWidth={1.5} />
                 {t("report")}
-              </button>
+              </Button>
             </>
           )}
         </div>

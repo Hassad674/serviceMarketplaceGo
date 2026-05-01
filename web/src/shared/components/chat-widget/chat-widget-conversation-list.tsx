@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { Conversation } from "@/features/messaging/types"
 
+import { Button } from "@/shared/components/ui/button"
 type TypingState = Record<string, { userId: string }>
 
 interface ChatWidgetConversationListProps {
@@ -64,13 +65,13 @@ export function ChatWidgetConversationList({
         <h2 className="flex-1 text-sm font-semibold text-gray-900 dark:text-white">
           {t("title")}
         </h2>
-        <button
+        <Button variant="ghost" size="auto"
           onClick={onClose}
           className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           aria-label={t("close")}
         >
           <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
-        </button>
+        </Button>
       </div>
 
       {/* Search */}
@@ -143,7 +144,7 @@ function CompactConversationItem({
     .toUpperCase()
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       onClick={() => onSelect(conversation.id)}
       role="option"
       aria-selected={false}
@@ -202,7 +203,7 @@ function CompactConversationItem({
           )}
         </div>
       </div>
-    </button>
+    </Button>
   )
 }
 

@@ -6,6 +6,7 @@ import { useRouter } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
+import { Button } from "@/shared/components/ui/button"
 
 interface SendMessageButtonProps {
   targetOrgId: string
@@ -27,7 +28,7 @@ export function SendMessageButton({ targetOrgId, targetDisplayName }: SendMessag
   }
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       onClick={handleClick}
       className={cn(
         "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium",
@@ -37,6 +38,6 @@ export function SendMessageButton({ targetOrgId, targetDisplayName }: SendMessag
     >
       <MessageSquare className="h-4 w-4" strokeWidth={1.5} />
       {t("startConversation")}
-    </button>
+    </Button>
   )
 }

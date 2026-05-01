@@ -24,6 +24,7 @@ import { FeePreview } from "@/features/billing/components/fee-preview"
 import { UpgradeCta } from "@/features/subscription/components/upgrade-cta"
 import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
 import { useUser } from "@/shared/hooks/use-user"
+import { Button } from "@/shared/components/ui/button"
 
 const TITLE_MAX_LENGTH = 100
 
@@ -237,7 +238,7 @@ export function CreateProposalPage() {
           "dark:border-gray-800 dark:bg-gray-900/80",
         )}
       >
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={handleCancel}
           className={cn(
@@ -248,13 +249,13 @@ export function CreateProposalPage() {
           aria-label={t("proposalCancel")}
         >
           <X className="h-5 w-5" strokeWidth={1.5} />
-        </button>
+        </Button>
 
         <h1 className="text-base font-semibold text-gray-900 dark:text-white">
           {modifyId ? t("modify") : t("createProposal")}
         </h1>
 
-        <button
+        <Button variant="ghost" size="auto"
           type="submit"
           form="proposal-form"
           disabled={!isValid || isSubmitting || !canCreate}
@@ -268,7 +269,7 @@ export function CreateProposalPage() {
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {t("proposalSend")}
-        </button>
+        </Button>
       </header>
 
       {/* Body */}
@@ -462,7 +463,7 @@ export function CreateProposalPage() {
 
             {/* Footer buttons (mobile only, below form) */}
             <div className="flex gap-3 pt-4 lg:hidden">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={handleCancel}
                 className={cn(
@@ -472,8 +473,8 @@ export function CreateProposalPage() {
                 )}
               >
                 {t("proposalCancel")}
-              </button>
-              <button
+              </Button>
+              <Button variant="ghost" size="auto"
                 type="submit"
                 disabled={!isValid || isSubmitting || !canCreate}
                 className={cn(
@@ -486,7 +487,7 @@ export function CreateProposalPage() {
               >
                 {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t("proposalSend")}
-              </button>
+              </Button>
             </div>
           </form>
 

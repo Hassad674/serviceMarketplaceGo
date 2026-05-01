@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 
+import { Button } from "@/shared/components/ui/button"
 // global-error.tsx is the html-level error boundary (PERF-W-03).
 // Triggered only when the locale-scoped error.tsx itself throws or
 // the root layout fails to render — at that point next-intl's
@@ -53,7 +54,7 @@ export default function GlobalError({
           <p style={{ fontSize: "0.95rem", color: "#475569", marginTop: "0.5rem" }}>
             Refreshing the page usually fixes it. If it persists, please contact support.
           </p>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={reset}
             style={{
@@ -68,7 +69,7 @@ export default function GlobalError({
             }}
           >
             Try again
-          </button>
+          </Button>
         </main>
       </body>
     </html>

@@ -15,6 +15,7 @@ import {
 import type { LucideIcon } from "lucide-react"
 import { useTranslations } from "next-intl"
 
+import { Button } from "@/shared/components/ui/button"
 // Shape of a single link used by the shared card. Kept minimal so
 // every persona feature can re-use the card without having to expose
 // its full API response shape.
@@ -123,14 +124,14 @@ export function SocialLinksCard({
           {t("socialLinks")}
         </h2>
         {!editing && canEdit ? (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={startEditing}
             aria-label={t("editSocialLinks")}
             className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           >
             <Edit2 className="w-[18px] h-[18px]" aria-hidden="true" />
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -250,15 +251,15 @@ function SocialLinksEditorForm({
       })}
 
       <div className="flex justify-end gap-2 pt-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onCancel}
           disabled={saving}
           className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted transition-colors duration-150 disabled:opacity-50"
         >
           {tCommon("cancel")}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onSave}
           disabled={saving}
@@ -268,7 +269,7 @@ function SocialLinksEditorForm({
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
           ) : null}
           {tCommon("save")}
-        </button>
+        </Button>
       </div>
     </div>
   )

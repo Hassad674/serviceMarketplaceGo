@@ -7,6 +7,7 @@ import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { JobResponse } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 interface OpportunityCardProps {
   job: JobResponse
@@ -42,7 +43,7 @@ export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProp
                 {t("alreadyApplied")}
               </span>
             )}
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={(e) => {
                 e.preventDefault()
@@ -53,7 +54,7 @@ export function OpportunityCard({ job, hasApplied = false }: OpportunityCardProp
               className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 hover:bg-slate-100 hover:text-slate-500 dark:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-400 transition-all"
             >
               <MoreVertical className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
 

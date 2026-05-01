@@ -6,6 +6,7 @@ import { cn } from "@/shared/lib/utils"
 import { ReviewCard } from "@/shared/components/ui/review-card"
 import { useReferrerReputation } from "../hooks/use-referrer-reputation"
 import type { ReferrerProjectHistoryEntry } from "../api/reputation-api"
+import { Button } from "@/shared/components/ui/button"
 
 interface ReferrerProjectHistorySectionProps {
   orgId: string | undefined
@@ -61,7 +62,7 @@ export function ReferrerProjectHistorySection(
           </ul>
           {query.hasNextPage ? (
             <div className="mt-5 flex justify-center">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => query.fetchNextPage()}
                 disabled={query.isFetchingNextPage}
@@ -74,7 +75,7 @@ export function ReferrerProjectHistorySection(
                 {query.isFetchingNextPage
                   ? t("reputationLoadMoreLoading")
                   : t("reputationLoadMore")}
-              </button>
+              </Button>
             </div>
           ) : null}
         </>

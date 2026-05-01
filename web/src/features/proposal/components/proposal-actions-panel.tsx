@@ -16,6 +16,7 @@ import { Link } from "@i18n/navigation"
 import { cn } from "@/shared/lib/utils"
 import { useHasPermission } from "@/shared/hooks/use-permissions"
 import type { MilestoneResponse, ProposalResponse, ProposalStatus } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 export interface ActionsPanelProps {
   proposal: ProposalResponse
@@ -321,7 +322,7 @@ interface ButtonProps {
 
 function PrimaryButton({ onClick, disabled, pending, icon: Icon, label }: ButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -338,13 +339,13 @@ function PrimaryButton({ onClick, disabled, pending, icon: Icon, label }: Button
         <Icon className="h-4 w-4" strokeWidth={1.5} />
       )}
       {label}
-    </button>
+    </Button>
   )
 }
 
 function OutlineButton({ onClick, disabled, icon: Icon, label }: ButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -360,13 +361,13 @@ function OutlineButton({ onClick, disabled, icon: Icon, label }: ButtonProps) {
     >
       <Icon className="h-4 w-4" strokeWidth={1.5} />
       {label}
-    </button>
+    </Button>
   )
 }
 
 function GhostDestructiveButton({ onClick, disabled, pending, icon: Icon, label }: ButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       disabled={disabled}
@@ -385,7 +386,7 @@ function GhostDestructiveButton({ onClick, disabled, pending, icon: Icon, label 
         <Icon className="h-4 w-4" strokeWidth={1.5} />
       )}
       {label}
-    </button>
+    </Button>
   )
 }
 

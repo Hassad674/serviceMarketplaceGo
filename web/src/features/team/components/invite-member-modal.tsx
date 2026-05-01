@@ -5,6 +5,7 @@ import { Loader2, X, Mail } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { useSendInvitation } from "../hooks/use-team"
 
+import { Button } from "@/shared/components/ui/button"
 // Form modal to send a new invitation. Permission gating is done
 // upstream (the "Inviter" button only renders when the caller has
 // team.invite). Field validation is inline — nothing fancier than
@@ -96,13 +97,13 @@ export function InviteMemberModal({ open, onClose, orgID }: InviteMemberModalPro
               {t("inviteTitle")}
             </h3>
           </div>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <X className="h-5 w-5 text-slate-400" />
-          </button>
+          </Button>
         </div>
 
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
@@ -207,15 +208,15 @@ export function InviteMemberModal({ open, onClose, orgID }: InviteMemberModalPro
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             disabled={mutation.isPending}
             className="rounded-lg border border-slate-200 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
           >
             {t("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleSubmit}
             disabled={mutation.isPending}
@@ -223,7 +224,7 @@ export function InviteMemberModal({ open, onClose, orgID }: InviteMemberModalPro
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             {t("sendInvite")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

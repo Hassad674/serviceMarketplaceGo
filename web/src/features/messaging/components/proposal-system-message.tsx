@@ -19,6 +19,7 @@ import { useRouter } from "@i18n/navigation"
 import { useTranslations } from "next-intl"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import type { ProposalMessageMetadata } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 type SystemMessageConfig = {
   icon: React.ElementType
@@ -289,7 +290,7 @@ export function PaymentRequestedMessage({
         {metadata.proposal_client_id === currentUserId && (
           <>
             <div className="mt-3 border-t border-inherit" />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => router.push(`/projects/pay?proposal=${metadata.proposal_id}`)}
               className={cn(
@@ -301,7 +302,7 @@ export function PaymentRequestedMessage({
             >
               {t("payNow")}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -348,7 +349,7 @@ export function CompletionRequestedMessage({
         {metadata.proposal_client_id === currentUserId && (
           <>
             <div className="mt-3 border-t border-inherit" />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => router.push(`/projects/${metadata.proposal_id}`)}
               className={cn(
@@ -360,7 +361,7 @@ export function CompletionRequestedMessage({
             >
               {t("viewDetails")}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -423,7 +424,7 @@ export function EvaluationRequestMessage({
         {ctaEnabled && (
           <>
             <div className="mt-3 border-t border-inherit" />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() =>
                 onReview?.(metadata.proposal_id, metadata.proposal_title, {
@@ -440,7 +441,7 @@ export function EvaluationRequestMessage({
             >
               {t("leaveReview")}
               <ArrowRight className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+            </Button>
           </>
         )}
       </div>

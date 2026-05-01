@@ -12,6 +12,7 @@ import {
   type LanguageComboboxLocale,
 } from "./language-combobox"
 
+import { Button } from "@/shared/components/ui/button"
 type LanguageBucket = "professional" | "conversational"
 
 interface LanguagesSectionProps {
@@ -84,7 +85,7 @@ function LanguagesSaveButton({
   const t = useTranslations("profile.languages")
   return (
     <div className="flex items-center justify-end">
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onSave}
         disabled={!isDirty || isPending}
@@ -102,7 +103,7 @@ function LanguagesSaveButton({
           <Check className="w-4 h-4" aria-hidden="true" />
         )}
         {isPending ? t("saving") : t("save")}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -259,7 +260,7 @@ function LanguageBucketEditor({
           {t(labelKey)}
         </h3>
         {selected.length > 0 ? (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => draft.clear(bucket)}
             className={cn(
@@ -269,7 +270,7 @@ function LanguageBucketEditor({
             )}
           >
             {t("clearAll")}
-          </button>
+          </Button>
         ) : null}
       </div>
       <p className="mb-3 text-xs text-muted-foreground">{t(helpKey)}</p>
@@ -343,7 +344,7 @@ function LanguageChip({ code, locale, onRemove }: LanguageChipProps) {
         strokeWidth={2.25}
       />
       {label}
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onRemove}
         aria-label={`${t("remove")} ${label}`}
@@ -354,7 +355,7 @@ function LanguageChip({ code, locale, onRemove }: LanguageChipProps) {
         )}
       >
         <X className="h-3 w-3" aria-hidden="true" />
-      </button>
+      </Button>
     </span>
   )
 }

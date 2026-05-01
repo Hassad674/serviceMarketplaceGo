@@ -12,6 +12,7 @@ import { ApplyModal } from "./apply-modal"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import { getJob } from "../api/job-api"
 import { useQuery } from "@tanstack/react-query"
+import { Button } from "@/shared/components/ui/button"
 
 interface OpportunityDetailProps {
   jobId: string
@@ -51,10 +52,10 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
   return (
     <div className="space-y-6">
       {/* Back */}
-      <button type="button" onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+      <Button variant="ghost" size="auto" type="button" onClick={() => router.back()} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
         <ArrowLeft className="h-4 w-4" />
         {t("back")}
-      </button>
+      </Button>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -68,7 +69,7 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
         <div className="flex items-start gap-2 shrink-0">
           {canApply && (
           <div className="flex flex-col items-end gap-1.5">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowApplyModal(true)}
               disabled={hasAlreadyApplied || noCredits}
@@ -80,7 +81,7 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
               )}
             >
               {hasAlreadyApplied ? t("alreadyApplied") : t("apply")}
-            </button>
+            </Button>
             {noCredits && !hasAlreadyApplied && (
               <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
                 <Ticket className="h-3 w-3" />
@@ -91,17 +92,17 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
           )}
           {/* 3-dot menu for report */}
           <div className="relative" ref={menuRef}>
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowMenu((v) => !v)}
               aria-label={t2("report")}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300 transition-all"
             >
               <MoreVertical className="h-5 w-5" />
-            </button>
+            </Button>
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 z-20 w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={() => {
                     setShowMenu(false)
@@ -111,7 +112,7 @@ export function OpportunityDetail({ jobId }: OpportunityDetailProps) {
                 >
                   <Flag className="h-4 w-4" />
                   {t2("reportJob")}
-                </button>
+                </Button>
               </div>
             )}
           </div>

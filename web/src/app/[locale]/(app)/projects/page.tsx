@@ -16,6 +16,7 @@ import { useUser } from "@/shared/hooks/use-user"
 import { useProjects } from "@/features/proposal/hooks/use-proposals"
 import type { ProposalResponse, ProposalStatus } from "@/features/proposal/types"
 
+import { Button } from "@/shared/components/ui/button"
 type TabKey = "inProgress" | "completed" | "all"
 
 const MISSION_STATUSES: ProposalStatus[] = [
@@ -232,7 +233,7 @@ function TabBar({ activeTab, onTabChange, inProgressCount, completedCount, allCo
   return (
     <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700" role="tablist">
       {tabs.map((tab) => (
-        <button
+        <Button variant="ghost" size="auto"
           key={tab.key}
           type="button"
           role="tab"
@@ -249,7 +250,7 @@ function TabBar({ activeTab, onTabChange, inProgressCount, completedCount, allCo
           {activeTab === tab.key && (
             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-rose-500 rounded-full" />
           )}
-        </button>
+        </Button>
       ))}
     </div>
   )

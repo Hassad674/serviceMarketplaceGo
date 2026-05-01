@@ -6,6 +6,7 @@ import { cn } from "@/shared/lib/utils"
 import { Modal } from "@/shared/components/ui/modal"
 import type { BillingCycle, Plan } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 type UpgradeModalProps = {
   open: boolean
   role: "freelance" | "agency"
@@ -137,7 +138,7 @@ function CycleTab({
   children: React.ReactNode
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="tab"
       aria-selected={active}
@@ -150,7 +151,7 @@ function CycleTab({
       )}
     >
       {children}
-    </button>
+    </Button>
   )
 }
 
@@ -232,7 +233,7 @@ function SubmitButton({
   onSubmit: () => void
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onSubmit}
       disabled={pending}
@@ -244,6 +245,6 @@ function SubmitButton({
       )}
     >
       {pending ? "Redirection…" : `Continuer · ${amountEuros} €`}
-    </button>
+    </Button>
   )
 }

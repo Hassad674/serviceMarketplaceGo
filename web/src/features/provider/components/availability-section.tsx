@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import type { AvailabilityStatus } from "../api/profile-api"
 import { useProfile } from "../hooks/use-profile"
 import { useUpdateAvailability } from "../hooks/use-update-availability"
+import { Button } from "@/shared/components/ui/button"
 
 const STATUS_VALUES: AvailabilityStatus[] = [
   "available_now",
@@ -146,7 +147,7 @@ function StatusRadioGroup({ label, value, onChange }: StatusRadioGroupProps) {
         {STATUS_VALUES.map((status) => {
           const isSelected = status === value
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={status}
               type="button"
               role="radio"
@@ -162,7 +163,7 @@ function StatusRadioGroup({ label, value, onChange }: StatusRadioGroupProps) {
                 <Check className="w-3.5 h-3.5" aria-hidden="true" />
               ) : null}
               {t(statusKey(status))}
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -190,7 +191,7 @@ function SaveRow({ isDirty, isSaving, isSuccess, onSave }: SaveRowProps) {
           {t("saved")}
         </span>
       ) : null}
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onSave}
         disabled={!isDirty || isSaving}
@@ -202,7 +203,7 @@ function SaveRow({ isDirty, isSaving, isSuccess, onSave }: SaveRowProps) {
           <Check className="w-4 h-4" aria-hidden="true" />
         )}
         {isSaving ? t("saving") : t("save")}
-      </button>
+      </Button>
     </div>
   )
 }

@@ -18,6 +18,7 @@ import { useUser } from "@/shared/hooks/use-user"
 import { useWorkspace } from "@/shared/hooks/use-workspace"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 type StatCard = {
   icon: React.ElementType
   labelKey: string
@@ -196,7 +197,7 @@ function DashboardContent() {
       {role === "provider" && (
         <div className="flex justify-end">
           {effectiveReferrerMode ? (
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => {
                 const targetPath = switchToFreelance()
                 router.push(targetPath)
@@ -210,9 +211,9 @@ function DashboardContent() {
             >
               <ArrowRightLeft className="h-4 w-4" strokeWidth={1.5} />
               {t("freelanceDashboard")}
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => {
                 const targetPath = switchToReferrer()
                 router.push(targetPath)
@@ -225,7 +226,7 @@ function DashboardContent() {
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               {t("businessReferrer")}
-            </button>
+            </Button>
           )}
         </div>
       )}

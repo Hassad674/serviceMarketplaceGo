@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import { useCancelInvitation, useResendInvitation } from "../hooks/use-team"
 import type { TeamInvitation } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 // Pending-invitations table. Each row has two actions (resend +
 // cancel) that are visible only when the caller has team.invite,
 // which is resolved upstream by the parent.
@@ -99,7 +100,7 @@ function InvitationRow({ orgID, invitation, canInvite }: InvitationRowProps) {
       {canInvite && (
         <td className="px-6 py-4 text-right">
           <div className="inline-flex gap-2">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => resendMutation.mutate(invitation.id)}
               disabled={resendMutation.isPending}
@@ -111,8 +112,8 @@ function InvitationRow({ orgID, invitation, canInvite }: InvitationRowProps) {
                 <RotateCcw className="h-3 w-3" />
               )}
               {t("resendAction")}
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => cancelMutation.mutate(invitation.id)}
               disabled={cancelMutation.isPending}
@@ -124,7 +125,7 @@ function InvitationRow({ orgID, invitation, canInvite }: InvitationRowProps) {
                 <X className="h-3 w-3" />
               )}
               {t("cancelAction")}
-            </button>
+            </Button>
           </div>
         </td>
       )}

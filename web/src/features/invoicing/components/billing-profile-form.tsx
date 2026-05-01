@@ -22,6 +22,7 @@ import {
   type BillingProfileFormValues,
 } from "./billing-profile-form.schema"
 
+import { Button } from "@/shared/components/ui/button"
 /**
  * Editable form for the billing profile. Reads the current snapshot
  * via TanStack Query, hydrates a react-hook-form instance, and pushes
@@ -119,7 +120,7 @@ export function BillingProfileForm({
             <SyncedFromStripeIndicator at={data.profile.synced_from_kyc_at} />
           )}
           {isCompact && <span />}
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => syncMutation.mutate()}
             disabled={syncMutation.isPending}
@@ -135,7 +136,7 @@ export function BillingProfileForm({
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             )}
             Pré-remplir depuis Stripe
-          </button>
+          </Button>
         </div>
         {syncMutation.isError && (
           <FormError message="La synchronisation Stripe a échoué. Réessaie ou complète manuellement." />
@@ -163,7 +164,7 @@ export function BillingProfileForm({
               Profil enregistré.
             </span>
           )}
-          <button
+          <Button variant="ghost" size="auto"
             type="submit"
             disabled={updateMutation.isPending}
             className={cn(
@@ -177,7 +178,7 @@ export function BillingProfileForm({
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             )}
             Enregistrer
-          </button>
+          </Button>
         </div>
       </form>
     </FormProvider>

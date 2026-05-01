@@ -3,6 +3,7 @@
 import { cn } from "@/shared/lib/utils"
 import { useTranslations } from "next-intl"
 import type { PaymentMode } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 type PaymentModeToggleProps = {
   value: PaymentMode
@@ -78,7 +79,7 @@ function PaymentModeButton({
   label,
 }: PaymentModeButtonProps) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       role="tab"
       aria-selected={active}
@@ -95,6 +96,6 @@ function PaymentModeButton({
       )}
     >
       {label}
-    </button>
+    </Button>
   )
 }

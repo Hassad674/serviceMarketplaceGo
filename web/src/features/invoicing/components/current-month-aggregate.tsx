@@ -6,6 +6,7 @@ import { cn, formatCurrency, formatDate } from "@/shared/lib/utils"
 import { useCurrentMonth } from "../hooks/use-current-month"
 import type { CurrentMonthLine } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 /**
  * Compact card showing the running fee total for the current
  * billing month. Sits above the wallet's withdraw block so
@@ -55,7 +56,7 @@ export function CurrentMonthAggregate() {
             de commission
           </p>
           {data.lines.length > 0 && (
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setExpanded((p) => !p)}
               className={cn(
@@ -70,7 +71,7 @@ export function CurrentMonthAggregate() {
               ) : (
                 <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
               )}
-            </button>
+            </Button>
           )}
           {expanded && (
             <ul

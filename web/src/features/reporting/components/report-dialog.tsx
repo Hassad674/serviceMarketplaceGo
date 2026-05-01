@@ -16,6 +16,7 @@ import type { TargetType, ReportReason } from "../types"
 import { cn } from "@/shared/lib/utils"
 import { ApiError } from "@/shared/lib/api-client"
 
+import { Button } from "@/shared/components/ui/button"
 interface ReportDialogProps {
   open: boolean
   onClose: () => void
@@ -101,12 +102,12 @@ export function ReportDialog({
               {targetType === "application" && t("reportApplication")}
             </h2>
           </div>
-          <button
+          <Button variant="ghost" size="auto"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             <X className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         {/* Reasons */}
@@ -176,13 +177,13 @@ export function ReportDialog({
         )}
 
         {/* Submit */}
-        <button
+        <Button variant="ghost" size="auto"
           onClick={handleSubmit}
           disabled={!reason || mutation.isPending || alreadyReported}
           className="w-full rounded-lg bg-rose-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {mutation.isPending ? t("submitting") : t("submitReport")}
-        </button>
+        </Button>
       </div>
     </div>
   )

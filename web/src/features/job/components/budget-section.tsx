@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import type { JobFormData, BudgetType, PaymentFrequency } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 type BudgetSectionProps = {
   formData: JobFormData
@@ -37,7 +38,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
         </label>
         <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
           {BUDGET_TYPES.map((type) => (
-            <button
+            <Button variant="ghost" size="auto"
               key={type}
               type="button"
               onClick={() => updateField("budgetType", type)}
@@ -49,7 +50,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
               )}
             >
               {budgetLabelMap[type]}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
@@ -62,7 +63,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
           </label>
           <div className="inline-flex rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
             {PAYMENT_FREQUENCIES.map((freq) => (
-              <button
+              <Button variant="ghost" size="auto"
                 key={freq}
                 type="button"
                 onClick={() => updateField("paymentFrequency", freq)}
@@ -74,7 +75,7 @@ export function BudgetSection({ formData, updateField }: BudgetSectionProps) {
                 )}
               >
                 {frequencyLabelMap[freq]}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

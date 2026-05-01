@@ -10,6 +10,7 @@ import { FileMessage } from "./file-message"
 import { VoiceMessage } from "./voice-message"
 import { MessageContextMenu } from "./message-context-menu"
 import { isFileMetadata, isVoiceMetadata } from "./message-area-utils"
+import { Button } from "@/shared/components/ui/button"
 
 // TextMessageBubble renders the chat-style "text/file/voice" bubble
 // with all interactive affordances: in-place edit, reply, delete,
@@ -229,7 +230,7 @@ function MobileMenuOverlay({
         className="w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
+        <Button variant="ghost" size="auto"
           onClick={() => {
             onClose()
             onReply()
@@ -238,9 +239,9 @@ function MobileMenuOverlay({
         >
           <Reply className="h-4 w-4" strokeWidth={1.5} />
           {t("reply")}
-        </button>
+        </Button>
         {isOwn && (
-          <button
+          <Button variant="ghost" size="auto"
             onClick={() => {
               onClose()
               onEdit()
@@ -249,10 +250,10 @@ function MobileMenuOverlay({
           >
             <Pencil className="h-4 w-4" strokeWidth={1.5} />
             {t("editMessage")}
-          </button>
+          </Button>
         )}
         {isOwn && (
-          <button
+          <Button variant="ghost" size="auto"
             onClick={() => {
               onClose()
               onDelete()
@@ -261,12 +262,12 @@ function MobileMenuOverlay({
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.5} />
             {t("deleteMessage")}
-          </button>
+          </Button>
         )}
         {onReport && (
           <>
             <div className="mx-3 border-t border-slate-200 dark:border-slate-700" />
-            <button
+            <Button variant="ghost" size="auto"
               onClick={() => {
                 onClose()
                 onReport()
@@ -275,7 +276,7 @@ function MobileMenuOverlay({
             >
               <Flag className="h-4 w-4" strokeWidth={1.5} />
               {t("report")}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -307,12 +308,12 @@ function EditInput({ value, onChange, onSubmit, onCancel }: EditInputProps) {
         autoFocus
       />
       <div className="flex gap-1 text-[10px]">
-        <button onClick={onSubmit} className="rounded px-2 py-0.5 hover:bg-white/20">
+        <Button variant="ghost" size="auto" onClick={onSubmit} className="rounded px-2 py-0.5 hover:bg-white/20">
           {t("save")}
-        </button>
-        <button onClick={onCancel} className="rounded px-2 py-0.5 hover:bg-white/20">
+        </Button>
+        <Button variant="ghost" size="auto" onClick={onCancel} className="rounded px-2 py-0.5 hover:bg-white/20">
           {t("cancel")}
-        </button>
+        </Button>
       </div>
     </div>
   )

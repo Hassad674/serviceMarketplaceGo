@@ -58,6 +58,18 @@ describe("Button", () => {
 		expect(screen.getByRole("button").className).toContain(marker)
 	})
 
+	it("does not apply h-* / px-* on size=auto so callers control sizing", () => {
+		render(
+			<Button type="button" size="auto" className="px-2 py-1">
+				Auto
+			</Button>,
+		)
+		const btn = screen.getByRole("button")
+		expect(btn.className).not.toMatch(/\bh-(8|9|10)\b/)
+		expect(btn.className).toContain("px-2")
+		expect(btn.className).toContain("py-1")
+	})
+
 	it("merges custom className with variant classes", () => {
 		render(
 			<Button type="button" className="custom-class">

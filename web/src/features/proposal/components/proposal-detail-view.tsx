@@ -27,6 +27,7 @@ import type { ProposalResponse } from "../types"
 import { FeePreview } from "@/features/billing/components/fee-preview"
 import { UpgradeCta } from "@/features/subscription/components/upgrade-cta"
 import { UpgradeModal } from "@/features/subscription/components/upgrade-modal"
+import { Button } from "@/shared/components/ui/button"
 
 interface ProposalDetailViewProps {
   proposalId: string
@@ -122,14 +123,14 @@ export function ProposalDetailView({ proposalId }: ProposalDetailViewProps) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Back button */}
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={() => router.push("/projects")}
         className="mb-6 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         {t("backToProjects")}
-      </button>
+      </Button>
 
       {/* Stepper (proposal-level macro state) */}
       <div className="mb-8 rounded-2xl border border-slate-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80">
@@ -359,7 +360,7 @@ function DocumentsList({ documents }: { documents: ProposalResponse["documents"]
       </p>
       <div className="space-y-2">
         {documents.map((doc) => (
-          <button
+          <Button variant="ghost" size="auto"
             key={doc.id}
             type="button"
             onClick={async () => {
@@ -389,7 +390,7 @@ function DocumentsList({ documents }: { documents: ProposalResponse["documents"]
               {doc.filename}
             </span>
             <Download className="ml-auto h-4 w-4 shrink-0 text-slate-400" strokeWidth={1.5} />
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -515,13 +516,13 @@ function ErrorState({ onBack }: { onBack: () => void }) {
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {t("proposalNotFound")}
         </p>
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onBack}
           className="text-sm text-rose-500 hover:text-rose-600 font-medium"
         >
           {t("backToProjects")}
-        </button>
+        </Button>
       </div>
     </div>
   )

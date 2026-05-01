@@ -53,6 +53,14 @@ const buttonVariants = cva(
 				sm: "h-8 px-3 text-xs",
 				md: "h-9 px-4 text-sm",
 				lg: "h-10 px-6 text-sm",
+				/**
+				 * `auto` opts out of size classes entirely — useful when the
+				 * caller already controls height/padding (icon menus, list
+				 * rows, special layouts where forcing h-9 would break the
+				 * design). Most common during the migration from raw
+				 * `<button>` since callers carried bespoke spacing.
+				 */
+				auto: "",
 			},
 		},
 		defaultVariants: {

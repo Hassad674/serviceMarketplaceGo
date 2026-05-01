@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react"
 import { X, ChevronLeft, ChevronRight, ExternalLink, Image as ImageIcon, Film } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { PortfolioItem } from "../api/portfolio-api"
+import { Button } from "@/shared/components/ui/button"
 
 interface PortfolioDetailModalProps {
   item: PortfolioItem | null
@@ -68,13 +69,13 @@ export function PortfolioDetailModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button — always visible top right */}
-        <button
+        <Button variant="ghost" size="auto"
           onClick={onClose}
           className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-black/80 md:right-4 md:top-4"
           aria-label={t("close")}
         >
           <X className="h-5 w-5" />
-        </button>
+        </Button>
 
         {/* Gallery — top on mobile, left on desktop */}
         <div className="relative flex aspect-video w-full shrink-0 items-center justify-center bg-slate-950 md:aspect-auto md:h-[600px] md:w-3/5">
@@ -105,24 +106,24 @@ export function PortfolioDetailModal({
 
               {/* Prev arrow */}
               {hasPrev && (
-                <button
+                <Button variant="ghost" size="auto"
                   onClick={goPrev}
                   className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-white/20 md:left-4 md:h-12 md:w-12"
                   aria-label={t("previous")}
                 >
                   <ChevronLeft className="h-6 w-6" />
-                </button>
+                </Button>
               )}
 
               {/* Next arrow */}
               {hasNext && (
-                <button
+                <Button variant="ghost" size="auto"
                   onClick={goNext}
                   className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur-md transition-all hover:scale-110 hover:bg-white/20 md:right-4 md:h-12 md:w-12"
                   aria-label={t("next")}
                 >
                   <ChevronRight className="h-6 w-6" />
-                </button>
+                </Button>
               )}
 
               {/* Counter */}
@@ -183,7 +184,7 @@ export function PortfolioDetailModal({
                 </p>
                 <div className="grid grid-cols-4 gap-2">
                   {media.map((m, i) => (
-                    <button
+                    <Button variant="ghost" size="auto"
                       key={m.id}
                       onClick={() => setCurrentIndex(i)}
                       className={`relative aspect-square overflow-hidden rounded-lg border-2 transition-all ${
@@ -228,7 +229,7 @@ export function PortfolioDetailModal({
                           className="object-cover"
                         />
                       )}
-                    </button>
+                    </Button>
                   ))}
                 </div>
               </div>

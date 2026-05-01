@@ -4,6 +4,7 @@ import { useEffect } from "react"
 import { X } from "lucide-react"
 
 import { cn } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
 interface PickerModalProps {
   open: boolean
@@ -66,14 +67,14 @@ export function PickerModal({
               <p className="mt-0.5 text-xs text-slate-500">{description}</p>
             )}
           </div>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label="Fermer"
           >
             <X className="h-5 w-5" aria-hidden="true" />
-          </button>
+          </Button>
         </header>
         <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
       </div>
@@ -82,8 +83,8 @@ export function PickerModal({
 }
 
 // PickerTrigger renders the non-button clickable input the pickers sit on.
-// It has to be a <div role="button"> (not a real <button>) so the optional
-// inline X-clear control can be a real <button> without hitting the "button
+// It has to be a <div role="button"> (not a real <Button variant="ghost" size="auto">) so the optional
+// inline X-clear control can be a real <Button variant="ghost" size="auto"> without hitting the "button
 // cannot be a descendant of button" HTML / React hydration error.
 interface PickerTriggerProps {
   onOpen: () => void
@@ -124,7 +125,7 @@ export function PickerTrigger({
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
         {onClear && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={(e) => {
               e.stopPropagation()
@@ -134,7 +135,7 @@ export function PickerTrigger({
             aria-label="Effacer la sélection"
           >
             <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
     </div>

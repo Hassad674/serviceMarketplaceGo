@@ -6,6 +6,7 @@ import { UploadCloud, X, File as FileIcon, Loader2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 interface UploadModalProps {
   open: boolean
   onClose: () => void
@@ -185,7 +186,7 @@ export function UploadModal({
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             disabled={uploading}
@@ -198,7 +199,7 @@ export function UploadModal({
             aria-label={tCommon("close")}
           >
             <X className="w-5 h-5" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
 
         {description && (
@@ -207,7 +208,7 @@ export function UploadModal({
 
         {/* Drop zone */}
         {!selectedFile && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => fileInputRef.current?.click()}
             onDragOver={handleDragOver}
@@ -251,7 +252,7 @@ export function UploadModal({
                 ? t("imagesMaxSize", { maxSize: maxSizeLabel })
                 : t("videosMaxSize", { maxSize: maxSizeLabel })}
             </p>
-          </button>
+          </Button>
         )}
 
         {/* File preview */}
@@ -282,7 +283,7 @@ export function UploadModal({
                   {formatFileSize(selectedFile.size)}
                 </p>
               </div>
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={handleRemoveFile}
                 disabled={uploading}
@@ -295,7 +296,7 @@ export function UploadModal({
                 aria-label={tCommon("removeFile")}
               >
                 <X className="w-4 h-4" aria-hidden="true" />
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -319,7 +320,7 @@ export function UploadModal({
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3 mt-6">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             disabled={uploading}
@@ -331,8 +332,8 @@ export function UploadModal({
             )}
           >
             {tCommon("cancel")}
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleUpload}
             disabled={!selectedFile || uploading}
@@ -352,7 +353,7 @@ export function UploadModal({
               />
             )}
             {uploading ? t("uploading") : t("send")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

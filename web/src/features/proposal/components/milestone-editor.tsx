@@ -12,6 +12,7 @@ import {
   validateMilestoneDeadlines,
 } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 type MilestoneEditorProps = {
   milestones: MilestoneFormItem[]
   onChange: (milestones: MilestoneFormItem[]) => void
@@ -99,7 +100,7 @@ export function MilestoneEditor({
         ))}
       </div>
 
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={addMilestone}
         disabled={disabled || !canAddMore}
@@ -113,7 +114,7 @@ export function MilestoneEditor({
       >
         <Plus className="h-4 w-4" />
         {t("addMilestone")}
-      </button>
+      </Button>
 
       {/* Sticky total footer */}
       <div
@@ -179,7 +180,7 @@ function MilestoneRow({
           {t("milestone")} {sequence}
         </span>
         {canRemove && (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onRemove}
             disabled={disabled}
@@ -192,7 +193,7 @@ function MilestoneRow({
             aria-label={t("remove")}
           >
             <Trash2 className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
 

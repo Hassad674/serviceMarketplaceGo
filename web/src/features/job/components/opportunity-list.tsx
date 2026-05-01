@@ -10,6 +10,7 @@ import { useUser } from "@/shared/hooks/use-user"
 import { OpportunityCard } from "./opportunity-card"
 import { CreditsInfoModal } from "./credits-info-modal"
 import type { OpenJobListFilters, JobResponse } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 export function OpportunityList() {
   const t = useTranslations("opportunity")
@@ -62,14 +63,14 @@ export function OpportunityList() {
             <span className="text-sm font-medium text-rose-700 dark:text-rose-300">
               {t("creditsRemaining", { count: credits })}
             </span>
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowCreditsInfo(true)}
               className="ml-0.5 rounded-full p-0.5 hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors"
               aria-label={t("creditsHowItWorks")}
             >
               <HelpCircle className="h-3.5 w-3.5 text-rose-400 dark:text-rose-300" />
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -85,7 +86,7 @@ export function OpportunityList() {
       {/* Filter chips */}
       <div className="flex flex-wrap gap-2">
         {(["all", "freelancers", "agencies"] as const).map((type) => (
-          <button
+          <Button variant="ghost" size="auto"
             key={type}
             type="button"
             onClick={() => { setFilters((f) => ({ ...f, applicant_type: f.applicant_type === type ? undefined : type })); setCursor(undefined) }}
@@ -97,10 +98,10 @@ export function OpportunityList() {
             )}
           >
             {type === "all" ? t("allTypes") : type === "freelancers" ? t("freelancersOnly") : t("agenciesOnly")}
-          </button>
+          </Button>
         ))}
         {(["one_shot", "long_term"] as const).map((type) => (
-          <button
+          <Button variant="ghost" size="auto"
             key={type}
             type="button"
             onClick={() => { setFilters((f) => ({ ...f, budget_type: f.budget_type === type ? undefined : type })); setCursor(undefined) }}
@@ -112,7 +113,7 @@ export function OpportunityList() {
             )}
           >
             {type === "one_shot" ? t("oneShot") : t("longTerm")}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -149,14 +150,14 @@ export function OpportunityList() {
 
           {data.has_more && (
             <div className="flex justify-center">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => setCursor(data.next_cursor)}
                 className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
               >
                 <Loader2 className="h-4 w-4" />
                 {t("loadMore")}
-              </button>
+              </Button>
             </div>
           )}
         </>

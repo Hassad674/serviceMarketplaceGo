@@ -2,6 +2,7 @@
 
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 // Shared leaf primitives used by every filter section. Lives next to
 // search-filter-sidebar so the section files don't import from each
 // other and the duplication-rule of three is honored once.
@@ -33,7 +34,7 @@ export function PillButton({
   onClick: () => void
 }) {
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="button"
       onClick={onClick}
       aria-pressed={selected}
@@ -46,7 +47,7 @@ export function PillButton({
       )}
     >
       {label}
-    </button>
+    </Button>
   )
 }
 

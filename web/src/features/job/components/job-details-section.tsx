@@ -8,6 +8,7 @@ import { useUser } from "@/shared/hooks/use-user"
 import { UploadModal } from "@/shared/components/upload-modal"
 import type { JobFormData, DescriptionType } from "../types"
 import { ApplicantTypeSelector } from "./applicant-type-selector"
+import { Button } from "@/shared/components/ui/button"
 
 type JobDetailsSectionProps = {
   formData: JobFormData
@@ -91,7 +92,7 @@ export function JobDetailsSection({ formData, updateField, hideApplicantType = f
                   <track kind="captions" />
                 </video>
               </div>
-              <button type="button" onClick={() => { updateField("videoUrl", ""); updateField("videoFile", null) }} className={cn("w-full rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm font-medium", "text-gray-600 dark:text-gray-400 transition-all duration-200", "hover:border-rose-300 dark:hover:border-rose-500 hover:text-rose-600 dark:hover:text-rose-400")}>{t("removeVideo")}</button>
+              <Button variant="ghost" size="auto" type="button" onClick={() => { updateField("videoUrl", ""); updateField("videoFile", null) }} className={cn("w-full rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm font-medium", "text-gray-600 dark:text-gray-400 transition-all duration-200", "hover:border-rose-300 dark:hover:border-rose-500 hover:text-rose-600 dark:hover:text-rose-400")}>{t("removeVideo")}</Button>
             </div>
           ) : (
             <div
@@ -173,9 +174,9 @@ function TagInput({ label, placeholder, tags, max, onChange }: TagInputProps) {
         {tags.map((tag, index) => (
           <span key={tag} className={cn("inline-flex items-center gap-1 rounded-lg px-2.5 py-1", "bg-rose-100 dark:bg-rose-500/20 text-sm font-medium", "text-rose-700 dark:text-rose-300", "animate-scale-in")}>
             {tag}
-            <button type="button" onClick={() => onChange(tags.filter((_, i) => i !== index))} className="rounded p-0.5 transition-colors hover:bg-rose-200 dark:hover:bg-rose-500/30" aria-label={`Remove ${tag}`}>
+            <Button variant="ghost" size="auto" type="button" onClick={() => onChange(tags.filter((_, i) => i !== index))} className="rounded p-0.5 transition-colors hover:bg-rose-200 dark:hover:bg-rose-500/30" aria-label={`Remove ${tag}`}>
               <X className="h-3 w-3" strokeWidth={2.5} />
-            </button>
+            </Button>
           </span>
         ))}
         {tags.length < max && (

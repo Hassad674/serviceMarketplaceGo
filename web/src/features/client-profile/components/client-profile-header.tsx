@@ -6,6 +6,7 @@ import { Briefcase, Camera, Star } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
 import { cn, formatCurrency } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
 export interface ClientProfileHeaderStats {
   totalSpent: number
@@ -167,7 +168,7 @@ function Avatar({ avatarUrl, initials, name, editable }: AvatarProps) {
 
   return (
     <>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t("editLogo")}
@@ -178,7 +179,7 @@ function Avatar({ avatarUrl, initials, name, editable }: AvatarProps) {
         )}
       >
         {pictureNode}
-      </button>
+      </Button>
       <UploadModal
         open={open}
         onClose={() => setOpen(false)}

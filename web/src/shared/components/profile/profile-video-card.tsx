@@ -5,6 +5,7 @@ import { Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
 
+import { Button } from "@/shared/components/ui/button"
 const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 
 interface ProfileVideoCardProps {
@@ -100,7 +101,7 @@ function VideoHeader({
       {hasVideo && !readOnly ? (
         <div className="flex items-center gap-3">
           {actions?.onDelete ? (
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={actions.onDelete}
               disabled={actions.deleting}
@@ -108,16 +109,16 @@ function VideoHeader({
             >
               <Trash2 className="w-4 h-4" aria-hidden="true" />
               {t("removeVideo")}
-            </button>
+            </Button>
           ) : null}
           {actions?.onUpload ? (
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={onOpenUpload}
               className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
               {t("changeVideo")}
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -170,13 +171,13 @@ function VideoEmptyState({
         {labels.emptyDescription}
       </p>
       {canUpload ? (
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onOpenUpload}
           className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           {t("addVideo")}
-        </button>
+        </Button>
       ) : null}
     </div>
   )

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl"
 import type { AccountSection } from "../types"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 const NAV_ITEMS: { section: AccountSection; icon: React.ElementType; labelKey: string }[] = [
   { section: "notifications", icon: Bell, labelKey: "notifications" },
   { section: "email", icon: Mail, labelKey: "email" },
@@ -27,7 +28,7 @@ export function AccountNav({ activeSection, onSectionChange }: AccountNavProps) 
           const isActive = activeSection === item.section
           const Icon = item.icon
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={item.section}
               onClick={() => onSectionChange(item.section)}
               className={cn(
@@ -42,7 +43,7 @@ export function AccountNav({ activeSection, onSectionChange }: AccountNavProps) 
               )}
               <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
               <span>{t(item.labelKey)}</span>
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -53,7 +54,7 @@ export function AccountNav({ activeSection, onSectionChange }: AccountNavProps) 
           const isActive = activeSection === item.section
           const Icon = item.icon
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={item.section}
               onClick={() => onSectionChange(item.section)}
               className={cn(
@@ -65,7 +66,7 @@ export function AccountNav({ activeSection, onSectionChange }: AccountNavProps) 
             >
               <Icon className="h-4 w-4" strokeWidth={1.5} />
               <span>{t(item.labelKey)}</span>
-            </button>
+            </Button>
           )
         })}
       </div>

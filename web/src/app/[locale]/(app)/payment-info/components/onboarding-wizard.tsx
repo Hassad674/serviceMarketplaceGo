@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl"
 import { CountrySelector } from "./country-selector"
 import { TrustSignals } from "./trust-signals"
 
+import { Button } from "@/shared/components/ui/button"
 type OnboardingWizardProps = {
   loading: boolean
   onSubmit: (country: string) => void
@@ -44,7 +45,7 @@ export function OnboardingWizard({ loading, onSubmit }: OnboardingWizardProps) {
             </p>
           </div>
 
-          <button
+          <Button variant="ghost" size="auto"
             onClick={handleSubmit}
             disabled={!country || loading}
             className={`flex h-12 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold transition-all ${
@@ -64,7 +65,7 @@ export function OnboardingWizard({ loading, onSubmit }: OnboardingWizardProps) {
                 <ArrowRight className="h-4 w-4" aria-hidden />
               </>
             )}
-          </button>
+          </Button>
         </div>
       </div>
 

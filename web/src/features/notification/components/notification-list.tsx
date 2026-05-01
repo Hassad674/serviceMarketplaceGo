@@ -7,6 +7,7 @@ import { useNotifications } from "../hooks/use-notifications"
 import { useMarkAllAsRead } from "../hooks/use-notification-actions"
 import { NotificationItem } from "./notification-item"
 
+import { Button } from "@/shared/components/ui/button"
 export function NotificationList() {
   const t = useTranslations("notifications")
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useNotifications()
@@ -34,13 +35,13 @@ export function NotificationList() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">{t("title")}</h1>
         {notifications.length > 0 && (
-          <button
+          <Button variant="ghost" size="auto"
             onClick={() => markAllAsRead.mutate()}
             disabled={markAllAsRead.isPending}
             className="rounded-lg px-3 py-1.5 text-sm font-medium text-rose-500 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/20"
           >
             {t("markAllAsRead")}
-          </button>
+          </Button>
         )}
       </div>
 

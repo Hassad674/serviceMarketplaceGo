@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowRight } from "lucide-react"
 import { Modal } from "@/shared/components/ui/modal"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 type KYCIncompleteModalProps = {
   open: boolean
   onClose: () => void
@@ -66,7 +67,7 @@ export function KYCIncompleteModal({
         </div>
 
         <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className={cn(
@@ -76,8 +77,8 @@ export function KYCIncompleteModal({
             )}
           >
             Plus tard
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleCta}
             className={cn(
@@ -89,7 +90,7 @@ export function KYCIncompleteModal({
           >
             Aller à Infos paiement
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

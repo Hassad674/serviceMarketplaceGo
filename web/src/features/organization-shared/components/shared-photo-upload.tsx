@@ -8,6 +8,7 @@ import { UploadModal } from "@/shared/components/upload-modal"
 import { useOrganizationShared } from "../hooks/use-organization-shared"
 import { useUploadOrganizationPhoto } from "../hooks/use-update-organization-photo"
 
+import { Button } from "@/shared/components/ui/button"
 const PHOTO_MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 
 // SharedPhotoUpload renders the dedicated "Change photo" action row
@@ -46,7 +47,7 @@ export function SharedPhotoUpload() {
 
         <div className="flex items-center gap-4">
           <PhotoPreview photoUrl={photoUrl} />
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={() => setModalOpen(true)}
             disabled={upload.isPending}
@@ -58,7 +59,7 @@ export function SharedPhotoUpload() {
               <Camera className="w-4 h-4" aria-hidden="true" />
             )}
             {tUpload("addPhoto")}
-          </button>
+          </Button>
         </div>
       </section>
 

@@ -7,6 +7,7 @@ import {
 import { useTranslations } from "next-intl"
 import { useRouter } from "@i18n/navigation"
 import { cn, formatCurrency } from "@/shared/lib/utils"
+import { Button } from "@/shared/components/ui/button"
 
 type SystemConfig = {
   icon: React.ElementType
@@ -185,7 +186,7 @@ export function DisputeSystemBubble({ type, metadata, currentUserId, conversatio
         {showDetailsBtn && (
           <>
             <div className="mt-3 border-t border-inherit" />
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => router.push(`/projects/${proposalId}`)}
               className={cn(
@@ -197,7 +198,7 @@ export function DisputeSystemBubble({ type, metadata, currentUserId, conversatio
             >
               Voir les details
               <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+            </Button>
           </>
         )}
       </div>

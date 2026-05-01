@@ -11,6 +11,7 @@ import { useHasPermission } from "@/shared/hooks/use-permissions"
 import { openChatWithOrg } from "@/shared/components/chat-widget/use-chat-widget"
 import { ReportDialog } from "@/features/reporting/components/report-dialog"
 import type { ApplicationWithProfile } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 const ORG_TYPE_COLORS: Record<string, string> = {
   provider_personal: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
@@ -131,7 +132,7 @@ export function CandidateDetailPanel({
         {/* Top bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 shrink-0">
           <div className="flex items-center gap-2">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={navigatePrev}
               disabled={!hasPrev}
@@ -144,11 +145,11 @@ export function CandidateDetailPanel({
               )}
             >
               <ChevronLeft className="h-4 w-4" />
-            </button>
+            </Button>
             <span className="text-xs text-slate-400 dark:text-slate-500 tabular-nums">
               {currentIndex + 1} / {candidates.length}
             </span>
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={navigateNext}
               disabled={!hasNext}
@@ -161,26 +162,26 @@ export function CandidateDetailPanel({
               )}
             >
               <ChevronRight className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
 
           <div className="flex items-center gap-1">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setShowReportDialog(true)}
               aria-label={tReport("reportApplication")}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-all"
             >
               <Flag className="h-4 w-4" />
-            </button>
-            <button
+            </Button>
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={onClose}
               aria-label="Close"
               className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
             >
               <X className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -238,7 +239,7 @@ export function CandidateDetailPanel({
               {t("viewProfile")}
             </Link>
             {canSendMessage && (
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={handleSendMessage}
               className={cn(
@@ -249,7 +250,7 @@ export function CandidateDetailPanel({
             >
               <Send className="h-4 w-4" />
               {t("sendMessage")}
-            </button>
+            </Button>
             )}
           </div>
 

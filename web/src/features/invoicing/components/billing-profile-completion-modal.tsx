@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils"
 import type { MissingField } from "../types"
 import { describeMissing } from "./missing-fields-copy"
 
+import { Button } from "@/shared/components/ui/button"
 type BillingProfileCompletionModalProps = {
   open: boolean
   onClose: () => void
@@ -97,7 +98,7 @@ export function BillingProfileCompletionModal({
         )}
 
         <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:justify-end">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className={cn(
@@ -107,8 +108,8 @@ export function BillingProfileCompletionModal({
             )}
           >
             Plus tard
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleCta}
             className={cn(
@@ -120,7 +121,7 @@ export function BillingProfileCompletionModal({
           >
             Compléter mon profil
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

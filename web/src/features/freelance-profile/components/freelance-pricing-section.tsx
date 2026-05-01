@@ -13,6 +13,7 @@ import type { FreelancePricing } from "../api/freelance-profile-api"
 import { useFreelancePricing } from "../hooks/use-freelance-pricing"
 import { useUpsertFreelancePricing } from "../hooks/use-upsert-freelance-pricing"
 import { useDeleteFreelancePricing } from "../hooks/use-delete-freelance-pricing"
+import { Button } from "@/shared/components/ui/button"
 
 // V1 pricing simplification: the freelance persona is narrowed down
 // to a single allowed type — `daily` (TJM, the French market standard
@@ -92,14 +93,14 @@ function ReadView({ persisted, locale, readOnly, onEdit }: ReadViewProps) {
     <div>
       <PricingDisplayRow persisted={persisted} locale={locale} />
       {!readOnly ? (
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onEdit}
           className="mt-4 inline-flex items-center gap-2 rounded-md border border-border h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           <Pencil className="h-4 w-4" aria-hidden="true" />
           {t("editButton")}
-        </button>
+        </Button>
       ) : null}
     </div>
   )
@@ -327,7 +328,7 @@ function NegotiableRow({ value, onChange }: NegotiableRowProps) {
           const isSelected = option === value
           const labelKey = option ? "negotiableYes" : "negotiableNo"
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={String(option)}
               type="button"
               role="radio"
@@ -341,7 +342,7 @@ function NegotiableRow({ value, onChange }: NegotiableRowProps) {
               )}
             >
               {t(labelKey)}
-            </button>
+            </Button>
           )
         })}
       </div>
@@ -372,7 +373,7 @@ function FormActions(props: FormActionsProps) {
   return (
     <div className="mt-4 flex items-center justify-between gap-2">
       {persisted ? (
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onDelete}
           disabled={isDeleting}
@@ -380,19 +381,19 @@ function FormActions(props: FormActionsProps) {
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
           {t("delete")}
-        </button>
+        </Button>
       ) : (
         <span />
       )}
       <div className="flex items-center gap-2">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onCancel}
           className="rounded-md h-9 px-4 text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
         >
           {tCommon("cancel")}
-        </button>
-        <button
+        </Button>
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onSave}
           disabled={isSaving}
@@ -405,7 +406,7 @@ function FormActions(props: FormActionsProps) {
             <Check className="w-4 h-4" aria-hidden="true" />
           )}
           {isSaving ? t("saving") : t("save")}
-        </button>
+        </Button>
       </div>
     </div>
   )

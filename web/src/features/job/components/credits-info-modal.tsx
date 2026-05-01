@@ -2,6 +2,7 @@
 
 import { X, Ticket, RefreshCw, Trophy, TrendingUp } from "lucide-react"
 import { useTranslations } from "next-intl"
+import { Button } from "@/shared/components/ui/button"
 
 interface CreditsInfoModalProps {
   open: boolean
@@ -39,14 +40,14 @@ export function CreditsInfoModal({ open, onClose }: CreditsInfoModalProps) {
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
             {t("creditsHowItWorks")}
           </h3>
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={onClose}
             className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
             aria-label={t("close")}
           >
             <X className="h-5 w-5 text-slate-400" />
-          </button>
+          </Button>
         </div>
 
         {/* Explanation items */}
@@ -65,13 +66,13 @@ export function CreditsInfoModal({ open, onClose }: CreditsInfoModalProps) {
         </ul>
 
         {/* Close button */}
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={onClose}
           className="mt-6 w-full rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 transition-all"
         >
           {t("close")}
-        </button>
+        </Button>
       </div>
     </div>
   )

@@ -11,6 +11,7 @@ import type {
   PricingType,
 } from "../api/profile-api"
 import { SUPPORTED_FIAT_CURRENCIES } from "../lib/pricing-format"
+import { Button } from "@/shared/components/ui/button"
 
 interface PricingKindFormProps {
   kind: PricingKind
@@ -136,7 +137,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
           {kind === "direct" ? t("kindDirect") : t("kindReferral")}
         </h3>
         {persisted ? (
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleDelete}
             disabled={isDeleting}
@@ -144,7 +145,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
             {t("delete")}
-          </button>
+          </Button>
         ) : null}
       </div>
 
@@ -230,7 +231,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
       ) : null}
 
       <div className="mt-3 flex justify-end">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={handleSave}
           disabled={isSaving}
@@ -242,7 +243,7 @@ export function PricingKindForm(props: PricingKindFormProps) {
             <Check className="h-4 w-4" aria-hidden="true" />
           )}
           {isSaving ? t("saving") : t("save")}
-        </button>
+        </Button>
       </div>
     </section>
   )
@@ -312,7 +313,7 @@ function TypeRadioRow({ allowedTypes, value, onChange }: TypeRadioRowProps) {
       {allowedTypes.map((type) => {
         const isSelected = type === value
         return (
-          <button
+          <Button variant="ghost" size="auto"
             key={type}
             type="button"
             role="radio"
@@ -327,7 +328,7 @@ function TypeRadioRow({ allowedTypes, value, onChange }: TypeRadioRowProps) {
             )}
           >
             {t(typeKey(type))}
-          </button>
+          </Button>
         )
       })}
     </div>
@@ -394,7 +395,7 @@ function NegotiableRow({ kind, value, onChange }: NegotiableRowProps) {
           const isSelected = option === value
           const labelKey = option ? "negotiableYes" : "negotiableNo"
           return (
-            <button
+            <Button variant="ghost" size="auto"
               key={String(option)}
               type="button"
               role="radio"
@@ -410,7 +411,7 @@ function NegotiableRow({ kind, value, onChange }: NegotiableRowProps) {
               )}
             >
               {t(labelKey)}
-            </button>
+            </Button>
           )
         })}
       </div>

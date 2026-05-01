@@ -7,6 +7,7 @@ import { EditMemberModal } from "./edit-member-modal"
 import { RemoveMemberDialog } from "./remove-member-dialog"
 import type { TeamMember } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 // Members table with permission-gated row actions. The "manage"
 // permission is resolved upstream by the parent (team-page) so this
 // component stays dumb — it just renders rows + opens dialogs.
@@ -139,17 +140,17 @@ function MemberRow({ member, canManage, onEdit, onRemove }: MemberRowProps) {
         <td className="px-6 py-4 text-right">
           {!isOwner && (
             <div ref={menuRef} className="relative inline-block">
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => setMenuOpen((v) => !v)}
                 className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-slate-700"
                 aria-label={t("columns.actions")}
               >
                 <MoreVertical className="h-4 w-4 text-gray-500" />
-              </button>
+              </Button>
               {menuOpen && (
                 <div className="absolute right-0 z-10 mt-1 min-w-[160px] rounded-lg border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
-                  <button
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => {
                       setMenuOpen(false)
@@ -159,8 +160,8 @@ function MemberRow({ member, canManage, onEdit, onRemove }: MemberRowProps) {
                   >
                     <Pencil className="h-4 w-4" />
                     {t("editAction")}
-                  </button>
-                  <button
+                  </Button>
+                  <Button variant="ghost" size="auto"
                     type="button"
                     onClick={() => {
                       setMenuOpen(false)
@@ -170,7 +171,7 @@ function MemberRow({ member, canManage, onEdit, onRemove }: MemberRowProps) {
                   >
                     <UserMinus className="h-4 w-4" />
                     {t("removeAction")}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

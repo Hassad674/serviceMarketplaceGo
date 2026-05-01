@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Star } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 
+import { Button } from "@/shared/components/ui/button"
 interface StarRatingProps {
   rating: number
   onRatingChange?: (rating: number) => void
@@ -41,7 +42,7 @@ export function StarRating({
         aria-label={label}
       >
         {[1, 2, 3, 4, 5].map((star) => (
-          <button
+          <Button variant="ghost" size="auto"
             key={star}
             type="button"
             disabled={readOnly}
@@ -64,7 +65,7 @@ export function StarRating({
               )}
               strokeWidth={1.5}
             />
-          </button>
+          </Button>
         ))}
       </div>
     </div>

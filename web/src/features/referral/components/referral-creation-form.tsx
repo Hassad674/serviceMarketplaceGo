@@ -12,6 +12,7 @@ import {
   type ProviderPickerSelection,
 } from "./provider-picker"
 
+import { Button } from "@/shared/components/ui/button"
 const DEFAULT_TOGGLES: SnapshotToggles = {
   include_expertise: true,
   include_experience: true,
@@ -222,7 +223,7 @@ export function ReferralCreationForm() {
         </div>
       )}
 
-      <button
+      <Button variant="ghost" size="auto"
         type="submit"
         disabled={create.isPending}
         className="inline-flex items-center justify-center gap-2 self-end rounded-lg bg-rose-500 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
@@ -233,7 +234,7 @@ export function ReferralCreationForm() {
           <Send className="h-4 w-4" aria-hidden="true" />
         )}
         Envoyer l&rsquo;introduction
-      </button>
+      </Button>
     </form>
   )
 }

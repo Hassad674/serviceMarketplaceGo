@@ -11,6 +11,7 @@ import { ApiError } from "@/shared/lib/api-client"
 import { cn, formatCurrency } from "@/shared/lib/utils"
 import { getProposal, initiatePayment, confirmPayment } from "../api/proposal-api"
 import type { ProposalResponse, PaymentIntentResponse } from "../types"
+import { Button } from "@/shared/components/ui/button"
 
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   ? loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
@@ -119,7 +120,7 @@ export function PaymentSimulation() {
         <AlertTriangle className="mx-auto h-12 w-12 text-amber-500" strokeWidth={1.5} />
         <p className="text-lg font-semibold text-slate-900 dark:text-white">{t("paymentInitFailed")}</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">{t("paymentInitFailedHint")}</p>
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={() => setRetryNonce((n) => n + 1)}
           className={cn(
@@ -130,7 +131,7 @@ export function PaymentSimulation() {
         >
           <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
           {t("paymentRetry")}
-        </button>
+        </Button>
       </CenteredMessage>
     )
   }
@@ -221,7 +222,7 @@ function StripePaymentForm({ proposalId, onSuccess }: { proposalId: string; onSu
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
-      <button
+      <Button variant="ghost" size="auto"
         type="submit"
         disabled={!stripe || submitting}
         className={cn(
@@ -237,7 +238,7 @@ function StripePaymentForm({ proposalId, onSuccess }: { proposalId: string; onSu
           <CreditCard className="h-4 w-4" strokeWidth={1.5} />
         )}
         {submitting ? t("processing") : t("confirmPayment")}
-      </button>
+      </Button>
       {error && <p className="text-center text-sm text-red-500">{error}</p>}
     </form>
   )
@@ -274,7 +275,7 @@ function SimulationFallback({ proposalId, onPaid }: { proposalId: string; onPaid
       <p className="text-xs text-amber-600 dark:text-amber-400 text-center">
         {t("paymentSimulationDesc")}
       </p>
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={handlePay}
         disabled={submitting}
@@ -287,7 +288,7 @@ function SimulationFallback({ proposalId, onPaid }: { proposalId: string; onPaid
       >
         {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" strokeWidth={1.5} />}
         {submitting ? t("processing") : t("confirmPayment")}
-      </button>
+      </Button>
     </>
   )
 }
@@ -296,10 +297,10 @@ function PaymentLayout({ proposal, onBack, children }: { proposal: ProposalRespo
   const t = useTranslations("proposal")
   return (
     <div className="mx-auto max-w-lg px-4 py-12">
-      <button type="button" onClick={onBack} className="mb-6 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
+      <Button variant="ghost" size="auto" type="button" onClick={onBack} className="mb-6 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
         <ArrowLeft className="h-4 w-4" />
         {t("proposalCancel")}
-      </button>
+      </Button>
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800/80 overflow-hidden">
         <div className="h-1.5 gradient-primary" />
         <div className="px-6 pt-6 pb-8 space-y-6">

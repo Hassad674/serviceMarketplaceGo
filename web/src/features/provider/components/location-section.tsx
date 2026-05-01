@@ -12,6 +12,7 @@ import {
 import { useProfile } from "../hooks/use-profile"
 import { useUpdateLocation } from "../hooks/use-update-location"
 import { CityAutocomplete, type CitySelection } from "@/shared/components/location/city-autocomplete"
+import { Button } from "@/shared/components/ui/button"
 
 const ALL_WORK_MODES: WorkMode[] = ["remote", "on_site", "hybrid"]
 
@@ -181,7 +182,7 @@ export function LocationSection({
             {ALL_WORK_MODES.map((mode) => {
               const isSelected = workMode.includes(mode)
               return (
-                <button
+                <Button variant="ghost" size="auto"
                   key={mode}
                   type="button"
                   onClick={() => toggleWorkMode(mode)}
@@ -198,7 +199,7 @@ export function LocationSection({
                     <Check className="w-3.5 h-3.5" aria-hidden="true" />
                   ) : null}
                   {t(workModeKey(mode))}
-                </button>
+                </Button>
               )
             })}
           </div>
@@ -226,7 +227,7 @@ export function LocationSection({
       ) : null}
 
       <div className="mt-5 flex items-center justify-end">
-        <button
+        <Button variant="ghost" size="auto"
           type="button"
           onClick={handleSave}
           disabled={!isDirty || mutation.isPending}
@@ -238,7 +239,7 @@ export function LocationSection({
             <Check className="w-4 h-4" aria-hidden="true" />
           )}
           {mutation.isPending ? t("saving") : t("save")}
-        </button>
+        </Button>
       </div>
     </section>
   )

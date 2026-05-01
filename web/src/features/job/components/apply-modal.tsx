@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl"
 import { cn } from "@/shared/lib/utils"
 import { useApplyToJob } from "../hooks/use-job-applications"
 import { uploadVideo } from "@/shared/lib/upload-api"
+import { Button } from "@/shared/components/ui/button"
 
 interface ApplyModalProps {
   open: boolean
@@ -67,9 +68,9 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{t("apply")}</h3>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700">
+          <Button variant="ghost" size="auto" type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-slate-100 dark:hover:bg-slate-700">
             <X className="h-5 w-5 text-slate-400" />
-          </button>
+          </Button>
         </div>
 
         <div className="space-y-4">
@@ -107,7 +108,7 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
             />
 
             {!videoUrl && !isUploading && (
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
@@ -118,7 +119,7 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
               >
                 <Upload className="h-4 w-4" />
                 {t("uploadVideo")}
-              </button>
+              </Button>
             )}
 
             {isUploading && (
@@ -135,10 +136,10 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
                     <track kind="captions" />
                   </video>
                 </div>
-                <button type="button" onClick={removeVideo} className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600">
+                <Button variant="ghost" size="auto" type="button" onClick={removeVideo} className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-600">
                   <Trash2 className="h-3.5 w-3.5" />
                   {videoName}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -149,7 +150,7 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
           )}
 
           {/* Submit */}
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleSubmit}
             disabled={applyMutation.isPending || isUploading}
@@ -161,7 +162,7 @@ export function ApplyModal({ open, onClose, jobId }: ApplyModalProps) {
           >
             {applyMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             {t("apply")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

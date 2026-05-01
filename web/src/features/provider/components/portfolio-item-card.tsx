@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Pencil, Trash2, ImageIcon, Film, Play, ExternalLink } from "lucide-react"
 import { useTranslations } from "next-intl"
 import type { PortfolioItem } from "../api/portfolio-api"
+import { Button } from "@/shared/components/ui/button"
 
 interface PortfolioItemCardProps {
   item: PortfolioItem
@@ -106,7 +107,7 @@ export function PortfolioItemCard({
       {/* Edit/Delete actions (edit mode only) — always visible on mobile, hover on desktop */}
       {!readOnly && (
         <div className="absolute right-2 top-2 flex gap-1.5 opacity-100 transition-all duration-200 sm:right-2.5 sm:top-2.5 sm:translate-y-1 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
-          <button
+          <Button variant="ghost" size="auto"
             onClick={(e) => {
               e.stopPropagation()
               onEdit?.()
@@ -115,8 +116,8 @@ export function PortfolioItemCard({
             aria-label={t("edit")}
           >
             <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost" size="auto"
             onClick={(e) => {
               e.stopPropagation()
               onDelete?.()
@@ -125,7 +126,7 @@ export function PortfolioItemCard({
             aria-label={t("delete")}
           >
             <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          </button>
+          </Button>
         </div>
       )}
 

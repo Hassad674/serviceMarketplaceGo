@@ -4,6 +4,7 @@ import { useState } from "react"
 import { Video, Trash2 } from "lucide-react"
 import { useTranslations } from "next-intl"
 import { UploadModal } from "@/shared/components/upload-modal"
+import { Button } from "@/shared/components/ui/button"
 
 interface ProfileVideoProps {
   videoUrl: string | undefined
@@ -55,7 +56,7 @@ export function ProfileVideo({
           {videoUrl && !readOnly && (
             <div className="flex items-center gap-3">
               {onDeleteVideo && (
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={onDeleteVideo}
                   disabled={deletingVideo}
@@ -63,15 +64,15 @@ export function ProfileVideo({
                 >
                   <Trash2 className="w-4 h-4" aria-hidden="true" />
                   {t("removeVideo")}
-                </button>
+                </Button>
               )}
-              <button
+              <Button variant="ghost" size="auto"
                 type="button"
                 onClick={() => setVideoModalOpen(true)}
                 className="text-sm font-medium text-primary hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
               >
                 {t("changeVideo")}
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -99,13 +100,13 @@ export function ProfileVideo({
             <p className="text-sm text-muted-foreground italic mb-3">
               {displayEmptyDescription}
             </p>
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setVideoModalOpen(true)}
               className="bg-primary text-primary-foreground rounded-md h-10 px-4 text-sm font-medium hover:opacity-90 transition-opacity focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
             >
               {t("addVideo")}
-            </button>
+            </Button>
           </div>
         )}
       </section>

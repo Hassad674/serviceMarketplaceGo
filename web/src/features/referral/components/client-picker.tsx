@@ -9,6 +9,7 @@ import { listConversations } from "@/features/messaging/api/messaging-api"
 import type { Conversation } from "@/features/messaging/types"
 
 import { PickerModal, PickerTrigger } from "./picker-modal"
+import { Button } from "@/shared/components/ui/button"
 
 export interface ClientPickerSelection {
   userId: string
@@ -115,7 +116,7 @@ export function ClientPicker({
                   const selected = value?.orgId === c.other_org_id
                   return (
                     <li key={c.id}>
-                      <button
+                      <Button variant="ghost" size="auto"
                         type="button"
                         onClick={() => select(c)}
                         className={cn(
@@ -144,7 +145,7 @@ export function ClientPicker({
                             aria-hidden="true"
                           />
                         )}
-                      </button>
+                      </Button>
                     </li>
                   )
                 })}

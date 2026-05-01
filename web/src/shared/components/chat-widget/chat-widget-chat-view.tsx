@@ -13,6 +13,7 @@ import { getPresignedURL } from "@/features/messaging/api/messaging-api"
 import type { Conversation, Message } from "@/features/messaging/types"
 import type { PendingRecipient } from "./use-chat-widget"
 
+import { Button } from "@/shared/components/ui/button"
 const TYPING_INTERVAL_MS = 2_000
 
 /** Map an audio MIME type to a file extension the backend allowlist accepts. */
@@ -144,13 +145,13 @@ function ChatViewHeader({
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 border-b border-gray-100 px-3 dark:border-gray-800">
-      <button
+      <Button variant="ghost" size="auto"
         onClick={onBack}
         className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
         aria-label={t("backToList")}
       >
         <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
-      </button>
+      </Button>
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
@@ -174,13 +175,13 @@ function ChatViewHeader({
         )}
       </div>
 
-      <button
+      <Button variant="ghost" size="auto"
         onClick={onClose}
         className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
         aria-label={t("close")}
       >
         <ChevronDown className="h-4 w-4" strokeWidth={1.5} />
-      </button>
+      </Button>
     </div>
   )
 }
@@ -324,7 +325,7 @@ function WidgetMessageInput({
       {isRecording && (
         <div className="flex items-center gap-2 border-t border-gray-100 bg-rose-50 px-3 py-2 dark:border-gray-800 dark:bg-rose-900/20">
           {/* Cancel / trash */}
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={voice.cancelRecording}
             className={cn(
@@ -336,7 +337,7 @@ function WidgetMessageInput({
             aria-label={t("cancelRecording")}
           >
             <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-          </button>
+          </Button>
 
           {/* Red pulsing dot + timer */}
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
@@ -347,7 +348,7 @@ function WidgetMessageInput({
           <div className="flex-1" />
 
           {/* Stop and send */}
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={handleStopAndSend}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-500 text-white transition-all hover:bg-rose-600 active:scale-[0.95]"
@@ -358,7 +359,7 @@ function WidgetMessageInput({
             ) : (
               <Square className="h-3 w-3" strokeWidth={2} fill="currentColor" />
             )}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -370,7 +371,7 @@ function WidgetMessageInput({
         >
           {/* "+" menu for attach + proposal (widget is always compact) */}
           <div className="relative">
-            <button
+            <Button variant="ghost" size="auto"
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               disabled={isDisabled}
@@ -384,7 +385,7 @@ function WidgetMessageInput({
               aria-label={t("fileUpload")}
             >
               <Plus className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+            </Button>
 
             {mobileMenuOpen && (
               <div
@@ -394,22 +395,22 @@ function WidgetMessageInput({
                   "dark:border-gray-700 dark:bg-gray-800",
                 )}
               >
-                <button
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={() => { setModalOpen(true); setMobileMenuOpen(false) }}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <Paperclip className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {t("fileUpload")}
-                </button>
-                <button
+                </Button>
+                <Button variant="ghost" size="auto"
                   type="button"
                   onClick={handleProposal}
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
                   {t("propose")}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -477,7 +478,7 @@ function WidgetPrimaryAction({
 }) {
   if (hasContent) {
     return (
-      <button
+      <Button variant="ghost" size="auto"
         type="submit"
         disabled={isDisabled}
         className={cn(
@@ -493,13 +494,13 @@ function WidgetPrimaryAction({
         ) : (
           <Send className="h-4 w-4" strokeWidth={1.5} />
         )}
-      </button>
+      </Button>
     )
   }
 
   if (canVoice) {
     return (
-      <button
+      <Button variant="ghost" size="auto"
         type="button"
         onClick={onMic}
         disabled={isDisabled}
@@ -512,19 +513,19 @@ function WidgetPrimaryAction({
         aria-label={micLabel}
       >
         <Mic className="h-4 w-4" strokeWidth={1.5} />
-      </button>
+      </Button>
     )
   }
 
   return (
-    <button
+    <Button variant="ghost" size="auto"
       type="submit"
       disabled
       className="shrink-0 rounded-full bg-gray-100 p-2 text-gray-300 dark:bg-gray-800 dark:text-gray-600"
       aria-label={sendLabel}
     >
       <Send className="h-4 w-4" strokeWidth={1.5} />
-    </button>
+    </Button>
   )
 }
 

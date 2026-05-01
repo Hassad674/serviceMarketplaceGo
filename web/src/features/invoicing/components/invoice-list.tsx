@@ -6,6 +6,7 @@ import { getInvoicePDFURL } from "../api/invoicing-api"
 import { useInvoices } from "../hooks/use-invoices"
 import type { Invoice, InvoiceSourceType } from "../types"
 
+import { Button } from "@/shared/components/ui/button"
 /**
  * Cursor-paginated list of invoices issued to the current org.
  * Empty state has its own visual treatment (icon + explainer)
@@ -50,7 +51,7 @@ export function InvoiceList() {
       </ul>
       {hasMore && (
         <div className="flex justify-center border-t border-slate-100 p-3 dark:border-slate-700">
-          <button
+          <Button variant="ghost" size="auto"
             type="button"
             onClick={loadMore}
             disabled={isFetching}
@@ -65,7 +66,7 @@ export function InvoiceList() {
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
             ) : null}
             Voir plus
-          </button>
+          </Button>
         </div>
       )}
     </section>
