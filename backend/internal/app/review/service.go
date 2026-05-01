@@ -12,6 +12,7 @@ import (
 	appmoderation "marketplace-backend/internal/app/moderation"
 	"marketplace-backend/internal/domain/moderation"
 	domain "marketplace-backend/internal/domain/review"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
@@ -83,7 +84,14 @@ type CreateReviewInput struct {
 //  6. Fire notifications to the counterpart (and, when a reveal
 //     happened, to the reviewer themselves).
 func (s *Service) CreateReview(ctx context.Context, in CreateReviewInput) (*domain.Review, error) {
-	p, err := s.proposals.GetByID(ctx, in.ProposalID)
+	// CreateReview is always called from a user-authenticated
+	// route; the org context is populated by the auth middleware.
+	// MustGetOrgID surfaces a missing context as a panic so a
+	// programming bug in a future caller (handler forgot to
+	// enforce auth, or a test forgot to set the context) is loud
+	// instead of silently degrading to a cross-tenant read.
+	orgID := middleware.MustGetOrgID(ctx)
+	p, err := s.proposals.GetByIDForOrg(ctx, in.ProposalID, orgID)
 	if err != nil {
 		return nil, fmt.Errorf("get proposal: %w", err)
 	}
@@ -277,7 +285,12 @@ func (s *Service) GetAverageRatingByOrganization(ctx context.Context, orgID uuid
 // Both parties (client and provider) are now eligible, subject to the
 // 14-day window and duplicate-review rules.
 func (s *Service) CanReview(ctx context.Context, proposalID, userID uuid.UUID) (bool, error) {
-	p, err := s.proposals.GetByID(ctx, proposalID)
+	// Same boundary contract as CreateReview — every CanReview
+	// call originates from /api/v1/reviews/can-review/{proposalId}
+	// which is gated behind Auth + RequireRole. Reach this code
+	// path without the org context = bug.
+	orgID := middleware.MustGetOrgID(ctx)
+	p, err := s.proposals.GetByIDForOrg(ctx, proposalID, orgID)
 	if err != nil {
 		return false, fmt.Errorf("get proposal: %w", err)
 	}

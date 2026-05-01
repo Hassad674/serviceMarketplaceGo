@@ -10,9 +10,22 @@ import (
 	proposaldomain "marketplace-backend/internal/domain/proposal"
 	domain "marketplace-backend/internal/domain/review"
 	userdomain "marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
 )
+
+// orgCtx returns a base context tagged with a synthetic org id —
+// CreateReview / CanReview gate on middleware.MustGetOrgID and
+// the test must mirror that contract. Stable id so assertions
+// can pin against it if needed.
+func orgCtx() context.Context {
+	return context.WithValue(context.Background(),
+		middleware.ContextKeyOrganizationID, reviewFixtureOrg)
+}
+
+// reviewFixtureOrg is the synthetic org id used by orgCtx().
+var reviewFixtureOrg = uuid.MustParse("22222222-2222-2222-2222-222222222222")
 
 // mockProposal is a test helper to build proposals with minimal fields.
 type mockProposal = proposaldomain.Proposal
@@ -47,6 +60,12 @@ func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Rev
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, domain.ErrNotFound
+}
+
+// GetByIDForOrg defaults to GetByID — review tests do not yet
+// exercise the org-scoped path but the port requires the method.
+func (m *mockReviewRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.Review, error) {
+	return m.GetByID(ctx, id)
 }
 
 func (m *mockReviewRepo) ListByReviewedOrganization(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*domain.Review, string, error) {
@@ -124,6 +143,13 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, proposaldomain.ErrProposalNotFound
+}
+
+// GetByIDForOrg delegates to GetByID so the review service's
+// migration to the org-aware variant transparently uses the
+// existing test fixtures.
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*proposaldomain.Proposal, error) {
+	return m.GetByID(ctx, id)
 }
 
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposaldomain.Proposal, error) {

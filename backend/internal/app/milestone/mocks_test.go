@@ -38,6 +38,12 @@ func (m *mockRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Milestone
 	return nil, domain.ErrMilestoneNotFound
 }
 
+// GetByIDForOrg delegates to GetByID so existing tests keep
+// working after the org-aware caller migration.
+func (m *mockRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.Milestone, error) {
+	return m.GetByID(ctx, id)
+}
+
 func (m *mockRepo) GetByIDWithVersion(ctx context.Context, id uuid.UUID) (*domain.Milestone, error) {
 	if m.getByIDWithVersionFn != nil {
 		return m.getByIDWithVersionFn(ctx, id)

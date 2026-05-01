@@ -67,6 +67,12 @@ func (f *facadeRecords) GetByID(_ context.Context, id uuid.UUID) (*domain.Paymen
 	return nil, domain.ErrPaymentRecordNotFound
 }
 
+// GetByIDForOrg delegates to GetByID — the facade routing test
+// only cares that the right sub-service is invoked.
+func (f *facadeRecords) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	return f.GetByID(ctx, id)
+}
+
 func (f *facadeRecords) ListByProposalID(_ context.Context, id uuid.UUID) ([]*domain.PaymentRecord, error) {
 	for _, r := range f.byMilestone {
 		if r.ProposalID == id {

@@ -57,6 +57,10 @@ func (m *mockReviewRepo) GetByID(ctx context.Context, id uuid.UUID) (*reviewdoma
 	return nil, reviewdomain.ErrNotFound
 }
 
+func (m *mockReviewRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*reviewdomain.Review, error) {
+	return m.GetByID(ctx, id)
+}
+
 func (m *mockReviewRepo) ListByReviewedOrganization(ctx context.Context, userID uuid.UUID, cursor string, limit int) ([]*reviewdomain.Review, string, error) {
 	if m.listByReviewedFn != nil {
 		return m.listByReviewedFn(ctx, userID, cursor, limit)
@@ -152,6 +156,10 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, nil
+}
+
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*proposal.Proposal, error) {
+	return m.GetByID(ctx, id)
 }
 
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposal.Proposal, error) {
@@ -355,6 +363,11 @@ func TestReviewHandler_CreateReview(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			if tc.userID != nil {
 				ctx := context.WithValue(req.Context(), middleware.ContextKeyUserID, *tc.userID)
+				// Stamp an org id so the review service's
+				// MustGetOrgID gate is satisfied — every
+				// production caller of CreateReview goes through
+				// the auth middleware which populates this key.
+				ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, uuid.New())
 				req = req.WithContext(ctx)
 			}
 			rec := httptest.NewRecorder()
@@ -539,6 +552,10 @@ func TestReviewHandler_CanReview(t *testing.T) {
 			ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
 			if tc.userID != nil {
 				ctx = context.WithValue(ctx, middleware.ContextKeyUserID, *tc.userID)
+				// MustGetOrgID gate inside review.CanReview —
+				// stamp an org id so the production-equivalent
+				// happy-path tests reach the proposal lookup.
+				ctx = context.WithValue(ctx, middleware.ContextKeyOrganizationID, uuid.New())
 			}
 			req = req.WithContext(ctx)
 			rec := httptest.NewRecorder()

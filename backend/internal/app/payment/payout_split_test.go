@@ -346,6 +346,17 @@ func (e *errRecords) GetByID(ctx context.Context, id uuid.UUID) (*domain.Payment
 	return e.payoutStubRecords.GetByID(ctx, id)
 }
 
+// GetByIDForOrg routes through the same overridable error
+// channel — the migrated loadRetryRecord path now reads through
+// GetByIDForOrg, so the infra-error test case has to surface the
+// override here.
+func (e *errRecords) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*domain.PaymentRecord, error) {
+	if e.getByIDErr != nil {
+		return nil, e.getByIDErr
+	}
+	return e.payoutStubRecords.GetByID(ctx, id)
+}
+
 func TestPayoutService_RetryFailedTransfer_GetByIDInfraErr_Wrapped(t *testing.T) {
 	records := &errRecords{
 		payoutStubRecords: &payoutStubRecords{byID: map[uuid.UUID]*domain.PaymentRecord{}},

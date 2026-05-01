@@ -144,6 +144,9 @@ func (f *fakeProposalRepo) CreateWithDocumentsAndMilestones(context.Context, *pr
 func (f *fakeProposalRepo) GetByID(context.Context, uuid.UUID) (*proposaldomain.Proposal, error) {
 	return nil, nil
 }
+func (f *fakeProposalRepo) GetByIDForOrg(context.Context, uuid.UUID, uuid.UUID) (*proposaldomain.Proposal, error) {
+	return nil, nil
+}
 func (f *fakeProposalRepo) GetByIDs(_ context.Context, ids []uuid.UUID) ([]*proposaldomain.Proposal, error) {
 	if f.counters != nil {
 		f.counters.getProposalsByIDs.Add(1)
@@ -207,6 +210,9 @@ func (f *fakeReviewRepo) CreateAndMaybeReveal(_ context.Context, r *reviewdomain
 	return r, nil
 }
 func (f *fakeReviewRepo) GetByID(context.Context, uuid.UUID) (*reviewdomain.Review, error) {
+	return nil, nil
+}
+func (f *fakeReviewRepo) GetByIDForOrg(context.Context, uuid.UUID, uuid.UUID) (*reviewdomain.Review, error) {
 	return nil, nil
 }
 func (f *fakeReviewRepo) ListByReviewedOrganization(context.Context, uuid.UUID, string, int) ([]*reviewdomain.Review, string, error) {

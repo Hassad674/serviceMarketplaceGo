@@ -25,6 +25,9 @@ import (
 // chat_messages tables.
 type DisputeReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*dispute.Dispute, error)
+	// GetByIDForOrg is the tenant-aware sibling of GetByID — see the
+	// wide-port doc on DisputeRepository.GetByIDForOrg.
+	GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*dispute.Dispute, error)
 	GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*dispute.Dispute, error)
 	ListByOrganization(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*dispute.Dispute, string, error)
 	ListPendingForScheduler(ctx context.Context) ([]*dispute.Dispute, error)

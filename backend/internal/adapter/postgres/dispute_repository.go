@@ -101,7 +101,14 @@ func (r *DisputeRepository) Create(ctx context.Context, d *dispute.Dispute) erro
 // legacy GetByID is preserved for system-actor scheduler paths
 // (dispute scheduler, AI summary worker) which run with a privileged
 // DB connection in production.
+//
+// SYSTEM-ACTOR: same contract as ProposalRepository.GetByID —
+// callers MUST tag their context with system.WithSystemActor.
+// The dispute scheduler (cmd/api/wire_dispute.go) and the
+// loadDisputeForActor system-actor branch (app/dispute) already
+// do this; an untagged caller surfaces a WARN log.
 func (r *DisputeRepository) GetByID(ctx context.Context, id uuid.UUID) (*dispute.Dispute, error) {
+	warnIfNotSystemActor(ctx, "DisputeRepository.GetByID")
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 

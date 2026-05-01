@@ -11,8 +11,10 @@ import (
 	milestonedomain "marketplace-backend/internal/domain/milestone"
 	"marketplace-backend/internal/domain/proposal"
 	"marketplace-backend/internal/domain/user"
+	"marketplace-backend/internal/handler/middleware"
 	"marketplace-backend/internal/port/repository"
 	"marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 )
 
 // ---------------------------------------------------------------------------
@@ -22,6 +24,7 @@ import (
 type mockDisputeRepo struct {
 	createFn           func(ctx context.Context, d *disputedomain.Dispute) error
 	getByIDFn          func(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error)
+	getByIDForOrgFn    func(ctx context.Context, id, orgID uuid.UUID) (*disputedomain.Dispute, error)
 	getByProposalIDFn  func(ctx context.Context, proposalID uuid.UUID) (*disputedomain.Dispute, error)
 	updateFn           func(ctx context.Context, d *disputedomain.Dispute) error
 	listByOrganizationFn func(ctx context.Context, orgID uuid.UUID, cursor string, limit int) ([]*disputedomain.Dispute, string, error)
@@ -47,6 +50,19 @@ func (m *mockDisputeRepo) Create(ctx context.Context, d *disputedomain.Dispute) 
 	return nil
 }
 func (m *mockDisputeRepo) GetByID(ctx context.Context, id uuid.UUID) (*disputedomain.Dispute, error) {
+	if m.getByIDFn != nil {
+		return m.getByIDFn(ctx, id)
+	}
+	return nil, disputedomain.ErrDisputeNotFound
+}
+// GetByIDForOrg defaults to delegating to getByIDFn so the
+// migration of dispute service callers to the org-aware variant
+// is a drop-in replacement at the test fixture level. Tests that
+// must pin the org argument set getByIDForOrgFn explicitly.
+func (m *mockDisputeRepo) GetByIDForOrg(ctx context.Context, id, orgID uuid.UUID) (*disputedomain.Dispute, error) {
+	if m.getByIDForOrgFn != nil {
+		return m.getByIDForOrgFn(ctx, id, orgID)
+	}
 	if m.getByIDFn != nil {
 		return m.getByIDFn(ctx, id)
 	}
@@ -170,6 +186,12 @@ func (m *mockProposalRepo) GetByID(ctx context.Context, id uuid.UUID) (*proposal
 		return m.getByIDFn(ctx, id)
 	}
 	return nil, proposal.ErrProposalNotFound
+}
+// GetByIDForOrg delegates to getByIDFn so the dispute service's
+// migration to GetByIDForOrg is a drop-in replacement at the
+// fixture level.
+func (m *mockProposalRepo) GetByIDForOrg(ctx context.Context, id, _ uuid.UUID) (*proposal.Proposal, error) {
+	return m.GetByID(ctx, id)
 }
 func (m *mockProposalRepo) GetByIDs(context.Context, []uuid.UUID) ([]*proposal.Proposal, error) {
 	return nil, nil
@@ -378,6 +400,10 @@ func (m *mockMilestoneRepo) GetByID(_ context.Context, id uuid.UUID) (*milestone
 	return synthDisputeMilestone(id), nil
 }
 
+func (m *mockMilestoneRepo) GetByIDForOrg(_ context.Context, id, _ uuid.UUID) (*milestonedomain.Milestone, error) {
+	return synthDisputeMilestone(id), nil
+}
+
 func (m *mockMilestoneRepo) GetByIDWithVersion(_ context.Context, id uuid.UUID) (*milestonedomain.Milestone, error) {
 	return synthDisputeMilestone(id), nil
 }
@@ -472,3 +498,31 @@ func (m *mockUserRepo) UpdateEmailNotificationsEnabled(_ context.Context, _ uuid
 func (m *mockUserRepo) TouchLastActive(_ context.Context, _ uuid.UUID) error {
 	return nil
 }
+
+// orgCtx returns a base context tagged with the test org id —
+// every dispute service action now reads the caller's org from
+// the context (loadDisputeForActor / loadProposalForActor) and
+// panics on the missing key. Tests that exercise user-facing
+// service methods MUST start from this context, never from
+// context.Background() directly. The default org id matches
+// disputeFixtureOrg so the mock IsOrgAuthorized stub admits the
+// caller without per-test wiring.
+func orgCtx() context.Context {
+	return context.WithValue(context.Background(),
+		middleware.ContextKeyOrganizationID, disputeFixtureOrg)
+}
+
+// actorCtx returns a base context tagged with WithSystemActor —
+// used by tests that exercise admin / scheduler / webhook code
+// paths (AdminResolve, AskAI, IncreaseAIBudget, ForceEscalate).
+// The dispute service routes those callers through the
+// system-actor branch of loadDisputeForActor, so the test must
+// model the same boundary the real handler does.
+func actorCtx() context.Context {
+	return system.WithSystemActor(context.Background())
+}
+
+// disputeFixtureOrg is the synthetic org id used by orgCtx and
+// the dispute test fixtures. Stable across the suite so
+// assertions can compare against it directly when needed.
+var disputeFixtureOrg = uuid.MustParse("11111111-1111-1111-1111-111111111111")

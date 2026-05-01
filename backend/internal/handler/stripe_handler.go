@@ -19,6 +19,7 @@ import (
 	subscriptiondomain "marketplace-backend/internal/domain/subscription"
 	"marketplace-backend/internal/handler/dto/response"
 	portservice "marketplace-backend/internal/port/service"
+	"marketplace-backend/internal/system"
 	res "marketplace-backend/pkg/response"
 )
 
@@ -600,7 +601,16 @@ func (h *StripeHandler) dispatchEmbeddedNotif(r *http.Request, event *portservic
 }
 
 func (h *StripeHandler) handlePaymentSucceeded(r *http.Request, piID string) error {
-	proposalID, err := h.paymentSvc.HandlePaymentSucceeded(r.Context(), piID)
+	// Stripe webhook is a system-actor caller: the request is
+	// authenticated by signature, not by a user session, so the
+	// per-tenant org context expected by user-facing flows is
+	// absent. Mark the context explicitly so downstream services
+	// (e.g. ConfirmPaymentAndActivate) take the system-actor
+	// branch of loadProposalForActor instead of panicking on
+	// MustGetOrgID.
+	ctx := system.WithSystemActor(r.Context())
+
+	proposalID, err := h.paymentSvc.HandlePaymentSucceeded(ctx, piID)
 	if err != nil {
 		slog.Error("handle payment succeeded", "payment_intent", piID, "error", err)
 		// BUG-NEW-06 — surface so the dispatcher releases the
@@ -610,7 +620,7 @@ func (h *StripeHandler) handlePaymentSucceeded(r *http.Request, piID string) err
 		return fmt.Errorf("handle payment succeeded: %w", err)
 	}
 
-	if err := h.proposalSvc.ConfirmPaymentAndActivate(r.Context(), proposalID); err != nil {
+	if err := h.proposalSvc.ConfirmPaymentAndActivate(ctx, proposalID); err != nil {
 		slog.Error("confirm payment and activate", "proposal_id", proposalID, "error", err)
 		return fmt.Errorf("confirm payment and activate: %w", err)
 	}

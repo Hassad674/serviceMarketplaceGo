@@ -220,6 +220,9 @@ func (m *mockProposalRepo) CreateWithDocumentsAndMilestones(_ context.Context, _
 func (m *mockProposalRepo) GetByID(_ context.Context, _ uuid.UUID) (*proposal.Proposal, error) {
 	return nil, nil
 }
+func (m *mockProposalRepo) GetByIDForOrg(_ context.Context, _, _ uuid.UUID) (*proposal.Proposal, error) {
+	return nil, nil
+}
 func (m *mockProposalRepo) GetByIDs(_ context.Context, _ []uuid.UUID) ([]*proposal.Proposal, error) {
 	return nil, nil
 }
@@ -378,6 +381,9 @@ func (m *mockReviewRepo) CreateAndMaybeReveal(_ context.Context, r *review.Revie
 	return r, nil
 }
 func (m *mockReviewRepo) GetByID(_ context.Context, _ uuid.UUID) (*review.Review, error) {
+	return nil, nil
+}
+func (m *mockReviewRepo) GetByIDForOrg(_ context.Context, _, _ uuid.UUID) (*review.Review, error) {
 	return nil, nil
 }
 func (m *mockReviewRepo) ListByReviewedOrganization(_ context.Context, _ uuid.UUID, _ string, _ int) ([]*review.Review, string, error) {

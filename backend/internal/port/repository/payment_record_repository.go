@@ -15,6 +15,18 @@ type PaymentRecordRepository interface {
 	// GetByProposalID would be wrong because a proposal can own N records
 	// (one per milestone) and only returns the most recent.
 	GetByID(ctx context.Context, id uuid.UUID) (*payment.PaymentRecord, error)
+
+	// GetByIDForOrg fetches a payment record under the caller's
+	// organization tenant context. The adapter wraps the read in
+	// RunInTxWithTenant so the RLS policy on payment_records
+	// (USING organization_id = current_setting('app.current_org_id'))
+	// admits only rows owned by the caller's org. Returns
+	// ErrPaymentRecordNotFound when the row does not exist OR when
+	// the caller's org is not the record's owning org.
+	//
+	// User-facing app callers (retry transfer, payout request) MUST
+	// use this method.
+	GetByIDForOrg(ctx context.Context, id, callerOrgID uuid.UUID) (*payment.PaymentRecord, error)
 	GetByProposalID(ctx context.Context, proposalID uuid.UUID) (*payment.PaymentRecord, error)
 	// ListByProposalID returns every payment record owned by the proposal,
 	// ordered by created_at ascending (oldest milestone first). Used by
