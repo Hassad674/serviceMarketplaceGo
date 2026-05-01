@@ -1357,7 +1357,16 @@ func main() {
 			if pdfErr != nil {
 				slog.Warn("invoicing feature disabled (pdf renderer init failed)", "error", pdfErr)
 			} else {
-				invoiceRepo := postgres.NewInvoiceRepository(db)
+				// BUG-NEW-04 path 3/8: invoice is RLS-protected by migration
+				// 125 (USING recipient_organization_id = current_setting(
+				// 'app.current_org_id', true)). The txRunner wrap makes
+				// CreateInvoice / MarkInvoiceCredited / ListInvoicesByOrganization
+				// / FindInvoiceByIDForOrg pass under prod NOSUPERUSER NOBYPASSRLS.
+				// Stripe webhook lookups (idempotency by stripe_event_id)
+				// stay on the legacy direct-db path — production must keep
+				// that handler on a privileged DB role. Documented in the
+				// repo docstring.
+				invoiceRepo := postgres.NewInvoiceRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 				billingProfileRepo := postgres.NewBillingProfileRepository(db)
 				invoiceDeliverer := emailadapter.NewDeliverer(emailSvc)
 				invoiceIdempotency := redisadapter.NewWebhookIdempotencyStore(
