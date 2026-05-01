@@ -98,7 +98,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                       ],
 
                       // Company name
-                      _FieldLabel(text: 'Agency name'),
+                      const _FieldLabel(text: 'Agency name'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _companyNameController,
@@ -121,7 +121,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Email
-                      _FieldLabel(text: 'Email'),
+                      const _FieldLabel(text: 'Email'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailController,
@@ -137,7 +137,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Password
-                      _FieldLabel(text: 'Password'),
+                      const _FieldLabel(text: 'Password'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _passwordController,
@@ -164,7 +164,7 @@ class _AgencyRegisterScreenState extends ConsumerState<AgencyRegisterScreen> {
                       const SizedBox(height: 16),
 
                       // Confirm password
-                      _FieldLabel(text: 'Confirm password'),
+                      const _FieldLabel(text: 'Confirm password'),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _confirmPasswordController,
