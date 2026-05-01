@@ -383,7 +383,14 @@ func main() {
 	}
 
 	// Notification feature
-	notifRepo := postgres.NewNotificationRepository(db)
+	//
+	// BUG-NEW-04 path 1/8: notifications is RLS-protected by migration
+	// 125 with the policy
+	//   USING (user_id = current_setting('app.current_user_id', true)::uuid)
+	// Production rotates the application DB role to NOSUPERUSER
+	// NOBYPASSRLS — without the txRunner wrap, INSERTs into notifications
+	// are rejected and SELECT/UPDATE/DELETE silently return 0 rows.
+	notifRepo := postgres.NewNotificationRepository(db).WithTxRunner(postgres.NewTxRunner(db))
 	notifQueue := redisadapter.NewNotificationJobQueue(redisClient, sourceID)
 	if err := notifQueue.EnsureGroup(context.Background()); err != nil {
 		slog.Error("failed to create notification job group", "error", err)
